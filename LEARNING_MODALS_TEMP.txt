@@ -1,0 +1,138 @@
+// MODALES PARA LEARNINGMANAGER - COPIAR ANTES DEL CIERRE DEL COMPONENTE (línea 1002)
+
+        {/* HU 5.1: Create/Edit Content Modal for Gestor */}
+        {(showCreateModal || isEditing) && isGestor && (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setShowCreateModal(false); setIsEditing(false); setEditForm({}); }}>
+                <div className="bg-white p-8 rounded-2xl w-full max-w-2xl shadow-xl" onClick={e => e.stopPropagation()}>
+                    <h3 className="text-2xl font-bold text-slate-800 mb-6">{isEditing ? 'Editar Contenido' : 'Crear Nuevo Contenido'}</h3>
+                    
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-bold text-slate-700 mb-2">Título *</label>
+                            <input 
+                                type="text"
+                                value={editForm.title || ''}
+                                onChange={e => setEditForm({...editForm, title: e.target.value})}
+                                className="w-full border border-slate-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                placeholder="Ej: Liderazgo Transformacional"
+                            />
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-2">Tipo *</label>
+                                <select
+                                    value={editForm.type || ''}
+                                    onChange={e => setEditForm({...editForm, type: e.target.value as any})}
+                                    className="w-full border border-slate-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                >
+                                    <option value="">Seleccionar...</option>
+                                    <option value="video">Video</option>
+                                    <option value="pdf">PDF</option>
+                                    <option value="podcast">Podcast</option>
+                                    <option value="article">Artículo</option>
+                                    <option value="scorm">SCORM</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-2">Módulo *</label>
+                                <select
+                                    value={editForm.category || ''}
+                                    onChange={e => setEditForm({...editForm, category: e.target.value})}
+                                    className="w-full border border-slate-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                >
+                                    <option value="">Seleccionar...</option>
+                                    {categories.filter(c => c !== 'Todos').map(cat => (
+                                        <option key={cat} value={cat}>{cat}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label className="block text-sm font-bold text-slate-700 mb-2">Duración</label>
+                            <input 
+                                type="text"
+                                value={editForm.duration || ''}
+                                onChange={e => setEditForm({...editForm, duration: e.target.value})}
+                                className="w-full border border-slate-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                placeholder="Ej: 45 min"
+                            />
+                        </div>
+                        
+                        <div>
+                            <label className="block text-sm font-bold text-slate-700 mb-2">URL del Contenido</label>
+                            <input 
+                                type="text"
+                                value={editForm.url || ''}
+                                onChange={e => setEditForm({...editForm, url: e.target.value})}
+                                className="w-full border border-slate-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                placeholder="https://..."
+                            />
+                        </div>
+                        
+                        <div>
+                            <label className="block text-sm font-bold text-slate-700 mb-2">Tags (separados por coma)</label>
+                            <input 
+                                type="text"
+                                value={editForm.tags?.join(', ') || ''}
+                                onChange={e => setEditForm({...editForm, tags: e.target.value.split(',').map(t => t.trim()).filter(Boolean)})}
+                                className="w-full border border-slate-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                placeholder="Ej: Liderazgo, Estrategia, Innovación"
+                            />
+                        </div>
+                    </div>
+                    
+                    <div className="flex justify-end gap-3 mt-8">
+                        <button 
+                            onClick={() => { setShowCreateModal(false); setIsEditing(false); setEditForm({}); }}
+                            className="px-6 py-2 text-slate-600 font-bold hover:bg-slate-50 rounded-lg transition-colors"
+                        >
+                            Cancelar
+                        </button>
+                        <button 
+                            onClick={isEditing ? handleEditResource : handleCreateResource}
+                            disabled={!editForm.title || !editForm.type || !editForm.category}
+                            className="px-6 py-2 bg-slate-900 text-white font-bold rounded-lg hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-md"
+                        >
+                            {isEditing ? 'Guardar Cambios' : 'Crear Contenido'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+        
+        {/* Delete Confirmation Modal */}
+        {showDeleteConfirm !== null && (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowDeleteConfirm(null)}>
+                <div className="bg-white p-8 rounded-2xl w-full max-w-md shadow-xl" onClick={e => e.stopPropagation()}>
+                    <div className="flex items-center gap-4 mb-6">
+                        <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                            <Trash2 size={24} className="text-red-600" />
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-bold text-slate-800">Eliminar Contenido</h3>
+                            <p className="text-sm text-slate-500">Esta acción no se puede deshacer</p>
+                        </div>
+                    </div>
+                    
+                    <p className="text-slate-600 mb-8">¿Estás seguro de que deseas eliminar este contenido? Se eliminará permanentemente del centro de aprendizaje.</p>
+                    
+                    <div className="flex justify-end gap-3">
+                        <button 
+                            onClick={() => setShowDeleteConfirm(null)}
+                            className="px-6 py-2 text-slate-600 font-bold hover:bg-slate-50 rounded-lg transition-colors"
+                        >
+                            Cancelar
+                        </button>
+                        <button 
+                            onClick={() => handleDeleteResource(showDeleteConfirm)}
+                            className="px-6 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-colors shadow-md"
+                        >
+                            Eliminar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
