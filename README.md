@@ -51,7 +51,7 @@ cp .env.example .env.local
   - `mensajes/threads`, `mensajes/participants` y `mensajes/messages`
   - `convocatorias`
   - `workshops`
-  - `usuarios`
+  - `usuarios` y `usuarios/audit-logs`
 
 ## Dashboard modular
 
@@ -71,6 +71,9 @@ Rutas ya desacopladas por módulo:
 - `/dashboard/formacion-mentores`
 - `/dashboard/gestion-formacion-mentores`
 - `/dashboard/usuarios`
+- `/dashboard/administracion`
+- `/dashboard/administracion/branding`
+- `/dashboard/administracion/integraciones`
 - `/dashboard/contenido`
 - `/dashboard/analitica`
 

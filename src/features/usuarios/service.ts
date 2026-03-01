@@ -26,6 +26,18 @@ export interface UserRecord {
   location: string | null;
 }
 
+export interface AuditLogRecord {
+  auditId: number;
+  actorUserId: string | null;
+  actorName: string | null;
+  action: string;
+  moduleCode: string | null;
+  entityTable: string;
+  entityId: string | null;
+  changeSummary: Record<string, unknown>;
+  occurredAt: string;
+}
+
 export interface CreateUserInput {
   email: string;
   firstName: string;
@@ -79,6 +91,18 @@ interface UserRow {
   location: string | null;
 }
 
+interface AuditLogRow {
+  audit_id: number;
+  actor_user_id: string | null;
+  actor_name: string | null;
+  action: string;
+  module_code: string | null;
+  entity_table: string;
+  entity_id: string | null;
+  change_summary: Record<string, unknown>;
+  occurred_at: string;
+}
+
 function mapUser(row: UserRow): UserRecord {
   return {
     userId: row.user_id,
@@ -97,6 +121,20 @@ function mapUser(row: UserRow): UserRecord {
     seniorityLevel: row.seniority_level,
     bio: row.bio,
     location: row.location,
+  };
+}
+
+function mapAuditLog(row: AuditLogRow): AuditLogRecord {
+  return {
+    auditId: row.audit_id,
+    actorUserId: row.actor_user_id,
+    actorName: row.actor_name,
+    action: row.action,
+    moduleCode: row.module_code,
+    entityTable: row.entity_table,
+    entityId: row.entity_id,
+    changeSummary: row.change_summary,
+    occurredAt: row.occurred_at,
   };
 }
 
@@ -150,6 +188,32 @@ export async function listUsers(client: PoolClient, limit = 200): Promise<UserRe
   );
 
   return rows.map(mapUser);
+}
+
+export async function listUserNavigationLogs(client: PoolClient, limit = 200): Promise<AuditLogRecord[]> {
+  await requireModulePermission(client, 'usuarios', 'manage');
+
+  const { rows } = await client.query<AuditLogRow>(
+    `
+      SELECT
+        al.audit_id,
+        al.actor_user_id::text,
+        u.display_name AS actor_name,
+        al.action,
+        al.module_code,
+        al.entity_table,
+        al.entity_id::text,
+        al.change_summary,
+        al.occurred_at::text
+      FROM app_admin.audit_logs al
+      LEFT JOIN app_core.users u ON u.user_id = al.actor_user_id
+      ORDER BY al.occurred_at DESC
+      LIMIT $1
+    `,
+    [Math.min(Math.max(limit, 1), 1000)],
+  );
+
+  return rows.map(mapAuditLog);
 }
 
 export async function createUser(

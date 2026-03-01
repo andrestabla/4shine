@@ -23,6 +23,18 @@ export interface UserRecord {
   location: string | null;
 }
 
+export interface AuditLogRecord {
+  auditId: number;
+  actorUserId: string | null;
+  actorName: string | null;
+  action: string;
+  moduleCode: string | null;
+  entityTable: string;
+  entityId: string | null;
+  changeSummary: Record<string, unknown>;
+  occurredAt: string;
+}
+
 export interface CreateUserInput {
   email: string;
   firstName: string;
@@ -79,4 +91,8 @@ export async function deactivateUser(userId: string): Promise<{ userId: string }
   return requestApi<{ userId: string }>(`/api/v1/modules/usuarios/${userId}`, {
     method: 'DELETE',
   });
+}
+
+export async function listUserNavigationLogs(): Promise<AuditLogRecord[]> {
+  return requestApi<AuditLogRecord[]>('/api/v1/modules/usuarios/audit-logs');
 }

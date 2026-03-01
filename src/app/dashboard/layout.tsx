@@ -3,28 +3,36 @@
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { useUser } from '@/context/UserContext';
-import type { ModuleCode } from '@/lib/permissions';
+import type { ModuleCode, PermissionAction } from '@/lib/permissions';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import clsx from 'clsx';
 
-const MODULE_BY_PATH: Record<string, ModuleCode> = {
-    '/dashboard': 'dashboard',
-    '/dashboard/trayectoria': 'trayectoria',
-    '/dashboard/aprendizaje': 'aprendizaje',
-    '/dashboard/metodologia': 'metodologia',
-    '/dashboard/mentorias': 'mentorias',
-    '/dashboard/networking': 'networking',
-    '/dashboard/convocatorias': 'convocatorias',
-    '/dashboard/mensajes': 'mensajes',
-    '/dashboard/workshops': 'workshops',
-    '/dashboard/perfil': 'perfil',
-    '/dashboard/lideres': 'lideres',
-    '/dashboard/formacion-mentores': 'formacion_mentores',
-    '/dashboard/gestion-formacion-mentores': 'gestion_formacion_mentores',
-    '/dashboard/usuarios': 'usuarios',
-    '/dashboard/contenido': 'contenido',
-    '/dashboard/analitica': 'analitica',
+interface RouteAccess {
+    moduleCode: ModuleCode;
+    action?: PermissionAction;
+}
+
+const ACCESS_BY_PATH: Record<string, RouteAccess> = {
+    '/dashboard': { moduleCode: 'dashboard' },
+    '/dashboard/trayectoria': { moduleCode: 'trayectoria' },
+    '/dashboard/aprendizaje': { moduleCode: 'aprendizaje' },
+    '/dashboard/metodologia': { moduleCode: 'metodologia' },
+    '/dashboard/mentorias': { moduleCode: 'mentorias' },
+    '/dashboard/networking': { moduleCode: 'networking' },
+    '/dashboard/convocatorias': { moduleCode: 'convocatorias' },
+    '/dashboard/mensajes': { moduleCode: 'mensajes' },
+    '/dashboard/workshops': { moduleCode: 'workshops' },
+    '/dashboard/perfil': { moduleCode: 'perfil' },
+    '/dashboard/lideres': { moduleCode: 'lideres' },
+    '/dashboard/formacion-mentores': { moduleCode: 'formacion_mentores' },
+    '/dashboard/gestion-formacion-mentores': { moduleCode: 'gestion_formacion_mentores' },
+    '/dashboard/usuarios': { moduleCode: 'usuarios', action: 'view' },
+    '/dashboard/administracion': { moduleCode: 'usuarios', action: 'manage' },
+    '/dashboard/administracion/branding': { moduleCode: 'usuarios', action: 'manage' },
+    '/dashboard/administracion/integraciones': { moduleCode: 'usuarios', action: 'manage' },
+    '/dashboard/contenido': { moduleCode: 'contenido' },
+    '/dashboard/analitica': { moduleCode: 'analitica' },
 };
 
 export default function DashboardLayout({
@@ -36,8 +44,10 @@ export default function DashboardLayout({
     const router = useRouter();
     const pathname = usePathname();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-    const moduleCode = MODULE_BY_PATH[pathname];
-    const canViewRoute = moduleCode ? can(moduleCode, 'view') : true;
+    const routeAccess = ACCESS_BY_PATH[pathname];
+    const canViewRoute = routeAccess
+        ? can(routeAccess.moduleCode, routeAccess.action ?? 'view')
+        : true;
 
     useEffect(() => {
         if (!isHydrating && !isAuthenticated) {

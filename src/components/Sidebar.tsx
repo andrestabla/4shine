@@ -22,11 +22,14 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  Palette,
+  PlugZap,
+  ShieldCheck,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import clsx from 'clsx';
-import type { ModuleCode } from '@/lib/permissions';
+import type { ModuleCode, PermissionAction } from '@/lib/permissions';
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -38,9 +41,11 @@ interface NavItem {
   label: string;
   icon: LucideIcon;
   path: string;
+  requiredAction?: PermissionAction;
+  adminOnly?: boolean;
 }
 
-const NAV_ITEMS: NavItem[] = [
+const MAIN_NAV_ITEMS: NavItem[] = [
   { moduleCode: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
   { moduleCode: 'trayectoria', label: 'Trayectoria', icon: Map, path: '/dashboard/trayectoria' },
   { moduleCode: 'aprendizaje', label: 'Aprendizaje', icon: BookOpen, path: '/dashboard/aprendizaje' },
@@ -64,9 +69,42 @@ const NAV_ITEMS: NavItem[] = [
     icon: Book,
     path: '/dashboard/gestion-formacion-mentores',
   },
-  { moduleCode: 'usuarios', label: 'Gestión Usuarios', icon: Settings, path: '/dashboard/usuarios' },
   { moduleCode: 'contenido', label: 'Contenidos', icon: Box, path: '/dashboard/contenido' },
   { moduleCode: 'analitica', label: 'Analítica', icon: PieChart, path: '/dashboard/analitica' },
+];
+
+const ADMIN_NAV_ITEMS: NavItem[] = [
+  {
+    moduleCode: 'usuarios',
+    label: 'Panel Administración',
+    icon: ShieldCheck,
+    path: '/dashboard/administracion',
+    requiredAction: 'manage',
+    adminOnly: true,
+  },
+  {
+    moduleCode: 'usuarios',
+    label: 'Gestión Usuarios',
+    icon: Settings,
+    path: '/dashboard/usuarios',
+    adminOnly: true,
+  },
+  {
+    moduleCode: 'usuarios',
+    label: 'Branding y Marca',
+    icon: Palette,
+    path: '/dashboard/administracion/branding',
+    requiredAction: 'manage',
+    adminOnly: true,
+  },
+  {
+    moduleCode: 'usuarios',
+    label: 'Integraciones',
+    icon: PlugZap,
+    path: '/dashboard/administracion/integraciones',
+    requiredAction: 'manage',
+    adminOnly: true,
+  },
 ];
 
 export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
@@ -78,10 +116,16 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
 
   if (!currentUser || !currentRole) return null;
 
-  const navItems = NAV_ITEMS.filter((item) => can(item.moduleCode, 'view'));
+  const hasAccess = (item: NavItem) => {
+    if (item.adminOnly && currentRole !== 'admin') return false;
+    return can(item.moduleCode, item.requiredAction ?? 'view');
+  };
+
+  const mainNavItems = MAIN_NAV_ITEMS.filter(hasAccess);
+  const adminNavItems = ADMIN_NAV_ITEMS.filter(hasAccess);
 
   const navItem = (item: NavItem) => {
-    const isActive = pathname === item.path;
+    const isActive = pathname === item.path || pathname.startsWith(`${item.path}/`);
     return (
       <Link
         key={item.path}
@@ -146,10 +190,21 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
         </div>
 
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          {navItems.length > 0 ? (
-            navItems.map(navItem)
+          {mainNavItems.length > 0 ? (
+            mainNavItems.map(navItem)
           ) : (
             <p className="text-xs text-slate-500 px-2 py-3">No tienes módulos habilitados.</p>
+          )}
+
+          {adminNavItems.length > 0 && (
+            <>
+              {!isCollapsed && (
+                <div className="pt-4 pb-2 px-2">
+                  <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500 font-semibold">Administración</p>
+                </div>
+              )}
+              <div className="space-y-1">{adminNavItems.map(navItem)}</div>
+            </>
           )}
         </nav>
 

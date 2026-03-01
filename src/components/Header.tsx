@@ -22,6 +22,9 @@ const PATH_TITLES: Record<string, string> = {
   '/dashboard/formacion-mentores': 'Formación Mentores',
   '/dashboard/gestion-formacion-mentores': 'Gestión Formación Mentores',
   '/dashboard/usuarios': 'Gestión Usuarios',
+  '/dashboard/administracion': 'Administración',
+  '/dashboard/administracion/branding': 'Branding y Marca',
+  '/dashboard/administracion/integraciones': 'Integraciones',
   '/dashboard/contenido': 'Gestión Contenido',
   '/dashboard/analitica': 'Analítica',
 };
