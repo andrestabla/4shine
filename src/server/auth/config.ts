@@ -13,9 +13,28 @@ function requiredSecret(value: string | undefined, fallback: string): string {
   return fallback;
 }
 
+let accessSecretCache: string | null = null;
+let refreshSecretCache: string | null = null;
+
+export function getAccessSecret(): string {
+  if (accessSecretCache) {
+    return accessSecretCache;
+  }
+
+  accessSecretCache = requiredSecret(process.env.JWT_ACCESS_SECRET, DEFAULT_ACCESS_SECRET);
+  return accessSecretCache;
+}
+
+export function getRefreshSecret(): string {
+  if (refreshSecretCache) {
+    return refreshSecretCache;
+  }
+
+  refreshSecretCache = requiredSecret(process.env.JWT_REFRESH_SECRET, DEFAULT_REFRESH_SECRET);
+  return refreshSecretCache;
+}
+
 export const authConfig = {
-  accessSecret: requiredSecret(process.env.JWT_ACCESS_SECRET, DEFAULT_ACCESS_SECRET),
-  refreshSecret: requiredSecret(process.env.JWT_REFRESH_SECRET, DEFAULT_REFRESH_SECRET),
   accessTtlSeconds: 15 * 60,
   refreshTtlSeconds: 30 * 24 * 60 * 60,
   lockMaxAttempts: 5,

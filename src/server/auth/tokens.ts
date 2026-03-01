@@ -1,10 +1,26 @@
 import { SignJWT, jwtVerify } from 'jose';
-import { authConfig } from './config';
+import { authConfig, getAccessSecret, getRefreshSecret } from './config';
 import type { AccessTokenClaims, AuthUser, RefreshTokenClaims } from './types';
 
 const encoder = new TextEncoder();
-const accessSecret = encoder.encode(authConfig.accessSecret);
-const refreshSecret = encoder.encode(authConfig.refreshSecret);
+let accessSecretBytes: Uint8Array | null = null;
+let refreshSecretBytes: Uint8Array | null = null;
+
+function getAccessSecretBytes(): Uint8Array {
+  if (!accessSecretBytes) {
+    accessSecretBytes = encoder.encode(getAccessSecret());
+  }
+
+  return accessSecretBytes;
+}
+
+function getRefreshSecretBytes(): Uint8Array {
+  if (!refreshSecretBytes) {
+    refreshSecretBytes = encoder.encode(getRefreshSecret());
+  }
+
+  return refreshSecretBytes;
+}
 
 export async function signAccessToken(user: AuthUser): Promise<string> {
   return new SignJWT({
@@ -17,7 +33,7 @@ export async function signAccessToken(user: AuthUser): Promise<string> {
     .setIssuedAt()
     .setSubject(user.userId)
     .setExpirationTime(`${authConfig.accessTtlSeconds}s`)
-    .sign(accessSecret);
+    .sign(getAccessSecretBytes());
 }
 
 export async function signRefreshToken(user: AuthUser, sessionId: string): Promise<string> {
@@ -32,11 +48,11 @@ export async function signRefreshToken(user: AuthUser, sessionId: string): Promi
     .setIssuedAt()
     .setSubject(user.userId)
     .setExpirationTime(`${authConfig.refreshTtlSeconds}s`)
-    .sign(refreshSecret);
+    .sign(getRefreshSecretBytes());
 }
 
 export async function verifyAccessToken(token: string): Promise<AccessTokenClaims> {
-  const { payload } = await jwtVerify(token, accessSecret, {
+  const { payload } = await jwtVerify(token, getAccessSecretBytes(), {
     algorithms: ['HS256'],
   });
 
@@ -54,7 +70,7 @@ export async function verifyAccessToken(token: string): Promise<AccessTokenClaim
 }
 
 export async function verifyRefreshToken(token: string): Promise<RefreshTokenClaims> {
-  const { payload } = await jwtVerify(token, refreshSecret, {
+  const { payload } = await jwtVerify(token, getRefreshSecretBytes(), {
     algorithms: ['HS256'],
   });
 

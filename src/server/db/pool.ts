@@ -1,18 +1,16 @@
 import { Pool, type PoolClient, type QueryResultRow } from 'pg';
 
-const connectionString = process.env.DATABASE_URL;
-
-if (!connectionString) {
-  throw new Error('DATABASE_URL is required');
-}
-
 const globalForPool = globalThis as unknown as {
   __4shine_pool__?: Pool;
 };
 
-export const pool =
-  globalForPool.__4shine_pool__ ??
-  new Pool({
+function createPool(): Pool {
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    throw new Error('DATABASE_URL is required');
+  }
+
+  return new Pool({
     connectionString,
     max: 20,
     idleTimeoutMillis: 30_000,
@@ -21,13 +19,23 @@ export const pool =
       rejectUnauthorized: false,
     },
   });
+}
 
-if (process.env.NODE_ENV !== 'production') {
-  globalForPool.__4shine_pool__ = pool;
+export function getPool(): Pool {
+  if (globalForPool.__4shine_pool__) {
+    return globalForPool.__4shine_pool__;
+  }
+
+  const pool = createPool();
+  if (process.env.NODE_ENV !== 'production') {
+    globalForPool.__4shine_pool__ = pool;
+  }
+
+  return pool;
 }
 
 export async function withClient<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {
-  const client = await pool.connect();
+  const client = await getPool().connect();
   try {
     return await fn(client);
   } finally {
