@@ -30,7 +30,7 @@ Variables de entorno:
 
 ```bash
 cp .env.example .env.local
-# set DATABASE_URL, JWT_ACCESS_SECRET, JWT_REFRESH_SECRET
+# set DATABASE_URL, DB_RUNTIME_ROLE, JWT_ACCESS_SECRET, JWT_REFRESH_SECRET
 ```
 
 ## API principal
@@ -40,6 +40,7 @@ cp .env.example .env.local
   - `POST /api/v1/auth/refresh`
   - `POST /api/v1/auth/logout`
   - `GET /api/v1/auth/me`
+  - `GET /api/v1/auth/permissions`
 - Bootstrap:
   - `GET /api/v1/bootstrap/me` (principal, basado en JWT/cookies)
   - `GET /api/v1/bootstrap/:role` (protegido, uso administrativo/compatibilidad)

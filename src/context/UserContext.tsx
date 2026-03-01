@@ -4,6 +4,15 @@ import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { User, Role, USERS } from '@/data/mockData';
 import { useRouter } from 'next/navigation';
 import { hydrateFromBackend } from '@/lib/bootstrap-client';
+import {
+  canModuleAction,
+  emptyModulePermissionMap,
+  type ModuleCode,
+  type ModulePermissionMap,
+  type ModulePermissions,
+  type PermissionAction,
+  toModulePermissionMap,
+} from '@/lib/permissions';
 
 interface SessionUser {
   id: string;
@@ -15,16 +24,24 @@ interface SessionUser {
 interface UserContextType {
   currentUser: User | null;
   currentRole: Role | null;
+  modulePermissions: ModulePermissionMap;
   isHydrating: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   logout: () => Promise<void>;
+  can: (moduleCode: ModuleCode, action?: PermissionAction) => boolean;
   updateUser: (updates: Partial<User>) => void;
 }
 
 interface AuthMeResponse {
   ok: boolean;
   user?: SessionUser;
+  error?: string;
+}
+
+interface PermissionsResponse {
+  ok: boolean;
+  permissions?: ModulePermissions[];
   error?: string;
 }
 
@@ -42,14 +59,35 @@ function buildUserFromRole(role: Role, sessionUser?: SessionUser): User {
 export const UserProvider = ({ children }: { children: ReactNode }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentRole, setCurrentRole] = useState<Role | null>(null);
+  const [modulePermissions, setModulePermissions] = useState<ModulePermissionMap>(emptyModulePermissionMap());
   const [isHydrating, setIsHydrating] = useState(true);
   const router = useRouter();
 
-  const applySession = async (sessionUser: SessionUser): Promise<void> => {
-    await hydrateFromBackend();
+  const fetchPermissions = React.useCallback(async (): Promise<ModulePermissionMap> => {
+    const response = await fetch('/api/v1/auth/permissions', {
+      method: 'GET',
+      credentials: 'include',
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      return emptyModulePermissionMap();
+    }
+
+    const payload = (await response.json()) as PermissionsResponse;
+    if (!payload.ok || !payload.permissions) {
+      return emptyModulePermissionMap();
+    }
+
+    return toModulePermissionMap(payload.permissions);
+  }, []);
+
+  const applySession = React.useCallback(async (sessionUser: SessionUser): Promise<void> => {
+    const [permissions] = await Promise.all([fetchPermissions(), hydrateFromBackend()]);
+    setModulePermissions(permissions);
     setCurrentRole(sessionUser.role);
     setCurrentUser(buildUserFromRole(sessionUser.role, sessionUser));
-  };
+  }, [fetchPermissions]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -66,6 +104,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
           if (!cancelled) {
             setCurrentRole(null);
             setCurrentUser(null);
+            setModulePermissions(emptyModulePermissionMap());
             setIsHydrating(false);
           }
           return;
@@ -77,6 +116,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
           if (!cancelled) {
             setCurrentRole(null);
             setCurrentUser(null);
+            setModulePermissions(emptyModulePermissionMap());
             setIsHydrating(false);
           }
           return;
@@ -88,6 +128,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         if (!cancelled) {
           setCurrentRole(null);
           setCurrentUser(null);
+          setModulePermissions(emptyModulePermissionMap());
         }
       } finally {
         if (!cancelled) {
@@ -101,7 +142,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [applySession]);
 
   const login = async (email: string, password: string): Promise<{ ok: boolean; error?: string }> => {
     setIsHydrating(true);
@@ -150,19 +191,25 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     } finally {
       setCurrentRole(null);
       setCurrentUser(null);
+      setModulePermissions(emptyModulePermissionMap());
       router.push('/');
     }
   };
+
+  const can = (moduleCode: ModuleCode, action: PermissionAction = 'view') =>
+    canModuleAction(modulePermissions, moduleCode, action);
 
   return (
     <UserContext.Provider
       value={{
         currentUser,
         currentRole,
+        modulePermissions,
         isHydrating,
         isAuthenticated: !!currentUser,
         login,
         logout,
+        can,
         updateUser,
       }}
     >

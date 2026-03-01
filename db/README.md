@@ -2,6 +2,7 @@
 
 ## Migration
 - File: `db/migrations/20260301_initial_platform_schema.sql`
+- File: `db/migrations/20260302_rls_runtime_hardening.sql`
 - Status: applied to Neon (idempotent)
 - Includes: RBAC, RLS, modular schemas, and `app_learning.content_assignments` for training tracking
 
@@ -45,11 +46,12 @@ After setting context, queries are filtered by policy rules.
 - `app_auth.user_credentials`: password hash, lock state, failed attempts
 - `app_auth.refresh_sessions`: persisted refresh-token sessions (rotation/revocation)
 
-## Optional DB Runtime Roles
+## DB Runtime Roles
 Created non-login roles:
+- `app_runtime` (application runtime role for `SET ROLE`)
 - `app_lider`
 - `app_mentor`
 - `app_gestor`
 - `app_admin`
 
-Use your API role with `SET ROLE` if you want DB-level grant separation in addition to RLS.
+The API role should use `SET ROLE app_runtime` so queries run as non-owner and RLS is enforced consistently.

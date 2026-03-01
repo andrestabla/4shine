@@ -7,7 +7,6 @@ import {
   User,
   Video,
   Users,
-  Calendar,
   Settings,
   Box,
   PieChart,
@@ -27,6 +26,7 @@ import {
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import clsx from 'clsx';
+import type { ModuleCode } from '@/lib/permissions';
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -34,59 +34,43 @@ interface SidebarProps {
 }
 
 interface NavItem {
+  moduleCode: ModuleCode;
   label: string;
   icon: LucideIcon;
   path: string;
 }
 
-const NAV_BY_ROLE: Record<'lider' | 'mentor' | 'gestor' | 'admin', NavItem[]> = {
-  lider: [
-    { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
-    { label: 'Mi Trayectoria', icon: Map, path: '/dashboard/trayectoria' },
-    { label: 'Aprendizaje', icon: BookOpen, path: '/dashboard/aprendizaje' },
-    { label: 'Mi Perfil', icon: User, path: '/dashboard/perfil' },
-    { label: 'Mis Mentorías', icon: Video, path: '/dashboard/mentorias' },
-    { label: 'Mensajes', icon: MessageSquare, path: '/dashboard/mensajes' },
-    { label: 'Networking', icon: Users, path: '/dashboard/networking' },
-    { label: 'Convocatorias', icon: Briefcase, path: '/dashboard/convocatorias' },
-    { label: 'Workshops', icon: Presentation, path: '/dashboard/workshops' },
-  ],
-  mentor: [
-    { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
-    { label: 'Formación Mentores', icon: Book, path: '/dashboard/formacion-mentores' },
-    { label: 'Mis Líderes', icon: Users, path: '/dashboard/lideres' },
-    { label: 'Mentorías', icon: Calendar, path: '/dashboard/mentorias' },
-    { label: 'Aprendizaje', icon: BookOpen, path: '/dashboard/aprendizaje' },
-    { label: 'Mensajes', icon: MessageSquare, path: '/dashboard/mensajes' },
-    { label: 'Mi Perfil', icon: User, path: '/dashboard/perfil' },
-    { label: 'Networking', icon: Users, path: '/dashboard/networking' },
-    { label: 'Workshops', icon: Presentation, path: '/dashboard/workshops' },
-  ],
-  gestor: [
-    { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
-    { label: 'Trayectorias Globales', icon: Map, path: '/dashboard/trayectoria' },
-    { label: 'Metodología', icon: Book, path: '/dashboard/metodologia' },
-    { label: 'Gestión Aprendizaje', icon: BookOpen, path: '/dashboard/aprendizaje' },
-    { label: 'Gestión Mentorías', icon: Video, path: '/dashboard/mentorias' },
-    { label: 'Networking', icon: Users, path: '/dashboard/networking' },
-    { label: 'Convocatorias', icon: Briefcase, path: '/dashboard/convocatorias' },
-    { label: 'Gestión Formación Mentores', icon: Book, path: '/dashboard/gestion-formacion-mentores' },
-    { label: 'Workshops', icon: Presentation, path: '/dashboard/workshops' },
-    { label: 'Mi Perfil', icon: User, path: '/dashboard/perfil' },
-  ],
-  admin: [
-    { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
-    { label: 'Gestión Usuarios', icon: Settings, path: '/dashboard/usuarios' },
-    { label: 'Contenidos', icon: Box, path: '/dashboard/contenido' },
-    { label: 'Analítica', icon: PieChart, path: '/dashboard/analitica' },
-    { label: 'Networking', icon: Users, path: '/dashboard/networking' },
-    { label: 'Convocatorias', icon: Briefcase, path: '/dashboard/convocatorias' },
-    { label: 'Workshops', icon: Presentation, path: '/dashboard/workshops' },
-  ],
-};
+const NAV_ITEMS: NavItem[] = [
+  { moduleCode: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
+  { moduleCode: 'trayectoria', label: 'Trayectoria', icon: Map, path: '/dashboard/trayectoria' },
+  { moduleCode: 'aprendizaje', label: 'Aprendizaje', icon: BookOpen, path: '/dashboard/aprendizaje' },
+  { moduleCode: 'metodologia', label: 'Metodología', icon: Book, path: '/dashboard/metodologia' },
+  { moduleCode: 'mentorias', label: 'Mentorías', icon: Video, path: '/dashboard/mentorias' },
+  { moduleCode: 'networking', label: 'Networking', icon: Users, path: '/dashboard/networking' },
+  { moduleCode: 'convocatorias', label: 'Convocatorias', icon: Briefcase, path: '/dashboard/convocatorias' },
+  { moduleCode: 'mensajes', label: 'Mensajes', icon: MessageSquare, path: '/dashboard/mensajes' },
+  { moduleCode: 'workshops', label: 'Workshops', icon: Presentation, path: '/dashboard/workshops' },
+  { moduleCode: 'perfil', label: 'Perfil', icon: User, path: '/dashboard/perfil' },
+  { moduleCode: 'lideres', label: 'Líderes', icon: Users, path: '/dashboard/lideres' },
+  {
+    moduleCode: 'formacion_mentores',
+    label: 'Formación Mentores',
+    icon: Book,
+    path: '/dashboard/formacion-mentores',
+  },
+  {
+    moduleCode: 'gestion_formacion_mentores',
+    label: 'Gestión Formación Mentores',
+    icon: Book,
+    path: '/dashboard/gestion-formacion-mentores',
+  },
+  { moduleCode: 'usuarios', label: 'Gestión Usuarios', icon: Settings, path: '/dashboard/usuarios' },
+  { moduleCode: 'contenido', label: 'Contenidos', icon: Box, path: '/dashboard/contenido' },
+  { moduleCode: 'analitica', label: 'Analítica', icon: PieChart, path: '/dashboard/analitica' },
+];
 
 export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
-  const { currentUser, currentRole, logout } = useUser();
+  const { currentUser, currentRole, can, logout } = useUser();
   const pathname = usePathname();
 
   const [showExitModal, setShowExitModal] = React.useState(false);
@@ -94,7 +78,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
 
   if (!currentUser || !currentRole) return null;
 
-  const navItems = NAV_BY_ROLE[currentRole];
+  const navItems = NAV_ITEMS.filter((item) => can(item.moduleCode, 'view'));
 
   const navItem = (item: NavItem) => {
     const isActive = pathname === item.path;
@@ -161,7 +145,13 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           </button>
         </div>
 
-        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">{navItems.map(navItem)}</nav>
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+          {navItems.length > 0 ? (
+            navItems.map(navItem)
+          ) : (
+            <p className="text-xs text-slate-500 px-2 py-3">No tienes módulos habilitados.</p>
+          )}
+        </nav>
 
         <div className="p-4 border-t border-slate-800 bg-slate-900/50">
           <div className="flex items-center gap-3 mb-4 p-2 rounded-lg hover:bg-slate-800/50 transition cursor-pointer">

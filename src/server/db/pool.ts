@@ -1,8 +1,47 @@
 import { Pool, type PoolClient, type QueryResultRow } from 'pg';
 
+const DEFAULT_RUNTIME_ROLE = 'app_runtime';
+const ROLE_NAME_PATTERN = /^[a-z_][a-z0-9_]*$/i;
+
 const globalForPool = globalThis as unknown as {
   __4shine_pool__?: Pool;
 };
+
+const configuredRuntimeRole = process.env.DB_RUNTIME_ROLE?.trim();
+const runtimeRole = configuredRuntimeRole === '' ? null : configuredRuntimeRole ?? DEFAULT_RUNTIME_ROLE;
+
+function quoteIdentifier(identifier: string): string {
+  return `"${identifier.replace(/"/g, '""')}"`;
+}
+
+async function applyRuntimeRole(client: PoolClient): Promise<void> {
+  if (!runtimeRole) {
+    return;
+  }
+
+  if (!ROLE_NAME_PATTERN.test(runtimeRole)) {
+    throw new Error(`Invalid DB_RUNTIME_ROLE: ${runtimeRole}`);
+  }
+
+  await client.query(`SET ROLE ${quoteIdentifier(runtimeRole)}`);
+}
+
+async function resetRuntimeRole(client: PoolClient): Promise<void> {
+  if (!runtimeRole) {
+    return;
+  }
+
+  try {
+    await client.query('RESET ROLE');
+  } catch {
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      // Ignore rollback errors when no transaction is active.
+    }
+    await client.query('RESET ROLE');
+  }
+}
 
 function createPool(): Pool {
   const connectionString = process.env.DATABASE_URL;
@@ -37,9 +76,21 @@ export function getPool(): Pool {
 export async function withClient<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {
   const client = await getPool().connect();
   try {
+    await applyRuntimeRole(client);
     return await fn(client);
   } finally {
-    client.release();
+    let resetError: Error | null = null;
+    try {
+      await resetRuntimeRole(client);
+    } catch (error) {
+      resetError = error instanceof Error ? error : new Error('Failed to reset runtime role');
+    }
+
+    if (resetError) {
+      client.release(resetError);
+    } else {
+      client.release();
+    }
   }
 }
 
