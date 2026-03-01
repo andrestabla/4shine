@@ -37,6 +37,9 @@ export async function POST(request: Request) {
     const result = await withClient(async (client) => {
       await client.query('BEGIN');
       try {
+        // Login runs before user context is known; set a read-capable role context so RLS can evaluate users SELECT.
+        await client.query('SELECT set_config($1, $2, true)', ['app.current_role', 'gestor']);
+
         const { rows } = await client.query<{
           user_id: string;
           email: string;

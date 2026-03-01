@@ -50,6 +50,10 @@ export async function rotateFromRefreshToken(
   const claims = await verifyRefreshToken(refreshToken);
   const refreshTokenHash = sha256(refreshToken);
 
+  // Refresh runs before access token context exists; set RLS context from validated refresh claims.
+  await client.query('SELECT set_config($1, $2, true)', ['app.current_user_id', claims.sub]);
+  await client.query('SELECT set_config($1, $2, true)', ['app.current_role', claims.role]);
+
   const { rows } = await client.query<{
     user_id: string;
     email: string;
