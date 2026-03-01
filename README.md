@@ -47,8 +47,8 @@ cp .env.example .env.local
 - CRUD modular (`/api/v1/modules/*`):
   - `contenido`
   - `mentorias`
-  - `networking/connections`
-  - `mensajes/threads` y `mensajes/messages`
+  - `networking/connections` y `networking/people`
+  - `mensajes/threads`, `mensajes/participants` y `mensajes/messages`
   - `convocatorias`
   - `workshops`
   - `usuarios`
@@ -81,7 +81,14 @@ npm install
 npm run dev
 ```
 
+Health-check del sistema (módulos + métricas DB + permisos por rol):
+
+```bash
+DATABASE_URL=... node scripts/system-health-report.mjs
+```
+
 ## Notas
 
 - El frontend consume `bootstrapData` de backend y permisos RBAC por módulo desde DB en cada sesión.
 - La navegación y acceso de módulos en UI se resuelve por `app_auth.v_role_permission_matrix` (vía `/api/v1/auth/permissions`).
+- Los módulos con escritura real en UI usan `features/*/client.ts` y aplican RBAC por acción (`create/update/delete/approve`) antes de mostrar controles.

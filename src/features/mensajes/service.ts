@@ -36,6 +36,13 @@ export interface UpdateMessageInput {
   messageText: string;
 }
 
+export interface MessageParticipantRecord {
+  userId: string;
+  displayName: string;
+  primaryRole: string;
+  organizationName: string | null;
+}
+
 interface ThreadRow {
   thread_id: string;
   thread_type: 'direct' | 'group';
@@ -54,6 +61,13 @@ interface MessageRow {
   created_at: string;
   edited_at: string | null;
   deleted_at: string | null;
+}
+
+interface ParticipantRow {
+  user_id: string;
+  display_name: string;
+  primary_role: string;
+  organization_name: string | null;
 }
 
 function mapThread(row: ThreadRow): ThreadRecord {
@@ -77,6 +91,15 @@ function mapMessage(row: MessageRow): MessageRecord {
     createdAt: row.created_at,
     editedAt: row.edited_at,
     deletedAt: row.deleted_at,
+  };
+}
+
+function mapParticipant(row: ParticipantRow): MessageParticipantRecord {
+  return {
+    userId: row.user_id,
+    displayName: row.display_name,
+    primaryRole: row.primary_role,
+    organizationName: row.organization_name,
   };
 }
 
@@ -135,6 +158,33 @@ export async function listThreads(client: PoolClient, actor: AuthUser, limit = 1
   );
 
   return rows.map(mapThread);
+}
+
+export async function listMessageParticipants(
+  client: PoolClient,
+  actor: AuthUser,
+  limit = 100,
+): Promise<MessageParticipantRecord[]> {
+  await requireModulePermission(client, 'mensajes', 'view');
+
+  const { rows } = await client.query<ParticipantRow>(
+    `
+      SELECT
+        u.user_id::text,
+        u.display_name,
+        u.primary_role,
+        o.name AS organization_name
+      FROM app_core.users u
+      LEFT JOIN app_core.organizations o ON o.organization_id = u.organization_id
+      WHERE u.user_id <> $1::uuid
+        AND u.is_active = true
+      ORDER BY u.display_name
+      LIMIT $2
+    `,
+    [actor.userId, Math.min(Math.max(limit, 1), 500)],
+  );
+
+  return rows.map(mapParticipant);
 }
 
 export async function createDirectThread(

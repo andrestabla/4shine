@@ -4,6 +4,7 @@ import { withClient } from '@/server/db/pool';
 import type { ModulePermissions } from '@/lib/permissions';
 
 interface PermissionRow {
+  role_code: string;
   module_code: ModulePermissions['moduleCode'];
   module_name: string;
   can_view: boolean;
@@ -27,20 +28,19 @@ export async function GET(request: Request) {
       const { rows } = await client.query<PermissionRow>(
         `
           SELECT
-            m.module_code,
-            m.module_name,
-            COALESCE(p.can_view, false) AS can_view,
-            COALESCE(p.can_create, false) AS can_create,
-            COALESCE(p.can_update, false) AS can_update,
-            COALESCE(p.can_delete, false) AS can_delete,
-            COALESCE(p.can_approve, false) AS can_approve,
-            COALESCE(p.can_moderate, false) AS can_moderate,
-            COALESCE(p.can_manage, false) AS can_manage
-          FROM app_auth.modules m
-          LEFT JOIN app_auth.role_module_permissions p
-            ON p.module_code = m.module_code
-           AND p.role_code = $1
-          ORDER BY m.module_code
+            role_code,
+            module_code,
+            module_name,
+            can_view,
+            can_create,
+            can_update,
+            can_delete,
+            can_approve,
+            can_moderate,
+            can_manage
+          FROM app_auth.v_role_permission_matrix
+          WHERE role_code = $1
+          ORDER BY module_code
         `,
         [identity.role],
       );

@@ -23,6 +23,16 @@ export interface UpdateConnectionInput {
   status: ConnectionStatus;
 }
 
+export interface NetworkPersonRecord {
+  userId: string;
+  displayName: string;
+  primaryRole: string;
+  organizationName: string | null;
+  location: string | null;
+  industry: string | null;
+  connectionStatus: ConnectionStatus | 'none';
+}
+
 interface ConnectionRow {
   connection_id: string;
   requester_user_id: string;
@@ -32,6 +42,16 @@ interface ConnectionRow {
   status: ConnectionStatus;
   requested_at: string;
   responded_at: string | null;
+}
+
+interface NetworkPersonRow {
+  user_id: string;
+  display_name: string;
+  primary_role: string;
+  organization_name: string | null;
+  location: string | null;
+  industry: string | null;
+  connection_status: ConnectionStatus | null;
 }
 
 function mapRow(row: ConnectionRow): ConnectionRecord {
@@ -44,6 +64,18 @@ function mapRow(row: ConnectionRow): ConnectionRecord {
     status: row.status,
     requestedAt: row.requested_at,
     respondedAt: row.responded_at,
+  };
+}
+
+function mapPerson(row: NetworkPersonRow): NetworkPersonRecord {
+  return {
+    userId: row.user_id,
+    displayName: row.display_name,
+    primaryRole: row.primary_role,
+    organizationName: row.organization_name,
+    location: row.location,
+    industry: row.industry,
+    connectionStatus: row.connection_status ?? 'none',
   };
 }
 
@@ -80,6 +112,42 @@ export async function listConnections(client: PoolClient, actor: AuthUser, limit
   );
 
   return rows.map(mapRow);
+}
+
+export async function listNetworkPeople(
+  client: PoolClient,
+  actor: AuthUser,
+  limit = 100,
+): Promise<NetworkPersonRecord[]> {
+  await requireModulePermission(client, 'networking', 'view');
+
+  const { rows } = await client.query<NetworkPersonRow>(
+    `
+      SELECT
+        u.user_id::text,
+        u.display_name,
+        u.primary_role,
+        o.name AS organization_name,
+        p.location,
+        p.industry,
+        c.status AS connection_status
+      FROM app_core.users u
+      LEFT JOIN app_core.organizations o ON o.organization_id = u.organization_id
+      LEFT JOIN app_core.user_profiles p ON p.user_id = u.user_id
+      LEFT JOIN app_networking.connections c
+        ON (
+          (c.requester_user_id = $1::uuid AND c.addressee_user_id = u.user_id)
+          OR (c.requester_user_id = u.user_id AND c.addressee_user_id = $1::uuid)
+        )
+      WHERE u.user_id <> $1::uuid
+        AND u.is_active = true
+      ORDER BY u.display_name
+      LIMIT $2
+    `,
+    [actor.userId, Math.min(Math.max(limit, 1), 500)],
+  );
+
+  return rows.map(mapPerson);
 }
 
 export async function createConnection(
