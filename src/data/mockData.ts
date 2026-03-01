@@ -73,7 +73,7 @@ export interface FeedItem {
     title: string;
     desc: string;
     time: string;
-    icon: any; // Lucide icon component type
+    icon: unknown; // Lucide icon component type
     colorClass: string;
 }
 
@@ -1440,3 +1440,58 @@ export const LEADER_TRAINING: LearningItem[] = [
         author: "Talent Management"
     }
 ];
+
+export interface RuntimeBootstrapPayload {
+    users: Record<Role, User>;
+    availableMentors: Mentor[];
+    mentees: Mentee[];
+    learningContent: LearningItem[];
+    methodologyContent: MethodologyResource[];
+    mentorships: MentorshipSession[];
+    timeline: TimelineEvent[];
+    networking: NetworkingContact[];
+    interestGroups: InterestGroup[];
+    jobs: Job[];
+    chats: Chat[];
+    notifications: Notification[];
+    quotes: Quote[];
+    newsUpdates: NewsUpdate[];
+    workshops: Workshop[];
+    mentorTraining: LearningItem[];
+    leaderTraining: LearningItem[];
+    mentorAssignments: MentorAssignment[];
+}
+
+function replaceArrayData<T>(target: T[], source?: T[]) {
+    if (!source) return;
+    target.splice(0, target.length, ...source);
+}
+
+export function hydrateMockData(payload: RuntimeBootstrapPayload) {
+    if (!payload) return;
+
+    (Object.keys(USERS) as Role[]).forEach((role) => {
+        const nextUser = payload.users?.[role];
+        if (nextUser) {
+            USERS[role] = { ...USERS[role], ...nextUser };
+        }
+    });
+
+    replaceArrayData(AVAILABLE_MENTORS, payload.availableMentors);
+    replaceArrayData(MENTEES, payload.mentees);
+    replaceArrayData(LEARNING_CONTENT, payload.learningContent);
+    replaceArrayData(METHODOLOGY_CONTENT, payload.methodologyContent);
+    replaceArrayData(MENTORSHIPS, payload.mentorships);
+    replaceArrayData(TIMELINE, payload.timeline);
+    replaceArrayData(NETWORKING, payload.networking);
+    replaceArrayData(INTEREST_GROUPS, payload.interestGroups);
+    replaceArrayData(JOBS, payload.jobs);
+    replaceArrayData(CHATS, payload.chats);
+    replaceArrayData(NOTIFICATIONS, payload.notifications);
+    replaceArrayData(QUOTES, payload.quotes);
+    replaceArrayData(NEWS_UPDATES, payload.newsUpdates);
+    replaceArrayData(WORKSHOPS, payload.workshops);
+    replaceArrayData(MENTOR_TRAINING, payload.mentorTraining);
+    replaceArrayData(LEADER_TRAINING, payload.leaderTraining);
+    replaceArrayData(MENTOR_ASSIGNMENTS, payload.mentorAssignments);
+}

@@ -12,18 +12,25 @@ export default function DashboardLayout({
 }: {
     children: React.ReactNode;
 }) {
-    const { currentUser } = useUser();
+    const { currentUser, isHydrating, isAuthenticated } = useUser();
     const router = useRouter();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     useEffect(() => {
-        // Redirigir si no hay usuario (protección básica de ruta)
-        if (!currentUser) {
+        if (!isHydrating && !isAuthenticated) {
             router.push('/');
         }
-    }, [currentUser, router]);
+    }, [isHydrating, isAuthenticated, router]);
 
-    if (!currentUser) return null; // o un Loading spinner
+    if (isHydrating) {
+        return (
+            <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center">
+                Cargando sesión...
+            </div>
+        );
+    }
+
+    if (!currentUser) return null;
 
     return (
         <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">

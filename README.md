@@ -1,38 +1,78 @@
-# 4shine
+# 4Shine Platform
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+Plataforma de liderazgo 4Shine desarrollada con Next.js y PostgreSQL (Neon), diseñada con arquitectura de aplicación desde el inicio:
+- capa de datos relacional por módulos
+- RBAC por rol y módulo
+- políticas RLS para control de acceso por fila
+- API backend en `app/api/v1/*`
+- frontend desacoplado de mocks (hidratación desde backend al login)
 
-## Getting Started
+## Arquitectura (App Scope)
 
-First, run the development server:
+- Frontend: Next.js App Router + React (cliente)
+- Backend: Route Handlers (`src/app/api/v1/*`) + servicios en `src/server/*`
+- DB: PostgreSQL modular (`app_auth`, `app_core`, `app_assessment`, `app_learning`, `app_mentoring`, `app_networking`, `app_admin`)
+- Seguridad: matriz de permisos por rol (`lider`, `mentor`, `gestor`, `admin`) + RLS
+- Auth: JWT access/refresh + sesión persistida en DB (`app_auth.refresh_sessions`)
+
+## Base de Datos
+
+- Migración principal: `db/migrations/20260301_initial_platform_schema.sql`
+- Seeder inicial: `scripts/seed-db.mjs`
+- Comandos:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run db:migrate
+npm run db:seed
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Variables de entorno:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+cp .env.example .env.local
+# set DATABASE_URL, JWT_ACCESS_SECRET, JWT_REFRESH_SECRET
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## API principal
 
-## Learn More
+- Auth:
+  - `POST /api/v1/auth/login`
+  - `POST /api/v1/auth/refresh`
+  - `POST /api/v1/auth/logout`
+  - `GET /api/v1/auth/me`
+- Bootstrap:
+  - `GET /api/v1/bootstrap/me` (principal, basado en JWT/cookies)
+  - `GET /api/v1/bootstrap/:role` (protegido, uso administrativo/compatibilidad)
 
-To learn more about Next.js, take a look at the following resources:
+## Dashboard modular
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Rutas ya desacopladas por módulo:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `/dashboard`
+- `/dashboard/trayectoria`
+- `/dashboard/aprendizaje`
+- `/dashboard/metodologia`
+- `/dashboard/mentorias`
+- `/dashboard/networking`
+- `/dashboard/convocatorias`
+- `/dashboard/mensajes`
+- `/dashboard/workshops`
+- `/dashboard/perfil`
+- `/dashboard/lideres`
+- `/dashboard/formacion-mentores`
+- `/dashboard/gestion-formacion-mentores`
+- `/dashboard/usuarios`
+- `/dashboard/contenido`
+- `/dashboard/analitica`
 
-## Deploy on Vercel
+## Desarrollo
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+npm install
+npm run dev
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Notas
+
+- El frontend mantiene compatibilidad con componentes existentes, pero ahora los datos se cargan desde DB al iniciar sesión.
+- `mockData` se usa como contrato de UI y fallback; el origen principal ya es backend real.
