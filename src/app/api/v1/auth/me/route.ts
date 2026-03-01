@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { authenticateRequest } from '@/server/auth/request-auth';
 import { withClient, withRoleContext } from '@/server/db/pool';
+import { buildRequestSummary, recordAuditEvent } from '@/server/audit/service';
 
 export async function GET(request: Request) {
   const identity = await authenticateRequest(request);
@@ -33,6 +34,20 @@ export async function GET(request: Request) {
 
   if (!result || !result.is_active) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    await recordAuditEvent(
+      {
+        action: 'auth_me_query',
+        entityTable: 'app_core.users',
+        entityId: identity.userId,
+        changeSummary: buildRequestSummary(request),
+      },
+      identity,
+    );
+  } catch (auditError) {
+    console.error('Audit log failed', auditError);
   }
 
   return NextResponse.json(

@@ -3,7 +3,7 @@ import { authenticateRequest } from '@/server/auth/request-auth';
 import { withClient, withRoleContext } from '@/server/db/pool';
 import type { UpdateConnectionInput } from '@/features/networking/service';
 import { deleteConnection, updateConnection } from '@/features/networking/service';
-import { errorResponse, parseJsonBody, unauthorizedResponse } from '../../../_utils';
+import { errorResponse, logModuleAudit, parseJsonBody, unauthorizedResponse } from '../../../_utils';
 
 interface ContextParams {
   params: Promise<{ connectionId: string }>;
@@ -22,9 +22,17 @@ export async function PATCH(request: Request, context: ContextParams) {
 
   try {
     const data = await withClient((client) =>
-      withRoleContext(client, identity.userId, identity.role, () =>
-        updateConnection(client, identity, connectionId, body),
-      ),
+      withRoleContext(client, identity.userId, identity.role, async () => {
+        const result = await updateConnection(client, identity, connectionId, body);
+        await logModuleAudit(client, request, identity, {
+          moduleCode: 'networking',
+          action: 'update_connection',
+          entityTable: 'app_networking.connections',
+          entityId: connectionId,
+          changeSummary: { status: result.status },
+        });
+        return result;
+      }),
     );
 
     return NextResponse.json({ ok: true, data }, { status: 200 });
@@ -41,9 +49,16 @@ export async function DELETE(request: Request, context: ContextParams) {
 
   try {
     const data = await withClient((client) =>
-      withRoleContext(client, identity.userId, identity.role, () =>
-        deleteConnection(client, identity, connectionId),
-      ),
+      withRoleContext(client, identity.userId, identity.role, async () => {
+        const result = await deleteConnection(client, identity, connectionId);
+        await logModuleAudit(client, request, identity, {
+          moduleCode: 'networking',
+          action: 'delete_connection',
+          entityTable: 'app_networking.connections',
+          entityId: connectionId,
+        });
+        return result;
+      }),
     );
 
     return NextResponse.json({ ok: true, data }, { status: 200 });

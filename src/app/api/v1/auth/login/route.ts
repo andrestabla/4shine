@@ -5,6 +5,7 @@ import { authConfig } from '@/server/auth/config';
 import { issueAuthTokens } from '@/server/auth/session';
 import { setAuthCookies } from '@/server/auth/cookies';
 import type { AuthUser } from '@/server/auth/types';
+import { buildRequestSummary, recordAuditEvent, writeAuditLog } from '@/server/audit/service';
 
 interface LoginBody {
   email?: string;
@@ -23,6 +24,15 @@ export async function POST(request: Request) {
   try {
     body = (await request.json()) as LoginBody;
   } catch {
+    try {
+      await recordAuditEvent({
+        action: 'auth_login_invalid_json',
+        entityTable: 'app_auth.user_credentials',
+        changeSummary: buildRequestSummary(request),
+      });
+    } catch (auditError) {
+      console.error('Audit log failed', auditError);
+    }
     return NextResponse.json({ ok: false, error: 'Invalid JSON body' }, { status: 400 });
   }
 
@@ -30,6 +40,15 @@ export async function POST(request: Request) {
   const password = body.password ?? '';
 
   if (!email || !password) {
+    try {
+      await recordAuditEvent({
+        action: 'auth_login_missing_fields',
+        entityTable: 'app_auth.user_credentials',
+        changeSummary: buildRequestSummary(request, { email: email ?? null }),
+      });
+    } catch (auditError) {
+      console.error('Audit log failed', auditError);
+    }
     return NextResponse.json({ ok: false, error: 'Email and password are required' }, { status: 400 });
   }
 
@@ -138,6 +157,15 @@ export async function POST(request: Request) {
           getIpAddress(request),
         );
 
+        await client.query('SELECT set_config($1, $2, true)', ['app.current_user_id', user.userId]);
+        await client.query('SELECT set_config($1, $2, true)', ['app.current_role', user.role]);
+        await writeAuditLog(client, {
+          actorUserId: user.userId,
+          action: 'auth_login_success',
+          entityTable: 'app_auth.user_credentials',
+          changeSummary: buildRequestSummary(request, { email: user.email }),
+        });
+
         await client.query('COMMIT');
 
         return {
@@ -163,6 +191,16 @@ export async function POST(request: Request) {
 
     if (result.status === 200 && 'tokens' in result) {
       setAuthCookies(response, result.tokens.accessToken, result.tokens.refreshToken);
+    } else {
+      try {
+        await recordAuditEvent({
+          action: result.status === 423 ? 'auth_login_locked' : 'auth_login_failed',
+          entityTable: 'app_auth.user_credentials',
+          changeSummary: buildRequestSummary(request, { email }),
+        });
+      } catch (auditError) {
+        console.error('Audit log failed', auditError);
+      }
     }
 
     return response;

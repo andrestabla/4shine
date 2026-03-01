@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getBootstrapPayload } from '@/server/bootstrap/service';
 import type { Role } from '@/server/bootstrap/types';
 import { authenticateRequest } from '@/server/auth/request-auth';
+import { buildRequestSummary, recordAuditEvent } from '@/server/audit/service';
 
 const VALID_ROLES: Role[] = ['lider', 'mentor', 'gestor', 'admin'];
 
@@ -36,6 +37,21 @@ export async function GET(
     }
 
     const payload = await getBootstrapPayload(role);
+
+    try {
+      await recordAuditEvent(
+        {
+          action: 'bootstrap_role_load',
+          moduleCode: 'dashboard',
+          entityTable: 'app_core.users',
+          entityId: identity.userId,
+          changeSummary: buildRequestSummary(request, { requestedRole: role }),
+        },
+        identity,
+      );
+    } catch (auditError) {
+      console.error('Audit log failed', auditError);
+    }
 
     return NextResponse.json({ ok: true, role, data: payload }, { status: 200 });
   } catch (error) {

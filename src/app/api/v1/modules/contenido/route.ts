@@ -3,7 +3,7 @@ import { authenticateRequest } from '@/server/auth/request-auth';
 import { withClient, withRoleContext } from '@/server/db/pool';
 import type { CreateContentInput, ContentScope } from '@/features/content/service';
 import { createContent, listContent } from '@/features/content/service';
-import { errorResponse, parseJsonBody, unauthorizedResponse } from '../_utils';
+import { errorResponse, logModuleAudit, parseJsonBody, unauthorizedResponse } from '../_utils';
 
 export async function GET(request: Request) {
   const identity = await authenticateRequest(request);
@@ -15,7 +15,16 @@ export async function GET(request: Request) {
     const limit = Number(url.searchParams.get('limit') ?? 100);
 
     const data = await withClient((client) =>
-      withRoleContext(client, identity.userId, identity.role, () => listContent(client, { scope, limit })),
+      withRoleContext(client, identity.userId, identity.role, async () => {
+        const result = await listContent(client, { scope, limit });
+        await logModuleAudit(client, request, identity, {
+          moduleCode: 'contenido',
+          action: 'query_content',
+          entityTable: 'app_learning.content_items',
+          changeSummary: { scope: scope ?? 'all', limit },
+        });
+        return result;
+      }),
     );
 
     return NextResponse.json({ ok: true, data }, { status: 200 });
@@ -35,7 +44,17 @@ export async function POST(request: Request) {
 
   try {
     const data = await withClient((client) =>
-      withRoleContext(client, identity.userId, identity.role, () => createContent(client, identity, body)),
+      withRoleContext(client, identity.userId, identity.role, async () => {
+        const result = await createContent(client, identity, body);
+        await logModuleAudit(client, request, identity, {
+          moduleCode: 'contenido',
+          action: 'create_content',
+          entityTable: 'app_learning.content_items',
+          entityId: result.contentId,
+          changeSummary: { scope: result.scope, status: result.status },
+        });
+        return result;
+      }),
     );
 
     return NextResponse.json({ ok: true, data }, { status: 201 });

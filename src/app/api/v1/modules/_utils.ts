@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server';
 import { ForbiddenError } from '@/server/auth/module-permissions';
+import type { PoolClient } from 'pg';
+import type { AuthUser } from '@/server/auth/types';
+import type { ModuleCode } from '@/lib/permissions';
+import { buildRequestSummary, writeAuditLog } from '@/server/audit/service';
 
 export function unauthorizedResponse() {
   return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
@@ -33,4 +37,28 @@ export function errorResponse(error: unknown, fallbackMessage: string) {
     },
     { status: 500 },
   );
+}
+
+interface ModuleAuditInput {
+  moduleCode: ModuleCode;
+  action: string;
+  entityTable: string;
+  entityId?: string | null;
+  changeSummary?: Record<string, unknown>;
+}
+
+export async function logModuleAudit(
+  client: PoolClient,
+  request: Request,
+  actor: AuthUser,
+  input: ModuleAuditInput,
+) {
+  await writeAuditLog(client, {
+    actorUserId: actor.userId,
+    action: input.action,
+    moduleCode: input.moduleCode,
+    entityTable: input.entityTable,
+    entityId: input.entityId ?? null,
+    changeSummary: buildRequestSummary(request, input.changeSummary),
+  });
 }

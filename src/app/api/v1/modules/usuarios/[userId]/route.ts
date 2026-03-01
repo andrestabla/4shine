@@ -3,7 +3,7 @@ import { authenticateRequest } from '@/server/auth/request-auth';
 import { withClient, withRoleContext } from '@/server/db/pool';
 import type { UpdateUserInput } from '@/features/usuarios/service';
 import { deactivateUser, updateUser } from '@/features/usuarios/service';
-import { errorResponse, parseJsonBody, unauthorizedResponse } from '../../_utils';
+import { errorResponse, logModuleAudit, parseJsonBody, unauthorizedResponse } from '../../_utils';
 
 interface ContextParams {
   params: Promise<{ userId: string }>;
@@ -22,7 +22,17 @@ export async function PATCH(request: Request, context: ContextParams) {
 
   try {
     const data = await withClient((client) =>
-      withRoleContext(client, identity.userId, identity.role, () => updateUser(client, identity, userId, body)),
+      withRoleContext(client, identity.userId, identity.role, async () => {
+        const result = await updateUser(client, identity, userId, body);
+        await logModuleAudit(client, request, identity, {
+          moduleCode: 'usuarios',
+          action: 'update_user',
+          entityTable: 'app_core.users',
+          entityId: userId,
+          changeSummary: { primaryRole: result.primaryRole, isActive: result.isActive },
+        });
+        return result;
+      }),
     );
 
     return NextResponse.json({ ok: true, data }, { status: 200 });
@@ -39,7 +49,16 @@ export async function DELETE(request: Request, context: ContextParams) {
 
   try {
     const data = await withClient((client) =>
-      withRoleContext(client, identity.userId, identity.role, () => deactivateUser(client, userId)),
+      withRoleContext(client, identity.userId, identity.role, async () => {
+        const result = await deactivateUser(client, userId);
+        await logModuleAudit(client, request, identity, {
+          moduleCode: 'usuarios',
+          action: 'deactivate_user',
+          entityTable: 'app_core.users',
+          entityId: userId,
+        });
+        return result;
+      }),
     );
 
     return NextResponse.json({ ok: true, data }, { status: 200 });

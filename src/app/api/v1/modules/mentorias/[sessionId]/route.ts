@@ -3,7 +3,7 @@ import { authenticateRequest } from '@/server/auth/request-auth';
 import { withClient, withRoleContext } from '@/server/db/pool';
 import type { UpdateMentorshipInput } from '@/features/mentorias/service';
 import { deleteMentorship, updateMentorship } from '@/features/mentorias/service';
-import { errorResponse, parseJsonBody, unauthorizedResponse } from '../../_utils';
+import { errorResponse, logModuleAudit, parseJsonBody, unauthorizedResponse } from '../../_utils';
 
 interface ContextParams {
   params: Promise<{ sessionId: string }>;
@@ -22,9 +22,17 @@ export async function PATCH(request: Request, context: ContextParams) {
 
   try {
     const data = await withClient((client) =>
-      withRoleContext(client, identity.userId, identity.role, () =>
-        updateMentorship(client, identity, sessionId, body),
-      ),
+      withRoleContext(client, identity.userId, identity.role, async () => {
+        const result = await updateMentorship(client, identity, sessionId, body);
+        await logModuleAudit(client, request, identity, {
+          moduleCode: 'mentorias',
+          action: 'update_mentorship',
+          entityTable: 'app_mentoring.mentorship_sessions',
+          entityId: sessionId,
+          changeSummary: { status: result.status },
+        });
+        return result;
+      }),
     );
 
     return NextResponse.json({ ok: true, data }, { status: 200 });
@@ -41,7 +49,16 @@ export async function DELETE(request: Request, context: ContextParams) {
 
   try {
     const data = await withClient((client) =>
-      withRoleContext(client, identity.userId, identity.role, () => deleteMentorship(client, sessionId)),
+      withRoleContext(client, identity.userId, identity.role, async () => {
+        const result = await deleteMentorship(client, sessionId);
+        await logModuleAudit(client, request, identity, {
+          moduleCode: 'mentorias',
+          action: 'delete_mentorship',
+          entityTable: 'app_mentoring.mentorship_sessions',
+          entityId: sessionId,
+        });
+        return result;
+      }),
     );
 
     return NextResponse.json({ ok: true, data }, { status: 200 });

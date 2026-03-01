@@ -3,7 +3,7 @@ import { authenticateRequest } from '@/server/auth/request-auth';
 import { withClient, withRoleContext } from '@/server/db/pool';
 import type { SendMessageInput } from '@/features/mensajes/service';
 import { listMessages, sendMessage } from '@/features/mensajes/service';
-import { errorResponse, parseJsonBody, unauthorizedResponse } from '../../../../_utils';
+import { errorResponse, logModuleAudit, parseJsonBody, unauthorizedResponse } from '../../../../_utils';
 
 interface ContextParams {
   params: Promise<{ threadId: string }>;
@@ -20,7 +20,17 @@ export async function GET(request: Request, context: ContextParams) {
     const limit = Number(url.searchParams.get('limit') ?? 100);
 
     const data = await withClient((client) =>
-      withRoleContext(client, identity.userId, identity.role, () => listMessages(client, identity, threadId, limit)),
+      withRoleContext(client, identity.userId, identity.role, async () => {
+        const result = await listMessages(client, identity, threadId, limit);
+        await logModuleAudit(client, request, identity, {
+          moduleCode: 'mensajes',
+          action: 'query_messages',
+          entityTable: 'app_networking.messages',
+          entityId: threadId,
+          changeSummary: { threadId, limit },
+        });
+        return result;
+      }),
     );
 
     return NextResponse.json({ ok: true, data }, { status: 200 });
@@ -42,12 +52,20 @@ export async function POST(request: Request, context: ContextParams) {
 
   try {
     const data = await withClient((client) =>
-      withRoleContext(client, identity.userId, identity.role, () =>
-        sendMessage(client, identity, {
+      withRoleContext(client, identity.userId, identity.role, async () => {
+        const result = await sendMessage(client, identity, {
           threadId,
           messageText: body.messageText,
-        }),
-      ),
+        });
+        await logModuleAudit(client, request, identity, {
+          moduleCode: 'mensajes',
+          action: 'send_message',
+          entityTable: 'app_networking.messages',
+          entityId: result.messageId,
+          changeSummary: { threadId },
+        });
+        return result;
+      }),
     );
 
     return NextResponse.json({ ok: true, data }, { status: 201 });

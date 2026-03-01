@@ -3,7 +3,7 @@ import { authenticateRequest } from '@/server/auth/request-auth';
 import { withClient, withRoleContext } from '@/server/db/pool';
 import type { CreateWorkshopInput } from '@/features/workshops/service';
 import { createWorkshop, listWorkshops } from '@/features/workshops/service';
-import { errorResponse, parseJsonBody, unauthorizedResponse } from '../_utils';
+import { errorResponse, logModuleAudit, parseJsonBody, unauthorizedResponse } from '../_utils';
 
 export async function GET(request: Request) {
   const identity = await authenticateRequest(request);
@@ -14,7 +14,16 @@ export async function GET(request: Request) {
     const limit = Number(url.searchParams.get('limit') ?? 100);
 
     const data = await withClient((client) =>
-      withRoleContext(client, identity.userId, identity.role, () => listWorkshops(client, limit)),
+      withRoleContext(client, identity.userId, identity.role, async () => {
+        const result = await listWorkshops(client, limit);
+        await logModuleAudit(client, request, identity, {
+          moduleCode: 'workshops',
+          action: 'query_workshops',
+          entityTable: 'app_networking.workshops',
+          changeSummary: { limit },
+        });
+        return result;
+      }),
     );
 
     return NextResponse.json({ ok: true, data }, { status: 200 });
@@ -34,7 +43,17 @@ export async function POST(request: Request) {
 
   try {
     const data = await withClient((client) =>
-      withRoleContext(client, identity.userId, identity.role, () => createWorkshop(client, identity, body)),
+      withRoleContext(client, identity.userId, identity.role, async () => {
+        const result = await createWorkshop(client, identity, body);
+        await logModuleAudit(client, request, identity, {
+          moduleCode: 'workshops',
+          action: 'create_workshop',
+          entityTable: 'app_networking.workshops',
+          entityId: result.workshopId,
+          changeSummary: { workshopType: result.workshopType, status: result.status },
+        });
+        return result;
+      }),
     );
 
     return NextResponse.json({ ok: true, data }, { status: 201 });

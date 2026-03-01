@@ -3,7 +3,7 @@ import { authenticateRequest } from '@/server/auth/request-auth';
 import { withClient, withRoleContext } from '@/server/db/pool';
 import type { UpdateMessageInput } from '@/features/mensajes/service';
 import { deleteMessage, updateMessage } from '@/features/mensajes/service';
-import { errorResponse, parseJsonBody, unauthorizedResponse } from '../../../_utils';
+import { errorResponse, logModuleAudit, parseJsonBody, unauthorizedResponse } from '../../../_utils';
 
 interface ContextParams {
   params: Promise<{ messageId: string }>;
@@ -22,9 +22,16 @@ export async function PATCH(request: Request, context: ContextParams) {
 
   try {
     const data = await withClient((client) =>
-      withRoleContext(client, identity.userId, identity.role, () =>
-        updateMessage(client, identity, messageId, body),
-      ),
+      withRoleContext(client, identity.userId, identity.role, async () => {
+        const result = await updateMessage(client, identity, messageId, body);
+        await logModuleAudit(client, request, identity, {
+          moduleCode: 'mensajes',
+          action: 'update_message',
+          entityTable: 'app_networking.messages',
+          entityId: messageId,
+        });
+        return result;
+      }),
     );
 
     return NextResponse.json({ ok: true, data }, { status: 200 });
@@ -41,7 +48,16 @@ export async function DELETE(request: Request, context: ContextParams) {
 
   try {
     const data = await withClient((client) =>
-      withRoleContext(client, identity.userId, identity.role, () => deleteMessage(client, identity, messageId)),
+      withRoleContext(client, identity.userId, identity.role, async () => {
+        const result = await deleteMessage(client, identity, messageId);
+        await logModuleAudit(client, request, identity, {
+          moduleCode: 'mensajes',
+          action: 'delete_message',
+          entityTable: 'app_networking.messages',
+          entityId: messageId,
+        });
+        return result;
+      }),
     );
 
     return NextResponse.json({ ok: true, data }, { status: 200 });

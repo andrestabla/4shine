@@ -3,7 +3,7 @@ import { authenticateRequest } from '@/server/auth/request-auth';
 import { withClient, withRoleContext } from '@/server/db/pool';
 import type { CreateDirectThreadInput } from '@/features/mensajes/service';
 import { createDirectThread, listThreads } from '@/features/mensajes/service';
-import { errorResponse, parseJsonBody, unauthorizedResponse } from '../../_utils';
+import { errorResponse, logModuleAudit, parseJsonBody, unauthorizedResponse } from '../../_utils';
 
 export async function GET(request: Request) {
   const identity = await authenticateRequest(request);
@@ -14,7 +14,16 @@ export async function GET(request: Request) {
     const limit = Number(url.searchParams.get('limit') ?? 100);
 
     const data = await withClient((client) =>
-      withRoleContext(client, identity.userId, identity.role, () => listThreads(client, identity, limit)),
+      withRoleContext(client, identity.userId, identity.role, async () => {
+        const result = await listThreads(client, identity, limit);
+        await logModuleAudit(client, request, identity, {
+          moduleCode: 'mensajes',
+          action: 'query_threads',
+          entityTable: 'app_networking.chat_threads',
+          changeSummary: { limit },
+        });
+        return result;
+      }),
     );
 
     return NextResponse.json({ ok: true, data }, { status: 200 });
@@ -34,7 +43,17 @@ export async function POST(request: Request) {
 
   try {
     const data = await withClient((client) =>
-      withRoleContext(client, identity.userId, identity.role, () => createDirectThread(client, identity, body)),
+      withRoleContext(client, identity.userId, identity.role, async () => {
+        const result = await createDirectThread(client, identity, body);
+        await logModuleAudit(client, request, identity, {
+          moduleCode: 'mensajes',
+          action: 'create_direct_thread',
+          entityTable: 'app_networking.chat_threads',
+          entityId: result.threadId,
+          changeSummary: { participantUserId: body.participantUserId },
+        });
+        return result;
+      }),
     );
 
     return NextResponse.json({ ok: true, data }, { status: 201 });

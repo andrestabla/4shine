@@ -3,7 +3,7 @@ import { authenticateRequest } from '@/server/auth/request-auth';
 import { withClient, withRoleContext } from '@/server/db/pool';
 import type { UpdateWorkshopInput } from '@/features/workshops/service';
 import { deleteWorkshop, updateWorkshop } from '@/features/workshops/service';
-import { errorResponse, parseJsonBody, unauthorizedResponse } from '../../_utils';
+import { errorResponse, logModuleAudit, parseJsonBody, unauthorizedResponse } from '../../_utils';
 
 interface ContextParams {
   params: Promise<{ workshopId: string }>;
@@ -22,7 +22,17 @@ export async function PATCH(request: Request, context: ContextParams) {
 
   try {
     const data = await withClient((client) =>
-      withRoleContext(client, identity.userId, identity.role, () => updateWorkshop(client, workshopId, body)),
+      withRoleContext(client, identity.userId, identity.role, async () => {
+        const result = await updateWorkshop(client, workshopId, body);
+        await logModuleAudit(client, request, identity, {
+          moduleCode: 'workshops',
+          action: 'update_workshop',
+          entityTable: 'app_networking.workshops',
+          entityId: workshopId,
+          changeSummary: { status: result.status },
+        });
+        return result;
+      }),
     );
 
     return NextResponse.json({ ok: true, data }, { status: 200 });
@@ -39,7 +49,16 @@ export async function DELETE(request: Request, context: ContextParams) {
 
   try {
     const data = await withClient((client) =>
-      withRoleContext(client, identity.userId, identity.role, () => deleteWorkshop(client, workshopId)),
+      withRoleContext(client, identity.userId, identity.role, async () => {
+        const result = await deleteWorkshop(client, workshopId);
+        await logModuleAudit(client, request, identity, {
+          moduleCode: 'workshops',
+          action: 'delete_workshop',
+          entityTable: 'app_networking.workshops',
+          entityId: workshopId,
+        });
+        return result;
+      }),
     );
 
     return NextResponse.json({ ok: true, data }, { status: 200 });

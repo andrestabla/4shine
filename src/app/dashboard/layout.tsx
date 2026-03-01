@@ -4,8 +4,9 @@ import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { useUser } from '@/context/UserContext';
 import type { ModuleCode, PermissionAction } from '@/lib/permissions';
+import { trackAuditEvent } from '@/lib/audit-client';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 
 interface RouteAccess {
@@ -44,6 +45,7 @@ export default function DashboardLayout({
     const router = useRouter();
     const pathname = usePathname();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const didTrackLoad = useRef(false);
     const routeAccess = ACCESS_BY_PATH[pathname];
     const canViewRoute = routeAccess
         ? can(routeAccess.moduleCode, routeAccess.action ?? 'view')
@@ -60,6 +62,34 @@ export default function DashboardLayout({
             router.push(can('dashboard', 'view') ? '/dashboard' : '/');
         }
     }, [can, canViewRoute, isAuthenticated, isHydrating, router]);
+
+    useEffect(() => {
+        if (isHydrating || !isAuthenticated || !canViewRoute) return;
+
+        trackAuditEvent({
+            action: 'ui_page_view',
+            moduleCode: routeAccess?.moduleCode ?? 'dashboard',
+            entityTable: 'ui.navigation',
+            metadata: {
+                path: pathname,
+            },
+        });
+    }, [canViewRoute, isAuthenticated, isHydrating, pathname, routeAccess?.moduleCode]);
+
+    useEffect(() => {
+        if (didTrackLoad.current) return;
+        if (isHydrating || !isAuthenticated) return;
+
+        didTrackLoad.current = true;
+        trackAuditEvent({
+            action: 'ui_dashboard_load',
+            moduleCode: 'dashboard',
+            entityTable: 'ui.session',
+            metadata: {
+                path: pathname,
+            },
+        });
+    }, [isAuthenticated, isHydrating, pathname]);
 
     if (isHydrating) {
         return (

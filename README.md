@@ -95,3 +95,4 @@ DATABASE_URL=... node scripts/system-health-report.mjs
 - El frontend consume `bootstrapData` de backend y permisos RBAC por módulo desde DB en cada sesión.
 - La navegación y acceso de módulos en UI se resuelve por `app_auth.v_role_permission_matrix` (vía `/api/v1/auth/permissions`).
 - Los módulos con escritura real en UI usan `features/*/client.ts` y aplican RBAC por acción (`create/update/delete/approve`) antes de mostrar controles.
+- Auditoría operativa: `app_admin.audit_logs` recibe eventos de auth (`login/refresh/logout/me`), consultas y acciones CRUD de módulos, y eventos UI de navegación vía `POST /api/v1/audit/event`.

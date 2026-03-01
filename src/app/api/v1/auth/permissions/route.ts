@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { authenticateRequest } from '@/server/auth/request-auth';
 import { withClient } from '@/server/db/pool';
 import type { ModulePermissions } from '@/lib/permissions';
+import { buildRequestSummary, recordAuditEvent } from '@/server/audit/service';
 
 interface PermissionRow {
   role_code: string;
@@ -76,5 +77,19 @@ export async function GET(request: Request) {
       },
       { status: 500 },
     );
+  } finally {
+    try {
+      await recordAuditEvent(
+        {
+          action: 'auth_permissions_query',
+          moduleCode: 'usuarios',
+          entityTable: 'app_auth.v_role_permission_matrix',
+          changeSummary: buildRequestSummary(request, { role: identity.role }),
+        },
+        identity,
+      );
+    } catch (auditError) {
+      console.error('Audit log failed', auditError);
+    }
   }
 }
