@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { PageTitle } from '@/components/dashboard/PageTitle';
+import { useAppDialog } from '@/components/ui/AppDialogProvider';
 
 interface BrandingSettings {
   platformName: string;
@@ -26,8 +27,8 @@ const DEFAULT_SETTINGS: BrandingSettings = {
 };
 
 export default function BrandingAdminPage() {
+  const { alert } = useAppDialog();
   const [settings, setSettings] = React.useState<BrandingSettings>(DEFAULT_SETTINGS);
-  const [saved, setSaved] = React.useState(false);
 
   React.useEffect(() => {
     try {
@@ -40,11 +41,14 @@ export default function BrandingAdminPage() {
     }
   }, []);
 
-  const onSave = (event: React.FormEvent<HTMLFormElement>) => {
+  const onSave = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-    setSaved(true);
-    window.setTimeout(() => setSaved(false), 1800);
+    await alert({
+      title: 'Configuración guardada',
+      message: 'La configuración de branding se guardó correctamente.',
+      tone: 'success',
+    });
   };
 
   return (
@@ -123,7 +127,6 @@ export default function BrandingAdminPage() {
             <button className="rounded-md bg-slate-900 text-white px-4 py-2 text-sm" type="submit">
               Guardar configuración
             </button>
-            {saved && <p className="text-sm text-emerald-700">Configuración guardada.</p>}
           </div>
         </section>
 

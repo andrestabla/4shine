@@ -4,6 +4,7 @@ import React from 'react';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { StatGrid } from '@/components/dashboard/StatGrid';
 import { EmptyState } from '@/components/dashboard/EmptyState';
+import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useUser } from '@/context/UserContext';
 import type { ModuleCode } from '@/lib/permissions';
 import {
@@ -46,10 +47,10 @@ function toLocalDateTime(value: string): string {
 
 export default function ContenidoPage() {
   const { can, refreshBootstrap } = useUser();
+  const { alert, confirm, prompt } = useAppDialog();
   const [items, setItems] = React.useState<ContentItemRecord[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [submitting, setSubmitting] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
   const [scopeFilter, setScopeFilter] = React.useState<ScopeFilter>('all');
 
   const creatableScopes = React.useMemo(
@@ -66,6 +67,17 @@ export default function ContenidoPage() {
     description: '',
   });
 
+  const showError = React.useCallback(
+    async (fallbackMessage: string, cause: unknown) => {
+      await alert({
+        title: 'Error',
+        message: cause instanceof Error ? cause.message : fallbackMessage,
+        tone: 'error',
+      });
+    },
+    [alert],
+  );
+
   React.useEffect(() => {
     if (creatableScopes.length && !creatableScopes.includes(createForm.scope)) {
       setCreateForm((prev) => ({
@@ -77,16 +89,15 @@ export default function ContenidoPage() {
 
   const load = React.useCallback(async () => {
     setLoading(true);
-    setError(null);
     try {
       const data = await listContent(scopeFilter === 'all' ? undefined : scopeFilter);
       setItems(data);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'No se pudo cargar el contenido');
+      await showError('No se pudo cargar el contenido', loadError);
     } finally {
       setLoading(false);
     }
-  }, [scopeFilter]);
+  }, [scopeFilter, showError]);
 
   React.useEffect(() => {
     void load();
@@ -97,7 +108,6 @@ export default function ContenidoPage() {
     if (!createForm.title.trim() || !createForm.category.trim()) return;
 
     setSubmitting(true);
-    setError(null);
     try {
       await createContent({
         scope: createForm.scope,
@@ -119,7 +129,7 @@ export default function ContenidoPage() {
 
       await Promise.all([load(), refreshBootstrap()]);
     } catch (createError) {
-      setError(createError instanceof Error ? createError.message : 'No se pudo crear el contenido');
+      await showError('No se pudo crear el contenido', createError);
     } finally {
       setSubmitting(false);
     }
@@ -132,7 +142,7 @@ export default function ContenidoPage() {
       });
       await Promise.all([load(), refreshBootstrap()]);
     } catch (updateError) {
-      setError(updateError instanceof Error ? updateError.message : 'No se pudo actualizar el contenido');
+      await showError('No se pudo actualizar el contenido', updateError);
     }
   };
 
@@ -141,19 +151,47 @@ export default function ContenidoPage() {
       await updateContent(item.contentId, { status });
       await Promise.all([load(), refreshBootstrap()]);
     } catch (updateError) {
-      setError(updateError instanceof Error ? updateError.message : 'No se pudo actualizar el contenido');
+      await showError('No se pudo actualizar el contenido', updateError);
     }
   };
 
   const onDelete = async (item: ContentItemRecord) => {
-    const confirmed = window.confirm(`Eliminar "${item.title}"?`);
-    if (!confirmed) return;
+    const isConfirmed = await confirm({
+      title: 'Eliminar contenido',
+      message: `¿Deseas eliminar "${item.title}"?`,
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
+      tone: 'warning',
+    });
+    if (!isConfirmed) return;
 
     try {
       await deleteContent(item.contentId);
       await Promise.all([load(), refreshBootstrap()]);
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : 'No se pudo eliminar el contenido');
+      await showError('No se pudo eliminar el contenido', deleteError);
+    }
+  };
+
+  const onRename = async (item: ContentItemRecord) => {
+    const title = await prompt({
+      title: 'Renombrar contenido',
+      message: 'Ingresa el nuevo título.',
+      label: 'Título',
+      defaultValue: item.title,
+      placeholder: 'Título de contenido',
+      confirmText: 'Guardar',
+      cancelText: 'Cancelar',
+      tone: 'info',
+    });
+
+    if (!title || !title.trim() || title.trim() === item.title) return;
+
+    try {
+      await updateContent(item.contentId, { title: title.trim() });
+      await Promise.all([load(), refreshBootstrap()]);
+    } catch (updateError) {
+      await showError('No se pudo actualizar el contenido', updateError);
     }
   };
 
@@ -271,9 +309,6 @@ export default function ContenidoPage() {
           </form>
         )}
       </section>
-
-      {error && <p className="text-sm text-red-600">{error}</p>}
-
       {loading ? (
         <div className="bg-white rounded-xl border border-slate-200 p-4 text-sm text-slate-500">Cargando...</div>
       ) : filtered.length === 0 ? (
@@ -345,20 +380,7 @@ export default function ContenidoPage() {
                           {canUpdateItem && (
                             <button
                               className="text-xs px-2 py-1 rounded border border-slate-300 text-slate-700"
-                              onClick={async () => {
-                                const title = window.prompt('Nuevo título', item.title);
-                                if (!title || !title.trim() || title.trim() === item.title) return;
-                                try {
-                                  await updateContent(item.contentId, { title: title.trim() });
-                                  await Promise.all([load(), refreshBootstrap()]);
-                                } catch (updateError) {
-                                  setError(
-                                    updateError instanceof Error
-                                      ? updateError.message
-                                      : 'No se pudo actualizar el contenido',
-                                  );
-                                }
-                              }}
+                              onClick={() => void onRename(item)}
                               type="button"
                             >
                               Renombrar

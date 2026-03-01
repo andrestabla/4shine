@@ -3,6 +3,7 @@
 import React from 'react';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { EmptyState } from '@/components/dashboard/EmptyState';
+import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useUser } from '@/context/UserContext';
 import {
   createMentorship,
@@ -36,9 +37,9 @@ function toIso(value: string): string {
 
 export default function MentoriasPage() {
   const { can, refreshBootstrap } = useUser();
+  const { alert, confirm, prompt } = useAppDialog();
   const [sessions, setSessions] = React.useState<MentorshipRecord[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
   const [saving, setSaving] = React.useState(false);
   const [form, setForm] = React.useState<CreateFormState>({
     title: '',
@@ -48,18 +49,28 @@ export default function MentoriasPage() {
     meetingUrl: '',
   });
 
+  const showError = React.useCallback(
+    async (fallbackMessage: string, cause: unknown) => {
+      await alert({
+        title: 'Error',
+        message: cause instanceof Error ? cause.message : fallbackMessage,
+        tone: 'error',
+      });
+    },
+    [alert],
+  );
+
   const load = React.useCallback(async () => {
     setLoading(true);
-    setError(null);
     try {
       const data = await listMentorships();
       setSessions(data);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'No se pudieron cargar las mentorías');
+      await showError('No se pudieron cargar las mentorías', loadError);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showError]);
 
   React.useEffect(() => {
     void load();
@@ -70,7 +81,6 @@ export default function MentoriasPage() {
     if (!form.title.trim() || !form.startsAt || !form.endsAt) return;
 
     setSaving(true);
-    setError(null);
     try {
       await createMentorship({
         title: form.title.trim(),
@@ -88,7 +98,7 @@ export default function MentoriasPage() {
       });
       await Promise.all([load(), refreshBootstrap()]);
     } catch (createError) {
-      setError(createError instanceof Error ? createError.message : 'No se pudo crear la mentoría');
+      await showError('No se pudo crear la mentoría', createError);
     } finally {
       setSaving(false);
     }
@@ -99,19 +109,46 @@ export default function MentoriasPage() {
       await updateMentorship(session.sessionId, { status });
       await Promise.all([load(), refreshBootstrap()]);
     } catch (updateError) {
-      setError(updateError instanceof Error ? updateError.message : 'No se pudo actualizar la mentoría');
+      await showError('No se pudo actualizar la mentoría', updateError);
     }
   };
 
   const onDelete = async (session: MentorshipRecord) => {
-    const confirmed = window.confirm(`Eliminar mentoría "${session.title}"?`);
-    if (!confirmed) return;
+    const isConfirmed = await confirm({
+      title: 'Eliminar mentoría',
+      message: `¿Deseas eliminar la mentoría "${session.title}"?`,
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
+      tone: 'warning',
+    });
+    if (!isConfirmed) return;
 
     try {
       await deleteMentorship(session.sessionId);
       await Promise.all([load(), refreshBootstrap()]);
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : 'No se pudo eliminar la mentoría');
+      await showError('No se pudo eliminar la mentoría', deleteError);
+    }
+  };
+
+  const onRename = async (session: MentorshipRecord) => {
+    const nextTitle = await prompt({
+      title: 'Renombrar mentoría',
+      message: 'Ingresa el nuevo título de la sesión.',
+      label: 'Título',
+      defaultValue: session.title,
+      placeholder: 'Título de mentoría',
+      confirmText: 'Guardar',
+      cancelText: 'Cancelar',
+    });
+
+    if (!nextTitle || !nextTitle.trim() || nextTitle.trim() === session.title) return;
+
+    try {
+      await updateMentorship(session.sessionId, { title: nextTitle.trim() });
+      await Promise.all([load(), refreshBootstrap()]);
+    } catch (updateError) {
+      await showError('No se pudo actualizar la mentoría', updateError);
     }
   };
 
@@ -165,9 +202,6 @@ export default function MentoriasPage() {
           />
         </form>
       )}
-
-      {error && <p className="text-sm text-red-600">{error}</p>}
-
       {loading ? (
         <div className="bg-white rounded-xl border border-slate-200 p-4 text-sm text-slate-500">Cargando...</div>
       ) : sessions.length === 0 ? (
@@ -217,20 +251,7 @@ export default function MentoriasPage() {
                           <button
                             className="text-xs px-2 py-1 rounded border border-slate-300 text-slate-700"
                             type="button"
-                            onClick={async () => {
-                              const nextTitle = window.prompt('Nuevo título', session.title);
-                              if (!nextTitle || !nextTitle.trim() || nextTitle.trim() === session.title) return;
-                              try {
-                                await updateMentorship(session.sessionId, { title: nextTitle.trim() });
-                                await Promise.all([load(), refreshBootstrap()]);
-                              } catch (updateError) {
-                                setError(
-                                  updateError instanceof Error
-                                    ? updateError.message
-                                    : 'No se pudo actualizar la mentoría',
-                                );
-                              }
-                            }}
+                            onClick={() => void onRename(session)}
                           >
                             Renombrar
                           </button>

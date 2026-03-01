@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { PageTitle } from '@/components/dashboard/PageTitle';
+import { useAppDialog } from '@/components/ui/AppDialogProvider';
 
 interface IntegrationConfig {
   key: string;
@@ -23,8 +24,8 @@ const DEFAULT_INTEGRATIONS: IntegrationConfig[] = [
 ];
 
 export default function IntegracionesAdminPage() {
+  const { alert } = useAppDialog();
   const [integrations, setIntegrations] = React.useState<IntegrationConfig[]>(DEFAULT_INTEGRATIONS);
-  const [saved, setSaved] = React.useState(false);
 
   React.useEffect(() => {
     try {
@@ -49,10 +50,13 @@ export default function IntegracionesAdminPage() {
     setIntegrations((prev) => prev.map((item) => (item.key === key ? updater(item) : item)));
   };
 
-  const onSave = () => {
+  const onSave = async () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(integrations));
-    setSaved(true);
-    window.setTimeout(() => setSaved(false), 1800);
+    await alert({
+      title: 'Integraciones actualizadas',
+      message: 'Los cambios de integraciones se guardaron correctamente.',
+      tone: 'success',
+    });
   };
 
   const enabledCount = integrations.filter((item) => item.enabled).length;
@@ -74,9 +78,6 @@ export default function IntegracionesAdminPage() {
             Guardar cambios
           </button>
         </div>
-
-        {saved && <p className="text-sm text-emerald-700 mb-3">Configuración guardada.</p>}
-
         <div className="space-y-3">
           {integrations.map((item) => (
             <article key={item.key} className="border border-slate-200 rounded-lg p-4">

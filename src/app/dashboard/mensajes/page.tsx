@@ -3,6 +3,7 @@
 import React from 'react';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { EmptyState } from '@/components/dashboard/EmptyState';
+import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useUser } from '@/context/UserContext';
 import {
   createDirectThread,
@@ -34,6 +35,7 @@ function toDateTime(value: string): string {
 
 export default function MensajesPage() {
   const { can, refreshBootstrap, sessionUser } = useUser();
+  const { alert, confirm, prompt } = useAppDialog();
   const [threads, setThreads] = React.useState<ThreadRecord[]>([]);
   const [participants, setParticipants] = React.useState<MessageParticipantRecord[]>([]);
   const [messages, setMessages] = React.useState<MessageRecord[]>([]);
@@ -42,11 +44,20 @@ export default function MensajesPage() {
   const [messageText, setMessageText] = React.useState('');
   const [loading, setLoading] = React.useState(true);
   const [messagesLoading, setMessagesLoading] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+
+  const showError = React.useCallback(
+    async (fallbackMessage: string, cause: unknown) => {
+      await alert({
+        title: 'Error',
+        message: cause instanceof Error ? cause.message : fallbackMessage,
+        tone: 'error',
+      });
+    },
+    [alert],
+  );
 
   const loadThreadsAndParticipants = React.useCallback(async () => {
     setLoading(true);
-    setError(null);
     try {
       const [threadData, participantData] = await Promise.all([listThreads(), listParticipants()]);
       setThreads(threadData);
@@ -60,11 +71,11 @@ export default function MensajesPage() {
         return participantData[0]?.userId ?? '';
       });
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'No se pudieron cargar los mensajes');
+      await showError('No se pudieron cargar los mensajes', loadError);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showError]);
 
   const loadMessages = React.useCallback(async (threadId: string) => {
     if (!threadId) {
@@ -73,16 +84,15 @@ export default function MensajesPage() {
     }
 
     setMessagesLoading(true);
-    setError(null);
     try {
       const data = await listMessages(threadId);
       setMessages(data);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'No se pudieron cargar los mensajes del chat');
+      await showError('No se pudieron cargar los mensajes del chat', loadError);
     } finally {
       setMessagesLoading(false);
     }
-  }, []);
+  }, [showError]);
 
   React.useEffect(() => {
     void loadThreadsAndParticipants();
@@ -101,7 +111,7 @@ export default function MensajesPage() {
       await Promise.all([loadThreadsAndParticipants(), refreshBootstrap()]);
       setSelectedThreadId(thread.threadId);
     } catch (createError) {
-      setError(createError instanceof Error ? createError.message : 'No se pudo crear el chat');
+      await showError('No se pudo crear el chat', createError);
     }
   };
 
@@ -114,19 +124,47 @@ export default function MensajesPage() {
       setMessageText('');
       await Promise.all([loadMessages(selectedThreadId), loadThreadsAndParticipants(), refreshBootstrap()]);
     } catch (sendError) {
-      setError(sendError instanceof Error ? sendError.message : 'No se pudo enviar el mensaje');
+      await showError('No se pudo enviar el mensaje', sendError);
     }
   };
 
   const onDeleteMessage = async (message: MessageRecord) => {
-    const confirmed = window.confirm('Eliminar este mensaje?');
-    if (!confirmed) return;
+    const isConfirmed = await confirm({
+      title: 'Eliminar mensaje',
+      message: '¿Deseas eliminar este mensaje?',
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
+      tone: 'warning',
+    });
+    if (!isConfirmed) return;
 
     try {
       await deleteMessage(message.messageId);
       await Promise.all([loadMessages(selectedThreadId), loadThreadsAndParticipants(), refreshBootstrap()]);
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : 'No se pudo eliminar el mensaje');
+      await showError('No se pudo eliminar el mensaje', deleteError);
+    }
+  };
+
+  const onEditMessage = async (message: MessageRecord) => {
+    const nextText = await prompt({
+      title: 'Editar mensaje',
+      message: 'Actualiza el contenido del mensaje.',
+      label: 'Mensaje',
+      defaultValue: message.messageText,
+      placeholder: 'Escribe el nuevo mensaje',
+      confirmText: 'Guardar',
+      cancelText: 'Cancelar',
+      multiline: true,
+    });
+
+    if (!nextText || !nextText.trim() || nextText.trim() === message.messageText) return;
+
+    try {
+      await updateMessage(message.messageId, { messageText: nextText.trim() });
+      await Promise.all([loadMessages(selectedThreadId), loadThreadsAndParticipants()]);
+    } catch (updateError) {
+      await showError('No se pudo editar el mensaje', updateError);
     }
   };
 
@@ -158,9 +196,6 @@ export default function MensajesPage() {
           </button>
         </form>
       )}
-
-      {error && <p className="text-sm text-red-600">{error}</p>}
-
       {loading ? (
         <div className="bg-white rounded-xl border border-slate-200 p-4 text-sm text-slate-500">Cargando...</div>
       ) : threads.length === 0 ? (
@@ -228,20 +263,7 @@ export default function MensajesPage() {
                             <button
                               className={`text-xs ${isMine ? 'text-amber-200' : 'text-slate-600'}`}
                               type="button"
-                              onClick={async () => {
-                                const nextText = window.prompt('Editar mensaje', message.messageText);
-                                if (!nextText || !nextText.trim() || nextText.trim() === message.messageText) return;
-                                try {
-                                  await updateMessage(message.messageId, { messageText: nextText.trim() });
-                                  await Promise.all([loadMessages(selectedThreadId), loadThreadsAndParticipants()]);
-                                } catch (updateError) {
-                                  setError(
-                                    updateError instanceof Error
-                                      ? updateError.message
-                                      : 'No se pudo editar el mensaje',
-                                  );
-                                }
-                              }}
+                              onClick={() => void onEditMessage(message)}
                             >
                               Editar
                             </button>

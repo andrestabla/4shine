@@ -3,6 +3,7 @@
 import React from 'react';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { EmptyState } from '@/components/dashboard/EmptyState';
+import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useUser } from '@/context/UserContext';
 import {
   createJobPost,
@@ -29,9 +30,9 @@ function toDateLabel(value: string): string {
 
 export default function ConvocatoriasPage() {
   const { can, refreshBootstrap } = useUser();
+  const { alert, confirm, prompt } = useAppDialog();
   const [jobs, setJobs] = React.useState<JobPostRecord[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
   const [form, setForm] = React.useState<CreateFormState>({
     title: '',
     companyName: '',
@@ -40,18 +41,28 @@ export default function ConvocatoriasPage() {
     description: '',
   });
 
+  const showError = React.useCallback(
+    async (fallbackMessage: string, cause: unknown) => {
+      await alert({
+        title: 'Error',
+        message: cause instanceof Error ? cause.message : fallbackMessage,
+        tone: 'error',
+      });
+    },
+    [alert],
+  );
+
   const load = React.useCallback(async () => {
     setLoading(true);
-    setError(null);
     try {
       const data = await listJobPosts();
       setJobs(data);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'No se pudieron cargar las convocatorias');
+      await showError('No se pudieron cargar las convocatorias', loadError);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showError]);
 
   React.useEffect(() => {
     void load();
@@ -79,7 +90,7 @@ export default function ConvocatoriasPage() {
       });
       await Promise.all([load(), refreshBootstrap()]);
     } catch (createError) {
-      setError(createError instanceof Error ? createError.message : 'No se pudo crear la convocatoria');
+      await showError('No se pudo crear la convocatoria', createError);
     }
   };
 
@@ -88,19 +99,46 @@ export default function ConvocatoriasPage() {
       await updateJobPost(job.jobPostId, { isActive: !job.isActive });
       await Promise.all([load(), refreshBootstrap()]);
     } catch (updateError) {
-      setError(updateError instanceof Error ? updateError.message : 'No se pudo actualizar la convocatoria');
+      await showError('No se pudo actualizar la convocatoria', updateError);
     }
   };
 
   const onDelete = async (job: JobPostRecord) => {
-    const confirmed = window.confirm(`Eliminar convocatoria "${job.title}"?`);
-    if (!confirmed) return;
+    const isConfirmed = await confirm({
+      title: 'Eliminar convocatoria',
+      message: `¿Deseas eliminar la convocatoria "${job.title}"?`,
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
+      tone: 'warning',
+    });
+    if (!isConfirmed) return;
 
     try {
       await deleteJobPost(job.jobPostId);
       await Promise.all([load(), refreshBootstrap()]);
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : 'No se pudo eliminar la convocatoria');
+      await showError('No se pudo eliminar la convocatoria', deleteError);
+    }
+  };
+
+  const onRename = async (job: JobPostRecord) => {
+    const title = await prompt({
+      title: 'Renombrar convocatoria',
+      message: 'Ingresa el nuevo título.',
+      label: 'Título',
+      defaultValue: job.title,
+      placeholder: 'Título de convocatoria',
+      confirmText: 'Guardar',
+      cancelText: 'Cancelar',
+    });
+
+    if (!title || !title.trim() || title.trim() === job.title) return;
+
+    try {
+      await updateJobPost(job.jobPostId, { title: title.trim() });
+      await Promise.all([load(), refreshBootstrap()]);
+    } catch (updateError) {
+      await showError('No se pudo actualizar la convocatoria', updateError);
     }
   };
 
@@ -153,9 +191,6 @@ export default function ConvocatoriasPage() {
           />
         </form>
       )}
-
-      {error && <p className="text-sm text-red-600">{error}</p>}
-
       {loading ? (
         <div className="bg-white rounded-xl border border-slate-200 p-4 text-sm text-slate-500">Cargando...</div>
       ) : jobs.length === 0 ? (
@@ -197,20 +232,7 @@ export default function ConvocatoriasPage() {
                     <button
                       className="text-xs px-2 py-1 rounded border border-slate-300 text-slate-700"
                       type="button"
-                      onClick={async () => {
-                        const title = window.prompt('Nuevo título', job.title);
-                        if (!title || !title.trim() || title.trim() === job.title) return;
-                        try {
-                          await updateJobPost(job.jobPostId, { title: title.trim() });
-                          await Promise.all([load(), refreshBootstrap()]);
-                        } catch (updateError) {
-                          setError(
-                            updateError instanceof Error
-                              ? updateError.message
-                              : 'No se pudo actualizar la convocatoria',
-                          );
-                        }
-                      }}
+                      onClick={() => void onRename(job)}
                     >
                       Renombrar
                     </button>

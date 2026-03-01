@@ -3,20 +3,24 @@
 import React from 'react';
 import { Gem, Lock, Mail, Loader2 } from 'lucide-react';
 import { useUser } from '@/context/UserContext';
+import { useAppDialog } from '@/components/ui/AppDialogProvider';
 
 export default function LoginPage() {
   const { login, isHydrating } = useUser();
+  const { alert } = useAppDialog();
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
-  const [error, setError] = React.useState<string | null>(null);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    setError(null);
 
     const result = await login(email, password);
     if (!result.ok) {
-      setError(result.error ?? 'No fue posible iniciar sesión');
+      await alert({
+        title: 'Error de acceso',
+        message: result.error ?? 'No fue posible iniciar sesión',
+        tone: 'error',
+      });
     }
   };
 
@@ -64,9 +68,6 @@ export default function LoginPage() {
               />
             </div>
           </label>
-
-          {error && <p className="text-red-400 text-sm">{error}</p>}
-
           <button
             type="submit"
             disabled={isHydrating}

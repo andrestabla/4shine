@@ -1,0 +1,306 @@
+'use client';
+
+import React from 'react';
+import { AlertCircle, CheckCircle2, Info, TriangleAlert } from 'lucide-react';
+
+type DialogTone = 'info' | 'success' | 'warning' | 'error';
+
+interface DialogBaseOptions {
+  title?: string;
+  message: string;
+  tone?: DialogTone;
+}
+
+interface AlertOptions extends DialogBaseOptions {
+  confirmText?: string;
+}
+
+interface ConfirmOptions extends DialogBaseOptions {
+  confirmText?: string;
+  cancelText?: string;
+}
+
+interface PromptOptions extends ConfirmOptions {
+  label?: string;
+  placeholder?: string;
+  defaultValue?: string;
+  multiline?: boolean;
+}
+
+type DialogRequest =
+  | { kind: 'alert'; options: AlertOptions; resolve: () => void }
+  | { kind: 'confirm'; options: ConfirmOptions; resolve: (result: boolean) => void }
+  | { kind: 'prompt'; options: PromptOptions; resolve: (result: string | null) => void };
+
+interface AppDialogContextValue {
+  alert: (options: AlertOptions) => Promise<void>;
+  confirm: (options: ConfirmOptions) => Promise<boolean>;
+  prompt: (options: PromptOptions) => Promise<string | null>;
+}
+
+const AppDialogContext = React.createContext<AppDialogContextValue | undefined>(undefined);
+
+const TONE_STYLES: Record<
+  DialogTone,
+  {
+    icon: React.ReactNode;
+    iconClass: string;
+    confirmButtonClass: string;
+  }
+> = {
+  info: {
+    icon: <Info size={18} />,
+    iconClass: 'bg-blue-100 text-blue-700',
+    confirmButtonClass: 'bg-blue-600 hover:bg-blue-500 text-white',
+  },
+  success: {
+    icon: <CheckCircle2 size={18} />,
+    iconClass: 'bg-emerald-100 text-emerald-700',
+    confirmButtonClass: 'bg-emerald-600 hover:bg-emerald-500 text-white',
+  },
+  warning: {
+    icon: <TriangleAlert size={18} />,
+    iconClass: 'bg-amber-100 text-amber-700',
+    confirmButtonClass: 'bg-amber-500 hover:bg-amber-400 text-slate-900',
+  },
+  error: {
+    icon: <AlertCircle size={18} />,
+    iconClass: 'bg-red-100 text-red-700',
+    confirmButtonClass: 'bg-red-600 hover:bg-red-500 text-white',
+  },
+};
+
+export function AppDialogProvider({ children }: { children: React.ReactNode }) {
+  const queueRef = React.useRef<DialogRequest[]>([]);
+  const [activeDialog, setActiveDialog] = React.useState<DialogRequest | null>(null);
+  const [promptValue, setPromptValue] = React.useState('');
+  const inputRef = React.useRef<HTMLInputElement | HTMLTextAreaElement>(null);
+
+  const showNextDialog = React.useCallback(() => {
+    const next = queueRef.current.shift() ?? null;
+    setActiveDialog(next);
+  }, []);
+
+  const enqueueDialog = React.useCallback((request: DialogRequest) => {
+    queueRef.current.push(request);
+    setActiveDialog((current) => {
+      if (current) return current;
+      return queueRef.current.shift() ?? null;
+    });
+  }, []);
+
+  const alert = React.useCallback(
+    (options: AlertOptions) =>
+      new Promise<void>((resolve) => {
+        enqueueDialog({
+          kind: 'alert',
+          options,
+          resolve,
+        });
+      }),
+    [enqueueDialog],
+  );
+
+  const confirm = React.useCallback(
+    (options: ConfirmOptions) =>
+      new Promise<boolean>((resolve) => {
+        enqueueDialog({
+          kind: 'confirm',
+          options,
+          resolve,
+        });
+      }),
+    [enqueueDialog],
+  );
+
+  const prompt = React.useCallback(
+    (options: PromptOptions) =>
+      new Promise<string | null>((resolve) => {
+        enqueueDialog({
+          kind: 'prompt',
+          options,
+          resolve,
+        });
+      }),
+    [enqueueDialog],
+  );
+
+  React.useEffect(() => {
+    if (activeDialog?.kind === 'prompt') {
+      setPromptValue(activeDialog.options.defaultValue ?? '');
+      window.setTimeout(() => {
+        inputRef.current?.focus();
+      }, 0);
+      return;
+    }
+
+    setPromptValue('');
+  }, [activeDialog]);
+
+  React.useEffect(() => {
+    if (!activeDialog) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [activeDialog]);
+
+  const closeWithCancel = React.useCallback(() => {
+    if (!activeDialog) return;
+
+    if (activeDialog.kind === 'alert') {
+      activeDialog.resolve();
+      showNextDialog();
+      return;
+    }
+
+    if (activeDialog.kind === 'confirm') {
+      activeDialog.resolve(false);
+      showNextDialog();
+      return;
+    }
+
+    activeDialog.resolve(null);
+    showNextDialog();
+  }, [activeDialog, showNextDialog]);
+
+  const closeWithConfirm = React.useCallback(() => {
+    if (!activeDialog) return;
+
+    if (activeDialog.kind === 'alert') {
+      activeDialog.resolve();
+      showNextDialog();
+      return;
+    }
+
+    if (activeDialog.kind === 'confirm') {
+      activeDialog.resolve(true);
+      showNextDialog();
+      return;
+    }
+
+    activeDialog.resolve(promptValue);
+    showNextDialog();
+  }, [activeDialog, promptValue, showNextDialog]);
+
+  React.useEffect(() => {
+    if (!activeDialog) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeWithCancel();
+      }
+
+      if (event.key === 'Enter' && activeDialog.kind !== 'alert') {
+        const target = event.target as HTMLElement | null;
+        if (
+          activeDialog.kind === 'prompt' &&
+          activeDialog.options.multiline &&
+          target?.tagName === 'TEXTAREA' &&
+          !event.ctrlKey
+        ) {
+          return;
+        }
+        event.preventDefault();
+        closeWithConfirm();
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [activeDialog, closeWithCancel, closeWithConfirm]);
+
+  const contextValue = React.useMemo<AppDialogContextValue>(
+    () => ({
+      alert,
+      confirm,
+      prompt,
+    }),
+    [alert, confirm, prompt],
+  );
+
+  const tone = activeDialog?.options.tone ?? 'info';
+  const toneStyle = TONE_STYLES[tone];
+
+  return (
+    <AppDialogContext.Provider value={contextValue}>
+      {children}
+
+      {activeDialog && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/70 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden animate-fade-in">
+            <div className="flex items-start gap-3 border-b border-slate-100 px-5 py-4">
+              <span className={`mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-full ${toneStyle.iconClass}`}>
+                {toneStyle.icon}
+              </span>
+              <div className="space-y-1">
+                <h3 className="text-base font-semibold text-slate-800">
+                  {activeDialog.options.title ??
+                    (activeDialog.kind === 'alert' ? 'Notificación' : activeDialog.kind === 'confirm' ? 'Confirmar' : 'Editar')}
+                </h3>
+                <p className="text-sm text-slate-600 whitespace-pre-wrap">{activeDialog.options.message}</p>
+              </div>
+            </div>
+
+            {activeDialog.kind === 'prompt' && (
+              <div className="px-5 pt-4">
+                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  {activeDialog.options.label ?? 'Valor'}
+                </label>
+                {activeDialog.options.multiline ? (
+                  <textarea
+                    ref={inputRef as React.RefObject<HTMLTextAreaElement>}
+                    className="mt-2 min-h-24 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"
+                    value={promptValue}
+                    placeholder={activeDialog.options.placeholder}
+                    onChange={(event) => setPromptValue(event.target.value)}
+                  />
+                ) : (
+                  <input
+                    ref={inputRef as React.RefObject<HTMLInputElement>}
+                    className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"
+                    value={promptValue}
+                    placeholder={activeDialog.options.placeholder}
+                    onChange={(event) => setPromptValue(event.target.value)}
+                  />
+                )}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 px-5 py-4">
+              {activeDialog.kind !== 'alert' && (
+                <button
+                  type="button"
+                  className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"
+                  onClick={closeWithCancel}
+                >
+                  {activeDialog.options.cancelText ?? 'Cancelar'}
+                </button>
+              )}
+              <button
+                type="button"
+                className={`rounded-md px-3 py-2 text-sm font-medium ${toneStyle.confirmButtonClass}`}
+                onClick={closeWithConfirm}
+              >
+                {activeDialog.options.confirmText ??
+                  (activeDialog.kind === 'alert' ? 'Aceptar' : activeDialog.kind === 'confirm' ? 'Confirmar' : 'Guardar')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </AppDialogContext.Provider>
+  );
+}
+
+export function useAppDialog() {
+  const context = React.useContext(AppDialogContext);
+  if (!context) {
+    throw new Error('useAppDialog must be used within AppDialogProvider');
+  }
+  return context;
+}

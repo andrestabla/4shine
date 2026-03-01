@@ -3,6 +3,7 @@
 import React from 'react';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { EmptyState } from '@/components/dashboard/EmptyState';
+import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useUser } from '@/context/UserContext';
 import {
   createUser,
@@ -24,6 +25,7 @@ interface CreateFormState {
 }
 
 type TabCode = 'users' | 'logs';
+const ROLE_OPTIONS: AppRole[] = ['lider', 'mentor', 'gestor', 'admin'];
 
 function formatDateTime(value: string): string {
   return new Date(value).toLocaleString('es-CO', {
@@ -44,12 +46,13 @@ function summarizeChanges(input: Record<string, unknown>): string {
 
 export default function UsuariosPage() {
   const { can, refreshBootstrap } = useUser();
+  const { alert, confirm } = useAppDialog();
   const [users, setUsers] = React.useState<UserRecord[]>([]);
   const [logs, setLogs] = React.useState<AuditLogRecord[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [logsLoading, setLogsLoading] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
   const [activeTab, setActiveTab] = React.useState<TabCode>('users');
+  const [roleMenuUserId, setRoleMenuUserId] = React.useState<string | null>(null);
   const [form, setForm] = React.useState<CreateFormState>({
     email: '',
     firstName: '',
@@ -60,32 +63,41 @@ export default function UsuariosPage() {
 
   const canViewLogs = can('usuarios', 'manage');
 
+  const showError = React.useCallback(
+    async (fallbackMessage: string, cause: unknown) => {
+      await alert({
+        title: 'Error',
+        message: cause instanceof Error ? cause.message : fallbackMessage,
+        tone: 'error',
+      });
+    },
+    [alert],
+  );
+
   const loadUsers = React.useCallback(async () => {
     setLoading(true);
-    setError(null);
     try {
       const data = await listUsers();
       setUsers(data);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'No se pudieron cargar los usuarios');
+      await showError('No se pudieron cargar los usuarios', loadError);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showError]);
 
   const loadLogs = React.useCallback(async () => {
     if (!canViewLogs) return;
     setLogsLoading(true);
-    setError(null);
     try {
       const data = await listUserNavigationLogs();
       setLogs(data);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'No se pudo cargar el log de navegación');
+      await showError('No se pudo cargar el log de navegación', loadError);
     } finally {
       setLogsLoading(false);
     }
-  }, [canViewLogs]);
+  }, [canViewLogs, showError]);
 
   React.useEffect(() => {
     void loadUsers();
@@ -118,7 +130,7 @@ export default function UsuariosPage() {
       });
       await Promise.all([loadUsers(), refreshBootstrap()]);
     } catch (createError) {
-      setError(createError instanceof Error ? createError.message : 'No se pudo crear el usuario');
+      await showError('No se pudo crear el usuario', createError);
     }
   };
 
@@ -127,19 +139,40 @@ export default function UsuariosPage() {
       await updateUser(user.userId, { isActive: !user.isActive });
       await Promise.all([loadUsers(), refreshBootstrap()]);
     } catch (updateError) {
-      setError(updateError instanceof Error ? updateError.message : 'No se pudo actualizar el usuario');
+      await showError('No se pudo actualizar el usuario', updateError);
     }
   };
 
   const onDeactivate = async (user: UserRecord) => {
-    const confirmed = window.confirm(`Desactivar usuario "${user.displayName}"?`);
-    if (!confirmed) return;
+    const isConfirmed = await confirm({
+      title: 'Desactivar usuario',
+      message: `¿Deseas desactivar a "${user.displayName}"?`,
+      confirmText: 'Desactivar',
+      cancelText: 'Cancelar',
+      tone: 'warning',
+    });
+    if (!isConfirmed) return;
 
     try {
       await deactivateUser(user.userId);
       await Promise.all([loadUsers(), refreshBootstrap()]);
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : 'No se pudo desactivar el usuario');
+      await showError('No se pudo desactivar el usuario', deleteError);
+    }
+  };
+
+  const onChangeRole = async (user: UserRecord, role: AppRole) => {
+    if (role === user.primaryRole) {
+      setRoleMenuUserId(null);
+      return;
+    }
+
+    try {
+      await updateUser(user.userId, { primaryRole: role });
+      setRoleMenuUserId(null);
+      await Promise.all([loadUsers(), refreshBootstrap()]);
+    } catch (updateError) {
+      await showError('No se pudo actualizar el rol', updateError);
     }
   };
 
@@ -172,9 +205,6 @@ export default function UsuariosPage() {
           </button>
         )}
       </div>
-
-      {error && <p className="text-sm text-red-600">{error}</p>}
-
       {activeTab === 'users' && (
         <>
           {can('usuarios', 'create') && (
@@ -278,29 +308,46 @@ export default function UsuariosPage() {
                                 >
                                   {user.isActive ? 'Suspender' : 'Activar'}
                                 </button>
-                                <button
-                                  className="text-xs px-2 py-1 rounded border border-slate-300 text-slate-700"
-                                  type="button"
-                                  onClick={async () => {
-                                    const role = window.prompt(
-                                      'Nuevo rol: lider | mentor | gestor | admin',
-                                      user.primaryRole,
-                                    );
-                                    if (!role || !['lider', 'mentor', 'gestor', 'admin'].includes(role)) return;
-                                    try {
-                                      await updateUser(user.userId, { primaryRole: role as AppRole });
-                                      await Promise.all([loadUsers(), refreshBootstrap()]);
-                                    } catch (updateError) {
-                                      setError(
-                                        updateError instanceof Error
-                                          ? updateError.message
-                                          : 'No se pudo actualizar el rol',
-                                      );
+                                <div
+                                  className="relative"
+                                  onBlur={(event) => {
+                                    const nextTarget = event.relatedTarget as Node | null;
+                                    if (!event.currentTarget.contains(nextTarget)) {
+                                      setRoleMenuUserId(null);
                                     }
                                   }}
                                 >
-                                  Cambiar rol
-                                </button>
+                                  <button
+                                    className="text-xs px-2 py-1 rounded border border-slate-300 text-slate-700"
+                                    type="button"
+                                    aria-haspopup="menu"
+                                    aria-expanded={roleMenuUserId === user.userId}
+                                    onClick={() =>
+                                      setRoleMenuUserId((current) => (current === user.userId ? null : user.userId))
+                                    }
+                                  >
+                                    Cambiar rol
+                                  </button>
+                                  {roleMenuUserId === user.userId && (
+                                    <div className="absolute right-0 top-full mt-1 z-20 w-36 rounded-md border border-slate-200 bg-white shadow-lg">
+                                      {ROLE_OPTIONS.map((role) => (
+                                        <button
+                                          key={role}
+                                          type="button"
+                                          className={`block w-full px-3 py-2 text-left text-xs ${
+                                            role === user.primaryRole
+                                              ? 'bg-slate-100 text-slate-500 cursor-default'
+                                              : 'text-slate-700 hover:bg-slate-50'
+                                          }`}
+                                          disabled={role === user.primaryRole}
+                                          onClick={() => void onChangeRole(user, role)}
+                                        >
+                                          {role}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
                               </>
                             )}
                             {can('usuarios', 'delete') && (

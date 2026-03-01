@@ -3,6 +3,7 @@
 import React from 'react';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { EmptyState } from '@/components/dashboard/EmptyState';
+import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useUser } from '@/context/UserContext';
 import {
   createWorkshop,
@@ -37,9 +38,9 @@ function toIso(value: string): string {
 
 export default function WorkshopsPage() {
   const { can, refreshBootstrap } = useUser();
+  const { alert, confirm, prompt } = useAppDialog();
   const [workshops, setWorkshops] = React.useState<WorkshopRecord[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
   const [form, setForm] = React.useState<CreateFormState>({
     title: '',
     workshopType: 'formacion',
@@ -50,18 +51,28 @@ export default function WorkshopsPage() {
     description: '',
   });
 
+  const showError = React.useCallback(
+    async (fallbackMessage: string, cause: unknown) => {
+      await alert({
+        title: 'Error',
+        message: cause instanceof Error ? cause.message : fallbackMessage,
+        tone: 'error',
+      });
+    },
+    [alert],
+  );
+
   const load = React.useCallback(async () => {
     setLoading(true);
-    setError(null);
     try {
       const data = await listWorkshops();
       setWorkshops(data);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'No se pudieron cargar los workshops');
+      await showError('No se pudieron cargar los workshops', loadError);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showError]);
 
   React.useEffect(() => {
     void load();
@@ -92,7 +103,7 @@ export default function WorkshopsPage() {
       });
       await Promise.all([load(), refreshBootstrap()]);
     } catch (createError) {
-      setError(createError instanceof Error ? createError.message : 'No se pudo crear el workshop');
+      await showError('No se pudo crear el workshop', createError);
     }
   };
 
@@ -101,19 +112,46 @@ export default function WorkshopsPage() {
       await updateWorkshop(workshop.workshopId, { status });
       await Promise.all([load(), refreshBootstrap()]);
     } catch (updateError) {
-      setError(updateError instanceof Error ? updateError.message : 'No se pudo actualizar el workshop');
+      await showError('No se pudo actualizar el workshop', updateError);
     }
   };
 
   const onDelete = async (workshop: WorkshopRecord) => {
-    const confirmed = window.confirm(`Eliminar workshop "${workshop.title}"?`);
-    if (!confirmed) return;
+    const isConfirmed = await confirm({
+      title: 'Eliminar workshop',
+      message: `¿Deseas eliminar el workshop "${workshop.title}"?`,
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
+      tone: 'warning',
+    });
+    if (!isConfirmed) return;
 
     try {
       await deleteWorkshop(workshop.workshopId);
       await Promise.all([load(), refreshBootstrap()]);
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : 'No se pudo eliminar el workshop');
+      await showError('No se pudo eliminar el workshop', deleteError);
+    }
+  };
+
+  const onRename = async (workshop: WorkshopRecord) => {
+    const title = await prompt({
+      title: 'Renombrar workshop',
+      message: 'Ingresa el nuevo título.',
+      label: 'Título',
+      defaultValue: workshop.title,
+      placeholder: 'Título del workshop',
+      confirmText: 'Guardar',
+      cancelText: 'Cancelar',
+    });
+
+    if (!title || !title.trim() || title.trim() === workshop.title) return;
+
+    try {
+      await updateWorkshop(workshop.workshopId, { title: title.trim() });
+      await Promise.all([load(), refreshBootstrap()]);
+    } catch (updateError) {
+      await showError('No se pudo actualizar el workshop', updateError);
     }
   };
 
@@ -178,9 +216,6 @@ export default function WorkshopsPage() {
           />
         </form>
       )}
-
-      {error && <p className="text-sm text-red-600">{error}</p>}
-
       {loading ? (
         <div className="bg-white rounded-xl border border-slate-200 p-4 text-sm text-slate-500">Cargando...</div>
       ) : workshops.length === 0 ? (
@@ -217,16 +252,7 @@ export default function WorkshopsPage() {
                   <button
                     className="text-xs px-2 py-1 rounded border border-slate-300 text-slate-700"
                     type="button"
-                    onClick={async () => {
-                      const title = window.prompt('Nuevo título', workshop.title);
-                      if (!title || !title.trim() || title.trim() === workshop.title) return;
-                      try {
-                        await updateWorkshop(workshop.workshopId, { title: title.trim() });
-                        await Promise.all([load(), refreshBootstrap()]);
-                      } catch (updateError) {
-                        setError(updateError instanceof Error ? updateError.message : 'No se pudo actualizar el workshop');
-                      }
-                    }}
+                    onClick={() => void onRename(workshop)}
                   >
                     Renombrar
                   </button>

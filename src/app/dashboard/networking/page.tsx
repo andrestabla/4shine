@@ -3,6 +3,7 @@
 import React from 'react';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { EmptyState } from '@/components/dashboard/EmptyState';
+import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useUser } from '@/context/UserContext';
 import {
   createConnection,
@@ -24,15 +25,25 @@ function toDateLabel(value: string): string {
 
 export default function NetworkingPage() {
   const { bootstrapData, can, refreshBootstrap } = useUser();
+  const { alert, confirm } = useAppDialog();
   const [connections, setConnections] = React.useState<ConnectionRecord[]>([]);
   const [people, setPeople] = React.useState<NetworkPersonRecord[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
   const [selectedUserId, setSelectedUserId] = React.useState('');
+
+  const showError = React.useCallback(
+    async (fallbackMessage: string, cause: unknown) => {
+      await alert({
+        title: 'Error',
+        message: cause instanceof Error ? cause.message : fallbackMessage,
+        tone: 'error',
+      });
+    },
+    [alert],
+  );
 
   const load = React.useCallback(async () => {
     setLoading(true);
-    setError(null);
     try {
       const [connectionData, peopleData] = await Promise.all([listConnections(), listNetworkPeople()]);
       setConnections(connectionData);
@@ -42,11 +53,11 @@ export default function NetworkingPage() {
         return peopleData[0]?.userId ?? '';
       });
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'No se pudo cargar networking');
+      await showError('No se pudo cargar networking', loadError);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showError]);
 
   React.useEffect(() => {
     void load();
@@ -60,7 +71,7 @@ export default function NetworkingPage() {
       await createConnection({ addresseeUserId: selectedUserId });
       await Promise.all([load(), refreshBootstrap()]);
     } catch (createError) {
-      setError(createError instanceof Error ? createError.message : 'No se pudo crear la conexión');
+      await showError('No se pudo crear la conexión', createError);
     }
   };
 
@@ -69,19 +80,25 @@ export default function NetworkingPage() {
       await updateConnection(connection.connectionId, { status });
       await Promise.all([load(), refreshBootstrap()]);
     } catch (updateError) {
-      setError(updateError instanceof Error ? updateError.message : 'No se pudo actualizar la conexión');
+      await showError('No se pudo actualizar la conexión', updateError);
     }
   };
 
   const onDelete = async (connection: ConnectionRecord) => {
-    const confirmed = window.confirm(`Eliminar conexión con "${connection.counterpartName}"?`);
-    if (!confirmed) return;
+    const isConfirmed = await confirm({
+      title: 'Eliminar conexión',
+      message: `¿Deseas eliminar la conexión con "${connection.counterpartName}"?`,
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
+      tone: 'warning',
+    });
+    if (!isConfirmed) return;
 
     try {
       await deleteConnection(connection.connectionId);
       await Promise.all([load(), refreshBootstrap()]);
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : 'No se pudo eliminar la conexión');
+      await showError('No se pudo eliminar la conexión', deleteError);
     }
   };
 
@@ -116,9 +133,6 @@ export default function NetworkingPage() {
           </button>
         </form>
       )}
-
-      {error && <p className="text-sm text-red-600">{error}</p>}
-
       {loading ? (
         <div className="bg-white rounded-xl border border-slate-200 p-4 text-sm text-slate-500">Cargando...</div>
       ) : (
