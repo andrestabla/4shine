@@ -1,11 +1,14 @@
 'use client';
 
 import React from 'react';
-import { USERS } from '@/data/mockData';
 import { PageTitle } from '@/components/dashboard/PageTitle';
+import { useUser } from '@/context/UserContext';
 
 export default function UsuariosPage() {
-  const rows = Object.values(USERS);
+  const { bootstrapData } = useUser();
+  if (!bootstrapData) return null;
+
+  const rows = Object.values(bootstrapData.users);
 
   return (
     <div>

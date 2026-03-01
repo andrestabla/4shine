@@ -2,11 +2,14 @@
 
 import React from 'react';
 import { useUser } from '@/context/UserContext';
-import { TIMELINE, MENTEES } from '@/data/mockData';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 
 export default function TrayectoriaPage() {
-  const { currentRole } = useUser();
+  const { currentRole, bootstrapData } = useUser();
+  if (!bootstrapData) return null;
+
+  const timeline = bootstrapData.timeline;
+  const mentees = bootstrapData.mentees;
 
   return (
     <div>
@@ -18,7 +21,7 @@ export default function TrayectoriaPage() {
       <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm mb-6">
         <h3 className="font-bold text-slate-800 mb-4">Línea de tiempo</h3>
         <div className="space-y-3">
-          {TIMELINE.map((event) => (
+          {timeline.map((event) => (
             <div key={event.id} className="flex items-center justify-between border border-slate-100 rounded-lg p-3">
               <div>
                 <p className="font-medium text-slate-800">{event.title}</p>
@@ -54,7 +57,7 @@ export default function TrayectoriaPage() {
                 </tr>
               </thead>
               <tbody>
-                {MENTEES.map((m) => (
+                {mentees.map((m) => (
                   <tr key={m.id} className="border-b border-slate-100">
                     <td className="py-2 font-medium text-slate-800">{m.name}</td>
                     <td className="py-2 text-slate-600">{m.company}</td>

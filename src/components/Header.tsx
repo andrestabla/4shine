@@ -3,9 +3,9 @@
 import React, { useMemo, useState } from 'react';
 import { useUser } from '@/context/UserContext';
 import { Bell, Search, Menu, Check, Info, AlertCircle, MessageSquare } from 'lucide-react';
-import { NOTIFICATIONS } from '@/data/mockData';
 import clsx from 'clsx';
 import { usePathname } from 'next/navigation';
+import type { Notification } from '@/server/bootstrap/types';
 
 const PATH_TITLES: Record<string, string> = {
   '/dashboard': 'Dashboard',
@@ -27,10 +27,14 @@ const PATH_TITLES: Record<string, string> = {
 };
 
 export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
-  const { currentUser } = useUser();
+  const { currentUser, bootstrapData } = useUser();
   const [showNotifications, setShowNotifications] = useState(false);
-  const [notifications, setNotifications] = useState(NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const pathname = usePathname();
+
+  React.useEffect(() => {
+    setNotifications(bootstrapData?.notifications ?? []);
+  }, [bootstrapData]);
 
   const pageTitle = useMemo(() => {
     if (pathname === '/dashboard') {

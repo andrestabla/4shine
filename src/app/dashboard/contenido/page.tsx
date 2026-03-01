@@ -1,13 +1,19 @@
 'use client';
 
 import React from 'react';
-import { LEARNING_CONTENT, METHODOLOGY_CONTENT } from '@/data/mockData';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { StatGrid } from '@/components/dashboard/StatGrid';
+import { useUser } from '@/context/UserContext';
 
 export default function ContenidoPage() {
-  const totalLearning = LEARNING_CONTENT.length;
-  const totalMethodology = METHODOLOGY_CONTENT.length;
+  const { bootstrapData } = useUser();
+  if (!bootstrapData) return null;
+
+  const learningContent = bootstrapData.learningContent;
+  const methodologyContent = bootstrapData.methodologyContent;
+
+  const totalLearning = learningContent.length;
+  const totalMethodology = methodologyContent.length;
 
   return (
     <div>
@@ -25,15 +31,15 @@ export default function ContenidoPage() {
           {
             label: 'Recomendados',
             value:
-              LEARNING_CONTENT.filter((item) => item.isRecommended).length +
-              METHODOLOGY_CONTENT.filter((item) => item.liked).length,
+              learningContent.filter((item) => item.isRecommended).length +
+              methodologyContent.filter((item) => item.liked).length,
             hint: 'Destacados',
           },
         ]}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {LEARNING_CONTENT.slice(0, 8).map((item) => (
+        {learningContent.slice(0, 8).map((item) => (
           <article key={`learning-${item.id}`} className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
             <h3 className="font-semibold text-slate-800">{item.title}</h3>
             <p className="text-xs text-slate-500 mt-1">
@@ -41,7 +47,7 @@ export default function ContenidoPage() {
             </p>
           </article>
         ))}
-        {METHODOLOGY_CONTENT.slice(0, 8).map((item) => (
+        {methodologyContent.slice(0, 8).map((item) => (
           <article key={`method-${item.id}`} className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
             <h3 className="font-semibold text-slate-800">{item.title}</h3>
             <p className="text-xs text-slate-500 mt-1">

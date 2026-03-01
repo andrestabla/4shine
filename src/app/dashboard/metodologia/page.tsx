@@ -1,20 +1,25 @@
 'use client';
 
 import React from 'react';
-import { METHODOLOGY_CONTENT } from '@/data/mockData';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { EmptyState } from '@/components/dashboard/EmptyState';
+import { useUser } from '@/context/UserContext';
 
 export default function MetodologiaPage() {
+  const { bootstrapData } = useUser();
+  if (!bootstrapData) return null;
+
+  const methodologyContent = bootstrapData.methodologyContent;
+
   return (
     <div>
       <PageTitle title="Metodología" subtitle="Repositorio estructurado del marco 4Shine." />
 
-      {METHODOLOGY_CONTENT.length === 0 ? (
+      {methodologyContent.length === 0 ? (
         <EmptyState message="No hay recursos metodológicos." />
       ) : (
         <div className="space-y-4">
-          {METHODOLOGY_CONTENT.map((resource) => (
+          {methodologyContent.map((resource) => (
             <article key={resource.id} className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
               <div className="flex items-center justify-between gap-3 mb-1">
                 <h3 className="font-semibold text-slate-800">{resource.title}</h3>

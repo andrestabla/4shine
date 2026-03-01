@@ -1,8 +1,8 @@
-import { hydrateMockData, type RuntimeBootstrapPayload } from '@/data/mockData';
+import type { BootstrapPayload } from '@/server/bootstrap/types';
 
 interface BootstrapResponse {
   ok: boolean;
-  data: RuntimeBootstrapPayload;
+  data: BootstrapPayload;
   error?: string;
   detail?: string;
 }
@@ -19,7 +19,7 @@ async function postRefresh(): Promise<boolean> {
   return refreshResponse.ok;
 }
 
-export async function hydrateFromBackend(): Promise<void> {
+export async function hydrateFromBackend(): Promise<BootstrapPayload> {
   const makeRequest = async (): Promise<Response> =>
     fetch('/api/v1/bootstrap/me', {
       method: 'GET',
@@ -45,5 +45,5 @@ export async function hydrateFromBackend(): Promise<void> {
     throw new Error(payload.detail ?? payload.error ?? 'Bootstrap request failed');
   }
 
-  hydrateMockData(payload.data);
+  return payload.data;
 }

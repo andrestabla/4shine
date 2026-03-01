@@ -44,6 +44,14 @@ cp .env.example .env.local
 - Bootstrap:
   - `GET /api/v1/bootstrap/me` (principal, basado en JWT/cookies)
   - `GET /api/v1/bootstrap/:role` (protegido, uso administrativo/compatibilidad)
+- CRUD modular (`/api/v1/modules/*`):
+  - `contenido`
+  - `mentorias`
+  - `networking/connections`
+  - `mensajes/threads` y `mensajes/messages`
+  - `convocatorias`
+  - `workshops`
+  - `usuarios`
 
 ## Dashboard modular
 
@@ -75,5 +83,5 @@ npm run dev
 
 ## Notas
 
-- El frontend mantiene compatibilidad con componentes existentes, pero ahora los datos se cargan desde DB al iniciar sesión.
-- `mockData` se usa como contrato de UI y fallback; el origen principal ya es backend real.
+- El frontend consume `bootstrapData` de backend y permisos RBAC por módulo desde DB en cada sesión.
+- La navegación y acceso de módulos en UI se resuelve por `app_auth.v_role_permission_matrix` (vía `/api/v1/auth/permissions`).

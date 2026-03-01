@@ -1,16 +1,21 @@
 'use client';
 
 import React from 'react';
-import { MENTORSHIPS } from '@/data/mockData';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { EmptyState } from '@/components/dashboard/EmptyState';
+import { useUser } from '@/context/UserContext';
 
 export default function MentoriasPage() {
+  const { bootstrapData } = useUser();
+  if (!bootstrapData) return null;
+
+  const mentorships = bootstrapData.mentorships;
+
   return (
     <div>
       <PageTitle title="Mentorías" subtitle="Agenda y estado de sesiones." />
 
-      {MENTORSHIPS.length === 0 ? (
+      {mentorships.length === 0 ? (
         <EmptyState message="No hay mentorías registradas." />
       ) : (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -26,7 +31,7 @@ export default function MentoriasPage() {
                 </tr>
               </thead>
               <tbody>
-                {MENTORSHIPS.map((session) => (
+                {mentorships.map((session) => (
                   <tr key={session.id} className="border-t border-slate-100">
                     <td className="px-4 py-3 font-medium text-slate-800">{session.title}</td>
                     <td className="px-4 py-3 text-slate-600">{session.mentor}</td>

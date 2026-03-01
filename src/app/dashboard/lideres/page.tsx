@@ -1,10 +1,15 @@
 'use client';
 
 import React from 'react';
-import { MENTEES } from '@/data/mockData';
 import { PageTitle } from '@/components/dashboard/PageTitle';
+import { useUser } from '@/context/UserContext';
 
 export default function LideresPage() {
+  const { bootstrapData } = useUser();
+  if (!bootstrapData) return null;
+
+  const mentees = bootstrapData.mentees;
+
   return (
     <div>
       <PageTitle title="Líderes" subtitle="Seguimiento de participantes y nivel de avance." />
@@ -22,7 +27,7 @@ export default function LideresPage() {
               </tr>
             </thead>
             <tbody>
-              {MENTEES.map((leader) => (
+              {mentees.map((leader) => (
                 <tr key={leader.id} className="border-t border-slate-100">
                   <td className="px-4 py-3 font-medium text-slate-800">{leader.name}</td>
                   <td className="px-4 py-3 text-slate-600">{leader.company}</td>

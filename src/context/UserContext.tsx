@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { User, Role, USERS } from '@/data/mockData';
+import type { BootstrapPayload, Role, User } from '@/server/bootstrap/types';
 import { useRouter } from 'next/navigation';
 import { hydrateFromBackend } from '@/lib/bootstrap-client';
 import {
@@ -24,12 +24,15 @@ interface SessionUser {
 interface UserContextType {
   currentUser: User | null;
   currentRole: Role | null;
+  sessionUser: SessionUser | null;
+  bootstrapData: BootstrapPayload | null;
   modulePermissions: ModulePermissionMap;
   isHydrating: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   logout: () => Promise<void>;
   can: (moduleCode: ModuleCode, action?: PermissionAction) => boolean;
+  refreshBootstrap: () => Promise<void>;
   updateUser: (updates: Partial<User>) => void;
 }
 
@@ -47,21 +50,62 @@ interface PermissionsResponse {
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
-function buildUserFromRole(role: Role, sessionUser?: SessionUser): User {
-  const base = USERS[role];
+const ROLE_LABEL: Record<Role, string> = {
+  lider: 'Líder',
+  mentor: 'Mentor',
+  gestor: 'Gestor del Programa',
+  admin: 'Administrador',
+};
+
+const ROLE_COLOR: Record<Role, string> = {
+  lider: 'bg-amber-500',
+  mentor: 'bg-blue-600',
+  gestor: 'bg-teal-600',
+  admin: 'bg-slate-700',
+};
+
+function fallbackUser(sessionUser: SessionUser): User {
   return {
-    ...base,
-    name: sessionUser?.name ?? base.name,
-    role: base.role,
+    id: sessionUser.id,
+    name: sessionUser.name,
+    role: ROLE_LABEL[sessionUser.role],
+    avatar: sessionUser.name.charAt(0).toUpperCase() || 'U',
+    color: ROLE_COLOR[sessionUser.role],
+    company: '4Shine',
+    location: 'Remoto',
+    stats: {},
+  };
+}
+
+function buildCurrentUser(sessionUser: SessionUser, payload: BootstrapPayload): User {
+  const payloadUser = payload.users?.[sessionUser.role];
+  if (!payloadUser) {
+    return fallbackUser(sessionUser);
+  }
+
+  return {
+    ...payloadUser,
+    id: payloadUser.id || sessionUser.id,
+    name: sessionUser.name || payloadUser.name,
   };
 }
 
 export const UserProvider = ({ children }: { children: ReactNode }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentRole, setCurrentRole] = useState<Role | null>(null);
+  const [sessionUser, setSessionUser] = useState<SessionUser | null>(null);
+  const [bootstrapData, setBootstrapData] = useState<BootstrapPayload | null>(null);
   const [modulePermissions, setModulePermissions] = useState<ModulePermissionMap>(emptyModulePermissionMap());
   const [isHydrating, setIsHydrating] = useState(true);
   const router = useRouter();
+
+  const clearSession = React.useCallback(() => {
+    setCurrentRole(null);
+    setCurrentUser(null);
+    setSessionUser(null);
+    setBootstrapData(null);
+    setModulePermissions(emptyModulePermissionMap());
+  }, []);
 
   const fetchPermissions = React.useCallback(async (): Promise<ModulePermissionMap> => {
     const response = await fetch('/api/v1/auth/permissions', {
@@ -82,12 +126,28 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     return toModulePermissionMap(payload.permissions);
   }, []);
 
-  const applySession = React.useCallback(async (sessionUser: SessionUser): Promise<void> => {
-    const [permissions] = await Promise.all([fetchPermissions(), hydrateFromBackend()]);
-    setModulePermissions(permissions);
-    setCurrentRole(sessionUser.role);
-    setCurrentUser(buildUserFromRole(sessionUser.role, sessionUser));
-  }, [fetchPermissions]);
+  const applySession = React.useCallback(
+    async (nextSessionUser: SessionUser): Promise<void> => {
+      const [permissions, data] = await Promise.all([fetchPermissions(), hydrateFromBackend()]);
+
+      setSessionUser(nextSessionUser);
+      setCurrentRole(nextSessionUser.role);
+      setModulePermissions(permissions);
+      setBootstrapData(data);
+      setCurrentUser(buildCurrentUser(nextSessionUser, data));
+    },
+    [fetchPermissions],
+  );
+
+  const refreshBootstrap = React.useCallback(async () => {
+    if (!sessionUser) {
+      return;
+    }
+
+    const data = await hydrateFromBackend();
+    setBootstrapData(data);
+    setCurrentUser(buildCurrentUser(sessionUser, data));
+  }, [sessionUser]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -102,9 +162,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
         if (!response.ok) {
           if (!cancelled) {
-            setCurrentRole(null);
-            setCurrentUser(null);
-            setModulePermissions(emptyModulePermissionMap());
+            clearSession();
             setIsHydrating(false);
           }
           return;
@@ -114,9 +172,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
         if (!payload.ok || !payload.user) {
           if (!cancelled) {
-            setCurrentRole(null);
-            setCurrentUser(null);
-            setModulePermissions(emptyModulePermissionMap());
+            clearSession();
             setIsHydrating(false);
           }
           return;
@@ -126,9 +182,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
       } catch (error) {
         console.error('Session restore failed', error);
         if (!cancelled) {
-          setCurrentRole(null);
-          setCurrentUser(null);
-          setModulePermissions(emptyModulePermissionMap());
+          clearSession();
         }
       } finally {
         if (!cancelled) {
@@ -142,7 +196,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       cancelled = true;
     };
-  }, [applySession]);
+  }, [applySession, clearSession]);
 
   const login = async (email: string, password: string): Promise<{ ok: boolean; error?: string }> => {
     setIsHydrating(true);
@@ -175,9 +229,24 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const updateUser = (updates: Partial<User>) => {
-    if (!currentUser) return;
+    if (!currentUser || !currentRole) return;
+
     const updatedUser = { ...currentUser, ...updates };
     setCurrentUser(updatedUser);
+
+    setBootstrapData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        users: {
+          ...prev.users,
+          [currentRole]: {
+            ...prev.users[currentRole],
+            ...updates,
+          },
+        },
+      };
+    });
   };
 
   const logout = async () => {
@@ -189,9 +258,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     } catch (error) {
       console.error('Logout request failed', error);
     } finally {
-      setCurrentRole(null);
-      setCurrentUser(null);
-      setModulePermissions(emptyModulePermissionMap());
+      clearSession();
       router.push('/');
     }
   };
@@ -204,12 +271,15 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
       value={{
         currentUser,
         currentRole,
+        sessionUser,
+        bootstrapData,
         modulePermissions,
         isHydrating,
-        isAuthenticated: !!currentUser,
+        isAuthenticated: !!sessionUser,
         login,
         logout,
         can,
+        refreshBootstrap,
         updateUser,
       }}
     >

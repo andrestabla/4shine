@@ -1,10 +1,15 @@
 'use client';
 
 import React from 'react';
-import { MENTOR_ASSIGNMENTS } from '@/data/mockData';
 import { PageTitle } from '@/components/dashboard/PageTitle';
+import { useUser } from '@/context/UserContext';
 
 export default function GestionFormacionMentoresPage() {
+  const { bootstrapData } = useUser();
+  if (!bootstrapData) return null;
+
+  const mentorAssignments = bootstrapData.mentorAssignments;
+
   return (
     <div>
       <PageTitle title="Gestión Formación Mentores" subtitle="Asignaciones y estado de cursos por mentor." />
@@ -22,7 +27,7 @@ export default function GestionFormacionMentoresPage() {
               </tr>
             </thead>
             <tbody>
-              {MENTOR_ASSIGNMENTS.map((assignment) => (
+              {mentorAssignments.map((assignment) => (
                 <tr key={assignment.id} className="border-t border-slate-100">
                   <td className="px-4 py-3 font-medium text-slate-800">{assignment.mentorName}</td>
                   <td className="px-4 py-3 text-slate-600">{assignment.courseTitle}</td>
