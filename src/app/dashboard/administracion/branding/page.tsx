@@ -1,25 +1,79 @@
 'use client';
 
 import React from 'react';
+import { Palette, Sparkles, Type, PanelTop, PaintBucket, Building2 } from 'lucide-react';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
+import { useBranding } from '@/context/BrandingContext';
 import {
   getBrandingSettings,
   updateBrandingSettings,
   type BrandingSettings,
 } from '@/features/administracion/client';
-import { DEFAULT_BRANDING_SETTINGS } from '@/features/administracion/types';
+import {
+  BRANDING_FONT_OPTIONS,
+  BRANDING_PRESETS,
+  DEFAULT_BRANDING_SETTINGS,
+  LOGIN_LAYOUT_OPTIONS,
+  type BrandingPresetCode,
+} from '@/features/administracion/types';
+import { deriveFocusColor, deriveHoverColor } from '@/lib/branding';
+
+const TIMEZONE_OPTIONS = [
+  'UTC',
+  'America/Bogota',
+  'America/Mexico_City',
+  'America/Santiago',
+  'America/Lima',
+  'America/New_York',
+  'Europe/Madrid',
+] as const;
+
+const PAGE_WIDTH_PRESETS = ['1100px', '1260px', '1440px', '1600px', '100%'] as const;
 
 function formatDate(value: string | null): string {
   if (!value) return 'Sin cambios guardados';
   return new Date(value).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
+function ColorField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (next: string) => void;
+}) {
+  return (
+    <label className="text-sm text-slate-700">
+      <span className="font-medium">{label}</span>
+      <div className="mt-2 flex items-center gap-3">
+        <input
+          type="color"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className="h-10 w-12 rounded border border-slate-300 bg-white"
+        />
+        <input
+          type="text"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className="w-full border border-slate-300 rounded-xl px-3 py-2"
+          placeholder="#000000"
+        />
+      </div>
+    </label>
+  );
+}
+
 export default function BrandingAdminPage() {
   const { alert } = useAppDialog();
+  const { applyBranding, tokens } = useBranding();
   const [settings, setSettings] = React.useState<BrandingSettings>(DEFAULT_BRANDING_SETTINGS);
   const [lastUpdatedAt, setLastUpdatedAt] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const [isLoadedFromApi, setIsLoadedFromApi] = React.useState(false);
 
   const showError = React.useCallback(
     async (fallbackMessage: string, cause: unknown) => {
@@ -32,48 +86,100 @@ export default function BrandingAdminPage() {
     [alert],
   );
 
+  const patchSettings = React.useCallback((patch: Partial<BrandingSettings>) => {
+    setSettings((prev) => ({ ...prev, ...patch }));
+  }, []);
+
+  const applyPreset = React.useCallback(
+    (code: BrandingPresetCode) => {
+      if (code === 'custom') return;
+      const preset = BRANDING_PRESETS.find((item) => item.code === code);
+      if (!preset) return;
+
+      patchSettings({
+        presetCode: preset.code,
+        primaryColor: preset.primaryColor,
+        secondaryColor: preset.secondaryColor,
+        accentColor: preset.accentColor,
+        typography: preset.typography,
+        borderRadiusRem: preset.borderRadiusRem,
+      });
+    },
+    [patchSettings],
+  );
+
   const loadSettings = React.useCallback(async () => {
     setLoading(true);
     try {
       const data = await getBrandingSettings();
-      setSettings({
+      const next: BrandingSettings = {
         platformName: data.platformName,
+        institutionTimezone: data.institutionTimezone,
         primaryColor: data.primaryColor,
+        secondaryColor: data.secondaryColor,
         accentColor: data.accentColor,
         logoUrl: data.logoUrl,
         faviconUrl: data.faviconUrl,
         loaderText: data.loaderText,
+        loaderAssetUrl: data.loaderAssetUrl,
         typography: data.typography,
-      });
+        borderRadiusRem: data.borderRadiusRem,
+        pageMaxWidth: data.pageMaxWidth,
+        loginLayout: data.loginLayout,
+        welcomeMessage: data.welcomeMessage,
+        customCss: data.customCss,
+        presetCode: data.presetCode,
+      };
+      setSettings(next);
       setLastUpdatedAt(data.updatedAt);
+      applyBranding({ ...data, ...next });
+      setIsLoadedFromApi(true);
     } catch (error) {
       await showError('No se pudo cargar la configuración de branding', error);
     } finally {
       setLoading(false);
     }
-  }, [showError]);
+  }, [applyBranding, showError]);
 
   React.useEffect(() => {
     void loadSettings();
   }, [loadSettings]);
 
+  React.useEffect(() => {
+    if (!isLoadedFromApi) return;
+    applyBranding(settings);
+  }, [applyBranding, isLoadedFromApi, settings]);
+
   const onSave = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     try {
       const saved = await updateBrandingSettings(settings);
-      setSettings({
+      const next: BrandingSettings = {
         platformName: saved.platformName,
+        institutionTimezone: saved.institutionTimezone,
         primaryColor: saved.primaryColor,
+        secondaryColor: saved.secondaryColor,
         accentColor: saved.accentColor,
         logoUrl: saved.logoUrl,
         faviconUrl: saved.faviconUrl,
         loaderText: saved.loaderText,
+        loaderAssetUrl: saved.loaderAssetUrl,
         typography: saved.typography,
-      });
+        borderRadiusRem: saved.borderRadiusRem,
+        pageMaxWidth: saved.pageMaxWidth,
+        loginLayout: saved.loginLayout,
+        welcomeMessage: saved.welcomeMessage,
+        customCss: saved.customCss,
+        presetCode: saved.presetCode,
+      };
+
+      setSettings(next);
       setLastUpdatedAt(saved.updatedAt);
+      applyBranding(saved);
+
       await alert({
-        title: 'Configuración guardada',
-        message: 'La configuración de branding se persistió en base de datos.',
+        title: 'Branding actualizado',
+        message: 'Configuración persistida y aplicada en tiempo real en la plataforma.',
         tone: 'success',
       });
     } catch (error) {
@@ -81,112 +187,315 @@ export default function BrandingAdminPage() {
     }
   };
 
+  const hoverColor = deriveHoverColor(settings.primaryColor);
+  const focusColor = deriveFocusColor(settings.primaryColor);
+
   return (
     <div className="space-y-4">
       <PageTitle
         title="Branding y Marca"
-        subtitle="Administra estilo visual del producto (colores, logo, tipografía, loader y favicon)."
+        subtitle="Configura identidad, tema visual, login y CSS avanzado. Cambios aplicados en tiempo real (web/app)."
       />
 
       {loading ? (
         <div className="bg-white rounded-xl border border-slate-200 p-4 text-sm text-slate-500">Cargando configuración...</div>
       ) : (
-        <form onSubmit={onSave} className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-          <section className="xl:col-span-2 bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
+        <form onSubmit={onSave} className="space-y-4">
+          <section className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
+            <h3 className="font-semibold text-slate-800 flex items-center gap-2">
+              <Building2 size={18} className="text-indigo-600" /> Identidad Institucional
+            </h3>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <label className="text-sm text-slate-700">
-                Nombre de plataforma
+                Nombre de la Institución
                 <input
-                  className="mt-1 w-full border border-slate-300 rounded-md px-3 py-2"
+                  className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
                   value={settings.platformName}
-                  onChange={(event) => setSettings((prev) => ({ ...prev, platformName: event.target.value }))}
+                  onChange={(event) => patchSettings({ platformName: event.target.value })}
                 />
               </label>
-              <label className="text-sm text-slate-700">
-                Tipografía
-                <input
-                  className="mt-1 w-full border border-slate-300 rounded-md px-3 py-2"
-                  value={settings.typography}
-                  onChange={(event) => setSettings((prev) => ({ ...prev, typography: event.target.value }))}
-                />
-              </label>
-              <label className="text-sm text-slate-700">
-                Color principal
-                <input
-                  className="mt-1 w-full border border-slate-300 rounded-md px-3 py-2"
-                  type="color"
-                  value={settings.primaryColor}
-                  onChange={(event) => setSettings((prev) => ({ ...prev, primaryColor: event.target.value }))}
-                />
-              </label>
-              <label className="text-sm text-slate-700">
-                Color acento
-                <input
-                  className="mt-1 w-full border border-slate-300 rounded-md px-3 py-2"
-                  type="color"
-                  value={settings.accentColor}
-                  onChange={(event) => setSettings((prev) => ({ ...prev, accentColor: event.target.value }))}
-                />
-              </label>
-              <label className="text-sm text-slate-700 md:col-span-2">
-                URL logo
-                <input
-                  className="mt-1 w-full border border-slate-300 rounded-md px-3 py-2"
-                  value={settings.logoUrl}
-                  onChange={(event) => setSettings((prev) => ({ ...prev, logoUrl: event.target.value }))}
-                  placeholder="https://..."
-                />
-              </label>
-              <label className="text-sm text-slate-700 md:col-span-2">
-                URL favicon
-                <input
-                  className="mt-1 w-full border border-slate-300 rounded-md px-3 py-2"
-                  value={settings.faviconUrl}
-                  onChange={(event) => setSettings((prev) => ({ ...prev, faviconUrl: event.target.value }))}
-                  placeholder="https://..."
-                />
-              </label>
-              <label className="text-sm text-slate-700 md:col-span-2">
-                Texto del loader
-                <input
-                  className="mt-1 w-full border border-slate-300 rounded-md px-3 py-2"
-                  value={settings.loaderText}
-                  onChange={(event) => setSettings((prev) => ({ ...prev, loaderText: event.target.value }))}
-                />
-              </label>
-            </div>
 
-            <div className="flex items-center gap-3">
-              <button className="rounded-md bg-slate-900 text-white px-4 py-2 text-sm" type="submit">
-                Guardar configuración
-              </button>
+              <label className="text-sm text-slate-700">
+                URL del Logo
+                <input
+                  className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
+                  value={settings.logoUrl}
+                  onChange={(event) => patchSettings({ logoUrl: event.target.value })}
+                  placeholder="https://..."
+                />
+              </label>
+
+              <label className="text-sm text-slate-700">
+                Huso Horario (Timezone)
+                <select
+                  className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
+                  value={settings.institutionTimezone}
+                  onChange={(event) => patchSettings({ institutionTimezone: event.target.value })}
+                >
+                  {TIMEZONE_OPTIONS.map((timezone) => (
+                    <option key={timezone} value={timezone}>
+                      {timezone}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="text-sm text-slate-700">
+                URL del Favicon (Icono pestaña)
+                <input
+                  className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
+                  value={settings.faviconUrl}
+                  onChange={(event) => patchSettings({ faviconUrl: event.target.value })}
+                  placeholder="https://..."
+                />
+              </label>
             </div>
           </section>
 
-          <aside className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-            <h3 className="font-semibold text-slate-800 mb-3">Vista previa</h3>
-            <div className="rounded-xl border border-slate-200 overflow-hidden">
-              <div className="px-4 py-3 text-white" style={{ backgroundColor: settings.primaryColor }}>
-                <p className="font-semibold">{settings.platformName}</p>
-                <p className="text-xs opacity-80" style={{ fontFamily: settings.typography }}>
-                  {settings.typography}
-                </p>
+          <section className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
+            <h3 className="font-semibold text-slate-800 flex items-center gap-2">
+              <Sparkles size={18} className="text-violet-600" /> Presets Rápidos
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {BRANDING_PRESETS.map((preset) => (
+                <button
+                  key={preset.code}
+                  type="button"
+                  onClick={() => applyPreset(preset.code)}
+                  className={`rounded-3xl border px-4 py-4 text-left transition ${
+                    settings.presetCode === preset.code
+                      ? 'border-slate-900 bg-slate-900 text-white'
+                      : 'border-slate-300 bg-white hover:border-slate-500'
+                  }`}
+                >
+                  <p className="font-semibold flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: preset.primaryColor }} />
+                    {preset.label}
+                  </p>
+                  <p className={`text-sm mt-2 ${settings.presetCode === preset.code ? 'text-slate-200' : 'text-slate-500'}`}>
+                    {preset.description}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            <section className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
+              <h3 className="font-semibold text-slate-800 flex items-center gap-2">
+                <Palette size={18} className="text-blue-600" /> Colores
+              </h3>
+
+              <ColorField label="Color Primario" value={settings.primaryColor} onChange={(next) => patchSettings({ primaryColor: next, presetCode: 'custom' })} />
+              <div className="text-xs text-slate-500">Genera automáticamente paletas hover/focus.</div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <ColorField label="Secundario" value={settings.secondaryColor} onChange={(next) => patchSettings({ secondaryColor: next, presetCode: 'custom' })} />
+                <ColorField label="Acento" value={settings.accentColor} onChange={(next) => patchSettings({ accentColor: next, presetCode: 'custom' })} />
               </div>
-              <div className="p-4 space-y-3 bg-slate-50">
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="rounded-xl border border-slate-200 p-3">
+                  <p className="text-xs text-slate-500">Hover automático</p>
+                  <div className="mt-2 h-8 rounded-lg" style={{ backgroundColor: hoverColor }} />
+                  <p className="text-xs mt-2 text-slate-600">{hoverColor}</p>
+                </div>
+                <div className="rounded-xl border border-slate-200 p-3">
+                  <p className="text-xs text-slate-500">Focus automático</p>
+                  <div className="mt-2 h-8 rounded-lg" style={{ backgroundColor: focusColor }} />
+                  <p className="text-xs mt-2 text-slate-600">{focusColor}</p>
+                </div>
+              </div>
+            </section>
+
+            <section className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
+              <h3 className="font-semibold text-slate-800 flex items-center gap-2">
+                <Type size={18} className="text-emerald-600" /> Tipografía y Forma
+              </h3>
+
+              <label className="text-sm text-slate-700">
+                Fuente Principal (Google Fonts)
+                <select
+                  className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
+                  value={settings.typography}
+                  onChange={(event) => patchSettings({ typography: event.target.value, presetCode: 'custom' })}
+                >
+                  {BRANDING_FONT_OPTIONS.map((font) => (
+                    <option key={font.value} value={font.value}>
+                      {font.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="text-sm text-slate-700 block">
+                Radio de Borde (Border Radius)
+                <input
+                  type="range"
+                  min={0}
+                  max={3}
+                  step={0.1}
+                  className="mt-3 w-full"
+                  value={settings.borderRadiusRem}
+                  onChange={(event) => patchSettings({ borderRadiusRem: Number(event.target.value), presetCode: 'custom' })}
+                />
+                <span className="inline-block mt-2 text-xs px-2 py-1 bg-slate-100 rounded-md">{settings.borderRadiusRem.toFixed(1)}rem</span>
+              </label>
+
+              <label className="text-sm text-slate-700 block">
+                Ancho máximo de página (Landing/Home)
+                <input
+                  className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
+                  value={settings.pageMaxWidth}
+                  onChange={(event) => patchSettings({ pageMaxWidth: event.target.value })}
+                />
+              </label>
+
+              <div className="flex flex-wrap gap-2">
+                {PAGE_WIDTH_PRESETS.map((size) => (
+                  <button
+                    key={size}
+                    type="button"
+                    className={`text-xs px-3 py-1.5 rounded-full border ${
+                      settings.pageMaxWidth === size ? 'bg-slate-900 text-white border-slate-900' : 'border-slate-300 text-slate-700'
+                    }`}
+                    onClick={() => patchSettings({ pageMaxWidth: size })}
+                  >
+                    {size}
+                  </button>
+                ))}
+              </div>
+
+              <div className="rounded-2xl bg-slate-100 p-4 flex items-center gap-3">
                 <button
                   type="button"
-                  className="w-full rounded-md px-3 py-2 text-sm font-medium text-slate-900"
-                  style={{ backgroundColor: settings.accentColor }}
+                  className="px-5 py-2 text-white shadow"
+                  style={{ backgroundColor: settings.accentColor, borderRadius: `${settings.borderRadiusRem}rem` }}
                 >
-                  Botón primario
+                  Botón Frontend
                 </button>
-                <p className="text-xs text-slate-500">Loader: {settings.loaderText}</p>
+                <button
+                  type="button"
+                  className="px-5 py-2 border"
+                  style={{
+                    borderColor: settings.accentColor,
+                    color: settings.primaryColor,
+                    borderRadius: `${settings.borderRadiusRem}rem`,
+                  }}
+                >
+                  Outline
+                </button>
+              </div>
+            </section>
+          </div>
+
+          <section className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
+            <h3 className="font-semibold text-slate-800 flex items-center gap-2">
+              <PanelTop size={18} className="text-pink-600" /> Login & Branding
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <label className="text-sm text-slate-700">
+                Layout del Login
+                <select
+                  className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
+                  value={settings.loginLayout}
+                  onChange={(event) => patchSettings({ loginLayout: event.target.value as BrandingSettings['loginLayout'] })}
+                >
+                  {LOGIN_LAYOUT_OPTIONS.map((layout) => (
+                    <option key={layout} value={layout}>
+                      {layout}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="text-sm text-slate-700">
+                Mensaje de Bienvenida
+                <input
+                  className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
+                  value={settings.welcomeMessage}
+                  onChange={(event) => patchSettings({ welcomeMessage: event.target.value })}
+                />
+              </label>
+
+              <label className="text-sm text-slate-700 md:col-span-2">
+                GIF de Carga (Platform Loader)
+                <input
+                  className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
+                  value={settings.loaderAssetUrl}
+                  onChange={(event) => patchSettings({ loaderAssetUrl: event.target.value })}
+                  placeholder="https://.../loader.gif"
+                />
+                <p className="text-xs text-slate-500 mt-1">Este GIF se mostrará durante transiciones y estados de espera.</p>
+              </label>
+
+              <label className="text-sm text-slate-700 md:col-span-2">
+                Texto del loader
+                <input
+                  className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
+                  value={settings.loaderText}
+                  onChange={(event) => patchSettings({ loaderText: event.target.value })}
+                />
+              </label>
+
+              <label className="text-sm text-slate-700 md:col-span-2">
+                CSS Personalizado (Avanzado)
+                <textarea
+                  className="mt-1 w-full min-h-28 border border-slate-300 rounded-xl px-3 py-2 font-mono text-xs"
+                  value={settings.customCss}
+                  onChange={(event) => patchSettings({ customCss: event.target.value })}
+                  placeholder=".sidebar { background: red !important; }"
+                />
+              </label>
+            </div>
+          </section>
+
+          <section className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+            <h3 className="font-semibold text-slate-800 flex items-center gap-2 mb-3">
+              <PaintBucket size={18} className="text-amber-600" /> Vista previa aplicada
+            </h3>
+
+            <div className="rounded-2xl border border-slate-200 overflow-hidden">
+              <div className="px-4 py-3 text-white" style={{ backgroundColor: tokens.colors.primary }}>
+                <p className="font-semibold">{settings.platformName}</p>
+                <p className="text-xs opacity-80">{settings.typography} · {settings.institutionTimezone}</p>
+              </div>
+              <div className="p-4 bg-slate-50 space-y-3">
+                <button
+                  type="button"
+                  className="px-4 py-2 text-white"
+                  style={{
+                    backgroundColor: tokens.colors.accent,
+                    borderRadius: `calc(${tokens.shape.borderRadiusRem}rem + 0.1rem)`,
+                  }}
+                >
+                  Acción primaria
+                </button>
+                <p className="text-xs text-slate-500">Login layout: {settings.loginLayout}</p>
+                <p className="text-xs text-slate-500">Ancho máximo app: {settings.pageMaxWidth}</p>
               </div>
             </div>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button className="rounded-md bg-slate-900 text-white px-4 py-2 text-sm" type="submit">
+                Guardar configuración
+              </button>
+              <button
+                type="button"
+                className="rounded-md border border-slate-300 text-slate-700 px-4 py-2 text-sm"
+                onClick={() => void loadSettings()}
+              >
+                Recargar desde DB
+              </button>
+            </div>
+
             <p className="text-xs text-slate-500 mt-3">
-              Persistencia activa en base de datos. Última actualización: {formatDate(lastUpdatedAt)}.
+              Última actualización persistida: {formatDate(lastUpdatedAt)}.
             </p>
-          </aside>
+          </section>
         </form>
       )}
     </div>

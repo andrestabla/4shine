@@ -1,10 +1,8 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
 import './globals.css';
 import { UserProvider } from '@/context/UserContext';
 import { AppDialogProvider } from '@/components/ui/AppDialogProvider';
-
-const inter = Inter({ subsets: ['latin'] });
+import { BrandingProvider } from '@/context/BrandingContext';
 const FALLBACK_APP_URL = 'https://www.4shine.co';
 
 function resolveMetadataBase(): URL {
@@ -36,10 +34,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es">
-      <body className={inter.className} suppressHydrationWarning={true}>
-        <UserProvider>
-          <AppDialogProvider>{children}</AppDialogProvider>
-        </UserProvider>
+      <body suppressHydrationWarning={true}>
+        <BrandingProvider>
+          <UserProvider>
+            <AppDialogProvider>{children}</AppDialogProvider>
+          </UserProvider>
+        </BrandingProvider>
       </body>
     </html>
   );

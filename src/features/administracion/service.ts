@@ -2,17 +2,23 @@ import type { PoolClient } from 'pg';
 import { requireModulePermission } from '@/server/auth/module-permissions';
 import type { AuthUser } from '@/server/auth/types';
 import {
+  BRANDING_PRESET_CODES,
+  LOGIN_LAYOUT_OPTIONS,
+  clampBorderRadiusRem,
   DEFAULT_BRANDING_SETTINGS,
   DEFAULT_OUTBOUND_EMAIL_CONFIG,
   hasText,
   INTEGRATION_CATALOG,
+  isValidCssSizeToken,
   OUTBOUND_EMAIL_PROVIDERS,
   requiredOutboundMissing,
+  type BrandingPresetCode,
   type BrandingSettings,
   type BrandingSettingsRecord,
   type IntegrationConfigRecord,
   type IntegrationsSettingsRecord,
   type IntegrationKey,
+  type LoginLayout,
   type OutboundEmailConfig,
   type OutboundEmailConfigRecord,
 } from './types';
@@ -20,6 +26,8 @@ import {
 const HEX_COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
 const INTEGRATION_KEYS = new Set<IntegrationKey>(INTEGRATION_CATALOG.map((item) => item.key));
 const OUTBOUND_PROVIDERS = new Set<string>(OUTBOUND_EMAIL_PROVIDERS);
+const LOGIN_LAYOUT_VALUES = new Set<LoginLayout>(LOGIN_LAYOUT_OPTIONS);
+const PRESET_CODES = new Set<BrandingPresetCode>(BRANDING_PRESET_CODES);
 
 interface OrganizationRow {
   organization_id: string | null;
@@ -29,12 +37,21 @@ interface BrandingRow {
   branding_id: string;
   organization_id: string;
   platform_name: string;
+  institution_timezone: string;
   primary_color: string;
+  secondary_color: string;
   accent_color: string;
   logo_url: string | null;
   favicon_url: string | null;
   loader_text: string;
+  loader_asset_url: string | null;
   typography: string;
+  border_radius_rem: number;
+  page_max_width: string;
+  login_layout: LoginLayout;
+  login_welcome_message: string;
+  custom_css: string;
+  preset_code: BrandingPresetCode;
   created_at: string;
   updated_at: string;
 }
@@ -94,6 +111,32 @@ function normalizeColor(value: string | undefined, fallback: string): string {
   return HEX_COLOR_PATTERN.test(trimmed) ? trimmed : fallback;
 }
 
+function normalizeLayout(value: string | undefined, fallback: LoginLayout): LoginLayout {
+  if (!value) return fallback;
+  return LOGIN_LAYOUT_VALUES.has(value as LoginLayout) ? (value as LoginLayout) : fallback;
+}
+
+function normalizePresetCode(
+  value: string | undefined,
+  fallback: BrandingPresetCode,
+): BrandingPresetCode {
+  if (!value) return fallback;
+  return PRESET_CODES.has(value as BrandingPresetCode)
+    ? (value as BrandingPresetCode)
+    : fallback;
+}
+
+function normalizePageMaxWidth(value: string | undefined, fallback: string): string {
+  if (!value) return fallback;
+  const trimmed = value.trim();
+  return isValidCssSizeToken(trimmed) ? trimmed : fallback;
+}
+
+function normalizeCustomCss(value: string | undefined, fallback: string): string {
+  if (typeof value !== 'string') return fallback;
+  return value.slice(0, 20000);
+}
+
 function normalizeDate(value: string | null | undefined): string | null {
   if (!value) return null;
   const date = new Date(value);
@@ -120,12 +163,21 @@ function mapBrandingRow(row: BrandingRow): BrandingSettingsRecord {
     brandingId: row.branding_id,
     organizationId: row.organization_id,
     platformName: row.platform_name,
+    institutionTimezone: row.institution_timezone,
     primaryColor: row.primary_color,
+    secondaryColor: row.secondary_color,
     accentColor: row.accent_color,
     logoUrl: row.logo_url ?? '',
     faviconUrl: row.favicon_url ?? '',
     loaderText: row.loader_text,
+    loaderAssetUrl: row.loader_asset_url ?? '',
     typography: row.typography,
+    borderRadiusRem: Number(row.border_radius_rem),
+    pageMaxWidth: row.page_max_width,
+    loginLayout: row.login_layout,
+    welcomeMessage: row.login_welcome_message,
+    customCss: row.custom_css ?? '',
+    presetCode: row.preset_code,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -193,12 +245,27 @@ function normalizeBrandingInput(
 ): BrandingSettings {
   return {
     platformName: hasText(input.platformName) ? input.platformName!.trim() : current.platformName,
+    institutionTimezone: hasText(input.institutionTimezone)
+      ? input.institutionTimezone!.trim()
+      : current.institutionTimezone,
     primaryColor: normalizeColor(input.primaryColor, current.primaryColor),
+    secondaryColor: normalizeColor(input.secondaryColor, current.secondaryColor),
     accentColor: normalizeColor(input.accentColor, current.accentColor),
     logoUrl: asText(input.logoUrl, current.logoUrl).trim(),
     faviconUrl: asText(input.faviconUrl, current.faviconUrl).trim(),
     loaderText: hasText(input.loaderText) ? input.loaderText!.trim() : current.loaderText,
+    loaderAssetUrl: asText(input.loaderAssetUrl, current.loaderAssetUrl).trim(),
     typography: hasText(input.typography) ? input.typography!.trim() : current.typography,
+    borderRadiusRem: clampBorderRadiusRem(
+      typeof input.borderRadiusRem === 'number' ? input.borderRadiusRem : current.borderRadiusRem,
+    ),
+    pageMaxWidth: normalizePageMaxWidth(input.pageMaxWidth, current.pageMaxWidth),
+    loginLayout: normalizeLayout(input.loginLayout, current.loginLayout),
+    welcomeMessage: hasText(input.welcomeMessage)
+      ? input.welcomeMessage!.trim()
+      : current.welcomeMessage,
+    customCss: normalizeCustomCss(input.customCss, current.customCss),
+    presetCode: normalizePresetCode(input.presetCode, current.presetCode),
   };
 }
 
@@ -299,12 +366,21 @@ export async function getBrandingSettings(
         bs.branding_id::text,
         bs.organization_id::text,
         bs.platform_name,
+        bs.institution_timezone,
         bs.primary_color,
+        bs.secondary_color,
         bs.accent_color,
         bs.logo_url,
         bs.favicon_url,
         bs.loader_text,
+        bs.loader_asset_url,
         bs.typography,
+        bs.border_radius_rem::float8 AS border_radius_rem,
+        bs.page_max_width,
+        bs.login_layout,
+        bs.login_welcome_message,
+        bs.custom_css,
+        bs.preset_code,
         bs.created_at::text,
         bs.updated_at::text
       FROM app_admin.branding_settings bs
@@ -343,48 +419,104 @@ export async function updateBrandingSettings(
       INSERT INTO app_admin.branding_settings (
         organization_id,
         platform_name,
+        institution_timezone,
         primary_color,
+        secondary_color,
         accent_color,
         logo_url,
         favicon_url,
         loader_text,
+        loader_asset_url,
         typography,
+        border_radius_rem,
+        page_max_width,
+        login_layout,
+        login_welcome_message,
+        custom_css,
+        preset_code,
         created_by,
         updated_by
       )
-      VALUES ($1::uuid, $2, $3, $4, NULLIF($5, ''), NULLIF($6, ''), $7, $8, $9::uuid, $9::uuid)
+      VALUES (
+        $1::uuid,
+        $2,
+        $3,
+        $4,
+        $5,
+        $6,
+        NULLIF($7, ''),
+        NULLIF($8, ''),
+        $9,
+        NULLIF($10, ''),
+        $11,
+        $12,
+        $13,
+        $14,
+        $15,
+        $16,
+        $17,
+        $18::uuid,
+        $18::uuid
+      )
       ON CONFLICT (organization_id) DO UPDATE
       SET platform_name = EXCLUDED.platform_name,
+          institution_timezone = EXCLUDED.institution_timezone,
           primary_color = EXCLUDED.primary_color,
+          secondary_color = EXCLUDED.secondary_color,
           accent_color = EXCLUDED.accent_color,
           logo_url = EXCLUDED.logo_url,
           favicon_url = EXCLUDED.favicon_url,
           loader_text = EXCLUDED.loader_text,
+          loader_asset_url = EXCLUDED.loader_asset_url,
           typography = EXCLUDED.typography,
+          border_radius_rem = EXCLUDED.border_radius_rem,
+          page_max_width = EXCLUDED.page_max_width,
+          login_layout = EXCLUDED.login_layout,
+          login_welcome_message = EXCLUDED.login_welcome_message,
+          custom_css = EXCLUDED.custom_css,
+          preset_code = EXCLUDED.preset_code,
           updated_by = EXCLUDED.updated_by,
           updated_at = now()
       RETURNING
         branding_id::text,
         organization_id::text,
         platform_name,
+        institution_timezone,
         primary_color,
+        secondary_color,
         accent_color,
         logo_url,
         favicon_url,
         loader_text,
+        loader_asset_url,
         typography,
+        border_radius_rem::float8 AS border_radius_rem,
+        page_max_width,
+        login_layout,
+        login_welcome_message,
+        custom_css,
+        preset_code,
         created_at::text,
         updated_at::text
     `,
     [
       current.organizationId,
       next.platformName,
+      next.institutionTimezone,
       next.primaryColor,
+      next.secondaryColor,
       next.accentColor,
       next.logoUrl,
       next.faviconUrl,
       next.loaderText,
+      next.loaderAssetUrl,
       next.typography,
+      next.borderRadiusRem,
+      next.pageMaxWidth,
+      next.loginLayout,
+      next.welcomeMessage,
+      next.customCss,
+      next.presetCode,
       actor.userId,
     ],
   );
@@ -395,6 +527,102 @@ export async function updateBrandingSettings(
   }
 
   return mapBrandingRow(row);
+}
+
+export async function getPublicBrandingSettings(
+  client: PoolClient,
+  organizationId?: string,
+): Promise<BrandingSettingsRecord> {
+  const queryByOrganization = `
+    SELECT
+      bs.branding_id::text,
+      bs.organization_id::text,
+      bs.platform_name,
+      bs.institution_timezone,
+      bs.primary_color,
+      bs.secondary_color,
+      bs.accent_color,
+      bs.logo_url,
+      bs.favicon_url,
+      bs.loader_text,
+      bs.loader_asset_url,
+      bs.typography,
+      bs.border_radius_rem::float8 AS border_radius_rem,
+      bs.page_max_width,
+      bs.login_layout,
+      bs.login_welcome_message,
+      bs.custom_css,
+      bs.preset_code,
+      bs.created_at::text,
+      bs.updated_at::text
+    FROM app_admin.branding_settings bs
+    WHERE bs.organization_id = $1::uuid
+    LIMIT 1
+  `;
+
+  const queryLatest = `
+    SELECT
+      bs.branding_id::text,
+      bs.organization_id::text,
+      bs.platform_name,
+      bs.institution_timezone,
+      bs.primary_color,
+      bs.secondary_color,
+      bs.accent_color,
+      bs.logo_url,
+      bs.favicon_url,
+      bs.loader_text,
+      bs.loader_asset_url,
+      bs.typography,
+      bs.border_radius_rem::float8 AS border_radius_rem,
+      bs.page_max_width,
+      bs.login_layout,
+      bs.login_welcome_message,
+      bs.custom_css,
+      bs.preset_code,
+      bs.created_at::text,
+      bs.updated_at::text
+    FROM app_admin.branding_settings bs
+    ORDER BY bs.updated_at DESC
+    LIMIT 1
+  `;
+
+  let row: BrandingRow | undefined;
+  if (organizationId) {
+    const { rows } = await client.query<BrandingRow>(queryByOrganization, [organizationId]);
+    row = rows[0];
+  }
+
+  if (!row) {
+    const { rows } = await client.query<BrandingRow>(queryLatest);
+    row = rows[0];
+  }
+
+  if (row) {
+    return mapBrandingRow(row);
+  }
+
+  const { rows: fallbackOrgRows } = await client.query<{ organization_id: string }>(
+    `
+      SELECT organization_id::text
+      FROM app_core.organizations
+      ORDER BY created_at
+      LIMIT 1
+    `,
+  );
+
+  const fallbackOrganizationId = fallbackOrgRows[0]?.organization_id;
+  if (!fallbackOrganizationId) {
+    throw new Error('No organization found for public branding');
+  }
+
+  return {
+    brandingId: null,
+    organizationId: fallbackOrganizationId,
+    ...DEFAULT_BRANDING_SETTINGS,
+    createdAt: null,
+    updatedAt: null,
+  };
 }
 
 export async function getIntegrationsSettings(

@@ -12,14 +12,88 @@ export type IntegrationKey = (typeof INTEGRATION_CATALOG)[number]['key'];
 export const OUTBOUND_EMAIL_PROVIDERS = ['smtp', 'sendgrid', 'resend', 'ses'] as const;
 export type OutboundEmailProvider = (typeof OUTBOUND_EMAIL_PROVIDERS)[number];
 
+export const BRANDING_PRESET_CODES = ['corporativo', 'energetico', 'tech', 'custom'] as const;
+export type BrandingPresetCode = (typeof BRANDING_PRESET_CODES)[number];
+
+export const LOGIN_LAYOUT_OPTIONS = ['split', 'centered', 'minimal'] as const;
+export type LoginLayout = (typeof LOGIN_LAYOUT_OPTIONS)[number];
+
+export interface BrandingFontOption {
+  value: string;
+  label: string;
+  googleFamily: string;
+  cssStack: string;
+}
+
+export const BRANDING_FONT_OPTIONS: BrandingFontOption[] = [
+  { value: 'Inter', label: 'Inter (Estándar)', googleFamily: 'Inter:wght@400;500;600;700;800', cssStack: 'Inter, ui-sans-serif, system-ui, sans-serif' },
+  { value: 'Poppins', label: 'Poppins', googleFamily: 'Poppins:wght@400;500;600;700;800', cssStack: 'Poppins, ui-sans-serif, system-ui, sans-serif' },
+  { value: 'Roboto', label: 'Roboto', googleFamily: 'Roboto:wght@400;500;700;900', cssStack: 'Roboto, ui-sans-serif, system-ui, sans-serif' },
+  { value: 'Montserrat', label: 'Montserrat', googleFamily: 'Montserrat:wght@400;500;600;700;800', cssStack: 'Montserrat, ui-sans-serif, system-ui, sans-serif' },
+  { value: 'Nunito Sans', label: 'Nunito Sans', googleFamily: 'Nunito+Sans:wght@400;500;700;800', cssStack: '"Nunito Sans", ui-sans-serif, system-ui, sans-serif' },
+] as const;
+
+export interface BrandingPresetDefinition {
+  code: Exclude<BrandingPresetCode, 'custom'>;
+  label: string;
+  description: string;
+  primaryColor: string;
+  secondaryColor: string;
+  accentColor: string;
+  typography: string;
+  borderRadiusRem: number;
+}
+
+export const BRANDING_PRESETS: BrandingPresetDefinition[] = [
+  {
+    code: 'corporativo',
+    label: 'Corporativo',
+    description: 'Inter, 0.2rem',
+    primaryColor: '#1E293B',
+    secondaryColor: '#475569',
+    accentColor: '#F59E0B',
+    typography: 'Inter',
+    borderRadiusRem: 0.2,
+  },
+  {
+    code: 'energetico',
+    label: 'Energético',
+    description: 'Poppins, 1rem',
+    primaryColor: '#F97316',
+    secondaryColor: '#334155',
+    accentColor: '#F59E0B',
+    typography: 'Poppins',
+    borderRadiusRem: 1,
+  },
+  {
+    code: 'tech',
+    label: 'Tech',
+    description: 'Roboto, 0px',
+    primaryColor: '#0EA5E9',
+    secondaryColor: '#0F172A',
+    accentColor: '#22C55E',
+    typography: 'Roboto',
+    borderRadiusRem: 0,
+  },
+] as const;
+
 export interface BrandingSettings {
   platformName: string;
+  institutionTimezone: string;
   primaryColor: string;
+  secondaryColor: string;
   accentColor: string;
   logoUrl: string;
   faviconUrl: string;
   loaderText: string;
+  loaderAssetUrl: string;
   typography: string;
+  borderRadiusRem: number;
+  pageMaxWidth: string;
+  loginLayout: LoginLayout;
+  welcomeMessage: string;
+  customCss: string;
+  presetCode: BrandingPresetCode;
 }
 
 export interface BrandingSettingsRecord extends BrandingSettings {
@@ -27,6 +101,44 @@ export interface BrandingSettingsRecord extends BrandingSettings {
   organizationId: string;
   createdAt: string | null;
   updatedAt: string | null;
+}
+
+export interface BrandingRuntimeTokens {
+  colors: {
+    primary: string;
+    secondary: string;
+    accent: string;
+    hover: string;
+    focus: string;
+  };
+  typography: {
+    family: string;
+    cssStack: string;
+  };
+  shape: {
+    borderRadiusRem: number;
+  };
+  layout: {
+    pageMaxWidth: string;
+    loginLayout: LoginLayout;
+    timezone: string;
+  };
+  assets: {
+    logoUrl: string;
+    faviconUrl: string;
+    loaderAssetUrl: string;
+  };
+  text: {
+    platformName: string;
+    welcomeMessage: string;
+    loaderText: string;
+  };
+}
+
+export interface BrandingPublicPayload {
+  settings: BrandingSettingsRecord;
+  tokens: BrandingRuntimeTokens;
+  mobile: BrandingRuntimeTokens;
 }
 
 export interface IntegrationConfigRecord {
@@ -73,12 +185,21 @@ export interface IntegrationsSettingsRecord {
 
 export const DEFAULT_BRANDING_SETTINGS: BrandingSettings = {
   platformName: '4Shine Platform',
+  institutionTimezone: 'UTC',
   primaryColor: '#0f172a',
+  secondaryColor: '#475569',
   accentColor: '#f59e0b',
   logoUrl: '',
   faviconUrl: '',
   loaderText: 'Cargando 4Shine...',
-  typography: 'Instrument Sans',
+  loaderAssetUrl: '',
+  typography: 'Inter',
+  borderRadiusRem: 1,
+  pageMaxWidth: '1260px',
+  loginLayout: 'split',
+  welcomeMessage: 'Inicia sesión con tu cuenta corporativa.',
+  customCss: '',
+  presetCode: 'corporativo',
 };
 
 export const DEFAULT_OUTBOUND_EMAIL_CONFIG: OutboundEmailConfig = {
@@ -99,6 +220,22 @@ export const DEFAULT_OUTBOUND_EMAIL_CONFIG: OutboundEmailConfig = {
 
 export function hasText(value: string | null | undefined): boolean {
   return !!value && value.trim().length > 0;
+}
+
+export function findBrandingFont(value: string): BrandingFontOption {
+  return (
+    BRANDING_FONT_OPTIONS.find((font) => font.value.toLowerCase() === value.toLowerCase()) ??
+    BRANDING_FONT_OPTIONS[0]
+  );
+}
+
+export function clampBorderRadiusRem(value: number): number {
+  if (!Number.isFinite(value)) return DEFAULT_BRANDING_SETTINGS.borderRadiusRem;
+  return Math.min(3, Math.max(0, Math.round(value * 100) / 100));
+}
+
+export function isValidCssSizeToken(value: string): boolean {
+  return /^[0-9]+(px|rem|vw|%)$/i.test(value.trim());
 }
 
 export function requiredOutboundMissing(config: OutboundEmailConfig): string[] {

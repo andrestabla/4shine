@@ -1,5 +1,6 @@
 import { requestApi } from '@/lib/api-client';
 import type {
+  BrandingPublicPayload,
   BrandingSettings,
   BrandingSettingsRecord,
   IntegrationsSettingsRecord,
@@ -7,11 +8,17 @@ import type {
 } from './types';
 
 export type {
+  BrandingFontOption,
+  BrandingPresetCode,
+  BrandingPresetDefinition,
+  BrandingPublicPayload,
+  BrandingRuntimeTokens,
   BrandingSettings,
   BrandingSettingsRecord,
   IntegrationConfigRecord,
   IntegrationKey,
   IntegrationsSettingsRecord,
+  LoginLayout,
   OutboundEmailConfig,
   OutboundEmailConfigRecord,
   OutboundEmailProvider,
@@ -30,6 +37,16 @@ export interface OutboundEmailTestResponse {
 
 export async function getBrandingSettings(): Promise<BrandingSettingsRecord> {
   return requestApi<BrandingSettingsRecord>('/api/v1/modules/administracion/branding');
+}
+
+export async function getPublicBrandingSettings(
+  organizationId?: string,
+): Promise<BrandingPublicPayload> {
+  const params = new URLSearchParams();
+  if (organizationId) params.set('organizationId', organizationId);
+  const query = params.toString();
+  const suffix = query ? `?${query}` : '';
+  return requestApi<BrandingPublicPayload>(`/api/v1/public/branding${suffix}`);
 }
 
 export async function updateBrandingSettings(

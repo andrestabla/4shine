@@ -24,12 +24,21 @@
 :root {
   --background: #f8fafc;
   --foreground: #1e293b;
+  --brand-primary: #0f172a;
+  --brand-secondary: #475569;
+  --brand-accent: #f59e0b;
+  --brand-hover: #0b1321;
+  --brand-focus: #334155;
+  --brand-radius-rem: 1;
+  --brand-page-max-width: 1260px;
+  --brand-font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  --brand-login-layout: split;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: var(--brand-font-family) !important;
 }
 
 /* Custom Scrollbar */
@@ -48,4 +57,39 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--brand-focus);
+  outline-offset: 2px;
+}
+
+.brand-primary-bg {
+  background-color: var(--brand-primary);
+}
+
+.brand-accent-bg {
+  background-color: var(--brand-accent);
+}
+
+.brand-primary-text {
+  color: var(--brand-primary);
+}
+
+.brand-accent-text {
+  color: var(--brand-accent);
+}
+
+.brand-radius {
+  border-radius: calc(var(--brand-radius-rem) * 1rem);
+}
+
+.brand-outline-button {
+  border: 1px solid var(--brand-accent);
+  color: var(--brand-primary);
+  background-color: color-mix(in srgb, var(--brand-accent) 8%, white);
+}
+
+.brand-outline-button:hover {
+  background-color: color-mix(in srgb, var(--brand-accent) 14%, white);
 }

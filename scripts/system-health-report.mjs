@@ -109,7 +109,10 @@ const moduleChecks = [
   {
     moduleCode: 'administracion_branding',
     pagePath: 'src/app/dashboard/administracion/branding/page.tsx',
-    readRoutes: ['src/app/api/v1/modules/administracion/branding/route.ts'],
+    readRoutes: [
+      'src/app/api/v1/modules/administracion/branding/route.ts',
+      'src/app/api/v1/public/branding/route.ts',
+    ],
     writeRoutes: ['src/app/api/v1/modules/administracion/branding/route.ts'],
   },
   {

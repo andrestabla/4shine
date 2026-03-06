@@ -3,6 +3,7 @@
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { useUser } from '@/context/UserContext';
+import { useBranding } from '@/context/BrandingContext';
 import type { ModuleCode, PermissionAction } from '@/lib/permissions';
 import { trackAuditEvent } from '@/lib/audit-client';
 import { usePathname, useRouter } from 'next/navigation';
@@ -42,6 +43,7 @@ export default function DashboardLayout({
     children: React.ReactNode;
 }) {
     const { currentUser, isHydrating, isAuthenticated, can } = useUser();
+    const { tokens } = useBranding();
     const router = useRouter();
     const pathname = usePathname();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -117,7 +119,10 @@ export default function DashboardLayout({
 
             <main className="flex-1 overflow-y-auto relative bg-[#f8fafc] flex flex-col w-full">
                 <Header onMenuClick={() => setIsSidebarOpen(true)} />
-                <div className="p-4 md:p-8 max-w-7xl mx-auto w-full min-h-full pb-20 animate-fade-in">
+                <div
+                    className="p-4 md:p-8 mx-auto w-full min-h-full pb-20 animate-fade-in"
+                    style={{ maxWidth: tokens.layout.pageMaxWidth }}
+                >
                     {children}
                 </div>
             </main>

@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { useUser } from '@/context/UserContext';
+import { useBranding } from '@/context/BrandingContext';
 import { Bell, Search, Menu, Check, Info, AlertCircle, MessageSquare } from 'lucide-react';
 import clsx from 'clsx';
 import { usePathname } from 'next/navigation';
@@ -31,6 +32,7 @@ const PATH_TITLES: Record<string, string> = {
 
 export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
   const { currentUser, bootstrapData } = useUser();
+  const { tokens } = useBranding();
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const pathname = usePathname();
@@ -89,7 +91,7 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
           <input
             type="text"
             placeholder="Buscar..."
-            className="pl-10 pr-4 py-2 rounded-full bg-slate-100 border-none text-sm focus:ring-2 focus:ring-amber-500 w-64 transition-all"
+            className="pl-10 pr-4 py-2 rounded-full bg-slate-100 border-none text-sm focus:ring-2 w-64 transition-all"
           />
         </div>
 
@@ -159,8 +161,11 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
             <p className="text-sm font-bold text-slate-700">{currentUser?.name}</p>
             <p className="text-xs text-slate-500 capitalize">{currentUser?.role}</p>
           </div>
-          <div className="w-10 h-10 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold shadow-md shadow-slate-900/20">
-            {currentUser?.name.charAt(0)}
+          <div
+            className="w-10 h-10 rounded-full text-white flex items-center justify-center font-bold shadow-md shadow-slate-900/20"
+            style={{ backgroundColor: tokens.colors.primary }}
+          >
+            {currentUser?.name.charAt(0) ?? 'U'}
           </div>
         </div>
       </div>

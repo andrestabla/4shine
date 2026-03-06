@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { useUser } from '@/context/UserContext';
+import { useBranding } from '@/context/BrandingContext';
 import {
   Map,
   User,
@@ -109,6 +110,7 @@ const ADMIN_NAV_ITEMS: NavItem[] = [
 
 export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const { currentUser, currentRole, can, logout } = useUser();
+  const { branding, tokens } = useBranding();
   const pathname = usePathname();
 
   const [showExitModal, setShowExitModal] = React.useState(false);
@@ -134,10 +136,18 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
         className={clsx(
           'w-full text-left p-3 rounded-lg flex items-center gap-3 transition-all duration-200 font-medium text-sm group relative',
           isActive
-            ? 'bg-slate-800 text-white shadow-md border-l-4 border-amber-500'
+            ? 'text-white shadow-md border-l-4'
             : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200',
           isCollapsed && 'justify-center px-0',
         )}
+        style={
+          isActive
+            ? {
+                borderLeftColor: tokens.colors.accent,
+                backgroundColor: 'color-mix(in srgb, var(--brand-primary) 82%, white)',
+              }
+            : undefined
+        }
         title={isCollapsed ? item.label : undefined}
       >
         <div className={clsx('transition-all duration-200', isCollapsed ? 'scale-110' : '')}>
@@ -162,20 +172,40 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
           isCollapsed ? 'w-20' : 'w-72',
         )}
+        style={{
+          backgroundColor: tokens.colors.primary,
+          borderColor: 'color-mix(in srgb, var(--brand-secondary) 70%, black)',
+          color: 'color-mix(in srgb, white 75%, var(--brand-secondary))',
+        }}
       >
         <div
           className={clsx(
             'p-6 flex items-center border-b border-slate-800 bg-slate-900/50 backdrop-blur-sm',
             isCollapsed ? 'justify-center' : 'justify-between',
           )}
+          style={{ borderColor: 'color-mix(in srgb, var(--brand-secondary) 70%, black)' }}
         >
           {!isCollapsed && (
             <div className="flex items-center gap-3">
-              <Gem className="w-8 h-8 text-amber-500 animate-pulse-slow" />
-              <span className="font-bold text-white text-xl tracking-wide font-sans">4Shine</span>
+              {branding.logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={branding.logoUrl} alt={branding.platformName} className="w-8 h-8 rounded object-cover" />
+              ) : (
+                <Gem className="w-8 h-8 animate-pulse-slow" style={{ color: tokens.colors.accent }} />
+              )}
+              <span className="font-bold text-white text-xl tracking-wide font-sans truncate max-w-40">
+                {branding.platformName}
+              </span>
             </div>
           )}
-          {isCollapsed && <Gem className="w-8 h-8 text-amber-500" />}
+          {isCollapsed && (
+            branding.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={branding.logoUrl} alt={branding.platformName} className="w-8 h-8 rounded object-cover" />
+            ) : (
+              <Gem className="w-8 h-8" style={{ color: tokens.colors.accent }} />
+            )
+          )}
 
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
@@ -217,7 +247,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
             </div>
             <div className={clsx('overflow-hidden transition-all duration-300', isCollapsed ? 'w-0 opacity-0' : 'w-auto opacity-100')}>
               <p className="text-sm font-semibold text-white truncate">{currentUser.name}</p>
-              <p className="text-[10px] text-amber-500 uppercase font-bold tracking-wider">{currentUser.role}</p>
+              <p className="text-[10px] uppercase font-bold tracking-wider" style={{ color: tokens.colors.accent }}>{currentUser.role}</p>
             </div>
           </div>
           <button
