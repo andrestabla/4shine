@@ -217,6 +217,7 @@ interface AuditLogRow {
 
 interface OutboundConfigRow {
   organization_id: string;
+  enabled: boolean;
   provider: OutboundProvider;
   from_name: string;
   from_email: string;
@@ -391,6 +392,29 @@ function generateTemporaryPassword(): string {
   return `${base}A9!`;
 }
 
+function isOutboundConfigUsable(config: OutboundConfigRow): boolean {
+  if (!hasUsableEmail(config.from_email)) {
+    return false;
+  }
+
+  if (config.provider === 'sendgrid' || config.provider === 'resend') {
+    return config.api_key.trim().length > 0;
+  }
+
+  const smtpHost = config.smtp_host.trim();
+  const smtpUser = config.smtp_user.trim();
+  const smtpPassword = config.smtp_password.trim();
+  const smtpPort = Number(config.smtp_port);
+
+  return (
+    smtpHost.length > 0 &&
+    smtpUser.length > 0 &&
+    smtpPassword.length > 0 &&
+    Number.isFinite(smtpPort) &&
+    smtpPort > 0
+  );
+}
+
 async function getUserById(client: PoolClient, userId: string): Promise<UserRecord> {
   const { rows } = await client.query<UserRow>(
     `${BASE_SELECT}
@@ -513,6 +537,7 @@ async function resolveOutboundConfig(
       `
         SELECT
           organization_id::text,
+          enabled,
           provider,
           from_name,
           from_email,
@@ -535,12 +560,41 @@ async function resolveOutboundConfig(
     if (preferred.rows[0]) {
       return preferred.rows[0];
     }
+
+    const preferredDisabled = await client.query<OutboundConfigRow>(
+      `
+        SELECT
+          organization_id::text,
+          enabled,
+          provider,
+          from_name,
+          from_email,
+          reply_to,
+          smtp_host,
+          smtp_port,
+          smtp_user,
+          smtp_password,
+          smtp_secure,
+          api_key,
+          ses_region
+        FROM app_admin.outbound_email_configs
+        WHERE organization_id = $1
+        LIMIT 1
+      `,
+      [organizationId],
+    );
+
+    const byOrg = preferredDisabled.rows[0];
+    if (byOrg && isOutboundConfigUsable(byOrg)) {
+      return byOrg;
+    }
   }
 
   const fallback = await client.query<OutboundConfigRow>(
     `
       SELECT
         organization_id::text,
+        enabled,
         provider,
         from_name,
         from_email,
@@ -559,7 +613,38 @@ async function resolveOutboundConfig(
     `,
   );
 
-  return fallback.rows[0] ?? null;
+  if (fallback.rows[0]) {
+    return fallback.rows[0];
+  }
+
+  const fallbackDisabled = await client.query<OutboundConfigRow>(
+    `
+      SELECT
+        organization_id::text,
+        enabled,
+        provider,
+        from_name,
+        from_email,
+        reply_to,
+        smtp_host,
+        smtp_port,
+        smtp_user,
+        smtp_password,
+        smtp_secure,
+        api_key,
+        ses_region
+      FROM app_admin.outbound_email_configs
+      ORDER BY updated_at DESC
+      LIMIT 1
+    `,
+  );
+
+  const latest = fallbackDisabled.rows[0];
+  if (latest && isOutboundConfigUsable(latest)) {
+    return latest;
+  }
+
+  return null;
 }
 
 async function sendViaSmtp(config: OutboundConfigRow, payload: OutboundEmailPayload): Promise<string | null> {
