@@ -271,52 +271,116 @@ const INTEGRATION_ASSISTANTS: Record<IntegrationKey, AssistantDefinition> = {
     ],
   },
   google_sso: {
-    intro: 'Configura SSO de Google para acceso corporativo y provisión automática de usuarios.',
+    intro:
+      'Configura SSO de Google para acceso corporativo y provisión automática de usuarios. Incluye guía paso a paso para Google Cloud Console y validación final.',
     primarySecretField: 'clientSecret',
     steps: [
       {
         id: 'oauth',
         title: 'Aplicación OAuth',
-        description: 'Registra el cliente OAuth usado en login SSO.',
+        description:
+          'Crea (o reutiliza) un cliente OAuth en Google Cloud Console, habilita pantalla de consentimiento y registra la URL de callback de esta plataforma.',
         fields: [
-          { key: 'clientId', label: 'Client ID', type: 'text', required: true, placeholder: 'xxxx.apps.googleusercontent.com' },
-          { key: 'clientSecret', label: 'Client Secret', type: 'password', required: true, placeholder: '••••••••••••' },
+          {
+            key: 'clientId',
+            label: 'Client ID',
+            type: 'text',
+            required: true,
+            placeholder: 'xxxx.apps.googleusercontent.com',
+            helpText:
+              'Se obtiene en Google Cloud Console > APIs y servicios > Credenciales > OAuth 2.0 Client IDs.',
+          },
+          {
+            key: 'clientSecret',
+            label: 'Client Secret',
+            type: 'password',
+            required: true,
+            placeholder: '••••••••••••',
+            helpText:
+              'Debe corresponder al mismo OAuth Client ID. Guárdalo aquí para persistirlo cifrado en backend.',
+          },
           {
             key: 'callbackUrl',
             label: 'Callback URL',
             type: 'url',
             required: true,
             defaultValue: `${DEFAULT_PUBLIC_APP_URL}/api/v1/auth/sso/google/callback`,
+            helpText:
+              'Copia esta URL exactamente en “Authorized redirect URIs” del cliente OAuth en Google.',
           },
         ],
       },
       {
         id: 'domain',
         title: 'Dominio y claims',
-        description: 'Define restricción de acceso por dominio y validaciones de claim.',
+        description:
+          'Restringe quién puede ingresar por SSO (dominio corporativo, audiencia esperada y validación de email verificado).',
         fields: [
-          { key: 'hostedDomain', label: 'Hosted domain', type: 'text', required: true, placeholder: '4shine.co' },
-          { key: 'allowedAudience', label: 'Audience permitido', type: 'text', required: true, placeholder: '4shine-platform' },
-          { key: 'enforceVerifiedEmail', label: 'Requerir email verificado', type: 'select', required: true, defaultValue: 'true', options: [
-            { value: 'true', label: 'Sí' },
-            { value: 'false', label: 'No' },
-          ] },
+          {
+            key: 'hostedDomain',
+            label: 'Hosted domain',
+            type: 'text',
+            required: true,
+            placeholder: '4shine.co',
+            defaultValue: '4shine.co',
+            helpText:
+              'Solo usuarios @este-dominio podrán autenticarse. Para múltiples dominios, usa el principal y gestiona excepciones en backend.',
+          },
+          {
+            key: 'allowedAudience',
+            label: 'Audience permitido',
+            type: 'text',
+            required: true,
+            placeholder: '4shine-platform',
+            defaultValue: '4shine-platform',
+            helpText:
+              'Valor esperado de aud/azp del token. Úsalo para evitar tokens emitidos para otros clientes.',
+          },
+          {
+            key: 'enforceVerifiedEmail',
+            label: 'Requerir email verificado',
+            type: 'select',
+            required: true,
+            defaultValue: 'true',
+            options: [
+              { value: 'true', label: 'Sí' },
+              { value: 'false', label: 'No' },
+            ],
+            helpText: 'Recomendado mantenerlo en Sí para producción.',
+          },
         ],
       },
       {
         id: 'provisioning',
         title: 'Provisionamiento',
-        description: 'Cómo crear o actualizar usuarios al ingresar vía SSO.',
+        description:
+          'Define el comportamiento de alta/actualización de usuarios cuando ingresan por primera vez o vuelven a autenticarse.',
         fields: [
-          { key: 'defaultRole', label: 'Rol por defecto', type: 'select', defaultValue: 'lider', options: [
-            { value: 'lider', label: 'Líder' },
-            { value: 'mentor', label: 'Mentor' },
-            { value: 'gestor', label: 'Gestor' },
-          ] },
-          { key: 'syncProfileOnLogin', label: 'Sincronizar perfil en login', type: 'select', defaultValue: 'true', options: [
-            { value: 'true', label: 'Sí' },
-            { value: 'false', label: 'No' },
-          ] },
+          {
+            key: 'defaultRole',
+            label: 'Rol por defecto',
+            type: 'select',
+            defaultValue: 'lider',
+            options: [
+              { value: 'lider', label: 'Líder' },
+              { value: 'mentor', label: 'Mentor' },
+              { value: 'gestor', label: 'Gestor' },
+            ],
+            helpText:
+              'Rol aplicado a usuarios nuevos creados desde SSO. Luego podrás ajustarlo desde Gestión de Usuarios.',
+          },
+          {
+            key: 'syncProfileOnLogin',
+            label: 'Sincronizar perfil en login',
+            type: 'select',
+            defaultValue: 'true',
+            options: [
+              { value: 'true', label: 'Sí' },
+              { value: 'false', label: 'No' },
+            ],
+            helpText:
+              'Si está activo, nombre y datos básicos se actualizan desde Google en cada inicio de sesión.',
+          },
         ],
       },
     ],
@@ -489,6 +553,42 @@ const OUTBOUND_EMAIL_ASSISTANT: AssistantDefinition = {
       ],
     },
   ],
+};
+
+const GOOGLE_SSO_STEP_GUIDES: Record<
+  string,
+  {
+    title: string;
+    items: string[];
+  }
+> = {
+  oauth: {
+    title: 'Guía rápida en Google Cloud (Paso 1)',
+    items: [
+      'Google Cloud Console > APIs y servicios > Pantalla de consentimiento OAuth: configura app, dominio y usuarios de prueba.',
+      'En “Credenciales”, crea un OAuth Client ID tipo Web application.',
+      'En el cliente OAuth agrega la URL de callback exacta de este formulario en “Authorized redirect URIs”.',
+      'Si usarás dominio corporativo, verifica el dominio en Google Workspace y publica consent screen para producción.',
+    ],
+  },
+  domain: {
+    title: 'Buenas prácticas de seguridad (Paso 2)',
+    items: [
+      'Hosted domain debe coincidir con el dominio corporativo de tus usuarios (ej. 4shine.co).',
+      'Mantén “email verificado” en Sí para bloquear cuentas no verificadas.',
+      'Audience debe corresponder al cliente OAuth configurado para evitar tokens de otras apps.',
+      'Prueba al menos un login exitoso y un login rechazado (correo fuera de dominio).',
+    ],
+  },
+  provisioning: {
+    title: 'Operación y onboarding (Paso 3)',
+    items: [
+      'Define el rol por defecto para nuevos usuarios SSO y ajusta permisos finos desde RBAC.',
+      'Activa sincronización de perfil si quieres mantener nombre/foto alineados con Google.',
+      'Verifica en audit logs los eventos de login SSO y creación/actualización de usuario.',
+      'Documenta este flujo para versión app: Google Sign-In cliente + validación centralizada en backend.',
+    ],
+  },
 };
 
 type AssistantTarget =
@@ -713,6 +813,13 @@ export default function IntegracionesAdminPage() {
   const isLastAssistantStep = !!assistantDefinition && assistantStepIndex === assistantDefinition.steps.length - 1;
   const isOutboundAssistantSes =
     assistantTarget?.kind === 'outbound_email' && (assistantDraft.provider ?? 'smtp') === 'ses';
+  const isGoogleSsoAssistant =
+    assistantTarget?.kind === 'integration' && assistantTarget.key === 'google_sso';
+  const googleSsoStepGuide = currentStep ? GOOGLE_SSO_STEP_GUIDES[currentStep.id] : null;
+  const googleSsoCallbackUrl =
+    hasText(assistantDraft.callbackUrl) ?
+      assistantDraft.callbackUrl :
+      `${DEFAULT_PUBLIC_APP_URL}/api/v1/auth/sso/google/callback`;
 
   const onAssistantSave = async () => {
     if (!assistantTarget || !assistantDefinition) return;
@@ -1310,6 +1417,25 @@ export default function IntegracionesAdminPage() {
                         luego ejecuta “Probar envío”.
                       </li>
                     </ol>
+                  </div>
+                )}
+
+                {isGoogleSsoAssistant && googleSsoStepGuide && (
+                  <div className="rounded-lg border border-sky-200 bg-sky-50 p-4 space-y-2">
+                    <p className="text-sm font-semibold text-sky-900">
+                      {googleSsoStepGuide.title}
+                    </p>
+                    <ol className="list-decimal list-inside space-y-1 text-xs text-sky-800">
+                      {googleSsoStepGuide.items.map((item, index) => (
+                        <li key={`${currentStep.id}-guide-${index}`}>{item}</li>
+                      ))}
+                    </ol>
+                    {currentStep.id === 'oauth' && (
+                      <p className="text-xs text-sky-900">
+                        Callback URL a registrar en Google:{' '}
+                        <span className="font-mono">{googleSsoCallbackUrl}</span>
+                      </p>
+                    )}
                   </div>
                 )}
 
