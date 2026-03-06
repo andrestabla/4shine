@@ -4,38 +4,23 @@ import React from 'react';
 import { CheckCircle2, Mail, PlugZap, Wrench } from 'lucide-react';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
-
-type IntegrationKey = 'google_meet' | 'google_calendar' | 'r2' | 'gemini' | 'google_sso' | 'openai';
+import {
+  getIntegrationsSettings,
+  queueOutboundEmailTest,
+  updateIntegrationsSettings,
+  type IntegrationConfigRecord,
+  type IntegrationKey,
+  type OutboundEmailConfig,
+  type OutboundEmailProvider,
+} from '@/features/administracion/client';
+import {
+  DEFAULT_OUTBOUND_EMAIL_CONFIG,
+  INTEGRATION_CATALOG,
+  hasText,
+  requiredOutboundMissing,
+} from '@/features/administracion/types';
 
 type WizardFieldType = 'text' | 'password' | 'url' | 'number' | 'textarea' | 'select';
-
-type OutboundEmailProvider = 'smtp' | 'sendgrid' | 'resend' | 'ses';
-
-interface IntegrationConfig {
-  key: IntegrationKey;
-  label: string;
-  provider: string;
-  enabled: boolean;
-  value: string;
-  wizardData: Record<string, string>;
-  lastConfiguredAt: string | null;
-}
-
-interface OutboundEmailConfig {
-  enabled: boolean;
-  provider: OutboundEmailProvider;
-  fromName: string;
-  fromEmail: string;
-  replyTo: string;
-  smtpHost: string;
-  smtpPort: string;
-  smtpUser: string;
-  smtpPassword: string;
-  smtpSecure: boolean;
-  apiKey: string;
-  sesRegion: string;
-  testRecipient: string;
-}
 
 interface WizardOption {
   value: string;
@@ -66,39 +51,20 @@ interface AssistantDefinition {
   primarySecretField?: string;
 }
 
-interface IntegrationsStorageV2 {
-  integrations: IntegrationConfig[];
-  outboundEmail: OutboundEmailConfig;
-}
-
-const STORAGE_KEY = '4shine-admin-integrations-v2';
-const LEGACY_STORAGE_KEY = '4shine-admin-integrations-v1';
 const DEFAULT_PUBLIC_APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.4shine.co';
 
-const DEFAULT_INTEGRATIONS: IntegrationConfig[] = [
-  { key: 'google_meet', label: 'Google Meet', provider: 'Google Workspace', enabled: false, value: '', wizardData: {}, lastConfiguredAt: null },
-  { key: 'google_calendar', label: 'Google Calendar', provider: 'Google Workspace', enabled: false, value: '', wizardData: {}, lastConfiguredAt: null },
-  { key: 'r2', label: 'Cloudflare R2', provider: 'Cloudflare', enabled: false, value: '', wizardData: {}, lastConfiguredAt: null },
-  { key: 'gemini', label: 'Gemini', provider: 'Google AI', enabled: false, value: '', wizardData: {}, lastConfiguredAt: null },
-  { key: 'google_sso', label: 'SSO Google', provider: 'Google OAuth', enabled: false, value: '', wizardData: {}, lastConfiguredAt: null },
-  { key: 'openai', label: 'OpenAI', provider: 'OpenAI', enabled: false, value: '', wizardData: {}, lastConfiguredAt: null },
-];
-
-const DEFAULT_OUTBOUND_EMAIL: OutboundEmailConfig = {
+const DEFAULT_INTEGRATIONS: IntegrationConfigRecord[] = INTEGRATION_CATALOG.map((integration) => ({
+  integrationId: null,
+  key: integration.key,
+  label: integration.label,
+  provider: integration.provider,
   enabled: false,
-  provider: 'smtp',
-  fromName: '4Shine Platform',
-  fromEmail: '',
-  replyTo: '',
-  smtpHost: '',
-  smtpPort: '587',
-  smtpUser: '',
-  smtpPassword: '',
-  smtpSecure: false,
-  apiKey: '',
-  sesRegion: 'us-east-1',
-  testRecipient: '',
-};
+  value: '',
+  wizardData: {},
+  lastConfiguredAt: null,
+  createdAt: null,
+  updatedAt: null,
+}));
 
 const INTEGRATION_ASSISTANTS: Record<IntegrationKey, AssistantDefinition> = {
   google_meet: {
@@ -447,18 +413,6 @@ type AssistantTarget =
   | { kind: 'outbound_email' }
   | null;
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-function asString(value: unknown, fallback = ''): string {
-  return typeof value === 'string' ? value : fallback;
-}
-
-function hasText(value: string | undefined): boolean {
-  return !!value && value.trim().length > 0;
-}
-
 function collectFields(definition: AssistantDefinition): WizardFieldDefinition[] {
   return definition.steps.flatMap((step) => step.fields);
 }
@@ -506,167 +460,67 @@ function formatDate(value: string | null): string {
   return new Date(value).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
-function requiredOutboundMissing(config: OutboundEmailConfig): string[] {
-  const missing: string[] = [];
-
-  if (!hasText(config.fromName)) missing.push('Nombre remitente');
-  if (!hasText(config.fromEmail)) missing.push('Correo remitente');
-
-  if (config.provider === 'smtp') {
-    if (!hasText(config.smtpHost)) missing.push('SMTP Host');
-    if (!hasText(config.smtpPort)) missing.push('SMTP Port');
-    if (!hasText(config.smtpUser)) missing.push('SMTP Usuario');
-    if (!hasText(config.smtpPassword)) missing.push('SMTP Password');
-  } else {
-    if (!hasText(config.apiKey)) missing.push('API Key proveedor');
-    if (config.provider === 'ses' && !hasText(config.sesRegion)) missing.push('Región SES');
-  }
-
-  return missing;
-}
-
-function mapLegacyIntegration(raw: Record<string, unknown>, fallback: IntegrationConfig): IntegrationConfig {
-  const wizardData = isRecord(raw.wizardData)
-    ? Object.fromEntries(
-        Object.entries(raw.wizardData).map(([key, value]) => [key, asString(value)]),
-      )
-    : {};
-
-  const value = asString(raw.value);
-  const normalizedWizardData = { ...wizardData };
-  if (!hasText(normalizedWizardData.apiKey) && hasText(value)) {
-    normalizedWizardData.apiKey = value;
-  }
-
-  return {
-    ...fallback,
-    enabled: !!raw.enabled,
-    value,
-    wizardData: normalizedWizardData,
-    lastConfiguredAt: asString(raw.lastConfiguredAt) || null,
-  };
-}
-
-function parseStorage(raw: string): IntegrationsStorageV2 | null {
-  const parsed = JSON.parse(raw) as unknown;
-
-  if (Array.isArray(parsed)) {
-    const byKey = new Map<string, Record<string, unknown>>();
-    for (const item of parsed) {
-      if (isRecord(item) && hasText(asString(item.key))) {
-        byKey.set(asString(item.key), item);
-      }
-    }
-
-    const integrations = DEFAULT_INTEGRATIONS.map((integration) => {
-      const stored = byKey.get(integration.key);
-      return stored ? mapLegacyIntegration(stored, integration) : integration;
-    });
-
-    return {
-      integrations,
-      outboundEmail: DEFAULT_OUTBOUND_EMAIL,
-    };
-  }
-
-  if (!isRecord(parsed)) return null;
-
-  const integrationListRaw = parsed.integrations;
-  const outboundRaw = parsed.outboundEmail;
-
-  const integrations = DEFAULT_INTEGRATIONS.map((integration) => {
-    if (!Array.isArray(integrationListRaw)) return integration;
-
-    const stored = integrationListRaw.find((item) => {
-      if (!isRecord(item)) return false;
-      return asString(item.key) === integration.key;
-    });
-
-    if (!isRecord(stored)) return integration;
-    return mapLegacyIntegration(stored, integration);
-  });
-
-  const outboundEmail: OutboundEmailConfig = {
-    ...DEFAULT_OUTBOUND_EMAIL,
-    ...(isRecord(outboundRaw)
-      ? {
-          enabled: !!outboundRaw.enabled,
-          provider: (['smtp', 'sendgrid', 'resend', 'ses'].includes(asString(outboundRaw.provider))
-            ? asString(outboundRaw.provider)
-            : DEFAULT_OUTBOUND_EMAIL.provider) as OutboundEmailProvider,
-          fromName: asString(outboundRaw.fromName, DEFAULT_OUTBOUND_EMAIL.fromName),
-          fromEmail: asString(outboundRaw.fromEmail),
-          replyTo: asString(outboundRaw.replyTo),
-          smtpHost: asString(outboundRaw.smtpHost),
-          smtpPort: asString(outboundRaw.smtpPort, DEFAULT_OUTBOUND_EMAIL.smtpPort),
-          smtpUser: asString(outboundRaw.smtpUser),
-          smtpPassword: asString(outboundRaw.smtpPassword),
-          smtpSecure: !!outboundRaw.smtpSecure,
-          apiKey: asString(outboundRaw.apiKey),
-          sesRegion: asString(outboundRaw.sesRegion, DEFAULT_OUTBOUND_EMAIL.sesRegion),
-          testRecipient: asString(outboundRaw.testRecipient),
-        }
-      : {}),
-  };
-
-  return {
-    integrations,
-    outboundEmail,
-  };
-}
-
 export default function IntegracionesAdminPage() {
   const { alert } = useAppDialog();
-  const [integrations, setIntegrations] = React.useState<IntegrationConfig[]>(DEFAULT_INTEGRATIONS);
-  const [outboundEmail, setOutboundEmail] = React.useState<OutboundEmailConfig>(DEFAULT_OUTBOUND_EMAIL);
+  const [integrations, setIntegrations] = React.useState<IntegrationConfigRecord[]>(DEFAULT_INTEGRATIONS);
+  const [outboundEmail, setOutboundEmail] = React.useState<OutboundEmailConfig>(DEFAULT_OUTBOUND_EMAIL_CONFIG);
+  const [loading, setLoading] = React.useState(true);
 
   const [assistantTarget, setAssistantTarget] = React.useState<AssistantTarget>(null);
   const [assistantStepIndex, setAssistantStepIndex] = React.useState(0);
   const [assistantDraft, setAssistantDraft] = React.useState<Record<string, string>>({});
   const [assistantEnabled, setAssistantEnabled] = React.useState(false);
 
-  const persistStorage = React.useCallback((nextIntegrations: IntegrationConfig[], nextOutboundEmail: OutboundEmailConfig) => {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        integrations: nextIntegrations,
-        outboundEmail: nextOutboundEmail,
-      }),
-    );
-  }, []);
+  const showError = React.useCallback(
+    async (fallbackMessage: string, cause: unknown) => {
+      await alert({
+        title: 'Error',
+        message: cause instanceof Error ? cause.message : fallbackMessage,
+        tone: 'error',
+      });
+    },
+    [alert],
+  );
+
+  const loadSettings = React.useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await getIntegrationsSettings();
+      setIntegrations(data.integrations);
+      setOutboundEmail(data.outboundEmail);
+    } catch (error) {
+      await showError('No se pudo cargar la configuración de integraciones', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [showError]);
 
   React.useEffect(() => {
-    try {
-      const latestRaw = localStorage.getItem(STORAGE_KEY);
-      if (latestRaw) {
-        const parsed = parseStorage(latestRaw);
-        if (parsed) {
-          setIntegrations(parsed.integrations);
-          setOutboundEmail(parsed.outboundEmail);
-          return;
-        }
-      }
+    void loadSettings();
+  }, [loadSettings]);
 
-      const legacyRaw = localStorage.getItem(LEGACY_STORAGE_KEY);
-      if (!legacyRaw) return;
+  const persistSettings = React.useCallback(
+    async (nextIntegrations: IntegrationConfigRecord[], nextOutboundEmail: OutboundEmailConfig) => {
+      const payload = await updateIntegrationsSettings({
+        integrations: nextIntegrations,
+        outboundEmail: nextOutboundEmail,
+      });
 
-      const legacyParsed = parseStorage(legacyRaw);
-      if (!legacyParsed) return;
+      setIntegrations(payload.integrations);
+      setOutboundEmail(payload.outboundEmail);
+      return payload;
+    },
+    [],
+  );
 
-      setIntegrations(legacyParsed.integrations);
-      setOutboundEmail(legacyParsed.outboundEmail);
-
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(legacyParsed));
-    } catch {
-      // Ignore invalid local storage payload
-    }
-  }, []);
-
-  const setIntegration = (key: IntegrationKey, updater: (current: IntegrationConfig) => IntegrationConfig) => {
+  const setIntegration = (
+    key: IntegrationKey,
+    updater: (current: IntegrationConfigRecord) => IntegrationConfigRecord,
+  ) => {
     setIntegrations((prev) => prev.map((item) => (item.key === key ? updater(item) : item)));
   };
 
-  const openIntegrationAssistant = (integration: IntegrationConfig) => {
+  const openIntegrationAssistant = (integration: IntegrationConfigRecord) => {
     const definition = INTEGRATION_ASSISTANTS[integration.key];
     const baseData = { ...integration.wizardData };
 
@@ -754,32 +608,34 @@ export default function IntegracionesAdminPage() {
       const targetKey = assistantTarget.key;
       const primarySecretField = assistantDefinition.primarySecretField;
 
-      setIntegrations((prev) => {
-        const next = prev.map((item) => {
-          if (item.key !== targetKey) return item;
+      const nextIntegrations = integrations.map((item) => {
+        if (item.key !== targetKey) return item;
 
-          const nextValue =
-            primarySecretField && hasText(assistantDraft[primarySecretField])
-              ? assistantDraft[primarySecretField]
-              : item.value;
+        const nextValue =
+          primarySecretField && hasText(assistantDraft[primarySecretField])
+            ? assistantDraft[primarySecretField]
+            : item.value;
 
-          return {
-            ...item,
-            enabled: assistantEnabled,
-            value: nextValue,
-            wizardData: { ...assistantDraft },
-            lastConfiguredAt: now,
-          };
-        });
-
-        persistStorage(next, outboundEmail);
-        return next;
+        return {
+          ...item,
+          enabled: assistantEnabled,
+          value: nextValue,
+          wizardData: { ...assistantDraft },
+          lastConfiguredAt: now,
+        };
       });
+
+      try {
+        await persistSettings(nextIntegrations, outboundEmail);
+      } catch (error) {
+        await showError('No se pudo guardar la integración', error);
+        return;
+      }
 
       closeAssistant();
       await alert({
         title: 'Integración configurada',
-        message: 'El asistente se aplicó correctamente. La configuración ya quedó persistida en el navegador.',
+        message: 'El asistente se aplicó correctamente y la configuración quedó en base de datos.',
         tone: 'success',
       });
       return;
@@ -813,24 +669,32 @@ export default function IntegracionesAdminPage() {
       return;
     }
 
-    setOutboundEmail(nextOutbound);
-    persistStorage(integrations, nextOutbound);
+    try {
+      await persistSettings(integrations, nextOutbound);
+    } catch (error) {
+      await showError('No se pudo guardar la configuración de correo saliente', error);
+      return;
+    }
 
     closeAssistant();
     await alert({
       title: 'Correo saliente configurado',
-      message: 'La configuración de envío de correos quedó registrada.',
+      message: 'La configuración de envío de correos quedó registrada en base de datos.',
       tone: 'success',
     });
   };
 
   const onSaveAll = async () => {
-    persistStorage(integrations, outboundEmail);
-    await alert({
-      title: 'Integraciones actualizadas',
-      message: 'Se guardaron integraciones y correo saliente.',
-      tone: 'success',
-    });
+    try {
+      await persistSettings(integrations, outboundEmail);
+      await alert({
+        title: 'Integraciones actualizadas',
+        message: 'Se guardaron integraciones y correo saliente.',
+        tone: 'success',
+      });
+    } catch (error) {
+      await showError('No se pudo guardar la configuración de integraciones', error);
+    }
   };
 
   const enabledCount = integrations.filter((item) => item.enabled).length;
@@ -850,6 +714,12 @@ export default function IntegracionesAdminPage() {
         subtitle="Asistentes de configuración por integración + correo saliente para operación de plataforma."
       />
 
+      {loading ? (
+        <div className="bg-white rounded-xl border border-slate-200 p-4 text-sm text-slate-500">
+          Cargando configuración...
+        </div>
+      ) : (
+        <>
       <section className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
           <article className="rounded-lg border border-slate-200 p-4">
@@ -874,7 +744,7 @@ export default function IntegracionesAdminPage() {
           <article className="rounded-lg border border-slate-200 p-4 flex items-center justify-between gap-2">
             <div>
               <p className="text-xs text-slate-500 uppercase tracking-wide">Persistencia</p>
-              <p className="text-sm font-medium text-slate-700 mt-2">Local (v2)</p>
+              <p className="text-sm font-medium text-slate-700 mt-2">Base de datos</p>
             </div>
             <button className="rounded-md bg-slate-900 text-white px-3 py-2 text-sm" onClick={onSaveAll} type="button">
               Guardar todo
@@ -1112,13 +982,19 @@ export default function IntegracionesAdminPage() {
                 return;
               }
 
-              await alert({
-                title: 'Prueba de correo en cola',
-                message: `Se registró un envío de prueba hacia ${
-                  hasText(outboundEmail.testRecipient) ? outboundEmail.testRecipient : 'destinatario por defecto'
-                } (modo mock local).`,
-                tone: 'success',
-              });
+              try {
+                await persistSettings(integrations, outboundEmail);
+                const result = await queueOutboundEmailTest(
+                  hasText(outboundEmail.testRecipient) ? outboundEmail.testRecipient : undefined,
+                );
+                await alert({
+                  title: 'Prueba de correo en cola',
+                  message: `Se registró un envío de prueba hacia ${result.recipient}.`,
+                  tone: 'success',
+                });
+              } catch (error) {
+                await showError('No se pudo registrar la prueba de correo', error);
+              }
             }}
           >
             Probar envío
@@ -1126,9 +1002,11 @@ export default function IntegracionesAdminPage() {
         </div>
 
         <p className="text-xs text-slate-500">
-          Persistencia local v2. Siguiente fase: cifrado y persistencia backend con rotación de secretos.
+          Persistencia activa en base de datos. Recomendado siguiente paso: cifrado de secretos con KMS.
         </p>
       </section>
+        </>
+      )}
 
       {assistantTarget && assistantDefinition && currentStep && (
         <div className="fixed inset-0 z-[140] bg-black/60 backdrop-blur-sm p-4 flex items-center justify-center">

@@ -107,6 +107,21 @@ const moduleChecks = [
     writeRoutes: ['src/app/api/v1/modules/usuarios/[userId]/route.ts'],
   },
   {
+    moduleCode: 'administracion_branding',
+    pagePath: 'src/app/dashboard/administracion/branding/page.tsx',
+    readRoutes: ['src/app/api/v1/modules/administracion/branding/route.ts'],
+    writeRoutes: ['src/app/api/v1/modules/administracion/branding/route.ts'],
+  },
+  {
+    moduleCode: 'administracion_integraciones',
+    pagePath: 'src/app/dashboard/administracion/integraciones/page.tsx',
+    readRoutes: ['src/app/api/v1/modules/administracion/integraciones/route.ts'],
+    writeRoutes: [
+      'src/app/api/v1/modules/administracion/integraciones/route.ts',
+      'src/app/api/v1/modules/administracion/integraciones/outbound-email/test/route.ts',
+    ],
+  },
+  {
     moduleCode: 'contenido',
     pagePath: 'src/app/dashboard/contenido/page.tsx',
     readRoutes: ['src/app/api/v1/modules/contenido/route.ts'],
@@ -205,6 +220,9 @@ async function main() {
         UNION ALL SELECT 'chat_threads_total', COUNT(*) FROM app_networking.chat_threads
         UNION ALL SELECT 'messages_total', COUNT(*) FROM app_networking.messages
         UNION ALL SELECT 'workshops_total', COUNT(*) FROM app_networking.workshops
+        UNION ALL SELECT 'branding_settings_total', COUNT(*) FROM app_admin.branding_settings
+        UNION ALL SELECT 'integration_configs_total', COUNT(*) FROM app_admin.integration_configs
+        UNION ALL SELECT 'outbound_email_configs_total', COUNT(*) FROM app_admin.outbound_email_configs
       ) q
       ORDER BY metric
       `,
