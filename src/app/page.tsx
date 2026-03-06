@@ -77,13 +77,6 @@ export default function LoginPage() {
             Entrar
           </button>
         </form>
-
-        <div className="mt-8 p-4 rounded-xl bg-slate-800/60 border border-slate-700">
-          <p className="text-xs text-slate-300 font-semibold mb-2">Credenciales iniciales (seed)</p>
-          <p className="text-xs text-slate-400">`admin@4shine.co` / `4Shine2026!`</p>
-          <p className="text-xs text-slate-400">`sofia.martinez@4shine.co` / `4Shine2026!`</p>
-          <p className="text-xs text-slate-400">`carlos.ruiz@4shine.co` / `4Shine2026!`</p>
-        </div>
       </div>
     </div>
   );

@@ -627,7 +627,10 @@ async function run() {
   await client.query('BEGIN');
 
   try {
-    const defaultPassword = process.env.SEED_DEFAULT_PASSWORD ?? '4Shine2026!';
+    const defaultPassword = process.env.SEED_DEFAULT_PASSWORD;
+    if (!defaultPassword || defaultPassword.trim().length < 10) {
+      throw new Error('SEED_DEFAULT_PASSWORD is required and must be at least 10 characters long');
+    }
     const defaultPasswordHash = await bcrypt.hash(defaultPassword, 12);
 
     const orgIds = new Map();
