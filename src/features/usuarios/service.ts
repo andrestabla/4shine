@@ -906,6 +906,32 @@ export async function createUser(
 
   const passwordHash = await hashPassword(input.password);
   const displayName = input.displayName ?? `${input.firstName} ${input.lastName}`.trim();
+  let organizationId = input.organizationId ?? null;
+
+  if (!organizationId) {
+    const { rows: actorRows } = await client.query<{ organization_id: string | null }>(
+      `
+        SELECT organization_id::text
+        FROM app_core.users
+        WHERE user_id = $1::uuid
+        LIMIT 1
+      `,
+      [actor.userId],
+    );
+    organizationId = actorRows[0]?.organization_id ?? null;
+  }
+
+  if (!organizationId) {
+    const { rows: fallbackRows } = await client.query<{ organization_id: string }>(
+      `
+        SELECT organization_id::text
+        FROM app_core.organizations
+        ORDER BY created_at
+        LIMIT 1
+      `,
+    );
+    organizationId = fallbackRows[0]?.organization_id ?? null;
+  }
 
   const { rows } = await client.query<{ user_id: string }>(
     `
@@ -930,7 +956,7 @@ export async function createUser(
       displayName,
       input.timezone ?? 'America/Bogota',
       input.primaryRole,
-      input.organizationId ?? null,
+      organizationId,
     ],
   );
 
