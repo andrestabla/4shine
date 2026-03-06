@@ -79,8 +79,8 @@ const moduleChecks = [
   {
     moduleCode: 'perfil',
     pagePath: 'src/app/dashboard/perfil/page.tsx',
-    readRoutes: ['src/app/api/v1/bootstrap/me/route.ts'],
-    writeRoutes: [],
+    readRoutes: ['src/app/api/v1/modules/perfil/route.ts'],
+    writeRoutes: ['src/app/api/v1/modules/perfil/route.ts'],
   },
   {
     moduleCode: 'lideres',
