@@ -6,7 +6,6 @@ import { useBranding } from '@/context/BrandingContext';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import {
   Map,
-  User,
   Video,
   Users,
   Settings,
@@ -58,7 +57,6 @@ const MAIN_NAV_ITEMS: NavItem[] = [
   { moduleCode: 'convocatorias', label: 'Convocatorias', icon: Briefcase, path: '/dashboard/convocatorias' },
   { moduleCode: 'mensajes', label: 'Mensajes', icon: MessageSquare, path: '/dashboard/mensajes' },
   { moduleCode: 'workshops', label: 'Workshops', icon: Presentation, path: '/dashboard/workshops' },
-  { moduleCode: 'perfil', label: 'Perfil', icon: User, path: '/dashboard/perfil' },
   { moduleCode: 'lideres', label: 'Líderes', icon: Users, path: '/dashboard/lideres' },
   {
     moduleCode: 'formacion_mentores',
@@ -127,6 +125,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
 
   const mainNavItems = MAIN_NAV_ITEMS.filter(hasAccess);
   const adminNavItems = ADMIN_NAV_ITEMS.filter(hasAccess);
+  const isProfileActive = pathname === '/dashboard/perfil' || pathname.startsWith('/dashboard/perfil/');
   const onPrimaryText = getOnColorText(tokens.colors.primary);
   const isLightPrimary = onPrimaryText === '#0f172a';
   const mutedText = isLightPrimary ? rgbaFromHex('#0f172a', 0.72) : rgbaFromHex('#ffffff', 0.76);
@@ -275,11 +274,19 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
         </nav>
 
         <div className="p-4 border-t" style={{ borderColor }}>
-          <div
+          <Link
+            href="/dashboard/perfil"
+            onClick={onClose}
             className={clsx(
               'flex items-center gap-3 mb-4 p-2 rounded-lg transition cursor-pointer',
               isLightPrimary ? 'hover:bg-black/10' : 'hover:bg-white/10',
+              isProfileActive && 'border-l-4 shadow-md',
             )}
+            style={{
+              borderLeftColor: isProfileActive ? tokens.colors.accent : 'transparent',
+              backgroundColor: isProfileActive ? activeBg : 'transparent',
+            }}
+            title={isCollapsed ? 'Mi perfil' : undefined}
           >
             <div
               className={`w-10 h-10 rounded-full ${currentUser.color} border-2 flex items-center justify-center text-white font-bold text-lg shadow-lg`}
@@ -293,7 +300,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
               </p>
               <p className="text-[10px] uppercase font-bold tracking-wider" style={{ color: tokens.colors.accent }}>{currentUser.role}</p>
             </div>
-          </div>
+          </Link>
           <button
             onClick={() => void onLogoutClick()}
             className={clsx(

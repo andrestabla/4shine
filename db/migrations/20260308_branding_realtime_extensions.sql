@@ -82,7 +82,9 @@ BEGIN
   END IF;
 END $$;
 
-CREATE OR REPLACE VIEW app_admin.v_branding_tokens_public AS
+DROP VIEW IF EXISTS app_admin.v_branding_tokens_public;
+
+CREATE VIEW app_admin.v_branding_tokens_public AS
 SELECT
   bs.branding_id,
   bs.organization_id,
