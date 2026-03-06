@@ -27,19 +27,27 @@ export default function LoginPage() {
   };
 
   const isSplitLayout = branding.loginLayout === 'split';
+  const isCenteredLayout = branding.loginLayout === 'centered';
   const isMinimalLayout = branding.loginLayout === 'minimal';
+  const hasCustomBackground = branding.loginBackgroundImageUrl.trim().length > 0;
+  const containerMaxWidth = isSplitLayout ? 'min(1180px, 100%)' : 'min(900px, 100%)';
+  const cardMaxWidth = isMinimalLayout ? '440px' : isCenteredLayout ? '620px' : '560px';
+  const loginBackground = hasCustomBackground
+    ? `linear-gradient(115deg, color-mix(in srgb, var(--brand-primary) 86%, black), color-mix(in srgb, var(--brand-secondary) 72%, #020617)), url("${branding.loginBackgroundImageUrl}")`
+    : 'radial-gradient(circle at 20% 15%, color-mix(in srgb, var(--brand-accent) 20%, transparent), transparent 40%), linear-gradient(120deg, color-mix(in srgb, var(--brand-primary) 94%, black), color-mix(in srgb, var(--brand-secondary) 62%, #020617))';
 
   return (
     <div
       className="min-h-screen p-4 md:p-8 flex items-stretch"
       style={{
-        background:
-          'radial-gradient(circle at 20% 15%, color-mix(in srgb, var(--brand-accent) 20%, transparent), transparent 40%), linear-gradient(120deg, color-mix(in srgb, var(--brand-primary) 94%, black), color-mix(in srgb, var(--brand-secondary) 62%, #020617))',
+        backgroundImage: loginBackground,
+        backgroundSize: hasCustomBackground ? 'cover' : undefined,
+        backgroundPosition: hasCustomBackground ? 'center' : undefined,
       }}
     >
       <div
         className={`w-full mx-auto grid gap-6 ${isSplitLayout ? 'lg:grid-cols-2' : 'grid-cols-1'} items-center`}
-        style={{ maxWidth: 'min(1100px, 100%)' }}
+        style={{ maxWidth: containerMaxWidth }}
       >
         {isSplitLayout && (
           <aside className="hidden lg:flex flex-col justify-between p-8 rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl text-white">
@@ -53,12 +61,13 @@ export default function LoginPage() {
                 )}
                 <h1 className="text-2xl font-bold">{branding.platformName}</h1>
               </div>
-              <p className="text-white/80 max-w-md text-lg leading-relaxed">{branding.welcomeMessage}</p>
+              <p className="text-white max-w-md text-2xl font-semibold leading-tight">{branding.loginHeadline}</p>
+              <p className="text-white/80 max-w-md text-lg leading-relaxed mt-3">{branding.welcomeMessage}</p>
             </div>
 
             <div className="text-sm text-white/70">
               <p>Zona horaria institucional: {branding.institutionTimezone}</p>
-              <p className="mt-1">Pensado para plataforma web y app móvil.</p>
+              <p className="mt-1">{branding.loginSupportMessage}</p>
             </div>
           </aside>
         )}
@@ -68,10 +77,21 @@ export default function LoginPage() {
           style={{
             borderRadius: `calc(${tokens.shape.borderRadiusRem}rem + 0.9rem)`,
             backgroundColor: 'color-mix(in srgb, white 10%, var(--brand-primary))',
-            maxWidth: isMinimalLayout ? '440px' : '560px',
+            maxWidth: cardMaxWidth,
             justifySelf: 'center',
           }}
         >
+          {isCenteredLayout && (
+            <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-4 text-center mb-4">
+              <p className="text-white text-lg md:text-xl font-semibold">{branding.loginHeadline}</p>
+              <p className="text-white/70 text-sm mt-1">{branding.loginSupportMessage}</p>
+            </div>
+          )}
+
+          {isMinimalLayout && (
+            <p className="text-center text-sm text-white/70 mb-4">{branding.loginHeadline}</p>
+          )}
+
           <div className="flex justify-center mb-4">
             {branding.logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -134,6 +154,10 @@ export default function LoginPage() {
               <img src={branding.loaderAssetUrl} alt={branding.loaderText} className="mx-auto h-12 w-auto" />
               <p className="text-xs text-white/70 mt-2">{branding.loaderText}</p>
             </div>
+          )}
+
+          {!isSplitLayout && (
+            <p className="text-center text-xs text-white/60 mt-4">{branding.loginSupportMessage}</p>
           )}
         </section>
       </div>

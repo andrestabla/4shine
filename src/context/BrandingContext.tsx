@@ -74,6 +74,7 @@ function applyBrandingToDocument(
   root.style.setProperty('--brand-page-max-width', tokens.layout.pageMaxWidth);
   root.style.setProperty('--brand-font-family', tokens.typography.cssStack);
   root.style.setProperty('--brand-login-layout', tokens.layout.loginLayout);
+  root.style.setProperty('--brand-login-background-image-url', tokens.layout.loginBackgroundImageUrl);
   root.setAttribute('data-brand-login-layout', tokens.layout.loginLayout);
 
   const font = findBrandingFont(branding.typography);

@@ -18,6 +18,12 @@ export type BrandingPresetCode = (typeof BRANDING_PRESET_CODES)[number];
 export const LOGIN_LAYOUT_OPTIONS = ['split', 'centered', 'minimal'] as const;
 export type LoginLayout = (typeof LOGIN_LAYOUT_OPTIONS)[number];
 
+export const LOGIN_LAYOUT_LABELS: Record<LoginLayout, string> = {
+  split: 'Split (contenido + formulario)',
+  centered: 'Centered (formulario centrado)',
+  minimal: 'Minimal (compacto)',
+};
+
 export interface BrandingFontOption {
   value: string;
   label: string;
@@ -92,6 +98,9 @@ export interface BrandingSettings {
   pageMaxWidth: string;
   loginLayout: LoginLayout;
   welcomeMessage: string;
+  loginHeadline: string;
+  loginSupportMessage: string;
+  loginBackgroundImageUrl: string;
   customCss: string;
   presetCode: BrandingPresetCode;
 }
@@ -139,6 +148,7 @@ export interface BrandingRuntimeTokens {
     pageMaxWidth: string;
     loginLayout: LoginLayout;
     timezone: string;
+    loginBackgroundImageUrl: string;
   };
   assets: {
     logoUrl: string;
@@ -148,6 +158,8 @@ export interface BrandingRuntimeTokens {
   text: {
     platformName: string;
     welcomeMessage: string;
+    loginHeadline: string;
+    loginSupportMessage: string;
     loaderText: string;
   };
 }
@@ -215,6 +227,9 @@ export const DEFAULT_BRANDING_SETTINGS: BrandingSettings = {
   pageMaxWidth: '1260px',
   loginLayout: 'split',
   welcomeMessage: 'Inicia sesión con tu cuenta corporativa.',
+  loginHeadline: 'Bienvenidos a una nueva experiencia de aprendizaje',
+  loginSupportMessage: 'Pensado para plataforma web y app móvil.',
+  loginBackgroundImageUrl: '',
   customCss: '',
   presetCode: 'corporativo',
 };

@@ -76,6 +76,7 @@ export function buildBrandingTokens(settings: BrandingSettings): BrandingRuntime
       pageMaxWidth: settings.pageMaxWidth,
       loginLayout: settings.loginLayout,
       timezone: settings.institutionTimezone,
+      loginBackgroundImageUrl: settings.loginBackgroundImageUrl,
     },
     assets: {
       logoUrl: settings.logoUrl,
@@ -85,6 +86,8 @@ export function buildBrandingTokens(settings: BrandingSettings): BrandingRuntime
     text: {
       platformName: settings.platformName,
       welcomeMessage: settings.welcomeMessage,
+      loginHeadline: settings.loginHeadline,
+      loginSupportMessage: settings.loginSupportMessage,
       loaderText: settings.loaderText,
     },
   };

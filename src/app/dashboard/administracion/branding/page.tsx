@@ -26,6 +26,7 @@ import {
   BRANDING_FONT_OPTIONS,
   BRANDING_PRESETS,
   DEFAULT_BRANDING_SETTINGS,
+  LOGIN_LAYOUT_LABELS,
   LOGIN_LAYOUT_OPTIONS,
   type BrandingPresetCode,
 } from '@/features/administracion/types';
@@ -42,6 +43,12 @@ const TIMEZONE_OPTIONS = [
 ] as const;
 
 const PAGE_WIDTH_PRESETS = ['1100px', '1260px', '1440px', '1600px', '100%'] as const;
+
+const LOGIN_LAYOUT_DESCRIPTIONS: Record<BrandingSettings['loginLayout'], string> = {
+  split: 'Panel informativo + formulario con disposición en dos columnas.',
+  centered: 'Formulario centrado con bloque de mensaje superior.',
+  minimal: 'Versión compacta para accesos rápidos y mobile-first.',
+};
 
 function formatDate(value: string | null): string {
   if (!value) return 'Sin cambios guardados';
@@ -64,6 +71,9 @@ function toBrandingSettings(input: BrandingSettings): BrandingSettings {
     pageMaxWidth: input.pageMaxWidth,
     loginLayout: input.loginLayout,
     welcomeMessage: input.welcomeMessage,
+    loginHeadline: input.loginHeadline,
+    loginSupportMessage: input.loginSupportMessage,
+    loginBackgroundImageUrl: input.loginBackgroundImageUrl,
     customCss: input.customCss,
     presetCode: input.presetCode,
   };
@@ -251,6 +261,7 @@ export default function BrandingAdminPage() {
 
   const hoverColor = deriveHoverColor(settings.primaryColor);
   const focusColor = deriveFocusColor(settings.primaryColor);
+  const previewHasBackground = settings.loginBackgroundImageUrl.trim().length > 0;
 
   return (
     <div className="space-y-4">
@@ -458,20 +469,38 @@ export default function BrandingAdminPage() {
               <PanelTop size={18} className="text-pink-600" /> Login & Branding
             </h3>
 
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {LOGIN_LAYOUT_OPTIONS.map((layout) => (
+                <button
+                  key={layout}
+                  type="button"
+                  onClick={() => patchSettings({ loginLayout: layout })}
+                  className={`rounded-2xl border px-4 py-3 text-left transition ${
+                    settings.loginLayout === layout
+                      ? 'border-slate-900 bg-slate-900 text-white'
+                      : 'border-slate-300 bg-white hover:border-slate-500'
+                  }`}
+                >
+                  <p className="font-semibold">{LOGIN_LAYOUT_LABELS[layout]}</p>
+                  <p
+                    className={`text-xs mt-2 ${
+                      settings.loginLayout === layout ? 'text-slate-200' : 'text-slate-500'
+                    }`}
+                  >
+                    {LOGIN_LAYOUT_DESCRIPTIONS[layout]}
+                  </p>
+                </button>
+              ))}
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <label className="text-sm text-slate-700">
-                Layout del Login
-                <select
+                Titular del Login
+                <input
                   className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
-                  value={settings.loginLayout}
-                  onChange={(event) => patchSettings({ loginLayout: event.target.value as BrandingSettings['loginLayout'] })}
-                >
-                  {LOGIN_LAYOUT_OPTIONS.map((layout) => (
-                    <option key={layout} value={layout}>
-                      {layout}
-                    </option>
-                  ))}
-                </select>
+                  value={settings.loginHeadline}
+                  onChange={(event) => patchSettings({ loginHeadline: event.target.value })}
+                />
               </label>
 
               <label className="text-sm text-slate-700">
@@ -481,6 +510,28 @@ export default function BrandingAdminPage() {
                   value={settings.welcomeMessage}
                   onChange={(event) => patchSettings({ welcomeMessage: event.target.value })}
                 />
+              </label>
+
+              <label className="text-sm text-slate-700 md:col-span-2">
+                Mensaje de soporte (pie/informativo)
+                <input
+                  className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
+                  value={settings.loginSupportMessage}
+                  onChange={(event) => patchSettings({ loginSupportMessage: event.target.value })}
+                />
+              </label>
+
+              <label className="text-sm text-slate-700 md:col-span-2">
+                Imagen de background login (URL)
+                <input
+                  className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
+                  value={settings.loginBackgroundImageUrl}
+                  onChange={(event) => patchSettings({ loginBackgroundImageUrl: event.target.value })}
+                  placeholder="https://.../login-background.jpg"
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Si se define URL, reemplaza el fondo por imagen con overlay del tema.
+                </p>
               </label>
 
               <label className="text-sm text-slate-700 md:col-span-2">
@@ -525,7 +576,24 @@ export default function BrandingAdminPage() {
                 <p className="font-semibold">{settings.platformName}</p>
                 <p className="text-xs opacity-80">{settings.typography} · {settings.institutionTimezone}</p>
               </div>
-              <div className="p-4 bg-slate-50 space-y-3">
+              <div
+                className="p-4 bg-slate-50 space-y-3"
+                style={
+                  settings.loginBackgroundImageUrl
+                    ? {
+                        backgroundImage: `linear-gradient(115deg, rgba(15, 23, 42, 0.86), rgba(30, 41, 59, 0.72)), url("${settings.loginBackgroundImageUrl}")`,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                      }
+                    : undefined
+                }
+              >
+                <p className={`text-sm font-semibold ${previewHasBackground ? 'text-white' : 'text-slate-800'}`}>
+                  {settings.loginHeadline}
+                </p>
+                <p className={`text-xs ${previewHasBackground ? 'text-white/80' : 'text-slate-600'}`}>
+                  {settings.welcomeMessage}
+                </p>
                 <button
                   type="button"
                   className="px-4 py-2 text-white"
@@ -536,8 +604,15 @@ export default function BrandingAdminPage() {
                 >
                   Acción primaria
                 </button>
-                <p className="text-xs text-slate-500">Login layout: {settings.loginLayout}</p>
-                <p className="text-xs text-slate-500">Ancho máximo app: {settings.pageMaxWidth}</p>
+                <p className={`text-xs ${previewHasBackground ? 'text-white/70' : 'text-slate-500'}`}>
+                  Layout login: {LOGIN_LAYOUT_LABELS[settings.loginLayout]}
+                </p>
+                <p className={`text-xs ${previewHasBackground ? 'text-white/70' : 'text-slate-500'}`}>
+                  Mensaje soporte: {settings.loginSupportMessage}
+                </p>
+                <p className={`text-xs ${previewHasBackground ? 'text-white/70' : 'text-slate-500'}`}>
+                  Ancho máximo app: {settings.pageMaxWidth}
+                </p>
               </div>
             </div>
 

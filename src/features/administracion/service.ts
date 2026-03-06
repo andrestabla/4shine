@@ -48,6 +48,9 @@ const BRANDING_FIELD_KEYS: Array<keyof BrandingSettings> = [
   'pageMaxWidth',
   'loginLayout',
   'welcomeMessage',
+  'loginHeadline',
+  'loginSupportMessage',
+  'loginBackgroundImageUrl',
   'customCss',
   'presetCode',
 ];
@@ -73,6 +76,9 @@ interface BrandingRow {
   page_max_width: string;
   login_layout: LoginLayout;
   login_welcome_message: string;
+  login_headline: string;
+  login_support_message: string;
+  login_background_image_url: string | null;
   custom_css: string;
   preset_code: BrandingPresetCode;
   created_at: string;
@@ -184,6 +190,11 @@ function normalizeCustomCss(value: string | undefined, fallback: string): string
   return value.slice(0, 20000);
 }
 
+function normalizeMediaUrl(value: string | undefined, fallback: string): string {
+  if (typeof value !== 'string') return fallback;
+  return value.trim().slice(0, 2000);
+}
+
 function normalizeDate(value: string | null | undefined): string | null {
   if (!value) return null;
   const date = new Date(value);
@@ -223,6 +234,9 @@ function mapBrandingRow(row: BrandingRow): BrandingSettingsRecord {
     pageMaxWidth: row.page_max_width,
     loginLayout: row.login_layout,
     welcomeMessage: row.login_welcome_message,
+    loginHeadline: row.login_headline,
+    loginSupportMessage: row.login_support_message,
+    loginBackgroundImageUrl: row.login_background_image_url ?? '',
     customCss: row.custom_css ?? '',
     presetCode: row.preset_code,
     createdAt: row.created_at,
@@ -250,6 +264,9 @@ function toBrandingSettingsSnapshot(input: BrandingSettings | BrandingSettingsRe
     pageMaxWidth: input.pageMaxWidth,
     loginLayout: input.loginLayout,
     welcomeMessage: input.welcomeMessage,
+    loginHeadline: input.loginHeadline,
+    loginSupportMessage: input.loginSupportMessage,
+    loginBackgroundImageUrl: input.loginBackgroundImageUrl,
     customCss: input.customCss,
     presetCode: input.presetCode,
   };
@@ -287,6 +304,16 @@ function normalizeBrandingSnapshot(value: unknown): BrandingSettings {
     welcomeMessage: hasText(snapshot.welcomeMessage)
       ? snapshot.welcomeMessage!.trim()
       : DEFAULT_BRANDING_SETTINGS.welcomeMessage,
+    loginHeadline: hasText(snapshot.loginHeadline)
+      ? snapshot.loginHeadline!.trim()
+      : DEFAULT_BRANDING_SETTINGS.loginHeadline,
+    loginSupportMessage: hasText(snapshot.loginSupportMessage)
+      ? snapshot.loginSupportMessage!.trim()
+      : DEFAULT_BRANDING_SETTINGS.loginSupportMessage,
+    loginBackgroundImageUrl: normalizeMediaUrl(
+      snapshot.loginBackgroundImageUrl,
+      DEFAULT_BRANDING_SETTINGS.loginBackgroundImageUrl,
+    ),
     customCss: normalizeCustomCss(snapshot.customCss, DEFAULT_BRANDING_SETTINGS.customCss),
     presetCode: normalizePresetCode(snapshot.presetCode, DEFAULT_BRANDING_SETTINGS.presetCode),
   };
@@ -463,6 +490,16 @@ function normalizeBrandingInput(
     welcomeMessage: hasText(input.welcomeMessage)
       ? input.welcomeMessage!.trim()
       : current.welcomeMessage,
+    loginHeadline: hasText(input.loginHeadline)
+      ? input.loginHeadline!.trim()
+      : current.loginHeadline,
+    loginSupportMessage: hasText(input.loginSupportMessage)
+      ? input.loginSupportMessage!.trim()
+      : current.loginSupportMessage,
+    loginBackgroundImageUrl: normalizeMediaUrl(
+      input.loginBackgroundImageUrl,
+      current.loginBackgroundImageUrl,
+    ),
     customCss: normalizeCustomCss(input.customCss, current.customCss),
     presetCode: normalizePresetCode(input.presetCode, current.presetCode),
   };
@@ -578,6 +615,9 @@ export async function getBrandingSettings(
         bs.page_max_width,
         bs.login_layout,
         bs.login_welcome_message,
+        bs.login_headline,
+        bs.login_support_message,
+        bs.login_background_image_url,
         bs.custom_css,
         bs.preset_code,
         bs.created_at::text,
@@ -653,6 +693,9 @@ async function persistBrandingSettings(
         page_max_width,
         login_layout,
         login_welcome_message,
+        login_headline,
+        login_support_message,
+        login_background_image_url,
         custom_css,
         preset_code,
         created_by,
@@ -676,8 +719,11 @@ async function persistBrandingSettings(
         $15,
         $16,
         $17,
-        $18::uuid,
-        $18::uuid
+        NULLIF($18, ''),
+        $19,
+        $20,
+        $21::uuid,
+        $21::uuid
       )
       ON CONFLICT (organization_id) DO UPDATE
       SET platform_name = EXCLUDED.platform_name,
@@ -694,6 +740,9 @@ async function persistBrandingSettings(
           page_max_width = EXCLUDED.page_max_width,
           login_layout = EXCLUDED.login_layout,
           login_welcome_message = EXCLUDED.login_welcome_message,
+          login_headline = EXCLUDED.login_headline,
+          login_support_message = EXCLUDED.login_support_message,
+          login_background_image_url = EXCLUDED.login_background_image_url,
           custom_css = EXCLUDED.custom_css,
           preset_code = EXCLUDED.preset_code,
           updated_by = EXCLUDED.updated_by,
@@ -715,6 +764,9 @@ async function persistBrandingSettings(
         page_max_width,
         login_layout,
         login_welcome_message,
+        login_headline,
+        login_support_message,
+        login_background_image_url,
         custom_css,
         preset_code,
         created_at::text,
@@ -736,6 +788,9 @@ async function persistBrandingSettings(
       next.pageMaxWidth,
       next.loginLayout,
       next.welcomeMessage,
+      next.loginHeadline,
+      next.loginSupportMessage,
+      next.loginBackgroundImageUrl,
       next.customCss,
       next.presetCode,
       actor.userId,
@@ -886,6 +941,9 @@ export async function getPublicBrandingSettings(
       bs.page_max_width,
       bs.login_layout,
       bs.login_welcome_message,
+      bs.login_headline,
+      bs.login_support_message,
+      bs.login_background_image_url,
       bs.custom_css,
       bs.preset_code,
       bs.created_at::text,
@@ -913,6 +971,9 @@ export async function getPublicBrandingSettings(
       bs.page_max_width,
       bs.login_layout,
       bs.login_welcome_message,
+      bs.login_headline,
+      bs.login_support_message,
+      bs.login_background_image_url,
       bs.custom_css,
       bs.preset_code,
       bs.created_at::text,
