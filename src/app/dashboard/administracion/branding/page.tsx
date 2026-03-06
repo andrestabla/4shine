@@ -76,11 +76,17 @@ function toBrandingSettings(input: BrandingSettings): BrandingSettings {
     welcomeMessage: input.welcomeMessage,
     loginHeadline: input.loginHeadline,
     loginSupportMessage: input.loginSupportMessage,
+    imageWelcomeMessage: input.imageWelcomeMessage,
+    imageLoginHeadline: input.imageLoginHeadline,
+    imageLoginSupportMessage: input.imageLoginSupportMessage,
     loginBackgroundImageUrl: input.loginBackgroundImageUrl,
     showPlatformName: input.showPlatformName,
     showWelcomeMessage: input.showWelcomeMessage,
     showLoginHeadline: input.showLoginHeadline,
     showLoginSupportMessage: input.showLoginSupportMessage,
+    showImageWelcomeMessage: input.showImageWelcomeMessage,
+    showImageLoginHeadline: input.showImageLoginHeadline,
+    showImageLoginSupportMessage: input.showImageLoginSupportMessage,
     showLoaderText: input.showLoaderText,
     customCss: input.customCss,
     presetCode: input.presetCode,
@@ -569,49 +575,110 @@ export default function BrandingAdminPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="text-sm text-slate-700">
-                <div className="flex items-center justify-between gap-2">
-                  <span>Titular del Login</span>
-                  <VisibilityToggle
-                    checked={settings.showLoginHeadline}
-                    onChange={(next) => patchSettings({ showLoginHeadline: next })}
+              <div className="rounded-xl border border-slate-200 p-3 space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Textos formulario
+                </p>
+
+                <div className="text-sm text-slate-700">
+                  <div className="flex items-center justify-between gap-2">
+                    <span>Titular del Login</span>
+                    <VisibilityToggle
+                      checked={settings.showLoginHeadline}
+                      onChange={(next) => patchSettings({ showLoginHeadline: next })}
+                    />
+                  </div>
+                  <input
+                    className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
+                    value={settings.loginHeadline}
+                    onChange={(event) => patchSettings({ loginHeadline: event.target.value })}
                   />
                 </div>
-                <input
-                  className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
-                  value={settings.loginHeadline}
-                  onChange={(event) => patchSettings({ loginHeadline: event.target.value })}
-                />
+
+                <div className="text-sm text-slate-700">
+                  <div className="flex items-center justify-between gap-2">
+                    <span>Mensaje de Bienvenida</span>
+                    <VisibilityToggle
+                      checked={settings.showWelcomeMessage}
+                      onChange={(next) => patchSettings({ showWelcomeMessage: next })}
+                    />
+                  </div>
+                  <input
+                    className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
+                    value={settings.welcomeMessage}
+                    onChange={(event) => patchSettings({ welcomeMessage: event.target.value })}
+                  />
+                </div>
+
+                <div className="text-sm text-slate-700">
+                  <div className="flex items-center justify-between gap-2">
+                    <span>Mensaje de soporte</span>
+                    <VisibilityToggle
+                      checked={settings.showLoginSupportMessage}
+                      onChange={(next) => patchSettings({ showLoginSupportMessage: next })}
+                    />
+                  </div>
+                  <input
+                    className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
+                    value={settings.loginSupportMessage}
+                    onChange={(event) => patchSettings({ loginSupportMessage: event.target.value })}
+                  />
+                </div>
               </div>
 
-              <div className="text-sm text-slate-700">
-                <div className="flex items-center justify-between gap-2">
-                  <span>Mensaje de Bienvenida</span>
-                  <VisibilityToggle
-                    checked={settings.showWelcomeMessage}
-                    onChange={(next) => patchSettings({ showWelcomeMessage: next })}
-                  />
-                </div>
-                <input
-                  className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
-                  value={settings.welcomeMessage}
-                  onChange={(event) => patchSettings({ welcomeMessage: event.target.value })}
-                />
-              </div>
+              <div className="rounded-xl border border-slate-200 p-3 space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Textos bloque sobre imagen
+                </p>
 
-              <div className="text-sm text-slate-700 md:col-span-2">
-                <div className="flex items-center justify-between gap-2">
-                  <span>Mensaje de soporte (pie/informativo)</span>
-                  <VisibilityToggle
-                    checked={settings.showLoginSupportMessage}
-                    onChange={(next) => patchSettings({ showLoginSupportMessage: next })}
+                <div className="text-sm text-slate-700">
+                  <div className="flex items-center justify-between gap-2">
+                    <span>Titular sobre imagen</span>
+                    <VisibilityToggle
+                      checked={settings.showImageLoginHeadline}
+                      onChange={(next) => patchSettings({ showImageLoginHeadline: next })}
+                    />
+                  </div>
+                  <input
+                    className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
+                    value={settings.imageLoginHeadline}
+                    onChange={(event) => patchSettings({ imageLoginHeadline: event.target.value })}
                   />
                 </div>
-                <input
-                  className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
-                  value={settings.loginSupportMessage}
-                  onChange={(event) => patchSettings({ loginSupportMessage: event.target.value })}
-                />
+
+                <div className="text-sm text-slate-700">
+                  <div className="flex items-center justify-between gap-2">
+                    <span>Mensaje de bienvenida sobre imagen</span>
+                    <VisibilityToggle
+                      checked={settings.showImageWelcomeMessage}
+                      onChange={(next) => patchSettings({ showImageWelcomeMessage: next })}
+                    />
+                  </div>
+                  <input
+                    className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
+                    value={settings.imageWelcomeMessage}
+                    onChange={(event) => patchSettings({ imageWelcomeMessage: event.target.value })}
+                  />
+                </div>
+
+                <div className="text-sm text-slate-700">
+                  <div className="flex items-center justify-between gap-2">
+                    <span>Mensaje de soporte sobre imagen</span>
+                    <VisibilityToggle
+                      checked={settings.showImageLoginSupportMessage}
+                      onChange={(next) =>
+                        patchSettings({ showImageLoginSupportMessage: next })
+                      }
+                    />
+                  </div>
+                  <input
+                    className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
+                    value={settings.imageLoginSupportMessage}
+                    onChange={(event) =>
+                      patchSettings({ imageLoginSupportMessage: event.target.value })
+                    }
+                  />
+                </div>
               </div>
 
               <ColorField
@@ -745,16 +812,40 @@ export default function BrandingAdminPage() {
                       }
                 }
               >
-                {settings.showLoginHeadline && (
-                  <p className="text-sm font-semibold text-white">
-                    {settings.loginHeadline}
+                <div className="rounded-xl border border-white/20 bg-black/20 p-3">
+                  <p className="text-[11px] uppercase tracking-wide text-white/70">
+                    Formulario login
                   </p>
-                )}
-                {settings.showWelcomeMessage && (
-                  <p className="text-xs text-white/80">
-                    {settings.welcomeMessage}
+                  {settings.showLoginHeadline && (
+                    <p className="text-sm font-semibold text-white mt-1">{settings.loginHeadline}</p>
+                  )}
+                  {settings.showWelcomeMessage && (
+                    <p className="text-xs text-white/80 mt-1">{settings.welcomeMessage}</p>
+                  )}
+                  {settings.showLoginSupportMessage && (
+                    <p className="text-xs text-white/70 mt-2">
+                      Soporte: {settings.loginSupportMessage}
+                    </p>
+                  )}
+                </div>
+                <div className="rounded-xl border border-white/20 bg-black/20 p-3">
+                  <p className="text-[11px] uppercase tracking-wide text-white/70">
+                    Bloque sobre imagen
                   </p>
-                )}
+                  {settings.showImageLoginHeadline && (
+                    <p className="text-sm font-semibold text-white mt-1">
+                      {settings.imageLoginHeadline}
+                    </p>
+                  )}
+                  {settings.showImageWelcomeMessage && (
+                    <p className="text-xs text-white/80 mt-1">{settings.imageWelcomeMessage}</p>
+                  )}
+                  {settings.showImageLoginSupportMessage && (
+                    <p className="text-xs text-white/70 mt-2">
+                      Soporte: {settings.imageLoginSupportMessage}
+                    </p>
+                  )}
+                </div>
                 <button
                   type="button"
                   className="px-4 py-2 text-white"
@@ -771,11 +862,6 @@ export default function BrandingAdminPage() {
                 <p className="text-xs text-white/70">
                   Overlay: {settings.loginOverlayColor} / {Math.round(settings.loginOverlayOpacity * 100)}%
                 </p>
-                {settings.showLoginSupportMessage && (
-                  <p className="text-xs text-white/70">
-                    Mensaje soporte: {settings.loginSupportMessage}
-                  </p>
-                )}
                 <p className="text-xs text-white/70">
                   Ancho máximo app: {settings.pageMaxWidth}
                 </p>

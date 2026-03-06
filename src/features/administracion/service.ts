@@ -54,11 +54,17 @@ const BRANDING_FIELD_KEYS: Array<keyof BrandingSettings> = [
   'welcomeMessage',
   'loginHeadline',
   'loginSupportMessage',
+  'imageWelcomeMessage',
+  'imageLoginHeadline',
+  'imageLoginSupportMessage',
   'loginBackgroundImageUrl',
   'showPlatformName',
   'showWelcomeMessage',
   'showLoginHeadline',
   'showLoginSupportMessage',
+  'showImageWelcomeMessage',
+  'showImageLoginHeadline',
+  'showImageLoginSupportMessage',
   'showLoaderText',
   'customCss',
   'presetCode',
@@ -89,11 +95,17 @@ interface BrandingRow {
   login_welcome_message: string;
   login_headline: string;
   login_support_message: string;
+  image_welcome_message: string;
+  image_login_headline: string;
+  image_login_support_message: string;
   login_background_image_url: string | null;
   show_platform_name: boolean;
   show_welcome_message: boolean;
   show_login_headline: boolean;
   show_login_support_message: boolean;
+  show_image_welcome_message: boolean;
+  show_image_login_headline: boolean;
+  show_image_login_support_message: boolean;
   show_loader_text: boolean;
   custom_css: string;
   preset_code: BrandingPresetCode;
@@ -284,11 +296,17 @@ function mapBrandingRow(row: BrandingRow): BrandingSettingsRecord {
     welcomeMessage: row.login_welcome_message,
     loginHeadline: row.login_headline,
     loginSupportMessage: row.login_support_message,
+    imageWelcomeMessage: row.image_welcome_message,
+    imageLoginHeadline: row.image_login_headline,
+    imageLoginSupportMessage: row.image_login_support_message,
     loginBackgroundImageUrl: row.login_background_image_url ?? '',
     showPlatformName: row.show_platform_name,
     showWelcomeMessage: row.show_welcome_message,
     showLoginHeadline: row.show_login_headline,
     showLoginSupportMessage: row.show_login_support_message,
+    showImageWelcomeMessage: row.show_image_welcome_message,
+    showImageLoginHeadline: row.show_image_login_headline,
+    showImageLoginSupportMessage: row.show_image_login_support_message,
     showLoaderText: row.show_loader_text,
     customCss: row.custom_css ?? '',
     presetCode: row.preset_code,
@@ -321,11 +339,17 @@ function toBrandingSettingsSnapshot(input: BrandingSettings | BrandingSettingsRe
     welcomeMessage: input.welcomeMessage,
     loginHeadline: input.loginHeadline,
     loginSupportMessage: input.loginSupportMessage,
+    imageWelcomeMessage: input.imageWelcomeMessage,
+    imageLoginHeadline: input.imageLoginHeadline,
+    imageLoginSupportMessage: input.imageLoginSupportMessage,
     loginBackgroundImageUrl: input.loginBackgroundImageUrl,
     showPlatformName: input.showPlatformName,
     showWelcomeMessage: input.showWelcomeMessage,
     showLoginHeadline: input.showLoginHeadline,
     showLoginSupportMessage: input.showLoginSupportMessage,
+    showImageWelcomeMessage: input.showImageWelcomeMessage,
+    showImageLoginHeadline: input.showImageLoginHeadline,
+    showImageLoginSupportMessage: input.showImageLoginSupportMessage,
     showLoaderText: input.showLoaderText,
     customCss: input.customCss,
     presetCode: input.presetCode,
@@ -378,6 +402,15 @@ function normalizeBrandingSnapshot(value: unknown): BrandingSettings {
     loginSupportMessage: hasText(snapshot.loginSupportMessage)
       ? snapshot.loginSupportMessage!.trim()
       : DEFAULT_BRANDING_SETTINGS.loginSupportMessage,
+    imageWelcomeMessage: hasText(snapshot.imageWelcomeMessage)
+      ? snapshot.imageWelcomeMessage!.trim()
+      : DEFAULT_BRANDING_SETTINGS.imageWelcomeMessage,
+    imageLoginHeadline: hasText(snapshot.imageLoginHeadline)
+      ? snapshot.imageLoginHeadline!.trim()
+      : DEFAULT_BRANDING_SETTINGS.imageLoginHeadline,
+    imageLoginSupportMessage: hasText(snapshot.imageLoginSupportMessage)
+      ? snapshot.imageLoginSupportMessage!.trim()
+      : DEFAULT_BRANDING_SETTINGS.imageLoginSupportMessage,
     loginBackgroundImageUrl: normalizeMediaUrl(
       snapshot.loginBackgroundImageUrl,
       DEFAULT_BRANDING_SETTINGS.loginBackgroundImageUrl,
@@ -397,6 +430,18 @@ function normalizeBrandingSnapshot(value: unknown): BrandingSettings {
     showLoginSupportMessage: normalizeBoolean(
       snapshot.showLoginSupportMessage,
       DEFAULT_BRANDING_SETTINGS.showLoginSupportMessage,
+    ),
+    showImageWelcomeMessage: normalizeBoolean(
+      snapshot.showImageWelcomeMessage,
+      DEFAULT_BRANDING_SETTINGS.showImageWelcomeMessage,
+    ),
+    showImageLoginHeadline: normalizeBoolean(
+      snapshot.showImageLoginHeadline,
+      DEFAULT_BRANDING_SETTINGS.showImageLoginHeadline,
+    ),
+    showImageLoginSupportMessage: normalizeBoolean(
+      snapshot.showImageLoginSupportMessage,
+      DEFAULT_BRANDING_SETTINGS.showImageLoginSupportMessage,
     ),
     showLoaderText: normalizeBoolean(
       snapshot.showLoaderText,
@@ -586,6 +631,15 @@ function normalizeBrandingInput(
     loginSupportMessage: hasText(input.loginSupportMessage)
       ? input.loginSupportMessage!.trim()
       : current.loginSupportMessage,
+    imageWelcomeMessage: hasText(input.imageWelcomeMessage)
+      ? input.imageWelcomeMessage!.trim()
+      : current.imageWelcomeMessage,
+    imageLoginHeadline: hasText(input.imageLoginHeadline)
+      ? input.imageLoginHeadline!.trim()
+      : current.imageLoginHeadline,
+    imageLoginSupportMessage: hasText(input.imageLoginSupportMessage)
+      ? input.imageLoginSupportMessage!.trim()
+      : current.imageLoginSupportMessage,
     loginBackgroundImageUrl: normalizeMediaUrl(
       input.loginBackgroundImageUrl,
       current.loginBackgroundImageUrl,
@@ -596,6 +650,18 @@ function normalizeBrandingInput(
     showLoginSupportMessage: normalizeBoolean(
       input.showLoginSupportMessage,
       current.showLoginSupportMessage,
+    ),
+    showImageWelcomeMessage: normalizeBoolean(
+      input.showImageWelcomeMessage,
+      current.showImageWelcomeMessage,
+    ),
+    showImageLoginHeadline: normalizeBoolean(
+      input.showImageLoginHeadline,
+      current.showImageLoginHeadline,
+    ),
+    showImageLoginSupportMessage: normalizeBoolean(
+      input.showImageLoginSupportMessage,
+      current.showImageLoginSupportMessage,
     ),
     showLoaderText: normalizeBoolean(input.showLoaderText, current.showLoaderText),
     customCss: normalizeCustomCss(input.customCss, current.customCss),
@@ -894,11 +960,17 @@ export async function getBrandingSettings(
         bs.login_welcome_message,
         bs.login_headline,
         bs.login_support_message,
+        bs.image_welcome_message,
+        bs.image_login_headline,
+        bs.image_login_support_message,
         bs.login_background_image_url,
         bs.show_platform_name,
         bs.show_welcome_message,
         bs.show_login_headline,
         bs.show_login_support_message,
+        bs.show_image_welcome_message,
+        bs.show_image_login_headline,
+        bs.show_image_login_support_message,
         bs.show_loader_text,
         bs.custom_css,
         bs.preset_code,
@@ -979,11 +1051,17 @@ async function persistBrandingSettings(
         login_welcome_message,
         login_headline,
         login_support_message,
+        image_welcome_message,
+        image_login_headline,
+        image_login_support_message,
         login_background_image_url,
         show_platform_name,
         show_welcome_message,
         show_login_headline,
         show_login_support_message,
+        show_image_welcome_message,
+        show_image_login_headline,
+        show_image_login_support_message,
         show_loader_text,
         custom_css,
         preset_code,
@@ -1010,16 +1088,22 @@ async function persistBrandingSettings(
         $17,
         $18,
         $19,
-        NULLIF($20, ''),
+        $20,
         $21,
         $22,
-        $23,
+        NULLIF($23, ''),
         $24,
         $25,
         $26,
         $27,
-        $28::uuid,
-        $28::uuid
+        $28,
+        $29,
+        $30,
+        $31,
+        $32,
+        $33,
+        $34::uuid,
+        $34::uuid
       )
       ON CONFLICT (organization_id) DO UPDATE
       SET platform_name = EXCLUDED.platform_name,
@@ -1040,11 +1124,17 @@ async function persistBrandingSettings(
           login_welcome_message = EXCLUDED.login_welcome_message,
           login_headline = EXCLUDED.login_headline,
           login_support_message = EXCLUDED.login_support_message,
+          image_welcome_message = EXCLUDED.image_welcome_message,
+          image_login_headline = EXCLUDED.image_login_headline,
+          image_login_support_message = EXCLUDED.image_login_support_message,
           login_background_image_url = EXCLUDED.login_background_image_url,
           show_platform_name = EXCLUDED.show_platform_name,
           show_welcome_message = EXCLUDED.show_welcome_message,
           show_login_headline = EXCLUDED.show_login_headline,
           show_login_support_message = EXCLUDED.show_login_support_message,
+          show_image_welcome_message = EXCLUDED.show_image_welcome_message,
+          show_image_login_headline = EXCLUDED.show_image_login_headline,
+          show_image_login_support_message = EXCLUDED.show_image_login_support_message,
           show_loader_text = EXCLUDED.show_loader_text,
           custom_css = EXCLUDED.custom_css,
           preset_code = EXCLUDED.preset_code,
@@ -1071,11 +1161,17 @@ async function persistBrandingSettings(
         login_welcome_message,
         login_headline,
         login_support_message,
+        image_welcome_message,
+        image_login_headline,
+        image_login_support_message,
         login_background_image_url,
         show_platform_name,
         show_welcome_message,
         show_login_headline,
         show_login_support_message,
+        show_image_welcome_message,
+        show_image_login_headline,
+        show_image_login_support_message,
         show_loader_text,
         custom_css,
         preset_code,
@@ -1102,11 +1198,17 @@ async function persistBrandingSettings(
       next.welcomeMessage,
       next.loginHeadline,
       next.loginSupportMessage,
+      next.imageWelcomeMessage,
+      next.imageLoginHeadline,
+      next.imageLoginSupportMessage,
       next.loginBackgroundImageUrl,
       next.showPlatformName,
       next.showWelcomeMessage,
       next.showLoginHeadline,
       next.showLoginSupportMessage,
+      next.showImageWelcomeMessage,
+      next.showImageLoginHeadline,
+      next.showImageLoginSupportMessage,
       next.showLoaderText,
       next.customCss,
       next.presetCode,
@@ -1262,11 +1364,17 @@ export async function getPublicBrandingSettings(
       bs.login_welcome_message,
       bs.login_headline,
       bs.login_support_message,
+      bs.image_welcome_message,
+      bs.image_login_headline,
+      bs.image_login_support_message,
       bs.login_background_image_url,
       bs.show_platform_name,
       bs.show_welcome_message,
       bs.show_login_headline,
       bs.show_login_support_message,
+      bs.show_image_welcome_message,
+      bs.show_image_login_headline,
+      bs.show_image_login_support_message,
       bs.show_loader_text,
       bs.custom_css,
       bs.preset_code,
@@ -1299,11 +1407,17 @@ export async function getPublicBrandingSettings(
       bs.login_welcome_message,
       bs.login_headline,
       bs.login_support_message,
+      bs.image_welcome_message,
+      bs.image_login_headline,
+      bs.image_login_support_message,
       bs.login_background_image_url,
       bs.show_platform_name,
       bs.show_welcome_message,
       bs.show_login_headline,
       bs.show_login_support_message,
+      bs.show_image_welcome_message,
+      bs.show_image_login_headline,
+      bs.show_image_login_support_message,
       bs.show_loader_text,
       bs.custom_css,
       bs.preset_code,

@@ -263,16 +263,20 @@ export default function LoginPage() {
           </div>
         )}
 
-        {visibility.loginHeadline && hasText(branding.loginHeadline) && (
-          <p className="text-5xl leading-tight font-bold max-w-2xl">{branding.loginHeadline}</p>
+        {visibility.imageLoginHeadline && hasText(branding.imageLoginHeadline) && (
+          <p className="text-5xl leading-tight font-bold max-w-2xl">
+            {branding.imageLoginHeadline}
+          </p>
         )}
 
-        {visibility.welcomeMessage && hasText(branding.welcomeMessage) && (
-          <p className="text-white/90 text-xl mt-4 max-w-2xl">{branding.welcomeMessage}</p>
+        {visibility.imageWelcomeMessage && hasText(branding.imageWelcomeMessage) && (
+          <p className="text-white/90 text-xl mt-4 max-w-2xl">{branding.imageWelcomeMessage}</p>
         )}
 
-        {visibility.loginSupportMessage && hasText(branding.loginSupportMessage) && (
-          <p className="text-white/80 text-sm mt-6 max-w-2xl">{branding.loginSupportMessage}</p>
+        {visibility.imageLoginSupportMessage && hasText(branding.imageLoginSupportMessage) && (
+          <p className="text-white/80 text-sm mt-6 max-w-2xl">
+            {branding.imageLoginSupportMessage}
+          </p>
         )}
       </div>
     </aside>

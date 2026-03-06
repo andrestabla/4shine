@@ -102,11 +102,17 @@ export interface BrandingSettings {
   welcomeMessage: string;
   loginHeadline: string;
   loginSupportMessage: string;
+  imageWelcomeMessage: string;
+  imageLoginHeadline: string;
+  imageLoginSupportMessage: string;
   loginBackgroundImageUrl: string;
   showPlatformName: boolean;
   showWelcomeMessage: boolean;
   showLoginHeadline: boolean;
   showLoginSupportMessage: boolean;
+  showImageWelcomeMessage: boolean;
+  showImageLoginHeadline: boolean;
+  showImageLoginSupportMessage: boolean;
   showLoaderText: boolean;
   customCss: string;
   presetCode: BrandingPresetCode;
@@ -169,12 +175,18 @@ export interface BrandingRuntimeTokens {
     welcomeMessage: string;
     loginHeadline: string;
     loginSupportMessage: string;
+    imageWelcomeMessage: string;
+    imageLoginHeadline: string;
+    imageLoginSupportMessage: string;
     loaderText: string;
     visibility: {
       platformName: boolean;
       welcomeMessage: boolean;
       loginHeadline: boolean;
       loginSupportMessage: boolean;
+      imageWelcomeMessage: boolean;
+      imageLoginHeadline: boolean;
+      imageLoginSupportMessage: boolean;
       loaderText: boolean;
     };
   };
@@ -247,11 +259,17 @@ export const DEFAULT_BRANDING_SETTINGS: BrandingSettings = {
   welcomeMessage: 'Inicia sesión con tu cuenta corporativa.',
   loginHeadline: 'Bienvenidos a una nueva experiencia de aprendizaje',
   loginSupportMessage: 'Pensado para plataforma web y app móvil.',
+  imageWelcomeMessage: 'Bienvenidos a esta experiencia de transformación 4Shine.',
+  imageLoginHeadline: 'Bienvenidos a una nueva experiencia de aprendizaje',
+  imageLoginSupportMessage: 'Pensado para plataforma web y app móvil.',
   loginBackgroundImageUrl: '',
   showPlatformName: true,
   showWelcomeMessage: true,
   showLoginHeadline: true,
   showLoginSupportMessage: true,
+  showImageWelcomeMessage: true,
+  showImageLoginHeadline: true,
+  showImageLoginSupportMessage: true,
   showLoaderText: true,
   customCss: '',
   presetCode: 'corporativo',
