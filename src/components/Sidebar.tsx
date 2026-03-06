@@ -125,6 +125,11 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
 
   const mainNavItems = MAIN_NAV_ITEMS.filter(hasAccess);
   const adminNavItems = ADMIN_NAV_ITEMS.filter(hasAccess);
+  const allVisibleNavItems = [...mainNavItems, ...adminNavItems];
+  const activeNavPath =
+    allVisibleNavItems
+      .filter((item) => pathname === item.path || pathname.startsWith(`${item.path}/`))
+      .sort((a, b) => b.path.length - a.path.length)[0]?.path ?? null;
   const isProfileActive = pathname === '/dashboard/perfil' || pathname.startsWith('/dashboard/perfil/');
   const onPrimaryText = getOnColorText(tokens.colors.primary);
   const isLightPrimary = onPrimaryText === '#0f172a';
@@ -148,7 +153,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   };
 
   const navItem = (item: NavItem) => {
-    const isActive = pathname === item.path || pathname.startsWith(`${item.path}/`);
+    const isActive = item.path === activeNavPath;
     return (
       <Link
         key={item.path}
@@ -191,7 +196,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
     <>
       <aside
         className={clsx(
-          'fixed inset-y-0 left-0 z-30 flex flex-col shadow-2xl transition-all duration-300 md:static border-r',
+          'fixed inset-y-0 left-0 z-30 flex flex-col shadow-2xl transition-all duration-300 md:static border-r overflow-x-hidden',
           isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
           isCollapsed ? 'w-20' : 'w-72',
         )}
@@ -247,7 +252,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           </button>
         </div>
 
-        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto overflow-x-hidden">
           {mainNavItems.length > 0 ? (
             mainNavItems.map(navItem)
           ) : (
