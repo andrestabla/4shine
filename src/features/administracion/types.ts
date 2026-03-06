@@ -15,13 +15,13 @@ export type OutboundEmailProvider = (typeof OUTBOUND_EMAIL_PROVIDERS)[number];
 export const BRANDING_PRESET_CODES = ['corporativo', 'energetico', 'tech', 'custom'] as const;
 export type BrandingPresetCode = (typeof BRANDING_PRESET_CODES)[number];
 
-export const LOGIN_LAYOUT_OPTIONS = ['split', 'centered', 'minimal'] as const;
+export const LOGIN_LAYOUT_OPTIONS = ['image_right', 'image_left', 'centered_image'] as const;
 export type LoginLayout = (typeof LOGIN_LAYOUT_OPTIONS)[number];
 
 export const LOGIN_LAYOUT_LABELS: Record<LoginLayout, string> = {
-  split: 'Split (contenido + formulario)',
-  centered: 'Centered (formulario centrado)',
-  minimal: 'Minimal (compacto)',
+  image_right: 'Imagen derecha / Formulario izquierda',
+  image_left: 'Imagen izquierda / Formulario derecha',
+  centered_image: 'Login centrado con imagen de fondo',
 };
 
 export interface BrandingFontOption {
@@ -97,10 +97,17 @@ export interface BrandingSettings {
   borderRadiusRem: number;
   pageMaxWidth: string;
   loginLayout: LoginLayout;
+  loginOverlayColor: string;
+  loginOverlayOpacity: number;
   welcomeMessage: string;
   loginHeadline: string;
   loginSupportMessage: string;
   loginBackgroundImageUrl: string;
+  showPlatformName: boolean;
+  showWelcomeMessage: boolean;
+  showLoginHeadline: boolean;
+  showLoginSupportMessage: boolean;
+  showLoaderText: boolean;
   customCss: string;
   presetCode: BrandingPresetCode;
 }
@@ -149,6 +156,8 @@ export interface BrandingRuntimeTokens {
     loginLayout: LoginLayout;
     timezone: string;
     loginBackgroundImageUrl: string;
+    loginOverlayColor: string;
+    loginOverlayOpacity: number;
   };
   assets: {
     logoUrl: string;
@@ -161,6 +170,13 @@ export interface BrandingRuntimeTokens {
     loginHeadline: string;
     loginSupportMessage: string;
     loaderText: string;
+    visibility: {
+      platformName: boolean;
+      welcomeMessage: boolean;
+      loginHeadline: boolean;
+      loginSupportMessage: boolean;
+      loaderText: boolean;
+    };
   };
 }
 
@@ -225,11 +241,18 @@ export const DEFAULT_BRANDING_SETTINGS: BrandingSettings = {
   typography: 'Inter',
   borderRadiusRem: 1,
   pageMaxWidth: '1260px',
-  loginLayout: 'split',
+  loginLayout: 'image_right',
+  loginOverlayColor: '#0f172a',
+  loginOverlayOpacity: 0.45,
   welcomeMessage: 'Inicia sesión con tu cuenta corporativa.',
   loginHeadline: 'Bienvenidos a una nueva experiencia de aprendizaje',
   loginSupportMessage: 'Pensado para plataforma web y app móvil.',
   loginBackgroundImageUrl: '',
+  showPlatformName: true,
+  showWelcomeMessage: true,
+  showLoginHeadline: true,
+  showLoginSupportMessage: true,
+  showLoaderText: true,
   customCss: '',
   presetCode: 'corporativo',
 };
@@ -268,6 +291,11 @@ export function clampBorderRadiusRem(value: number): number {
 
 export function isValidCssSizeToken(value: string): boolean {
   return /^[0-9]+(px|rem|vw|%)$/i.test(value.trim());
+}
+
+export function clampOpacity(value: number): number {
+  if (!Number.isFinite(value)) return DEFAULT_BRANDING_SETTINGS.loginOverlayOpacity;
+  return Math.min(1, Math.max(0, Math.round(value * 100) / 100));
 }
 
 export function requiredOutboundMissing(config: OutboundEmailConfig): string[] {

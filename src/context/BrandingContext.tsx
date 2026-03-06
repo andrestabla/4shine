@@ -75,6 +75,8 @@ function applyBrandingToDocument(
   root.style.setProperty('--brand-font-family', tokens.typography.cssStack);
   root.style.setProperty('--brand-login-layout', tokens.layout.loginLayout);
   root.style.setProperty('--brand-login-background-image-url', tokens.layout.loginBackgroundImageUrl);
+  root.style.setProperty('--brand-login-overlay-color', tokens.layout.loginOverlayColor);
+  root.style.setProperty('--brand-login-overlay-opacity', String(tokens.layout.loginOverlayOpacity));
   root.setAttribute('data-brand-login-layout', tokens.layout.loginLayout);
 
   const font = findBrandingFont(branding.typography);

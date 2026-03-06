@@ -32,7 +32,9 @@
   --brand-radius-rem: 1;
   --brand-page-max-width: 1260px;
   --brand-font-family: Inter, ui-sans-serif, system-ui, sans-serif;
-  --brand-login-layout: split;
+  --brand-login-layout: image_right;
+  --brand-login-overlay-color: #0f172a;
+  --brand-login-overlay-opacity: 0.45;
 }
 
 body {

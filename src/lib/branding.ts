@@ -1,4 +1,5 @@
 import {
+  clampOpacity,
   DEFAULT_BRANDING_SETTINGS,
   findBrandingFont,
   type BrandingRuntimeTokens,
@@ -56,6 +57,11 @@ export function buildBrandingTokens(settings: BrandingSettings): BrandingRuntime
   const primary = normalizeHexColor(settings.primaryColor, DEFAULT_BRANDING_SETTINGS.primaryColor);
   const secondary = normalizeHexColor(settings.secondaryColor, DEFAULT_BRANDING_SETTINGS.secondaryColor);
   const accent = normalizeHexColor(settings.accentColor, DEFAULT_BRANDING_SETTINGS.accentColor);
+  const loginOverlayColor = normalizeHexColor(
+    settings.loginOverlayColor,
+    DEFAULT_BRANDING_SETTINGS.loginOverlayColor,
+  );
+  const loginOverlayOpacity = clampOpacity(settings.loginOverlayOpacity);
 
   return {
     colors: {
@@ -77,6 +83,8 @@ export function buildBrandingTokens(settings: BrandingSettings): BrandingRuntime
       loginLayout: settings.loginLayout,
       timezone: settings.institutionTimezone,
       loginBackgroundImageUrl: settings.loginBackgroundImageUrl,
+      loginOverlayColor,
+      loginOverlayOpacity,
     },
     assets: {
       logoUrl: settings.logoUrl,
@@ -89,6 +97,13 @@ export function buildBrandingTokens(settings: BrandingSettings): BrandingRuntime
       loginHeadline: settings.loginHeadline,
       loginSupportMessage: settings.loginSupportMessage,
       loaderText: settings.loaderText,
+      visibility: {
+        platformName: settings.showPlatformName,
+        welcomeMessage: settings.showWelcomeMessage,
+        loginHeadline: settings.showLoginHeadline,
+        loginSupportMessage: settings.showLoginSupportMessage,
+        loaderText: settings.showLoaderText,
+      },
     },
   };
 }

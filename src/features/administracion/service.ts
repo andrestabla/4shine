@@ -5,6 +5,7 @@ import {
   BRANDING_REVISION_REASONS,
   BRANDING_PRESET_CODES,
   LOGIN_LAYOUT_OPTIONS,
+  clampOpacity,
   clampBorderRadiusRem,
   DEFAULT_BRANDING_SETTINGS,
   DEFAULT_OUTBOUND_EMAIL_CONFIG,
@@ -47,10 +48,17 @@ const BRANDING_FIELD_KEYS: Array<keyof BrandingSettings> = [
   'borderRadiusRem',
   'pageMaxWidth',
   'loginLayout',
+  'loginOverlayColor',
+  'loginOverlayOpacity',
   'welcomeMessage',
   'loginHeadline',
   'loginSupportMessage',
   'loginBackgroundImageUrl',
+  'showPlatformName',
+  'showWelcomeMessage',
+  'showLoginHeadline',
+  'showLoginSupportMessage',
+  'showLoaderText',
   'customCss',
   'presetCode',
 ];
@@ -75,10 +83,17 @@ interface BrandingRow {
   border_radius_rem: number;
   page_max_width: string;
   login_layout: LoginLayout;
+  login_overlay_color: string;
+  login_overlay_opacity: number;
   login_welcome_message: string;
   login_headline: string;
   login_support_message: string;
   login_background_image_url: string | null;
+  show_platform_name: boolean;
+  show_welcome_message: boolean;
+  show_login_headline: boolean;
+  show_login_support_message: boolean;
+  show_loader_text: boolean;
   custom_css: string;
   preset_code: BrandingPresetCode;
   created_at: string;
@@ -166,7 +181,12 @@ function normalizeColor(value: string | undefined, fallback: string): string {
 
 function normalizeLayout(value: string | undefined, fallback: LoginLayout): LoginLayout {
   if (!value) return fallback;
-  return LOGIN_LAYOUT_VALUES.has(value as LoginLayout) ? (value as LoginLayout) : fallback;
+  const raw = value.trim().toLowerCase();
+
+  if (raw === 'split') return 'image_left';
+  if (raw === 'centered' || raw === 'minimal') return 'centered_image';
+
+  return LOGIN_LAYOUT_VALUES.has(raw as LoginLayout) ? (raw as LoginLayout) : fallback;
 }
 
 function normalizePresetCode(
@@ -193,6 +213,22 @@ function normalizeCustomCss(value: string | undefined, fallback: string): string
 function normalizeMediaUrl(value: string | undefined, fallback: string): string {
   if (typeof value !== 'string') return fallback;
   return value.trim().slice(0, 2000);
+}
+
+function normalizeOpacity(value: unknown, fallback: number): number {
+  if (typeof value === 'number') return clampOpacity(value);
+  const parsed = Number.parseFloat(String(value ?? ''));
+  return Number.isFinite(parsed) ? clampOpacity(parsed) : fallback;
+}
+
+function normalizeBoolean(value: unknown, fallback: boolean): boolean {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'true' || normalized === '1' || normalized === 'yes') return true;
+    if (normalized === 'false' || normalized === '0' || normalized === 'no') return false;
+  }
+  return fallback;
 }
 
 function normalizeDate(value: string | null | undefined): string | null {
@@ -233,10 +269,17 @@ function mapBrandingRow(row: BrandingRow): BrandingSettingsRecord {
     borderRadiusRem: Number(row.border_radius_rem),
     pageMaxWidth: row.page_max_width,
     loginLayout: row.login_layout,
+    loginOverlayColor: row.login_overlay_color,
+    loginOverlayOpacity: Number(row.login_overlay_opacity),
     welcomeMessage: row.login_welcome_message,
     loginHeadline: row.login_headline,
     loginSupportMessage: row.login_support_message,
     loginBackgroundImageUrl: row.login_background_image_url ?? '',
+    showPlatformName: row.show_platform_name,
+    showWelcomeMessage: row.show_welcome_message,
+    showLoginHeadline: row.show_login_headline,
+    showLoginSupportMessage: row.show_login_support_message,
+    showLoaderText: row.show_loader_text,
     customCss: row.custom_css ?? '',
     presetCode: row.preset_code,
     createdAt: row.created_at,
@@ -263,10 +306,17 @@ function toBrandingSettingsSnapshot(input: BrandingSettings | BrandingSettingsRe
     borderRadiusRem: input.borderRadiusRem,
     pageMaxWidth: input.pageMaxWidth,
     loginLayout: input.loginLayout,
+    loginOverlayColor: input.loginOverlayColor,
+    loginOverlayOpacity: input.loginOverlayOpacity,
     welcomeMessage: input.welcomeMessage,
     loginHeadline: input.loginHeadline,
     loginSupportMessage: input.loginSupportMessage,
     loginBackgroundImageUrl: input.loginBackgroundImageUrl,
+    showPlatformName: input.showPlatformName,
+    showWelcomeMessage: input.showWelcomeMessage,
+    showLoginHeadline: input.showLoginHeadline,
+    showLoginSupportMessage: input.showLoginSupportMessage,
+    showLoaderText: input.showLoaderText,
     customCss: input.customCss,
     presetCode: input.presetCode,
   };
@@ -301,6 +351,14 @@ function normalizeBrandingSnapshot(value: unknown): BrandingSettings {
     borderRadiusRem: clampBorderRadiusRem(borderRadiusCandidate),
     pageMaxWidth: normalizePageMaxWidth(snapshot.pageMaxWidth, DEFAULT_BRANDING_SETTINGS.pageMaxWidth),
     loginLayout: normalizeLayout(snapshot.loginLayout, DEFAULT_BRANDING_SETTINGS.loginLayout),
+    loginOverlayColor: normalizeColor(
+      snapshot.loginOverlayColor,
+      DEFAULT_BRANDING_SETTINGS.loginOverlayColor,
+    ),
+    loginOverlayOpacity: normalizeOpacity(
+      snapshot.loginOverlayOpacity,
+      DEFAULT_BRANDING_SETTINGS.loginOverlayOpacity,
+    ),
     welcomeMessage: hasText(snapshot.welcomeMessage)
       ? snapshot.welcomeMessage!.trim()
       : DEFAULT_BRANDING_SETTINGS.welcomeMessage,
@@ -313,6 +371,26 @@ function normalizeBrandingSnapshot(value: unknown): BrandingSettings {
     loginBackgroundImageUrl: normalizeMediaUrl(
       snapshot.loginBackgroundImageUrl,
       DEFAULT_BRANDING_SETTINGS.loginBackgroundImageUrl,
+    ),
+    showPlatformName: normalizeBoolean(
+      snapshot.showPlatformName,
+      DEFAULT_BRANDING_SETTINGS.showPlatformName,
+    ),
+    showWelcomeMessage: normalizeBoolean(
+      snapshot.showWelcomeMessage,
+      DEFAULT_BRANDING_SETTINGS.showWelcomeMessage,
+    ),
+    showLoginHeadline: normalizeBoolean(
+      snapshot.showLoginHeadline,
+      DEFAULT_BRANDING_SETTINGS.showLoginHeadline,
+    ),
+    showLoginSupportMessage: normalizeBoolean(
+      snapshot.showLoginSupportMessage,
+      DEFAULT_BRANDING_SETTINGS.showLoginSupportMessage,
+    ),
+    showLoaderText: normalizeBoolean(
+      snapshot.showLoaderText,
+      DEFAULT_BRANDING_SETTINGS.showLoaderText,
     ),
     customCss: normalizeCustomCss(snapshot.customCss, DEFAULT_BRANDING_SETTINGS.customCss),
     presetCode: normalizePresetCode(snapshot.presetCode, DEFAULT_BRANDING_SETTINGS.presetCode),
@@ -487,6 +565,8 @@ function normalizeBrandingInput(
     ),
     pageMaxWidth: normalizePageMaxWidth(input.pageMaxWidth, current.pageMaxWidth),
     loginLayout: normalizeLayout(input.loginLayout, current.loginLayout),
+    loginOverlayColor: normalizeColor(input.loginOverlayColor, current.loginOverlayColor),
+    loginOverlayOpacity: normalizeOpacity(input.loginOverlayOpacity, current.loginOverlayOpacity),
     welcomeMessage: hasText(input.welcomeMessage)
       ? input.welcomeMessage!.trim()
       : current.welcomeMessage,
@@ -500,6 +580,14 @@ function normalizeBrandingInput(
       input.loginBackgroundImageUrl,
       current.loginBackgroundImageUrl,
     ),
+    showPlatformName: normalizeBoolean(input.showPlatformName, current.showPlatformName),
+    showWelcomeMessage: normalizeBoolean(input.showWelcomeMessage, current.showWelcomeMessage),
+    showLoginHeadline: normalizeBoolean(input.showLoginHeadline, current.showLoginHeadline),
+    showLoginSupportMessage: normalizeBoolean(
+      input.showLoginSupportMessage,
+      current.showLoginSupportMessage,
+    ),
+    showLoaderText: normalizeBoolean(input.showLoaderText, current.showLoaderText),
     customCss: normalizeCustomCss(input.customCss, current.customCss),
     presetCode: normalizePresetCode(input.presetCode, current.presetCode),
   };
@@ -614,10 +702,17 @@ export async function getBrandingSettings(
         bs.border_radius_rem::float8 AS border_radius_rem,
         bs.page_max_width,
         bs.login_layout,
+        bs.login_overlay_color,
+        bs.login_overlay_opacity::float8 AS login_overlay_opacity,
         bs.login_welcome_message,
         bs.login_headline,
         bs.login_support_message,
         bs.login_background_image_url,
+        bs.show_platform_name,
+        bs.show_welcome_message,
+        bs.show_login_headline,
+        bs.show_login_support_message,
+        bs.show_loader_text,
         bs.custom_css,
         bs.preset_code,
         bs.created_at::text,
@@ -692,10 +787,17 @@ async function persistBrandingSettings(
         border_radius_rem,
         page_max_width,
         login_layout,
+        login_overlay_color,
+        login_overlay_opacity,
         login_welcome_message,
         login_headline,
         login_support_message,
         login_background_image_url,
+        show_platform_name,
+        show_welcome_message,
+        show_login_headline,
+        show_login_support_message,
+        show_loader_text,
         custom_css,
         preset_code,
         created_by,
@@ -719,11 +821,18 @@ async function persistBrandingSettings(
         $15,
         $16,
         $17,
-        NULLIF($18, ''),
+        $18,
         $19,
-        $20,
-        $21::uuid,
-        $21::uuid
+        NULLIF($20, ''),
+        $21,
+        $22,
+        $23,
+        $24,
+        $25,
+        $26,
+        $27,
+        $28::uuid,
+        $28::uuid
       )
       ON CONFLICT (organization_id) DO UPDATE
       SET platform_name = EXCLUDED.platform_name,
@@ -739,10 +848,17 @@ async function persistBrandingSettings(
           border_radius_rem = EXCLUDED.border_radius_rem,
           page_max_width = EXCLUDED.page_max_width,
           login_layout = EXCLUDED.login_layout,
+          login_overlay_color = EXCLUDED.login_overlay_color,
+          login_overlay_opacity = EXCLUDED.login_overlay_opacity,
           login_welcome_message = EXCLUDED.login_welcome_message,
           login_headline = EXCLUDED.login_headline,
           login_support_message = EXCLUDED.login_support_message,
           login_background_image_url = EXCLUDED.login_background_image_url,
+          show_platform_name = EXCLUDED.show_platform_name,
+          show_welcome_message = EXCLUDED.show_welcome_message,
+          show_login_headline = EXCLUDED.show_login_headline,
+          show_login_support_message = EXCLUDED.show_login_support_message,
+          show_loader_text = EXCLUDED.show_loader_text,
           custom_css = EXCLUDED.custom_css,
           preset_code = EXCLUDED.preset_code,
           updated_by = EXCLUDED.updated_by,
@@ -763,10 +879,17 @@ async function persistBrandingSettings(
         border_radius_rem::float8 AS border_radius_rem,
         page_max_width,
         login_layout,
+        login_overlay_color,
+        login_overlay_opacity::float8 AS login_overlay_opacity,
         login_welcome_message,
         login_headline,
         login_support_message,
         login_background_image_url,
+        show_platform_name,
+        show_welcome_message,
+        show_login_headline,
+        show_login_support_message,
+        show_loader_text,
         custom_css,
         preset_code,
         created_at::text,
@@ -787,10 +910,17 @@ async function persistBrandingSettings(
       next.borderRadiusRem,
       next.pageMaxWidth,
       next.loginLayout,
+      next.loginOverlayColor,
+      next.loginOverlayOpacity,
       next.welcomeMessage,
       next.loginHeadline,
       next.loginSupportMessage,
       next.loginBackgroundImageUrl,
+      next.showPlatformName,
+      next.showWelcomeMessage,
+      next.showLoginHeadline,
+      next.showLoginSupportMessage,
+      next.showLoaderText,
       next.customCss,
       next.presetCode,
       actor.userId,
@@ -940,10 +1070,17 @@ export async function getPublicBrandingSettings(
       bs.border_radius_rem::float8 AS border_radius_rem,
       bs.page_max_width,
       bs.login_layout,
+      bs.login_overlay_color,
+      bs.login_overlay_opacity::float8 AS login_overlay_opacity,
       bs.login_welcome_message,
       bs.login_headline,
       bs.login_support_message,
       bs.login_background_image_url,
+      bs.show_platform_name,
+      bs.show_welcome_message,
+      bs.show_login_headline,
+      bs.show_login_support_message,
+      bs.show_loader_text,
       bs.custom_css,
       bs.preset_code,
       bs.created_at::text,
@@ -970,10 +1107,17 @@ export async function getPublicBrandingSettings(
       bs.border_radius_rem::float8 AS border_radius_rem,
       bs.page_max_width,
       bs.login_layout,
+      bs.login_overlay_color,
+      bs.login_overlay_opacity::float8 AS login_overlay_opacity,
       bs.login_welcome_message,
       bs.login_headline,
       bs.login_support_message,
       bs.login_background_image_url,
+      bs.show_platform_name,
+      bs.show_welcome_message,
+      bs.show_login_headline,
+      bs.show_login_support_message,
+      bs.show_loader_text,
       bs.custom_css,
       bs.preset_code,
       bs.created_at::text,

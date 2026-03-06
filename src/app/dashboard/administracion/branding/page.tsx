@@ -46,9 +46,9 @@ const TIMEZONE_OPTIONS = [
 const PAGE_WIDTH_PRESETS = ['1100px', '1260px', '1440px', '1600px', '100%'] as const;
 
 const LOGIN_LAYOUT_DESCRIPTIONS: Record<BrandingSettings['loginLayout'], string> = {
-  split: 'Panel informativo + formulario con disposición en dos columnas.',
-  centered: 'Formulario centrado con bloque de mensaje superior.',
-  minimal: 'Versión compacta para accesos rápidos y mobile-first.',
+  image_right: 'Imagen a la derecha con formulario a la izquierda.',
+  image_left: 'Imagen a la izquierda con formulario a la derecha.',
+  centered_image: 'Formulario centrado sobre imagen de fondo completa.',
 };
 
 function formatDate(value: string | null): string {
@@ -71,10 +71,17 @@ function toBrandingSettings(input: BrandingSettings): BrandingSettings {
     borderRadiusRem: input.borderRadiusRem,
     pageMaxWidth: input.pageMaxWidth,
     loginLayout: input.loginLayout,
+    loginOverlayColor: input.loginOverlayColor,
+    loginOverlayOpacity: input.loginOverlayOpacity,
     welcomeMessage: input.welcomeMessage,
     loginHeadline: input.loginHeadline,
     loginSupportMessage: input.loginSupportMessage,
     loginBackgroundImageUrl: input.loginBackgroundImageUrl,
+    showPlatformName: input.showPlatformName,
+    showWelcomeMessage: input.showWelcomeMessage,
+    showLoginHeadline: input.showLoginHeadline,
+    showLoginSupportMessage: input.showLoginSupportMessage,
+    showLoaderText: input.showLoaderText,
     customCss: input.customCss,
     presetCode: input.presetCode,
   };
@@ -89,6 +96,40 @@ function summarizeChangedFields(fields: string[]): string {
   if (fields.length === 0) return 'Sin cambios';
   if (fields.length <= 3) return fields.join(', ');
   return `${fields.slice(0, 3).join(', ')} +${fields.length - 3}`;
+}
+
+function hexToRgba(hex: string, opacity: number): string {
+  const normalized = hex.replace('#', '').trim();
+  if (normalized.length !== 6) return `rgba(15, 23, 42, ${opacity})`;
+
+  const red = Number.parseInt(normalized.slice(0, 2), 16);
+  const green = Number.parseInt(normalized.slice(2, 4), 16);
+  const blue = Number.parseInt(normalized.slice(4, 6), 16);
+  if ([red, green, blue].some((value) => Number.isNaN(value))) {
+    return `rgba(15, 23, 42, ${opacity})`;
+  }
+
+  return `rgba(${red}, ${green}, ${blue}, ${opacity})`;
+}
+
+function VisibilityToggle({
+  checked,
+  onChange,
+}: {
+  checked: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <label className="inline-flex items-center gap-2 text-xs text-slate-600 font-medium">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+        className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400"
+      />
+      Mostrar
+    </label>
+  );
 }
 
 function ColorField({
@@ -262,7 +303,10 @@ export default function BrandingAdminPage() {
 
   const hoverColor = deriveHoverColor(settings.primaryColor);
   const focusColor = deriveFocusColor(settings.primaryColor);
-  const previewHasBackground = settings.loginBackgroundImageUrl.trim().length > 0;
+  const previewOverlay = hexToRgba(
+    settings.loginOverlayColor,
+    Math.min(Math.max(settings.loginOverlayOpacity, 0), 1),
+  );
 
   return (
     <div className="space-y-4">
@@ -281,14 +325,20 @@ export default function BrandingAdminPage() {
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <label className="text-sm text-slate-700">
-                Nombre de la Institución
+              <div className="text-sm text-slate-700">
+                <div className="flex items-center justify-between gap-2">
+                  <span>Nombre de la Institución</span>
+                  <VisibilityToggle
+                    checked={settings.showPlatformName}
+                    onChange={(next) => patchSettings({ showPlatformName: next })}
+                  />
+                </div>
                 <input
                   className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
                   value={settings.platformName}
                   onChange={(event) => patchSettings({ platformName: event.target.value })}
                 />
-              </label>
+              </div>
 
               <label className="text-sm text-slate-700">
                 URL del Logo
@@ -519,31 +569,73 @@ export default function BrandingAdminPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <label className="text-sm text-slate-700">
-                Titular del Login
+              <div className="text-sm text-slate-700">
+                <div className="flex items-center justify-between gap-2">
+                  <span>Titular del Login</span>
+                  <VisibilityToggle
+                    checked={settings.showLoginHeadline}
+                    onChange={(next) => patchSettings({ showLoginHeadline: next })}
+                  />
+                </div>
                 <input
                   className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
                   value={settings.loginHeadline}
                   onChange={(event) => patchSettings({ loginHeadline: event.target.value })}
                 />
-              </label>
+              </div>
 
-              <label className="text-sm text-slate-700">
-                Mensaje de Bienvenida
+              <div className="text-sm text-slate-700">
+                <div className="flex items-center justify-between gap-2">
+                  <span>Mensaje de Bienvenida</span>
+                  <VisibilityToggle
+                    checked={settings.showWelcomeMessage}
+                    onChange={(next) => patchSettings({ showWelcomeMessage: next })}
+                  />
+                </div>
                 <input
                   className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
                   value={settings.welcomeMessage}
                   onChange={(event) => patchSettings({ welcomeMessage: event.target.value })}
                 />
-              </label>
+              </div>
 
-              <label className="text-sm text-slate-700 md:col-span-2">
-                Mensaje de soporte (pie/informativo)
+              <div className="text-sm text-slate-700 md:col-span-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span>Mensaje de soporte (pie/informativo)</span>
+                  <VisibilityToggle
+                    checked={settings.showLoginSupportMessage}
+                    onChange={(next) => patchSettings({ showLoginSupportMessage: next })}
+                  />
+                </div>
                 <input
                   className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
                   value={settings.loginSupportMessage}
                   onChange={(event) => patchSettings({ loginSupportMessage: event.target.value })}
                 />
+              </div>
+
+              <ColorField
+                label="Color de capa (overlay)"
+                value={settings.loginOverlayColor}
+                onChange={(next) => patchSettings({ loginOverlayColor: next })}
+              />
+
+              <label className="text-sm text-slate-700 block">
+                Opacidad de capa
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  className="mt-3 w-full"
+                  value={settings.loginOverlayOpacity}
+                  onChange={(event) =>
+                    patchSettings({ loginOverlayOpacity: Number(event.target.value) })
+                  }
+                />
+                <span className="inline-block mt-2 text-xs px-2 py-1 bg-slate-100 rounded-md">
+                  {Math.round(settings.loginOverlayOpacity * 100)}%
+                </span>
               </label>
 
               <label className="text-sm text-slate-700 md:col-span-2">
@@ -569,7 +661,7 @@ export default function BrandingAdminPage() {
                   />
                 </div>
                 <p className="text-xs text-slate-500 mt-1">
-                  Si se define URL, reemplaza el fondo por imagen con overlay del tema.
+                  Se aplica a los tres layouts y respeta color/opacidad de capa.
                 </p>
               </label>
 
@@ -593,17 +685,25 @@ export default function BrandingAdminPage() {
                     onUploaded={(url) => patchSettings({ loaderAssetUrl: url })}
                   />
                 </div>
-                <p className="text-xs text-slate-500 mt-1">Este GIF se mostrará durante transiciones y estados de espera.</p>
+                <p className="text-xs text-slate-500 mt-1">
+                  Este GIF se mostrará durante transiciones y estados de espera.
+                </p>
               </label>
 
-              <label className="text-sm text-slate-700 md:col-span-2">
-                Texto del loader
+              <div className="text-sm text-slate-700 md:col-span-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span>Texto del loader</span>
+                  <VisibilityToggle
+                    checked={settings.showLoaderText}
+                    onChange={(next) => patchSettings({ showLoaderText: next })}
+                  />
+                </div>
                 <input
                   className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
                   value={settings.loaderText}
                   onChange={(event) => patchSettings({ loaderText: event.target.value })}
                 />
-              </label>
+              </div>
 
               <label className="text-sm text-slate-700 md:col-span-2">
                 CSS Personalizado (Avanzado)
@@ -624,7 +724,11 @@ export default function BrandingAdminPage() {
 
             <div className="rounded-2xl border border-slate-200 overflow-hidden">
               <div className="px-4 py-3 text-white" style={{ backgroundColor: tokens.colors.primary }}>
-                <p className="font-semibold">{settings.platformName}</p>
+                {settings.showPlatformName ? (
+                  <p className="font-semibold">{settings.platformName}</p>
+                ) : (
+                  <p className="font-semibold opacity-70">Nombre oculto en login</p>
+                )}
                 <p className="text-xs opacity-80">{settings.typography} · {settings.institutionTimezone}</p>
               </div>
               <div
@@ -632,19 +736,25 @@ export default function BrandingAdminPage() {
                 style={
                   settings.loginBackgroundImageUrl
                     ? {
-                        backgroundImage: `linear-gradient(115deg, rgba(15, 23, 42, 0.86), rgba(30, 41, 59, 0.72)), url("${settings.loginBackgroundImageUrl}")`,
+                        backgroundImage: `linear-gradient(0deg, ${previewOverlay}, ${previewOverlay}), url("${settings.loginBackgroundImageUrl}")`,
                         backgroundSize: 'cover',
                         backgroundPosition: 'center',
                       }
-                    : undefined
+                    : {
+                        backgroundImage: `linear-gradient(120deg, color-mix(in srgb, ${settings.primaryColor} 85%, black), color-mix(in srgb, ${settings.secondaryColor} 70%, black))`,
+                      }
                 }
               >
-                <p className={`text-sm font-semibold ${previewHasBackground ? 'text-white' : 'text-slate-800'}`}>
-                  {settings.loginHeadline}
-                </p>
-                <p className={`text-xs ${previewHasBackground ? 'text-white/80' : 'text-slate-600'}`}>
-                  {settings.welcomeMessage}
-                </p>
+                {settings.showLoginHeadline && (
+                  <p className="text-sm font-semibold text-white">
+                    {settings.loginHeadline}
+                  </p>
+                )}
+                {settings.showWelcomeMessage && (
+                  <p className="text-xs text-white/80">
+                    {settings.welcomeMessage}
+                  </p>
+                )}
                 <button
                   type="button"
                   className="px-4 py-2 text-white"
@@ -655,13 +765,18 @@ export default function BrandingAdminPage() {
                 >
                   Acción primaria
                 </button>
-                <p className={`text-xs ${previewHasBackground ? 'text-white/70' : 'text-slate-500'}`}>
+                <p className="text-xs text-white/70">
                   Layout login: {LOGIN_LAYOUT_LABELS[settings.loginLayout]}
                 </p>
-                <p className={`text-xs ${previewHasBackground ? 'text-white/70' : 'text-slate-500'}`}>
-                  Mensaje soporte: {settings.loginSupportMessage}
+                <p className="text-xs text-white/70">
+                  Overlay: {settings.loginOverlayColor} / {Math.round(settings.loginOverlayOpacity * 100)}%
                 </p>
-                <p className={`text-xs ${previewHasBackground ? 'text-white/70' : 'text-slate-500'}`}>
+                {settings.showLoginSupportMessage && (
+                  <p className="text-xs text-white/70">
+                    Mensaje soporte: {settings.loginSupportMessage}
+                  </p>
+                )}
+                <p className="text-xs text-white/70">
                   Ancho máximo app: {settings.pageMaxWidth}
                 </p>
               </div>
