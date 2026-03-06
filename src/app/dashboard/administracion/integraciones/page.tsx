@@ -1186,8 +1186,8 @@ export default function IntegracionesAdminPage() {
                   hasText(outboundEmail.testRecipient) ? outboundEmail.testRecipient : undefined,
                 );
                 await alert({
-                  title: 'Prueba de correo en cola',
-                  message: `Se registró un envío de prueba hacia ${result.recipient}.`,
+                  title: 'Prueba de correo enviada',
+                  message: `Se envió un correo de prueba hacia ${result.recipient}${result.messageId ? ` (ID: ${result.messageId}).` : '.'}`,
                   tone: 'success',
                 });
               } catch (error) {

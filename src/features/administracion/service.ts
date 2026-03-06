@@ -1,4 +1,5 @@
 import type { PoolClient } from 'pg';
+import nodemailer from 'nodemailer';
 import { requireModulePermission } from '@/server/auth/module-permissions';
 import type { AuthUser } from '@/server/auth/types';
 import {
@@ -157,6 +158,7 @@ export interface OutboundEmailTestResult {
   queuedAt: string;
   recipient: string;
   provider: string;
+  messageId: string | null;
 }
 
 export interface BrandingUpdateResult {
@@ -683,6 +685,183 @@ function mergeOutbound(
     sesRegion: typeof update.sesRegion === 'string' ? update.sesRegion : current.sesRegion,
     testRecipient: typeof update.testRecipient === 'string' ? update.testRecipient : current.testRecipient,
   };
+}
+
+function hasUsableEmail(value: string | undefined | null): boolean {
+  if (!value) return false;
+  const normalized = value.trim();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized);
+}
+
+function buildFromHeader(config: OutboundEmailConfigRecord): string {
+  const fromEmail = config.fromEmail.trim();
+  const fromName = config.fromName.trim();
+  if (!fromName) return fromEmail;
+
+  const escaped = fromName.replace(/"/g, '\\"');
+  return `"${escaped}" <${fromEmail}>`;
+}
+
+function buildTestEmailPayload(config: OutboundEmailConfigRecord, recipient: string): {
+  from: string;
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+  replyTo?: string;
+} {
+  const timestamp = new Date().toISOString();
+  const from = buildFromHeader(config);
+  const replyTo = config.replyTo.trim();
+  const subject = '4Shine · Prueba de correo saliente';
+  const text = [
+    'Este es un correo de prueba generado por 4Shine.',
+    '',
+    `Proveedor: ${config.provider}`,
+    `Fecha: ${timestamp}`,
+    `Destinatario: ${recipient}`,
+  ].join('\n');
+  const html = [
+    '<div style="font-family:Inter,Arial,sans-serif;line-height:1.45;color:#0f172a;">',
+    '<h2 style="margin:0 0 10px 0;">Prueba de correo saliente</h2>',
+    '<p style="margin:0 0 8px 0;">Este es un correo de prueba generado por 4Shine.</p>',
+    `<p style="margin:0;"><strong>Proveedor:</strong> ${config.provider}</p>`,
+    `<p style="margin:0;"><strong>Fecha:</strong> ${timestamp}</p>`,
+    `<p style="margin:0;"><strong>Destinatario:</strong> ${recipient}</p>`,
+    '</div>',
+  ].join('');
+
+  return {
+    from,
+    to: recipient,
+    subject,
+    text,
+    html,
+    ...(hasText(replyTo) ? { replyTo } : {}),
+  };
+}
+
+async function sendViaSmtp(
+  config: OutboundEmailConfigRecord,
+  recipient: string,
+): Promise<string | null> {
+  const smtpHost = config.smtpHost.trim();
+  const smtpUser = config.smtpUser.trim();
+  const smtpPassword = config.smtpPassword.trim();
+  const smtpPort = Number.parseInt(config.smtpPort, 10);
+
+  if (!smtpHost || !smtpUser || !smtpPassword || !Number.isFinite(smtpPort)) {
+    throw new Error('SMTP configuration is incomplete');
+  }
+
+  // Port 465 expects implicit TLS, while 587 is STARTTLS.
+  const secure = smtpPort === 465 ? true : config.smtpSecure && smtpPort !== 587;
+  const requireTLS = smtpPort === 587 || !secure;
+
+  const transporter = nodemailer.createTransport({
+    host: smtpHost,
+    port: smtpPort,
+    secure,
+    requireTLS,
+    auth: {
+      user: smtpUser,
+      pass: smtpPassword,
+    },
+  });
+
+  const payload = buildTestEmailPayload(config, recipient);
+  const result = await transporter.sendMail(payload);
+  return typeof result.messageId === 'string' ? result.messageId : null;
+}
+
+async function sendViaSendgrid(
+  config: OutboundEmailConfigRecord,
+  recipient: string,
+): Promise<string | null> {
+  const apiKey = config.apiKey.trim();
+  if (!apiKey) {
+    throw new Error('SendGrid API key is missing');
+  }
+
+  const payload = buildTestEmailPayload(config, recipient);
+  const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from: { email: config.fromEmail.trim(), name: config.fromName.trim() || undefined },
+      personalizations: [{ to: [{ email: recipient }] }],
+      subject: payload.subject,
+      content: [{ type: 'text/plain', value: payload.text }],
+      ...(hasText(config.replyTo) ? { reply_to: { email: config.replyTo.trim() } } : {}),
+    }),
+  });
+
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`SendGrid rejected message: ${response.status} ${detail.slice(0, 300)}`);
+  }
+
+  return response.headers.get('x-message-id');
+}
+
+async function sendViaResend(
+  config: OutboundEmailConfigRecord,
+  recipient: string,
+): Promise<string | null> {
+  const apiKey = config.apiKey.trim();
+  if (!apiKey) {
+    throw new Error('Resend API key is missing');
+  }
+
+  const payload = buildTestEmailPayload(config, recipient);
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from: buildFromHeader(config),
+      to: [recipient],
+      subject: payload.subject,
+      text: payload.text,
+      html: payload.html,
+      ...(hasText(config.replyTo) ? { reply_to: config.replyTo.trim() } : {}),
+    }),
+  });
+
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const detail = typeof body?.message === 'string' ? body.message : JSON.stringify(body);
+    throw new Error(`Resend rejected message: ${response.status} ${detail.slice(0, 300)}`);
+  }
+
+  return typeof body?.id === 'string' ? body.id : null;
+}
+
+async function sendOutboundTestEmail(
+  config: OutboundEmailConfigRecord,
+  recipient: string,
+): Promise<string | null> {
+  if (!hasUsableEmail(config.fromEmail)) {
+    throw new Error('fromEmail is invalid');
+  }
+  if (!hasUsableEmail(recipient)) {
+    throw new Error('Test recipient email is invalid');
+  }
+
+  if (config.provider === 'sendgrid') {
+    return sendViaSendgrid(config, recipient);
+  }
+
+  if (config.provider === 'resend') {
+    return sendViaResend(config, recipient);
+  }
+
+  return sendViaSmtp(config, recipient);
 }
 
 export async function getBrandingSettings(
@@ -1429,6 +1608,8 @@ export async function queueOutboundEmailTest(
     throw new Error('No test recipient configured');
   }
 
+  const messageId = await sendOutboundTestEmail(settings.outboundEmail, recipient);
+
   const { rows } = await client.query<{ queued_at: string }>(
     `
       UPDATE app_admin.outbound_email_configs
@@ -1451,5 +1632,6 @@ export async function queueOutboundEmailTest(
     queuedAt: rows[0].queued_at,
     recipient,
     provider: settings.outboundEmail.provider,
+    messageId,
   };
 }

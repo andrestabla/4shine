@@ -36,6 +36,7 @@ export interface OutboundEmailTestResponse {
   queuedAt: string;
   recipient: string;
   provider: string;
+  messageId: string | null;
 }
 
 export async function getBrandingSettings(): Promise<BrandingSettingsRecord> {
