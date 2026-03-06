@@ -1,13 +1,25 @@
 'use client';
 
 import React from 'react';
-import { Palette, Sparkles, Type, PanelTop, PaintBucket, Building2 } from 'lucide-react';
+import {
+  Palette,
+  Sparkles,
+  Type,
+  PanelTop,
+  PaintBucket,
+  Building2,
+  History,
+  RotateCcw,
+} from 'lucide-react';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useBranding } from '@/context/BrandingContext';
 import {
   getBrandingSettings,
+  listBrandingRevisions,
+  revertBrandingRevision,
   updateBrandingSettings,
+  type BrandingRevisionRecord,
   type BrandingSettings,
 } from '@/features/administracion/client';
 import {
@@ -34,6 +46,38 @@ const PAGE_WIDTH_PRESETS = ['1100px', '1260px', '1440px', '1600px', '100%'] as c
 function formatDate(value: string | null): string {
   if (!value) return 'Sin cambios guardados';
   return new Date(value).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+function toBrandingSettings(input: BrandingSettings): BrandingSettings {
+  return {
+    platformName: input.platformName,
+    institutionTimezone: input.institutionTimezone,
+    primaryColor: input.primaryColor,
+    secondaryColor: input.secondaryColor,
+    accentColor: input.accentColor,
+    logoUrl: input.logoUrl,
+    faviconUrl: input.faviconUrl,
+    loaderText: input.loaderText,
+    loaderAssetUrl: input.loaderAssetUrl,
+    typography: input.typography,
+    borderRadiusRem: input.borderRadiusRem,
+    pageMaxWidth: input.pageMaxWidth,
+    loginLayout: input.loginLayout,
+    welcomeMessage: input.welcomeMessage,
+    customCss: input.customCss,
+    presetCode: input.presetCode,
+  };
+}
+
+function formatRevisionReason(reason: BrandingRevisionRecord['reason']): string {
+  if (reason === 'revert') return 'Reversión';
+  return 'Actualización';
+}
+
+function summarizeChangedFields(fields: string[]): string {
+  if (fields.length === 0) return 'Sin cambios';
+  if (fields.length <= 3) return fields.join(', ');
+  return `${fields.slice(0, 3).join(', ')} +${fields.length - 3}`;
 }
 
 function ColorField({
@@ -68,10 +112,13 @@ function ColorField({
 }
 
 export default function BrandingAdminPage() {
-  const { alert } = useAppDialog();
+  const { alert, confirm } = useAppDialog();
   const { applyBranding, tokens } = useBranding();
   const [settings, setSettings] = React.useState<BrandingSettings>(DEFAULT_BRANDING_SETTINGS);
   const [lastUpdatedAt, setLastUpdatedAt] = React.useState<string | null>(null);
+  const [revisions, setRevisions] = React.useState<BrandingRevisionRecord[]>([]);
+  const [revisionsLoading, setRevisionsLoading] = React.useState(true);
+  const [revertingRevisionId, setRevertingRevisionId] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [isLoadedFromApi, setIsLoadedFromApi] = React.useState(false);
 
@@ -112,24 +159,7 @@ export default function BrandingAdminPage() {
     setLoading(true);
     try {
       const data = await getBrandingSettings();
-      const next: BrandingSettings = {
-        platformName: data.platformName,
-        institutionTimezone: data.institutionTimezone,
-        primaryColor: data.primaryColor,
-        secondaryColor: data.secondaryColor,
-        accentColor: data.accentColor,
-        logoUrl: data.logoUrl,
-        faviconUrl: data.faviconUrl,
-        loaderText: data.loaderText,
-        loaderAssetUrl: data.loaderAssetUrl,
-        typography: data.typography,
-        borderRadiusRem: data.borderRadiusRem,
-        pageMaxWidth: data.pageMaxWidth,
-        loginLayout: data.loginLayout,
-        welcomeMessage: data.welcomeMessage,
-        customCss: data.customCss,
-        presetCode: data.presetCode,
-      };
+      const next = toBrandingSettings(data);
       setSettings(next);
       setLastUpdatedAt(data.updatedAt);
       applyBranding({ ...data, ...next });
@@ -141,9 +171,21 @@ export default function BrandingAdminPage() {
     }
   }, [applyBranding, showError]);
 
+  const loadRevisions = React.useCallback(async () => {
+    setRevisionsLoading(true);
+    try {
+      const data = await listBrandingRevisions(50);
+      setRevisions(data);
+    } catch (error) {
+      await showError('No se pudo cargar el historial de branding', error);
+    } finally {
+      setRevisionsLoading(false);
+    }
+  }, [showError]);
+
   React.useEffect(() => {
-    void loadSettings();
-  }, [loadSettings]);
+    void Promise.all([loadSettings(), loadRevisions()]);
+  }, [loadRevisions, loadSettings]);
 
   React.useEffect(() => {
     if (!isLoadedFromApi) return;
@@ -154,28 +196,12 @@ export default function BrandingAdminPage() {
     event.preventDefault();
     try {
       const saved = await updateBrandingSettings(settings);
-      const next: BrandingSettings = {
-        platformName: saved.platformName,
-        institutionTimezone: saved.institutionTimezone,
-        primaryColor: saved.primaryColor,
-        secondaryColor: saved.secondaryColor,
-        accentColor: saved.accentColor,
-        logoUrl: saved.logoUrl,
-        faviconUrl: saved.faviconUrl,
-        loaderText: saved.loaderText,
-        loaderAssetUrl: saved.loaderAssetUrl,
-        typography: saved.typography,
-        borderRadiusRem: saved.borderRadiusRem,
-        pageMaxWidth: saved.pageMaxWidth,
-        loginLayout: saved.loginLayout,
-        welcomeMessage: saved.welcomeMessage,
-        customCss: saved.customCss,
-        presetCode: saved.presetCode,
-      };
+      const next = toBrandingSettings(saved);
 
       setSettings(next);
       setLastUpdatedAt(saved.updatedAt);
       applyBranding(saved);
+      void loadRevisions();
 
       await alert({
         title: 'Branding actualizado',
@@ -186,6 +212,42 @@ export default function BrandingAdminPage() {
       await showError('No se pudo guardar la configuración de branding', error);
     }
   };
+
+  const onRevertRevision = React.useCallback(
+    async (revision: BrandingRevisionRecord) => {
+      const approved = await confirm({
+        title: 'Restaurar versión',
+        message:
+          'Se aplicará esta versión de branding en toda la plataforma (web/app) en tiempo real. ¿Deseas continuar?',
+        tone: 'warning',
+        confirmText: 'Restaurar',
+        cancelText: 'Cancelar',
+      });
+
+      if (!approved) return;
+
+      setRevertingRevisionId(revision.revisionId);
+      try {
+        const restored = await revertBrandingRevision(revision.revisionId);
+        const next = toBrandingSettings(restored);
+        setSettings(next);
+        setLastUpdatedAt(restored.updatedAt);
+        applyBranding(restored);
+        await loadRevisions();
+
+        await alert({
+          title: 'Versión restaurada',
+          message: 'El tema fue restaurado y aplicado en tiempo real.',
+          tone: 'success',
+        });
+      } catch (error) {
+        await showError('No se pudo restaurar la versión seleccionada', error);
+      } finally {
+        setRevertingRevisionId(null);
+      }
+    },
+    [alert, applyBranding, confirm, loadRevisions, showError],
+  );
 
   const hoverColor = deriveHoverColor(settings.primaryColor);
   const focusColor = deriveFocusColor(settings.primaryColor);
@@ -495,6 +557,73 @@ export default function BrandingAdminPage() {
             <p className="text-xs text-slate-500 mt-3">
               Última actualización persistida: {formatDate(lastUpdatedAt)}.
             </p>
+          </section>
+
+          <section className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-3">
+            <h3 className="font-semibold text-slate-800 flex items-center gap-2">
+              <History size={18} className="text-indigo-600" /> Historial y Versionado
+            </h3>
+
+            {revisionsLoading ? (
+              <div className="rounded-xl border border-slate-200 p-3 text-sm text-slate-500">
+                Cargando historial...
+              </div>
+            ) : revisions.length === 0 ? (
+              <div className="rounded-xl border border-slate-200 p-3 text-sm text-slate-500">
+                No hay versiones guardadas aún.
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-xl border border-slate-200">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50 text-slate-600">
+                    <tr className="text-left">
+                      <th className="px-3 py-2">Fecha</th>
+                      <th className="px-3 py-2">Actor</th>
+                      <th className="px-3 py-2">Tipo</th>
+                      <th className="px-3 py-2">Campos</th>
+                      <th className="px-3 py-2">Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {revisions.map((revision) => (
+                      <tr key={revision.revisionId} className="border-t border-slate-100">
+                        <td className="px-3 py-2 text-slate-600 whitespace-nowrap">
+                          {formatDate(revision.createdAt)}
+                        </td>
+                        <td className="px-3 py-2 text-slate-700">
+                          {revision.createdByName ?? 'Sistema'}
+                        </td>
+                        <td className="px-3 py-2">
+                          <span
+                            className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
+                              revision.reason === 'revert'
+                                ? 'bg-amber-100 text-amber-800'
+                                : 'bg-sky-100 text-sky-800'
+                            }`}
+                          >
+                            {formatRevisionReason(revision.reason)}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-slate-600">
+                          {summarizeChangedFields(revision.changedFields)}
+                        </td>
+                        <td className="px-3 py-2">
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                            onClick={() => void onRevertRevision(revision)}
+                            disabled={revertingRevisionId === revision.revisionId}
+                          >
+                            <RotateCcw size={12} />
+                            {revertingRevisionId === revision.revisionId ? 'Restaurando...' : 'Restaurar'}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </section>
         </form>
       )}

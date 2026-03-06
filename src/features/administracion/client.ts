@@ -1,6 +1,7 @@
 import { requestApi } from '@/lib/api-client';
 import type {
   BrandingPublicPayload,
+  BrandingRevisionRecord,
   BrandingSettings,
   BrandingSettingsRecord,
   IntegrationsSettingsRecord,
@@ -11,6 +12,8 @@ export type {
   BrandingFontOption,
   BrandingPresetCode,
   BrandingPresetDefinition,
+  BrandingRevisionReason,
+  BrandingRevisionRecord,
   BrandingPublicPayload,
   BrandingRuntimeTokens,
   BrandingSettings,
@@ -55,6 +58,20 @@ export async function updateBrandingSettings(
   return requestApi<BrandingSettingsRecord>('/api/v1/modules/administracion/branding', {
     method: 'PUT',
     body: JSON.stringify(input),
+  });
+}
+
+export async function listBrandingRevisions(limit = 40): Promise<BrandingRevisionRecord[]> {
+  const safeLimit = Math.min(Math.max(Number(limit) || 40, 1), 200);
+  return requestApi<BrandingRevisionRecord[]>(
+    `/api/v1/modules/administracion/branding/revisions?limit=${safeLimit}`,
+  );
+}
+
+export async function revertBrandingRevision(revisionId: string): Promise<BrandingSettingsRecord> {
+  return requestApi<BrandingSettingsRecord>('/api/v1/modules/administracion/branding/revisions/revert', {
+    method: 'POST',
+    body: JSON.stringify({ revisionId }),
   });
 }
 

@@ -54,12 +54,18 @@ export async function PUT(request: Request) {
           moduleCode: 'usuarios',
           action: 'update_branding_settings',
           entityTable: 'app_admin.branding_settings',
-          entityId: result.brandingId,
+          entityId: result.settings.brandingId,
           changeSummary: {
-            updatedFields: Object.keys(body),
+            requestedFields: Object.keys(body),
+            changedFields: result.changedFields,
+            changes: result.changes,
+            revisionId: result.revisionId,
+            reason: result.reason,
+            sourceRevisionId: result.sourceRevisionId,
+            noChanges: result.changedFields.length === 0,
           },
         });
-        return result;
+        return result.settings;
       }),
     );
 

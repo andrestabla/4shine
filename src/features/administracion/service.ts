@@ -2,6 +2,7 @@ import type { PoolClient } from 'pg';
 import { requireModulePermission } from '@/server/auth/module-permissions';
 import type { AuthUser } from '@/server/auth/types';
 import {
+  BRANDING_REVISION_REASONS,
   BRANDING_PRESET_CODES,
   LOGIN_LAYOUT_OPTIONS,
   clampBorderRadiusRem,
@@ -12,6 +13,8 @@ import {
   isValidCssSizeToken,
   OUTBOUND_EMAIL_PROVIDERS,
   requiredOutboundMissing,
+  type BrandingRevisionReason,
+  type BrandingRevisionRecord,
   type BrandingPresetCode,
   type BrandingSettings,
   type BrandingSettingsRecord,
@@ -28,6 +31,26 @@ const INTEGRATION_KEYS = new Set<IntegrationKey>(INTEGRATION_CATALOG.map((item) 
 const OUTBOUND_PROVIDERS = new Set<string>(OUTBOUND_EMAIL_PROVIDERS);
 const LOGIN_LAYOUT_VALUES = new Set<LoginLayout>(LOGIN_LAYOUT_OPTIONS);
 const PRESET_CODES = new Set<BrandingPresetCode>(BRANDING_PRESET_CODES);
+const REVISION_REASONS = new Set<string>(BRANDING_REVISION_REASONS);
+
+const BRANDING_FIELD_KEYS: Array<keyof BrandingSettings> = [
+  'platformName',
+  'institutionTimezone',
+  'primaryColor',
+  'secondaryColor',
+  'accentColor',
+  'logoUrl',
+  'faviconUrl',
+  'loaderText',
+  'loaderAssetUrl',
+  'typography',
+  'borderRadiusRem',
+  'pageMaxWidth',
+  'loginLayout',
+  'welcomeMessage',
+  'customCss',
+  'presetCode',
+];
 
 interface OrganizationRow {
   organization_id: string | null;
@@ -54,6 +77,20 @@ interface BrandingRow {
   preset_code: BrandingPresetCode;
   created_at: string;
   updated_at: string;
+}
+
+interface BrandingRevisionRow {
+  revision_id: string;
+  branding_id: string | null;
+  organization_id: string;
+  reason: string;
+  source_revision_id: string | null;
+  changed_fields: string[] | null;
+  snapshot: Record<string, unknown> | null;
+  change_summary: Record<string, unknown> | null;
+  created_by: string | null;
+  created_by_name: string | null;
+  created_at: string;
 }
 
 interface IntegrationRow {
@@ -99,6 +136,16 @@ export interface OutboundEmailTestResult {
   queuedAt: string;
   recipient: string;
   provider: string;
+}
+
+export interface BrandingUpdateResult {
+  settings: BrandingSettingsRecord;
+  previousSettings: BrandingSettingsRecord;
+  changedFields: string[];
+  changes: Record<string, { previous: unknown; next: unknown }>;
+  revisionId: string | null;
+  reason: BrandingRevisionReason;
+  sourceRevisionId: string | null;
 }
 
 function asText(value: unknown, fallback = ''): string {
@@ -181,6 +228,158 @@ function mapBrandingRow(row: BrandingRow): BrandingSettingsRecord {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+function isBrandingRevisionReason(value: string): value is BrandingRevisionReason {
+  return REVISION_REASONS.has(value);
+}
+
+function toBrandingSettingsSnapshot(input: BrandingSettings | BrandingSettingsRecord): BrandingSettings {
+  return {
+    platformName: input.platformName,
+    institutionTimezone: input.institutionTimezone,
+    primaryColor: input.primaryColor,
+    secondaryColor: input.secondaryColor,
+    accentColor: input.accentColor,
+    logoUrl: input.logoUrl,
+    faviconUrl: input.faviconUrl,
+    loaderText: input.loaderText,
+    loaderAssetUrl: input.loaderAssetUrl,
+    typography: input.typography,
+    borderRadiusRem: input.borderRadiusRem,
+    pageMaxWidth: input.pageMaxWidth,
+    loginLayout: input.loginLayout,
+    welcomeMessage: input.welcomeMessage,
+    customCss: input.customCss,
+    presetCode: input.presetCode,
+  };
+}
+
+function normalizeBrandingSnapshot(value: unknown): BrandingSettings {
+  const snapshot = value && typeof value === 'object' ? (value as Partial<BrandingSettings>) : {};
+  const borderRadiusCandidate =
+    typeof snapshot.borderRadiusRem === 'number'
+      ? snapshot.borderRadiusRem
+      : Number.parseFloat(String(snapshot.borderRadiusRem ?? ''));
+
+  return {
+    platformName: hasText(snapshot.platformName)
+      ? snapshot.platformName!.trim()
+      : DEFAULT_BRANDING_SETTINGS.platformName,
+    institutionTimezone: hasText(snapshot.institutionTimezone)
+      ? snapshot.institutionTimezone!.trim()
+      : DEFAULT_BRANDING_SETTINGS.institutionTimezone,
+    primaryColor: normalizeColor(snapshot.primaryColor, DEFAULT_BRANDING_SETTINGS.primaryColor),
+    secondaryColor: normalizeColor(snapshot.secondaryColor, DEFAULT_BRANDING_SETTINGS.secondaryColor),
+    accentColor: normalizeColor(snapshot.accentColor, DEFAULT_BRANDING_SETTINGS.accentColor),
+    logoUrl: asText(snapshot.logoUrl, DEFAULT_BRANDING_SETTINGS.logoUrl).trim(),
+    faviconUrl: asText(snapshot.faviconUrl, DEFAULT_BRANDING_SETTINGS.faviconUrl).trim(),
+    loaderText: hasText(snapshot.loaderText)
+      ? snapshot.loaderText!.trim()
+      : DEFAULT_BRANDING_SETTINGS.loaderText,
+    loaderAssetUrl: asText(snapshot.loaderAssetUrl, DEFAULT_BRANDING_SETTINGS.loaderAssetUrl).trim(),
+    typography: hasText(snapshot.typography)
+      ? snapshot.typography!.trim()
+      : DEFAULT_BRANDING_SETTINGS.typography,
+    borderRadiusRem: clampBorderRadiusRem(borderRadiusCandidate),
+    pageMaxWidth: normalizePageMaxWidth(snapshot.pageMaxWidth, DEFAULT_BRANDING_SETTINGS.pageMaxWidth),
+    loginLayout: normalizeLayout(snapshot.loginLayout, DEFAULT_BRANDING_SETTINGS.loginLayout),
+    welcomeMessage: hasText(snapshot.welcomeMessage)
+      ? snapshot.welcomeMessage!.trim()
+      : DEFAULT_BRANDING_SETTINGS.welcomeMessage,
+    customCss: normalizeCustomCss(snapshot.customCss, DEFAULT_BRANDING_SETTINGS.customCss),
+    presetCode: normalizePresetCode(snapshot.presetCode, DEFAULT_BRANDING_SETTINGS.presetCode),
+  };
+}
+
+function computeBrandingChanges(previous: BrandingSettings, next: BrandingSettings): {
+  changedFields: string[];
+  changes: Record<string, { previous: unknown; next: unknown }>;
+} {
+  const changedFields: string[] = [];
+  const changes: Record<string, { previous: unknown; next: unknown }> = {};
+
+  for (const key of BRANDING_FIELD_KEYS) {
+    if (Object.is(previous[key], next[key])) continue;
+    changedFields.push(key);
+    changes[key] = {
+      previous: previous[key],
+      next: next[key],
+    };
+  }
+
+  return {
+    changedFields,
+    changes,
+  };
+}
+
+function mapBrandingRevisionRow(row: BrandingRevisionRow): BrandingRevisionRecord {
+  return {
+    revisionId: row.revision_id,
+    brandingId: row.branding_id,
+    organizationId: row.organization_id,
+    reason: isBrandingRevisionReason(row.reason) ? row.reason : 'manual_update',
+    sourceRevisionId: row.source_revision_id,
+    changedFields: row.changed_fields ?? [],
+    snapshot: normalizeBrandingSnapshot(row.snapshot),
+    changeSummary: row.change_summary ?? {},
+    createdByUserId: row.created_by,
+    createdByName: row.created_by_name,
+    createdAt: row.created_at,
+  };
+}
+
+async function writeBrandingRevision(
+  client: PoolClient,
+  input: {
+    organizationId: string;
+    brandingId: string | null;
+    reason: BrandingRevisionReason;
+    sourceRevisionId?: string | null;
+    changedFields: string[];
+    snapshot: BrandingSettings;
+    changeSummary: Record<string, unknown>;
+    actorUserId: string;
+  },
+): Promise<string | null> {
+  const { rows } = await client.query<{ revision_id: string }>(
+    `
+      INSERT INTO app_admin.branding_revisions (
+        organization_id,
+        branding_id,
+        reason,
+        source_revision_id,
+        changed_fields,
+        snapshot,
+        change_summary,
+        created_by
+      )
+      VALUES (
+        $1::uuid,
+        $2::uuid,
+        $3,
+        $4::uuid,
+        $5::text[],
+        $6::jsonb,
+        $7::jsonb,
+        $8::uuid
+      )
+      RETURNING revision_id::text
+    `,
+    [
+      input.organizationId,
+      input.brandingId,
+      input.reason,
+      input.sourceRevisionId ?? null,
+      input.changedFields,
+      JSON.stringify(input.snapshot),
+      JSON.stringify(input.changeSummary),
+      input.actorUserId,
+    ],
+  );
+
+  return rows[0]?.revision_id ?? null;
 }
 
 function mapOutboundRow(row: OutboundRow): OutboundEmailConfigRecord {
@@ -404,15 +603,37 @@ export async function getBrandingSettings(
   return mapBrandingRow(row);
 }
 
-export async function updateBrandingSettings(
+async function persistBrandingSettings(
   client: PoolClient,
   actor: AuthUser,
   input: Partial<BrandingSettings>,
-): Promise<BrandingSettingsRecord> {
+  options?: {
+    reason?: BrandingRevisionReason;
+    sourceRevisionId?: string | null;
+  },
+): Promise<BrandingUpdateResult> {
   await requireModulePermission(client, 'usuarios', 'manage');
 
+  const reason = options?.reason ?? 'manual_update';
+  const sourceRevisionId = options?.sourceRevisionId ?? null;
+
   const current = await getBrandingSettings(client, actor);
+  const currentSnapshot = toBrandingSettingsSnapshot(current);
   const next = normalizeBrandingInput(current, input);
+  const nextSnapshot = toBrandingSettingsSnapshot(next);
+  const { changedFields, changes } = computeBrandingChanges(currentSnapshot, nextSnapshot);
+
+  if (changedFields.length === 0) {
+    return {
+      settings: current,
+      previousSettings: current,
+      changedFields,
+      changes,
+      revisionId: null,
+      reason,
+      sourceRevisionId,
+    };
+  }
 
   const { rows } = await client.query<BrandingRow>(
     `
@@ -526,7 +747,121 @@ export async function updateBrandingSettings(
     throw new Error('Failed to persist branding settings');
   }
 
-  return mapBrandingRow(row);
+  const settings = mapBrandingRow(row);
+  const persistedSnapshot = toBrandingSettingsSnapshot(settings);
+  const revisionId = await writeBrandingRevision(client, {
+    organizationId: settings.organizationId,
+    brandingId: settings.brandingId,
+    reason,
+    sourceRevisionId,
+    changedFields,
+    snapshot: persistedSnapshot,
+    changeSummary: {
+      changedFields,
+      changes,
+      reason,
+      sourceRevisionId,
+      updatedAt: settings.updatedAt,
+    },
+    actorUserId: actor.userId,
+  });
+
+  return {
+    settings,
+    previousSettings: current,
+    changedFields,
+    changes,
+    revisionId,
+    reason,
+    sourceRevisionId,
+  };
+}
+
+export async function updateBrandingSettings(
+  client: PoolClient,
+  actor: AuthUser,
+  input: Partial<BrandingSettings>,
+): Promise<BrandingUpdateResult> {
+  return persistBrandingSettings(client, actor, input, { reason: 'manual_update' });
+}
+
+export async function listBrandingRevisions(
+  client: PoolClient,
+  actor: AuthUser,
+  limit = 40,
+): Promise<BrandingRevisionRecord[]> {
+  await requireModulePermission(client, 'usuarios', 'manage');
+
+  const organizationId = await resolveOrganizationId(client, actor.userId);
+  const requestedLimit = Number.isFinite(limit) ? limit : 40;
+  const safeLimit = Math.min(Math.max(requestedLimit, 1), 200);
+  const { rows } = await client.query<BrandingRevisionRow>(
+    `
+      SELECT
+        br.revision_id::text,
+        br.branding_id::text,
+        br.organization_id::text,
+        br.reason,
+        br.source_revision_id::text,
+        br.changed_fields,
+        br.snapshot,
+        br.change_summary,
+        br.created_by::text,
+        u.display_name AS created_by_name,
+        br.created_at::text
+      FROM app_admin.branding_revisions br
+      LEFT JOIN app_core.users u ON u.user_id = br.created_by
+      WHERE br.organization_id = $1::uuid
+      ORDER BY br.created_at DESC
+      LIMIT $2
+    `,
+    [organizationId, safeLimit],
+  );
+
+  return rows.map(mapBrandingRevisionRow);
+}
+
+export async function revertBrandingRevision(
+  client: PoolClient,
+  actor: AuthUser,
+  revisionId: string,
+): Promise<BrandingUpdateResult> {
+  await requireModulePermission(client, 'usuarios', 'manage');
+
+  const organizationId = await resolveOrganizationId(client, actor.userId);
+  const { rows } = await client.query<BrandingRevisionRow>(
+    `
+      SELECT
+        br.revision_id::text,
+        br.branding_id::text,
+        br.organization_id::text,
+        br.reason,
+        br.source_revision_id::text,
+        br.changed_fields,
+        br.snapshot,
+        br.change_summary,
+        br.created_by::text,
+        u.display_name AS created_by_name,
+        br.created_at::text
+      FROM app_admin.branding_revisions br
+      LEFT JOIN app_core.users u ON u.user_id = br.created_by
+      WHERE br.organization_id = $1::uuid
+        AND br.revision_id = $2::uuid
+      LIMIT 1
+    `,
+    [organizationId, revisionId],
+  );
+
+  const row = rows[0];
+  if (!row) {
+    throw new Error('Branding revision not found');
+  }
+
+  const revision = mapBrandingRevisionRow(row);
+  return persistBrandingSettings(client, actor, revision.snapshot, {
+    reason: 'revert',
+    sourceRevisionId: revision.revisionId,
+  });
 }
 
 export async function getPublicBrandingSettings(

@@ -103,6 +103,23 @@ export interface BrandingSettingsRecord extends BrandingSettings {
   updatedAt: string | null;
 }
 
+export const BRANDING_REVISION_REASONS = ['manual_update', 'revert'] as const;
+export type BrandingRevisionReason = (typeof BRANDING_REVISION_REASONS)[number];
+
+export interface BrandingRevisionRecord {
+  revisionId: string;
+  brandingId: string | null;
+  organizationId: string;
+  reason: BrandingRevisionReason;
+  sourceRevisionId: string | null;
+  changedFields: string[];
+  snapshot: BrandingSettings;
+  changeSummary: Record<string, unknown>;
+  createdByUserId: string | null;
+  createdByName: string | null;
+  createdAt: string;
+}
+
 export interface BrandingRuntimeTokens {
   colors: {
     primary: string;
