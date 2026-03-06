@@ -16,6 +16,7 @@ interface R2UploadButtonProps {
   buttonLabel?: string;
   className?: string;
   disabled?: boolean;
+  preprocessFile?: (file: File) => Promise<File>;
   onUploaded: (url: string, payload: R2UploadResponse) => void | Promise<void>;
 }
 
@@ -29,6 +30,7 @@ export function R2UploadButton({
   buttonLabel = 'Subir archivo',
   className,
   disabled,
+  preprocessFile,
   onUploaded,
 }: R2UploadButtonProps) {
   const inputRef = React.useRef<HTMLInputElement>(null);
@@ -47,8 +49,9 @@ export function R2UploadButton({
 
     setIsUploading(true);
     try {
+      const processedFile = preprocessFile ? await preprocessFile(file) : file;
       const uploaded = await uploadToR2({
-        file,
+        file: processedFile,
         moduleCode,
         action,
         pathPrefix,

@@ -17,6 +17,7 @@ import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { R2UploadButton } from '@/components/ui/R2UploadButton';
 import { useUser } from '@/context/UserContext';
 import { getMyProfile, updateMyProfile, type MyProfileRecord } from '@/features/perfil/client';
+import { optimizeAvatarForUpload } from '@/lib/image-processing';
 
 type PlanType = 'standard' | 'premium' | 'vip' | 'empresa_elite';
 type SeniorityLevel = 'senior' | 'c_level' | 'director' | 'manager' | 'vp';
@@ -285,10 +286,20 @@ export default function PerfilPage() {
                     fieldName="avatar_url"
                     buttonLabel={form.avatarUrl ? 'Cambiar foto' : 'Subir foto'}
                     className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                    preprocessFile={(file) =>
+                      optimizeAvatarForUpload(file, {
+                        targetSize: 512,
+                        mimeType: 'image/jpeg',
+                        quality: 0.86,
+                      })
+                    }
                     onUploaded={async (url) => {
                       setForm((prev) => (prev ? { ...prev, avatarUrl: url } : prev));
                     }}
                   />
+                  <p className="text-[11px] text-slate-500">
+                    Recorte automático cuadrado + optimización 512x512 antes de subir a R2.
+                  </p>
                   {form.avatarUrl && (
                     <button
                       type="button"
