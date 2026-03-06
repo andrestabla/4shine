@@ -286,6 +286,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
               'flex items-center gap-3 mb-4 p-2 rounded-lg transition cursor-pointer',
               isLightPrimary ? 'hover:bg-black/10' : 'hover:bg-white/10',
               isProfileActive && 'border-l-4 shadow-md',
+              isCollapsed && 'justify-center gap-0',
             )}
             style={{
               borderLeftColor: isProfileActive ? tokens.colors.accent : 'transparent',
@@ -294,12 +295,21 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
             title={isCollapsed ? 'Mi perfil' : undefined}
           >
             <div
-              className={`w-10 h-10 rounded-full ${currentUser.color} border-2 flex items-center justify-center text-white font-bold text-lg shadow-lg`}
+              className={`relative h-10 w-10 min-h-10 min-w-10 shrink-0 overflow-hidden rounded-full ${currentUser.color} border-2 flex items-center justify-center text-white font-bold text-lg shadow-lg`}
               style={{ borderColor }}
             >
-              {currentUser.avatar}
+              {currentUser.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={currentUser.avatarUrl}
+                  alt={currentUser.name}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                currentUser.avatar
+              )}
             </div>
-            <div className={clsx('overflow-hidden transition-all duration-300', isCollapsed ? 'w-0 opacity-0' : 'w-auto opacity-100')}>
+            <div className={clsx('overflow-hidden transition-all duration-300', isCollapsed ? 'hidden' : 'w-auto opacity-100')}>
               <p className="text-sm font-semibold truncate" style={{ color: onPrimaryText }}>
                 {currentUser.name}
               </p>

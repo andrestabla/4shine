@@ -14,6 +14,7 @@ import {
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { EmptyState } from '@/components/dashboard/EmptyState';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
+import { R2UploadButton } from '@/components/ui/R2UploadButton';
 import { useUser } from '@/context/UserContext';
 import { getMyProfile, updateMyProfile, type MyProfileRecord } from '@/features/perfil/client';
 
@@ -29,6 +30,7 @@ interface ProjectFormItem {
 
 interface ProfileFormState {
   displayName: string;
+  avatarUrl: string;
   timezone: string;
   profession: string;
   industry: string;
@@ -60,6 +62,7 @@ function planLabel(planType: PlanType | null): 'VIP' | 'Premium' | 'Empresa Éli
 function buildForm(profile: MyProfileRecord): ProfileFormState {
   return {
     displayName: profile.displayName,
+    avatarUrl: profile.avatarUrl ?? '',
     timezone: profile.timezone,
     profession: profile.profession ?? '',
     industry: profile.industry ?? '',
@@ -176,6 +179,7 @@ export default function PerfilPage() {
         displayName: trimmedName,
         firstName: splitName.firstName,
         lastName: splitName.lastName,
+        avatarUrl: form.avatarUrl || null,
         timezone: form.timezone.trim() || profile.timezone,
         profession: form.profession,
         industry: form.industry,
@@ -205,6 +209,7 @@ export default function PerfilPage() {
       updateContextUser({
         name: updated.displayName,
         avatar: (updated.avatarInitial || updated.displayName.charAt(0) || 'U').toUpperCase(),
+        avatarUrl: updated.avatarUrl ?? undefined,
         profession: updated.profession ?? undefined,
         industry: updated.industry ?? undefined,
         location: updated.location ?? currentUser?.location ?? 'Remoto',
@@ -248,6 +253,9 @@ export default function PerfilPage() {
     return <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">Cargando perfil...</div>;
   }
 
+  const avatarFallback = (profile.avatarInitial || profile.displayName.charAt(0) || 'U').toUpperCase();
+  const avatarPreviewUrl = form.avatarUrl.trim().length > 0 ? form.avatarUrl.trim() : null;
+
   return (
     <div className="space-y-5">
       <PageTitle title="Mi Perfil" subtitle="Información profesional, proyectos, redes e intereses." />
@@ -255,8 +263,44 @@ export default function PerfilPage() {
       <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:p-7">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-4">
-            <div className={`flex h-20 w-20 items-center justify-center rounded-2xl ${currentUser?.color ?? 'bg-slate-900'} text-3xl font-bold text-white`}>
-              {(profile.avatarInitial || profile.displayName.charAt(0) || 'U').toUpperCase()}
+            <div className="space-y-2">
+              <div
+                className={`relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl ${currentUser?.color ?? 'bg-slate-900'} text-3xl font-bold text-white`}
+              >
+                {avatarPreviewUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={avatarPreviewUrl} alt={profile.displayName} className="h-full w-full object-cover" />
+                ) : (
+                  avatarFallback
+                )}
+              </div>
+              {canEditProfile && isEditing && (
+                <div className="flex flex-col gap-2">
+                  <R2UploadButton
+                    moduleCode="perfil"
+                    action="update"
+                    accept="image/*"
+                    pathPrefix={`profiles/${profile.userId}/avatar`}
+                    entityTable="app_core.users"
+                    fieldName="avatar_url"
+                    buttonLabel={form.avatarUrl ? 'Cambiar foto' : 'Subir foto'}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                    onUploaded={async (url) => {
+                      setForm((prev) => (prev ? { ...prev, avatarUrl: url } : prev));
+                    }}
+                  />
+                  {form.avatarUrl && (
+                    <button
+                      type="button"
+                      className="inline-flex items-center justify-center gap-1 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
+                      onClick={() => setForm((prev) => (prev ? { ...prev, avatarUrl: '' } : prev))}
+                    >
+                      <Trash2 size={12} />
+                      Quitar foto
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
             <div>
               <h3 className="text-3xl font-bold text-slate-800">{profile.displayName}</h3>

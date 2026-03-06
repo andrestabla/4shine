@@ -162,10 +162,19 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
             <p className="text-xs text-slate-500 capitalize">{currentUser?.role}</p>
           </div>
           <div
-            className="w-10 h-10 rounded-full text-white flex items-center justify-center font-bold shadow-md shadow-slate-900/20"
+            className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full text-white flex items-center justify-center font-bold shadow-md shadow-slate-900/20"
             style={{ backgroundColor: tokens.colors.primary }}
           >
-            {currentUser?.name.charAt(0) ?? 'U'}
+            {currentUser?.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={currentUser.avatarUrl}
+                alt={currentUser.name}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              currentUser?.avatar ?? currentUser?.name.charAt(0) ?? 'U'
+            )}
           </div>
         </div>
       </div>

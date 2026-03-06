@@ -35,6 +35,7 @@ export interface User {
   name: string;
   role: string;
   avatar: string;
+  avatarUrl?: string;
   color: string;
   company: string;
   location: string;

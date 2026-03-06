@@ -274,6 +274,7 @@ async function fetchUsers(client: PoolClient): Promise<Record<Role, User>> {
     display_name: string;
     primary_role: Role;
     avatar_initial: string | null;
+    avatar_url: string | null;
     organization_name: string | null;
     location: string | null;
     profession: string | null;
@@ -291,6 +292,7 @@ async function fetchUsers(client: PoolClient): Promise<Record<Role, User>> {
         u.display_name,
         u.primary_role,
         u.avatar_initial,
+        u.avatar_url,
         o.name AS organization_name,
         p.location,
         p.profession,
@@ -386,6 +388,7 @@ async function fetchUsers(client: PoolClient): Promise<Record<Role, User>> {
       name: row.display_name,
       role: ROLE_LABEL[row.primary_role],
       avatar: row.avatar_initial ?? row.display_name[0]?.toUpperCase() ?? '?',
+      avatarUrl: row.avatar_url ?? undefined,
       color: ROLE_COLOR[row.primary_role],
       company: row.organization_name ?? '4Shine',
       location: row.location ?? 'Remoto',

@@ -20,6 +20,7 @@ export interface MyProfileRecord {
   lastName: string;
   displayName: string;
   avatarInitial: string | null;
+  avatarUrl: string | null;
   timezone: string;
   organizationId: string | null;
   organizationName: string | null;
@@ -49,6 +50,7 @@ export interface UpdateMyProfileInput {
   displayName?: string;
   firstName?: string;
   lastName?: string;
+  avatarUrl?: string | null;
   timezone?: string;
   profession?: string | null;
   industry?: string | null;
@@ -70,6 +72,7 @@ interface ProfileRow {
   last_name: string;
   display_name: string;
   avatar_initial: string | null;
+  avatar_url: string | null;
   timezone: string;
   organization_id: string | null;
   organization_name: string | null;
@@ -169,6 +172,7 @@ function mapProfile(row: ProfileRow, interests: string[], projects: ProfileProje
     lastName: row.last_name,
     displayName: row.display_name,
     avatarInitial: row.avatar_initial,
+    avatarUrl: row.avatar_url,
     timezone: row.timezone,
     organizationId: row.organization_id,
     organizationName: row.organization_name,
@@ -198,6 +202,7 @@ async function getProfileRow(client: PoolClient, userId: string): Promise<Profil
         u.last_name,
         u.display_name,
         u.avatar_initial::text,
+        u.avatar_url,
         u.timezone,
         u.organization_id::text,
         o.name AS organization_name,
@@ -365,6 +370,7 @@ export async function updateMyProfile(
   const nextLastName = normalizeRequiredText(input.lastName ?? splitName.lastName, current.lastName);
 
   const nextTimezone = normalizeRequiredText(input.timezone ?? current.timezone, current.timezone);
+  const nextAvatarUrl = input.avatarUrl === undefined ? current.avatarUrl : normalizeText(input.avatarUrl);
 
   const nextProfile = {
     profession: input.profession === undefined ? current.profession : normalizeText(input.profession),
@@ -387,10 +393,11 @@ export async function updateMyProfile(
         display_name = $4,
         avatar_initial = UPPER(LEFT($4, 1)),
         timezone = $5,
+        avatar_url = $6,
         updated_at = now()
       WHERE user_id = $1
     `,
-    [actor.userId, nextFirstName, nextLastName, nextDisplayName, nextTimezone],
+    [actor.userId, nextFirstName, nextLastName, nextDisplayName, nextTimezone, nextAvatarUrl],
   );
 
   await client.query(

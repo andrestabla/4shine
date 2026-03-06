@@ -18,6 +18,7 @@ export interface MyProfileRecord {
   lastName: string;
   displayName: string;
   avatarInitial: string | null;
+  avatarUrl: string | null;
   timezone: string;
   organizationId: string | null;
   organizationName: string | null;
@@ -47,6 +48,7 @@ export interface UpdateMyProfileInput {
   displayName?: string;
   firstName?: string;
   lastName?: string;
+  avatarUrl?: string | null;
   timezone?: string;
   profession?: string | null;
   industry?: string | null;
