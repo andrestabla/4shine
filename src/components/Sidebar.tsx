@@ -46,6 +46,38 @@ interface NavItem {
   adminOnly?: boolean;
 }
 
+function clampColorChannel(value: number): number {
+  return Math.min(255, Math.max(0, value));
+}
+
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  const normalized = hex.trim().replace('#', '');
+  if (!/^[0-9a-f]{6}$/i.test(normalized)) return null;
+
+  const r = Number.parseInt(normalized.slice(0, 2), 16);
+  const g = Number.parseInt(normalized.slice(2, 4), 16);
+  const b = Number.parseInt(normalized.slice(4, 6), 16);
+  if ([r, g, b].some((channel) => Number.isNaN(channel))) return null;
+
+  return { r, g, b };
+}
+
+function rgbaFromHex(hex: string, alpha: number): string {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return `rgba(15, 23, 42, ${alpha})`;
+  const safeAlpha = Math.min(1, Math.max(0, alpha));
+  return `rgba(${clampColorChannel(rgb.r)}, ${clampColorChannel(rgb.g)}, ${clampColorChannel(
+    rgb.b,
+  )}, ${safeAlpha})`;
+}
+
+function getOnPrimaryText(primaryHex: string): '#ffffff' | '#0f172a' {
+  const rgb = hexToRgb(primaryHex);
+  if (!rgb) return '#ffffff';
+  const luminance = (0.2126 * rgb.r + 0.7152 * rgb.g + 0.0722 * rgb.b) / 255;
+  return luminance > 0.62 ? '#0f172a' : '#ffffff';
+}
+
 const MAIN_NAV_ITEMS: NavItem[] = [
   { moduleCode: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
   { moduleCode: 'trayectoria', label: 'Trayectoria', icon: Map, path: '/dashboard/trayectoria' },
@@ -125,6 +157,13 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
 
   const mainNavItems = MAIN_NAV_ITEMS.filter(hasAccess);
   const adminNavItems = ADMIN_NAV_ITEMS.filter(hasAccess);
+  const onPrimaryText = getOnPrimaryText(tokens.colors.primary);
+  const isLightPrimary = onPrimaryText === '#0f172a';
+  const mutedText = isLightPrimary ? rgbaFromHex('#0f172a', 0.72) : rgbaFromHex('#ffffff', 0.76);
+  const subtleText = isLightPrimary ? rgbaFromHex('#0f172a', 0.56) : rgbaFromHex('#ffffff', 0.58);
+  const borderColor = isLightPrimary ? rgbaFromHex('#0f172a', 0.18) : rgbaFromHex('#ffffff', 0.16);
+  const activeBg = isLightPrimary ? rgbaFromHex('#0f172a', 0.14) : rgbaFromHex('#ffffff', 0.18);
+  const controlBg = isLightPrimary ? rgbaFromHex('#0f172a', 0.12) : rgbaFromHex('#ffffff', 0.14);
 
   const navItem = (item: NavItem) => {
     const isActive = pathname === item.path || pathname.startsWith(`${item.path}/`);
@@ -135,19 +174,15 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
         onClick={onClose}
         className={clsx(
           'w-full text-left p-3 rounded-lg flex items-center gap-3 transition-all duration-200 font-medium text-sm group relative',
-          isActive
-            ? 'text-white shadow-md border-l-4'
-            : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200',
+          isActive ? 'shadow-md border-l-4' : '',
+          isLightPrimary ? 'hover:bg-black/10' : 'hover:bg-white/10',
           isCollapsed && 'justify-center px-0',
         )}
-        style={
-          isActive
-            ? {
-                borderLeftColor: tokens.colors.accent,
-                backgroundColor: 'color-mix(in srgb, var(--brand-primary) 82%, white)',
-              }
-            : undefined
-        }
+        style={{
+          color: isActive ? onPrimaryText : mutedText,
+          borderLeftColor: isActive ? tokens.colors.accent : 'transparent',
+          backgroundColor: isActive ? activeBg : 'transparent',
+        }}
         title={isCollapsed ? item.label : undefined}
       >
         <div className={clsx('transition-all duration-200', isCollapsed ? 'scale-110' : '')}>
@@ -156,7 +191,13 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
         {!isCollapsed && <span className="truncate">{item.label}</span>}
 
         {isCollapsed && (
-          <div className="absolute left-full ml-2 px-2 py-1 bg-slate-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50">
+          <div
+            className="absolute left-full ml-2 px-2 py-1 text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50"
+            style={{
+              backgroundColor: onPrimaryText,
+              color: isLightPrimary ? '#ffffff' : '#0f172a',
+            }}
+          >
             {item.label}
           </div>
         )}
@@ -168,22 +209,22 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
     <>
       <aside
         className={clsx(
-          'fixed inset-y-0 left-0 z-30 bg-slate-900 text-slate-300 flex flex-col shadow-2xl transition-all duration-300 md:static border-r border-slate-800',
+          'fixed inset-y-0 left-0 z-30 flex flex-col shadow-2xl transition-all duration-300 md:static border-r',
           isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
           isCollapsed ? 'w-20' : 'w-72',
         )}
         style={{
           backgroundColor: tokens.colors.primary,
-          borderColor: 'color-mix(in srgb, var(--brand-secondary) 70%, black)',
-          color: 'color-mix(in srgb, white 75%, var(--brand-secondary))',
+          borderColor,
+          color: mutedText,
         }}
       >
         <div
           className={clsx(
-            'p-6 flex items-center border-b border-slate-800 bg-slate-900/50 backdrop-blur-sm',
+            'p-6 flex items-center border-b',
             isCollapsed ? 'justify-center' : 'justify-between',
           )}
-          style={{ borderColor: 'color-mix(in srgb, var(--brand-secondary) 70%, black)' }}
+          style={{ borderColor }}
         >
           {!isCollapsed && (
             <div className="flex items-center gap-3">
@@ -193,7 +234,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
               ) : (
                 <Gem className="w-8 h-8 animate-pulse-slow" style={{ color: tokens.colors.accent }} />
               )}
-              <span className="font-bold text-white text-xl tracking-wide font-sans truncate max-w-40">
+              <span className="font-bold text-xl tracking-wide font-sans truncate max-w-40" style={{ color: onPrimaryText }}>
                 {branding.platformName}
               </span>
             </div>
@@ -209,12 +250,17 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
 
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="hidden md:flex p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors absolute -right-3 top-7 border border-slate-700 shadow-sm z-50"
+            className="hidden md:flex p-1.5 rounded-lg transition-colors absolute -right-3 top-7 border shadow-sm z-50"
+            style={{
+              backgroundColor: controlBg,
+              color: mutedText,
+              borderColor,
+            }}
           >
             {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
           </button>
 
-          <button onClick={onClose} className="md:hidden p-2 text-slate-400 hover:text-white transition-colors">
+          <button onClick={onClose} className="md:hidden p-2 transition-colors" style={{ color: mutedText }}>
             <X size={24} />
           </button>
         </div>
@@ -223,14 +269,21 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           {mainNavItems.length > 0 ? (
             mainNavItems.map(navItem)
           ) : (
-            <p className="text-xs text-slate-500 px-2 py-3">No tienes módulos habilitados.</p>
+            <p className="text-xs px-2 py-3" style={{ color: subtleText }}>
+              No tienes módulos habilitados.
+            </p>
           )}
 
           {adminNavItems.length > 0 && (
             <>
               {!isCollapsed && (
                 <div className="pt-4 pb-2 px-2">
-                  <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500 font-semibold">Administración</p>
+                  <p
+                    className="text-[10px] uppercase tracking-[0.16em] font-semibold"
+                    style={{ color: subtleText }}
+                  >
+                    Administración
+                  </p>
                 </div>
               )}
               <div className="space-y-1">{adminNavItems.map(navItem)}</div>
@@ -238,24 +291,38 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           )}
         </nav>
 
-        <div className="p-4 border-t border-slate-800 bg-slate-900/50">
-          <div className="flex items-center gap-3 mb-4 p-2 rounded-lg hover:bg-slate-800/50 transition cursor-pointer">
+        <div className="p-4 border-t" style={{ borderColor }}>
+          <div
+            className={clsx(
+              'flex items-center gap-3 mb-4 p-2 rounded-lg transition cursor-pointer',
+              isLightPrimary ? 'hover:bg-black/10' : 'hover:bg-white/10',
+            )}
+          >
             <div
-              className={`w-10 h-10 rounded-full ${currentUser.color} border-2 border-slate-600 flex items-center justify-center text-white font-bold text-lg shadow-lg`}
+              className={`w-10 h-10 rounded-full ${currentUser.color} border-2 flex items-center justify-center text-white font-bold text-lg shadow-lg`}
+              style={{ borderColor }}
             >
               {currentUser.avatar}
             </div>
             <div className={clsx('overflow-hidden transition-all duration-300', isCollapsed ? 'w-0 opacity-0' : 'w-auto opacity-100')}>
-              <p className="text-sm font-semibold text-white truncate">{currentUser.name}</p>
+              <p className="text-sm font-semibold truncate" style={{ color: onPrimaryText }}>
+                {currentUser.name}
+              </p>
               <p className="text-[10px] uppercase font-bold tracking-wider" style={{ color: tokens.colors.accent }}>{currentUser.role}</p>
             </div>
           </div>
           <button
             onClick={() => setShowExitModal(true)}
             className={clsx(
-              'flex items-center justify-center gap-2 w-full py-2 px-4 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition text-sm font-medium border border-transparent hover:border-red-500/20',
+              'flex items-center justify-center gap-2 w-full py-2 px-4 rounded-lg transition text-sm font-medium border',
+              isLightPrimary ? 'hover:bg-black/10' : 'hover:bg-white/10',
               isCollapsed && 'px-0',
             )}
+            style={{
+              color: mutedText,
+              borderColor,
+              backgroundColor: controlBg,
+            }}
           >
             <LogOut size={16} /> {!isCollapsed && 'Salir'}
           </button>
