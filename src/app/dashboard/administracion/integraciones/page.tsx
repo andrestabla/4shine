@@ -4,6 +4,7 @@ import React from 'react';
 import { CheckCircle2, Mail, PlugZap, Wrench } from 'lucide-react';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
+import { useBranding } from '@/context/BrandingContext';
 import {
   getIntegrationsSettings,
   queueOutboundEmailTest,
@@ -19,6 +20,7 @@ import {
   hasText,
   requiredOutboundMissing,
 } from '@/features/administracion/types';
+import { getOnColorText, rgbaFromHex } from '@/lib/color-contrast';
 
 type WizardFieldType = 'text' | 'password' | 'url' | 'number' | 'textarea' | 'select';
 
@@ -654,6 +656,7 @@ function formatDate(value: string | null): string {
 
 export default function IntegracionesAdminPage() {
   const { alert } = useAppDialog();
+  const { tokens } = useBranding();
   const [integrations, setIntegrations] = React.useState<IntegrationConfigRecord[]>(DEFAULT_INTEGRATIONS);
   const [outboundEmail, setOutboundEmail] = React.useState<OutboundEmailConfig>(DEFAULT_OUTBOUND_EMAIL_CONFIG);
   const [loading, setLoading] = React.useState(true);
@@ -820,6 +823,14 @@ export default function IntegracionesAdminPage() {
     hasText(assistantDraft.callbackUrl) ?
       assistantDraft.callbackUrl :
       `${DEFAULT_PUBLIC_APP_URL}/api/v1/auth/sso/google/callback`;
+  const modalRadius = `calc(${tokens.shape.borderRadiusRem}rem + 0.45rem)`;
+  const modalOverlayBg = rgbaFromHex(tokens.colors.primary, 0.68);
+  const modalBorder = rgbaFromHex(tokens.colors.primary, 0.22);
+  const modalDivider = rgbaFromHex(tokens.colors.primary, 0.1);
+  const modalSoftBg = rgbaFromHex(tokens.colors.primary, 0.04);
+  const modalPrimaryText = tokens.colors.primary;
+  const modalMutedText = rgbaFromHex('#0f172a', 0.72);
+  const accentText = getOnColorText(tokens.colors.accent);
 
   const onAssistantSave = async () => {
     if (!assistantTarget || !assistantDefinition) return;
@@ -1314,16 +1325,35 @@ export default function IntegracionesAdminPage() {
       )}
 
       {assistantTarget && assistantDefinition && currentStep && (
-        <div className="fixed inset-0 z-[140] bg-black/60 backdrop-blur-sm p-4 flex items-center justify-center">
-          <div className="w-full max-w-5xl bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
+        <div
+          className="fixed inset-0 z-[140] backdrop-blur-sm p-4 flex items-center justify-center"
+          style={{ backgroundColor: modalOverlayBg }}
+        >
+          <div
+            className="w-full max-w-5xl bg-white border shadow-2xl overflow-hidden"
+            style={{ borderColor: modalBorder, borderRadius: modalRadius }}
+          >
+            <div
+              className="px-5 py-4 border-b flex items-center justify-between gap-3"
+              style={{ borderColor: modalDivider }}
+            >
               <div>
-                <h3 className="font-semibold text-slate-800">{assistantTitle}</h3>
-                <p className="text-sm text-slate-500">{assistantDefinition.intro}</p>
+                <h3 className="font-semibold" style={{ color: modalPrimaryText }}>
+                  {assistantTitle}
+                </h3>
+                <p className="text-sm" style={{ color: modalMutedText }}>
+                  {assistantDefinition.intro}
+                </p>
               </div>
               <button
                 type="button"
-                className="text-sm px-3 py-1.5 rounded border border-slate-300 text-slate-600 hover:bg-slate-50"
+                className="text-sm px-3 py-1.5 rounded border"
+                style={{
+                  borderColor: modalBorder,
+                  color: modalPrimaryText,
+                  backgroundColor: modalSoftBg,
+                  borderRadius: `calc(${tokens.shape.borderRadiusRem}rem + 0.15rem)`,
+                }}
                 onClick={closeAssistant}
               >
                 Cerrar
@@ -1331,13 +1361,18 @@ export default function IntegracionesAdminPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 min-h-[460px]">
-              <aside className="md:col-span-1 border-r border-slate-100 p-4 bg-slate-50">
+              <aside
+                className="md:col-span-1 border-r p-4"
+                style={{ borderColor: modalDivider, backgroundColor: modalSoftBg }}
+              >
                 <div className="mb-4">
-                  <p className="text-xs uppercase tracking-wide text-slate-500">Progreso</p>
-                  <div className="h-2 rounded-full bg-slate-200 mt-2 overflow-hidden">
-                    <div className="h-full bg-slate-800" style={{ width: `${assistantProgress}%` }} />
+                  <p className="text-xs uppercase tracking-wide" style={{ color: modalMutedText }}>
+                    Progreso
+                  </p>
+                  <div className="h-2 rounded-full mt-2 overflow-hidden" style={{ backgroundColor: rgbaFromHex(tokens.colors.primary, 0.14) }}>
+                    <div className="h-full" style={{ width: `${assistantProgress}%`, backgroundColor: tokens.colors.accent }} />
                   </div>
-                  <p className="text-xs text-slate-500 mt-2">
+                  <p className="text-xs mt-2" style={{ color: modalMutedText }}>
                     Paso {assistantStepIndex + 1} de {assistantDefinition.steps.length}
                   </p>
                 </div>
@@ -1352,15 +1387,21 @@ export default function IntegracionesAdminPage() {
                       <button
                         key={step.id}
                         type="button"
-                        className={`w-full text-left p-3 rounded-md border ${
-                          index === assistantStepIndex
-                            ? 'border-slate-400 bg-white'
-                            : 'border-transparent hover:border-slate-200'
-                        }`}
+                        className="w-full text-left p-3 rounded-md border transition-colors"
+                        style={{
+                          borderColor: index === assistantStepIndex ? modalBorder : 'transparent',
+                          backgroundColor:
+                            index === assistantStepIndex ? '#ffffff' : rgbaFromHex(tokens.colors.primary, 0.02),
+                        }}
                         onClick={() => setAssistantStepIndex(index)}
                       >
-                        <p className="text-xs text-slate-500">Paso {index + 1}</p>
-                        <p className="text-sm font-medium text-slate-800 flex items-center justify-between gap-2">
+                        <p className="text-xs" style={{ color: modalMutedText }}>
+                          Paso {index + 1}
+                        </p>
+                        <p
+                          className="text-sm font-medium flex items-center justify-between gap-2"
+                          style={{ color: modalPrimaryText }}
+                        >
                           {step.title}
                           {stepComplete ? (
                             <CheckCircle2 size={14} className="text-emerald-600" />
@@ -1373,7 +1414,7 @@ export default function IntegracionesAdminPage() {
                   })}
                 </div>
 
-                <label className="mt-4 inline-flex items-center gap-2 text-sm text-slate-700">
+                <label className="mt-4 inline-flex items-center gap-2 text-sm" style={{ color: modalPrimaryText }}>
                   <input
                     type="checkbox"
                     checked={assistantEnabled}
@@ -1385,8 +1426,12 @@ export default function IntegracionesAdminPage() {
 
               <section className="md:col-span-2 p-5 space-y-4">
                 <div>
-                  <h4 className="text-base font-semibold text-slate-800">{currentStep.title}</h4>
-                  <p className="text-sm text-slate-500 mt-1">{currentStep.description}</p>
+                  <h4 className="text-base font-semibold" style={{ color: modalPrimaryText }}>
+                    {currentStep.title}
+                  </h4>
+                  <p className="text-sm mt-1" style={{ color: modalMutedText }}>
+                    {currentStep.description}
+                  </p>
                 </div>
 
                 {isOutboundAssistantSes && (
@@ -1445,7 +1490,8 @@ export default function IntegracionesAdminPage() {
                     .map((field) => (
                     <label
                       key={field.key}
-                      className={`text-sm text-slate-700 ${field.type === 'textarea' ? 'md:col-span-2' : ''}`}
+                      className={`text-sm ${field.type === 'textarea' ? 'md:col-span-2' : ''}`}
+                      style={{ color: modalPrimaryText }}
                     >
                       <span className="font-medium">
                         {field.label}
@@ -1454,7 +1500,8 @@ export default function IntegracionesAdminPage() {
 
                       {field.type === 'select' && field.options ? (
                         <select
-                          className="mt-1 w-full border border-slate-300 rounded-md px-3 py-2 text-sm"
+                          className="mt-1 w-full border rounded-md px-3 py-2 text-sm"
+                          style={{ borderColor: modalBorder }}
                           value={assistantDraft[field.key] ?? ''}
                           onChange={(event) => updateAssistantField(field.key, event.target.value)}
                         >
@@ -1466,7 +1513,8 @@ export default function IntegracionesAdminPage() {
                         </select>
                       ) : field.type === 'textarea' ? (
                         <textarea
-                          className="mt-1 w-full min-h-24 border border-slate-300 rounded-md px-3 py-2 text-sm"
+                          className="mt-1 w-full min-h-24 border rounded-md px-3 py-2 text-sm"
+                          style={{ borderColor: modalBorder }}
                           placeholder={field.placeholder}
                           value={assistantDraft[field.key] ?? ''}
                           onChange={(event) => updateAssistantField(field.key, event.target.value)}
@@ -1474,24 +1522,37 @@ export default function IntegracionesAdminPage() {
                       ) : (
                         <input
                           type={field.type === 'password' ? 'password' : field.type}
-                          className="mt-1 w-full border border-slate-300 rounded-md px-3 py-2 text-sm"
+                          className="mt-1 w-full border rounded-md px-3 py-2 text-sm"
+                          style={{ borderColor: modalBorder }}
                           placeholder={field.placeholder}
                           value={assistantDraft[field.key] ?? ''}
                           onChange={(event) => updateAssistantField(field.key, event.target.value)}
                         />
                       )}
 
-                      {field.helpText && <p className="text-xs text-slate-500 mt-1">{field.helpText}</p>}
+                      {field.helpText && (
+                        <p className="text-xs mt-1" style={{ color: modalMutedText }}>
+                          {field.helpText}
+                        </p>
+                      )}
                     </label>
                     ))}
                 </div>
               </section>
             </div>
 
-            <div className="px-5 py-4 border-t border-slate-100 flex justify-between gap-2">
+            <div
+              className="px-5 py-4 border-t flex justify-between gap-2"
+              style={{ borderColor: modalDivider }}
+            >
               <button
                 type="button"
-                className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"
+                className="rounded-md border px-3 py-2 text-sm"
+                style={{
+                  borderColor: modalBorder,
+                  color: modalPrimaryText,
+                  backgroundColor: modalSoftBg,
+                }}
                 onClick={closeAssistant}
               >
                 Cancelar
@@ -1500,7 +1561,12 @@ export default function IntegracionesAdminPage() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-600 disabled:opacity-40"
+                  className="rounded-md border px-3 py-2 text-sm disabled:opacity-40"
+                  style={{
+                    borderColor: modalBorder,
+                    color: modalPrimaryText,
+                    backgroundColor: modalSoftBg,
+                  }}
                   disabled={assistantStepIndex === 0}
                   onClick={() => setAssistantStepIndex((prev) => Math.max(prev - 1, 0))}
                 >
@@ -1510,7 +1576,8 @@ export default function IntegracionesAdminPage() {
                 {!isLastAssistantStep ? (
                   <button
                     type="button"
-                    className="rounded-md bg-slate-900 text-white px-3 py-2 text-sm"
+                    className="rounded-md px-3 py-2 text-sm"
+                    style={{ backgroundColor: tokens.colors.accent, color: accentText }}
                     onClick={() => setAssistantStepIndex((prev) => Math.min(prev + 1, assistantDefinition.steps.length - 1))}
                   >
                     Siguiente
@@ -1518,7 +1585,8 @@ export default function IntegracionesAdminPage() {
                 ) : (
                   <button
                     type="button"
-                    className="rounded-md bg-slate-900 text-white px-3 py-2 text-sm"
+                    className="rounded-md px-3 py-2 text-sm"
+                    style={{ backgroundColor: tokens.colors.accent, color: accentText }}
                     onClick={() => void onAssistantSave()}
                   >
                     Finalizar asistente

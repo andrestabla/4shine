@@ -2,6 +2,8 @@
 
 import React from 'react';
 import { AlertCircle, CheckCircle2, Info, TriangleAlert } from 'lucide-react';
+import { useBranding } from '@/context/BrandingContext';
+import { getOnColorText, rgbaFromHex } from '@/lib/color-contrast';
 
 type DialogTone = 'info' | 'success' | 'warning' | 'error';
 
@@ -44,33 +46,29 @@ const TONE_STYLES: Record<
   DialogTone,
   {
     icon: React.ReactNode;
-    iconClass: string;
-    confirmButtonClass: string;
+    toneColor: string;
   }
 > = {
   info: {
     icon: <Info size={18} />,
-    iconClass: 'bg-blue-100 text-blue-700',
-    confirmButtonClass: 'bg-blue-600 hover:bg-blue-500 text-white',
+    toneColor: '#2563eb',
   },
   success: {
     icon: <CheckCircle2 size={18} />,
-    iconClass: 'bg-emerald-100 text-emerald-700',
-    confirmButtonClass: 'bg-emerald-600 hover:bg-emerald-500 text-white',
+    toneColor: '#059669',
   },
   warning: {
     icon: <TriangleAlert size={18} />,
-    iconClass: 'bg-amber-100 text-amber-700',
-    confirmButtonClass: 'bg-amber-500 hover:bg-amber-400 text-slate-900',
+    toneColor: '#d97706',
   },
   error: {
     icon: <AlertCircle size={18} />,
-    iconClass: 'bg-red-100 text-red-700',
-    confirmButtonClass: 'bg-red-600 hover:bg-red-500 text-white',
+    toneColor: '#dc2626',
   },
 };
 
 export function AppDialogProvider({ children }: { children: React.ReactNode }) {
+  const { tokens } = useBranding();
   const queueRef = React.useRef<DialogRequest[]>([]);
   const [activeDialog, setActiveDialog] = React.useState<DialogRequest | null>(null);
   const [promptValue, setPromptValue] = React.useState('');
@@ -225,36 +223,69 @@ export function AppDialogProvider({ children }: { children: React.ReactNode }) {
 
   const tone = activeDialog?.options.tone ?? 'info';
   const toneStyle = TONE_STYLES[tone];
+  const accentText = getOnColorText(tokens.colors.accent);
+  const modalRadius = `calc(${tokens.shape.borderRadiusRem}rem + 0.45rem)`;
+  const overlayBackground = rgbaFromHex(tokens.colors.primary, 0.72);
+  const panelBorder = rgbaFromHex(tokens.colors.primary, 0.2);
+  const dividerBorder = rgbaFromHex(tokens.colors.primary, 0.1);
+  const cancelButtonBg = rgbaFromHex(tokens.colors.primary, 0.04);
+  const cancelButtonText = tokens.colors.primary;
+  const iconBackground = rgbaFromHex(toneStyle.toneColor, 0.16);
 
   return (
     <AppDialogContext.Provider value={contextValue}>
       {children}
 
       {activeDialog && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/70 p-4">
-          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden animate-fade-in">
-            <div className="flex items-start gap-3 border-b border-slate-100 px-5 py-4">
-              <span className={`mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-full ${toneStyle.iconClass}`}>
+        <div
+          className="fixed inset-0 z-[120] flex items-center justify-center p-4 backdrop-blur-sm"
+          style={{ backgroundColor: overlayBackground }}
+        >
+          <div
+            className="w-full max-w-md border bg-white shadow-2xl overflow-hidden animate-fade-in"
+            style={{
+              borderColor: panelBorder,
+              borderRadius: modalRadius,
+            }}
+          >
+            <div className="flex items-start gap-3 border-b px-5 py-4" style={{ borderColor: dividerBorder }}>
+              <span
+                className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-full"
+                style={{
+                  backgroundColor: iconBackground,
+                  color: toneStyle.toneColor,
+                }}
+              >
                 {toneStyle.icon}
               </span>
               <div className="space-y-1">
-                <h3 className="text-base font-semibold text-slate-800">
+                <h3 className="text-base font-semibold" style={{ color: tokens.colors.primary }}>
                   {activeDialog.options.title ??
                     (activeDialog.kind === 'alert' ? 'Notificación' : activeDialog.kind === 'confirm' ? 'Confirmar' : 'Editar')}
                 </h3>
-                <p className="text-sm text-slate-600 whitespace-pre-wrap">{activeDialog.options.message}</p>
+                <p className="text-sm whitespace-pre-wrap" style={{ color: rgbaFromHex('#0f172a', 0.78) }}>
+                  {activeDialog.options.message}
+                </p>
               </div>
             </div>
 
             {activeDialog.kind === 'prompt' && (
               <div className="px-5 pt-4">
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <label
+                  className="block text-xs font-semibold uppercase tracking-wide"
+                  style={{ color: rgbaFromHex('#0f172a', 0.62) }}
+                >
                   {activeDialog.options.label ?? 'Valor'}
                 </label>
                 {activeDialog.options.multiline ? (
                   <textarea
                     ref={inputRef as React.RefObject<HTMLTextAreaElement>}
-                    className="mt-2 min-h-24 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"
+                    className="mt-2 min-h-24 w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2"
+                    style={{
+                      borderColor: panelBorder,
+                      borderRadius: `calc(${tokens.shape.borderRadiusRem}rem + 0.2rem)`,
+                      color: '#0f172a',
+                    }}
                     value={promptValue}
                     placeholder={activeDialog.options.placeholder}
                     onChange={(event) => setPromptValue(event.target.value)}
@@ -262,7 +293,12 @@ export function AppDialogProvider({ children }: { children: React.ReactNode }) {
                 ) : (
                   <input
                     ref={inputRef as React.RefObject<HTMLInputElement>}
-                    className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"
+                    className="mt-2 w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2"
+                    style={{
+                      borderColor: panelBorder,
+                      borderRadius: `calc(${tokens.shape.borderRadiusRem}rem + 0.2rem)`,
+                      color: '#0f172a',
+                    }}
                     value={promptValue}
                     placeholder={activeDialog.options.placeholder}
                     onChange={(event) => setPromptValue(event.target.value)}
@@ -275,7 +311,13 @@ export function AppDialogProvider({ children }: { children: React.ReactNode }) {
               {activeDialog.kind !== 'alert' && (
                 <button
                   type="button"
-                  className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"
+                  className="rounded-md border px-3 py-2 text-sm transition-colors"
+                  style={{
+                    borderColor: panelBorder,
+                    backgroundColor: cancelButtonBg,
+                    color: cancelButtonText,
+                    borderRadius: `calc(${tokens.shape.borderRadiusRem}rem + 0.15rem)`,
+                  }}
                   onClick={closeWithCancel}
                 >
                   {activeDialog.options.cancelText ?? 'Cancelar'}
@@ -283,7 +325,12 @@ export function AppDialogProvider({ children }: { children: React.ReactNode }) {
               )}
               <button
                 type="button"
-                className={`rounded-md px-3 py-2 text-sm font-medium ${toneStyle.confirmButtonClass}`}
+                className="rounded-md px-3 py-2 text-sm font-medium transition-colors"
+                style={{
+                  backgroundColor: tokens.colors.accent,
+                  color: accentText,
+                  borderRadius: `calc(${tokens.shape.borderRadiusRem}rem + 0.15rem)`,
+                }}
                 onClick={closeWithConfirm}
               >
                 {activeDialog.options.confirmText ??

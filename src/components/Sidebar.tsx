@@ -3,6 +3,7 @@
 import React from 'react';
 import { useUser } from '@/context/UserContext';
 import { useBranding } from '@/context/BrandingContext';
+import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import {
   Map,
   User,
@@ -31,6 +32,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import clsx from 'clsx';
 import type { ModuleCode, PermissionAction } from '@/lib/permissions';
+import { getOnColorText, rgbaFromHex } from '@/lib/color-contrast';
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -44,38 +46,6 @@ interface NavItem {
   path: string;
   requiredAction?: PermissionAction;
   adminOnly?: boolean;
-}
-
-function clampColorChannel(value: number): number {
-  return Math.min(255, Math.max(0, value));
-}
-
-function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
-  const normalized = hex.trim().replace('#', '');
-  if (!/^[0-9a-f]{6}$/i.test(normalized)) return null;
-
-  const r = Number.parseInt(normalized.slice(0, 2), 16);
-  const g = Number.parseInt(normalized.slice(2, 4), 16);
-  const b = Number.parseInt(normalized.slice(4, 6), 16);
-  if ([r, g, b].some((channel) => Number.isNaN(channel))) return null;
-
-  return { r, g, b };
-}
-
-function rgbaFromHex(hex: string, alpha: number): string {
-  const rgb = hexToRgb(hex);
-  if (!rgb) return `rgba(15, 23, 42, ${alpha})`;
-  const safeAlpha = Math.min(1, Math.max(0, alpha));
-  return `rgba(${clampColorChannel(rgb.r)}, ${clampColorChannel(rgb.g)}, ${clampColorChannel(
-    rgb.b,
-  )}, ${safeAlpha})`;
-}
-
-function getOnPrimaryText(primaryHex: string): '#ffffff' | '#0f172a' {
-  const rgb = hexToRgb(primaryHex);
-  if (!rgb) return '#ffffff';
-  const luminance = (0.2126 * rgb.r + 0.7152 * rgb.g + 0.0722 * rgb.b) / 255;
-  return luminance > 0.62 ? '#0f172a' : '#ffffff';
 }
 
 const MAIN_NAV_ITEMS: NavItem[] = [
@@ -143,9 +113,9 @@ const ADMIN_NAV_ITEMS: NavItem[] = [
 export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const { currentUser, currentRole, can, logout } = useUser();
   const { branding, tokens } = useBranding();
+  const { confirm } = useAppDialog();
   const pathname = usePathname();
 
-  const [showExitModal, setShowExitModal] = React.useState(false);
   const [isCollapsed, setIsCollapsed] = React.useState(false);
 
   if (!currentUser || !currentRole) return null;
@@ -157,13 +127,26 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
 
   const mainNavItems = MAIN_NAV_ITEMS.filter(hasAccess);
   const adminNavItems = ADMIN_NAV_ITEMS.filter(hasAccess);
-  const onPrimaryText = getOnPrimaryText(tokens.colors.primary);
+  const onPrimaryText = getOnColorText(tokens.colors.primary);
   const isLightPrimary = onPrimaryText === '#0f172a';
   const mutedText = isLightPrimary ? rgbaFromHex('#0f172a', 0.72) : rgbaFromHex('#ffffff', 0.76);
   const subtleText = isLightPrimary ? rgbaFromHex('#0f172a', 0.56) : rgbaFromHex('#ffffff', 0.58);
   const borderColor = isLightPrimary ? rgbaFromHex('#0f172a', 0.18) : rgbaFromHex('#ffffff', 0.16);
   const activeBg = isLightPrimary ? rgbaFromHex('#0f172a', 0.14) : rgbaFromHex('#ffffff', 0.18);
   const controlBg = isLightPrimary ? rgbaFromHex('#0f172a', 0.12) : rgbaFromHex('#ffffff', 0.14);
+
+  const onLogoutClick = async () => {
+    const approved = await confirm({
+      title: '¿Cerrar sesión?',
+      message: '¿Estás seguro que deseas salir de la plataforma?',
+      tone: 'warning',
+      confirmText: 'Sí, salir',
+      cancelText: 'Cancelar',
+    });
+
+    if (!approved) return;
+    await logout();
+  };
 
   const navItem = (item: NavItem) => {
     const isActive = pathname === item.path || pathname.startsWith(`${item.path}/`);
@@ -312,7 +295,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
             </div>
           </div>
           <button
-            onClick={() => setShowExitModal(true)}
+            onClick={() => void onLogoutClick()}
             className={clsx(
               'flex items-center justify-center gap-2 w-full py-2 px-4 rounded-lg transition text-sm font-medium border',
               isLightPrimary ? 'hover:bg-black/10' : 'hover:bg-white/10',
@@ -328,37 +311,6 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           </button>
         </div>
       </aside>
-
-      {showExitModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden animate-slide-up">
-            <div className="p-6 text-center">
-              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <LogOut size={32} className="text-red-500" />
-              </div>
-              <h3 className="text-xl font-bold text-slate-800 mb-2">¿Cerrar Sesión?</h3>
-              <p className="text-slate-500 text-sm">¿Estás seguro que deseas salir de la plataforma?</p>
-            </div>
-            <div className="flex border-t border-slate-100">
-              <button
-                onClick={() => setShowExitModal(false)}
-                className="flex-1 py-4 text-sm font-bold text-slate-500 hover:bg-slate-50 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={async () => {
-                  setShowExitModal(false);
-                  await logout();
-                }}
-                className="flex-1 py-4 text-sm font-bold text-red-500 hover:bg-red-50 transition-colors border-l border-slate-100"
-              >
-                Sí, Salir
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }
