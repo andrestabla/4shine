@@ -203,19 +203,23 @@ export default function LoginPage() {
       </form>
 
       {branding.loaderAssetUrl && isHydrating && (
-        <div
-          className={`mt-5 rounded-xl p-3 text-center ${
-            isCenteredImageLayout ? 'border border-white/15 bg-black/20' : 'border border-slate-200 bg-slate-50'
-          }`}
-        >
+        <>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={branding.loaderAssetUrl} alt={branding.loaderText} className="mx-auto h-12 w-auto" />
+          <img
+            src={branding.loaderAssetUrl}
+            alt={branding.loaderText}
+            className="mx-auto mt-5 h-12 w-auto"
+          />
           {visibility.loaderText && hasText(branding.loaderText) && (
-            <p className={`text-xs mt-2 ${isCenteredImageLayout ? 'text-white/75' : 'text-slate-600'}`}>
+            <p
+              className={`text-center text-xs mt-2 ${
+                isCenteredImageLayout ? 'text-white/75' : 'text-slate-600'
+              }`}
+            >
               {branding.loaderText}
             </p>
           )}
-        </div>
+        </>
       )}
 
       {visibility.loginSupportMessage && hasText(branding.loginSupportMessage) && (
