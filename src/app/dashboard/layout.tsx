@@ -8,6 +8,7 @@ import type { ModuleCode, PermissionAction } from '@/lib/permissions';
 import { trackAuditEvent } from '@/lib/audit-client';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import clsx from 'clsx';
 
 interface RouteAccess {
@@ -106,9 +107,31 @@ export default function DashboardLayout({
     }, [isAuthenticated, isHydrating, pathname]);
 
     if (isHydrating) {
+        const loaderText = tokens.text.loaderText?.trim() ?? '';
         return (
-            <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center">
-                Cargando sesión...
+            <div className="min-h-screen bg-white flex items-center justify-center px-6">
+                <div className="text-center">
+                    {tokens.assets.loaderAssetUrl.trim().length > 0 ? (
+                        <>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                                src={tokens.assets.loaderAssetUrl}
+                                alt={loaderText || 'Cargando'}
+                                className="mx-auto h-14 w-auto"
+                            />
+                        </>
+                    ) : (
+                        <Loader2
+                            size={42}
+                            className="mx-auto animate-spin"
+                            style={{ color: tokens.colors.accent }}
+                        />
+                    )}
+
+                    {tokens.text.visibility.loaderText && loaderText.length > 0 && (
+                        <p className="mt-3 text-sm text-slate-600">{loaderText}</p>
+                    )}
+                </div>
             </div>
         );
     }
