@@ -93,9 +93,17 @@ function parseWizardData(value: unknown): Record<string, string> {
 
 function parseAllowedMimeTypes(input: string | undefined): string[] {
   if (!input) return [];
-  return input
+
+  // Some configurations persist escaped line breaks (e.g. "\\n") instead of actual newlines.
+  const normalized = input
+    .replace(/\\r\\n/gi, '\n')
+    .replace(/\\n/gi, '\n')
+    .replace(/\\r/gi, '\n')
+    .replace(/\\t/gi, '\t');
+
+  return normalized
     .split(/[\n,;]/g)
-    .map((value) => value.trim().toLowerCase())
+    .map((value) => value.trim().toLowerCase().replace(/^['"]|['"]$/g, ''))
     .filter((value) => value.length > 0);
 }
 

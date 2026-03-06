@@ -246,7 +246,15 @@ function normalizeWizardData(value: unknown): Record<string, string> {
   const output: Record<string, string> = {};
   for (const [key, currentValue] of Object.entries(value as Record<string, unknown>)) {
     if (currentValue === null || currentValue === undefined) continue;
-    output[key] = typeof currentValue === 'string' ? currentValue : String(currentValue);
+    const raw = typeof currentValue === 'string' ? currentValue : String(currentValue);
+    if (key === 'allowedMimeTypes') {
+      output[key] = raw
+        .replace(/\\r\\n/gi, '\n')
+        .replace(/\\n/gi, '\n')
+        .replace(/\\r/gi, '\n');
+      continue;
+    }
+    output[key] = raw;
   }
 
   return output;
