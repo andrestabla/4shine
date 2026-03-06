@@ -36,6 +36,7 @@ interface WizardFieldDefinition {
   helpText?: string;
   defaultValue?: string;
   options?: WizardOption[];
+  visibleWhen?: (draft: Record<string, string>) => boolean;
 }
 
 interface WizardStepDefinition {
@@ -52,6 +53,15 @@ interface AssistantDefinition {
 }
 
 const DEFAULT_PUBLIC_APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.4shine.co';
+const DEFAULT_SES_REGION = 'us-east-1';
+
+function buildSesSmtpHost(region: string | undefined): string {
+  const normalizedRegion =
+    typeof region === 'string' && region.trim().length > 0
+      ? region.trim()
+      : DEFAULT_SES_REGION;
+  return `email-smtp.${normalizedRegion}.amazonaws.com`;
+}
 
 const DEFAULT_INTEGRATIONS: IntegrationConfigRecord[] = INTEGRATION_CATALOG.map((integration) => ({
   integrationId: null,
@@ -361,13 +371,15 @@ const INTEGRATION_ASSISTANTS: Record<IntegrationKey, AssistantDefinition> = {
 };
 
 const OUTBOUND_EMAIL_ASSISTANT: AssistantDefinition = {
-  intro: 'Configura envío de emails transaccionales y notificaciones del sistema.',
+  intro:
+    'Configura envío de emails transaccionales y notificaciones del sistema. Incluye guía específica para AWS SES.',
   primarySecretField: 'smtpPassword',
   steps: [
     {
       id: 'identity',
       title: 'Identidad de envío',
-      description: 'Define remitente y proveedor principal.',
+      description:
+        'Define remitente y proveedor principal. Si usas AWS SES, el correo remitente debe pertenecer al dominio verificado.',
       fields: [
         {
           key: 'provider',
@@ -381,9 +393,19 @@ const OUTBOUND_EMAIL_ASSISTANT: AssistantDefinition = {
             { value: 'resend', label: 'Resend' },
             { value: 'ses', label: 'AWS SES' },
           ],
+          helpText:
+            'Para Amazon SES, usa la opción AWS SES y completa credenciales SMTP en el siguiente paso.',
         },
         { key: 'fromName', label: 'Nombre remitente', type: 'text', required: true, placeholder: '4Shine Platform' },
-        { key: 'fromEmail', label: 'Correo remitente', type: 'text', required: true, placeholder: 'noreply@4shine.co' },
+        {
+          key: 'fromEmail',
+          label: 'Correo remitente',
+          type: 'text',
+          required: true,
+          placeholder: 'noreply@4shine.co',
+          helpText:
+            'En SES debe ser una dirección del dominio verificado (por ejemplo: no-reply@4shine.co).',
+        },
         { key: 'replyTo', label: 'Reply-To', type: 'text', placeholder: 'soporte@4shine.co' },
       ],
     },
@@ -392,28 +414,76 @@ const OUTBOUND_EMAIL_ASSISTANT: AssistantDefinition = {
       title: 'Credenciales de entrega',
       description: 'Completa SMTP o API Key según el proveedor elegido.',
       fields: [
-        { key: 'smtpHost', label: 'SMTP Host', type: 'text', placeholder: 'smtp.sendgrid.net' },
-        { key: 'smtpPort', label: 'SMTP Port', type: 'number', defaultValue: '587' },
+        {
+          key: 'smtpHost',
+          label: 'SMTP Host',
+          type: 'text',
+          placeholder: 'smtp.sendgrid.net',
+          visibleWhen: (draft) => ['smtp', 'ses'].includes(draft.provider ?? 'smtp'),
+          helpText:
+            'Para SES usa email-smtp.<region>.amazonaws.com (ejemplo: email-smtp.us-east-1.amazonaws.com).',
+        },
+        {
+          key: 'smtpPort',
+          label: 'SMTP Port',
+          type: 'number',
+          defaultValue: '587',
+          visibleWhen: (draft) => ['smtp', 'ses'].includes(draft.provider ?? 'smtp'),
+          helpText: '587 (STARTTLS) recomendado. 465 si usarás SSL directo.',
+        },
         {
           key: 'smtpSecure',
           label: 'SMTP Seguro (TLS/SSL)',
           type: 'select',
           defaultValue: 'false',
+          visibleWhen: (draft) => ['smtp', 'ses'].includes(draft.provider ?? 'smtp'),
           options: [
             { value: 'false', label: 'No' },
             { value: 'true', label: 'Sí' },
           ],
+          helpText: 'Con puerto 587, normalmente debes usar No (STARTTLS).',
         },
-        { key: 'smtpUser', label: 'SMTP Usuario', type: 'text', placeholder: 'apikey o usuario SMTP' },
-        { key: 'smtpPassword', label: 'SMTP Password', type: 'password', placeholder: '••••••••••••' },
-        { key: 'apiKey', label: 'API Key proveedor', type: 'password', placeholder: 'SG.... / re_.... / ...' },
-        { key: 'sesRegion', label: 'Región SES', type: 'text', defaultValue: 'us-east-1' },
+        {
+          key: 'smtpUser',
+          label: 'SMTP Usuario',
+          type: 'text',
+          placeholder: 'apikey o usuario SMTP',
+          visibleWhen: (draft) => ['smtp', 'ses'].includes(draft.provider ?? 'smtp'),
+          helpText:
+            'En SES corresponde al SMTP Username generado en “Configuración de SMTP” (no es tu usuario IAM).',
+        },
+        {
+          key: 'smtpPassword',
+          label: 'SMTP Password',
+          type: 'password',
+          placeholder: '••••••••••••',
+          visibleWhen: (draft) => ['smtp', 'ses'].includes(draft.provider ?? 'smtp'),
+          helpText: 'En SES usa la contraseña SMTP generada por AWS SES.',
+        },
+        {
+          key: 'apiKey',
+          label: 'API Key proveedor',
+          type: 'password',
+          placeholder: 'SG.... / re_.... / ...',
+          visibleWhen: (draft) => ['sendgrid', 'resend'].includes(draft.provider ?? 'smtp'),
+          helpText: 'Solo aplica para SendGrid o Resend.',
+        },
+        {
+          key: 'sesRegion',
+          label: 'Región SES',
+          type: 'text',
+          defaultValue: DEFAULT_SES_REGION,
+          visibleWhen: (draft) => (draft.provider ?? 'smtp') === 'ses',
+          helpText:
+            'Debe coincidir con la región donde verificaste el dominio en SES (ejemplo: us-east-1).',
+        },
       ],
     },
     {
       id: 'testing',
       title: 'Pruebas y operación',
-      description: 'Configura destinatario de prueba y controles iniciales.',
+      description:
+        'Configura destinatario de prueba y controles iniciales. En sandbox SES solo podrás enviar a destinos verificados.',
       fields: [
         { key: 'testRecipient', label: 'Email de prueba', type: 'text', placeholder: 'qa@4shine.co' },
       ],
@@ -426,13 +496,22 @@ type AssistantTarget =
   | { kind: 'outbound_email' }
   | null;
 
-function collectFields(definition: AssistantDefinition): WizardFieldDefinition[] {
-  return definition.steps.flatMap((step) => step.fields);
+function isFieldVisible(field: WizardFieldDefinition, data: Record<string, string>): boolean {
+  return field.visibleWhen ? field.visibleWhen(data) : true;
+}
+
+function collectFields(
+  definition: AssistantDefinition,
+  data: Record<string, string> = {},
+): WizardFieldDefinition[] {
+  return definition.steps.flatMap((step) =>
+    step.fields.filter((field) => isFieldVisible(field, data)),
+  );
 }
 
 function hydrateDraft(definition: AssistantDefinition, baseData: Record<string, string>): Record<string, string> {
   const draft = { ...baseData };
-  for (const field of collectFields(definition)) {
+  for (const field of definition.steps.flatMap((step) => step.fields)) {
     if (!hasText(draft[field.key]) && hasText(field.defaultValue)) {
       draft[field.key] = field.defaultValue ?? '';
     }
@@ -444,18 +523,18 @@ function hydrateDraft(definition: AssistantDefinition, baseData: Record<string, 
 }
 
 function calculateCompletion(definition: AssistantDefinition, data: Record<string, string>): number {
-  const requiredFields = collectFields(definition).filter((field) => field.required);
+  const requiredFields = collectFields(definition, data).filter((field) => field.required);
   if (requiredFields.length === 0) return 100;
   const completed = requiredFields.filter((field) => hasText(data[field.key])).length;
   return Math.round((completed / requiredFields.length) * 100);
 }
 
 function getMissingRequiredFields(definition: AssistantDefinition, data: Record<string, string>): WizardFieldDefinition[] {
-  return collectFields(definition).filter((field) => field.required && !hasText(data[field.key]));
+  return collectFields(definition, data).filter((field) => field.required && !hasText(data[field.key]));
 }
 
 function getSummaryItems(definition: AssistantDefinition, data: Record<string, string>): string[] {
-  const fields = collectFields(definition).filter((field) => field.type !== 'password');
+  const fields = collectFields(definition, data).filter((field) => field.type !== 'password');
   const lines: string[] = [];
 
   for (const field of fields) {
@@ -551,22 +630,26 @@ export default function IntegracionesAdminPage() {
     setAssistantTarget({ kind: 'outbound_email' });
     setAssistantStepIndex(0);
     setAssistantEnabled(outboundEmail.enabled);
-    setAssistantDraft(
-      hydrateDraft(OUTBOUND_EMAIL_ASSISTANT, {
-        provider: outboundEmail.provider,
-        fromName: outboundEmail.fromName,
-        fromEmail: outboundEmail.fromEmail,
-        replyTo: outboundEmail.replyTo,
-        smtpHost: outboundEmail.smtpHost,
-        smtpPort: outboundEmail.smtpPort,
-        smtpUser: outboundEmail.smtpUser,
-        smtpPassword: outboundEmail.smtpPassword,
-        smtpSecure: outboundEmail.smtpSecure ? 'true' : 'false',
-        apiKey: outboundEmail.apiKey,
-        sesRegion: outboundEmail.sesRegion,
-        testRecipient: outboundEmail.testRecipient,
-      }),
-    );
+    const draft = hydrateDraft(OUTBOUND_EMAIL_ASSISTANT, {
+      provider: outboundEmail.provider,
+      fromName: outboundEmail.fromName,
+      fromEmail: outboundEmail.fromEmail,
+      replyTo: outboundEmail.replyTo,
+      smtpHost: outboundEmail.smtpHost,
+      smtpPort: outboundEmail.smtpPort,
+      smtpUser: outboundEmail.smtpUser,
+      smtpPassword: outboundEmail.smtpPassword,
+      smtpSecure: outboundEmail.smtpSecure ? 'true' : 'false',
+      apiKey: outboundEmail.apiKey,
+      sesRegion: outboundEmail.sesRegion,
+      testRecipient: outboundEmail.testRecipient,
+    });
+
+    if ((draft.provider ?? 'smtp') === 'ses' && !hasText(draft.smtpHost)) {
+      draft.smtpHost = buildSesSmtpHost(draft.sesRegion);
+    }
+
+    setAssistantDraft(draft);
   };
 
   const closeAssistant = () => {
@@ -575,6 +658,39 @@ export default function IntegracionesAdminPage() {
     setAssistantDraft({});
     setAssistantEnabled(false);
   };
+
+  const updateAssistantField = React.useCallback((key: string, value: string) => {
+    setAssistantDraft((prev) => {
+      if (key === 'provider') {
+        if (value === 'ses') {
+          const nextRegion = hasText(prev.sesRegion) ? prev.sesRegion : DEFAULT_SES_REGION;
+          const nextDraft: Record<string, string> = {
+            ...prev,
+            provider: value,
+            sesRegion: nextRegion,
+          };
+          if (!hasText(nextDraft.smtpHost)) {
+            nextDraft.smtpHost = buildSesSmtpHost(nextRegion);
+          }
+          return nextDraft;
+        }
+        return { ...prev, provider: value };
+      }
+
+      if (key === 'sesRegion') {
+        const nextRegion = value;
+        const shouldAutofillHost =
+          !hasText(prev.smtpHost) || prev.smtpHost === buildSesSmtpHost(prev.sesRegion);
+        return {
+          ...prev,
+          sesRegion: nextRegion,
+          smtpHost: shouldAutofillHost ? buildSesSmtpHost(nextRegion) : prev.smtpHost,
+        };
+      }
+
+      return { ...prev, [key]: value };
+    });
+  }, []);
 
   const assistantDefinition = React.useMemo(() => {
     if (!assistantTarget) return null;
@@ -595,6 +711,8 @@ export default function IntegracionesAdminPage() {
 
   const currentStep = assistantDefinition?.steps[assistantStepIndex] ?? null;
   const isLastAssistantStep = !!assistantDefinition && assistantStepIndex === assistantDefinition.steps.length - 1;
+  const isOutboundAssistantSes =
+    assistantTarget?.kind === 'outbound_email' && (assistantDraft.provider ?? 'smtp') === 'ses';
 
   const onAssistantSave = async () => {
     if (!assistantTarget || !assistantDefinition) return;
@@ -713,6 +831,8 @@ export default function IntegracionesAdminPage() {
   const enabledCount = integrations.filter((item) => item.enabled).length;
   const configuredCount = integrations.filter((item) => calculateCompletion(INTEGRATION_ASSISTANTS[item.key], item.wizardData) === 100).length;
   const outboundReady = requiredOutboundMissing(outboundEmail).length === 0;
+  const outboundUsesSmtp = outboundEmail.provider === 'smtp' || outboundEmail.provider === 'ses';
+  const sesSmtpHostSuggestion = buildSesSmtpHost(outboundEmail.sesRegion);
 
   const assistantProgress = React.useMemo(() => {
     if (!assistantDefinition) return 0;
@@ -888,9 +1008,25 @@ export default function IntegracionesAdminPage() {
           <select
             className="border border-slate-300 rounded-md px-3 py-2 text-sm"
             value={outboundEmail.provider}
-            onChange={(event) =>
-              setOutboundEmail((prev) => ({ ...prev, provider: event.target.value as OutboundEmailProvider }))
-            }
+            onChange={(event) => {
+              const nextProvider = event.target.value as OutboundEmailProvider;
+              setOutboundEmail((prev) => {
+                if (nextProvider !== 'ses') {
+                  return { ...prev, provider: nextProvider };
+                }
+
+                const nextRegion = hasText(prev.sesRegion) ? prev.sesRegion : DEFAULT_SES_REGION;
+                const shouldAutofillHost =
+                  !hasText(prev.smtpHost) || prev.smtpHost === buildSesSmtpHost(prev.sesRegion);
+
+                return {
+                  ...prev,
+                  provider: nextProvider,
+                  sesRegion: nextRegion,
+                  smtpHost: shouldAutofillHost ? buildSesSmtpHost(nextRegion) : prev.smtpHost,
+                };
+              });
+            }}
           >
             <option value="smtp">SMTP</option>
             <option value="sendgrid">SendGrid</option>
@@ -919,11 +1055,15 @@ export default function IntegracionesAdminPage() {
           </label>
         </div>
 
-        {outboundEmail.provider === 'smtp' ? (
+        {outboundUsesSmtp ? (
           <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
             <input
               className="border border-slate-300 rounded-md px-3 py-2 text-sm md:col-span-2"
-              placeholder="SMTP host"
+              placeholder={
+                outboundEmail.provider === 'ses'
+                  ? `SMTP host SES (${sesSmtpHostSuggestion})`
+                  : 'SMTP host'
+              }
               value={outboundEmail.smtpHost}
               onChange={(event) => setOutboundEmail((prev) => ({ ...prev, smtpHost: event.target.value }))}
             />
@@ -935,42 +1075,87 @@ export default function IntegracionesAdminPage() {
             />
             <input
               className="border border-slate-300 rounded-md px-3 py-2 text-sm"
-              placeholder="SMTP user"
+              placeholder={
+                outboundEmail.provider === 'ses' ? 'SMTP username SES' : 'SMTP user'
+              }
               value={outboundEmail.smtpUser}
               onChange={(event) => setOutboundEmail((prev) => ({ ...prev, smtpUser: event.target.value }))}
             />
             <input
               type="password"
               className="border border-slate-300 rounded-md px-3 py-2 text-sm"
-              placeholder="SMTP password"
+              placeholder={
+                outboundEmail.provider === 'ses' ? 'SMTP password SES' : 'SMTP password'
+              }
               value={outboundEmail.smtpPassword}
               onChange={(event) => setOutboundEmail((prev) => ({ ...prev, smtpPassword: event.target.value }))}
             />
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             <input
               type="password"
-              className="border border-slate-300 rounded-md px-3 py-2 text-sm md:col-span-2"
+              className="border border-slate-300 rounded-md px-3 py-2 text-sm"
               placeholder="API key del proveedor"
               value={outboundEmail.apiKey}
               onChange={(event) => setOutboundEmail((prev) => ({ ...prev, apiKey: event.target.value }))}
             />
-            {outboundEmail.provider === 'ses' ? (
+            <input
+              className="border border-slate-300 rounded-md px-3 py-2 text-sm"
+              placeholder="Reply-To"
+              value={outboundEmail.replyTo}
+              onChange={(event) => setOutboundEmail((prev) => ({ ...prev, replyTo: event.target.value }))}
+            />
+          </div>
+        )}
+
+        {outboundEmail.provider === 'ses' && (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               <input
                 className="border border-slate-300 rounded-md px-3 py-2 text-sm"
                 placeholder="Región SES"
                 value={outboundEmail.sesRegion}
-                onChange={(event) => setOutboundEmail((prev) => ({ ...prev, sesRegion: event.target.value }))}
+                onChange={(event) => {
+                  const region = event.target.value;
+                  setOutboundEmail((prev) => {
+                    const shouldAutofillHost =
+                      !hasText(prev.smtpHost) || prev.smtpHost === buildSesSmtpHost(prev.sesRegion);
+                    return {
+                      ...prev,
+                      sesRegion: region,
+                      smtpHost: shouldAutofillHost ? buildSesSmtpHost(region) : prev.smtpHost,
+                    };
+                  });
+                }}
               />
-            ) : (
               <input
                 className="border border-slate-300 rounded-md px-3 py-2 text-sm"
                 placeholder="Reply-To"
                 value={outboundEmail.replyTo}
                 onChange={(event) => setOutboundEmail((prev) => ({ ...prev, replyTo: event.target.value }))}
               />
-            )}
+            </div>
+
+            <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 space-y-1">
+              <p className="font-semibold">Siguiente paso recomendado en AWS SES</p>
+              <p>
+                1) Crear credenciales SMTP en SES, 2) usar host{' '}
+                <span className="font-mono">{sesSmtpHostSuggestion}</span>, puerto 587, usuario/clave
+                SMTP, 3) salir de sandbox para destinatarios no verificados.
+              </p>
+            </div>
+          </>
+        )}
+
+        {outboundEmail.provider === 'smtp' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <input
+              className="border border-slate-300 rounded-md px-3 py-2 text-sm md:col-span-2"
+              placeholder="Reply-To"
+              value={outboundEmail.replyTo}
+              onChange={(event) => setOutboundEmail((prev) => ({ ...prev, replyTo: event.target.value }))}
+            />
           </div>
         )}
 
@@ -1097,8 +1282,41 @@ export default function IntegracionesAdminPage() {
                   <p className="text-sm text-slate-500 mt-1">{currentStep.description}</p>
                 </div>
 
+                {isOutboundAssistantSes && (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-2">
+                    <p className="text-sm font-semibold text-amber-900">
+                      Guía AWS SES: después de verificar el dominio
+                    </p>
+                    <ol className="list-decimal list-inside space-y-1 text-xs text-amber-800">
+                      <li>
+                        Revisa que operas en la misma región SES del dominio verificado (campo
+                        Región SES).
+                      </li>
+                      <li>
+                        En SES solicita salida de sandbox a producción para enviar a destinatarios
+                        no verificados.
+                      </li>
+                      <li>
+                        En “Configuración de SMTP”, crea credenciales SMTP y usa esos valores en
+                        SMTP Usuario y SMTP Password.
+                      </li>
+                      <li>
+                        SMTP Host recomendado:{' '}
+                        <span className="font-mono">{buildSesSmtpHost(assistantDraft.sesRegion)}</span>{' '}
+                        con puerto 587.
+                      </li>
+                      <li>
+                        Usa un remitente del dominio verificado (ejemplo: no-reply@4shine.co) y
+                        luego ejecuta “Probar envío”.
+                      </li>
+                    </ol>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {currentStep.fields.map((field) => (
+                  {currentStep.fields
+                    .filter((field) => isFieldVisible(field, assistantDraft))
+                    .map((field) => (
                     <label
                       key={field.key}
                       className={`text-sm text-slate-700 ${field.type === 'textarea' ? 'md:col-span-2' : ''}`}
@@ -1112,9 +1330,7 @@ export default function IntegracionesAdminPage() {
                         <select
                           className="mt-1 w-full border border-slate-300 rounded-md px-3 py-2 text-sm"
                           value={assistantDraft[field.key] ?? ''}
-                          onChange={(event) =>
-                            setAssistantDraft((prev) => ({ ...prev, [field.key]: event.target.value }))
-                          }
+                          onChange={(event) => updateAssistantField(field.key, event.target.value)}
                         >
                           {field.options.map((option) => (
                             <option key={option.value} value={option.value}>
@@ -1127,9 +1343,7 @@ export default function IntegracionesAdminPage() {
                           className="mt-1 w-full min-h-24 border border-slate-300 rounded-md px-3 py-2 text-sm"
                           placeholder={field.placeholder}
                           value={assistantDraft[field.key] ?? ''}
-                          onChange={(event) =>
-                            setAssistantDraft((prev) => ({ ...prev, [field.key]: event.target.value }))
-                          }
+                          onChange={(event) => updateAssistantField(field.key, event.target.value)}
                         />
                       ) : (
                         <input
@@ -1137,15 +1351,13 @@ export default function IntegracionesAdminPage() {
                           className="mt-1 w-full border border-slate-300 rounded-md px-3 py-2 text-sm"
                           placeholder={field.placeholder}
                           value={assistantDraft[field.key] ?? ''}
-                          onChange={(event) =>
-                            setAssistantDraft((prev) => ({ ...prev, [field.key]: event.target.value }))
-                          }
+                          onChange={(event) => updateAssistantField(field.key, event.target.value)}
                         />
                       )}
 
                       {field.helpText && <p className="text-xs text-slate-500 mt-1">{field.helpText}</p>}
                     </label>
-                  ))}
+                    ))}
                 </div>
               </section>
             </div>

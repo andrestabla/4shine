@@ -304,14 +304,14 @@ export function requiredOutboundMissing(config: OutboundEmailConfig): string[] {
   if (!hasText(config.fromName)) missing.push('Nombre remitente');
   if (!hasText(config.fromEmail)) missing.push('Correo remitente');
 
-  if (config.provider === 'smtp') {
+  if (config.provider === 'smtp' || config.provider === 'ses') {
     if (!hasText(config.smtpHost)) missing.push('SMTP Host');
     if (!hasText(config.smtpPort)) missing.push('SMTP Port');
     if (!hasText(config.smtpUser)) missing.push('SMTP Usuario');
     if (!hasText(config.smtpPassword)) missing.push('SMTP Password');
+    if (config.provider === 'ses' && !hasText(config.sesRegion)) missing.push('Región SES');
   } else {
     if (!hasText(config.apiKey)) missing.push('API Key proveedor');
-    if (config.provider === 'ses' && !hasText(config.sesRegion)) missing.push('Región SES');
   }
 
   return missing;
