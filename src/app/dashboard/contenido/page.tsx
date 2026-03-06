@@ -4,6 +4,7 @@ import React from 'react';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { StatGrid } from '@/components/dashboard/StatGrid';
 import { EmptyState } from '@/components/dashboard/EmptyState';
+import { R2UploadButton } from '@/components/ui/R2UploadButton';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useUser } from '@/context/UserContext';
 import type { ModuleCode } from '@/lib/permissions';
@@ -25,6 +26,15 @@ const MODULE_BY_SCOPE: Record<ContentScope, ModuleCode> = {
   metodologia: 'metodologia',
   formacion_mentores: 'formacion_mentores',
   formacion_lideres: 'contenido',
+};
+
+const ACCEPT_BY_CONTENT_TYPE: Partial<Record<ContentType, string>> = {
+  video: 'video/*',
+  pdf: 'application/pdf',
+  scorm: '.zip,application/zip,application/x-zip-compressed',
+  podcast: 'audio/*',
+  html: 'text/html,.html,.htm',
+  ppt: '.ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation',
 };
 
 type ScopeFilter = 'all' | ContentScope;
@@ -295,13 +305,24 @@ export default function ContenidoPage() {
               Crear
             </button>
             <input
-              className="border border-slate-300 rounded-md px-2 py-2 text-sm md:col-span-2"
+              className="border border-slate-300 rounded-md px-2 py-2 text-sm md:col-span-4"
               placeholder="URL (opcional)"
               value={createForm.url}
               onChange={(event) => setCreateForm((prev) => ({ ...prev, url: event.target.value }))}
             />
+            <R2UploadButton
+              moduleCode={MODULE_BY_SCOPE[createForm.scope]}
+              action="create"
+              fieldName="contentUrl"
+              entityTable="app_learning.content_items"
+              pathPrefix={`contenido/${createForm.scope}/${createForm.contentType}`}
+              accept={ACCEPT_BY_CONTENT_TYPE[createForm.contentType]}
+              buttonLabel="Subir a R2"
+              className="h-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-60 inline-flex items-center justify-center gap-2"
+              onUploaded={(url) => setCreateForm((prev) => ({ ...prev, url }))}
+            />
             <input
-              className="border border-slate-300 rounded-md px-2 py-2 text-sm md:col-span-4"
+              className="border border-slate-300 rounded-md px-2 py-2 text-sm md:col-span-6"
               placeholder="Descripción (opcional)"
               value={createForm.description}
               onChange={(event) => setCreateForm((prev) => ({ ...prev, description: event.target.value }))}

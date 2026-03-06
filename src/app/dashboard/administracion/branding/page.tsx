@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
+import { R2UploadButton } from '@/components/ui/R2UploadButton';
 import { useBranding } from '@/context/BrandingContext';
 import {
   getBrandingSettings,
@@ -291,12 +292,24 @@ export default function BrandingAdminPage() {
 
               <label className="text-sm text-slate-700">
                 URL del Logo
-                <input
-                  className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
-                  value={settings.logoUrl}
-                  onChange={(event) => patchSettings({ logoUrl: event.target.value })}
-                  placeholder="https://..."
-                />
+                <div className="mt-1 flex gap-2">
+                  <input
+                    className="w-full border border-slate-300 rounded-xl px-3 py-2"
+                    value={settings.logoUrl}
+                    onChange={(event) => patchSettings({ logoUrl: event.target.value })}
+                    placeholder="https://..."
+                  />
+                  <R2UploadButton
+                    moduleCode="usuarios"
+                    action="manage"
+                    fieldName="logoUrl"
+                    entityTable="app_admin.branding_settings"
+                    pathPrefix="branding/logo"
+                    accept="image/*"
+                    buttonLabel="Subir"
+                    onUploaded={(url) => patchSettings({ logoUrl: url })}
+                  />
+                </div>
               </label>
 
               <label className="text-sm text-slate-700">
@@ -316,12 +329,24 @@ export default function BrandingAdminPage() {
 
               <label className="text-sm text-slate-700">
                 URL del Favicon (Icono pestaña)
-                <input
-                  className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
-                  value={settings.faviconUrl}
-                  onChange={(event) => patchSettings({ faviconUrl: event.target.value })}
-                  placeholder="https://..."
-                />
+                <div className="mt-1 flex gap-2">
+                  <input
+                    className="w-full border border-slate-300 rounded-xl px-3 py-2"
+                    value={settings.faviconUrl}
+                    onChange={(event) => patchSettings({ faviconUrl: event.target.value })}
+                    placeholder="https://..."
+                  />
+                  <R2UploadButton
+                    moduleCode="usuarios"
+                    action="manage"
+                    fieldName="faviconUrl"
+                    entityTable="app_admin.branding_settings"
+                    pathPrefix="branding/favicon"
+                    accept="image/*,.ico"
+                    buttonLabel="Subir"
+                    onUploaded={(url) => patchSettings({ faviconUrl: url })}
+                  />
+                </div>
               </label>
             </div>
           </section>
@@ -523,12 +548,26 @@ export default function BrandingAdminPage() {
 
               <label className="text-sm text-slate-700 md:col-span-2">
                 Imagen de background login (URL)
-                <input
-                  className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
-                  value={settings.loginBackgroundImageUrl}
-                  onChange={(event) => patchSettings({ loginBackgroundImageUrl: event.target.value })}
-                  placeholder="https://.../login-background.jpg"
-                />
+                <div className="mt-1 flex gap-2">
+                  <input
+                    className="w-full border border-slate-300 rounded-xl px-3 py-2"
+                    value={settings.loginBackgroundImageUrl}
+                    onChange={(event) =>
+                      patchSettings({ loginBackgroundImageUrl: event.target.value })
+                    }
+                    placeholder="https://.../login-background.jpg"
+                  />
+                  <R2UploadButton
+                    moduleCode="usuarios"
+                    action="manage"
+                    fieldName="loginBackgroundImageUrl"
+                    entityTable="app_admin.branding_settings"
+                    pathPrefix="branding/login-background"
+                    accept="image/*"
+                    buttonLabel="Subir"
+                    onUploaded={(url) => patchSettings({ loginBackgroundImageUrl: url })}
+                  />
+                </div>
                 <p className="text-xs text-slate-500 mt-1">
                   Si se define URL, reemplaza el fondo por imagen con overlay del tema.
                 </p>
@@ -536,12 +575,24 @@ export default function BrandingAdminPage() {
 
               <label className="text-sm text-slate-700 md:col-span-2">
                 GIF de Carga (Platform Loader)
-                <input
-                  className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
-                  value={settings.loaderAssetUrl}
-                  onChange={(event) => patchSettings({ loaderAssetUrl: event.target.value })}
-                  placeholder="https://.../loader.gif"
-                />
+                <div className="mt-1 flex gap-2">
+                  <input
+                    className="w-full border border-slate-300 rounded-xl px-3 py-2"
+                    value={settings.loaderAssetUrl}
+                    onChange={(event) => patchSettings({ loaderAssetUrl: event.target.value })}
+                    placeholder="https://.../loader.gif"
+                  />
+                  <R2UploadButton
+                    moduleCode="usuarios"
+                    action="manage"
+                    fieldName="loaderAssetUrl"
+                    entityTable="app_admin.branding_settings"
+                    pathPrefix="branding/loader"
+                    accept="image/gif,image/*"
+                    buttonLabel="Subir"
+                    onUploaded={(url) => patchSettings({ loaderAssetUrl: url })}
+                  />
+                </div>
                 <p className="text-xs text-slate-500 mt-1">Este GIF se mostrará durante transiciones y estados de espera.</p>
               </label>
 

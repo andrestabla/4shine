@@ -175,6 +175,13 @@ const INTEGRATION_ASSISTANTS: Record<IntegrationKey, AssistantDefinition> = {
         fields: [
           { key: 'bucketName', label: 'Bucket principal', type: 'text', required: true, placeholder: '4shine-assets' },
           { key: 'endpoint', label: 'Endpoint S3', type: 'url', required: true, placeholder: 'https://<accountid>.r2.cloudflarestorage.com' },
+          {
+            key: 'publicBaseUrl',
+            label: 'Base URL pública (R2.dev o dominio)',
+            type: 'url',
+            placeholder: 'https://pub-xxxx.r2.dev',
+            helpText: 'Usada para entregar archivos en la UI (logo, favicon, contenidos, etc).',
+          },
           { key: 'region', label: 'Región', type: 'text', defaultValue: 'auto' },
         ],
       },
@@ -185,7 +192,13 @@ const INTEGRATION_ASSISTANTS: Record<IntegrationKey, AssistantDefinition> = {
         fields: [
           { key: 'maxFileSizeMb', label: 'Tamaño máximo por archivo (MB)', type: 'number', defaultValue: '250' },
           { key: 'defaultRetentionDays', label: 'Retención por defecto (días)', type: 'number', defaultValue: '365' },
-          { key: 'allowedMimeTypes', label: 'MIME permitidos', type: 'textarea', defaultValue: 'application/pdf\nvideo/mp4\napplication/zip' },
+          {
+            key: 'allowedMimeTypes',
+            label: 'MIME permitidos',
+            type: 'textarea',
+            defaultValue:
+              'image/png\nimage/jpeg\nimage/webp\nimage/gif\nimage/svg+xml\nimage/x-icon\napplication/pdf\nvideo/mp4\naudio/mpeg\napplication/zip',
+          },
         ],
       },
     ],
