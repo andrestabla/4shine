@@ -18,6 +18,7 @@
 
 ## Schemas
 - `app_auth`: roles, modules, permission matrix, helper functions, credentials, refresh sessions
+  - includes `user_policy_acceptances` for policy/version acceptance tracking by user
 - `app_core`: users, profiles, cohorts, trajectory, notifications
 - `app_assessment`: tests and pillar scores
 - `app_learning`: learning/methodology content, tags, comments, progress, reviews
@@ -45,6 +46,7 @@ After setting context, queries are filtered by policy rules.
 ## Authentication Objects
 - `app_auth.user_credentials`: password hash, lock state, failed attempts
 - `app_auth.refresh_sessions`: persisted refresh-token sessions (rotation/revocation)
+- `app_auth.user_policy_acceptances`: accepted policy versions per user (for compliance and filters in user admin)
 
 ## DB Runtime Roles
 Created non-login roles:

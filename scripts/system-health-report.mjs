@@ -103,8 +103,19 @@ const moduleChecks = [
   {
     moduleCode: 'usuarios',
     pagePath: 'src/app/dashboard/usuarios/page.tsx',
-    readRoutes: ['src/app/api/v1/modules/usuarios/route.ts'],
-    writeRoutes: ['src/app/api/v1/modules/usuarios/[userId]/route.ts'],
+    readRoutes: [
+      'src/app/api/v1/modules/usuarios/route.ts',
+      'src/app/api/v1/modules/usuarios/[userId]/route.ts',
+      'src/app/api/v1/modules/usuarios/[userId]/audit-logs/route.ts',
+      'src/app/api/v1/modules/usuarios/audit-logs/route.ts',
+      'src/app/dashboard/usuarios/nuevo/page.tsx',
+      'src/app/dashboard/usuarios/[userId]/page.tsx',
+    ],
+    writeRoutes: [
+      'src/app/api/v1/modules/usuarios/[userId]/route.ts',
+      'src/app/api/v1/modules/usuarios/[userId]/reset-password/route.ts',
+      'src/app/api/v1/modules/usuarios/[userId]/send-message/route.ts',
+    ],
   },
   {
     moduleCode: 'administracion_branding',
@@ -226,6 +237,7 @@ async function main() {
         UNION ALL SELECT 'branding_settings_total', COUNT(*) FROM app_admin.branding_settings
         UNION ALL SELECT 'integration_configs_total', COUNT(*) FROM app_admin.integration_configs
         UNION ALL SELECT 'outbound_email_configs_total', COUNT(*) FROM app_admin.outbound_email_configs
+        UNION ALL SELECT 'user_policy_acceptances_total', COUNT(*) FROM app_auth.user_policy_acceptances
       ) q
       ORDER BY metric
       `,
