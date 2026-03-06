@@ -1,0 +1,479 @@
+'use client';
+
+import Link from 'next/link';
+import React from 'react';
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Clock3,
+  KeyRound,
+  Mail,
+  PauseCircle,
+  PlayCircle,
+  Shield,
+  Trash2,
+} from 'lucide-react';
+import { useParams, useRouter } from 'next/navigation';
+import { EmptyState } from '@/components/dashboard/EmptyState';
+import { useAppDialog } from '@/components/ui/AppDialogProvider';
+import { useUser } from '@/context/UserContext';
+import {
+  getUserDetail,
+  hardDeleteUser,
+  listUserAuditLogs,
+  resetUserPassword,
+  sendUserDirectMessage,
+  updateUser,
+  type AppRole,
+  type AuditLogRecord,
+  type UserDetailRecord,
+} from '@/features/usuarios/client';
+
+function asUserId(value: string | string[] | undefined): string | null {
+  if (!value) return null;
+  return Array.isArray(value) ? value[0] ?? null : value;
+}
+
+function formatDateTime(value: string | null): string {
+  if (!value) return 'N/D';
+  return new Date(value).toLocaleString('es-CO', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+}
+
+function roleLabel(role: AppRole): string {
+  switch (role) {
+    case 'admin':
+      return 'ADMIN';
+    case 'gestor':
+      return 'GESTOR';
+    case 'mentor':
+      return 'MENTOR';
+    case 'lider':
+    default:
+      return 'LÍDER';
+  }
+}
+
+function summarizeLogPayload(payload: Record<string, unknown>): string {
+  try {
+    const encoded = JSON.stringify(payload);
+    return encoded.length > 260 ? `${encoded.slice(0, 257)}...` : encoded;
+  } catch {
+    return '{}';
+  }
+}
+
+const ROLE_OPTIONS: AppRole[] = ['lider', 'mentor', 'gestor', 'admin'];
+
+export default function UsuarioDetallePage() {
+  const params = useParams();
+  const router = useRouter();
+  const { can, refreshBootstrap } = useUser();
+  const { alert, confirm, prompt } = useAppDialog();
+
+  const userId = asUserId(params?.userId);
+  const [detail, setDetail] = React.useState<UserDetailRecord | null>(null);
+  const [logs, setLogs] = React.useState<AuditLogRecord[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [processingAction, setProcessingAction] = React.useState<string | null>(null);
+
+  const loadData = React.useCallback(async () => {
+    if (!userId) return;
+    setLoading(true);
+    try {
+      const [detailData, logData] = await Promise.all([getUserDetail(userId), listUserAuditLogs(userId, 300)]);
+      setDetail(detailData);
+      setLogs(logData);
+    } catch (error) {
+      await alert({
+        title: 'Error',
+        message: error instanceof Error ? error.message : 'No se pudo cargar la ficha del usuario.',
+        tone: 'error',
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [alert, userId]);
+
+  React.useEffect(() => {
+    void loadData();
+  }, [loadData]);
+
+  const onToggleActive = async () => {
+    if (!detail) return;
+    const nextIsActive = !detail.isActive;
+    const ok = await confirm({
+      title: nextIsActive ? 'Activar usuario' : 'Suspender usuario',
+      message: nextIsActive
+        ? `¿Deseas activar a ${detail.displayName}?`
+        : `¿Deseas suspender a ${detail.displayName}?`,
+      confirmText: nextIsActive ? 'Activar' : 'Suspender',
+      tone: nextIsActive ? 'info' : 'warning',
+    });
+    if (!ok) return;
+
+    setProcessingAction('toggle-active');
+    try {
+      await updateUser(detail.userId, { isActive: nextIsActive });
+      await refreshBootstrap();
+      await loadData();
+    } catch (error) {
+      await alert({
+        title: 'Error',
+        message: error instanceof Error ? error.message : 'No se pudo actualizar el estado del usuario.',
+        tone: 'error',
+      });
+    } finally {
+      setProcessingAction(null);
+    }
+  };
+
+  const onResetPassword = async () => {
+    if (!detail) return;
+    const ok = await confirm({
+      title: 'Resetear contraseña',
+      message: `Se enviará una contraseña temporal a ${detail.email}. ¿Deseas continuar?`,
+      confirmText: 'Resetear y enviar',
+      tone: 'warning',
+    });
+    if (!ok) return;
+
+    setProcessingAction('reset-password');
+    try {
+      const result = await resetUserPassword(detail.userId);
+      await loadData();
+      await alert({
+        title: 'Contraseña reseteada',
+        message: `Contraseña temporal enviada a ${result.recipient}.`,
+        tone: 'success',
+      });
+    } catch (error) {
+      await alert({
+        title: 'Error en reset',
+        message: error instanceof Error ? error.message : 'No se pudo resetear la contraseña.',
+        tone: 'error',
+      });
+    } finally {
+      setProcessingAction(null);
+    }
+  };
+
+  const onSendMessage = async () => {
+    if (!detail) return;
+
+    const message = await prompt({
+      title: 'Enviar mensaje',
+      message: `Mensaje directo a ${detail.displayName}:`,
+      label: 'Mensaje',
+      placeholder: 'Escribe el mensaje...',
+      multiline: true,
+      confirmText: 'Enviar',
+      cancelText: 'Cancelar',
+      tone: 'info',
+    });
+
+    if (!message || !message.trim()) return;
+
+    setProcessingAction('send-message');
+    try {
+      await sendUserDirectMessage(detail.userId, message);
+      await alert({
+        title: 'Mensaje enviado',
+        message: 'Se creó/actualizó el hilo de conversación y se envió el mensaje.',
+        tone: 'success',
+      });
+      await loadData();
+    } catch (error) {
+      await alert({
+        title: 'Error al enviar mensaje',
+        message: error instanceof Error ? error.message : 'No se pudo enviar el mensaje.',
+        tone: 'error',
+      });
+    } finally {
+      setProcessingAction(null);
+    }
+  };
+
+  const onChangeRole = async (role: AppRole) => {
+    if (!detail || role === detail.primaryRole) return;
+
+    const ok = await confirm({
+      title: 'Cambiar rol',
+      message: `¿Asignar rol ${roleLabel(role)} a ${detail.displayName}?`,
+      confirmText: 'Asignar rol',
+      tone: 'warning',
+    });
+    if (!ok) return;
+
+    setProcessingAction('change-role');
+    try {
+      await updateUser(detail.userId, { primaryRole: role });
+      await refreshBootstrap();
+      await loadData();
+    } catch (error) {
+      await alert({
+        title: 'Error al actualizar rol',
+        message: error instanceof Error ? error.message : 'No se pudo actualizar el rol.',
+        tone: 'error',
+      });
+    } finally {
+      setProcessingAction(null);
+    }
+  };
+
+  const onDeleteUser = async () => {
+    if (!detail) return;
+
+    const ok = await confirm({
+      title: 'Eliminar usuario permanentemente',
+      message: `Esta acción eliminará a ${detail.displayName} y sus datos dependientes. ¿Deseas continuar?`,
+      confirmText: 'Eliminar usuario',
+      cancelText: 'Cancelar',
+      tone: 'error',
+    });
+
+    if (!ok) return;
+
+    setProcessingAction('delete-user');
+    try {
+      await hardDeleteUser(detail.userId);
+      await refreshBootstrap();
+      await alert({
+        title: 'Usuario eliminado',
+        message: 'La cuenta fue eliminada permanentemente.',
+        tone: 'success',
+      });
+      router.push('/dashboard/usuarios');
+    } catch (error) {
+      await alert({
+        title: 'Error al eliminar',
+        message: error instanceof Error ? error.message : 'No se pudo eliminar el usuario.',
+        tone: 'error',
+      });
+    } finally {
+      setProcessingAction(null);
+    }
+  };
+
+  if (!userId) {
+    return <EmptyState message="Usuario inválido." />;
+  }
+
+  if (!can('usuarios', 'view')) {
+    return <EmptyState message="No tienes permisos para ver este usuario." />;
+  }
+
+  if (loading || !detail) {
+    return <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">Cargando usuario...</div>;
+  }
+
+  const canUpdate = can('usuarios', 'update');
+  const canDelete = can('usuarios', 'delete');
+
+  return (
+    <div className="space-y-5">
+      <Link href="/dashboard/usuarios" className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900">
+        <ArrowLeft size={16} />
+        Volver a la Lista
+      </Link>
+
+      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:p-7">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center gap-4">
+            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-slate-100 text-3xl font-bold text-slate-700">
+              {(detail.avatarInitial || detail.displayName.charAt(0) || 'U').toUpperCase()}
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-slate-800">{detail.displayName}</h1>
+              <p className="text-slate-500">{detail.email}</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700">
+                  {roleLabel(detail.primaryRole)}
+                </span>
+                <span
+                  className={`rounded-full px-3 py-1 text-sm font-semibold ${
+                    detail.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-700'
+                  }`}
+                >
+                  {detail.isActive ? 'ACTIVO' : 'INACTIVO'}
+                </span>
+                <span
+                  className={`rounded-full px-3 py-1 text-sm font-semibold ${
+                    detail.policyStatus === 'accepted' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'
+                  }`}
+                >
+                  {detail.policyStatus === 'accepted' ? 'Políticas aceptadas' : 'Políticas pendientes'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm text-slate-700">
+            <p className="text-xs font-semibold tracking-wide text-slate-500">ESTADÍSTICAS</p>
+            <p className="mt-2">Proyectos: <strong>{detail.stats.projectsCount}</strong></p>
+            <p>Mensajes enviados: <strong>{detail.stats.messagesSentCount}</strong></p>
+            <p>Eventos navegación: <strong>{detail.stats.navigationEventsCount}</strong></p>
+          </div>
+        </div>
+      </section>
+
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
+        <section className="space-y-5 xl:col-span-1">
+          <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 className="mb-4 text-xl font-bold text-slate-800">Gestión de Cuenta</h2>
+            <div className="space-y-3">
+              {canUpdate && (
+                <button
+                  type="button"
+                  onClick={() => void onToggleActive()}
+                  disabled={processingAction !== null}
+                  className={`flex w-full items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-base font-semibold transition ${
+                    detail.isActive
+                      ? 'border-red-300 bg-red-50 text-red-600 hover:bg-red-100'
+                      : 'border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                  } disabled:opacity-60`}
+                >
+                  {detail.isActive ? <PauseCircle size={18} /> : <PlayCircle size={18} />}
+                  {detail.isActive ? 'Suspender Usuario' : 'Activar Usuario'}
+                </button>
+              )}
+
+              {canUpdate && (
+                <button
+                  type="button"
+                  onClick={() => void onResetPassword()}
+                  disabled={processingAction !== null}
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-300 px-4 py-3 text-base font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                >
+                  <KeyRound size={18} />
+                  Resetear Contraseña
+                </button>
+              )}
+
+              {canUpdate && (
+                <button
+                  type="button"
+                  onClick={() => void onSendMessage()}
+                  disabled={processingAction !== null}
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-300 px-4 py-3 text-base font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                >
+                  <Mail size={18} />
+                  Enviar Mensaje
+                </button>
+              )}
+            </div>
+
+            <div className="mt-4 space-y-1 text-xs text-slate-500">
+              <p>Último cambio de contraseña: {formatDateTime(detail.passwordUpdatedAt)}</p>
+              <p>Última sesión: {formatDateTime(detail.lastSessionAt)}</p>
+              <p>Creado: {formatDateTime(detail.createdAt)}</p>
+            </div>
+          </article>
+
+          <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 className="mb-4 text-xl font-bold text-slate-800">Roles y Permisos</h2>
+            <div className="mb-4 grid grid-cols-2 gap-2">
+              {ROLE_OPTIONS.map((role) => (
+                <button
+                  key={role}
+                  type="button"
+                  disabled={!canUpdate || processingAction !== null}
+                  onClick={() => void onChangeRole(role)}
+                  className={`rounded-xl border px-3 py-2 text-sm font-semibold transition disabled:opacity-60 ${
+                    detail.primaryRole === role
+                      ? 'border-slate-900 bg-slate-900 text-white'
+                      : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  {roleLabel(role)}
+                </button>
+              ))}
+            </div>
+
+            <div className="max-h-72 space-y-2 overflow-y-auto rounded-xl border border-slate-100 p-3">
+              {detail.rolePermissions.map((permission) => (
+                <div key={permission.moduleCode} className="rounded-lg border border-slate-100 p-2">
+                  <p className="text-sm font-semibold text-slate-800">{permission.moduleName}</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {[
+                      permission.canView && 'view',
+                      permission.canCreate && 'create',
+                      permission.canUpdate && 'update',
+                      permission.canDelete && 'delete',
+                      permission.canApprove && 'approve',
+                      permission.canModerate && 'moderate',
+                      permission.canManage && 'manage',
+                    ]
+                      .filter(Boolean)
+                      .join(' · ') || 'Sin permisos'}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </article>
+
+          {canDelete && (
+            <article className="rounded-3xl border border-red-200 bg-red-50 p-5 shadow-sm">
+              <h2 className="flex items-center gap-2 text-xl font-bold text-red-700">
+                <AlertTriangle size={20} />
+                Zona de Peligro
+              </h2>
+              <p className="mt-2 text-sm text-red-700">
+                Eliminar al usuario borrará permanentemente sus datos y relaciones dependientes.
+              </p>
+              <button
+                type="button"
+                onClick={() => void onDeleteUser()}
+                disabled={processingAction !== null}
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-red-300 bg-white px-4 py-3 text-base font-semibold text-red-600 hover:bg-red-100 disabled:opacity-60"
+              >
+                <Trash2 size={18} />
+                Eliminar Usuario
+              </button>
+            </article>
+          )}
+        </section>
+
+        <section className="xl:col-span-2">
+          <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="flex items-center gap-2 text-2xl font-bold text-slate-800">
+                <Clock3 size={22} />
+                Historial de Actividad
+              </h2>
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
+                <Shield size={14} />
+                Logs en vivo
+              </span>
+            </div>
+
+            {logs.length === 0 ? (
+              <EmptyState message="No hay eventos registrados para este usuario." />
+            ) : (
+              <div className="space-y-3">
+                {logs.map((log) => (
+                  <div key={log.auditId} className="rounded-2xl border border-slate-100 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <p className="text-lg font-bold text-slate-800">{log.action}</p>
+                        <p className="text-sm text-slate-500">
+                          {log.moduleCode ?? 'sistema'} · {log.entityTable}
+                        </p>
+                      </div>
+                      <p className="text-xs text-slate-500">{formatDateTime(log.occurredAt)}</p>
+                    </div>
+                    <pre className="mt-3 whitespace-pre-wrap rounded-xl bg-slate-50 p-3 text-xs text-slate-600">
+                      {summarizeLogPayload(log.changeSummary)}
+                    </pre>
+                  </div>
+                ))}
+              </div>
+            )}
+          </article>
+        </section>
+      </div>
+    </div>
+  );
+}

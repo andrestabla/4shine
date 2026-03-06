@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { authenticateRequest } from '@/server/auth/request-auth';
 import { withClient, withRoleContext } from '@/server/db/pool';
-import type { CreateUserInput } from '@/features/usuarios/service';
+import type { CreateUserInput, ListUsersInput } from '@/features/usuarios/service';
 import { createUser, listUsers } from '@/features/usuarios/service';
 import { errorResponse, logModuleAudit, parseJsonBody, unauthorizedResponse } from '../_utils';
 
@@ -11,16 +11,22 @@ export async function GET(request: Request) {
 
   try {
     const url = new URL(request.url);
-    const limit = Number(url.searchParams.get('limit') ?? 200);
+    const filters: ListUsersInput = {
+      limit: Number(url.searchParams.get('limit') ?? 200),
+      search: url.searchParams.get('search') ?? undefined,
+      role: (url.searchParams.get('role') as ListUsersInput['role']) ?? undefined,
+      status: (url.searchParams.get('status') as ListUsersInput['status']) ?? undefined,
+      policyStatus: (url.searchParams.get('policyStatus') as ListUsersInput['policyStatus']) ?? undefined,
+    };
 
     const data = await withClient((client) =>
       withRoleContext(client, identity.userId, identity.role, async () => {
-        const result = await listUsers(client, limit);
+        const result = await listUsers(client, filters);
         await logModuleAudit(client, request, identity, {
           moduleCode: 'usuarios',
           action: 'query_users',
           entityTable: 'app_core.users',
-          changeSummary: { limit },
+          changeSummary: { ...filters } as Record<string, unknown>,
         });
         return result;
       }),

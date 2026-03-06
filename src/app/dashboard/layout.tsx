@@ -37,6 +37,18 @@ const ACCESS_BY_PATH: Record<string, RouteAccess> = {
     '/dashboard/analitica': { moduleCode: 'analitica' },
 };
 
+function resolveRouteAccess(pathname: string): RouteAccess | undefined {
+    if (ACCESS_BY_PATH[pathname]) {
+        return ACCESS_BY_PATH[pathname];
+    }
+
+    if (pathname.startsWith('/dashboard/usuarios/')) {
+        return { moduleCode: 'usuarios', action: 'view' };
+    }
+
+    return undefined;
+}
+
 export default function DashboardLayout({
     children,
 }: {
@@ -48,7 +60,7 @@ export default function DashboardLayout({
     const pathname = usePathname();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const didTrackLoad = useRef(false);
-    const routeAccess = ACCESS_BY_PATH[pathname];
+    const routeAccess = resolveRouteAccess(pathname);
     const canViewRoute = routeAccess
         ? can(routeAccess.moduleCode, routeAccess.action ?? 'view')
         : true;

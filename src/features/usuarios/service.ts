@@ -1,11 +1,16 @@
+import { randomBytes } from 'node:crypto';
+import nodemailer from 'nodemailer';
 import type { PoolClient } from 'pg';
-import type { AuthUser } from '@/server/auth/types';
-import type { Role } from '@/server/bootstrap/types';
+import { createDirectThread, sendMessage } from '@/features/mensajes/service';
 import { requireModulePermission } from '@/server/auth/module-permissions';
 import { hashPassword } from '@/server/auth/password';
+import type { Role } from '@/server/bootstrap/types';
+import type { AuthUser } from '@/server/auth/types';
 
 type PlanType = 'standard' | 'premium' | 'vip' | 'empresa_elite';
 type SeniorityLevel = 'senior' | 'c_level' | 'director' | 'manager' | 'vp';
+type PolicyStatus = 'accepted' | 'pending';
+type OutboundProvider = 'smtp' | 'sendgrid' | 'resend' | 'ses';
 
 export interface UserRecord {
   userId: string;
@@ -13,6 +18,7 @@ export interface UserRecord {
   firstName: string;
   lastName: string;
   displayName: string;
+  avatarInitial: string | null;
   timezone: string;
   primaryRole: Role;
   isActive: boolean;
@@ -24,6 +30,50 @@ export interface UserRecord {
   seniorityLevel: SeniorityLevel | null;
   bio: string | null;
   location: string | null;
+  policyStatus: PolicyStatus;
+  policyCode: string | null;
+  policyVersion: string | null;
+  policyAcceptedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UserStatsRecord {
+  projectsCount: number;
+  contentCreatedCount: number;
+  commentsCount: number;
+  messagesSentCount: number;
+  mentorshipSessionsCount: number;
+  navigationEventsCount: number;
+}
+
+export interface UserPolicyAcceptanceRecord {
+  acceptanceId: string;
+  policyCode: string;
+  policyVersion: string;
+  acceptedAt: string;
+  acceptanceSource: string;
+  metadata: Record<string, unknown>;
+}
+
+export interface RolePermissionRecord {
+  moduleCode: string;
+  moduleName: string;
+  canView: boolean;
+  canCreate: boolean;
+  canUpdate: boolean;
+  canDelete: boolean;
+  canApprove: boolean;
+  canModerate: boolean;
+  canManage: boolean;
+}
+
+export interface UserDetailRecord extends UserRecord {
+  passwordUpdatedAt: string | null;
+  lastSessionAt: string | null;
+  stats: UserStatsRecord;
+  rolePermissions: RolePermissionRecord[];
+  policyHistory: UserPolicyAcceptanceRecord[];
 }
 
 export interface AuditLogRecord {
@@ -36,6 +86,14 @@ export interface AuditLogRecord {
   entityId: string | null;
   changeSummary: Record<string, unknown>;
   occurredAt: string;
+}
+
+export interface ListUsersInput {
+  limit?: number;
+  search?: string;
+  role?: Role | 'all';
+  status?: 'all' | 'active' | 'inactive';
+  policyStatus?: 'all' | PolicyStatus;
 }
 
 export interface CreateUserInput {
@@ -56,6 +114,7 @@ export interface CreateUserInput {
 }
 
 export interface UpdateUserInput {
+  email?: string;
   firstName?: string;
   lastName?: string;
   displayName?: string;
@@ -72,12 +131,25 @@ export interface UpdateUserInput {
   location?: string | null;
 }
 
+export interface ResetUserPasswordResult {
+  userId: string;
+  recipient: string;
+  messageId: string | null;
+  passwordUpdatedAt: string;
+}
+
+export interface SendUserMessageResult {
+  threadId: string;
+  messageId: string;
+}
+
 interface UserRow {
   user_id: string;
   email: string;
   first_name: string;
   last_name: string;
   display_name: string;
+  avatar_initial: string | null;
   timezone: string;
   primary_role: Role;
   is_active: boolean;
@@ -89,6 +161,46 @@ interface UserRow {
   seniority_level: SeniorityLevel | null;
   bio: string | null;
   location: string | null;
+  policy_code: string | null;
+  policy_version: string | null;
+  policy_accepted_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface UserStatsRow {
+  projects_count: number;
+  content_created_count: number;
+  comments_count: number;
+  messages_sent_count: number;
+  mentorship_sessions_count: number;
+  navigation_events_count: number;
+}
+
+interface SessionMetaRow {
+  password_updated_at: string | null;
+  last_session_at: string | null;
+}
+
+interface PolicyAcceptanceRow {
+  acceptance_id: string;
+  policy_code: string;
+  policy_version: string;
+  accepted_at: string;
+  acceptance_source: string;
+  metadata: Record<string, unknown>;
+}
+
+interface RolePermissionRow {
+  module_code: string;
+  module_name: string;
+  can_view: boolean;
+  can_create: boolean;
+  can_update: boolean;
+  can_delete: boolean;
+  can_approve: boolean;
+  can_moderate: boolean;
+  can_manage: boolean;
 }
 
 interface AuditLogRow {
@@ -99,9 +211,71 @@ interface AuditLogRow {
   module_code: string | null;
   entity_table: string;
   entity_id: string | null;
-  change_summary: Record<string, unknown>;
+  change_summary: Record<string, unknown> | null;
   occurred_at: string;
 }
+
+interface OutboundConfigRow {
+  organization_id: string;
+  provider: OutboundProvider;
+  from_name: string;
+  from_email: string;
+  reply_to: string;
+  smtp_host: string;
+  smtp_port: number;
+  smtp_user: string;
+  smtp_password: string;
+  smtp_secure: boolean;
+  api_key: string;
+  ses_region: string;
+}
+
+interface OutboundEmailPayload {
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+  replyTo?: string;
+}
+
+const BASE_SELECT = `
+  SELECT
+    u.user_id::text,
+    u.email::text,
+    u.first_name,
+    u.last_name,
+    u.display_name,
+    u.avatar_initial::text,
+    u.timezone,
+    u.primary_role,
+    u.is_active,
+    u.organization_id::text,
+    o.name AS organization_name,
+    p.profession,
+    p.industry,
+    p.plan_type,
+    p.seniority_level,
+    p.bio,
+    p.location,
+    lp.policy_code,
+    lp.policy_version,
+    lp.accepted_at::text AS policy_accepted_at,
+    u.created_at::text,
+    u.updated_at::text
+  FROM app_core.users u
+  LEFT JOIN app_core.organizations o ON o.organization_id = u.organization_id
+  LEFT JOIN app_core.user_profiles p ON p.user_id = u.user_id
+  LEFT JOIN LATERAL (
+    SELECT
+      upa.policy_code,
+      upa.policy_version,
+      upa.accepted_at
+    FROM app_auth.user_policy_acceptances upa
+    WHERE upa.user_id = u.user_id
+    ORDER BY upa.accepted_at DESC
+    LIMIT 1
+  ) lp ON true
+`;
 
 function mapUser(row: UserRow): UserRecord {
   return {
@@ -110,6 +284,7 @@ function mapUser(row: UserRow): UserRecord {
     firstName: row.first_name,
     lastName: row.last_name,
     displayName: row.display_name,
+    avatarInitial: row.avatar_initial,
     timezone: row.timezone,
     primaryRole: row.primary_role,
     isActive: row.is_active,
@@ -121,6 +296,48 @@ function mapUser(row: UserRow): UserRecord {
     seniorityLevel: row.seniority_level,
     bio: row.bio,
     location: row.location,
+    policyStatus: row.policy_accepted_at ? 'accepted' : 'pending',
+    policyCode: row.policy_code,
+    policyVersion: row.policy_version,
+    policyAcceptedAt: row.policy_accepted_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapStats(row: UserStatsRow | undefined): UserStatsRecord {
+  return {
+    projectsCount: Number(row?.projects_count ?? 0),
+    contentCreatedCount: Number(row?.content_created_count ?? 0),
+    commentsCount: Number(row?.comments_count ?? 0),
+    messagesSentCount: Number(row?.messages_sent_count ?? 0),
+    mentorshipSessionsCount: Number(row?.mentorship_sessions_count ?? 0),
+    navigationEventsCount: Number(row?.navigation_events_count ?? 0),
+  };
+}
+
+function mapPolicyAcceptance(row: PolicyAcceptanceRow): UserPolicyAcceptanceRecord {
+  return {
+    acceptanceId: row.acceptance_id,
+    policyCode: row.policy_code,
+    policyVersion: row.policy_version,
+    acceptedAt: row.accepted_at,
+    acceptanceSource: row.acceptance_source,
+    metadata: row.metadata ?? {},
+  };
+}
+
+function mapRolePermission(row: RolePermissionRow): RolePermissionRecord {
+  return {
+    moduleCode: row.module_code,
+    moduleName: row.module_name,
+    canView: row.can_view,
+    canCreate: row.can_create,
+    canUpdate: row.can_update,
+    canDelete: row.can_delete,
+    canApprove: row.can_approve,
+    canModerate: row.can_moderate,
+    canManage: row.can_manage,
   };
 }
 
@@ -133,33 +350,46 @@ function mapAuditLog(row: AuditLogRow): AuditLogRecord {
     moduleCode: row.module_code,
     entityTable: row.entity_table,
     entityId: row.entity_id,
-    changeSummary: row.change_summary,
+    changeSummary: row.change_summary ?? {},
     occurredAt: row.occurred_at,
   };
 }
 
-const BASE_SELECT = `
-  SELECT
-    u.user_id::text,
-    u.email::text,
-    u.first_name,
-    u.last_name,
-    u.display_name,
-    u.timezone,
-    u.primary_role,
-    u.is_active,
-    u.organization_id::text,
-    o.name AS organization_name,
-    p.profession,
-    p.industry,
-    p.plan_type,
-    p.seniority_level,
-    p.bio,
-    p.location
-  FROM app_core.users u
-  LEFT JOIN app_core.organizations o ON o.organization_id = u.organization_id
-  LEFT JOIN app_core.user_profiles p ON p.user_id = u.user_id
-`;
+function clampLimit(limit: number | undefined, fallback = 200): number {
+  const value = Number(limit ?? fallback);
+  if (!Number.isFinite(value)) return fallback;
+  return Math.min(Math.max(Math.trunc(value), 1), 1000);
+}
+
+function normalizeSearch(value: string | undefined): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return `%${trimmed}%`;
+}
+
+function hasUsableEmail(value: string | undefined | null): boolean {
+  if (!value) return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
+function buildFromHeader(config: OutboundConfigRow): string {
+  const fromEmail = config.from_email.trim();
+  const fromName = config.from_name.trim();
+  if (!fromName) return fromEmail;
+  const escaped = fromName.replace(/"/g, '\\"');
+  return `"${escaped}" <${fromEmail}>`;
+}
+
+function buildReplyTo(config: OutboundConfigRow): string | undefined {
+  const replyTo = config.reply_to.trim();
+  return replyTo.length > 0 ? replyTo : undefined;
+}
+
+function generateTemporaryPassword(): string {
+  const base = randomBytes(18).toString('base64url').slice(0, 12);
+  return `${base}A9!`;
+}
 
 async function getUserById(client: PoolClient, userId: string): Promise<UserRecord> {
   const { rows } = await client.query<UserRow>(
@@ -177,21 +407,386 @@ async function getUserById(client: PoolClient, userId: string): Promise<UserReco
   return mapUser(row);
 }
 
-export async function listUsers(client: PoolClient, limit = 200): Promise<UserRecord[]> {
+async function getUserStats(client: PoolClient, userId: string): Promise<UserStatsRecord> {
+  const { rows } = await client.query<UserStatsRow>(
+    `
+      SELECT
+        (SELECT COUNT(*)::int FROM app_core.user_projects up WHERE up.user_id = $1) AS projects_count,
+        (SELECT COUNT(*)::int FROM app_learning.content_items ci WHERE ci.author_user_id = $1) AS content_created_count,
+        (SELECT COUNT(*)::int FROM app_learning.content_comments cc WHERE cc.author_user_id = $1) AS comments_count,
+        (SELECT COUNT(*)::int FROM app_networking.messages m WHERE m.sender_user_id = $1 AND m.deleted_at IS NULL) AS messages_sent_count,
+        (
+          SELECT COUNT(*)::int
+          FROM app_mentoring.mentorship_sessions ms
+          WHERE ms.mentor_user_id = $1
+             OR ms.created_by = $1
+             OR EXISTS (
+               SELECT 1
+               FROM app_mentoring.session_participants sp
+               WHERE sp.session_id = ms.session_id
+                 AND sp.user_id = $1
+             )
+        ) AS mentorship_sessions_count,
+        (SELECT COUNT(*)::int FROM app_admin.audit_logs al WHERE al.actor_user_id = $1) AS navigation_events_count
+    `,
+    [userId],
+  );
+
+  return mapStats(rows[0]);
+}
+
+async function getUserSessionMeta(client: PoolClient, userId: string): Promise<SessionMetaRow> {
+  const { rows } = await client.query<SessionMetaRow>(
+    `
+      SELECT
+        uc.password_updated_at::text,
+        MAX(rs.last_used_at)::text AS last_session_at
+      FROM app_auth.user_credentials uc
+      LEFT JOIN app_auth.refresh_sessions rs
+        ON rs.user_id = uc.user_id
+      WHERE uc.user_id = $1
+      GROUP BY uc.password_updated_at
+      LIMIT 1
+    `,
+    [userId],
+  );
+
+  return rows[0] ?? { password_updated_at: null, last_session_at: null };
+}
+
+async function listRolePermissionMatrix(client: PoolClient, role: Role): Promise<RolePermissionRecord[]> {
+  const { rows } = await client.query<RolePermissionRow>(
+    `
+      SELECT
+        module_code,
+        module_name,
+        can_view,
+        can_create,
+        can_update,
+        can_delete,
+        can_approve,
+        can_moderate,
+        can_manage
+      FROM app_auth.v_role_permission_matrix
+      WHERE role_code = $1
+      ORDER BY module_name
+    `,
+    [role],
+  );
+
+  return rows.map(mapRolePermission);
+}
+
+export async function listUserPolicyAcceptances(
+  client: PoolClient,
+  userId: string,
+  limit = 20,
+): Promise<UserPolicyAcceptanceRecord[]> {
   await requireModulePermission(client, 'usuarios', 'view');
+
+  const { rows } = await client.query<PolicyAcceptanceRow>(
+    `
+      SELECT
+        acceptance_id::text,
+        policy_code,
+        policy_version,
+        accepted_at::text,
+        acceptance_source,
+        metadata
+      FROM app_auth.user_policy_acceptances
+      WHERE user_id = $1
+      ORDER BY accepted_at DESC
+      LIMIT $2
+    `,
+    [userId, clampLimit(limit, 20)],
+  );
+
+  return rows.map(mapPolicyAcceptance);
+}
+
+async function resolveOutboundConfig(
+  client: PoolClient,
+  organizationId: string | null,
+): Promise<OutboundConfigRow | null> {
+  if (organizationId) {
+    const preferred = await client.query<OutboundConfigRow>(
+      `
+        SELECT
+          organization_id::text,
+          provider,
+          from_name,
+          from_email,
+          reply_to,
+          smtp_host,
+          smtp_port,
+          smtp_user,
+          smtp_password,
+          smtp_secure,
+          api_key,
+          ses_region
+        FROM app_admin.outbound_email_configs
+        WHERE organization_id = $1
+          AND enabled = true
+        LIMIT 1
+      `,
+      [organizationId],
+    );
+
+    if (preferred.rows[0]) {
+      return preferred.rows[0];
+    }
+  }
+
+  const fallback = await client.query<OutboundConfigRow>(
+    `
+      SELECT
+        organization_id::text,
+        provider,
+        from_name,
+        from_email,
+        reply_to,
+        smtp_host,
+        smtp_port,
+        smtp_user,
+        smtp_password,
+        smtp_secure,
+        api_key,
+        ses_region
+      FROM app_admin.outbound_email_configs
+      WHERE enabled = true
+      ORDER BY updated_at DESC
+      LIMIT 1
+    `,
+  );
+
+  return fallback.rows[0] ?? null;
+}
+
+async function sendViaSmtp(config: OutboundConfigRow, payload: OutboundEmailPayload): Promise<string | null> {
+  const smtpHost = config.smtp_host.trim();
+  const smtpUser = config.smtp_user.trim();
+  const smtpPassword = config.smtp_password.trim();
+  const smtpPort = Number(config.smtp_port);
+
+  if (!smtpHost || !smtpUser || !smtpPassword || !Number.isFinite(smtpPort) || smtpPort <= 0) {
+    throw new Error('SMTP configuration is incomplete');
+  }
+
+  const secure = smtpPort === 465 ? true : config.smtp_secure && smtpPort !== 587;
+  const requireTLS = smtpPort === 587 || !secure;
+
+  const transporter = nodemailer.createTransport({
+    host: smtpHost,
+    port: smtpPort,
+    secure,
+    requireTLS,
+    auth: {
+      user: smtpUser,
+      pass: smtpPassword,
+    },
+  });
+
+  const result = await transporter.sendMail({
+    from: buildFromHeader(config),
+    to: payload.to,
+    subject: payload.subject,
+    text: payload.text,
+    html: payload.html,
+    replyTo: payload.replyTo,
+  });
+
+  return typeof result.messageId === 'string' ? result.messageId : null;
+}
+
+async function sendViaSendgrid(config: OutboundConfigRow, payload: OutboundEmailPayload): Promise<string | null> {
+  const apiKey = config.api_key.trim();
+  if (!apiKey) {
+    throw new Error('SendGrid API key is missing');
+  }
+
+  const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from: { email: config.from_email.trim(), name: config.from_name.trim() || undefined },
+      personalizations: [{ to: [{ email: payload.to }] }],
+      subject: payload.subject,
+      content: [{ type: 'text/plain', value: payload.text }],
+      ...(payload.replyTo ? { reply_to: { email: payload.replyTo } } : {}),
+    }),
+  });
+
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`SendGrid rejected message: ${response.status} ${detail.slice(0, 300)}`);
+  }
+
+  return response.headers.get('x-message-id');
+}
+
+async function sendViaResend(config: OutboundConfigRow, payload: OutboundEmailPayload): Promise<string | null> {
+  const apiKey = config.api_key.trim();
+  if (!apiKey) {
+    throw new Error('Resend API key is missing');
+  }
+
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from: buildFromHeader(config),
+      to: [payload.to],
+      subject: payload.subject,
+      text: payload.text,
+      html: payload.html,
+      ...(payload.replyTo ? { reply_to: payload.replyTo } : {}),
+    }),
+  });
+
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const detail = typeof body?.message === 'string' ? body.message : JSON.stringify(body);
+    throw new Error(`Resend rejected message: ${response.status} ${detail.slice(0, 300)}`);
+  }
+
+  return typeof body?.id === 'string' ? body.id : null;
+}
+
+async function sendOutboundEmail(config: OutboundConfigRow, payload: OutboundEmailPayload): Promise<string | null> {
+  if (!hasUsableEmail(config.from_email)) {
+    throw new Error('fromEmail is invalid');
+  }
+  if (!hasUsableEmail(payload.to)) {
+    throw new Error('Recipient email is invalid');
+  }
+
+  if (config.provider === 'sendgrid') {
+    return sendViaSendgrid(config, payload);
+  }
+
+  if (config.provider === 'resend') {
+    return sendViaResend(config, payload);
+  }
+
+  return sendViaSmtp(config, payload);
+}
+
+function buildPasswordResetPayload(
+  config: OutboundConfigRow,
+  recipient: string,
+  targetName: string,
+  temporaryPassword: string,
+): OutboundEmailPayload {
+  const safeName = targetName.trim() || 'usuario';
+  const subject = '4Shine · Nueva contraseña temporal';
+  const text = [
+    `Hola ${safeName},`,
+    '',
+    'Se ha solicitado un reseteo de contraseña desde el panel de administración de 4Shine.',
+    `Tu nueva contraseña temporal es: ${temporaryPassword}`,
+    '',
+    'Te recomendamos cambiarla al iniciar sesión.',
+  ].join('\n');
+
+  const html = [
+    '<div style="font-family:Inter,Arial,sans-serif;line-height:1.5;color:#0f172a;">',
+    `<p>Hola <strong>${safeName}</strong>,</p>`,
+    '<p>Se ha solicitado un reseteo de contraseña desde el panel de administración de 4Shine.</p>',
+    `<p>Tu nueva contraseña temporal es: <strong style="font-size:16px;">${temporaryPassword}</strong></p>`,
+    '<p>Te recomendamos cambiarla al iniciar sesión.</p>',
+    '</div>',
+  ].join('');
+
+  return {
+    to: recipient,
+    subject,
+    text,
+    html,
+    replyTo: buildReplyTo(config),
+  };
+}
+
+export async function listUsers(client: PoolClient, input: ListUsersInput = {}): Promise<UserRecord[]> {
+  await requireModulePermission(client, 'usuarios', 'view');
+
+  const limit = clampLimit(input.limit, 200);
+  const params: Array<string | number | boolean> = [];
+  const filters: string[] = [];
+
+  const search = normalizeSearch(input.search);
+  if (search) {
+    params.push(search);
+    filters.push(`(u.display_name ILIKE $${params.length} OR u.email::text ILIKE $${params.length})`);
+  }
+
+  if (input.role && input.role !== 'all') {
+    params.push(input.role);
+    filters.push(`u.primary_role = $${params.length}`);
+  }
+
+  if (input.status === 'active') {
+    filters.push('u.is_active = true');
+  } else if (input.status === 'inactive') {
+    filters.push('u.is_active = false');
+  }
+
+  if (input.policyStatus === 'accepted') {
+    filters.push('lp.accepted_at IS NOT NULL');
+  } else if (input.policyStatus === 'pending') {
+    filters.push('lp.accepted_at IS NULL');
+  }
+
+  const whereClause = filters.length > 0 ? `WHERE ${filters.join(' AND ')}` : '';
+
+  params.push(limit);
 
   const { rows } = await client.query<UserRow>(
     `${BASE_SELECT}
+     ${whereClause}
      ORDER BY u.created_at DESC
-     LIMIT $1`,
-    [Math.min(Math.max(limit, 1), 1000)],
+     LIMIT $${params.length}`,
+    params,
   );
 
   return rows.map(mapUser);
 }
 
-export async function listUserNavigationLogs(client: PoolClient, limit = 200): Promise<AuditLogRecord[]> {
+export async function getUserDetail(client: PoolClient, userId: string): Promise<UserDetailRecord> {
+  await requireModulePermission(client, 'usuarios', 'view');
+
+  const user = await getUserById(client, userId);
+
+  const [stats, rolePermissions, policyHistory, sessionMeta] = await Promise.all([
+    getUserStats(client, userId),
+    listRolePermissionMatrix(client, user.primaryRole),
+    listUserPolicyAcceptances(client, userId, 30),
+    getUserSessionMeta(client, userId),
+  ]);
+
+  return {
+    ...user,
+    passwordUpdatedAt: sessionMeta.password_updated_at,
+    lastSessionAt: sessionMeta.last_session_at,
+    stats,
+    rolePermissions,
+    policyHistory,
+  };
+}
+
+export async function listUserNavigationLogs(
+  client: PoolClient,
+  input: { limit?: number; userId?: string } = {},
+): Promise<AuditLogRecord[]> {
   await requireModulePermission(client, 'usuarios', 'manage');
+
+  const limit = clampLimit(input.limit, 200);
+  const userId = input.userId ?? null;
 
   const { rows } = await client.query<AuditLogRow>(
     `
@@ -207,10 +802,11 @@ export async function listUserNavigationLogs(client: PoolClient, limit = 200): P
         al.occurred_at::text
       FROM app_admin.audit_logs al
       LEFT JOIN app_core.users u ON u.user_id = al.actor_user_id
+      WHERE ($1::uuid IS NULL OR al.actor_user_id = $1::uuid OR al.entity_id = $1::uuid)
       ORDER BY al.occurred_at DESC
-      LIMIT $1
+      LIMIT $2
     `,
-    [Math.min(Math.max(limit, 1), 1000)],
+    [userId, limit],
   );
 
   return rows.map(mapAuditLog);
@@ -331,19 +927,21 @@ export async function updateUser(
     `
       UPDATE app_core.users
       SET
-        first_name = COALESCE($2, first_name),
-        last_name = COALESCE($3, last_name),
-        display_name = COALESCE($4, display_name),
-        avatar_initial = UPPER(LEFT(COALESCE($4, display_name), 1)),
-        timezone = COALESCE($5, timezone),
-        primary_role = COALESCE($6, primary_role),
-        organization_id = COALESCE($7, organization_id),
-        is_active = COALESCE($8, is_active),
+        email = COALESCE($2, email),
+        first_name = COALESCE($3, first_name),
+        last_name = COALESCE($4, last_name),
+        display_name = COALESCE($5, display_name),
+        avatar_initial = UPPER(LEFT(COALESCE($5, display_name), 1)),
+        timezone = COALESCE($6, timezone),
+        primary_role = COALESCE($7, primary_role),
+        organization_id = COALESCE($8, organization_id),
+        is_active = COALESCE($9, is_active),
         updated_at = now()
       WHERE user_id = $1
     `,
     [
       userId,
+      input.email ? input.email.trim().toLowerCase() : null,
       input.firstName ?? null,
       input.lastName ?? null,
       input.displayName ?? null,
@@ -430,36 +1028,159 @@ export async function updateUser(
   return getUserById(client, userId);
 }
 
-export async function deactivateUser(client: PoolClient, userId: string): Promise<{ userId: string }> {
+export async function resetUserPassword(
+  client: PoolClient,
+  actor: AuthUser,
+  userId: string,
+): Promise<ResetUserPasswordResult> {
+  await requireModulePermission(client, 'usuarios', 'update');
+
+  const user = await getUserById(client, userId);
+  if (!hasUsableEmail(user.email)) {
+    throw new Error('El usuario no tiene un correo válido para reseteo de contraseña');
+  }
+
+  const outboundConfig = await resolveOutboundConfig(client, user.organizationId);
+  if (!outboundConfig) {
+    throw new Error('No hay configuración de correo saliente habilitada para enviar el reset');
+  }
+
+  const temporaryPassword = generateTemporaryPassword();
+  const passwordHash = await hashPassword(temporaryPassword);
+
+  const credentialsResult = await client.query<{ password_updated_at: string }>(
+    `
+      INSERT INTO app_auth.user_credentials (user_id, password_hash, failed_attempts, locked_until)
+      VALUES ($1, $2, 0, NULL)
+      ON CONFLICT (user_id) DO UPDATE
+      SET
+        password_hash = EXCLUDED.password_hash,
+        failed_attempts = 0,
+        locked_until = NULL,
+        password_updated_at = now(),
+        updated_at = now()
+      RETURNING password_updated_at::text
+    `,
+    [user.userId, passwordHash],
+  );
+
+  const passwordUpdatedAt = credentialsResult.rows[0]?.password_updated_at;
+  if (!passwordUpdatedAt) {
+    throw new Error('No fue posible actualizar la contraseña');
+  }
+
+  const payload = buildPasswordResetPayload(outboundConfig, user.email, user.displayName, temporaryPassword);
+  const messageId = await sendOutboundEmail(outboundConfig, payload);
+
+  await client.query(
+    `
+      INSERT INTO app_admin.audit_logs (
+        actor_user_id,
+        action,
+        module_code,
+        entity_table,
+        entity_id,
+        change_summary
+      )
+      VALUES ($1, 'user_password_reset_email_sent', 'usuarios', 'app_auth.user_credentials', $2, $3::jsonb)
+    `,
+    [actor.userId, user.userId, JSON.stringify({ recipient: user.email, messageId })],
+  );
+
+  return {
+    userId: user.userId,
+    recipient: user.email,
+    messageId,
+    passwordUpdatedAt,
+  };
+}
+
+export async function sendUserDirectMessage(
+  client: PoolClient,
+  actor: AuthUser,
+  userId: string,
+  messageText: string,
+): Promise<SendUserMessageResult> {
+  await requireModulePermission(client, 'usuarios', 'update');
+
+  if (actor.userId === userId) {
+    throw new Error('No puedes enviarte un mensaje directo a ti mismo desde esta acción');
+  }
+
+  const trimmedMessage = messageText.trim();
+  if (!trimmedMessage) {
+    throw new Error('El mensaje no puede estar vacío');
+  }
+
+  await getUserById(client, userId);
+
+  const thread = await createDirectThread(client, actor, {
+    participantUserId: userId,
+    title: 'Mensaje administrativo',
+  });
+
+  const message = await sendMessage(client, actor, {
+    threadId: thread.threadId,
+    messageText: trimmedMessage,
+  });
+
+  return {
+    threadId: thread.threadId,
+    messageId: message.messageId,
+  };
+}
+
+export async function hardDeleteUser(
+  client: PoolClient,
+  actor: AuthUser,
+  userId: string,
+): Promise<{ userId: string }> {
   await requireModulePermission(client, 'usuarios', 'delete');
+
+  if (actor.userId === userId) {
+    throw new Error('No puedes eliminar tu propio usuario desde la sesión actual');
+  }
+
+  await client.query(
+    `
+      DELETE FROM app_learning.content_reviews
+      WHERE reviewer_user_id = $1
+    `,
+    [userId],
+  );
+
+  await client.query(
+    `
+      DELETE FROM app_learning.content_items
+      WHERE created_by = $1
+    `,
+    [userId],
+  );
+
+  await client.query(
+    `
+      DELETE FROM app_mentoring.mentorship_sessions
+      WHERE created_by = $1
+         OR mentor_user_id = $1
+    `,
+    [userId],
+  );
 
   const { rows } = await client.query<{ user_id: string }>(
     `
-      UPDATE app_core.users
-      SET is_active = false,
-          updated_at = now()
+      DELETE FROM app_core.users
       WHERE user_id = $1
       RETURNING user_id::text
     `,
     [userId],
   );
 
-  const deactivated = rows[0];
-  if (!deactivated) {
+  const deleted = rows[0];
+  if (!deleted) {
     throw new Error('User not found');
   }
 
-  await client.query(
-    `
-      UPDATE app_auth.refresh_sessions
-      SET revoked_at = now()
-      WHERE user_id = $1
-        AND revoked_at IS NULL
-    `,
-    [userId],
-  );
-
   return {
-    userId: deactivated.user_id,
+    userId: deleted.user_id,
   };
 }
