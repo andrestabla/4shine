@@ -13,6 +13,9 @@ interface R2IntegrationRow {
   wizard_data: Record<string, unknown> | null;
 }
 
+const DEFAULT_R2_MAX_FILE_SIZE_MB = 1000;
+const ABSOLUTE_R2_MAX_FILE_SIZE_MB = 1000;
+
 export interface R2StorageConfig {
   organizationId: string;
   integrationId: string;
@@ -204,8 +207,15 @@ export async function getR2StorageConfig(
     (bucketName ? `https://${bucketName}.r2.dev` : '') ||
     `${normalizeBaseUrl(endpoint)}/${bucketName}`;
 
-  const maxFileSizeMb = Number.parseInt(wizardData.maxFileSizeMb || '50', 10);
-  const safeMaxFileSizeMb = Number.isFinite(maxFileSizeMb) && maxFileSizeMb > 0 ? maxFileSizeMb : 50;
+  const parsedMaxFileSizeMb = Number.parseInt(
+    wizardData.maxFileSizeMb || String(DEFAULT_R2_MAX_FILE_SIZE_MB),
+    10,
+  );
+  const normalizedMaxFileSizeMb =
+    Number.isFinite(parsedMaxFileSizeMb) && parsedMaxFileSizeMb > 0
+      ? parsedMaxFileSizeMb
+      : DEFAULT_R2_MAX_FILE_SIZE_MB;
+  const safeMaxFileSizeMb = Math.min(normalizedMaxFileSizeMb, ABSOLUTE_R2_MAX_FILE_SIZE_MB);
   const allowedMimeTypes = parseAllowedMimeTypes(wizardData.allowedMimeTypes);
 
   if (!endpoint || !bucketName || !accessKeyId || !secretAccessKey) {

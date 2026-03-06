@@ -200,7 +200,7 @@ const INTEGRATION_ASSISTANTS: Record<IntegrationKey, AssistantDefinition> = {
         title: 'Políticas de archivos',
         description: 'Reglas por defecto para seguridad y lifecycle.',
         fields: [
-          { key: 'maxFileSizeMb', label: 'Tamaño máximo por archivo (MB)', type: 'number', defaultValue: '250' },
+          { key: 'maxFileSizeMb', label: 'Tamaño máximo por archivo (MB)', type: 'number', defaultValue: '1000' },
           { key: 'defaultRetentionDays', label: 'Retención por defecto (días)', type: 'number', defaultValue: '365' },
           {
             key: 'allowedMimeTypes',
