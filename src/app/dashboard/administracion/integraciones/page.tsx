@@ -73,6 +73,7 @@ interface IntegrationsStorageV2 {
 
 const STORAGE_KEY = '4shine-admin-integrations-v2';
 const LEGACY_STORAGE_KEY = '4shine-admin-integrations-v1';
+const DEFAULT_PUBLIC_APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.4shine.co';
 
 const DEFAULT_INTEGRATIONS: IntegrationConfig[] = [
   { key: 'google_meet', label: 'Google Meet', provider: 'Google Workspace', enabled: false, value: '', wizardData: {}, lastConfiguredAt: null },
@@ -111,7 +112,14 @@ const INTEGRATION_ASSISTANTS: Record<IntegrationKey, AssistantDefinition> = {
         fields: [
           { key: 'clientId', label: 'Client ID', type: 'text', required: true, placeholder: 'xxxx.apps.googleusercontent.com' },
           { key: 'clientSecret', label: 'Client Secret', type: 'password', required: true, placeholder: '••••••••••••' },
-          { key: 'redirectUri', label: 'Redirect URI', type: 'url', required: true, placeholder: 'https://4shine.vercel.app/api/v1/integrations/google/callback', defaultValue: 'https://4shine.vercel.app/api/v1/integrations/google/callback' },
+          {
+            key: 'redirectUri',
+            label: 'Redirect URI',
+            type: 'url',
+            required: true,
+            placeholder: `${DEFAULT_PUBLIC_APP_URL}/api/v1/integrations/google/callback`,
+            defaultValue: `${DEFAULT_PUBLIC_APP_URL}/api/v1/integrations/google/callback`,
+          },
         ],
       },
       {
@@ -284,7 +292,13 @@ const INTEGRATION_ASSISTANTS: Record<IntegrationKey, AssistantDefinition> = {
         fields: [
           { key: 'clientId', label: 'Client ID', type: 'text', required: true, placeholder: 'xxxx.apps.googleusercontent.com' },
           { key: 'clientSecret', label: 'Client Secret', type: 'password', required: true, placeholder: '••••••••••••' },
-          { key: 'callbackUrl', label: 'Callback URL', type: 'url', required: true, defaultValue: 'https://4shine.vercel.app/api/v1/auth/sso/google/callback' },
+          {
+            key: 'callbackUrl',
+            label: 'Callback URL',
+            type: 'url',
+            required: true,
+            defaultValue: `${DEFAULT_PUBLIC_APP_URL}/api/v1/auth/sso/google/callback`,
+          },
         ],
       },
       {

@@ -31,6 +31,7 @@ Variables de entorno:
 ```bash
 cp .env.example .env.local
 # set DATABASE_URL, DB_RUNTIME_ROLE, JWT_ACCESS_SECRET, JWT_REFRESH_SECRET
+# set APP_URL y NEXT_PUBLIC_APP_URL (ej: https://www.4shine.co)
 ```
 
 ## API principal
