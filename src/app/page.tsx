@@ -26,7 +26,7 @@ function hasText(value: string): boolean {
 
 export default function LoginPage() {
   const { login, isHydrating } = useUser();
-  const { branding, tokens } = useBranding();
+  const { branding, tokens, isLoading: isBrandingLoading } = useBranding();
   const { alert } = useAppDialog();
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
@@ -53,6 +53,34 @@ export default function LoginPage() {
       });
     }
   };
+
+  if (isBrandingLoading) {
+    const loaderText = branding.loaderText.trim();
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center px-6">
+        <div className="text-center">
+          {branding.loaderAssetUrl.trim().length > 0 ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={branding.loaderAssetUrl}
+              alt={loaderText || 'Cargando'}
+              className="mx-auto h-14 w-auto"
+            />
+          ) : (
+            <Loader2
+              size={42}
+              className="mx-auto animate-spin"
+              style={{ color: tokens.colors.accent }}
+            />
+          )}
+
+          {tokens.text.visibility.loaderText && loaderText.length > 0 && (
+            <p className="mt-3 text-sm text-slate-600">{loaderText}</p>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   const splitImagePanelStyle: React.CSSProperties = hasLoginBackgroundImage
     ? {
