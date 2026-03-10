@@ -24,6 +24,23 @@ function hasText(value: string): boolean {
   return value.trim().length > 0;
 }
 
+function normalizeCandidates(values: string[]): string[] {
+  const deduped = new Set<string>();
+  for (const value of values) {
+    const normalized = value.trim();
+    if (!normalized) continue;
+    deduped.add(normalized);
+    if (deduped.size >= 20) break;
+  }
+  return [...deduped];
+}
+
+function pickRandom(values: string[], fallback = ''): string {
+  if (values.length === 0) return fallback;
+  const index = Math.floor(Math.random() * values.length);
+  return values[index] ?? fallback;
+}
+
 export default function LoginPage() {
   const { login, isHydrating } = useUser();
   const { branding, tokens, isLoading: isBrandingLoading } = useBranding();
@@ -35,7 +52,46 @@ export default function LoginPage() {
   const isImageRightLayout = branding.loginLayout === 'image_right';
   const isImageLeftLayout = branding.loginLayout === 'image_left';
   const isCenteredImageLayout = branding.loginLayout === 'centered_image';
-  const hasLoginBackgroundImage = hasText(branding.loginBackgroundImageUrl);
+  const loginBackgroundCandidates = React.useMemo(
+    () =>
+      normalizeCandidates([
+        ...(branding.loginBackgroundImageUrls ?? []),
+        branding.loginBackgroundImageUrl,
+      ]),
+    [branding.loginBackgroundImageUrl, branding.loginBackgroundImageUrls],
+  );
+  const loginImageCandidates = React.useMemo(
+    () =>
+      normalizeCandidates([
+        ...(branding.loginImageUrls ?? []),
+        ...loginBackgroundCandidates,
+      ]),
+    [branding.loginImageUrls, loginBackgroundCandidates],
+  );
+  const imageWelcomeMessageCandidates = React.useMemo(
+    () =>
+      normalizeCandidates([
+        ...(branding.imageWelcomeMessages ?? []),
+        branding.imageWelcomeMessage,
+      ]),
+    [branding.imageWelcomeMessage, branding.imageWelcomeMessages],
+  );
+
+  const dynamicLoginBackgroundImageUrl = React.useMemo(
+    () => pickRandom(loginBackgroundCandidates, branding.loginBackgroundImageUrl),
+    [branding.loginBackgroundImageUrl, loginBackgroundCandidates],
+  );
+  const dynamicLoginImageUrl = React.useMemo(
+    () => pickRandom(loginImageCandidates, dynamicLoginBackgroundImageUrl),
+    [dynamicLoginBackgroundImageUrl, loginImageCandidates],
+  );
+  const dynamicImageWelcomeMessage = React.useMemo(
+    () => pickRandom(imageWelcomeMessageCandidates, branding.imageWelcomeMessage),
+    [branding.imageWelcomeMessage, imageWelcomeMessageCandidates],
+  );
+
+  const hasLoginBackgroundImage = hasText(dynamicLoginBackgroundImageUrl);
+  const hasLoginImage = hasText(dynamicLoginImageUrl);
   const overlayColor = hexToRgba(
     tokens.layout.loginOverlayColor,
     Math.min(Math.max(tokens.layout.loginOverlayOpacity, 0), 1),
@@ -82,9 +138,9 @@ export default function LoginPage() {
     );
   }
 
-  const splitImagePanelStyle: React.CSSProperties = hasLoginBackgroundImage
+  const splitImagePanelStyle: React.CSSProperties = hasLoginImage
     ? {
-        backgroundImage: `linear-gradient(0deg, ${overlayColor}, ${overlayColor}), url("${branding.loginBackgroundImageUrl}")`,
+        backgroundImage: `linear-gradient(0deg, ${overlayColor}, ${overlayColor}), url("${dynamicLoginImageUrl}")`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
       }
@@ -94,7 +150,7 @@ export default function LoginPage() {
 
   const centeredPageBackgroundStyle: React.CSSProperties = hasLoginBackgroundImage
     ? {
-        backgroundImage: `linear-gradient(0deg, ${overlayColor}, ${overlayColor}), url("${branding.loginBackgroundImageUrl}")`,
+        backgroundImage: `linear-gradient(0deg, ${overlayColor}, ${overlayColor}), url("${dynamicLoginBackgroundImageUrl}")`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
       }
@@ -301,8 +357,8 @@ export default function LoginPage() {
           </p>
         )}
 
-        {visibility.imageWelcomeMessage && hasText(branding.imageWelcomeMessage) && (
-          <p className="text-white/90 text-xl mt-4 max-w-2xl">{branding.imageWelcomeMessage}</p>
+        {visibility.imageWelcomeMessage && hasText(dynamicImageWelcomeMessage) && (
+          <p className="text-white/90 text-xl mt-4 max-w-2xl">{dynamicImageWelcomeMessage}</p>
         )}
 
         {visibility.imageLoginSupportMessage && hasText(branding.imageLoginSupportMessage) && (

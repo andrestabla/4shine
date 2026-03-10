@@ -106,6 +106,9 @@ export interface BrandingSettings {
   imageLoginHeadline: string;
   imageLoginSupportMessage: string;
   loginBackgroundImageUrl: string;
+  loginBackgroundImageUrls: string[];
+  loginImageUrls: string[];
+  imageWelcomeMessages: string[];
   showPlatformName: boolean;
   showWelcomeMessage: boolean;
   showLoginHeadline: boolean;
@@ -162,6 +165,8 @@ export interface BrandingRuntimeTokens {
     loginLayout: LoginLayout;
     timezone: string;
     loginBackgroundImageUrl: string;
+    loginBackgroundImageUrls: string[];
+    loginImageUrls: string[];
     loginOverlayColor: string;
     loginOverlayOpacity: number;
   };
@@ -176,6 +181,7 @@ export interface BrandingRuntimeTokens {
     loginHeadline: string;
     loginSupportMessage: string;
     imageWelcomeMessage: string;
+    imageWelcomeMessages: string[];
     imageLoginHeadline: string;
     imageLoginSupportMessage: string;
     loaderText: string;
@@ -263,6 +269,9 @@ export const DEFAULT_BRANDING_SETTINGS: BrandingSettings = {
   imageLoginHeadline: 'Bienvenidos a una nueva experiencia de aprendizaje',
   imageLoginSupportMessage: 'Pensado para plataforma web y app móvil.',
   loginBackgroundImageUrl: '',
+  loginBackgroundImageUrls: [],
+  loginImageUrls: [],
+  imageWelcomeMessages: ['Bienvenidos a esta experiencia de transformación 4Shine.'],
   showPlatformName: true,
   showWelcomeMessage: true,
   showLoginHeadline: true,

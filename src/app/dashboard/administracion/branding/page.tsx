@@ -9,7 +9,9 @@ import {
   PaintBucket,
   Building2,
   History,
+  Plus,
   RotateCcw,
+  Trash2,
 } from 'lucide-react';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
@@ -80,6 +82,9 @@ function toBrandingSettings(input: BrandingSettings): BrandingSettings {
     imageLoginHeadline: input.imageLoginHeadline,
     imageLoginSupportMessage: input.imageLoginSupportMessage,
     loginBackgroundImageUrl: input.loginBackgroundImageUrl,
+    loginBackgroundImageUrls: input.loginBackgroundImageUrls,
+    loginImageUrls: input.loginImageUrls,
+    imageWelcomeMessages: input.imageWelcomeMessages,
     showPlatformName: input.showPlatformName,
     showWelcomeMessage: input.showWelcomeMessage,
     showLoginHeadline: input.showLoginHeadline,
@@ -193,6 +198,37 @@ export default function BrandingAdminPage() {
 
   const patchSettings = React.useCallback((patch: Partial<BrandingSettings>) => {
     setSettings((prev) => ({ ...prev, ...patch }));
+  }, []);
+
+  const setLoginBackgroundImages = React.useCallback((next: string[]) => {
+    setSettings((prev) => {
+      const bounded = next.slice(0, 20).map((item) => item.slice(0, 2000));
+      const firstValue = bounded.map((item) => item.trim()).find((item) => item.length > 0);
+      return {
+        ...prev,
+        loginBackgroundImageUrls: bounded,
+        loginBackgroundImageUrl: firstValue ?? prev.loginBackgroundImageUrl,
+      };
+    });
+  }, []);
+
+  const setLoginPanelImages = React.useCallback((next: string[]) => {
+    setSettings((prev) => ({
+      ...prev,
+      loginImageUrls: next.slice(0, 20).map((item) => item.slice(0, 2000)),
+    }));
+  }, []);
+
+  const setImageWelcomeMessages = React.useCallback((next: string[]) => {
+    setSettings((prev) => {
+      const bounded = next.slice(0, 20).map((item) => item.slice(0, 400));
+      const firstValue = bounded.map((item) => item.trim()).find((item) => item.length > 0);
+      return {
+        ...prev,
+        imageWelcomeMessages: bounded,
+        imageWelcomeMessage: firstValue ?? prev.imageWelcomeMessage,
+      };
+    });
   }, []);
 
   const applyPreset = React.useCallback(
@@ -313,6 +349,14 @@ export default function BrandingAdminPage() {
     settings.loginOverlayColor,
     Math.min(Math.max(settings.loginOverlayOpacity, 0), 1),
   );
+  const previewBackgroundImage =
+    settings.loginBackgroundImageUrls.find((item) => item.trim().length > 0) ??
+    settings.loginBackgroundImageUrl;
+  const previewPanelImage =
+    settings.loginImageUrls.find((item) => item.trim().length > 0) ?? previewBackgroundImage;
+  const previewImageWelcomeMessage =
+    settings.imageWelcomeMessages.find((item) => item.trim().length > 0) ??
+    settings.imageWelcomeMessage;
 
   return (
     <div className="space-y-4">
@@ -654,11 +698,51 @@ export default function BrandingAdminPage() {
                       onChange={(next) => patchSettings({ showImageWelcomeMessage: next })}
                     />
                   </div>
-                  <input
-                    className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
-                    value={settings.imageWelcomeMessage}
-                    onChange={(event) => patchSettings({ imageWelcomeMessage: event.target.value })}
-                  />
+                  <div className="mt-2 space-y-2">
+                    {settings.imageWelcomeMessages.length === 0 && (
+                      <p className="text-xs text-slate-500">
+                        No hay mensajes cargados. Agrega al menos uno para rotación aleatoria.
+                      </p>
+                    )}
+
+                    {settings.imageWelcomeMessages.map((message, index) => (
+                      <div key={`image-welcome-message-${index}`} className="flex gap-2">
+                        <input
+                          className="w-full border border-slate-300 rounded-xl px-3 py-2"
+                          value={message}
+                          onChange={(event) => {
+                            const next = [...settings.imageWelcomeMessages];
+                            next[index] = event.target.value;
+                            setImageWelcomeMessages(next);
+                          }}
+                          placeholder={`Mensaje ${index + 1}`}
+                        />
+                        <button
+                          type="button"
+                          className="inline-flex items-center justify-center rounded-md border border-rose-300 px-3 text-rose-600 hover:bg-rose-50"
+                          onClick={() =>
+                            setImageWelcomeMessages(
+                              settings.imageWelcomeMessages.filter((_, itemIndex) => itemIndex !== index),
+                            )
+                          }
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    ))}
+
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
+                      onClick={() =>
+                        setImageWelcomeMessages([...settings.imageWelcomeMessages, ''])
+                      }
+                      disabled={settings.imageWelcomeMessages.length >= 20}
+                    >
+                      <Plus size={14} />
+                      Agregar mensaje
+                    </button>
+                  </div>
                 </div>
 
                 <div className="text-sm text-slate-700">
@@ -705,32 +789,141 @@ export default function BrandingAdminPage() {
                 </span>
               </label>
 
-              <label className="text-sm text-slate-700 md:col-span-2">
-                Imagen de background login (URL)
-                <div className="mt-1 flex gap-2">
-                  <input
-                    className="w-full border border-slate-300 rounded-xl px-3 py-2"
-                    value={settings.loginBackgroundImageUrl}
-                    onChange={(event) =>
-                      patchSettings({ loginBackgroundImageUrl: event.target.value })
+              <div className="text-sm text-slate-700 md:col-span-2 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium">
+                    Imágenes de background (rotación aleatoria)
+                  </span>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
+                    onClick={() =>
+                      setLoginBackgroundImages([...settings.loginBackgroundImageUrls, ''])
                     }
-                    placeholder="https://.../login-background.jpg"
-                  />
-                  <R2UploadButton
-                    moduleCode="usuarios"
-                    action="manage"
-                    fieldName="loginBackgroundImageUrl"
-                    entityTable="app_admin.branding_settings"
-                    pathPrefix="branding/login-background"
-                    accept="image/*"
-                    buttonLabel="Subir"
-                    onUploaded={(url) => patchSettings({ loginBackgroundImageUrl: url })}
-                  />
+                    disabled={settings.loginBackgroundImageUrls.length >= 20}
+                  >
+                    <Plus size={14} />
+                    Agregar imagen
+                  </button>
                 </div>
-                <p className="text-xs text-slate-500 mt-1">
-                  Se aplica a los tres layouts y respeta color/opacidad de capa.
+
+                {settings.loginBackgroundImageUrls.length === 0 && (
+                  <p className="text-xs text-slate-500">
+                    Sin imágenes. Si no agregas ninguna, se usará gradiente por defecto.
+                  </p>
+                )}
+
+                {settings.loginBackgroundImageUrls.map((url, index) => (
+                  <div key={`login-background-${index}`} className="flex gap-2">
+                    <input
+                      className="w-full border border-slate-300 rounded-xl px-3 py-2"
+                      value={url}
+                      onChange={(event) => {
+                        const next = [...settings.loginBackgroundImageUrls];
+                        next[index] = event.target.value;
+                        setLoginBackgroundImages(next);
+                      }}
+                      placeholder={`https://.../background-${index + 1}.jpg`}
+                    />
+                    <R2UploadButton
+                      moduleCode="usuarios"
+                      action="manage"
+                      fieldName={`loginBackgroundImageUrls.${index}`}
+                      entityTable="app_admin.branding_settings"
+                      pathPrefix="branding/login-background"
+                      accept="image/*"
+                      buttonLabel="Subir"
+                      onUploaded={(uploadedUrl) => {
+                        const next = [...settings.loginBackgroundImageUrls];
+                        next[index] = uploadedUrl;
+                        setLoginBackgroundImages(next);
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="inline-flex items-center justify-center rounded-md border border-rose-300 px-3 text-rose-600 hover:bg-rose-50"
+                      onClick={() =>
+                        setLoginBackgroundImages(
+                          settings.loginBackgroundImageUrls.filter((_, itemIndex) => itemIndex !== index),
+                        )
+                      }
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+
+                <p className="text-xs text-slate-500">
+                  Se usa una imagen aleatoria por carga para fondos de login (desktop/web/app).
                 </p>
-              </label>
+              </div>
+
+              <div className="text-sm text-slate-700 md:col-span-2 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium">
+                    Imágenes de panel login (rotación aleatoria)
+                  </span>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
+                    onClick={() => setLoginPanelImages([...settings.loginImageUrls, ''])}
+                    disabled={settings.loginImageUrls.length >= 20}
+                  >
+                    <Plus size={14} />
+                    Agregar imagen
+                  </button>
+                </div>
+
+                {settings.loginImageUrls.length === 0 && (
+                  <p className="text-xs text-slate-500">
+                    Sin imágenes específicas para panel. Se usarán las de background como fallback.
+                  </p>
+                )}
+
+                {settings.loginImageUrls.map((url, index) => (
+                  <div key={`login-panel-${index}`} className="flex gap-2">
+                    <input
+                      className="w-full border border-slate-300 rounded-xl px-3 py-2"
+                      value={url}
+                      onChange={(event) => {
+                        const next = [...settings.loginImageUrls];
+                        next[index] = event.target.value;
+                        setLoginPanelImages(next);
+                      }}
+                      placeholder={`https://.../login-panel-${index + 1}.jpg`}
+                    />
+                    <R2UploadButton
+                      moduleCode="usuarios"
+                      action="manage"
+                      fieldName={`loginImageUrls.${index}`}
+                      entityTable="app_admin.branding_settings"
+                      pathPrefix="branding/login-panel"
+                      accept="image/*"
+                      buttonLabel="Subir"
+                      onUploaded={(uploadedUrl) => {
+                        const next = [...settings.loginImageUrls];
+                        next[index] = uploadedUrl;
+                        setLoginPanelImages(next);
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="inline-flex items-center justify-center rounded-md border border-rose-300 px-3 text-rose-600 hover:bg-rose-50"
+                      onClick={() =>
+                        setLoginPanelImages(
+                          settings.loginImageUrls.filter((_, itemIndex) => itemIndex !== index),
+                        )
+                      }
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+
+                <p className="text-xs text-slate-500">
+                  Se aplica al bloque visual de login en layouts con imagen lateral.
+                </p>
+              </div>
 
               <label className="text-sm text-slate-700 md:col-span-2">
                 GIF de Carga (Platform Loader)
@@ -801,9 +994,9 @@ export default function BrandingAdminPage() {
               <div
                 className="p-4 bg-slate-50 space-y-3"
                 style={
-                  settings.loginBackgroundImageUrl
+                  previewBackgroundImage
                     ? {
-                        backgroundImage: `linear-gradient(0deg, ${previewOverlay}, ${previewOverlay}), url("${settings.loginBackgroundImageUrl}")`,
+                        backgroundImage: `linear-gradient(0deg, ${previewOverlay}, ${previewOverlay}), url("${previewBackgroundImage}")`,
                         backgroundSize: 'cover',
                         backgroundPosition: 'center',
                       }
@@ -832,13 +1025,16 @@ export default function BrandingAdminPage() {
                   <p className="text-[11px] uppercase tracking-wide text-white/70">
                     Bloque sobre imagen
                   </p>
+                  <p className="text-[11px] text-white/60 mt-1">
+                    Imagen panel: {previewPanelImage ? 'rotación activa' : 'fallback background'}
+                  </p>
                   {settings.showImageLoginHeadline && (
                     <p className="text-sm font-semibold text-white mt-1">
                       {settings.imageLoginHeadline}
                     </p>
                   )}
                   {settings.showImageWelcomeMessage && (
-                    <p className="text-xs text-white/80 mt-1">{settings.imageWelcomeMessage}</p>
+                    <p className="text-xs text-white/80 mt-1">{previewImageWelcomeMessage}</p>
                   )}
                   {settings.showImageLoginSupportMessage && (
                     <p className="text-xs text-white/70 mt-2">

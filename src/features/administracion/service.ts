@@ -34,6 +34,9 @@ const OUTBOUND_PROVIDERS = new Set<string>(OUTBOUND_EMAIL_PROVIDERS);
 const LOGIN_LAYOUT_VALUES = new Set<LoginLayout>(LOGIN_LAYOUT_OPTIONS);
 const PRESET_CODES = new Set<BrandingPresetCode>(BRANDING_PRESET_CODES);
 const REVISION_REASONS = new Set<string>(BRANDING_REVISION_REASONS);
+const MAX_DYNAMIC_LOGIN_IMAGE_ITEMS = 20;
+const MAX_DYNAMIC_LOGIN_MESSAGE_ITEMS = 20;
+const MAX_DYNAMIC_LOGIN_MESSAGE_LENGTH = 400;
 
 const BRANDING_FIELD_KEYS: Array<keyof BrandingSettings> = [
   'platformName',
@@ -58,6 +61,9 @@ const BRANDING_FIELD_KEYS: Array<keyof BrandingSettings> = [
   'imageLoginHeadline',
   'imageLoginSupportMessage',
   'loginBackgroundImageUrl',
+  'loginBackgroundImageUrls',
+  'loginImageUrls',
+  'imageWelcomeMessages',
   'showPlatformName',
   'showWelcomeMessage',
   'showLoginHeadline',
@@ -99,6 +105,9 @@ interface BrandingRow {
   image_login_headline: string;
   image_login_support_message: string;
   login_background_image_url: string | null;
+  login_background_image_urls: string[] | null;
+  login_image_urls: string[] | null;
+  image_welcome_messages: string[] | null;
   show_platform_name: boolean;
   show_welcome_message: boolean;
   show_login_headline: boolean;
@@ -229,6 +238,62 @@ function normalizeMediaUrl(value: string | undefined, fallback: string): string 
   return value.trim().slice(0, 2000);
 }
 
+function normalizeStringArray(
+  value: unknown,
+  options?: {
+    maxItems?: number;
+    maxLength?: number;
+    fallback?: string[];
+  },
+): string[] {
+  const maxItems = options?.maxItems ?? MAX_DYNAMIC_LOGIN_IMAGE_ITEMS;
+  const maxLength = options?.maxLength ?? 2000;
+  const fallback = options?.fallback ?? [];
+
+  const source = Array.isArray(value)
+    ? value
+    : typeof value === 'string'
+      ? value.split('\n')
+      : fallback;
+
+  const deduped = new Set<string>();
+  for (const item of source) {
+    if (typeof item !== 'string') continue;
+    const normalized = item.trim().slice(0, maxLength);
+    if (!normalized) continue;
+    deduped.add(normalized);
+    if (deduped.size >= maxItems) break;
+  }
+
+  return [...deduped];
+}
+
+function normalizeMediaUrlList(value: unknown, fallback: string[] = []): string[] {
+  const normalized = normalizeStringArray(value, {
+    fallback,
+    maxItems: MAX_DYNAMIC_LOGIN_IMAGE_ITEMS,
+    maxLength: 2000,
+  });
+  return normalized.map((item) => normalizeMediaUrl(item, '')).filter(hasText);
+}
+
+function normalizeMessageList(value: unknown, fallback: string[] = []): string[] {
+  const normalized = normalizeStringArray(value, {
+    fallback,
+    maxItems: MAX_DYNAMIC_LOGIN_MESSAGE_ITEMS,
+    maxLength: MAX_DYNAMIC_LOGIN_MESSAGE_LENGTH,
+  });
+  return normalized.filter(hasText);
+}
+
+function valuesEqual(previous: unknown, next: unknown): boolean {
+  if (Array.isArray(previous) && Array.isArray(next)) {
+    if (previous.length !== next.length) return false;
+    return previous.every((item, index) => Object.is(item, next[index]));
+  }
+  return Object.is(previous, next);
+}
+
 function normalizeOpacity(value: unknown, fallback: number): number {
   if (typeof value === 'number') return clampOpacity(value);
   const parsed = Number.parseFloat(String(value ?? ''));
@@ -275,6 +340,19 @@ function normalizeWizardData(value: unknown): Record<string, string> {
 }
 
 function mapBrandingRow(row: BrandingRow): BrandingSettingsRecord {
+  const loginBackgroundImageUrls = normalizeMediaUrlList(row.login_background_image_urls, [
+    row.login_background_image_url ?? '',
+  ]);
+  const loginImageUrls = normalizeMediaUrlList(
+    row.login_image_urls,
+    loginBackgroundImageUrls.length > 0
+      ? loginBackgroundImageUrls
+      : [row.login_background_image_url ?? ''],
+  );
+  const imageWelcomeMessages = normalizeMessageList(row.image_welcome_messages, [
+    row.image_welcome_message,
+  ]);
+
   return {
     brandingId: row.branding_id,
     organizationId: row.organization_id,
@@ -296,10 +374,13 @@ function mapBrandingRow(row: BrandingRow): BrandingSettingsRecord {
     welcomeMessage: row.login_welcome_message,
     loginHeadline: row.login_headline,
     loginSupportMessage: row.login_support_message,
-    imageWelcomeMessage: row.image_welcome_message,
+    imageWelcomeMessage: row.image_welcome_message ?? imageWelcomeMessages[0] ?? '',
     imageLoginHeadline: row.image_login_headline,
     imageLoginSupportMessage: row.image_login_support_message,
-    loginBackgroundImageUrl: row.login_background_image_url ?? '',
+    loginBackgroundImageUrl: row.login_background_image_url ?? loginBackgroundImageUrls[0] ?? '',
+    loginBackgroundImageUrls,
+    loginImageUrls,
+    imageWelcomeMessages,
     showPlatformName: row.show_platform_name,
     showWelcomeMessage: row.show_welcome_message,
     showLoginHeadline: row.show_login_headline,
@@ -343,6 +424,9 @@ function toBrandingSettingsSnapshot(input: BrandingSettings | BrandingSettingsRe
     imageLoginHeadline: input.imageLoginHeadline,
     imageLoginSupportMessage: input.imageLoginSupportMessage,
     loginBackgroundImageUrl: input.loginBackgroundImageUrl,
+    loginBackgroundImageUrls: input.loginBackgroundImageUrls,
+    loginImageUrls: input.loginImageUrls,
+    imageWelcomeMessages: input.imageWelcomeMessages,
     showPlatformName: input.showPlatformName,
     showWelcomeMessage: input.showWelcomeMessage,
     showLoginHeadline: input.showLoginHeadline,
@@ -362,6 +446,25 @@ function normalizeBrandingSnapshot(value: unknown): BrandingSettings {
     typeof snapshot.borderRadiusRem === 'number'
       ? snapshot.borderRadiusRem
       : Number.parseFloat(String(snapshot.borderRadiusRem ?? ''));
+  const normalizedLoginBackgroundImageUrl = normalizeMediaUrl(
+    snapshot.loginBackgroundImageUrl,
+    DEFAULT_BRANDING_SETTINGS.loginBackgroundImageUrl,
+  );
+  const normalizedImageWelcomeMessage = hasText(snapshot.imageWelcomeMessage)
+    ? snapshot.imageWelcomeMessage!.trim()
+    : DEFAULT_BRANDING_SETTINGS.imageWelcomeMessage;
+  const normalizedLoginBackgroundImageUrls = normalizeMediaUrlList(
+    snapshot.loginBackgroundImageUrls,
+    [normalizedLoginBackgroundImageUrl],
+  );
+  const normalizedLoginImageUrls = normalizeMediaUrlList(
+    snapshot.loginImageUrls,
+    normalizedLoginBackgroundImageUrls,
+  );
+  const normalizedImageWelcomeMessages = normalizeMessageList(
+    snapshot.imageWelcomeMessages,
+    [normalizedImageWelcomeMessage],
+  );
 
   return {
     platformName: hasText(snapshot.platformName)
@@ -411,10 +514,10 @@ function normalizeBrandingSnapshot(value: unknown): BrandingSettings {
     imageLoginSupportMessage: hasText(snapshot.imageLoginSupportMessage)
       ? snapshot.imageLoginSupportMessage!.trim()
       : DEFAULT_BRANDING_SETTINGS.imageLoginSupportMessage,
-    loginBackgroundImageUrl: normalizeMediaUrl(
-      snapshot.loginBackgroundImageUrl,
-      DEFAULT_BRANDING_SETTINGS.loginBackgroundImageUrl,
-    ),
+    loginBackgroundImageUrl: normalizedLoginBackgroundImageUrl,
+    loginBackgroundImageUrls: normalizedLoginBackgroundImageUrls,
+    loginImageUrls: normalizedLoginImageUrls,
+    imageWelcomeMessages: normalizedImageWelcomeMessages,
     showPlatformName: normalizeBoolean(
       snapshot.showPlatformName,
       DEFAULT_BRANDING_SETTINGS.showPlatformName,
@@ -460,7 +563,7 @@ function computeBrandingChanges(previous: BrandingSettings, next: BrandingSettin
   const changes: Record<string, { previous: unknown; next: unknown }> = {};
 
   for (const key of BRANDING_FIELD_KEYS) {
-    if (Object.is(previous[key], next[key])) continue;
+    if (valuesEqual(previous[key], next[key])) continue;
     changedFields.push(key);
     changes[key] = {
       previous: previous[key],
@@ -602,6 +705,30 @@ function normalizeBrandingInput(
   current: BrandingSettingsRecord,
   input: Partial<BrandingSettings>,
 ): BrandingSettings {
+  const loginBackgroundImageUrls =
+    input.loginBackgroundImageUrls === undefined
+      ? current.loginBackgroundImageUrls
+      : normalizeMediaUrlList(input.loginBackgroundImageUrls, []);
+
+  const loginImageUrls =
+    input.loginImageUrls === undefined
+      ? current.loginImageUrls
+      : normalizeMediaUrlList(input.loginImageUrls, []);
+
+  const imageWelcomeMessages =
+    input.imageWelcomeMessages === undefined
+      ? current.imageWelcomeMessages
+      : normalizeMessageList(input.imageWelcomeMessages, []);
+
+  const normalizedLoginBackgroundImageUrl = normalizeMediaUrl(
+    input.loginBackgroundImageUrl,
+    loginBackgroundImageUrls[0] ?? current.loginBackgroundImageUrl,
+  );
+
+  const normalizedImageWelcomeMessage = hasText(input.imageWelcomeMessage)
+    ? input.imageWelcomeMessage!.trim()
+    : imageWelcomeMessages[0] ?? current.imageWelcomeMessage;
+
   return {
     platformName: hasText(input.platformName) ? input.platformName!.trim() : current.platformName,
     institutionTimezone: hasText(input.institutionTimezone)
@@ -631,19 +758,17 @@ function normalizeBrandingInput(
     loginSupportMessage: hasText(input.loginSupportMessage)
       ? input.loginSupportMessage!.trim()
       : current.loginSupportMessage,
-    imageWelcomeMessage: hasText(input.imageWelcomeMessage)
-      ? input.imageWelcomeMessage!.trim()
-      : current.imageWelcomeMessage,
+    imageWelcomeMessage: normalizedImageWelcomeMessage,
     imageLoginHeadline: hasText(input.imageLoginHeadline)
       ? input.imageLoginHeadline!.trim()
       : current.imageLoginHeadline,
     imageLoginSupportMessage: hasText(input.imageLoginSupportMessage)
       ? input.imageLoginSupportMessage!.trim()
       : current.imageLoginSupportMessage,
-    loginBackgroundImageUrl: normalizeMediaUrl(
-      input.loginBackgroundImageUrl,
-      current.loginBackgroundImageUrl,
-    ),
+    loginBackgroundImageUrl: normalizedLoginBackgroundImageUrl,
+    loginBackgroundImageUrls,
+    loginImageUrls,
+    imageWelcomeMessages,
     showPlatformName: normalizeBoolean(input.showPlatformName, current.showPlatformName),
     showWelcomeMessage: normalizeBoolean(input.showWelcomeMessage, current.showWelcomeMessage),
     showLoginHeadline: normalizeBoolean(input.showLoginHeadline, current.showLoginHeadline),
@@ -964,6 +1089,9 @@ export async function getBrandingSettings(
         bs.image_login_headline,
         bs.image_login_support_message,
         bs.login_background_image_url,
+        bs.login_background_image_urls,
+        bs.login_image_urls,
+        bs.image_welcome_messages,
         bs.show_platform_name,
         bs.show_welcome_message,
         bs.show_login_headline,
@@ -1055,6 +1183,9 @@ async function persistBrandingSettings(
         image_login_headline,
         image_login_support_message,
         login_background_image_url,
+        login_background_image_urls,
+        login_image_urls,
+        image_welcome_messages,
         show_platform_name,
         show_welcome_message,
         show_login_headline,
@@ -1092,9 +1223,9 @@ async function persistBrandingSettings(
         $21,
         $22,
         NULLIF($23, ''),
-        $24,
-        $25,
-        $26,
+        $24::text[],
+        $25::text[],
+        $26::text[],
         $27,
         $28,
         $29,
@@ -1102,8 +1233,11 @@ async function persistBrandingSettings(
         $31,
         $32,
         $33,
-        $34::uuid,
-        $34::uuid
+        $34,
+        $35,
+        $36,
+        $37::uuid,
+        $37::uuid
       )
       ON CONFLICT (organization_id) DO UPDATE
       SET platform_name = EXCLUDED.platform_name,
@@ -1128,6 +1262,9 @@ async function persistBrandingSettings(
           image_login_headline = EXCLUDED.image_login_headline,
           image_login_support_message = EXCLUDED.image_login_support_message,
           login_background_image_url = EXCLUDED.login_background_image_url,
+          login_background_image_urls = EXCLUDED.login_background_image_urls,
+          login_image_urls = EXCLUDED.login_image_urls,
+          image_welcome_messages = EXCLUDED.image_welcome_messages,
           show_platform_name = EXCLUDED.show_platform_name,
           show_welcome_message = EXCLUDED.show_welcome_message,
           show_login_headline = EXCLUDED.show_login_headline,
@@ -1165,6 +1302,9 @@ async function persistBrandingSettings(
         image_login_headline,
         image_login_support_message,
         login_background_image_url,
+        login_background_image_urls,
+        login_image_urls,
+        image_welcome_messages,
         show_platform_name,
         show_welcome_message,
         show_login_headline,
@@ -1202,6 +1342,9 @@ async function persistBrandingSettings(
       next.imageLoginHeadline,
       next.imageLoginSupportMessage,
       next.loginBackgroundImageUrl,
+      next.loginBackgroundImageUrls,
+      next.loginImageUrls,
+      next.imageWelcomeMessages,
       next.showPlatformName,
       next.showWelcomeMessage,
       next.showLoginHeadline,
@@ -1368,6 +1511,9 @@ export async function getPublicBrandingSettings(
       bs.image_login_headline,
       bs.image_login_support_message,
       bs.login_background_image_url,
+      bs.login_background_image_urls,
+      bs.login_image_urls,
+      bs.image_welcome_messages,
       bs.show_platform_name,
       bs.show_welcome_message,
       bs.show_login_headline,
@@ -1411,6 +1557,9 @@ export async function getPublicBrandingSettings(
       bs.image_login_headline,
       bs.image_login_support_message,
       bs.login_background_image_url,
+      bs.login_background_image_urls,
+      bs.login_image_urls,
+      bs.image_welcome_messages,
       bs.show_platform_name,
       bs.show_welcome_message,
       bs.show_login_headline,
