@@ -207,7 +207,7 @@ export default function BrandingAdminPage() {
       return {
         ...prev,
         loginBackgroundImageUrls: bounded,
-        loginBackgroundImageUrl: firstValue ?? prev.loginBackgroundImageUrl,
+        loginBackgroundImageUrl: firstValue ?? '',
       };
     });
   }, []);
@@ -226,7 +226,7 @@ export default function BrandingAdminPage() {
       return {
         ...prev,
         imageWelcomeMessages: bounded,
-        imageWelcomeMessage: firstValue ?? prev.imageWelcomeMessage,
+        imageWelcomeMessage: firstValue ?? '',
       };
     });
   }, []);
