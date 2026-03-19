@@ -27,6 +27,7 @@ const DEFAULT_BRANDING_RECORD: BrandingSettingsRecord = {
 };
 
 const DEFAULT_TOKENS = buildBrandingTokens(DEFAULT_BRANDING_RECORD);
+const BRAND_FAVICON_PATH = '/api/v1/public/favicon';
 
 const BrandingContext = createContext<BrandingContextType | undefined>(undefined);
 
@@ -56,6 +57,24 @@ function ensureStyleTag(id: string): HTMLStyleElement {
     document.head.appendChild(style);
   }
   return style;
+}
+
+function buildFaviconHref(branding: BrandingSettingsRecord): string {
+  const version = branding.updatedAt
+    ? new Date(branding.updatedAt).getTime()
+    : Date.now();
+
+  return `${BRAND_FAVICON_PATH}?v=${encodeURIComponent(String(version))}`;
+}
+
+function ensureLinkTag(rel: string): HTMLLinkElement {
+  let link = document.querySelector(`link[rel='${rel}']`) as HTMLLinkElement | null;
+  if (!link) {
+    link = document.createElement('link');
+    link.rel = rel;
+    document.head.appendChild(link);
+  }
+  return link;
 }
 
 function applyBrandingToDocument(
@@ -90,15 +109,12 @@ function applyBrandingToDocument(
   }
   fontLink.href = `https://fonts.googleapis.com/css2?family=${font.googleFamily}&display=swap`;
 
-  if (branding.faviconUrl.trim().length > 0) {
-    let favicon = document.querySelector("link[rel='icon']") as HTMLLinkElement | null;
-    if (!favicon) {
-      favicon = document.createElement('link');
-      favicon.rel = 'icon';
-      document.head.appendChild(favicon);
-    }
-    favicon.href = branding.faviconUrl;
-  }
+  const faviconHref = buildFaviconHref(branding);
+  const favicon = ensureLinkTag('icon');
+  favicon.href = faviconHref;
+
+  const shortcutFavicon = ensureLinkTag('shortcut icon');
+  shortcutFavicon.href = faviconHref;
 
   if (branding.platformName.trim().length > 0) {
     document.title = branding.platformName;

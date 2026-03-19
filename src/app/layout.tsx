@@ -22,6 +22,10 @@ export const metadata: Metadata = {
   title: '4Shine Platform',
   description: 'Plataforma ejecutiva de liderazgo y mentoring',
   metadataBase: resolveMetadataBase(),
+  icons: {
+    icon: '/api/v1/public/favicon',
+    shortcut: '/api/v1/public/favicon',
+  },
   alternates: {
     canonical: '/',
   },
