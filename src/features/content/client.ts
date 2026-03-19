@@ -3,6 +3,7 @@ import { requestApi } from '@/lib/api-client';
 export type ContentScope = 'aprendizaje' | 'metodologia' | 'formacion_mentores' | 'formacion_lideres';
 export type ContentType = 'video' | 'pdf' | 'scorm' | 'article' | 'podcast' | 'html' | 'ppt';
 export type ContentStatus = 'draft' | 'pending_review' | 'published' | 'archived' | 'rejected';
+export type ContentCompetencyMetadata = Record<string, string | null>;
 
 export interface ContentItemRecord {
   contentId: string;
@@ -22,6 +23,8 @@ export interface ContentItemRecord {
   approvedBy: string | null;
   approvedAt: string | null;
   publishedAt: string | null;
+  competencyMetadata: ContentCompetencyMetadata;
+  tags: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -37,6 +40,8 @@ export interface CreateContentInput {
   url?: string | null;
   status?: ContentStatus;
   isRecommended?: boolean;
+  competencyMetadata?: ContentCompetencyMetadata;
+  tags?: string[];
 }
 
 export interface UpdateContentInput {
@@ -49,6 +54,8 @@ export interface UpdateContentInput {
   url?: string | null;
   status?: ContentStatus;
   isRecommended?: boolean;
+  competencyMetadata?: ContentCompetencyMetadata;
+  tags?: string[];
 }
 
 export async function listContent(scope?: ContentScope): Promise<ContentItemRecord[]> {
