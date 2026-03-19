@@ -219,7 +219,7 @@ type WB3State = {
 }
 
 const PAGES: PageDefinition[] = [
-    { id: 1, label: '1. Portada e identificación', shortLabel: 'Portada' },
+    { id: 1, label: '1. Portada', shortLabel: 'Portada' },
     { id: 2, label: '2. Presentación del workbook', shortLabel: 'Presentación' },
     { id: 3, label: '3. Definición de propósito personal', shortLabel: 'Propósito' },
     { id: 4, label: '4. Vocación, misión y pasión', shortLabel: 'VMP' },
@@ -2235,7 +2235,8 @@ export function WB3Digital() {
                         <article
                             className={`wb3-print-page wb3-cover-page rounded-3xl border border-slate-200/90 bg-white overflow-hidden shadow-[0_14px_36px_rgba(15,23,42,0.07)] ${isPageVisible(1) ? '' : 'hidden'}`}
                             data-print-page="Página 1 de 9"
-                            data-print-title="Portada e identificación"
+                            data-print-title="Portada"
+                            data-cover-page="true"
                             data-print-meta={printMetaLabel}
                         >
                             <div className="wb3-cover-hero relative min-h-[56vh] md:min-h-[62vh] flex items-center justify-center px-6 py-12 bg-gradient-to-b from-[#f8fbff] to-[#eaf1fb]">

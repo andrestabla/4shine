@@ -5,7 +5,6 @@ import React from 'react';
 import {
   BookOpen,
   CalendarClock,
-  Download,
   Eye,
   Layers3,
   MessageCircle,
@@ -13,8 +12,6 @@ import {
   Plus,
   Save,
   Search,
-  ShieldCheck,
-  Sparkles,
   Trash2,
 } from 'lucide-react';
 import { PageTitle } from '@/components/dashboard/PageTitle';
@@ -24,10 +21,8 @@ import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useUser } from '@/context/UserContext';
 import {
   createLearningComment,
-  deleteLearningWorkbook,
   listLearningResources,
   listLearningWorkbooks,
-  updateLearningWorkbook,
   type LearningResourceRecord,
   type WorkbookRecord,
 } from '@/features/aprendizaje/client';
@@ -67,19 +62,6 @@ interface ResourceFormState {
   isRecommended: boolean;
 }
 
-interface WorkbookEditorState {
-  title: string;
-  description: string;
-  availableFrom: string;
-  isEnabled: boolean;
-  isHidden: boolean;
-  currentFocus: string;
-  leadershipReflection: string;
-  actionPlan: string;
-  successMetrics: string;
-  ishinerNotes: string;
-}
-
 const EMPTY_RESOURCE_FORM: ResourceFormState = {
   title: '',
   category: '',
@@ -95,19 +77,6 @@ const EMPTY_RESOURCE_FORM: ResourceFormState = {
   stage: '',
   audience: 'lider',
   isRecommended: false,
-};
-
-const EMPTY_WORKBOOK_EDITOR: WorkbookEditorState = {
-  title: '',
-  description: '',
-  availableFrom: '',
-  isEnabled: true,
-  isHidden: false,
-  currentFocus: '',
-  leadershipReflection: '',
-  actionPlan: '',
-  successMetrics: '',
-  ishinerNotes: '',
 };
 
 function formatDate(value: string | null | undefined): string {
@@ -127,15 +96,6 @@ function formatDateTime(value: string | null | undefined): string {
     dateStyle: 'medium',
     timeStyle: 'short',
   });
-}
-
-function toDateTimeLocal(value: string | null | undefined): string {
-  if (!value) return '';
-
-  const date = new Date(value);
-  const offset = date.getTimezoneOffset();
-  const local = new Date(date.getTime() - offset * 60_000);
-  return local.toISOString().slice(0, 16);
 }
 
 function roleLabel(role: string | null | undefined): string {
@@ -188,76 +148,23 @@ function pillarLabel(value: string | null | undefined): string {
   return getPillarLabelFromCode(value);
 }
 
-function workbookToEditor(workbook: WorkbookRecord | null): WorkbookEditorState {
-  if (!workbook) {
-    return EMPTY_WORKBOOK_EDITOR;
-  }
+function buildWorkbookDigitalHref(workbook: WorkbookRecord): string {
+  const params = new URLSearchParams({
+    workbookId: workbook.workbookId,
+    ownerName: workbook.ownerName,
+  });
 
-  return {
-    title: workbook.title,
-    description: workbook.description ?? '',
-    availableFrom: toDateTimeLocal(workbook.availableFrom),
-    isEnabled: workbook.isEnabled,
-    isHidden: workbook.isHidden,
-    currentFocus: workbook.editableFields.currentFocus,
-    leadershipReflection: workbook.editableFields.leadershipReflection,
-    actionPlan: workbook.editableFields.actionPlan,
-    successMetrics: workbook.editableFields.successMetrics,
-    ishinerNotes: workbook.editableFields.ishinerNotes,
-  };
-}
-
-function workbookDownloadContent(workbook: WorkbookRecord, draft: WorkbookEditorState): string {
-  return [
-    `4Shine Learning Workbook`,
-    `ID único: ${workbook.workbookId}`,
-    `Workbook: ${draft.title || workbook.title}`,
-    `Usuario: ${workbook.ownerName}`,
-    `Pilar: ${pillarLabel(workbook.pillarCode)}`,
-    `Estado: ${workbookStateLabel(workbook.accessState)}`,
-    `Disponible desde: ${formatDateTime(workbook.availableFrom)}`,
-    '',
-    `Descripción`,
-    draft.description || workbook.description || 'Sin descripción',
-    '',
-    `Foco actual`,
-    draft.currentFocus || 'Sin contenido',
-    '',
-    `Reflexión de liderazgo`,
-    draft.leadershipReflection || 'Sin contenido',
-    '',
-    `Plan de acción`,
-    draft.actionPlan || 'Sin contenido',
-    '',
-    `Indicadores de éxito`,
-    draft.successMetrics || 'Sin contenido',
-    '',
-    `Notas del ishiner`,
-    draft.ishinerNotes || 'Sin contenido',
-  ].join('\n');
-}
-
-function downloadTextFile(filename: string, content: string) {
-  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-  const blobUrl = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = blobUrl;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(blobUrl);
+  return `/dashboard/aprendizaje/workbooks-v2/${workbook.templateCode.toLowerCase()}?${params.toString()}`;
 }
 
 export default function AprendizajePage() {
-  const { currentRole, can, refreshBootstrap } = useUser();
+  const { currentRole, refreshBootstrap } = useUser();
   const { alert, confirm } = useAppDialog();
 
   const [resources, setResources] = React.useState<LearningResourceRecord[]>([]);
   const [workbooks, setWorkbooks] = React.useState<WorkbookRecord[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [submittingResource, setSubmittingResource] = React.useState(false);
-  const [savingWorkbook, setSavingWorkbook] = React.useState(false);
   const [resourceSearch, setResourceSearch] = React.useState('');
   const [resourceTypeFilter, setResourceTypeFilter] = React.useState<'all' | ContentType>('all');
   const [resourceStatusFilter, setResourceStatusFilter] = React.useState<'all' | ContentStatus>('all');
@@ -268,12 +175,8 @@ export default function AprendizajePage() {
   const [commentDrafts, setCommentDrafts] = React.useState<Record<string, string>>({});
   const [workbookOwnerFilter, setWorkbookOwnerFilter] = React.useState<'all' | string>('all');
   const [workbookSearch, setWorkbookSearch] = React.useState('');
-  const [selectedWorkbookId, setSelectedWorkbookId] = React.useState<string | null>(null);
-  const [workbookEditor, setWorkbookEditor] = React.useState<WorkbookEditorState>(EMPTY_WORKBOOK_EDITOR);
 
   const isResourceManager = currentRole === 'gestor' || currentRole === 'admin';
-  const isWorkbookManager = currentRole === 'gestor' || currentRole === 'admin';
-  const canEditWorkbook = can('aprendizaje', 'update');
 
   const showError = React.useCallback(
     async (fallbackMessage: string, cause: unknown) => {
@@ -403,31 +306,10 @@ export default function AprendizajePage() {
       setWorkbookOwnerFilter(workbooks[0].ownerUserId);
     }
   }, [currentRole, workbookOwnerFilter, workbooks]);
-
-  React.useEffect(() => {
-    if (filteredWorkbooks.length === 0) {
-      setSelectedWorkbookId(null);
-      return;
-    }
-
-    const exists = filteredWorkbooks.some((workbook) => workbook.workbookId === selectedWorkbookId);
-    if (!exists) {
-      setSelectedWorkbookId(filteredWorkbooks[0].workbookId);
-    }
-  }, [filteredWorkbooks, selectedWorkbookId]);
-
-  const selectedWorkbook = filteredWorkbooks.find((workbook) => workbook.workbookId === selectedWorkbookId) ?? null;
   const workbookCatalogBySlug = React.useMemo(
     () => new Map(WORKBOOKS_V2_CATALOG.map((item) => [item.slug.toLowerCase(), item])),
     [],
   );
-  const selectedWorkbookDigital = selectedWorkbook
-    ? workbookCatalogBySlug.get(selectedWorkbook.templateCode.toLowerCase()) ?? null
-    : null;
-
-  React.useEffect(() => {
-    setWorkbookEditor(workbookToEditor(selectedWorkbook));
-  }, [selectedWorkbook]);
 
   const resetResourceForm = () => {
     setEditingResourceId(null);
@@ -550,86 +432,6 @@ export default function AprendizajePage() {
     }
   };
 
-  const onSaveWorkbook = async () => {
-    if (!selectedWorkbook || !canEditWorkbook) return;
-
-    setSavingWorkbook(true);
-    try {
-      await updateLearningWorkbook(selectedWorkbook.workbookId, {
-        title: isWorkbookManager ? workbookEditor.title.trim() : undefined,
-        description: isWorkbookManager ? workbookEditor.description.trim() || null : undefined,
-        availableFrom: isWorkbookManager
-          ? workbookEditor.availableFrom
-            ? new Date(workbookEditor.availableFrom).toISOString()
-            : undefined
-          : undefined,
-        isEnabled: isWorkbookManager ? workbookEditor.isEnabled : undefined,
-        isHidden: isWorkbookManager ? workbookEditor.isHidden : undefined,
-        editableFields: {
-          currentFocus: workbookEditor.currentFocus,
-          leadershipReflection: workbookEditor.leadershipReflection,
-          actionPlan: workbookEditor.actionPlan,
-          successMetrics: workbookEditor.successMetrics,
-          ishinerNotes: workbookEditor.ishinerNotes,
-        },
-      });
-
-      await loadModule();
-    } catch (error) {
-      await showError('No se pudo guardar el workbook', error);
-    } finally {
-      setSavingWorkbook(false);
-    }
-  };
-
-  const onDownloadWorkbook = async () => {
-    if (!selectedWorkbook) return;
-
-    const fileContent = workbookDownloadContent(selectedWorkbook, workbookEditor);
-    const safeTitle = (workbookEditor.title || selectedWorkbook.title)
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '');
-
-    downloadTextFile(`${safeTitle || 'workbook'}-${selectedWorkbook.workbookId.slice(0, 8)}.txt`, fileContent);
-
-    try {
-      await updateLearningWorkbook(selectedWorkbook.workbookId, {
-        markDownloaded: true,
-      });
-      await loadModule();
-    } catch (error) {
-      await showError('El archivo se descargó, pero no pudimos registrar la descarga', error);
-    }
-  };
-
-  const onDeleteWorkbook = async () => {
-    if (!selectedWorkbook || !isWorkbookManager) return;
-
-    const accepted = await confirm({
-      title: 'Eliminar workbook',
-      message: `¿Deseas eliminar el workbook "${selectedWorkbook.title}" de ${selectedWorkbook.ownerName}?`,
-      confirmText: 'Eliminar',
-      cancelText: 'Cancelar',
-      tone: 'warning',
-    });
-
-    if (!accepted) return;
-
-    try {
-      await deleteLearningWorkbook(selectedWorkbook.workbookId);
-      setSelectedWorkbookId(null);
-      await loadModule();
-    } catch (error) {
-      await showError('No se pudo eliminar el workbook', error);
-    }
-  };
-
-  const workbookInputsDisabled =
-    !selectedWorkbook ||
-    !canEditWorkbook ||
-    (!isWorkbookManager && selectedWorkbook.accessState !== 'active');
-
   return (
     <div className="space-y-6">
       <PageTitle
@@ -649,41 +451,6 @@ export default function AprendizajePage() {
           },
         ]}
       />
-
-      <section className="rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 p-6 text-white shadow-xl">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-3xl">
-            <p className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-amber-200">
-              <Sparkles size={14} />
-              Learning Hub 4Shine
-            </p>
-            <h3 className="mt-4 text-2xl font-semibold tracking-tight">Recursos individuales, SCORM y workbooks en una sola experiencia</h3>
-            <p className="mt-2 text-sm text-slate-200">
-              El módulo quedó preparado con metadatos flexibles de competencias, comentarios persistentes y workbooks por usuario
-              que se habilitan según el cronograma del programa.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 text-sm text-slate-100 sm:grid-cols-4">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-              <p className="text-xs uppercase tracking-wide text-slate-300">Líder</p>
-              <p className="mt-2 font-medium">Busca, comenta y trabaja sus workbook.</p>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-              <p className="text-xs uppercase tracking-wide text-slate-300">Ishiner</p>
-              <p className="mt-2 font-medium">Acompaña y edita workbooks habilitados.</p>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-              <p className="text-xs uppercase tracking-wide text-slate-300">Gestor</p>
-              <p className="mt-2 font-medium">Gestiona recursos y controla visibilidad.</p>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-              <p className="text-xs uppercase tracking-wide text-slate-300">Admin</p>
-              <p className="mt-2 font-medium">Opera con control total del módulo.</p>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {loading ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">Cargando módulo...</div>
@@ -1255,8 +1022,7 @@ export default function AprendizajePage() {
               </Link>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 xl:grid-cols-[1.05fr_0.95fr]">
-              <div className="space-y-4">
+            <div className="space-y-4">
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                   <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm md:col-span-2">
                     <label className="flex items-center gap-2 text-sm text-slate-500">
@@ -1287,230 +1053,55 @@ export default function AprendizajePage() {
                 {filteredWorkbooks.length === 0 ? (
                   <EmptyState message="No hay workbooks disponibles con este filtro." />
                 ) : (
-                  <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 2xl:grid-cols-3">
                     {filteredWorkbooks.map((workbook) => (
-                      <button
+                      <Link
                         key={workbook.workbookId}
-                        className={`rounded-3xl border p-5 text-left shadow-sm transition ${
-                          selectedWorkbook?.workbookId === workbook.workbookId
-                            ? 'border-slate-900 bg-slate-950 text-white'
-                            : 'border-slate-200 bg-white text-slate-900 hover:border-slate-300'
-                        }`}
-                        onClick={() => setSelectedWorkbookId(workbook.workbookId)}
-                        type="button"
+                        href={buildWorkbookDigitalHref(workbook)}
+                        className="group rounded-3xl border border-slate-200 bg-white p-5 text-left text-slate-900 shadow-sm transition hover:border-slate-300 hover:shadow-md"
                       >
+                        {(() => {
+                          const digitalWorkbook = workbookCatalogBySlug.get(workbook.templateCode.toLowerCase()) ?? null;
+
+                          return (
+                            <>
                         <div className="flex items-start justify-between gap-3">
                           <div>
-                            <p
-                              className={`text-xs font-semibold uppercase tracking-[0.18em] ${
-                                selectedWorkbook?.workbookId === workbook.workbookId ? 'text-slate-300' : 'text-slate-400'
-                              }`}
-                            >
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
                               Workbook {String(workbook.sequenceNo).padStart(2, '0')}
                             </p>
-                            <h4 className="mt-2 text-lg font-semibold">{workbook.title}</h4>
+                            <h4 className="mt-2 text-lg font-semibold transition group-hover:text-slate-700">{workbook.title}</h4>
                           </div>
                           <span className={`rounded-full px-2 py-1 text-xs font-medium ${workbookStateClasses(workbook.accessState)}`}>
                             {workbookStateLabel(workbook.accessState)}
                           </span>
                         </div>
 
-                        <p
-                          className={`mt-3 text-sm ${
-                            selectedWorkbook?.workbookId === workbook.workbookId ? 'text-slate-200' : 'text-slate-600'
-                          }`}
-                        >
-                          {workbook.description ?? 'Sin descripción disponible.'}
+                        <p className="mt-3 text-sm text-slate-600">
+                          {digitalWorkbook?.summary ?? workbook.description ?? 'Sin descripción disponible.'}
                         </p>
 
-                        <div
-                          className={`mt-4 flex flex-wrap items-center gap-4 text-xs ${
-                            selectedWorkbook?.workbookId === workbook.workbookId ? 'text-slate-300' : 'text-slate-500'
-                          }`}
-                        >
+                        <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-slate-500">
                           <span>{workbook.ownerName}</span>
                           <span>{pillarLabel(workbook.pillarCode)}</span>
                           <span>{workbook.completionPercent}% completado</span>
                           <span>{formatDate(workbook.availableFrom)}</span>
-                          {workbookCatalogBySlug.has(workbook.templateCode.toLowerCase()) && <span>Versión digital</span>}
+                          <span>ID {workbook.workbookId.slice(0, 8)}</span>
                         </div>
-                      </button>
+
+                        <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-4">
+                          <span className="text-sm font-medium text-slate-600">
+                            {digitalWorkbook ? `Abrir ${digitalWorkbook.code}` : 'Abrir workbook'}
+                          </span>
+                          <span className="text-sm font-semibold text-slate-900">Versión digital</span>
+                        </div>
+                            </>
+                          );
+                        })()}
+                      </Link>
                     ))}
                   </div>
                 )}
-              </div>
-
-              <aside className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                {selectedWorkbook ? (
-                  <div className="space-y-5">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Editor</p>
-                        <h4 className="mt-2 text-xl font-semibold text-slate-900">{selectedWorkbook.title}</h4>
-                        <p className="mt-1 text-sm text-slate-500">
-                          {selectedWorkbook.ownerName} · {pillarLabel(selectedWorkbook.pillarCode)} · {selectedWorkbook.workbookId}
-                        </p>
-                        {selectedWorkbookDigital && (
-                          <p className="mt-2 text-sm text-slate-500">
-                            Digital: {selectedWorkbookDigital.code} · {selectedWorkbookDigital.statusLabel}
-                          </p>
-                        )}
-                      </div>
-                      <span className={`rounded-full px-3 py-1 text-xs font-medium ${workbookStateClasses(selectedWorkbook.accessState)}`}>
-                        {workbookStateLabel(selectedWorkbook.accessState)}
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                        <p className="text-xs uppercase tracking-wide text-slate-400">Disponible desde</p>
-                        <p className="mt-2 text-sm font-medium text-slate-800">{formatDateTime(selectedWorkbook.availableFrom)}</p>
-                      </div>
-                      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                        <p className="text-xs uppercase tracking-wide text-slate-400">Última descarga</p>
-                        <p className="mt-2 text-sm font-medium text-slate-800">{formatDateTime(selectedWorkbook.lastDownloadedAt)}</p>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-3">
-                      <input
-                        className="rounded-2xl border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-900 disabled:bg-slate-50 disabled:text-slate-500"
-                        value={workbookEditor.title}
-                        onChange={(event) => setWorkbookEditor((prev) => ({ ...prev, title: event.target.value }))}
-                        disabled={!isWorkbookManager}
-                        placeholder="Título del workbook"
-                      />
-                      <textarea
-                        className="min-h-24 rounded-2xl border border-slate-300 px-3 py-3 text-sm text-slate-900 outline-none focus:border-slate-900 disabled:bg-slate-50 disabled:text-slate-500"
-                        value={workbookEditor.description}
-                        onChange={(event) => setWorkbookEditor((prev) => ({ ...prev, description: event.target.value }))}
-                        disabled={!isWorkbookManager}
-                        placeholder="Descripción del workbook"
-                      />
-                    </div>
-
-                    {isWorkbookManager && (
-                      <div className="grid grid-cols-1 gap-3 rounded-3xl border border-slate-200 bg-slate-50 p-4">
-                        <div className="flex items-center gap-2 text-sm font-medium text-slate-800">
-                          <ShieldCheck size={16} />
-                          Controles de gestión
-                        </div>
-                        <input
-                          className="rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-900"
-                          type="datetime-local"
-                          value={workbookEditor.availableFrom}
-                          onChange={(event) => setWorkbookEditor((prev) => ({ ...prev, availableFrom: event.target.value }))}
-                        />
-                        <label className="flex items-center gap-3 text-sm text-slate-700">
-                          <input
-                            checked={workbookEditor.isEnabled}
-                            onChange={(event) => setWorkbookEditor((prev) => ({ ...prev, isEnabled: event.target.checked }))}
-                            type="checkbox"
-                          />
-                          Workbook habilitado
-                        </label>
-                        <label className="flex items-center gap-3 text-sm text-slate-700">
-                          <input
-                            checked={workbookEditor.isHidden}
-                            onChange={(event) => setWorkbookEditor((prev) => ({ ...prev, isHidden: event.target.checked }))}
-                            type="checkbox"
-                          />
-                          Ocultar para líder e ishiner
-                        </label>
-                      </div>
-                    )}
-
-                    <div className="space-y-3">
-                      <textarea
-                        className="min-h-24 w-full rounded-2xl border border-slate-300 px-3 py-3 text-sm text-slate-900 outline-none focus:border-slate-900 disabled:bg-slate-50 disabled:text-slate-500"
-                        placeholder="Foco actual del líder"
-                        value={workbookEditor.currentFocus}
-                        onChange={(event) => setWorkbookEditor((prev) => ({ ...prev, currentFocus: event.target.value }))}
-                        disabled={workbookInputsDisabled}
-                      />
-                      <textarea
-                        className="min-h-24 w-full rounded-2xl border border-slate-300 px-3 py-3 text-sm text-slate-900 outline-none focus:border-slate-900 disabled:bg-slate-50 disabled:text-slate-500"
-                        placeholder="Reflexión de liderazgo"
-                        value={workbookEditor.leadershipReflection}
-                        onChange={(event) =>
-                          setWorkbookEditor((prev) => ({ ...prev, leadershipReflection: event.target.value }))
-                        }
-                        disabled={workbookInputsDisabled}
-                      />
-                      <textarea
-                        className="min-h-24 w-full rounded-2xl border border-slate-300 px-3 py-3 text-sm text-slate-900 outline-none focus:border-slate-900 disabled:bg-slate-50 disabled:text-slate-500"
-                        placeholder="Plan de acción"
-                        value={workbookEditor.actionPlan}
-                        onChange={(event) => setWorkbookEditor((prev) => ({ ...prev, actionPlan: event.target.value }))}
-                        disabled={workbookInputsDisabled}
-                      />
-                      <textarea
-                        className="min-h-24 w-full rounded-2xl border border-slate-300 px-3 py-3 text-sm text-slate-900 outline-none focus:border-slate-900 disabled:bg-slate-50 disabled:text-slate-500"
-                        placeholder="Indicadores de éxito"
-                        value={workbookEditor.successMetrics}
-                        onChange={(event) =>
-                          setWorkbookEditor((prev) => ({ ...prev, successMetrics: event.target.value }))
-                        }
-                        disabled={workbookInputsDisabled}
-                      />
-                      <textarea
-                        className="min-h-24 w-full rounded-2xl border border-slate-300 px-3 py-3 text-sm text-slate-900 outline-none focus:border-slate-900 disabled:bg-slate-50 disabled:text-slate-500"
-                        placeholder="Notas del ishiner"
-                        value={workbookEditor.ishinerNotes}
-                        onChange={(event) => setWorkbookEditor((prev) => ({ ...prev, ishinerNotes: event.target.value }))}
-                        disabled={workbookInputsDisabled}
-                      />
-                    </div>
-
-                    {!isWorkbookManager && selectedWorkbook.accessState !== 'active' && (
-                      <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                        Este workbook todavía no está habilitado para edición según el cronograma o la configuración del programa.
-                      </p>
-                    )}
-
-                    <div className="flex flex-wrap gap-3">
-                      <button
-                        className="inline-flex items-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
-                        onClick={() => void onSaveWorkbook()}
-                        type="button"
-                        disabled={savingWorkbook || workbookInputsDisabled}
-                      >
-                        <Save size={16} />
-                        Guardar
-                      </button>
-                      <button
-                        className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                        onClick={() => void onDownloadWorkbook()}
-                        type="button"
-                      >
-                        <Download size={16} />
-                        Descargar
-                      </button>
-                      {selectedWorkbookDigital && (
-                        <Link
-                          className="inline-flex items-center gap-2 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700 hover:bg-blue-100"
-                          href={`/dashboard/aprendizaje/workbooks-v2/${selectedWorkbookDigital.slug}`}
-                        >
-                          <BookOpen size={16} />
-                          {selectedWorkbookDigital.isImplemented ? 'Abrir versión digital' : 'Ver estado digital'}
-                        </Link>
-                      )}
-                      {isWorkbookManager && (
-                        <button
-                          className="inline-flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 hover:bg-rose-100"
-                          onClick={() => void onDeleteWorkbook()}
-                          type="button"
-                        >
-                          <Trash2 size={16} />
-                          Eliminar
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <EmptyState message="Selecciona un workbook para editarlo o descargarlo." />
-                )}
-              </aside>
             </div>
           </section>
 

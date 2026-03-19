@@ -3,6 +3,8 @@
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, ArrowRight, CheckCircle2, Download, Save, Sparkles } from 'lucide-react'
+import { useSearchParams } from 'next/navigation'
+import { useUser } from '@/context/UserContext'
 import { WORKBOOK_V2_EDITORIAL } from '@/lib/workbooks-v2-editorial'
 import type {
     StructuredWorkbookConfig,
@@ -71,7 +73,12 @@ function renderGroupHtml(group: StructuredWorkbookFieldGroup, values: Record<str
     `
 }
 
-function downloadWorkbookHtml(config: StructuredWorkbookConfig, values: Record<string, string>) {
+function downloadWorkbookHtml(
+    config: StructuredWorkbookConfig,
+    values: Record<string, string>,
+    workbookId: string,
+    ownerName: string
+) {
     const html = `
         <!doctype html>
         <html lang="es">
@@ -86,7 +93,16 @@ function downloadWorkbookHtml(config: StructuredWorkbookConfig, values: Record<s
                     </div>
                     <h1 style="font-size:34px;line-height:1.1;margin:18px 0 10px 0;">${escapeHtml(config.title)}</h1>
                     <p style="font-size:16px;line-height:1.7;color:#334155;margin:0 0 12px 0;">${escapeHtml(config.summary)}</p>
-                    <p style="font-size:13px;color:#64748b;margin:0;">${escapeHtml(config.sourceLabel)}</p>
+                    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:18px;">
+                        <div style="padding:10px 14px;border:1px solid #dbe4ee;border-radius:16px;background:#f8fafc;">
+                            <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.12em;">ID único</div>
+                            <div style="margin-top:6px;font-size:13px;font-weight:700;color:#0f172a;">${escapeHtml(workbookId)}</div>
+                        </div>
+                        <div style="padding:10px 14px;border:1px solid #dbe4ee;border-radius:16px;background:#f8fafc;">
+                            <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.12em;">Asignado a</div>
+                            <div style="margin-top:6px;font-size:13px;font-weight:700;color:#0f172a;">${escapeHtml(ownerName)}</div>
+                        </div>
+                    </div>
                     <section style="margin-top:28px;">
                         <h2 style="font-size:22px;margin:0 0 10px 0;">Objetivo</h2>
                         <p style="font-size:15px;line-height:1.7;color:#334155;">${escapeHtml(config.objective)}</p>
@@ -124,6 +140,8 @@ function downloadWorkbookHtml(config: StructuredWorkbookConfig, values: Record<s
 }
 
 export function WorkbookStructuredDigital({ config }: { config: StructuredWorkbookConfig }) {
+    const searchParams = useSearchParams()
+    const { currentUser } = useUser()
     const initialValues = useMemo(() => buildInitialValues(config), [config])
     const pages = useMemo<WorkbookPage[]>(
         () => [
@@ -142,6 +160,8 @@ export function WorkbookStructuredDigital({ config }: { config: StructuredWorkbo
         ],
         [config]
     )
+    const workbookId = searchParams.get('workbookId')?.trim() || `preview-${config.code.toLowerCase()}`
+    const ownerName = searchParams.get('ownerName')?.trim() || currentUser?.name || 'Líder 4Shine'
 
     const [values, setValues] = useState<Record<string, string>>(initialValues)
     const [activePage, setActivePage] = useState(0)
@@ -228,6 +248,7 @@ export function WorkbookStructuredDigital({ config }: { config: StructuredWorkbo
                             {config.code} · {config.pillar}
                         </p>
                         <h1 className="mt-1 text-base font-bold text-slate-900 md:text-lg">{config.title}</h1>
+                        <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">ID único · {workbookId}</p>
                     </div>
                     <span className={WORKBOOK_V2_EDITORIAL.classes.progressPill}>{completionPercent}% completado</span>
                     {lastSavedAt && (
@@ -242,7 +263,7 @@ export function WorkbookStructuredDigital({ config }: { config: StructuredWorkbo
                     <button
                         type="button"
                         className={WORKBOOK_V2_EDITORIAL.classes.htmlButton}
-                        onClick={() => downloadWorkbookHtml(config, values)}
+                        onClick={() => downloadWorkbookHtml(config, values, workbookId, ownerName)}
                     >
                         <Download size={14} />
                         Descargar HTML
@@ -281,10 +302,6 @@ export function WorkbookStructuredDigital({ config }: { config: StructuredWorkbo
                         })}
                     </div>
 
-                    <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                        <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Fuente</div>
-                        <p className="mt-2 text-sm leading-relaxed text-slate-600">{config.sourceLabel}</p>
-                    </div>
                 </aside>
 
                 <main className="space-y-6">
@@ -306,7 +323,15 @@ export function WorkbookStructuredDigital({ config }: { config: StructuredWorkbo
                                     <p className="mt-3 text-sm leading-relaxed text-slate-700">{config.objective}</p>
                                 </div>
 
-                                <div className="grid gap-4 md:grid-cols-2">
+                                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                                    <div className="rounded-3xl border border-slate-200 bg-white p-5">
+                                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">ID único</p>
+                                        <p className="mt-3 text-sm font-semibold text-slate-900">{workbookId}</p>
+                                    </div>
+                                    <div className="rounded-3xl border border-slate-200 bg-white p-5">
+                                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Asignado a</p>
+                                        <p className="mt-3 text-sm font-semibold text-slate-900">{ownerName}</p>
+                                    </div>
                                     <div className="rounded-3xl border border-slate-200 bg-white p-5">
                                         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Componentes trabajados</p>
                                         <ul className="mt-3 space-y-2 text-sm text-slate-700">

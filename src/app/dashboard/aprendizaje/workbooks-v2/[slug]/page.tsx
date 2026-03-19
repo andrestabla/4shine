@@ -9,6 +9,7 @@ import { WB7Digital } from '@/components/workbooks-v2/WB7Digital'
 import { WB8Digital } from '@/components/workbooks-v2/WB8Digital'
 import { WB9Digital } from '@/components/workbooks-v2/WB9Digital'
 import { WB10Digital } from '@/components/workbooks-v2/WB10Digital'
+import { WorkbookDigitalRuntimeShell } from '@/components/workbooks-v2/WorkbookDigitalRuntimeShell'
 import Link from 'next/link'
 import { ArrowLeft, Clock3, Sparkles } from 'lucide-react'
 import { WORKBOOKS_V2_CATALOG } from '@/lib/workbooks-v2-catalog'
@@ -24,43 +25,83 @@ export default async function WorkbookV2Page({ params }: { params: Promise<{ slu
     }
 
     if (slug === 'wb1') {
-        return <WB1Step1Digital />
+        return (
+            <WorkbookDigitalRuntimeShell slug={slug}>
+                <WB1Step1Digital />
+            </WorkbookDigitalRuntimeShell>
+        )
     }
 
     if (slug === 'wb2') {
-        return <WB2Digital />
+        return (
+            <WorkbookDigitalRuntimeShell slug={slug}>
+                <WB2Digital />
+            </WorkbookDigitalRuntimeShell>
+        )
     }
 
     if (slug === 'wb3') {
-        return <WB3Digital />
+        return (
+            <WorkbookDigitalRuntimeShell slug={slug}>
+                <WB3Digital />
+            </WorkbookDigitalRuntimeShell>
+        )
     }
 
     if (slug === 'wb4') {
-        return <WB4Digital />
+        return (
+            <WorkbookDigitalRuntimeShell slug={slug}>
+                <WB4Digital />
+            </WorkbookDigitalRuntimeShell>
+        )
     }
 
     if (slug === 'wb5') {
-        return <WB5Digital />
+        return (
+            <WorkbookDigitalRuntimeShell slug={slug}>
+                <WB5Digital />
+            </WorkbookDigitalRuntimeShell>
+        )
     }
 
     if (slug === 'wb6') {
-        return <WB6Digital />
+        return (
+            <WorkbookDigitalRuntimeShell slug={slug}>
+                <WB6Digital />
+            </WorkbookDigitalRuntimeShell>
+        )
     }
 
     if (slug === 'wb7') {
-        return <WB7Digital />
+        return (
+            <WorkbookDigitalRuntimeShell slug={slug}>
+                <WB7Digital />
+            </WorkbookDigitalRuntimeShell>
+        )
     }
 
     if (slug === 'wb8') {
-        return <WB8Digital />
+        return (
+            <WorkbookDigitalRuntimeShell slug={slug}>
+                <WB8Digital />
+            </WorkbookDigitalRuntimeShell>
+        )
     }
 
     if (slug === 'wb9') {
-        return <WB9Digital />
+        return (
+            <WorkbookDigitalRuntimeShell slug={slug}>
+                <WB9Digital />
+            </WorkbookDigitalRuntimeShell>
+        )
     }
 
     if (slug === 'wb10') {
-        return <WB10Digital />
+        return (
+            <WorkbookDigitalRuntimeShell slug={slug}>
+                <WB10Digital />
+            </WorkbookDigitalRuntimeShell>
+        )
     }
 
     return (
