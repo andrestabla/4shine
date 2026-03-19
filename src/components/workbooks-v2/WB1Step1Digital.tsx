@@ -3750,14 +3750,14 @@ export function WB1Step1Digital() {
             <header className={`wb1-toolbar ${WORKBOOK_V2_EDITORIAL.classes.toolbar}`}>
                 <div className={WORKBOOK_V2_EDITORIAL.classes.toolbarInner}>
                     <Link
-                        href="/dashboard/aprendizaje/workbooks-v2"
+                        href="/dashboard/aprendizaje"
                         className={WORKBOOK_V2_EDITORIAL.classes.backButton}
                     >
                         <ArrowLeft size={14} />
                         Volver
                     </Link>
 
-                    <div className="mr-auto">
+                    <div className="min-w-0 flex-1 sm:mr-auto">
                         <p className="text-[11px] tracking-[0.2em] uppercase text-slate-500">{WORKBOOK_V2_EDITORIAL.labels.workbookTag}</p>
                         <p className="text-sm md:text-base font-extrabold text-slate-900">WB1 - Creencias, identidad y pilares personales</p>
                     </div>

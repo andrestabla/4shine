@@ -1929,12 +1929,12 @@ export function WB4Digital() {
         <div className={WORKBOOK_V2_EDITORIAL.classes.shell}>
             <header className={`wb4-toolbar ${WORKBOOK_V2_EDITORIAL.classes.toolbar}`}>
                 <div className={WORKBOOK_V2_EDITORIAL.classes.toolbarInner}>
-                    <Link href="/dashboard/aprendizaje/workbooks-v2" className={WORKBOOK_V2_EDITORIAL.classes.backButton}>
+                    <Link href="/dashboard/aprendizaje" className={WORKBOOK_V2_EDITORIAL.classes.backButton}>
                         <ArrowLeft size={14} />
                         Volver
                     </Link>
 
-                    <div className="mr-auto">
+                    <div className="min-w-0 flex-1 sm:mr-auto">
                         <p className="text-[11px] tracking-[0.2em] uppercase text-slate-500">{WORKBOOK_V2_EDITORIAL.labels.workbookTag}</p>
                         <p className="text-sm md:text-base font-extrabold text-slate-900">WB4 - Narrativa profesional y Elevator Pitch</p>
                     </div>

@@ -43,7 +43,10 @@ function resolveRouteAccess(pathname: string): RouteAccess | undefined {
         return ACCESS_BY_PATH[pathname];
     }
 
-    if (pathname.startsWith('/dashboard/aprendizaje/workbooks-v2')) {
+    if (
+        pathname.startsWith('/dashboard/aprendizaje/workbooks-v2') ||
+        pathname.startsWith('/dashboard/aprendizaje/workbooks/')
+    ) {
         return { moduleCode: 'aprendizaje' };
     }
 

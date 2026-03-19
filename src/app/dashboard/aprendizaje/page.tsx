@@ -14,7 +14,6 @@ import {
   Search,
   Trash2,
 } from 'lucide-react';
-import { PageTitle } from '@/components/dashboard/PageTitle';
 import { StatGrid } from '@/components/dashboard/StatGrid';
 import { EmptyState } from '@/components/dashboard/EmptyState';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
@@ -154,7 +153,19 @@ function buildWorkbookDigitalHref(workbook: WorkbookRecord): string {
     ownerName: workbook.ownerName,
   });
 
-  return `/dashboard/aprendizaje/workbooks-v2/${workbook.templateCode.toLowerCase()}?${params.toString()}`;
+  return `/dashboard/aprendizaje/workbooks/${workbook.templateCode.toLowerCase()}?${params.toString()}`;
+}
+
+function clampPercent(value: number | null | undefined): number {
+  if (typeof value !== 'number' || Number.isNaN(value)) return 0;
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function workbookProgressClasses(progress: number): string {
+  if (progress >= 100) return 'bg-gradient-to-r from-emerald-500 to-teal-500';
+  if (progress >= 60) return 'bg-gradient-to-r from-blue-600 to-sky-500';
+  if (progress >= 30) return 'bg-gradient-to-r from-amber-500 to-orange-500';
+  return 'bg-gradient-to-r from-slate-400 to-slate-300';
 }
 
 export default function AprendizajePage() {
@@ -434,11 +445,6 @@ export default function AprendizajePage() {
 
   return (
     <div className="space-y-6">
-      <PageTitle
-        title="Aprendizaje"
-        subtitle="Biblioteca de recursos, paquetes SCORM y workbooks digitales con acceso diferenciado por rol."
-      />
-
       <StatGrid
         stats={[
           { label: 'Recursos', value: resources.length, hint: 'Biblioteca total del módulo' },
@@ -1007,23 +1013,15 @@ export default function AprendizajePage() {
             <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Workbooks</p>
-                <h3 className="mt-1 text-xl font-semibold text-slate-900">10 workbooks digitales únicos por líder</h3>
+                <h3 className="mt-1 text-xl font-semibold text-slate-900">10 workbooks digitales del programa</h3>
                 <p className="mt-1 text-sm text-slate-500">
-                  Se habilitan según cronograma. Líderes e ishiners editan campos permitidos; gestores y admins administran visibilidad,
-                  habilitación y eliminación.
+                  Entra directo a cada workbook, continúa donde ibas y revisa tu avance real sincronizado por usuario.
                 </p>
               </div>
-              <Link
-                href="/dashboard/aprendizaje/workbooks-v2"
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
-              >
-                <BookOpen size={16} />
-                Abrir biblioteca digital v2
-              </Link>
             </div>
 
             <div className="space-y-4">
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.7fr)_minmax(260px,0.7fr)]">
                   <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm md:col-span-2">
                     <label className="flex items-center gap-2 text-sm text-slate-500">
                       <Search size={16} />
@@ -1035,71 +1033,89 @@ export default function AprendizajePage() {
                       />
                     </label>
                   </div>
-                  <select
-                    className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-900 shadow-sm outline-none"
-                    value={workbookOwnerFilter}
-                    onChange={(event) => setWorkbookOwnerFilter(event.target.value)}
-                    disabled={currentRole === 'lider'}
-                  >
-                    <option value="all">Todos los líderes</option>
-                    {workbookOwners.map((owner) => (
-                      <option key={owner.userId} value={owner.userId}>
-                        {owner.ownerName}
-                      </option>
-                    ))}
-                  </select>
+                  {currentRole === 'lider' ? (
+                    <div className="flex items-center rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm">
+                      <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Tu ruta</span>
+                      <span className="ml-3 font-semibold text-slate-900">
+                        {workbookOwners.find((owner) => owner.userId === workbookOwnerFilter)?.ownerName ?? 'Tus workbooks'}
+                      </span>
+                    </div>
+                  ) : (
+                    <select
+                      className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-900 shadow-sm outline-none"
+                      value={workbookOwnerFilter}
+                      onChange={(event) => setWorkbookOwnerFilter(event.target.value)}
+                    >
+                      <option value="all">Todos los líderes</option>
+                      {workbookOwners.map((owner) => (
+                        <option key={owner.userId} value={owner.userId}>
+                          {owner.ownerName}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 {filteredWorkbooks.length === 0 ? (
                   <EmptyState message="No hay workbooks disponibles con este filtro." />
                 ) : (
-                  <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 2xl:grid-cols-3">
-                    {filteredWorkbooks.map((workbook) => (
-                      <Link
-                        key={workbook.workbookId}
-                        href={buildWorkbookDigitalHref(workbook)}
-                        className="group rounded-3xl border border-slate-200 bg-white p-5 text-left text-slate-900 shadow-sm transition hover:border-slate-300 hover:shadow-md"
-                      >
-                        {(() => {
-                          const digitalWorkbook = workbookCatalogBySlug.get(workbook.templateCode.toLowerCase()) ?? null;
+                  <div className="grid grid-cols-1 gap-4 xl:grid-cols-2 2xl:grid-cols-3">
+                    {filteredWorkbooks.map((workbook) => {
+                      const digitalWorkbook = workbookCatalogBySlug.get(workbook.templateCode.toLowerCase()) ?? null;
+                      const progress = clampPercent(workbook.completionPercent);
 
-                          return (
-                            <>
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                              Workbook {String(workbook.sequenceNo).padStart(2, '0')}
-                            </p>
-                            <h4 className="mt-2 text-lg font-semibold transition group-hover:text-slate-700">{workbook.title}</h4>
+                      return (
+                        <Link
+                          key={workbook.workbookId}
+                          href={buildWorkbookDigitalHref(workbook)}
+                          className="group rounded-[28px] border border-slate-200 bg-white p-4 text-left text-slate-900 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_16px_36px_rgba(15,23,42,0.10)] sm:p-5"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                                Workbook {String(workbook.sequenceNo).padStart(2, '0')}
+                              </p>
+                              <h4 className="mt-2 text-xl font-semibold leading-tight transition group-hover:text-slate-700">
+                                {workbook.title}
+                              </h4>
+                            </div>
+                            <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${workbookStateClasses(workbook.accessState)}`}>
+                              {workbookStateLabel(workbook.accessState)}
+                            </span>
                           </div>
-                          <span className={`rounded-full px-2 py-1 text-xs font-medium ${workbookStateClasses(workbook.accessState)}`}>
-                            {workbookStateLabel(workbook.accessState)}
-                          </span>
-                        </div>
 
-                        <p className="mt-3 text-sm text-slate-600">
-                          {digitalWorkbook?.summary ?? workbook.description ?? 'Sin descripción disponible.'}
-                        </p>
+                          <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-slate-600">
+                            {digitalWorkbook?.summary ?? workbook.description ?? 'Sin descripción disponible.'}
+                          </p>
 
-                        <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-slate-500">
-                          <span>{workbook.ownerName}</span>
-                          <span>{pillarLabel(workbook.pillarCode)}</span>
-                          <span>{workbook.completionPercent}% completado</span>
-                          <span>{formatDate(workbook.availableFrom)}</span>
-                          <span>ID {workbook.workbookId.slice(0, 8)}</span>
-                        </div>
+                          <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                            <div className="flex items-center justify-between gap-3 text-xs text-slate-500">
+                              <span>Progreso real</span>
+                              <span className="font-semibold text-slate-900">{progress}%</span>
+                            </div>
+                            <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200">
+                              <div className={`h-full rounded-full ${workbookProgressClasses(progress)}`} style={{ width: `${progress}%` }} />
+                            </div>
+                          </div>
 
-                        <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-4">
-                          <span className="text-sm font-medium text-slate-600">
-                            {digitalWorkbook ? `Abrir ${digitalWorkbook.code}` : 'Abrir workbook'}
-                          </span>
-                          <span className="text-sm font-semibold text-slate-900">Versión digital</span>
-                        </div>
-                            </>
-                          );
-                        })()}
-                      </Link>
-                    ))}
+                          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-500">
+                            {currentRole !== 'lider' && <span>{workbook.ownerName}</span>}
+                            <span>{pillarLabel(workbook.pillarCode)}</span>
+                            <span>{formatDate(workbook.availableFrom)}</span>
+                          </div>
+
+                          <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-4">
+                            <span className="inline-flex items-center gap-2 text-sm font-medium text-slate-600">
+                              <BookOpen size={16} />
+                              {progress > 0 ? 'Continuar workbook' : 'Abrir workbook'}
+                            </span>
+                            <span className="text-sm font-semibold text-slate-900">
+                              {digitalWorkbook?.code ?? `WB${String(workbook.sequenceNo)}`}
+                            </span>
+                          </div>
+                        </Link>
+                      );
+                    })}
                   </div>
                 )}
             </div>

@@ -85,6 +85,7 @@ export interface UpdateWorkbookInput {
   isEnabled?: boolean;
   isHidden?: boolean;
   editableFields?: Partial<WorkbookEditableFields>;
+  completionPercent?: number;
   markDownloaded?: boolean;
 }
 
@@ -582,7 +583,11 @@ export async function updateWorkbook(
   }
 
   const mergedFields = mergeWorkbookFields(current.editableFields, input.editableFields);
-  const completionPercent = calculateWorkbookCompletion(mergedFields);
+  const requestedCompletionPercent =
+    typeof input.completionPercent === 'number' && Number.isFinite(input.completionPercent)
+      ? Math.max(0, Math.min(100, Math.round(input.completionPercent)))
+      : null;
+  const completionPercent = requestedCompletionPercent ?? calculateWorkbookCompletion(mergedFields);
 
   const { rows } = await client.query<{ workbook_id: string }>(
     `

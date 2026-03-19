@@ -8,12 +8,12 @@ export interface StatItem {
 
 export function StatGrid({ stats }: { stats: StatItem[] }) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+    <div className="mb-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
       {stats.map((stat) => (
-        <div key={stat.label} className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+        <div key={stat.label} className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{stat.label}</p>
-          <p className="text-2xl font-bold text-slate-800 mt-2">{stat.value}</p>
-          {stat.hint && <p className="text-xs text-slate-500 mt-2">{stat.hint}</p>}
+          <p className="mt-2 text-xl font-bold text-slate-800 sm:text-2xl">{stat.value}</p>
+          {stat.hint && <p className="mt-2 text-xs leading-relaxed text-slate-500">{stat.hint}</p>}
         </div>
       ))}
     </div>

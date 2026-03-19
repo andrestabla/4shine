@@ -1,9 +1,9 @@
 'use client'
 
 import React from 'react'
-import { Fingerprint } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
 import { useUser } from '@/context/UserContext'
+import { updateLearningWorkbook } from '@/features/aprendizaje/client'
 
 const IDENTIFICATION_FIELDS_KEY_BY_SLUG: Partial<Record<string, string>> = {
     wb1: 'workbooks-v2-wb1-identification'
@@ -57,7 +57,8 @@ export function WorkbookDigitalRuntimeShell({
     const workbookId = searchParams.get('workbookId')?.trim() || 'preview'
     const ownerName = searchParams.get('ownerName')?.trim() || currentUser?.name || 'Líder 4Shine'
     const ownerRoleLabel = roleLabel(currentRole)
-    const displayWorkbookId = workbookId === 'preview' ? 'PREVIEW' : workbookId
+    const lastSyncedProgressRef = React.useRef<number | null>(null)
+    const [detectedProgress, setDetectedProgress] = React.useState<number | null>(null)
 
     React.useLayoutEffect(() => {
         if (typeof window === 'undefined') return
@@ -137,19 +138,59 @@ export function WorkbookDigitalRuntimeShell({
         }
     }, [ownerName, ownerRoleLabel, slug, workbookId])
 
+    React.useEffect(() => {
+        if (typeof window === 'undefined') return
+
+        const readProgress = () => {
+            const progressNode = document.querySelector<HTMLElement>('.workbook-progress-pill')
+            const progressText = progressNode?.textContent ?? ''
+            const match = progressText.match(/(\d{1,3})\s*%/)
+            if (!match) return
+
+            const nextProgress = Math.max(0, Math.min(100, Number.parseInt(match[1], 10)))
+            setDetectedProgress((current) => (current === nextProgress ? current : nextProgress))
+        }
+
+        readProgress()
+
+        const observer = new MutationObserver(readProgress)
+        observer.observe(document.body, {
+            subtree: true,
+            childList: true,
+            characterData: true,
+        })
+
+        return () => {
+            observer.disconnect()
+        }
+    }, [])
+
+    React.useEffect(() => {
+        if (workbookId === 'preview' || detectedProgress === null) {
+            return
+        }
+
+        if (lastSyncedProgressRef.current === detectedProgress) {
+            return
+        }
+
+        const timeoutId = window.setTimeout(() => {
+            lastSyncedProgressRef.current = detectedProgress
+
+            void updateLearningWorkbook(workbookId, {
+                completionPercent: detectedProgress,
+            }).catch((error) => {
+                console.error('Failed to sync workbook progress', error)
+            })
+        }, 600)
+
+        return () => {
+            window.clearTimeout(timeoutId)
+        }
+    }, [detectedProgress, workbookId])
+
     return (
         <div className="workbook-digital-shell">
-            <div className="pointer-events-none fixed inset-x-3 bottom-4 z-[70] md:inset-x-auto md:bottom-auto md:right-4 md:top-24">
-                <div className="ml-auto w-fit max-w-full rounded-2xl border border-slate-200 bg-white/95 px-4 py-3 shadow-[0_12px_32px_rgba(15,23,42,0.10)] backdrop-blur">
-                    <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                        <Fingerprint size={14} />
-                        ID único
-                    </div>
-                    <div className="mt-2 break-all text-sm font-semibold text-slate-900">{displayWorkbookId}</div>
-                    <div className="mt-1 text-xs text-slate-500">{ownerName}</div>
-                </div>
-            </div>
-
             {children}
 
             <style jsx global>{`
@@ -162,6 +203,57 @@ export function WorkbookDigitalRuntimeShell({
 
                 .workbook-digital-shell [data-cover-page='true'] > div:last-child {
                     padding-top: 1.25rem !important;
+                }
+
+                @media (max-width: 1023px) {
+                    .workbook-digital-shell .wbv2-main {
+                        padding-left: 0.75rem !important;
+                        padding-right: 0.75rem !important;
+                    }
+
+                    .workbook-digital-shell .wb1-toolbar > div,
+                    .workbook-digital-shell .wb2-toolbar > div,
+                    .workbook-digital-shell .wb3-toolbar > div,
+                    .workbook-digital-shell .wb4-toolbar > div,
+                    .workbook-digital-shell .wb5-toolbar > div,
+                    .workbook-digital-shell .wb6-toolbar > div,
+                    .workbook-digital-shell .wb7-toolbar > div,
+                    .workbook-digital-shell .wb8-toolbar > div {
+                        align-items: stretch !important;
+                    }
+
+                    .workbook-digital-shell .wb1-toolbar button,
+                    .workbook-digital-shell .wb1-toolbar a,
+                    .workbook-digital-shell .wb2-toolbar button,
+                    .workbook-digital-shell .wb2-toolbar a,
+                    .workbook-digital-shell .wb3-toolbar button,
+                    .workbook-digital-shell .wb3-toolbar a,
+                    .workbook-digital-shell .wb4-toolbar button,
+                    .workbook-digital-shell .wb4-toolbar a,
+                    .workbook-digital-shell .wb5-toolbar button,
+                    .workbook-digital-shell .wb5-toolbar a,
+                    .workbook-digital-shell .wb6-toolbar button,
+                    .workbook-digital-shell .wb6-toolbar a,
+                    .workbook-digital-shell .wb7-toolbar button,
+                    .workbook-digital-shell .wb7-toolbar a,
+                    .workbook-digital-shell .wb8-toolbar button,
+                    .workbook-digital-shell .wb8-toolbar a,
+                    .workbook-digital-shell header button,
+                    .workbook-digital-shell header a {
+                        width: 100%;
+                    }
+
+                    .workbook-digital-shell .wb1-toolbar span,
+                    .workbook-digital-shell .wb2-toolbar span,
+                    .workbook-digital-shell .wb3-toolbar span,
+                    .workbook-digital-shell .wb4-toolbar span,
+                    .workbook-digital-shell .wb5-toolbar span,
+                    .workbook-digital-shell .wb6-toolbar span,
+                    .workbook-digital-shell .wb7-toolbar span,
+                    .workbook-digital-shell .wb8-toolbar span {
+                        width: fit-content;
+                        max-width: 100%;
+                    }
                 }
             `}</style>
         </div>
