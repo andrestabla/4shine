@@ -11,16 +11,21 @@ import {
   Sparkles,
   Users,
 } from "lucide-react";
+import { AccessOfferPanel } from "@/components/access/AccessOfferPanel";
 import { useUser } from "@/context/UserContext";
+import { filterCommercialProducts } from "@/features/access/catalog";
 import { PageTitle } from "@/components/dashboard/PageTitle";
 import { StatGrid } from "@/components/dashboard/StatGrid";
 
 export default function DashboardHomePage() {
-  const { currentUser, currentRole, bootstrapData, can } = useUser();
+  const { currentUser, currentRole, bootstrapData, can, viewerAccess } =
+    useUser();
 
   if (!currentUser || !currentRole || !bootstrapData) return null;
 
   const firstName = currentUser.name.split(" ")[0] ?? currentUser.name;
+  const isOpenLeader =
+    currentRole === "lider" && viewerAccess?.viewerTier === "open_leader";
   const quote = bootstrapData.quotes[0];
   const newsUpdates = bootstrapData.newsUpdates;
   const mentees = bootstrapData.mentees;
@@ -145,6 +150,98 @@ export default function DashboardHomePage() {
     `${mentorships.length} sesiones registradas en tu ecosistema.`,
     `${newsUpdates.length} novedades recientes publicadas en plataforma.`,
   ];
+
+  if (isOpenLeader) {
+    const commercialOffers = filterCommercialProducts(viewerAccess?.catalog, {
+      groups: ["program", "discovery", "mentoring_pack"],
+    });
+
+    return (
+      <div className="space-y-8">
+        <PageTitle
+          title={`Hola, ${firstName}`}
+          subtitle="Tu cuenta ya está activa. Desde aquí puedes empezar con recursos free o activar una experiencia 4Shine más completa."
+        />
+
+        <StatGrid
+          stats={[
+            {
+              label: "Free",
+              value: learningContent.length,
+              hint: "Recursos abiertos en Aprendizaje.",
+            },
+            {
+              label: "Diagnóstico",
+              value: viewerAccess?.hasDiscoveryPurchase ? "Activo" : "50 USD",
+              hint: "Compra individual disponible.",
+            },
+            {
+              label: "Mentorías",
+              value: "50-200 USD",
+              hint: "Sesiones adicionales con ishiners.",
+            },
+            {
+              label: "Programa",
+              value: "2.000 USD",
+              hint: "Ruta completa 4Shine.",
+            },
+          ]}
+        />
+
+        <AccessOfferPanel
+          badge="Líder sin suscripción"
+          title="Activa el nivel de experiencia que necesitas."
+          description="Puedes comprar el programa completo 4Shine, activar solo Descubrimiento o reservar mentorías adicionales con los ishiners disponibles. Mientras tanto, Aprendizaje te muestra únicamente contenido marcado como free."
+          products={commercialOffers}
+          primaryAction={{
+            href: "/dashboard/aprendizaje",
+            label: "Explorar contenido free",
+          }}
+          note="El programa 4Shine desbloquea Trayectoria, Descubrimiento, workbooks, mentorías incluidas, Networking, Convocatorias, Workshops y Mensajes."
+        />
+
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          <Link
+            href="/dashboard/aprendizaje"
+            className="app-panel block rounded-[18px] p-5 transition hover:-translate-y-0.5"
+          >
+            <div className="flex items-center gap-3">
+              <div className="rounded-[14px] bg-[var(--app-chip)] p-3 text-[#4f2360]">
+                <BookOpen size={18} />
+              </div>
+              <div>
+                <p className="font-extrabold text-[var(--app-ink)]">
+                  Aprendizaje free
+                </p>
+                <p className="text-sm text-[var(--app-muted)]">
+                  Accede a recursos públicos etiquetados como free.
+                </p>
+              </div>
+            </div>
+          </Link>
+
+          <Link
+            href="/dashboard/mentorias"
+            className="app-panel block rounded-[18px] p-5 transition hover:-translate-y-0.5"
+          >
+            <div className="flex items-center gap-3">
+              <div className="rounded-[14px] bg-[var(--app-chip)] p-3 text-[#4f2360]">
+                <CalendarDays size={18} />
+              </div>
+              <div>
+                <p className="font-extrabold text-[var(--app-ink)]">
+                  Mentorías adicionales
+                </p>
+                <p className="text-sm text-[var(--app-muted)]">
+                  Reserva sesiones puntuales con el catálogo de ishineres.
+                </p>
+              </div>
+            </div>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">

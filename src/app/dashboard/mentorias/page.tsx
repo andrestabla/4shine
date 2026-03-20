@@ -17,11 +17,13 @@ import {
   Star,
   Video,
 } from 'lucide-react';
+import { AccessOfferPanel } from '@/components/access/AccessOfferPanel';
 import { EmptyState } from '@/components/dashboard/EmptyState';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { StatGrid } from '@/components/dashboard/StatGrid';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useUser } from '@/context/UserContext';
+import { filterCommercialProducts } from '@/features/access/catalog';
 import {
   createAdditionalMentorshipOrder,
   createMentorship,
@@ -200,7 +202,7 @@ function upcomingSessions(sessions: MentorshipRecord[]): MentorshipRecord[] {
 
 export default function MentoriasPage() {
   const { alert, confirm } = useAppDialog();
-  const { can, currentRole, currentUser, refreshBootstrap } = useUser();
+  const { can, currentRole, currentUser, refreshBootstrap, viewerAccess } = useUser();
   const [overview, setOverview] = React.useState<MentorshipOverviewRecord | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [submittingProgram, setSubmittingProgram] = React.useState(false);
@@ -281,6 +283,11 @@ export default function MentoriasPage() {
   }, [overview, currentRole]);
 
   const leaderName = currentUser?.name?.split(' ')[0] ?? 'Líder';
+  const isOpenLeader =
+    currentRole === 'lider' && viewerAccess?.viewerTier === 'open_leader';
+  const mentorshipOffers = filterCommercialProducts(viewerAccess?.catalog, {
+    groups: ['program', 'mentoring_pack'],
+  });
   const weekSessions = sessionsForWeek(overview?.sessions ?? [], selectedWeekStart);
   const nextSessions = upcomingSessions(overview?.sessions ?? []);
   const days = Array.from({ length: 7 }, (_, index) => addDays(selectedWeekStart, index));
@@ -293,12 +300,16 @@ export default function MentoriasPage() {
         {
           label: 'Incluidas',
           value: overview.programEntitlements.length,
-          hint: 'Mentorías del programa disponibles para agendar.',
+          hint: isOpenLeader
+            ? 'El plan free no incluye mentorías del programa.'
+            : 'Mentorías del programa disponibles para agendar.',
         },
         {
           label: 'Agendadas',
           value: overview.programEntitlements.filter((item) => item.status === 'scheduled').length,
-          hint: 'Mentorías incluidas ya reservadas con ishiner.',
+          hint: isOpenLeader
+            ? 'Verás aquí las incluidas cuando actives el programa.'
+            : 'Mentorías incluidas ya reservadas con ishiner.',
         },
         {
           label: 'Adicionales',
@@ -671,8 +682,26 @@ export default function MentoriasPage() {
     <div className="space-y-8">
       <PageTitle
         title="Mentorías"
-        subtitle="Agenda las sesiones incluidas del programa, compra sesiones adicionales con ishineres disponibles y visualiza tu semana completa de acompañamiento."
+        subtitle={
+          isOpenLeader
+            ? 'Puedes comprar sesiones adicionales con ishiners disponibles. Las mentorías incluidas se activan cuando compras el programa 4Shine.'
+            : 'Agenda las sesiones incluidas del programa, compra sesiones adicionales con ishineres disponibles y visualiza tu semana completa de acompañamiento.'
+        }
       />
+
+      {isOpenLeader && (
+        <AccessOfferPanel
+          badge="Líder sin suscripción"
+          title="Activa mentorías del programa o compra sesiones puntuales."
+          description="Tu cuenta puede reservar sesiones adicionales con los ishiners disponibles. Si quieres las mentorías incluidas del journey, necesitas activar el programa 4Shine."
+          products={mentorshipOffers}
+          primaryAction={{
+            href: '/dashboard',
+            label: 'Ver opciones del programa',
+          }}
+          note="Los packs adicionales te permiten coordinar sesiones puntuales. El programa suma además mentorías incluidas alineadas al journey y a la Trayectoria."
+        />
+      )}
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(340px,0.8fr)]">
         <section className="rounded-[28px] border border-[var(--app-border)] bg-[linear-gradient(135deg,rgba(88,45,115,0.96),rgba(148,87,136,0.92),rgba(244,191,232,0.78))] px-6 py-6 text-white shadow-[0_30px_60px_rgba(63,35,84,0.18)]">
@@ -684,12 +713,16 @@ export default function MentoriasPage() {
             {leaderName}, tu ruta de mentorías vive aquí.
           </h2>
           <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/84 md:text-base">
-            Tienes sesiones incluidas por pertenecer al programa y también puedes activar espacios adicionales con los ishineres disponibles cuando necesites profundizar un reto puntual.
+            {isOpenLeader
+              ? 'Desde aquí puedes comprar sesiones adicionales con los ishiners disponibles. Cuando actives el programa 4Shine, también aparecerán tus mentorías incluidas del journey.'
+              : 'Tienes sesiones incluidas por pertenecer al programa y también puedes activar espacios adicionales con los ishineres disponibles cuando necesites profundizar un reto puntual.'}
           </p>
 
           <div className="mt-6 flex flex-wrap gap-3 text-xs font-semibold text-white/88">
             <span className="rounded-full border border-white/20 bg-white/10 px-3 py-2">
-              {overview.programEntitlements.filter((item) => item.status === 'available').length} incluidas por agendar
+              {isOpenLeader
+                ? 'Programa requerido para incluidas'
+                : `${overview.programEntitlements.filter((item) => item.status === 'available').length} incluidas por agendar`}
             </span>
             <span className="rounded-full border border-white/20 bg-white/10 px-3 py-2">
               {overview.additionalOrders.filter((item) => item.status !== 'cancelled').length} adicionales registradas
@@ -742,7 +775,13 @@ export default function MentoriasPage() {
           </div>
           <div className="mt-5 grid gap-4">
             {overview.programEntitlements.length === 0 ? (
-              <EmptyState message="No encontramos derechos de mentoría configurados para este líder todavía." />
+              <EmptyState
+                message={
+                  isOpenLeader
+                    ? 'Esta cuenta no tiene mentorías incluidas activas. Puedes comprar sesiones adicionales o activar el programa 4Shine para desbloquearlas.'
+                    : 'No encontramos derechos de mentoría configurados para este líder todavía.'
+                }
+              />
             ) : (
               overview.programEntitlements.map((item) => (
                 <article
@@ -825,77 +864,84 @@ export default function MentoriasPage() {
               <BookOpen size={16} className="text-[var(--brand-primary)]" />
               <p className="app-section-kicker">Programar incluida</p>
             </div>
+            {isOpenLeader && (
+              <div className="mt-5 rounded-[18px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-4 text-sm text-[var(--app-muted)]">
+                Las mentorías incluidas no están disponibles para esta cuenta todavía. Puedes activar el programa 4Shine o reservar sesiones adicionales en la sección de compra.
+              </div>
+            )}
             {overview.mentorCatalog.length === 0 && (
               <div className="mt-5 rounded-[18px] border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-800">
                 Tus mentorías incluidas ya están cargadas. Para poder reservarlas necesitamos activar al menos un ishiner en la base de datos.
               </div>
             )}
-            <form className="mt-5 space-y-3" onSubmit={handleProgramSchedule}>
-              <select
-                className="w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
-                value={programForm.entitlementId}
-                onChange={(event) => setProgramForm((prev) => ({ ...prev, entitlementId: event.target.value }))}
-                required
-              >
-                <option value="">Selecciona una mentoría incluida</option>
-                {overview.programEntitlements
-                  .filter((item) => item.status !== 'completed')
-                  .map((item) => (
-                    <option key={item.entitlementId} value={item.entitlementId}>
-                      {item.title}
+            {!isOpenLeader && (
+              <form className="mt-5 space-y-3" onSubmit={handleProgramSchedule}>
+                <select
+                  className="w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
+                  value={programForm.entitlementId}
+                  onChange={(event) => setProgramForm((prev) => ({ ...prev, entitlementId: event.target.value }))}
+                  required
+                >
+                  <option value="">Selecciona una mentoría incluida</option>
+                  {overview.programEntitlements
+                    .filter((item) => item.status !== 'completed')
+                    .map((item) => (
+                      <option key={item.entitlementId} value={item.entitlementId}>
+                        {item.title}
+                      </option>
+                    ))}
+                </select>
+
+                <select
+                  className="w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
+                  value={programForm.mentorUserId}
+                  onChange={(event) => setProgramForm((prev) => ({ ...prev, mentorUserId: event.target.value }))}
+                  required
+                >
+                  <option value="">Selecciona un ishiner</option>
+                  {overview.mentorCatalog.map((mentor) => (
+                    <option key={mentor.mentorUserId} value={mentor.mentorUserId}>
+                      {mentor.name} · {mentor.specialty}
                     </option>
                   ))}
-              </select>
+                </select>
 
-              <select
-                className="w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
-                value={programForm.mentorUserId}
-                onChange={(event) => setProgramForm((prev) => ({ ...prev, mentorUserId: event.target.value }))}
-                required
-              >
-                <option value="">Selecciona un ishiner</option>
-                {overview.mentorCatalog.map((mentor) => (
-                  <option key={mentor.mentorUserId} value={mentor.mentorUserId}>
-                    {mentor.name} · {mentor.specialty}
-                  </option>
-                ))}
-              </select>
+                <input
+                  className="w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
+                  type="datetime-local"
+                  value={programForm.startsAt}
+                  onChange={(event) => setProgramForm((prev) => ({ ...prev, startsAt: event.target.value }))}
+                  required
+                />
 
-              <input
-                className="w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
-                type="datetime-local"
-                value={programForm.startsAt}
-                onChange={(event) => setProgramForm((prev) => ({ ...prev, startsAt: event.target.value }))}
-                required
-              />
+                <textarea
+                  className="min-h-[120px] w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
+                  placeholder="Contexto para el ishiner o foco que quieres trabajar."
+                  value={programForm.note}
+                  onChange={(event) => setProgramForm((prev) => ({ ...prev, note: event.target.value }))}
+                />
 
-              <textarea
-                className="min-h-[120px] w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
-                placeholder="Contexto para el ishiner o foco que quieres trabajar."
-                value={programForm.note}
-                onChange={(event) => setProgramForm((prev) => ({ ...prev, note: event.target.value }))}
-              />
+                {selectedEntitlement && (
+                  <div className="rounded-[18px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-4 text-sm text-[var(--app-muted)]">
+                    <p className="font-semibold text-[var(--app-ink)]">{selectedEntitlement.title}</p>
+                    <p className="mt-1">Duración sugerida: {selectedEntitlement.defaultDurationMinutes} minutos.</p>
+                  </div>
+                )}
 
-              {selectedEntitlement && (
-                <div className="rounded-[18px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-4 text-sm text-[var(--app-muted)]">
-                  <p className="font-semibold text-[var(--app-ink)]">{selectedEntitlement.title}</p>
-                  <p className="mt-1">Duración sugerida: {selectedEntitlement.defaultDurationMinutes} minutos.</p>
-                </div>
-              )}
-
-              <button
-                className="w-full rounded-[16px] bg-[var(--brand-primary)] px-4 py-3 text-sm font-bold text-white disabled:opacity-50"
-                type="submit"
-                disabled={
-                  submittingProgram ||
-                  !programForm.entitlementId ||
-                  !programForm.mentorUserId ||
-                  overview.mentorCatalog.length === 0
-                }
-              >
-                Programar mentoría incluida
-              </button>
-            </form>
+                <button
+                  className="w-full rounded-[16px] bg-[var(--brand-primary)] px-4 py-3 text-sm font-bold text-white disabled:opacity-50"
+                  type="submit"
+                  disabled={
+                    submittingProgram ||
+                    !programForm.entitlementId ||
+                    !programForm.mentorUserId ||
+                    overview.mentorCatalog.length === 0
+                  }
+                >
+                  Programar mentoría incluida
+                </button>
+              </form>
+            )}
           </section>
 
           <section className="app-panel p-5 sm:p-6">

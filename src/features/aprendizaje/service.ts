@@ -1,4 +1,5 @@
 import type { PoolClient } from 'pg';
+import { getViewerAccessState, requireProgramSubscriptionAccess } from '@/features/access/service';
 import type { AuthUser } from '@/server/auth/types';
 import { ForbiddenError, requireModulePermission } from '@/server/auth/module-permissions';
 import type {
@@ -274,6 +275,23 @@ async function ensureWorkbookInstances(client: PoolClient, ownerUserId?: string)
        AND uw.template_id = wt.template_id
       WHERE u.primary_role = 'lider'
         AND u.is_active = true
+        AND (
+          EXISTS (
+            SELECT 1
+            FROM app_core.user_profiles up
+            WHERE up.user_id = u.user_id
+              AND up.plan_type IN ('premium', 'vip', 'empresa_elite')
+          )
+          OR EXISTS (
+            SELECT 1
+            FROM app_billing.user_purchases purchase
+            JOIN app_billing.product_catalog catalog
+              ON catalog.product_code = purchase.product_code
+            WHERE purchase.user_id = u.user_id
+              AND purchase.status = 'active'
+              AND catalog.product_group = 'program'
+          )
+        )
         AND wt.is_active = true
         AND uw.workbook_id IS NULL
         ${ownerFilter}
@@ -284,14 +302,29 @@ async function ensureWorkbookInstances(client: PoolClient, ownerUserId?: string)
 
 async function getAccessibleLearningItem(
   client: PoolClient,
+  actor: AuthUser,
   contentId: string,
-): Promise<{ contentId: string; status: ContentStatus }> {
-  const { rows } = await client.query<{ content_id: string; status: ContentStatus }>(
+): Promise<{ contentId: string; status: ContentStatus; isFree: boolean }> {
+  const access =
+    actor.role === 'lider'
+      ? await getViewerAccessState(client, actor, { includeCatalog: false })
+      : null;
+
+  const { rows } = await client.query<{ content_id: string; status: ContentStatus; is_free: boolean }>(
     `
-      SELECT content_id::text, status
-      FROM app_learning.content_items
-      WHERE content_id = $1
-        AND scope = 'aprendizaje'
+      SELECT
+        ci.content_id::text,
+        ci.status,
+        EXISTS (
+          SELECT 1
+          FROM app_learning.content_tags ct
+          JOIN app_learning.tags t ON t.tag_id = ct.tag_id
+          WHERE ct.content_id = ci.content_id
+            AND lower(t.tag_name) = 'free'
+        ) AS is_free
+      FROM app_learning.content_items ci
+      WHERE ci.content_id = $1
+        AND ci.scope = 'aprendizaje'
       LIMIT 1
     `,
     [contentId],
@@ -302,9 +335,18 @@ async function getAccessibleLearningItem(
     throw new ForbiddenError('Learning resource not found or not accessible');
   }
 
+  if (
+    actor.role === 'lider' &&
+    access?.freeLearningOnly &&
+    (item.status !== 'published' || !item.is_free)
+  ) {
+    throw new ForbiddenError('Este recurso requiere plan 4Shine para esta cuenta.');
+  }
+
   return {
     contentId: item.content_id,
     status: item.status,
+    isFree: item.is_free,
   };
 }
 
@@ -353,6 +395,10 @@ export async function getWorkbookForActor(
 ): Promise<WorkbookRecord> {
   await requireModulePermission(client, 'aprendizaje', 'view');
 
+  if (actor.role === 'lider') {
+    await requireProgramSubscriptionAccess(client, actor, 'Los workbooks del programa');
+  }
+
   const workbook = await getWorkbookById(client, workbookId);
   const isManager = actor.role === 'gestor' || actor.role === 'admin';
   const isLeaderOwner = actor.role === 'lider' && workbook.ownerUserId === actor.userId;
@@ -371,6 +417,11 @@ export async function getWorkbookForActor(
 
 export async function listLearningResources(client: PoolClient, actor: AuthUser): Promise<LearningResourceRecord[]> {
   await requireModulePermission(client, 'aprendizaje', 'view');
+  const access =
+    actor.role === 'lider'
+      ? await getViewerAccessState(client, actor, { includeCatalog: false })
+      : null;
+  const freeOnly = actor.role === 'lider' && Boolean(access?.freeLearningOnly);
 
   const { rows } = await client.query<LearningResourceRow>(
     `
@@ -439,6 +490,19 @@ export async function listLearningResources(client: PoolClient, actor: AuthUser)
         GROUP BY cc.content_id
       ) comments ON comments.content_id = ci.content_id
       WHERE ci.scope = 'aprendizaje'
+        AND (
+          $2::boolean = false
+          OR (
+            ci.status = 'published'
+            AND EXISTS (
+              SELECT 1
+              FROM app_learning.content_tags ct
+              JOIN app_learning.tags t ON t.tag_id = ct.tag_id
+              WHERE ct.content_id = ci.content_id
+                AND lower(t.tag_name) = 'free'
+            )
+          )
+        )
       ORDER BY
         CASE ci.status
           WHEN 'published' THEN 0
@@ -451,7 +515,7 @@ export async function listLearningResources(client: PoolClient, actor: AuthUser)
         ci.created_at DESC
       LIMIT 200
     `,
-    [actor.userId],
+    [actor.userId, freeOnly],
   );
 
   return rows.map((row) => ({
@@ -501,7 +565,7 @@ export async function createLearningComment(
     throw new Error('Comment text is required');
   }
 
-  await getAccessibleLearningItem(client, input.contentId);
+  await getAccessibleLearningItem(client, actor, input.contentId);
 
   const { rows } = await client.query<LearningCommentRow>(
     `
@@ -557,6 +621,13 @@ export async function listWorkbooks(
 ): Promise<WorkbookRecord[]> {
   await requireModulePermission(client, 'aprendizaje', 'view');
 
+  if (actor.role === 'lider') {
+    const access = await getViewerAccessState(client, actor, { includeCatalog: false });
+    if (!access.canAccessProgramWorkbooks) {
+      return [];
+    }
+  }
+
   const ownerUserId = actor.role === 'lider' ? actor.userId : options?.ownerUserId;
   await ensureWorkbookInstances(client, ownerUserId);
 
@@ -601,6 +672,10 @@ export async function updateWorkbook(
   input: UpdateWorkbookInput,
 ): Promise<WorkbookRecord> {
   await requireModulePermission(client, 'aprendizaje', 'update');
+
+  if (actor.role === 'lider') {
+    await requireProgramSubscriptionAccess(client, actor, 'La edición de workbooks');
+  }
 
   const current = await getWorkbookById(client, workbookId);
   const isManager = actor.role === 'gestor' || actor.role === 'admin';

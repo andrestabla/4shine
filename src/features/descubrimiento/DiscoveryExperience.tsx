@@ -9,10 +9,12 @@ import {
   Loader2,
   ShieldCheck,
 } from "lucide-react";
+import { AccessOfferPanel } from "@/components/access/AccessOfferPanel";
 import { PageTitle } from "@/components/dashboard/PageTitle";
 import { StatGrid } from "@/components/dashboard/StatGrid";
 import { useAppDialog } from "@/components/ui/AppDialogProvider";
 import { useUser } from "@/context/UserContext";
+import { filterCommercialProducts } from "@/features/access/catalog";
 import { DB, SCALES } from "./DiagnosticsData";
 import {
   DISCOVERY_ITEMS_PER_PAGE,
@@ -51,7 +53,7 @@ function buildPersistPayload(state: DiscoveryUserState) {
 }
 
 export function DiscoveryExperience() {
-  const { currentUser } = useUser();
+  const { currentRole, currentUser, viewerAccess } = useUser();
   const { alert, confirm } = useAppDialog();
   const [session, setSession] = React.useState<DiscoverySessionRecord | null>(null);
   const [state, setState] = React.useState<DiscoveryUserState>({
@@ -74,6 +76,15 @@ export function DiscoveryExperience() {
   }, []);
 
   React.useEffect(() => {
+    if (
+      currentRole === "lider" &&
+      viewerAccess &&
+      !viewerAccess.canAccessDescubrimiento
+    ) {
+      setIsLoading(false);
+      return;
+    }
+
     let active = true;
 
     const load = async () => {
@@ -103,7 +114,7 @@ export function DiscoveryExperience() {
     return () => {
       active = false;
     };
-  }, [alert, applySession]);
+  }, [alert, applySession, currentRole, viewerAccess]);
 
   React.useEffect(() => {
     if (!hydratedRef.current) return;
@@ -138,6 +149,14 @@ export function DiscoveryExperience() {
   if (!currentUser && !isLoading) {
     return null;
   }
+
+  const isLockedForViewer =
+    currentRole === "lider" &&
+    viewerAccess !== null &&
+    !viewerAccess.canAccessDescubrimiento;
+  const discoveryOffers = filterCommercialProducts(viewerAccess?.catalog, {
+    groups: ["program", "discovery"],
+  });
 
   const answeredCount = Object.keys(state.answers).length;
   const completionPercent = calculateDiscoveryCompletionPercent(state.answers);
@@ -280,6 +299,29 @@ export function DiscoveryExperience() {
     applySession(nextSession);
     return nextSession;
   };
+
+  if (isLockedForViewer) {
+    return (
+      <div className="space-y-8">
+        <PageTitle
+          title="Descubrimiento"
+          subtitle="Activa el diagnóstico individual o el programa completo para abrir esta lectura ejecutiva."
+        />
+        <StatGrid stats={stats} />
+        <AccessOfferPanel
+          badge="Compra requerida"
+          title="Desbloquea tu diagnóstico 4Shine."
+          description="Esta experiencia se vincula a tu usuario y guarda un diagnóstico único por cuenta. Puedes activar solo Descubrimiento o entrar al programa completo 4Shine."
+          products={discoveryOffers}
+          primaryAction={{
+            href: "/dashboard",
+            label: "Ver opciones disponibles",
+          }}
+          note="Con Descubrimiento obtienes la prueba diagnóstica y su lectura ejecutiva. Con el programa 4Shine, además, activas Trayectoria, workbooks, mentorías incluidas y comunidad."
+        />
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

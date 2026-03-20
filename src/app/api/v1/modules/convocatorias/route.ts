@@ -15,7 +15,7 @@ export async function GET(request: Request) {
 
     const data = await withClient((client) =>
       withRoleContext(client, identity.userId, identity.role, async () => {
-        const result = await listJobPosts(client, limit);
+        const result = await listJobPosts(client, identity, limit);
         await logModuleAudit(client, request, identity, {
           moduleCode: 'convocatorias',
           action: 'query_job_posts',

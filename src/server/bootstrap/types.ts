@@ -1,3 +1,5 @@
+import type { ViewerAccessState } from '@/features/access/types';
+
 export type Role = 'lider' | 'mentor' | 'gestor' | 'admin';
 
 export interface UserStats {
@@ -263,6 +265,8 @@ export interface MentorAssignment {
 }
 
 export interface BootstrapPayload {
+  currentUser: User;
+  viewerAccess: ViewerAccessState;
   users: Record<Role, User>;
   availableMentors: Mentor[];
   mentees: Mentee[];

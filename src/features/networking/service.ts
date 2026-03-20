@@ -1,5 +1,6 @@
 import type { PoolClient } from 'pg';
 import type { AuthUser } from '@/server/auth/types';
+import { requireCommunityAccess } from '@/features/access/service';
 import { requireModulePermission } from '@/server/auth/module-permissions';
 
 export type ConnectionStatus = 'pending' | 'connected' | 'blocked' | 'rejected';
@@ -102,6 +103,7 @@ const BASE_SELECT = `
 
 export async function listConnections(client: PoolClient, actor: AuthUser, limit = 100): Promise<ConnectionRecord[]> {
   await requireModulePermission(client, 'networking', 'view');
+  await requireCommunityAccess(client, actor, 'Networking');
 
   const { rows } = await client.query<ConnectionRow>(
     `${BASE_SELECT}
@@ -120,6 +122,7 @@ export async function listNetworkPeople(
   limit = 100,
 ): Promise<NetworkPersonRecord[]> {
   await requireModulePermission(client, 'networking', 'view');
+  await requireCommunityAccess(client, actor, 'Networking');
 
   const { rows } = await client.query<NetworkPersonRow>(
     `
@@ -156,6 +159,7 @@ export async function createConnection(
   input: CreateConnectionInput,
 ): Promise<ConnectionRecord> {
   await requireModulePermission(client, 'networking', 'create');
+  await requireCommunityAccess(client, actor, 'Networking');
 
   if (input.addresseeUserId === actor.userId) {
     throw new Error('Cannot connect with yourself');
@@ -206,6 +210,7 @@ export async function updateConnection(
   input: UpdateConnectionInput,
 ): Promise<ConnectionRecord> {
   await requireModulePermission(client, 'networking', 'update');
+  await requireCommunityAccess(client, actor, 'Networking');
 
   const { rowCount } = await client.query(
     `
@@ -243,6 +248,7 @@ export async function deleteConnection(
   connectionId: string,
 ): Promise<{ connectionId: string }> {
   await requireModulePermission(client, 'networking', 'delete');
+  await requireCommunityAccess(client, actor, 'Networking');
 
   const { rows } = await client.query<{ connection_id: string }>(
     `

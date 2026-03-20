@@ -1,5 +1,6 @@
 import type { PoolClient } from 'pg';
 import type { AuthUser } from '@/server/auth/types';
+import { requireCommunityAccess } from '@/features/access/service';
 import { requireModulePermission } from '@/server/auth/module-permissions';
 
 export interface ThreadRecord {
@@ -123,6 +124,7 @@ async function assertThreadParticipant(client: PoolClient, threadId: string, use
 
 export async function listThreads(client: PoolClient, actor: AuthUser, limit = 100): Promise<ThreadRecord[]> {
   await requireModulePermission(client, 'mensajes', 'view');
+  await requireCommunityAccess(client, actor, 'Mensajes');
 
   const { rows } = await client.query<ThreadRow>(
     `
@@ -166,6 +168,7 @@ export async function listMessageParticipants(
   limit = 100,
 ): Promise<MessageParticipantRecord[]> {
   await requireModulePermission(client, 'mensajes', 'view');
+  await requireCommunityAccess(client, actor, 'Mensajes');
 
   const { rows } = await client.query<ParticipantRow>(
     `
@@ -193,6 +196,7 @@ export async function createDirectThread(
   input: CreateDirectThreadInput,
 ): Promise<ThreadRecord> {
   await requireModulePermission(client, 'mensajes', 'create');
+  await requireCommunityAccess(client, actor, 'Mensajes');
 
   if (input.participantUserId === actor.userId) {
     throw new Error('Cannot create direct thread with yourself');
@@ -258,6 +262,7 @@ export async function listMessages(
   limit = 100,
 ): Promise<MessageRecord[]> {
   await requireModulePermission(client, 'mensajes', 'view');
+  await requireCommunityAccess(client, actor, 'Mensajes');
   await assertThreadParticipant(client, threadId, actor.userId);
 
   const { rows } = await client.query<MessageRow>(
@@ -299,6 +304,7 @@ export async function sendMessage(
   input: SendMessageInput,
 ): Promise<MessageRecord> {
   await requireModulePermission(client, 'mensajes', 'create');
+  await requireCommunityAccess(client, actor, 'Mensajes');
   await assertThreadParticipant(client, input.threadId, actor.userId);
 
   const { rows } = await client.query<MessageRow>(
@@ -341,6 +347,7 @@ export async function updateMessage(
   input: UpdateMessageInput,
 ): Promise<MessageRecord> {
   await requireModulePermission(client, 'mensajes', 'update');
+  await requireCommunityAccess(client, actor, 'Mensajes');
 
   const { rows } = await client.query<MessageRow>(
     `
@@ -380,6 +387,7 @@ export async function deleteMessage(
   messageId: string,
 ): Promise<{ messageId: string }> {
   await requireModulePermission(client, 'mensajes', 'delete');
+  await requireCommunityAccess(client, actor, 'Mensajes');
 
   const { rows } = await client.query<{ message_id: string }>(
     `

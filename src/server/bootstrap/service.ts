@@ -1,4 +1,5 @@
 import type { PoolClient } from 'pg';
+import { getViewerAccessState } from '@/features/access/service';
 import { withClient, withRoleContext } from '@/server/db/pool';
 import type {
   BootstrapPayload,
@@ -22,6 +23,24 @@ import type {
   UserStats,
   Workshop,
 } from './types';
+
+interface UserHydrationRow {
+  user_id: string;
+  email: string;
+  display_name: string;
+  primary_role: Role;
+  avatar_initial: string | null;
+  avatar_url: string | null;
+  organization_name: string | null;
+  location: string | null;
+  profession: string | null;
+  industry: string | null;
+  plan_type: string | null;
+  bio: string | null;
+  linkedin_url: string | null;
+  twitter_url: string | null;
+  website_url: string | null;
+}
 
 const ROLE_LABEL: Record<Role, string> = {
   lider: 'Líder',
@@ -267,24 +286,119 @@ async function fetchRoleStats(client: PoolClient, role: Role, userId: string): P
   };
 }
 
-async function fetchUsers(client: PoolClient): Promise<Record<Role, User>> {
-  const { rows } = await client.query<{
-    user_id: string;
-    email: string;
-    display_name: string;
-    primary_role: Role;
-    avatar_initial: string | null;
-    avatar_url: string | null;
-    organization_name: string | null;
-    location: string | null;
-    profession: string | null;
-    industry: string | null;
-    plan_type: string | null;
-    bio: string | null;
-    linkedin_url: string | null;
-    twitter_url: string | null;
-    website_url: string | null;
+async function hydrateUserRecord(
+  client: PoolClient,
+  row: UserHydrationRow,
+): Promise<User> {
+  const { rows: interestsRows } = await client.query<{ name: string }>(
+    `
+      SELECT i.name
+      FROM app_core.user_interests ui
+      JOIN app_core.interests i ON i.interest_id = ui.interest_id
+      WHERE ui.user_id = $1
+      ORDER BY i.name
+    `,
+    [row.user_id],
+  );
+  const { rows: projectsRows } = await client.query<{
+    title: string;
+    description: string | null;
+    project_role: string | null;
   }>(
+    `
+      SELECT title, description, project_role
+      FROM app_core.user_projects
+      WHERE user_id = $1
+      ORDER BY created_at
+      LIMIT 3
+    `,
+    [row.user_id],
+  );
+  const { rows: testsRows } = await client.query<{ pillar_code: string; score: number }>(
+    `
+      SELECT tas.pillar_code, tas.score
+      FROM app_assessment.test_attempt_scores tas
+      JOIN app_assessment.test_attempts ta ON ta.attempt_id = tas.attempt_id
+      WHERE ta.user_id = $1
+        AND ta.status = 'completed'
+      ORDER BY ta.completed_at DESC NULLS LAST
+    `,
+    [row.user_id],
+  );
+  const { rows: challengesRows } = await client.query<{
+    title: string;
+    description: string | null;
+    challenge_type: 'strategic' | 'social' | 'personal';
+  }>(
+    `
+      SELECT c.title, c.description, c.challenge_type
+      FROM app_core.user_challenges uc
+      JOIN app_core.challenges c ON c.challenge_id = uc.challenge_id
+      WHERE uc.user_id = $1
+        AND uc.status IN ('assigned', 'in_progress')
+      ORDER BY uc.assigned_at DESC
+      LIMIT 3
+    `,
+    [row.user_id],
+  );
+  const stats = await fetchRoleStats(client, row.primary_role, row.user_id);
+
+  const scoreMap: Record<string, number> = {
+    shine_within: 0,
+    shine_out: 0,
+    shine_up: 0,
+    shine_beyond: 0,
+  };
+
+  for (const score of testsRows) {
+    if (scoreMap[score.pillar_code] === 0) {
+      scoreMap[score.pillar_code] = Number(score.score);
+    }
+  }
+
+  return {
+    id: row.user_id,
+    name: row.display_name,
+    role: ROLE_LABEL[row.primary_role],
+    avatar: row.avatar_initial ?? row.display_name[0]?.toUpperCase() ?? '?',
+    avatarUrl: row.avatar_url ?? undefined,
+    color: ROLE_COLOR[row.primary_role],
+    company: row.organization_name ?? '4Shine',
+    location: row.location ?? 'Remoto',
+    stats,
+    profession: row.profession ?? undefined,
+    industry: row.industry ?? undefined,
+    planType: readPlan(row.plan_type),
+    bio: row.bio ?? undefined,
+    socialLinks: {
+      linkedin: row.linkedin_url ?? undefined,
+      twitter: row.twitter_url ?? undefined,
+      website: row.website_url ?? undefined,
+    },
+    interests: interestsRows.map((item) => item.name),
+    projects: projectsRows.map((item, index) => ({
+      id: index + 1,
+      title: item.title,
+      description: item.description ?? '',
+      role: item.project_role ?? '',
+    })),
+    testResults: {
+      shineWithin: scoreMap.shine_within,
+      shineOut: scoreMap.shine_out,
+      shineUp: scoreMap.shine_up,
+      shineBeyond: scoreMap.shine_beyond,
+    },
+    nextChallenges: challengesRows.map((item, index) => ({
+      id: index + 1,
+      title: item.title,
+      description: item.description ?? '',
+      type: item.challenge_type,
+    })),
+  };
+}
+
+async function fetchUsers(client: PoolClient): Promise<Record<Role, User>> {
+  const { rows } = await client.query<UserHydrationRow>(
     `
       SELECT
         u.user_id,
@@ -316,112 +430,7 @@ async function fetchUsers(client: PoolClient): Promise<Record<Role, User>> {
     if (roleUsers.has(row.primary_role)) {
       continue;
     }
-
-    const { rows: interestsRows } = await client.query<{ name: string }>(
-      `
-        SELECT i.name
-        FROM app_core.user_interests ui
-        JOIN app_core.interests i ON i.interest_id = ui.interest_id
-        WHERE ui.user_id = $1
-        ORDER BY i.name
-      `,
-      [row.user_id],
-    );
-    const { rows: projectsRows } = await client.query<{
-      title: string;
-      description: string | null;
-      project_role: string | null;
-    }>(
-      `
-        SELECT title, description, project_role
-        FROM app_core.user_projects
-        WHERE user_id = $1
-        ORDER BY created_at
-        LIMIT 3
-      `,
-      [row.user_id],
-    );
-    const { rows: testsRows } = await client.query<{ pillar_code: string; score: number }>(
-      `
-        SELECT tas.pillar_code, tas.score
-        FROM app_assessment.test_attempt_scores tas
-        JOIN app_assessment.test_attempts ta ON ta.attempt_id = tas.attempt_id
-        WHERE ta.user_id = $1
-          AND ta.status = 'completed'
-        ORDER BY ta.completed_at DESC NULLS LAST
-      `,
-      [row.user_id],
-    );
-    const { rows: challengesRows } = await client.query<{
-      title: string;
-      description: string | null;
-      challenge_type: 'strategic' | 'social' | 'personal';
-    }>(
-      `
-        SELECT c.title, c.description, c.challenge_type
-        FROM app_core.user_challenges uc
-        JOIN app_core.challenges c ON c.challenge_id = uc.challenge_id
-        WHERE uc.user_id = $1
-          AND uc.status IN ('assigned', 'in_progress')
-        ORDER BY uc.assigned_at DESC
-        LIMIT 3
-      `,
-      [row.user_id],
-    );
-    const stats = await fetchRoleStats(client, row.primary_role, row.user_id);
-
-    const scoreMap: Record<string, number> = {
-      shine_within: 0,
-      shine_out: 0,
-      shine_up: 0,
-      shine_beyond: 0,
-    };
-
-    for (const score of testsRows) {
-      if (scoreMap[score.pillar_code] === 0) {
-        scoreMap[score.pillar_code] = Number(score.score);
-      }
-    }
-
-    roleUsers.set(row.primary_role, {
-      id: row.user_id,
-      name: row.display_name,
-      role: ROLE_LABEL[row.primary_role],
-      avatar: row.avatar_initial ?? row.display_name[0]?.toUpperCase() ?? '?',
-      avatarUrl: row.avatar_url ?? undefined,
-      color: ROLE_COLOR[row.primary_role],
-      company: row.organization_name ?? '4Shine',
-      location: row.location ?? 'Remoto',
-      stats,
-      profession: row.profession ?? undefined,
-      industry: row.industry ?? undefined,
-      planType: readPlan(row.plan_type),
-      bio: row.bio ?? undefined,
-      socialLinks: {
-        linkedin: row.linkedin_url ?? undefined,
-        twitter: row.twitter_url ?? undefined,
-        website: row.website_url ?? undefined,
-      },
-      interests: interestsRows.map((item) => item.name),
-      projects: projectsRows.map((item, index) => ({
-        id: index + 1,
-        title: item.title,
-        description: item.description ?? '',
-        role: item.project_role ?? '',
-      })),
-      testResults: {
-        shineWithin: scoreMap.shine_within,
-        shineOut: scoreMap.shine_out,
-        shineUp: scoreMap.shine_up,
-        shineBeyond: scoreMap.shine_beyond,
-      },
-      nextChallenges: challengesRows.map((item, index) => ({
-        id: index + 1,
-        title: item.title,
-        description: item.description ?? '',
-        type: item.challenge_type,
-      })),
-    });
+    roleUsers.set(row.primary_role, await hydrateUserRecord(client, row));
   }
 
   const fallbackUser = (role: Role): User => ({
@@ -441,6 +450,46 @@ async function fetchUsers(client: PoolClient): Promise<Record<Role, User>> {
     gestor: roleUsers.get('gestor') ?? fallbackUser('gestor'),
     admin: roleUsers.get('admin') ?? fallbackUser('admin'),
   };
+}
+
+async function fetchCurrentUser(
+  client: PoolClient,
+  userId: string,
+): Promise<User> {
+  const { rows } = await client.query<UserHydrationRow>(
+    `
+      SELECT
+        u.user_id,
+        u.email,
+        u.display_name,
+        u.primary_role,
+        u.avatar_initial,
+        u.avatar_url,
+        o.name AS organization_name,
+        p.location,
+        p.profession,
+        p.industry,
+        p.plan_type,
+        p.bio,
+        p.linkedin_url,
+        p.twitter_url,
+        p.website_url
+      FROM app_core.users u
+      LEFT JOIN app_core.organizations o ON o.organization_id = u.organization_id
+      LEFT JOIN app_core.user_profiles p ON p.user_id = u.user_id
+      WHERE u.user_id = $1
+        AND u.is_active = true
+      LIMIT 1
+    `,
+    [userId],
+  );
+
+  const row = rows[0];
+  if (!row) {
+    throw new Error('Active session user not found');
+  }
+
+  return hydrateUserRecord(client, row);
 }
 
 async function fetchAvailableMentors(client: PoolClient): Promise<Mentor[]> {
@@ -597,7 +646,9 @@ async function fetchContentByScope(
   client: PoolClient,
   userId: string,
   scope: 'aprendizaje' | 'metodologia' | 'formacion_mentores' | 'formacion_lideres',
+  options?: { freeOnly?: boolean },
 ): Promise<LearningItem[]> {
+  const freeOnly = options?.freeOnly ?? false;
   const { rows } = await client.query<{
     content_id: string;
     title: string;
@@ -684,10 +735,20 @@ async function fetchContentByScope(
       ) comments ON comments.content_id = ci.content_id
       WHERE ci.scope = $2
         AND ci.status = 'published'
+        AND (
+          $3::boolean = false
+          OR EXISTS (
+            SELECT 1
+            FROM app_learning.content_tags ct_free
+            JOIN app_learning.tags t_free ON t_free.tag_id = ct_free.tag_id
+            WHERE ct_free.content_id = ci.content_id
+              AND LOWER(t_free.tag_name) = 'free'
+          )
+        )
       ORDER BY ci.published_at DESC NULLS LAST, ci.created_at DESC
       LIMIT 50
     `,
-    [userId, scope],
+    [userId, scope, freeOnly],
   );
 
   return rows.map((row, index) => ({
@@ -1292,12 +1353,16 @@ export async function getBootstrapPayloadForIdentity(userId: string, role: Role)
   return withClient(async (client) => {
     return withRoleContext(client, userId, role, async () => {
       const userMap = await getUserNumericMap(client);
+      const viewerAccess = await getViewerAccessState(client, { userId, role });
 
       const users = await fetchUsers(client);
+      const currentUser = await fetchCurrentUser(client, userId);
       const availableMentors = await fetchAvailableMentors(client);
       const mentees = await fetchMentees(client, userMap);
       const timeline = await fetchTimeline(client, userId);
-      const learningContent = await fetchContentByScope(client, userId, 'aprendizaje');
+      const learningContent = await fetchContentByScope(client, userId, 'aprendizaje', {
+        freeOnly: role === 'lider' && viewerAccess.freeLearningOnly,
+      });
       const methodologyContent = await fetchMethodologyContent(client, userId);
       const mentorships = await fetchMentorships(client, userId, role, userMap);
       const networking = await fetchNetworking(client, userId, userMap);
@@ -1313,6 +1378,8 @@ export async function getBootstrapPayloadForIdentity(userId: string, role: Role)
       const mentorAssignments = await fetchMentorAssignments(client, userMap);
 
       return {
+        currentUser,
+        viewerAccess,
         users,
         availableMentors,
         mentees,

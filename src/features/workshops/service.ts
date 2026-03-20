@@ -1,5 +1,6 @@
 import type { PoolClient } from 'pg';
 import type { AuthUser } from '@/server/auth/types';
+import { requireCommunityAccess } from '@/features/access/service';
 import { requireModulePermission } from '@/server/auth/module-permissions';
 
 export type WorkshopType = 'relacionamiento' | 'formacion' | 'innovacion' | 'wellbeing' | 'otro';
@@ -102,8 +103,13 @@ const BASE_SELECT = `
   LEFT JOIN app_networking.workshop_attendees wa ON wa.workshop_id = w.workshop_id
 `;
 
-export async function listWorkshops(client: PoolClient, limit = 100): Promise<WorkshopRecord[]> {
+export async function listWorkshops(
+  client: PoolClient,
+  actor: AuthUser,
+  limit = 100,
+): Promise<WorkshopRecord[]> {
   await requireModulePermission(client, 'workshops', 'view');
+  await requireCommunityAccess(client, actor, 'Workshops');
 
   const { rows } = await client.query<WorkshopRow>(
     `${BASE_SELECT}
@@ -122,6 +128,7 @@ export async function createWorkshop(
   input: CreateWorkshopInput,
 ): Promise<WorkshopRecord> {
   await requireModulePermission(client, 'workshops', 'create');
+  await requireCommunityAccess(client, actor, 'Workshops');
 
   const { rows } = await client.query<{ workshop_id: string }>(
     `
@@ -159,7 +166,7 @@ export async function createWorkshop(
     throw new Error('Failed to create workshop');
   }
 
-  const all = await listWorkshops(client, 500);
+  const all = await listWorkshops(client, actor, 500);
   const workshop = all.find((item) => item.workshopId === workshopId);
   if (!workshop) {
     throw new Error('Created workshop not found');
@@ -170,11 +177,12 @@ export async function createWorkshop(
 
 export async function updateWorkshop(
   client: PoolClient,
+  actor: AuthUser,
   workshopId: string,
   input: UpdateWorkshopInput,
 ): Promise<WorkshopRecord> {
   await requireModulePermission(client, 'workshops', 'update');
-
+  await requireCommunityAccess(client, actor, 'Workshops');
   const { rowCount } = await client.query(
     `
       UPDATE app_networking.workshops
@@ -209,7 +217,7 @@ export async function updateWorkshop(
     throw new Error('Workshop not found');
   }
 
-  const all = await listWorkshops(client, 500);
+  const all = await listWorkshops(client, actor, 500);
   const workshop = all.find((item) => item.workshopId === workshopId);
   if (!workshop) {
     throw new Error('Workshop not found');
@@ -218,8 +226,13 @@ export async function updateWorkshop(
   return workshop;
 }
 
-export async function deleteWorkshop(client: PoolClient, workshopId: string): Promise<{ workshopId: string }> {
+export async function deleteWorkshop(
+  client: PoolClient,
+  actor: AuthUser,
+  workshopId: string,
+): Promise<{ workshopId: string }> {
   await requireModulePermission(client, 'workshops', 'delete');
+  await requireCommunityAccess(client, actor, 'Workshops');
 
   const { rows } = await client.query<{ workshop_id: string }>(
     `

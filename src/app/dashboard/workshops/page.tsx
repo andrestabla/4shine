@@ -1,10 +1,12 @@
 'use client';
 
 import React from 'react';
+import { AccessOfferPanel } from '@/components/access/AccessOfferPanel';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { EmptyState } from '@/components/dashboard/EmptyState';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useUser } from '@/context/UserContext';
+import { filterCommercialProducts } from '@/features/access/catalog';
 import {
   createWorkshop,
   deleteWorkshop,
@@ -37,7 +39,7 @@ function toIso(value: string): string {
 }
 
 export default function WorkshopsPage() {
-  const { can, refreshBootstrap } = useUser();
+  const { can, currentRole, refreshBootstrap, viewerAccess } = useUser();
   const { alert, confirm, prompt } = useAppDialog();
   const [workshops, setWorkshops] = React.useState<WorkshopRecord[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -49,6 +51,11 @@ export default function WorkshopsPage() {
     facilitatorName: '',
     meetingUrl: '',
     description: '',
+  });
+  const isCommunityLocked =
+    currentRole === 'lider' && viewerAccess?.viewerTier === 'open_leader';
+  const programOffers = filterCommercialProducts(viewerAccess?.catalog, {
+    codes: ['program_4shine'],
   });
 
   const showError = React.useCallback(
@@ -75,8 +82,12 @@ export default function WorkshopsPage() {
   }, [showError]);
 
   React.useEffect(() => {
+    if (isCommunityLocked) {
+      setLoading(false);
+      return;
+    }
     void load();
-  }, [load]);
+  }, [isCommunityLocked, load]);
 
   const onCreate = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -154,6 +165,28 @@ export default function WorkshopsPage() {
       await showError('No se pudo actualizar el workshop', updateError);
     }
   };
+
+  if (isCommunityLocked) {
+    return (
+      <div className="space-y-6">
+        <PageTitle
+          title="Workshops"
+          subtitle="Los workshops del ecosistema 4Shine se activan con el programa completo."
+        />
+        <AccessOfferPanel
+          badge="Acceso bloqueado"
+          title="Activa Workshops con el plan 4Shine."
+          description="Los workshops complementan la trayectoria del líder con experiencias grupales, relacionamiento y formación. Este acceso requiere el programa 4Shine."
+          products={programOffers}
+          primaryAction={{
+            href: '/dashboard',
+            label: 'Ver plan 4Shine',
+          }}
+          note="Cuando el programa está activo, Workshops se integra con tu agenda y con el resto de módulos del journey."
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

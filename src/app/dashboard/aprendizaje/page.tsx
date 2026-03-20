@@ -14,10 +14,12 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
+import { AccessOfferPanel } from "@/components/access/AccessOfferPanel";
 import { StatGrid } from "@/components/dashboard/StatGrid";
 import { EmptyState } from "@/components/dashboard/EmptyState";
 import { useAppDialog } from "@/components/ui/AppDialogProvider";
 import { useUser } from "@/context/UserContext";
+import { filterCommercialProducts } from "@/features/access/catalog";
 import {
   createLearningComment,
   listLearningResources,
@@ -211,7 +213,7 @@ function resourceSurfaceClasses(contentType: ContentType): string {
 }
 
 export default function AprendizajePage() {
-  const { currentRole, refreshBootstrap } = useUser();
+  const { currentRole, refreshBootstrap, viewerAccess } = useUser();
   const { alert, confirm } = useAppDialog();
 
   const [resources, setResources] = React.useState<LearningResourceRecord[]>(
@@ -247,6 +249,11 @@ export default function AprendizajePage() {
   const [workbookSearch, setWorkbookSearch] = React.useState("");
 
   const isResourceManager = currentRole === "gestor" || currentRole === "admin";
+  const isOpenLeader =
+    currentRole === "lider" && viewerAccess?.viewerTier === "open_leader";
+  const programOffers = filterCommercialProducts(viewerAccess?.catalog, {
+    codes: ["program_4shine"],
+  });
 
   const showError = React.useCallback(
     async (fallbackMessage: string, cause: unknown) => {
@@ -577,8 +584,9 @@ export default function AprendizajePage() {
               Recursos, experiencias SCORM y workbooks en una sola ruta.
             </h2>
             <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/82 md:text-base">
-              Explora contenido conectado al mapa de competencias, retoma tus
-              workbooks y sigue tu progreso sin salir de la experiencia.
+              {isOpenLeader
+                ? "Explora recursos marcados como free y activa el programa para desbloquear la biblioteca completa, los SCORM premium y los workbooks."
+                : "Explora contenido conectado al mapa de competencias, retoma tus workbooks y sigue tu progreso sin salir de la experiencia."}
             </p>
 
             <div className="mt-6 flex flex-wrap gap-2">
@@ -594,7 +602,9 @@ export default function AprendizajePage() {
                 paquetes SCORM
               </span>
               <span className="rounded-full border border-white/16 bg-white/10 px-4 py-2 text-xs font-semibold text-white/90">
-                {workbooks.length} workbooks activos en catálogo
+                {isOpenLeader
+                  ? "Solo contenido free visible"
+                  : `${workbooks.length} workbooks activos en catálogo`}
               </span>
             </div>
           </div>
@@ -611,7 +621,9 @@ export default function AprendizajePage() {
                 Biblioteca curada
               </p>
               <p className="mt-1 text-sm text-[var(--app-muted)]">
-                Busca por formato, estado, pilar o competencia.
+                {isOpenLeader
+                  ? "Accede al contenido libre por formato, pilar o competencia."
+                  : "Busca por formato, estado, pilar o competencia."}
               </p>
             </div>
             <div className="rounded-[18px] border border-[var(--app-border)] bg-white/78 p-4">
@@ -622,7 +634,9 @@ export default function AprendizajePage() {
                 Experiencias SCORM
               </p>
               <p className="mt-1 text-sm text-[var(--app-muted)]">
-                Acceso directo a paquetes listos para navegar.
+                {isOpenLeader
+                  ? "Disponibles al activar el programa completo."
+                  : "Acceso directo a paquetes listos para navegar."}
               </p>
             </div>
             <div className="rounded-[18px] border border-[var(--app-border)] bg-white/78 p-4">
@@ -633,7 +647,9 @@ export default function AprendizajePage() {
                 Progreso sincronizado
               </p>
               <p className="mt-1 text-sm text-[var(--app-muted)]">
-                Cada workbook refleja el avance real del usuario.
+                {isOpenLeader
+                  ? "Los workbooks se habilitan cuando activas el programa."
+                  : "Cada workbook refleja el avance real del usuario."}
               </p>
             </div>
           </div>
@@ -657,14 +673,18 @@ export default function AprendizajePage() {
           {
             label: "Workbooks",
             value: workbooks.length,
-            hint: "Instancias únicas por líder",
+            hint: isOpenLeader
+              ? "Disponibles al activar plan 4Shine"
+              : "Instancias únicas por líder",
           },
           {
             label: "Habilitados",
             value: workbooks.filter(
               (workbook) => workbook.accessState === "active",
             ).length,
-            hint: "Editables hoy según cronograma",
+            hint: isOpenLeader
+              ? "La cuenta free no desbloquea workbooks"
+              : "Editables hoy según cronograma",
           },
         ]}
       />
@@ -675,6 +695,20 @@ export default function AprendizajePage() {
         </div>
       ) : (
         <>
+          {isOpenLeader && (
+            <AccessOfferPanel
+              badge="Acceso free"
+              title="Tu biblioteca abierta ya está activa."
+              description="Esta cuenta puede ver y comentar únicamente los recursos etiquetados como free. Para desbloquear la biblioteca completa, los SCORM premium y los 10 workbooks del programa, activa 4Shine."
+              products={programOffers}
+              primaryAction={{
+                href: "/dashboard",
+                label: "Ver plan 4Shine",
+              }}
+              note="Los recursos gratuitos siguen disponibles desde esta misma vista. El upgrade suma contenido premium, workbooks únicos por usuario y continuidad completa del journey."
+            />
+          )}
+
           {isResourceManager && (
             <section className={panelClass}>
               <div className="flex items-start justify-between gap-4">
@@ -950,8 +984,9 @@ export default function AprendizajePage() {
                   Biblioteca individual + paquetes SCORM
                 </h3>
                 <p className="mt-2 text-sm leading-relaxed text-[var(--app-muted)]">
-                  Los líderes e ishiners pueden buscar, filtrar, visualizar y
-                  comentar. Los gestores y admins administran el catálogo.
+                  {isOpenLeader
+                    ? "Esta cuenta ve solo contenidos free. Los líderes suscritos y los ishiners acceden a la biblioteca completa; gestores y admins administran el catálogo."
+                    : "Los líderes e ishiners pueden buscar, filtrar, visualizar y comentar. Los gestores y admins administran el catálogo."}
                 </p>
               </div>
             </div>
@@ -1445,15 +1480,31 @@ export default function AprendizajePage() {
                   className="app-display-title mt-2 text-3xl font-semibold"
                   data-display-font="true"
                 >
-                  10 workbooks digitales del programa
+                  {isOpenLeader
+                    ? "Workbooks del programa"
+                    : "10 workbooks digitales del programa"}
                 </h3>
                 <p className="mt-2 text-sm leading-relaxed text-[var(--app-muted)]">
-                  Entra directo a cada workbook, continúa donde ibas y revisa tu
-                  avance real sincronizado por usuario.
+                  {isOpenLeader
+                    ? "Los workbooks únicos por usuario se habilitan al activar el programa 4Shine."
+                    : "Entra directo a cada workbook, continúa donde ibas y revisa tu avance real sincronizado por usuario."}
                 </p>
               </div>
             </div>
 
+            {isOpenLeader ? (
+              <AccessOfferPanel
+                badge="Programa 4Shine"
+                title="Desbloquea los 10 workbooks del journey."
+                description="Cada workbook es único por usuario y se libera según cronograma. Esta cuenta free no genera ni muestra instancias del programa hasta activar la suscripción."
+                products={programOffers}
+                primaryAction={{
+                  href: "/dashboard",
+                  label: "Desbloquear workbooks",
+                }}
+                note="Los workbooks también sincronizan progreso real con Trayectoria y Mentorías, por eso solo se crean para líderes con plan activo."
+              />
+            ) : (
             <div className="space-y-4">
               <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.7fr)_minmax(260px,0.7fr)]">
                 <div className="rounded-[18px] border border-[var(--app-border)] bg-white/82 px-4 py-3 shadow-[0_16px_36px_rgba(55,32,80,0.05)] md:col-span-2">
@@ -1594,6 +1645,7 @@ export default function AprendizajePage() {
                 </div>
               )}
             </div>
+            )}
           </section>
 
           <section className={panelClass}>

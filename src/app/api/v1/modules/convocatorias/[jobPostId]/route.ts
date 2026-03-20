@@ -23,7 +23,7 @@ export async function PATCH(request: Request, context: ContextParams) {
   try {
     const data = await withClient((client) =>
       withRoleContext(client, identity.userId, identity.role, async () => {
-        const result = await updateJobPost(client, jobPostId, body);
+        const result = await updateJobPost(client, identity, jobPostId, body);
         await logModuleAudit(client, request, identity, {
           moduleCode: 'convocatorias',
           action: 'update_job_post',
@@ -50,7 +50,7 @@ export async function DELETE(request: Request, context: ContextParams) {
   try {
     const data = await withClient((client) =>
       withRoleContext(client, identity.userId, identity.role, async () => {
-        const result = await deleteJobPost(client, jobPostId);
+        const result = await deleteJobPost(client, identity, jobPostId);
         await logModuleAudit(client, request, identity, {
           moduleCode: 'convocatorias',
           action: 'delete_job_post',

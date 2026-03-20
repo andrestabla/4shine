@@ -15,7 +15,7 @@ export async function GET(request: Request) {
 
     const data = await withClient((client) =>
       withRoleContext(client, identity.userId, identity.role, async () => {
-        const result = await listMentorships(client, limit);
+        const result = await listMentorships(client, identity, limit);
         await logModuleAudit(client, request, identity, {
           moduleCode: 'mentorias',
           action: 'query_mentorships',

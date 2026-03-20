@@ -1,10 +1,12 @@
 'use client';
 
 import React from 'react';
+import { AccessOfferPanel } from '@/components/access/AccessOfferPanel';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { EmptyState } from '@/components/dashboard/EmptyState';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useUser } from '@/context/UserContext';
+import { filterCommercialProducts } from '@/features/access/catalog';
 import {
   createDirectThread,
   deleteMessage,
@@ -34,7 +36,7 @@ function toDateTime(value: string): string {
 }
 
 export default function MensajesPage() {
-  const { can, refreshBootstrap, sessionUser } = useUser();
+  const { can, currentRole, refreshBootstrap, sessionUser, viewerAccess } = useUser();
   const { alert, confirm, prompt } = useAppDialog();
   const [threads, setThreads] = React.useState<ThreadRecord[]>([]);
   const [participants, setParticipants] = React.useState<MessageParticipantRecord[]>([]);
@@ -44,6 +46,11 @@ export default function MensajesPage() {
   const [messageText, setMessageText] = React.useState('');
   const [loading, setLoading] = React.useState(true);
   const [messagesLoading, setMessagesLoading] = React.useState(false);
+  const isCommunityLocked =
+    currentRole === 'lider' && viewerAccess?.viewerTier === 'open_leader';
+  const programOffers = filterCommercialProducts(viewerAccess?.catalog, {
+    codes: ['program_4shine'],
+  });
 
   const showError = React.useCallback(
     async (fallbackMessage: string, cause: unknown) => {
@@ -95,12 +102,20 @@ export default function MensajesPage() {
   }, [showError]);
 
   React.useEffect(() => {
+    if (isCommunityLocked) {
+      setLoading(false);
+      return;
+    }
     void loadThreadsAndParticipants();
-  }, [loadThreadsAndParticipants]);
+  }, [isCommunityLocked, loadThreadsAndParticipants]);
 
   React.useEffect(() => {
+    if (isCommunityLocked) {
+      setMessages([]);
+      return;
+    }
     void loadMessages(selectedThreadId);
-  }, [loadMessages, selectedThreadId]);
+  }, [isCommunityLocked, loadMessages, selectedThreadId]);
 
   const onCreateThread = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -167,6 +182,28 @@ export default function MensajesPage() {
       await showError('No se pudo editar el mensaje', updateError);
     }
   };
+
+  if (isCommunityLocked) {
+    return (
+      <div className="space-y-6">
+        <PageTitle
+          title="Mensajes"
+          subtitle="La mensajería entre líderes, ishiners y red del programa se habilita con el plan 4Shine."
+        />
+        <AccessOfferPanel
+          badge="Acceso bloqueado"
+          title="Activa Mensajes con el programa 4Shine."
+          description="Este módulo forma parte de la experiencia colaborativa del programa. Al activar el plan podrás conversar con tu red, tus ishiners y otros actores del ecosistema."
+          products={programOffers}
+          primaryAction={{
+            href: '/dashboard',
+            label: 'Ver plan 4Shine',
+          }}
+          note="La cuenta free conserva acceso a contenido abierto en Aprendizaje y a compra de mentorías adicionales."
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

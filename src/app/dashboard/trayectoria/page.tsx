@@ -19,6 +19,7 @@ import {
   Sparkles,
   Users,
 } from "lucide-react";
+import { AccessOfferPanel } from "@/components/access/AccessOfferPanel";
 import {
   PolarAngleAxis,
   PolarGrid,
@@ -27,8 +28,10 @@ import {
   RadarChart,
   ResponsiveContainer,
 } from "recharts";
+import { PageTitle } from "@/components/dashboard/PageTitle";
 import { StatGrid } from "@/components/dashboard/StatGrid";
 import { useUser } from "@/context/UserContext";
+import { filterCommercialProducts } from "@/features/access/catalog";
 import {
   listLearningWorkbooks,
   type WorkbookRecord,
@@ -275,7 +278,7 @@ function challengeIcon(index: number) {
 }
 
 export default function TrayectoriaPage() {
-  const { currentUser, currentRole, bootstrapData } = useUser();
+  const { currentUser, currentRole, bootstrapData, viewerAccess } = useUser();
   const [isLoading, setIsLoading] = React.useState(false);
   const [loadError, setLoadError] = React.useState<string | null>(null);
   const [workbooks, setWorkbooks] = React.useState<WorkbookRecord[]>([]);
@@ -284,6 +287,14 @@ export default function TrayectoriaPage() {
 
   React.useEffect(() => {
     if (!currentRole || currentRole !== "lider") {
+      return;
+    }
+
+    if (viewerAccess && !viewerAccess.canAccessTrayectoria) {
+      setIsLoading(false);
+      setWorkbooks([]);
+      setDiscoverySession(null);
+      setLoadError(null);
       return;
     }
 
@@ -331,11 +342,19 @@ export default function TrayectoriaPage() {
     return () => {
       active = false;
     };
-  }, [currentRole]);
+  }, [currentRole, viewerAccess]);
 
   if (!currentUser || !currentRole || !bootstrapData) {
     return null;
   }
+
+  const isLockedForViewer =
+    currentRole === "lider" &&
+    viewerAccess !== null &&
+    !viewerAccess.canAccessTrayectoria;
+  const trajectoryOffers = filterCommercialProducts(viewerAccess?.catalog, {
+    codes: ["program_4shine"],
+  });
 
   const firstName = currentUser.name.split(" ")[0] ?? currentUser.name;
   const leaderPhaseModels =
@@ -590,6 +609,32 @@ export default function TrayectoriaPage() {
             Preparando tu trayectoria 4Shine...
           </p>
         </div>
+      </div>
+    );
+  }
+
+  if (isLockedForViewer) {
+    return (
+      <div className="space-y-8">
+        <PageTitle
+          title="Trayectoria"
+          subtitle="La timeline del journey líder se activa con el programa 4Shine."
+        />
+        <AccessOfferPanel
+          badge="Ruta bloqueada"
+          title="Activa el programa para desbloquear tu trayectoria."
+          description={
+            viewerAccess?.hasAnyPurchase
+              ? "Tu cuenta ya tiene actividad comercial, pero la timeline completa, los hitos y el seguimiento del journey requieren el programa 4Shine."
+              : "Todavía no hay una compra asociada a esta cuenta. Al activar el programa 4Shine se desbloquean los 5 hitos, la timeline de 24 semanas, los workbooks y el progreso integral."
+          }
+          products={trajectoryOffers}
+          primaryAction={{
+            href: "/dashboard",
+            label: "Ver plan 4Shine",
+          }}
+          note="Trayectoria conecta diagnóstico, workbooks, mentorías incluidas y señales del programa en una sola línea de tiempo por usuario."
+        />
       </div>
     );
   }

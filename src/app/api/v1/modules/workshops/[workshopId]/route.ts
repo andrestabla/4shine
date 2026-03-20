@@ -23,7 +23,7 @@ export async function PATCH(request: Request, context: ContextParams) {
   try {
     const data = await withClient((client) =>
       withRoleContext(client, identity.userId, identity.role, async () => {
-        const result = await updateWorkshop(client, workshopId, body);
+        const result = await updateWorkshop(client, identity, workshopId, body);
         await logModuleAudit(client, request, identity, {
           moduleCode: 'workshops',
           action: 'update_workshop',
@@ -50,7 +50,7 @@ export async function DELETE(request: Request, context: ContextParams) {
   try {
     const data = await withClient((client) =>
       withRoleContext(client, identity.userId, identity.role, async () => {
-        const result = await deleteWorkshop(client, workshopId);
+        const result = await deleteWorkshop(client, identity, workshopId);
         await logModuleAudit(client, request, identity, {
           moduleCode: 'workshops',
           action: 'delete_workshop',

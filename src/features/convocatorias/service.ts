@@ -1,5 +1,6 @@
 import type { PoolClient } from 'pg';
 import type { AuthUser } from '@/server/auth/types';
+import { requireCommunityAccess } from '@/features/access/service';
 import { requireModulePermission } from '@/server/auth/module-permissions';
 
 export type WorkMode = 'presencial' | 'hibrido' | 'remoto' | 'voluntariado';
@@ -91,8 +92,13 @@ const BASE_SELECT = `
   LEFT JOIN app_networking.job_applications ja ON ja.job_post_id = jp.job_post_id
 `;
 
-export async function listJobPosts(client: PoolClient, limit = 100): Promise<JobPostRecord[]> {
+export async function listJobPosts(
+  client: PoolClient,
+  actor: AuthUser,
+  limit = 100,
+): Promise<JobPostRecord[]> {
   await requireModulePermission(client, 'convocatorias', 'view');
+  await requireCommunityAccess(client, actor, 'Convocatorias');
 
   const { rows } = await client.query<JobPostRow>(
     `${BASE_SELECT}
@@ -111,6 +117,7 @@ export async function createJobPost(
   input: CreateJobPostInput,
 ): Promise<JobPostRecord> {
   await requireModulePermission(client, 'convocatorias', 'create');
+  await requireCommunityAccess(client, actor, 'Convocatorias');
 
   const { rows } = await client.query<{ job_post_id: string }>(
     `
@@ -146,7 +153,7 @@ export async function createJobPost(
     throw new Error('Failed to create job post');
   }
 
-  const all = await listJobPosts(client, 500);
+  const all = await listJobPosts(client, actor, 500);
   const created = all.find((item) => item.jobPostId === jobPostId);
   if (!created) {
     throw new Error('Created job post not found');
@@ -157,10 +164,12 @@ export async function createJobPost(
 
 export async function updateJobPost(
   client: PoolClient,
+  actor: AuthUser,
   jobPostId: string,
   input: UpdateJobPostInput,
 ): Promise<JobPostRecord> {
   await requireModulePermission(client, 'convocatorias', 'update');
+  await requireCommunityAccess(client, actor, 'Convocatorias');
 
   const { rowCount } = await client.query(
     `
@@ -193,7 +202,7 @@ export async function updateJobPost(
     throw new Error('Job post not found');
   }
 
-  const all = await listJobPosts(client, 500);
+  const all = await listJobPosts(client, actor, 500);
   const updated = all.find((item) => item.jobPostId === jobPostId);
   if (!updated) {
     throw new Error('Job post not found');
@@ -202,8 +211,13 @@ export async function updateJobPost(
   return updated;
 }
 
-export async function deleteJobPost(client: PoolClient, jobPostId: string): Promise<{ jobPostId: string }> {
+export async function deleteJobPost(
+  client: PoolClient,
+  actor: AuthUser,
+  jobPostId: string,
+): Promise<{ jobPostId: string }> {
   await requireModulePermission(client, 'convocatorias', 'delete');
+  await requireCommunityAccess(client, actor, 'Convocatorias');
 
   const { rows } = await client.query<{ job_post_id: string }>(
     `

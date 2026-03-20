@@ -1,10 +1,12 @@
 'use client';
 
 import React from 'react';
+import { AccessOfferPanel } from '@/components/access/AccessOfferPanel';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { EmptyState } from '@/components/dashboard/EmptyState';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useUser } from '@/context/UserContext';
+import { filterCommercialProducts } from '@/features/access/catalog';
 import {
   createJobPost,
   deleteJobPost,
@@ -29,7 +31,7 @@ function toDateLabel(value: string): string {
 }
 
 export default function ConvocatoriasPage() {
-  const { can, refreshBootstrap } = useUser();
+  const { can, currentRole, refreshBootstrap, viewerAccess } = useUser();
   const { alert, confirm, prompt } = useAppDialog();
   const [jobs, setJobs] = React.useState<JobPostRecord[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -39,6 +41,11 @@ export default function ConvocatoriasPage() {
     location: '',
     workMode: 'hibrido',
     description: '',
+  });
+  const isCommunityLocked =
+    currentRole === 'lider' && viewerAccess?.viewerTier === 'open_leader';
+  const programOffers = filterCommercialProducts(viewerAccess?.catalog, {
+    codes: ['program_4shine'],
   });
 
   const showError = React.useCallback(
@@ -65,8 +72,12 @@ export default function ConvocatoriasPage() {
   }, [showError]);
 
   React.useEffect(() => {
+    if (isCommunityLocked) {
+      setLoading(false);
+      return;
+    }
     void load();
-  }, [load]);
+  }, [isCommunityLocked, load]);
 
   const onCreate = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -141,6 +152,28 @@ export default function ConvocatoriasPage() {
       await showError('No se pudo actualizar la convocatoria', updateError);
     }
   };
+
+  if (isCommunityLocked) {
+    return (
+      <div className="space-y-6">
+        <PageTitle
+          title="Convocatorias"
+          subtitle="Las oportunidades y convocatorias del ecosistema se habilitan con el programa 4Shine."
+        />
+        <AccessOfferPanel
+          badge="Acceso bloqueado"
+          title="Desbloquea Convocatorias con el plan 4Shine."
+          description="Este módulo te abre acceso a oportunidades, búsquedas y dinámicas del ecosistema. Está disponible para líderes con el programa activo."
+          products={programOffers}
+          primaryAction={{
+            href: '/dashboard',
+            label: 'Ver plan 4Shine',
+          }}
+          note="Cuando actives el programa, Convocatorias se integrará con tu Trayectoria y tus siguientes desafíos."
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

@@ -1,4 +1,5 @@
 import type { PoolClient } from 'pg';
+import { getViewerAccessState, requireProgramSubscriptionAccess } from '@/features/access/service';
 import type { AuthUser } from '@/server/auth/types';
 import { requireModulePermission } from '@/server/auth/module-permissions';
 
@@ -878,12 +879,37 @@ async function getAdditionalOrderById(
   return mapAdditionalOrder(row);
 }
 
-export async function listMentorships(client: PoolClient, limit = 100): Promise<MentorshipRecord[]> {
+export async function listMentorships(
+  client: PoolClient,
+  actor: AuthUser,
+  limit = 100,
+): Promise<MentorshipRecord[]> {
+  await requireModulePermission(client, 'mentorias', 'view');
+
   const { rows } = await client.query<MentorshipRow>(
     `${BASE_SELECT}
+     WHERE (
+       $1 = 'admin'
+       OR $1 = 'gestor'
+       OR ($1 = 'mentor' AND (
+         ms.mentor_user_id = $2::uuid
+         OR EXISTS (
+           SELECT 1
+           FROM app_mentoring.session_participants sp
+           WHERE sp.session_id = ms.session_id
+             AND sp.user_id = $2::uuid
+         )
+       ))
+       OR ($1 = 'lider' AND EXISTS (
+         SELECT 1
+         FROM app_mentoring.session_participants sp
+         WHERE sp.session_id = ms.session_id
+           AND sp.user_id = $2::uuid
+       ))
+     )
      ORDER BY ms.starts_at DESC
-     LIMIT $1`,
-    [Math.min(Math.max(limit, 1), 500)],
+     LIMIT $3`,
+    [actor.role, actor.userId, Math.min(Math.max(limit, 1), 500)],
   );
 
   return rows.map(mapRow);
@@ -895,12 +921,15 @@ export async function getMentorshipOverview(
 ): Promise<MentorshipOverviewRecord> {
   await requireModulePermission(client, 'mentorias', 'view');
 
-  const sessions = await listMentorships(client, 120);
+  const sessions = await listMentorships(client, actor, 120);
   const mentorCatalog = await listMentorCatalog(client);
 
   if (actor.role === 'lider') {
+    const access = await getViewerAccessState(client, actor, { includeCatalog: false });
     const [programEntitlements, additionalOrders] = await Promise.all([
-      listProgramEntitlements(client, actor.userId),
+      access.canAccessProgramMentorships
+        ? listProgramEntitlements(client, actor.userId)
+        : Promise.resolve([]),
       listAdditionalOrders(client, actor, 50),
     ]);
 
@@ -951,6 +980,7 @@ export async function scheduleProgramMentorship(
 ): Promise<MentorshipRecord> {
   assertLeaderActor(actor);
   await requireModulePermission(client, 'mentorias', 'create');
+  await requireProgramSubscriptionAccess(client, actor, 'Las mentorías incluidas del programa');
 
   const entitlement = await getProgramEntitlement(client, input.entitlementId, actor.userId);
 

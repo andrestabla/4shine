@@ -1,10 +1,12 @@
 'use client';
 
 import React from 'react';
+import { AccessOfferPanel } from '@/components/access/AccessOfferPanel';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { EmptyState } from '@/components/dashboard/EmptyState';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useUser } from '@/context/UserContext';
+import { filterCommercialProducts } from '@/features/access/catalog';
 import {
   createConnection,
   deleteConnection,
@@ -24,12 +26,17 @@ function toDateLabel(value: string): string {
 }
 
 export default function NetworkingPage() {
-  const { bootstrapData, can, refreshBootstrap } = useUser();
+  const { bootstrapData, can, currentRole, refreshBootstrap, viewerAccess } = useUser();
   const { alert, confirm } = useAppDialog();
   const [connections, setConnections] = React.useState<ConnectionRecord[]>([]);
   const [people, setPeople] = React.useState<NetworkPersonRecord[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [selectedUserId, setSelectedUserId] = React.useState('');
+  const isCommunityLocked =
+    currentRole === 'lider' && viewerAccess?.viewerTier === 'open_leader';
+  const programOffers = filterCommercialProducts(viewerAccess?.catalog, {
+    codes: ['program_4shine'],
+  });
 
   const showError = React.useCallback(
     async (fallbackMessage: string, cause: unknown) => {
@@ -60,8 +67,12 @@ export default function NetworkingPage() {
   }, [showError]);
 
   React.useEffect(() => {
+    if (isCommunityLocked) {
+      setLoading(false);
+      return;
+    }
     void load();
-  }, [load]);
+  }, [isCommunityLocked, load]);
 
   const onCreate = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -104,6 +115,28 @@ export default function NetworkingPage() {
 
   const availablePeople = people.filter((person) => person.connectionStatus === 'none');
   const interestGroups = bootstrapData?.interestGroups ?? [];
+
+  if (isCommunityLocked) {
+    return (
+      <div className="space-y-6">
+        <PageTitle
+          title="Networking"
+          subtitle="El acceso a la red colaborativa del programa se activa con el plan 4Shine."
+        />
+        <AccessOfferPanel
+          badge="Acceso bloqueado"
+          title="Desbloquea Networking con el programa 4Shine."
+          description="Networking forma parte de la experiencia completa del programa. Al activarlo accedes a conexiones, grupos y dinámicas de relacionamiento dentro de la plataforma."
+          products={programOffers}
+          primaryAction={{
+            href: '/dashboard',
+            label: 'Ver plan 4Shine',
+          }}
+          note="Mientras tu cuenta siga en modo free, Aprendizaje mantiene visible solo los recursos etiquetados como free."
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

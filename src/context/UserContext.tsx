@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode } from 'react';
+import type { ViewerAccessState } from '@/features/access/types';
 import type { BootstrapPayload, Role, User } from '@/server/bootstrap/types';
 import { useRouter } from 'next/navigation';
 import { hydrateFromBackend } from '@/lib/bootstrap-client';
@@ -26,6 +27,7 @@ interface UserContextType {
   currentRole: Role | null;
   sessionUser: SessionUser | null;
   bootstrapData: BootstrapPayload | null;
+  viewerAccess: ViewerAccessState | null;
   modulePermissions: ModulePermissionMap;
   isHydrating: boolean;
   isAuthenticated: boolean;
@@ -78,6 +80,14 @@ function fallbackUser(sessionUser: SessionUser): User {
 }
 
 function buildCurrentUser(sessionUser: SessionUser, payload: BootstrapPayload): User {
+  if (payload.currentUser) {
+    return {
+      ...payload.currentUser,
+      id: payload.currentUser.id || sessionUser.id,
+      name: sessionUser.name || payload.currentUser.name,
+    };
+  }
+
   const payloadUser = payload.users?.[sessionUser.role];
   if (!payloadUser) {
     return fallbackUser(sessionUser);
@@ -238,6 +248,10 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
       if (!prev) return prev;
       return {
         ...prev,
+        currentUser: {
+          ...prev.currentUser,
+          ...updates,
+        },
         users: {
           ...prev.users,
           [currentRole]: {
@@ -273,6 +287,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         currentRole,
         sessionUser,
         bootstrapData,
+        viewerAccess: bootstrapData?.viewerAccess ?? null,
         modulePermissions,
         isHydrating,
         isAuthenticated: !!sessionUser,

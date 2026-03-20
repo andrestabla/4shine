@@ -1,4 +1,5 @@
 import type { PoolClient } from "pg";
+import { requireDiscoveryAccess } from "@/features/access/service";
 import { requireModulePermission } from "@/server/auth/module-permissions";
 import type { AuthUser } from "@/server/auth/types";
 import {
@@ -256,6 +257,7 @@ export async function getOrCreateDiscoverySession(
   actor: AuthUser,
 ): Promise<DiscoverySessionRecord> {
   await requireModulePermission(client, "descubrimiento", "view");
+  await requireDiscoveryAccess(client, actor);
 
   const current = await readDiscoverySession(client, actor.userId);
   if (!current) {
@@ -301,6 +303,7 @@ export async function updateDiscoverySession(
   input: UpdateDiscoverySessionInput,
 ): Promise<DiscoverySessionRecord> {
   await requireModulePermission(client, "descubrimiento", "update");
+  await requireDiscoveryAccess(client, actor);
 
   const current = await getOrCreateDiscoverySession(client, actor);
   const next = buildNextState(current, actor, input);
@@ -378,6 +381,7 @@ export async function resetDiscoverySession(
   actor: AuthUser,
 ): Promise<DiscoverySessionRecord> {
   await requireModulePermission(client, "descubrimiento", "update");
+  await requireDiscoveryAccess(client, actor);
 
   const current = await getOrCreateDiscoverySession(client, actor);
 
@@ -479,6 +483,7 @@ export async function shareDiscoverySession(
   input: UpdateDiscoverySessionInput = {},
 ): Promise<DiscoverySessionRecord> {
   await requireModulePermission(client, "descubrimiento", "view");
+  await requireDiscoveryAccess(client, actor);
 
   const session = await updateDiscoverySession(client, actor, {
     ...input,
