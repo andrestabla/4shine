@@ -188,12 +188,12 @@ export default function MensajesPage() {
       <div className="space-y-6">
         <PageTitle
           title="Mensajes"
-          subtitle="La mensajería entre líderes, ishiners y red del programa se habilita con el plan 4Shine."
+          subtitle="La mensajería entre líderes, iShiners y red del programa se habilita con el plan 4Shine."
         />
         <AccessOfferPanel
           badge="Acceso bloqueado"
           title="Activa Mensajes con el programa 4Shine."
-          description="Este módulo forma parte de la experiencia colaborativa del programa. Al activar el plan podrás conversar con tu red, tus ishiners y otros actores del ecosistema."
+          description="Este módulo forma parte de la experiencia colaborativa del programa. Al activar el plan podrás conversar con tu red, tus iShiners y otros actores del ecosistema."
           products={programOffers}
           primaryAction={{
             href: '/dashboard',

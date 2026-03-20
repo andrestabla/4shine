@@ -12,14 +12,14 @@ export default function GestionFormacionMentoresPage() {
 
   return (
     <div>
-      <PageTitle title="Gestión Formación Mentores" subtitle="Asignaciones y estado de cursos por mentor." />
+      <PageTitle title="Gestión Formación iShiners" subtitle="Asignaciones y estado de cursos por iShine." />
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-slate-600">
               <tr className="text-left">
-                <th className="px-4 py-3">Mentor</th>
+                <th className="px-4 py-3">iShine</th>
                 <th className="px-4 py-3">Curso</th>
                 <th className="px-4 py-3">Asignado</th>
                 <th className="px-4 py-3">Estado</th>

@@ -309,7 +309,7 @@ export default function MentoriasPage() {
           value: overview.programEntitlements.filter((item) => item.status === 'scheduled').length,
           hint: isOpenLeader
             ? 'Verás aquí las incluidas cuando actives el programa.'
-            : 'Mentorías incluidas ya reservadas con ishiner.',
+            : 'Mentorías incluidas ya reservadas con iShine.',
         },
         {
           label: 'Adicionales',
@@ -342,9 +342,9 @@ export default function MentoriasPage() {
           hint: 'Sesiones cerradas y finalizadas.',
         },
         {
-          label: 'Ishiners',
+          label: 'iShiners',
           value: overview.mentorCatalog.length,
-          hint: 'Mentores activos en el catálogo.',
+          hint: 'iShiners activos en el catálogo.',
         },
       ]
     : [];
@@ -469,7 +469,7 @@ export default function MentoriasPage() {
       <div className="space-y-6">
         <PageTitle
           title="Mentorías"
-          subtitle="Estamos preparando la agenda, las mentorías incluidas y el catálogo de ishineres disponibles."
+          subtitle="Estamos preparando la agenda, las mentorías incluidas y el catálogo de iShiners disponibles."
         />
         <div className="app-panel p-6 text-sm text-[var(--app-muted)]">Cargando mentorías...</div>
       </div>
@@ -622,7 +622,7 @@ export default function MentoriasPage() {
                 <tr className="text-left">
                   <th className="px-4 py-3">Título</th>
                   <th className="px-4 py-3">Origen</th>
-                  <th className="px-4 py-3">Mentor</th>
+                  <th className="px-4 py-3">iShine</th>
                   <th className="px-4 py-3">Inicio</th>
                   <th className="px-4 py-3">Estado</th>
                   <th className="px-4 py-3">Acciones</th>
@@ -684,8 +684,8 @@ export default function MentoriasPage() {
         title="Mentorías"
         subtitle={
           isOpenLeader
-            ? 'Puedes comprar sesiones adicionales con ishiners disponibles. Las mentorías incluidas se activan cuando compras el programa 4Shine.'
-            : 'Agenda las sesiones incluidas del programa, compra sesiones adicionales con ishineres disponibles y visualiza tu semana completa de acompañamiento.'
+            ? 'Puedes comprar sesiones adicionales con iShiners disponibles. Las mentorías incluidas se activan cuando compras el programa 4Shine.'
+            : 'Agenda las sesiones incluidas del programa, compra sesiones adicionales con iShiners disponibles y visualiza tu semana completa de acompañamiento.'
         }
       />
 
@@ -693,7 +693,7 @@ export default function MentoriasPage() {
         <AccessOfferPanel
           badge="Líder sin suscripción"
           title="Activa mentorías del programa o compra sesiones puntuales."
-          description="Tu cuenta puede reservar sesiones adicionales con los ishiners disponibles. Si quieres las mentorías incluidas del journey, necesitas activar el programa 4Shine."
+          description="Tu cuenta puede reservar sesiones adicionales con los iShiners disponibles. Si quieres las mentorías incluidas del journey, necesitas activar el programa 4Shine."
           products={mentorshipOffers}
           primaryAction={{
             href: '/dashboard',
@@ -714,8 +714,8 @@ export default function MentoriasPage() {
           </h2>
           <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/84 md:text-base">
             {isOpenLeader
-              ? 'Desde aquí puedes comprar sesiones adicionales con los ishiners disponibles. Cuando actives el programa 4Shine, también aparecerán tus mentorías incluidas del journey.'
-              : 'Tienes sesiones incluidas por pertenecer al programa y también puedes activar espacios adicionales con los ishineres disponibles cuando necesites profundizar un reto puntual.'}
+              ? 'Desde aquí puedes comprar sesiones adicionales con los iShiners disponibles. Cuando actives el programa 4Shine, también aparecerán tus mentorías incluidas del journey.'
+              : 'Tienes sesiones incluidas por pertenecer al programa y también puedes activar espacios adicionales con los iShiners disponibles cuando necesites profundizar un reto puntual.'}
           </p>
 
           <div className="mt-6 flex flex-wrap gap-3 text-xs font-semibold text-white/88">
@@ -827,7 +827,7 @@ export default function MentoriasPage() {
                   {(item.scheduledStartsAt || item.mentorName) && (
                     <div className="mt-4 rounded-[18px] border border-[var(--app-border)] bg-white/88 px-4 py-4 text-sm text-[var(--app-muted)]">
                       <p>
-                        <span className="font-semibold text-[var(--app-ink)]">Mentor actual:</span>{' '}
+                        <span className="font-semibold text-[var(--app-ink)]">iShine actual:</span>{' '}
                         {item.mentorName ?? 'Por asignar'}
                       </p>
                       <p className="mt-1">
@@ -871,7 +871,7 @@ export default function MentoriasPage() {
             )}
             {overview.mentorCatalog.length === 0 && (
               <div className="mt-5 rounded-[18px] border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-800">
-                Tus mentorías incluidas ya están cargadas. Para poder reservarlas necesitamos activar al menos un ishiner en la base de datos.
+                Tus mentorías incluidas ya están cargadas. Para poder reservarlas necesitamos activar al menos un iShine en la base de datos.
               </div>
             )}
             {!isOpenLeader && (
@@ -898,7 +898,7 @@ export default function MentoriasPage() {
                   onChange={(event) => setProgramForm((prev) => ({ ...prev, mentorUserId: event.target.value }))}
                   required
                 >
-                  <option value="">Selecciona un ishiner</option>
+                  <option value="">Selecciona un iShine</option>
                   {overview.mentorCatalog.map((mentor) => (
                     <option key={mentor.mentorUserId} value={mentor.mentorUserId}>
                       {mentor.name} · {mentor.specialty}
@@ -916,7 +916,7 @@ export default function MentoriasPage() {
 
                 <textarea
                   className="min-h-[120px] w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
-                  placeholder="Contexto para el ishiner o foco que quieres trabajar."
+                  placeholder="Contexto para el iShine o foco que quieres trabajar."
                   value={programForm.note}
                   onChange={(event) => setProgramForm((prev) => ({ ...prev, note: event.target.value }))}
                 />
@@ -1043,12 +1043,12 @@ export default function MentoriasPage() {
         <section className="app-panel p-5 sm:p-6">
           <div className="flex items-center gap-2">
             <BriefcaseBusiness size={16} className="text-[var(--brand-primary)]" />
-            <p className="app-section-kicker">Ishineres disponibles</p>
+            <p className="app-section-kicker">iShiners disponibles</p>
           </div>
           <div className="mt-5 grid gap-4 md:grid-cols-2">
             {overview.mentorCatalog.length === 0 ? (
               <div className="md:col-span-2">
-                <EmptyState message="Aún no hay ishineres visibles para compra adicional." />
+                <EmptyState message="Aún no hay iShiners visibles para compra adicional." />
               </div>
             ) : (
               overview.mentorCatalog.map((mentor) => {
@@ -1115,7 +1115,7 @@ export default function MentoriasPage() {
                       </div>
                     ) : (
                       <div className="mt-4 rounded-[18px] border border-dashed border-[var(--app-border)] px-4 py-4 text-sm text-[var(--app-muted)]">
-                        Este ishiner aún no tiene una oferta activa cargada.
+                        Este iShine aún no tiene una oferta activa cargada.
                       </div>
                     )}
 
@@ -1149,7 +1149,7 @@ export default function MentoriasPage() {
             </div>
             {overview.mentorCatalog.length === 0 && (
               <div className="mt-5 rounded-[18px] border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-800">
-                La compra de sesiones adicionales quedará activa cuando existan ishineres disponibles en la plataforma.
+                La compra de sesiones adicionales quedará activa cuando existan iShiners disponibles en la plataforma.
               </div>
             )}
             <form className="mt-5 space-y-3" onSubmit={handleAdditionalPurchase}>

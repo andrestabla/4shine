@@ -54,7 +54,7 @@ export interface WorkbookEditableFields {
   leadershipReflection: string;
   actionPlan: string;
   successMetrics: string;
-  ishinerNotes: string;
+  iShineNotes: string;
 }
 
 export type WorkbookStatePayload = Record<string, string>;
@@ -150,29 +150,33 @@ interface WorkbookRow {
   updated_at: string;
 }
 
+type WorkbookEditableFieldsInput = Partial<WorkbookEditableFields> & {
+  ishinerNotes?: string | null;
+};
+
 const DEFAULT_WORKBOOK_FIELDS: WorkbookEditableFields = {
   currentFocus: '',
   leadershipReflection: '',
   actionPlan: '',
   successMetrics: '',
-  ishinerNotes: '',
+  iShineNotes: '',
 };
 
 function normalizeWorkbookFields(
-  input: Partial<WorkbookEditableFields> | WorkbookEditableFields | null | undefined,
+  input: WorkbookEditableFieldsInput | null | undefined,
 ): WorkbookEditableFields {
   return {
     currentFocus: input?.currentFocus?.trim() ?? '',
     leadershipReflection: input?.leadershipReflection?.trim() ?? '',
     actionPlan: input?.actionPlan?.trim() ?? '',
     successMetrics: input?.successMetrics?.trim() ?? '',
-    ishinerNotes: input?.ishinerNotes?.trim() ?? '',
+    iShineNotes: input?.iShineNotes?.trim() ?? input?.ishinerNotes?.trim() ?? '',
   };
 }
 
 function mergeWorkbookFields(
   currentFields: WorkbookEditableFields,
-  updates: Partial<WorkbookEditableFields> | undefined,
+  updates: WorkbookEditableFieldsInput | undefined,
 ): WorkbookEditableFields {
   if (!updates) {
     return currentFields;
@@ -402,9 +406,9 @@ export async function getWorkbookForActor(
   const workbook = await getWorkbookById(client, workbookId);
   const isManager = actor.role === 'gestor' || actor.role === 'admin';
   const isLeaderOwner = actor.role === 'lider' && workbook.ownerUserId === actor.userId;
-  const isIshiner = actor.role === 'mentor';
+  const isIShine = actor.role === 'mentor';
 
-  if (!isManager && !isLeaderOwner && !isIshiner) {
+  if (!isManager && !isLeaderOwner && !isIShine) {
     throw new ForbiddenError('You do not have access to this workbook');
   }
 
@@ -680,9 +684,9 @@ export async function updateWorkbook(
   const current = await getWorkbookById(client, workbookId);
   const isManager = actor.role === 'gestor' || actor.role === 'admin';
   const isLeaderOwner = actor.role === 'lider' && current.ownerUserId === actor.userId;
-  const isIshiner = actor.role === 'mentor';
+  const isIShine = actor.role === 'mentor';
 
-  if (!isManager && !isLeaderOwner && !isIshiner) {
+  if (!isManager && !isLeaderOwner && !isIShine) {
     throw new ForbiddenError('You do not have access to this workbook');
   }
 

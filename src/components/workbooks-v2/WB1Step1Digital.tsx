@@ -594,7 +594,7 @@ const LEADER_EVALUATION_INSTRUCTIONS = [
     'Responde desde hechos recientes, no desde intención.',
     'Incluye al menos 1 evidencia por respuesta.',
     'Define una acción/compromiso de 30 días por pregunta.',
-    'Usa este bloque para acordar tu plan con el mentor.'
+    'Usa este bloque para acordar tu plan con el iShine.'
 ]
 
 const LEADER_EVALUATION_QUESTIONS = [
@@ -646,7 +646,7 @@ const LEADER_HELP_EXAMPLES: Array<{ response: string; evidence: string; action: 
 ]
 
 const EVALUATION_STAGES: Array<{ key: EvaluationStageKey; label: string }> = [
-    { key: 'mentor', label: 'Pantalla 1 - Mentor' },
+    { key: 'mentor', label: 'Pantalla 1 - iShine' },
     { key: 'leader', label: 'Pantalla 2 - Líder' },
     { key: 'synthesis', label: 'Pantalla 3 - Síntesis' },
     { key: 'final', label: 'Cierre' }
@@ -7832,7 +7832,7 @@ export function WB1Step1Digital() {
                                 {(evaluationStage === 'mentor' || isExportingAll) && (
                                     <section className="space-y-5">
                                         <article className="rounded-2xl border border-slate-200 bg-slate-50 p-5 md:p-6 space-y-3">
-                                            <h3 className="text-base md:text-lg font-bold text-slate-900">A) Modo Mentor - Rúbricas</h3>
+                                            <h3 className="text-base md:text-lg font-bold text-slate-900">A) Modo iShine - Rúbricas</h3>
                                             <ul className="space-y-1.5">
                                                 {MENTOR_EVALUATION_INSTRUCTIONS.map((instruction) => (
                                                     <li key={instruction} className="text-sm text-slate-700 flex items-start gap-2">
@@ -7955,7 +7955,7 @@ export function WB1Step1Digital() {
 
                                                                 <fieldset className="space-y-2">
                                                                     <legend className="text-xs uppercase tracking-[0.12em] text-slate-500">
-                                                                        Decisión del mentor
+                                                                        Decisión del iShine
                                                                     </legend>
                                                                     <div className="flex flex-wrap gap-2">
                                                                         {MENTOR_DECISION_OPTIONS.map((decision) => (
@@ -8015,7 +8015,7 @@ export function WB1Step1Digital() {
 
                                         <article className="rounded-2xl border border-slate-200 bg-slate-50 p-5 md:p-6 space-y-4">
                                             <div className="flex flex-wrap items-start justify-between gap-3">
-                                                <h4 className="text-base font-bold text-slate-900">Panel de cierre Mentor</h4>
+                                                <h4 className="text-base font-bold text-slate-900">Panel de cierre iShine</h4>
                                                 <span
                                                     className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
                                                         mentorSectionCompleted
@@ -8048,7 +8048,7 @@ export function WB1Step1Digital() {
 
                                             <label className="block space-y-1">
                                                 <span className="text-xs uppercase tracking-[0.12em] text-slate-500">
-                                                    Observaciones generales del mentor
+                                                    Observaciones generales del iShine
                                                 </span>
                                                 <textarea
                                                     value={mentorGeneralNotes}
@@ -8250,7 +8250,7 @@ export function WB1Step1Digital() {
                                     <section className="space-y-5">
                                         <article className="rounded-2xl border border-slate-200 bg-slate-50 p-5 md:p-6 space-y-4">
                                             <div className="flex flex-wrap items-start justify-between gap-3">
-                                                <h3 className="text-base md:text-lg font-bold text-slate-900">C) Síntesis de acuerdos Mentor-Líder</h3>
+                                                <h3 className="text-base md:text-lg font-bold text-slate-900">C) Síntesis de acuerdos iShine-Líder</h3>
                                                 <span
                                                     className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
                                                         synthesisSectionCompleted
@@ -8282,7 +8282,7 @@ export function WB1Step1Digital() {
                                             </div>
 
                                             <label className="block space-y-1">
-                                                <span className="text-xs uppercase tracking-[0.12em] text-slate-500">Síntesis de acuerdos Mentor-Líder</span>
+                                                <span className="text-xs uppercase tracking-[0.12em] text-slate-500">Síntesis de acuerdos iShine-Líder</span>
                                                 <textarea
                                                     value={synthesisText}
                                                     onChange={(event) => {
@@ -8363,7 +8363,7 @@ export function WB1Step1Digital() {
                                             </h3>
                                             <p className={`mt-2 text-sm ${evaluationCompleted ? 'text-emerald-700' : 'text-amber-700'}`}>
                                                 {evaluationCompleted
-                                                    ? 'Mentor y líder cerraron rúbrica, autoevaluación y síntesis.'
+                                                    ? 'iShine y líder cerraron rúbrica, autoevaluación y síntesis.'
                                                     : 'Completa los bloques pendientes para cerrar la evaluación.'}
                                             </p>
                                         </article>

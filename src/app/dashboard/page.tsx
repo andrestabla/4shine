@@ -183,7 +183,7 @@ export default function DashboardHomePage() {
             {
               label: "Mentorías",
               value: "50-200 USD",
-              hint: "Sesiones adicionales con ishineres disponibles.",
+              hint: "Sesiones adicionales con iShiners disponibles.",
             },
             {
               label: "Programa 4Shine",
@@ -238,7 +238,7 @@ export default function DashboardHomePage() {
                   Mentorías adicionales
                 </p>
                 <p className="text-sm text-[var(--app-muted)]">
-                  Reserva sesiones puntuales con el catálogo de ishineres.
+                  Reserva sesiones puntuales con el catálogo de iShiners.
                 </p>
               </div>
             </div>

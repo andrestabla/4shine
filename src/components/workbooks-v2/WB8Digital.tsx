@@ -442,7 +442,7 @@ const TREND_OPTIONS = ['↑', '→', '↓'] as const
 const KPI_STATUS_OPTIONS = ['Verde', 'Amarillo', 'Rojo'] as const
 const KPI_DECISION_OPTIONS = ['Mantener', 'Ajustar', 'Escalar', 'Pausar', 'Rediseñar'] as const
 const KPI_FREQUENCY_OPTIONS = ['Diaria', 'Semanal', 'Quincenal', 'Mensual'] as const
-const KPI_OWNER_OPTIONS = ['Yo', 'Equipo', 'Mentor', 'Marketing', 'Comercial', 'Operaciones'] as const
+const KPI_OWNER_OPTIONS = ['Yo', 'Equipo', 'iShine', 'Marketing', 'Comercial', 'Operaciones'] as const
 const CONTROL_MAIN_QUESTION_OPTIONS = [
     '¿Mi visibilidad está generando conversaciones y oportunidades reales?',
     '¿Mis contenidos y canales están convirtiendo en oportunidades concretas?',
@@ -512,7 +512,7 @@ const MENTOR_LEVEL_REFERENCE = [
     }
 ] as const
 const EVALUATION_STAGES: Array<{ key: EvaluationStageKey; label: string }> = [
-    { key: 'mentor', label: 'Mentor' },
+    { key: 'mentor', label: 'iShine' },
     { key: 'leader', label: 'Líder' },
     { key: 'synthesis', label: 'Síntesis' },
     { key: 'final', label: 'Cierre' }
@@ -1994,7 +1994,7 @@ export function WB8Digital() {
             }
         })
         setMentorEvaluationEditModes((prev) => prev.map((item, rowIndex) => (rowIndex === index ? false : item)))
-        announceSave(`Fila mentor ${index + 1} guardada.`)
+        announceSave(`Fila iShine ${index + 1} guardada.`)
     }
 
     const setMentorEvaluationField = (index: number, field: 'level' | 'evidence' | 'decision', value: string) => {
@@ -2057,7 +2057,7 @@ export function WB8Digital() {
             }
         }))
         markVisited(7)
-        announceSave('Cierre del mentor guardado.')
+        announceSave('Cierre del iShine guardado.')
     }
 
     const editLeaderEvaluationRow = (index: number) => {
@@ -6730,7 +6730,7 @@ export function WB8Digital() {
                                     <p className="text-[11px] uppercase tracking-[0.2em] text-blue-600 font-semibold">Página 7</p>
                                     <h2 className="text-2xl md:text-4xl font-extrabold leading-[1.08] tracking-tight text-slate-900">Evaluación</h2>
                                     <p className="text-sm md:text-base text-slate-700 max-w-4xl">
-                                        Objetivo: permitir que mentor y líder evalúen con evidencia, definan decisiones por criterio y cierren con
+                                        Objetivo: permitir que iShine y líder evalúen con evidencia, definan decisiones por criterio y cierren con
                                         síntesis de acuerdos.
                                     </p>
                                 </header>
@@ -6786,7 +6786,7 @@ export function WB8Digital() {
                                     <section className="space-y-5">
                                         <section className="rounded-2xl border border-slate-200 bg-slate-50 p-5 md:p-6 space-y-4">
                                             <div className="flex flex-wrap items-center justify-between gap-2">
-                                                <h3 className="text-base md:text-lg font-bold text-slate-900">A) Instrucciones para el mentor (rúbricas)</h3>
+                                                <h3 className="text-base md:text-lg font-bold text-slate-900">A) Instrucciones para el iShine (rúbricas)</h3>
                                                 <button
                                                     type="button"
                                                     onClick={() => setShowEvaluationLevelReference((current) => !current)}
@@ -6845,7 +6845,7 @@ export function WB8Digital() {
 
                                         <section className="space-y-4">
                                             <div className="flex flex-wrap items-center justify-between gap-2">
-                                                <h3 className="text-base md:text-lg font-bold text-slate-900">Formato de evaluación del mentor (marcar y comentar)</h3>
+                                                <h3 className="text-base md:text-lg font-bold text-slate-900">Formato de evaluación del iShine (marcar y comentar)</h3>
                                                 <p className="text-xs text-slate-500">
                                                     Criterios completados: {mentorCompletedRows}/{evaluation.mentorRows.length}
                                                 </p>
@@ -6925,7 +6925,7 @@ export function WB8Digital() {
                                                                 </label>
 
                                                                 <fieldset className="space-y-2">
-                                                                    <legend className="text-xs uppercase tracking-[0.12em] text-slate-500">Decisión del mentor</legend>
+                                                                    <legend className="text-xs uppercase tracking-[0.12em] text-slate-500">Decisión del iShine</legend>
                                                                     <div className="flex flex-wrap gap-2">
                                                                         {MENTOR_DECISION_OPTIONS.map((decision) => (
                                                                             <label
@@ -6966,7 +6966,7 @@ export function WB8Digital() {
 
                                         <section className="rounded-2xl border border-slate-200 bg-slate-50 p-5 md:p-6 space-y-4">
                                             <label className="block space-y-1">
-                                                <span className="text-xs uppercase tracking-[0.12em] text-slate-500">Observaciones generales del mentor</span>
+                                                <span className="text-xs uppercase tracking-[0.12em] text-slate-500">Observaciones generales del iShine</span>
                                                 <textarea
                                                     value={evaluation.mentorGeneralNotes}
                                                     onChange={(event) => setMentorGeneralNotes(event.target.value)}
@@ -7004,7 +7004,7 @@ export function WB8Digital() {
                                                     disabled={isLocked}
                                                     className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
                                                 >
-                                                    Guardar cierre mentor
+                                                    Guardar cierre iShine
                                                 </button>
                                             </div>
                                         </section>
@@ -7020,7 +7020,7 @@ export function WB8Digital() {
                                                     'Responde cada pregunta desde hechos concretos y recientes, no desde intención.',
                                                     'Incluye al menos un ejemplo o evidencia por respuesta.',
                                                     'Define una acción o compromiso de 30 días para cada respuesta clave.',
-                                                    'Usa este bloque como insumo para acordar el plan de desarrollo con el mentor.'
+                                                    'Usa este bloque como insumo para acordar el plan de desarrollo con el iShine.'
                                                 ].map((instruction) => (
                                                     <li key={`wb8-leader-instruction-${instruction}`} className="text-sm text-slate-700 flex items-start gap-2">
                                                         <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-slate-700 shrink-0" />
@@ -7121,7 +7121,7 @@ export function WB8Digital() {
                                     <section className="space-y-5">
                                         <section className="rounded-2xl border border-slate-200 bg-slate-50 p-5 md:p-6 space-y-4">
                                             <div className="flex flex-wrap items-center justify-between gap-2">
-                                                <h3 className="text-base md:text-lg font-bold text-slate-900">C) Síntesis de acuerdos Mentor-Líder</h3>
+                                                <h3 className="text-base md:text-lg font-bold text-slate-900">C) Síntesis de acuerdos iShine-Líder</h3>
                                                 <span
                                                     className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
                                                         synthesisStageComplete
@@ -7133,13 +7133,13 @@ export function WB8Digital() {
                                                 </span>
                                             </div>
                                             <label className="block space-y-1">
-                                                <span className="text-xs uppercase tracking-[0.12em] text-slate-500">Síntesis de acuerdos Mentor-Líder</span>
+                                                <span className="text-xs uppercase tracking-[0.12em] text-slate-500">Síntesis de acuerdos iShine-Líder</span>
                                                 <textarea
                                                     value={evaluation.agreementsSynthesis}
                                                     onChange={(event) => setEvaluationSynthesis(event.target.value)}
                                                     disabled={isLocked}
                                                     className="w-full min-h-[160px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                                                    placeholder="Registra acuerdos concretos entre mentor y líder."
+                                                    placeholder="Registra acuerdos concretos entre iShine y líder."
                                                 />
                                             </label>
                                             <div className="flex justify-end">
@@ -7170,7 +7170,7 @@ export function WB8Digital() {
                                             </h3>
                                             <p className={`mt-2 text-sm ${evaluationSectionComplete ? 'text-emerald-700' : 'text-amber-700'}`}>
                                                 {evaluationSectionComplete
-                                                    ? 'Mentor y líder cerraron rúbrica, autoevaluación y síntesis.'
+                                                    ? 'iShine y líder cerraron rúbrica, autoevaluación y síntesis.'
                                                     : 'Completa los bloques pendientes para cerrar la evaluación.'}
                                             </p>
                                         </article>
@@ -7211,7 +7211,7 @@ export function WB8Digital() {
                                     >
                                         {evaluationSectionComplete
                                             ? 'Evaluación completada'
-                                            : 'Evaluación pendiente (mentor + líder + síntesis)'}
+                                            : 'Evaluación pendiente (iShine + líder + síntesis)'}
                                     </span>
                                     <button
                                         type="button"

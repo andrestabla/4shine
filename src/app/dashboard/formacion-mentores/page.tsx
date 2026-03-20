@@ -12,7 +12,7 @@ export default function FormacionMentoresPage() {
 
   return (
     <div>
-      <PageTitle title="Formación Mentores" subtitle="Ruta de capacitación para mentores activos." />
+      <PageTitle title="Formación iShiners" subtitle="Ruta de capacitación para iShiners activos." />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {mentorTraining.map((item) => (

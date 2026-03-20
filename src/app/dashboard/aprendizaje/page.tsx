@@ -115,7 +115,7 @@ function formatDateTime(value: string | null | undefined): string {
 
 function roleLabel(role: string | null | undefined): string {
   if (!role) return "Usuario";
-  if (role === "mentor") return "Ishiner";
+  if (role === "mentor") return "iShine";
   if (role === "lider") return "Líder";
   if (role === "gestor") return "Gestor";
   if (role === "admin") return "Admin";
@@ -985,8 +985,8 @@ export default function AprendizajePage() {
                 </h3>
                 <p className="mt-2 text-sm leading-relaxed text-[var(--app-muted)]">
                   {isOpenLeader
-                    ? "Esta cuenta ve solo contenidos free. Los líderes suscritos y los ishiners acceden a la biblioteca completa; gestores y admins administran el catálogo."
-                    : "Los líderes e ishiners pueden buscar, filtrar, visualizar y comentar. Los gestores y admins administran el catálogo."}
+                    ? "Esta cuenta ve solo contenidos free. Los líderes suscritos y los iShiners acceden a la biblioteca completa; gestores y admins administran el catálogo."
+                    : "Los líderes e iShiners pueden buscar, filtrar, visualizar y comentar. Los gestores y admins administran el catálogo."}
                 </p>
               </div>
             </div>
@@ -1395,7 +1395,7 @@ export default function AprendizajePage() {
                             <p className="app-section-kicker">Comentarios</p>
                             <p className="mt-1 text-sm text-[var(--app-muted)]">
                               Conversación sobre el recurso entre líderes,
-                              ishiners y equipo gestor.
+                              iShiners y equipo gestor.
                             </p>
                           </div>
                           <span className="inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-[var(--app-chip)] px-3 py-1 text-xs text-[var(--app-muted)]">

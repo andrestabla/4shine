@@ -56,7 +56,7 @@ function roleLabel(role: AppRole): string {
     case 'gestor':
       return 'GESTOR';
     case 'mentor':
-      return 'MENTOR';
+      return 'iShine';
     case 'lider':
     default:
       return 'LÍDER';

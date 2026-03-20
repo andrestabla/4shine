@@ -117,13 +117,13 @@ const MAIN_NAV_ITEMS: NavItem[] = [
   },
   {
     moduleCode: "formacion_mentores",
-    label: "Formación Mentores",
+    label: "Formación iShiners",
     icon: Book,
     path: "/dashboard/formacion-mentores",
   },
   {
     moduleCode: "gestion_formacion_mentores",
-    label: "Gestión Formación Mentores",
+    label: "Gestión Formación iShiners",
     icon: Book,
     path: "/dashboard/gestion-formacion-mentores",
   },
