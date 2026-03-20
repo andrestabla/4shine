@@ -182,6 +182,74 @@ interface SessionMetaRow {
   last_session_at: string | null;
 }
 
+const SUBSCRIBED_LEADER_PLAN_TYPES = new Set<PlanType>([
+  'premium',
+  'vip',
+  'empresa_elite',
+]);
+
+function resolvePlanTypeForCreate(input: CreateUserInput): PlanType | null {
+  if (input.primaryRole !== 'lider') {
+    return input.planType ?? null;
+  }
+
+  return input.planType ?? 'standard';
+}
+
+async function ensureLeaderProgramPurchase(
+  client: PoolClient,
+  userId: string,
+  input: {
+    role: Role;
+    planType: PlanType | null;
+    priceAmount?: number;
+  },
+): Promise<void> {
+  if (
+    input.role !== 'lider' ||
+    !input.planType ||
+    !SUBSCRIBED_LEADER_PLAN_TYPES.has(input.planType)
+  ) {
+    return;
+  }
+
+  await client.query(
+    `
+      INSERT INTO app_billing.user_purchases (
+        user_id,
+        product_code,
+        status,
+        quantity,
+        unit_price_amount,
+        currency_code,
+        metadata,
+        purchased_at,
+        activated_at
+      )
+      SELECT
+        $1::uuid,
+        'program_4shine',
+        'active',
+        1,
+        COALESCE(pc.price_amount, $2::numeric),
+        COALESCE(pc.currency_code, 'USD'),
+        jsonb_build_object('source', 'manual_user_creation'),
+        now(),
+        now()
+      FROM app_billing.product_catalog pc
+      WHERE pc.product_code = 'program_4shine'
+        AND NOT EXISTS (
+          SELECT 1
+          FROM app_billing.user_purchases up
+          WHERE up.user_id = $1::uuid
+            AND up.product_code = 'program_4shine'
+            AND up.status = 'active'
+        )
+    `,
+    [userId, input.priceAmount ?? 2000],
+  );
+}
+
 interface PolicyAcceptanceRow {
   acceptance_id: string;
   policy_code: string;
@@ -906,6 +974,7 @@ export async function createUser(
 
   const passwordHash = await hashPassword(input.password);
   const displayName = input.displayName ?? `${input.firstName} ${input.lastName}`.trim();
+  const resolvedPlanType = resolvePlanTypeForCreate(input);
   let organizationId = input.organizationId ?? null;
 
   if (!organizationId) {
@@ -1016,12 +1085,17 @@ export async function createUser(
       userId,
       input.profession ?? null,
       input.industry ?? null,
-      input.planType ?? null,
+      resolvedPlanType,
       input.seniorityLevel ?? null,
       input.bio ?? null,
       input.location ?? null,
     ],
   );
+
+  await ensureLeaderProgramPurchase(client, userId, {
+    role: input.primaryRole,
+    planType: resolvedPlanType,
+  });
 
   return getUserById(client, userId);
 }

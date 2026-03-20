@@ -8,11 +8,14 @@ import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useUser } from '@/context/UserContext';
 import { createUser, type AppRole } from '@/features/usuarios/client';
 
+type LeaderSubscriptionMode = 'without_subscription' | 'with_subscription';
+
 interface FormState {
   fullName: string;
   email: string;
   password: string;
   primaryRole: AppRole;
+  leaderSubscription: LeaderSubscriptionMode;
 }
 
 function splitName(fullName: string): { firstName: string; lastName: string } {
@@ -42,6 +45,7 @@ export default function NuevoUsuarioPage() {
     email: '',
     password: '',
     primaryRole: 'lider',
+    leaderSubscription: 'without_subscription',
   });
 
   const canCreate = can('usuarios', 'create');
@@ -69,6 +73,12 @@ export default function NuevoUsuarioPage() {
         displayName: form.fullName.trim(),
         primaryRole: form.primaryRole,
         password: form.password,
+        planType:
+          form.primaryRole === 'lider'
+            ? form.leaderSubscription === 'with_subscription'
+              ? 'premium'
+              : 'standard'
+            : null,
       });
 
       await refreshBootstrap();
@@ -161,6 +171,31 @@ export default function NuevoUsuarioPage() {
               <option value="admin">Administrador</option>
             </select>
           </label>
+
+          {form.primaryRole === 'lider' && (
+            <label className="md:col-span-2">
+              <span className="mb-1 block text-sm font-semibold text-slate-700">
+                Estado de suscripción del líder *
+              </span>
+              <select
+                className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-slate-800 outline-none focus:border-slate-500"
+                value={form.leaderSubscription}
+                onChange={(event) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    leaderSubscription: event.target.value as LeaderSubscriptionMode,
+                  }))
+                }
+              >
+                <option value="without_subscription">Líder sin suscripción</option>
+                <option value="with_subscription">Líder con suscripción</option>
+              </select>
+              <p className="mt-2 text-sm text-slate-500">
+                El líder sin suscripción entra con acceso free. El líder con suscripción
+                queda habilitado para el programa 4Shine.
+              </p>
+            </label>
+          )}
         </div>
 
         <div className="mt-6 border-t border-slate-100 pt-6">
