@@ -203,51 +203,126 @@ async function ensureLeaderProgramPurchase(
     role: Role;
     planType: PlanType | null;
     priceAmount?: number;
+    source?: string;
   },
 ): Promise<void> {
-  if (
-    input.role !== 'lider' ||
-    !input.planType ||
-    !SUBSCRIBED_LEADER_PLAN_TYPES.has(input.planType)
-  ) {
+  const shouldHaveProgramPurchase =
+    input.role === 'lider' &&
+    Boolean(input.planType) &&
+    SUBSCRIBED_LEADER_PLAN_TYPES.has(input.planType as PlanType);
+
+  if (shouldHaveProgramPurchase) {
+    await client.query(
+      `
+        INSERT INTO app_billing.user_purchases (
+          user_id,
+          product_code,
+          status,
+          quantity,
+          unit_price_amount,
+          currency_code,
+          metadata,
+          purchased_at,
+          activated_at
+        )
+        SELECT
+          $1::uuid,
+          'program_4shine',
+          'active',
+          1,
+          COALESCE(pc.price_amount, $2::numeric),
+          COALESCE(pc.currency_code, 'USD'),
+          jsonb_build_object('source', $3::text),
+          now(),
+          now()
+        FROM app_billing.product_catalog pc
+        WHERE pc.product_code = 'program_4shine'
+          AND NOT EXISTS (
+            SELECT 1
+            FROM app_billing.user_purchases up
+            WHERE up.user_id = $1::uuid
+              AND up.product_code = 'program_4shine'
+              AND up.status = 'active'
+          )
+      `,
+      [userId, input.priceAmount ?? 2000, input.source ?? 'manual_user_creation'],
+    );
     return;
   }
 
   await client.query(
     `
-      INSERT INTO app_billing.user_purchases (
-        user_id,
-        product_code,
-        status,
-        quantity,
-        unit_price_amount,
-        currency_code,
-        metadata,
-        purchased_at,
-        activated_at
-      )
-      SELECT
-        $1::uuid,
-        'program_4shine',
-        'active',
-        1,
-        COALESCE(pc.price_amount, $2::numeric),
-        COALESCE(pc.currency_code, 'USD'),
-        jsonb_build_object('source', 'manual_user_creation'),
-        now(),
-        now()
-      FROM app_billing.product_catalog pc
-      WHERE pc.product_code = 'program_4shine'
-        AND NOT EXISTS (
-          SELECT 1
-          FROM app_billing.user_purchases up
-          WHERE up.user_id = $1::uuid
-            AND up.product_code = 'program_4shine'
-            AND up.status = 'active'
-        )
+      UPDATE app_billing.user_purchases
+      SET
+        status = 'cancelled',
+        metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
+          'source', $2::text,
+          'cancelled_at', now()
+        ),
+        updated_at = now()
+      WHERE user_id = $1::uuid
+        AND product_code = 'program_4shine'
+        AND status = 'active'
     `,
-    [userId, input.priceAmount ?? 2000],
+    [userId, input.source ?? 'manual_user_update'],
   );
+}
+
+async function getUserRoleAndPlan(
+  client: PoolClient,
+  userId: string,
+): Promise<{ primaryRole: Role; planType: PlanType | null }> {
+  const { rows } = await client.query<{ primary_role: Role; plan_type: PlanType | null }>(
+    `
+      SELECT
+        u.primary_role,
+        up.plan_type
+      FROM app_core.users u
+      LEFT JOIN app_core.user_profiles up ON up.user_id = u.user_id
+      WHERE u.user_id = $1::uuid
+      LIMIT 1
+    `,
+    [userId],
+  );
+
+  const row = rows[0];
+  if (!row) {
+    throw new Error('User not found');
+  }
+
+  return {
+    primaryRole: row.primary_role,
+    planType: row.plan_type,
+  };
+}
+
+function resolvePlanTypeForUpdate(
+  current: { primaryRole: Role; planType: PlanType | null },
+  input: UpdateUserInput,
+): PlanType | null | undefined {
+  const nextRole = input.primaryRole ?? current.primaryRole;
+
+  if (nextRole === 'lider') {
+    if (input.planType !== undefined) {
+      return input.planType ?? 'standard';
+    }
+
+    if (input.primaryRole === 'lider' && current.primaryRole !== 'lider') {
+      return 'standard';
+    }
+
+    return current.planType ?? 'standard';
+  }
+
+  if (input.primaryRole !== undefined) {
+    return null;
+  }
+
+  if (input.planType !== undefined) {
+    return input.planType;
+  }
+
+  return undefined;
 }
 
 interface PolicyAcceptanceRow {
@@ -1107,6 +1182,10 @@ export async function updateUser(
   input: UpdateUserInput,
 ): Promise<UserRecord> {
   await requireModulePermission(client, 'usuarios', 'update');
+  const currentUserState = await getUserRoleAndPlan(client, userId);
+  const resolvedPlanType = resolvePlanTypeForUpdate(currentUserState, input);
+  const nextRole = input.primaryRole ?? currentUserState.primaryRole;
+  const shouldUpdatePlanType = resolvedPlanType !== undefined;
 
   await client.query(
     `
@@ -1193,7 +1272,10 @@ export async function updateUser(
       SET
         profession = COALESCE($2, app_core.user_profiles.profession),
         industry = COALESCE($3, app_core.user_profiles.industry),
-        plan_type = COALESCE($4, app_core.user_profiles.plan_type),
+        plan_type = CASE
+          WHEN $8::boolean THEN $4
+          ELSE app_core.user_profiles.plan_type
+        END,
         seniority_level = COALESCE($5, app_core.user_profiles.seniority_level),
         bio = COALESCE($6, app_core.user_profiles.bio),
         location = COALESCE($7, app_core.user_profiles.location),
@@ -1203,12 +1285,19 @@ export async function updateUser(
       userId,
       input.profession ?? null,
       input.industry ?? null,
-      input.planType ?? null,
+      resolvedPlanType,
       input.seniorityLevel ?? null,
       input.bio ?? null,
       input.location ?? null,
+      shouldUpdatePlanType,
     ],
   );
+
+  await ensureLeaderProgramPurchase(client, userId, {
+    role: nextRole,
+    planType: resolvedPlanType ?? currentUserState.planType,
+    source: 'manual_user_update',
+  });
 
   return getUserById(client, userId);
 }

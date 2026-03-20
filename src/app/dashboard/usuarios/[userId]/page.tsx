@@ -28,6 +28,13 @@ import {
   type AuditLogRecord,
   type UserDetailRecord,
 } from '@/features/usuarios/client';
+import {
+  deriveUserTypeSelection,
+  resolveUserTypeSelection,
+  USER_TYPE_OPTIONS,
+  userTypeLabel,
+  type UserTypeOption,
+} from '@/features/usuarios/user-types';
 
 function asUserId(value: string | string[] | undefined): string | null {
   if (!value) return null;
@@ -64,8 +71,6 @@ function summarizeLogPayload(payload: Record<string, unknown>): string {
     return '{}';
   }
 }
-
-const ROLE_OPTIONS: AppRole[] = ['lider', 'mentor', 'gestor', 'admin'];
 
 export default function UsuarioDetallePage() {
   const params = useParams();
@@ -196,26 +201,31 @@ export default function UsuarioDetallePage() {
     }
   };
 
-  const onChangeRole = async (role: AppRole) => {
-    if (!detail || role === detail.primaryRole) return;
+  const onChangeUserType = async (userType: UserTypeOption) => {
+    if (!detail || userType === deriveUserTypeSelection(detail)) return;
+
+    const selection = resolveUserTypeSelection(userType);
 
     const ok = await confirm({
-      title: 'Cambiar rol',
-      message: `¿Asignar rol ${roleLabel(role)} a ${detail.displayName}?`,
-      confirmText: 'Asignar rol',
+      title: 'Cambiar tipo de usuario',
+      message: `¿Asignar ${userTypeLabel(userType)} a ${detail.displayName}?`,
+      confirmText: 'Guardar tipo',
       tone: 'warning',
     });
     if (!ok) return;
 
-    setProcessingAction('change-role');
+    setProcessingAction('change-user-type');
     try {
-      await updateUser(detail.userId, { primaryRole: role });
+      await updateUser(detail.userId, {
+        primaryRole: selection.primaryRole,
+        planType: selection.planType,
+      });
       await refreshBootstrap();
       await loadData();
     } catch (error) {
       await alert({
-        title: 'Error al actualizar rol',
-        message: error instanceof Error ? error.message : 'No se pudo actualizar el rol.',
+        title: 'Error al actualizar tipo de usuario',
+        message: error instanceof Error ? error.message : 'No se pudo actualizar el tipo de usuario.',
         tone: 'error',
       });
     } finally {
@@ -271,6 +281,7 @@ export default function UsuarioDetallePage() {
 
   const canUpdate = can('usuarios', 'update');
   const canDelete = can('usuarios', 'delete');
+  const currentUserType = deriveUserTypeSelection(detail);
 
   return (
     <div className="space-y-5">
@@ -290,7 +301,7 @@ export default function UsuarioDetallePage() {
               <p className="text-slate-500">{detail.email}</p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700">
-                  {roleLabel(detail.primaryRole)}
+                  {userTypeLabel(currentUserType)}
                 </span>
                 <span
                   className={`rounded-full px-3 py-1 text-sm font-semibold ${
@@ -373,25 +384,32 @@ export default function UsuarioDetallePage() {
           </article>
 
           <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="mb-4 text-xl font-bold text-slate-800">Roles y Permisos</h2>
-            <div className="mb-4 grid grid-cols-2 gap-2">
-              {ROLE_OPTIONS.map((role) => (
+            <h2 className="mb-4 text-xl font-bold text-slate-800">Tipo de Usuario y Permisos</h2>
+            <div className="mb-3 rounded-2xl border border-slate-100 bg-slate-50 p-3 text-sm text-slate-500">
+              Cambia el tipo del usuario sin perder visibilidad de los permisos activos por rol.
+            </div>
+
+            <div className="mb-4 grid grid-cols-1 gap-2">
+              {USER_TYPE_OPTIONS.map((option) => (
                 <button
-                  key={role}
+                  key={option}
                   type="button"
                   disabled={!canUpdate || processingAction !== null}
-                  onClick={() => void onChangeRole(role)}
-                  className={`rounded-xl border px-3 py-2 text-sm font-semibold transition disabled:opacity-60 ${
-                    detail.primaryRole === role
+                  onClick={() => void onChangeUserType(option)}
+                  className={`rounded-xl border px-3 py-3 text-left text-sm font-semibold transition disabled:opacity-60 ${
+                    currentUserType === option
                       ? 'border-slate-900 bg-slate-900 text-white'
                       : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
                   }`}
                 >
-                  {roleLabel(role)}
+                  {userTypeLabel(option)}
                 </button>
               ))}
             </div>
 
+            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
+              Permisos activos del rol base: {roleLabel(detail.primaryRole)}
+            </p>
             <div className="max-h-72 space-y-2 overflow-y-auto rounded-xl border border-slate-100 p-3">
               {detail.rolePermissions.map((permission) => (
                 <div key={permission.moduleCode} className="rounded-lg border border-slate-100 p-2">
