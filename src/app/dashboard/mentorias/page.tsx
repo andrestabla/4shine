@@ -1,21 +1,58 @@
 'use client';
 
+import clsx from 'clsx';
 import React from 'react';
-import { PageTitle } from '@/components/dashboard/PageTitle';
+import {
+  ArrowLeft,
+  ArrowRight,
+  BadgeCheck,
+  BookOpen,
+  BriefcaseBusiness,
+  CalendarDays,
+  CheckCircle2,
+  CircleDollarSign,
+  Clock3,
+  ShoppingBag,
+  Sparkles,
+  Star,
+  Video,
+} from 'lucide-react';
 import { EmptyState } from '@/components/dashboard/EmptyState';
+import { PageTitle } from '@/components/dashboard/PageTitle';
+import { StatGrid } from '@/components/dashboard/StatGrid';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useUser } from '@/context/UserContext';
 import {
+  createAdditionalMentorshipOrder,
   createMentorship,
   deleteMentorship,
-  listMentorships,
+  getMentorshipOverview,
+  scheduleProgramMentorship,
   updateMentorship,
+  type AdditionalMentorshipOrderRecord,
+  type MentorCatalogRecord,
+  type MentorOfferingRecord,
+  type MentorshipOverviewRecord,
   type MentorshipRecord,
   type MentorshipSessionType,
   type MentorshipStatus,
 } from '@/features/mentorias/client';
 
-interface CreateFormState {
+interface ProgramScheduleFormState {
+  entitlementId: string;
+  mentorUserId: string;
+  startsAt: string;
+  note: string;
+}
+
+interface AdditionalPurchaseFormState {
+  offerId: string;
+  startsAt: string;
+  topic: string;
+  note: string;
+}
+
+interface OpsCreateFormState {
   title: string;
   startsAt: string;
   endsAt: string;
@@ -23,25 +60,166 @@ interface CreateFormState {
   meetingUrl: string;
 }
 
-function toLocalDatetime(value: string): string {
-  const date = new Date(value);
-  return date.toLocaleString('es-CO', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
+const SESSION_STATUS_META: Record<MentorshipStatus, { label: string; tone: string }> = {
+  scheduled: { label: 'Programada', tone: 'bg-sky-100 text-sky-700' },
+  completed: { label: 'Completada', tone: 'bg-emerald-100 text-emerald-700' },
+  cancelled: { label: 'Cancelada', tone: 'bg-rose-100 text-rose-700' },
+  pending_rating: { label: 'Pendiente de feedback', tone: 'bg-violet-100 text-violet-700' },
+  pending_approval: { label: 'Pendiente de aprobación', tone: 'bg-amber-100 text-amber-700' },
+  no_show: { label: 'No asistió', tone: 'bg-slate-200 text-slate-700' },
+};
+
+const PROGRAM_STATUS_META = {
+  available: { label: 'Disponible', tone: 'bg-white text-[var(--app-ink)] border-[var(--app-border)]' },
+  scheduled: { label: 'Programada', tone: 'bg-amber-100 text-amber-700 border-amber-200' },
+  completed: { label: 'Completada', tone: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+} as const;
+
+const ORDER_STATUS_META = {
+  pending_payment: { label: 'Pago pendiente', tone: 'bg-amber-100 text-amber-700' },
+  scheduled: { label: 'Agendada', tone: 'bg-sky-100 text-sky-700' },
+  completed: { label: 'Completada', tone: 'bg-emerald-100 text-emerald-700' },
+  cancelled: { label: 'Cancelada', tone: 'bg-rose-100 text-rose-700' },
+} as const;
+
+function startOfWeek(input: Date): Date {
+  const date = new Date(input);
+  const day = date.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  date.setDate(date.getDate() + diff);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function addDays(input: Date, amount: number): Date {
+  const date = new Date(input);
+  date.setDate(date.getDate() + amount);
+  return date;
 }
 
 function toIso(value: string): string {
   return new Date(value).toISOString();
 }
 
+function toDatetimeLocalInput(value: string): string {
+  const date = new Date(value);
+  const adjusted = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return adjusted.toISOString().slice(0, 16);
+}
+
+function nextSlotValue(): string {
+  const date = new Date();
+  date.setMinutes(0, 0, 0);
+  date.setHours(date.getHours() + 2);
+  return toDatetimeLocalInput(date.toISOString());
+}
+
+function formatDateTime(value: string | null): string {
+  if (!value) return 'Sin fecha';
+  return new Date(value).toLocaleString('es-CO', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+}
+
+function formatTime(value: string): string {
+  return new Date(value).toLocaleTimeString('es-CO', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function formatWeekday(value: Date): string {
+  return value.toLocaleDateString('es-CO', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  });
+}
+
+function formatCurrency(value: number, currencyCode: string): string {
+  if (value <= 0) {
+    return 'Precio a coordinar';
+  }
+
+  return new Intl.NumberFormat('es-CO', {
+    style: 'currency',
+    currency: currencyCode,
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function phaseLabel(value: string): string {
+  if (value === 'shine_within') return 'Shine Within';
+  if (value === 'shine_out') return 'Shine Out';
+  if (value === 'shine_up') return 'Shine Up';
+  if (value === 'shine_beyond') return 'Shine Beyond';
+  return 'Programa';
+}
+
+function sessionOriginLabel(session: MentorshipRecord): string {
+  if (session.sessionOrigin === 'program_included') return 'Incluida';
+  if (session.sessionOrigin === 'additional_paid') return 'Adicional';
+  return 'Operativa';
+}
+
+function findOfferById(overview: MentorshipOverviewRecord | null, offerId: string): {
+  mentor: MentorCatalogRecord;
+  offer: MentorOfferingRecord;
+} | null {
+  if (!overview) return null;
+
+  for (const mentor of overview.mentorCatalog) {
+    for (const offer of mentor.offers) {
+      if (offer.offerId === offerId) {
+        return { mentor, offer };
+      }
+    }
+  }
+
+  return null;
+}
+
+function sessionsForWeek(sessions: MentorshipRecord[], weekStart: Date): MentorshipRecord[] {
+  const weekEnd = addDays(weekStart, 7);
+  return sessions
+    .filter((session) => {
+      const date = new Date(session.startsAt);
+      return date >= weekStart && date < weekEnd && session.status !== 'cancelled';
+    })
+    .sort((left, right) => new Date(left.startsAt).getTime() - new Date(right.startsAt).getTime());
+}
+
+function upcomingSessions(sessions: MentorshipRecord[]): MentorshipRecord[] {
+  const now = Date.now();
+  return sessions
+    .filter((session) => new Date(session.startsAt).getTime() >= now && session.status !== 'cancelled')
+    .sort((left, right) => new Date(left.startsAt).getTime() - new Date(right.startsAt).getTime())
+    .slice(0, 5);
+}
+
 export default function MentoriasPage() {
-  const { can, refreshBootstrap } = useUser();
-  const { alert, confirm, prompt } = useAppDialog();
-  const [sessions, setSessions] = React.useState<MentorshipRecord[]>([]);
+  const { alert, confirm } = useAppDialog();
+  const { can, currentRole, currentUser, refreshBootstrap } = useUser();
+  const [overview, setOverview] = React.useState<MentorshipOverviewRecord | null>(null);
   const [loading, setLoading] = React.useState(true);
-  const [saving, setSaving] = React.useState(false);
-  const [form, setForm] = React.useState<CreateFormState>({
+  const [submittingProgram, setSubmittingProgram] = React.useState(false);
+  const [submittingAdditional, setSubmittingAdditional] = React.useState(false);
+  const [submittingOps, setSubmittingOps] = React.useState(false);
+  const [selectedWeekStart, setSelectedWeekStart] = React.useState<Date>(() => startOfWeek(new Date()));
+  const [programForm, setProgramForm] = React.useState<ProgramScheduleFormState>({
+    entitlementId: '',
+    mentorUserId: '',
+    startsAt: nextSlotValue(),
+    note: '',
+  });
+  const [additionalForm, setAdditionalForm] = React.useState<AdditionalPurchaseFormState>({
+    offerId: '',
+    startsAt: nextSlotValue(),
+    topic: '',
+    note: '',
+  });
+  const [opsForm, setOpsForm] = React.useState<OpsCreateFormState>({
     title: '',
     startsAt: '',
     endsAt: '',
@@ -63,10 +241,10 @@ export default function MentoriasPage() {
   const load = React.useCallback(async () => {
     setLoading(true);
     try {
-      const data = await listMentorships();
-      setSessions(data);
-    } catch (loadError) {
-      await showError('No se pudieron cargar las mentorías', loadError);
+      const data = await getMentorshipOverview();
+      setOverview(data);
+    } catch (error) {
+      await showError('No se pudo cargar el módulo de mentorías.', error);
     } finally {
       setLoading(false);
     }
@@ -76,20 +254,161 @@ export default function MentoriasPage() {
     void load();
   }, [load]);
 
-  const onCreate = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!form.title.trim() || !form.startsAt || !form.endsAt) return;
+  React.useEffect(() => {
+    if (!overview || currentRole !== 'lider') {
+      return;
+    }
 
-    setSaving(true);
+    const firstAvailableEntitlement =
+      overview.programEntitlements.find((item) => item.status === 'available') ??
+      overview.programEntitlements[0];
+    const firstMentor = overview.mentorCatalog[0];
+    const firstOffer = overview.mentorCatalog.flatMap((mentor) => mentor.offers)[0];
+
+    setProgramForm((prev) => ({
+      entitlementId: prev.entitlementId || firstAvailableEntitlement?.entitlementId || '',
+      mentorUserId: prev.mentorUserId || firstMentor?.mentorUserId || '',
+      startsAt: prev.startsAt || nextSlotValue(),
+      note: prev.note,
+    }));
+
+    setAdditionalForm((prev) => ({
+      offerId: prev.offerId || firstOffer?.offerId || '',
+      startsAt: prev.startsAt || nextSlotValue(),
+      topic: prev.topic,
+      note: prev.note,
+    }));
+  }, [overview, currentRole]);
+
+  const leaderName = currentUser?.name?.split(' ')[0] ?? 'Líder';
+  const weekSessions = sessionsForWeek(overview?.sessions ?? [], selectedWeekStart);
+  const nextSessions = upcomingSessions(overview?.sessions ?? []);
+  const days = Array.from({ length: 7 }, (_, index) => addDays(selectedWeekStart, index));
+  const selectedOffer = findOfferById(overview, additionalForm.offerId);
+  const selectedEntitlement =
+    overview?.programEntitlements.find((item) => item.entitlementId === programForm.entitlementId) ?? null;
+
+  const leaderStats = overview
+    ? [
+        {
+          label: 'Incluidas',
+          value: overview.programEntitlements.length,
+          hint: 'Mentorías del programa disponibles para agendar.',
+        },
+        {
+          label: 'Agendadas',
+          value: overview.programEntitlements.filter((item) => item.status === 'scheduled').length,
+          hint: 'Mentorías incluidas ya reservadas con ishiner.',
+        },
+        {
+          label: 'Adicionales',
+          value: overview.additionalOrders.length,
+          hint: 'Compras o reservas extra realizadas por el líder.',
+        },
+        {
+          label: 'Semana',
+          value: weekSessions.length,
+          hint: 'Sesiones visibles en la agenda semanal.',
+        },
+      ]
+    : [];
+
+  const opsStats = overview
+    ? [
+        {
+          label: 'Sesiones',
+          value: overview.sessions.length,
+          hint: 'Registro total visible para tu rol.',
+        },
+        {
+          label: 'Programadas',
+          value: overview.sessions.filter((item) => item.status === 'scheduled').length,
+          hint: 'Próximas sesiones activas.',
+        },
+        {
+          label: 'Completadas',
+          value: overview.sessions.filter((item) => item.status === 'completed').length,
+          hint: 'Sesiones cerradas y finalizadas.',
+        },
+        {
+          label: 'Ishiners',
+          value: overview.mentorCatalog.length,
+          hint: 'Mentores activos en el catálogo.',
+        },
+      ]
+    : [];
+
+  const handleProgramSchedule = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!programForm.entitlementId || !programForm.mentorUserId || !programForm.startsAt) {
+      return;
+    }
+
+    setSubmittingProgram(true);
+    try {
+      await scheduleProgramMentorship({
+        entitlementId: programForm.entitlementId,
+        mentorUserId: programForm.mentorUserId,
+        startsAt: toIso(programForm.startsAt),
+        note: programForm.note.trim() || null,
+      });
+      setProgramForm((prev) => ({
+        ...prev,
+        startsAt: nextSlotValue(),
+        note: '',
+      }));
+      await Promise.all([load(), refreshBootstrap()]);
+    } catch (error) {
+      await showError('No se pudo programar la mentoría incluida.', error);
+    } finally {
+      setSubmittingProgram(false);
+    }
+  };
+
+  const handleAdditionalPurchase = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!additionalForm.offerId || !additionalForm.startsAt) {
+      return;
+    }
+
+    setSubmittingAdditional(true);
+    try {
+      await createAdditionalMentorshipOrder({
+        offerId: additionalForm.offerId,
+        startsAt: toIso(additionalForm.startsAt),
+        topic: additionalForm.topic.trim() || null,
+        note: additionalForm.note.trim() || null,
+      });
+      setAdditionalForm((prev) => ({
+        ...prev,
+        startsAt: nextSlotValue(),
+        topic: '',
+        note: '',
+      }));
+      await Promise.all([load(), refreshBootstrap()]);
+    } catch (error) {
+      await showError('No se pudo registrar la sesión adicional.', error);
+    } finally {
+      setSubmittingAdditional(false);
+    }
+  };
+
+  const handleOpsCreate = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!opsForm.title.trim() || !opsForm.startsAt || !opsForm.endsAt) {
+      return;
+    }
+
+    setSubmittingOps(true);
     try {
       await createMentorship({
-        title: form.title.trim(),
-        startsAt: toIso(form.startsAt),
-        endsAt: toIso(form.endsAt),
-        sessionType: form.sessionType,
-        meetingUrl: form.meetingUrl.trim() || null,
+        title: opsForm.title.trim(),
+        startsAt: toIso(opsForm.startsAt),
+        endsAt: toIso(opsForm.endsAt),
+        sessionType: opsForm.sessionType,
+        meetingUrl: opsForm.meetingUrl.trim() || null,
       });
-      setForm({
+      setOpsForm({
         title: '',
         startsAt: '',
         endsAt: '',
@@ -97,142 +416,222 @@ export default function MentoriasPage() {
         meetingUrl: '',
       });
       await Promise.all([load(), refreshBootstrap()]);
-    } catch (createError) {
-      await showError('No se pudo crear la mentoría', createError);
+    } catch (error) {
+      await showError('No se pudo crear la mentoría.', error);
     } finally {
-      setSaving(false);
+      setSubmittingOps(false);
     }
   };
 
-  const onStatusChange = async (session: MentorshipRecord, status: MentorshipStatus) => {
-    try {
-      await updateMentorship(session.sessionId, { status });
-      await Promise.all([load(), refreshBootstrap()]);
-    } catch (updateError) {
-      await showError('No se pudo actualizar la mentoría', updateError);
-    }
-  };
-
-  const onDelete = async (session: MentorshipRecord) => {
+  const handleDeleteSession = async (session: MentorshipRecord) => {
     const isConfirmed = await confirm({
       title: 'Eliminar mentoría',
-      message: `¿Deseas eliminar la mentoría "${session.title}"?`,
+      message: `¿Deseas eliminar la sesión "${session.title}"?`,
       confirmText: 'Eliminar',
       cancelText: 'Cancelar',
       tone: 'warning',
     });
-    if (!isConfirmed) return;
+
+    if (!isConfirmed) {
+      return;
+    }
 
     try {
       await deleteMentorship(session.sessionId);
       await Promise.all([load(), refreshBootstrap()]);
-    } catch (deleteError) {
-      await showError('No se pudo eliminar la mentoría', deleteError);
+    } catch (error) {
+      await showError('No se pudo eliminar la mentoría.', error);
     }
   };
 
-  const onRename = async (session: MentorshipRecord) => {
-    const nextTitle = await prompt({
-      title: 'Renombrar mentoría',
-      message: 'Ingresa el nuevo título de la sesión.',
-      label: 'Título',
-      defaultValue: session.title,
-      placeholder: 'Título de mentoría',
-      confirmText: 'Guardar',
-      cancelText: 'Cancelar',
-    });
-
-    if (!nextTitle || !nextTitle.trim() || nextTitle.trim() === session.title) return;
-
+  const handleStatusChange = async (session: MentorshipRecord, status: MentorshipStatus) => {
     try {
-      await updateMentorship(session.sessionId, { title: nextTitle.trim() });
+      await updateMentorship(session.sessionId, { status });
       await Promise.all([load(), refreshBootstrap()]);
-    } catch (updateError) {
-      await showError('No se pudo actualizar la mentoría', updateError);
+    } catch (error) {
+      await showError('No se pudo actualizar el estado de la sesión.', error);
     }
   };
 
-  return (
-    <div className="space-y-4">
-      <PageTitle title="Mentorías" subtitle="Agenda y estado de sesiones con CRUD real." />
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <PageTitle
+          title="Mentorías"
+          subtitle="Estamos preparando la agenda, las mentorías incluidas y el catálogo de ishineres disponibles."
+        />
+        <div className="app-panel p-6 text-sm text-[var(--app-muted)]">Cargando mentorías...</div>
+      </div>
+    );
+  }
 
-      {can('mentorias', 'create') && (
-        <form className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm grid grid-cols-1 md:grid-cols-6 gap-2" onSubmit={onCreate}>
-          <input
-            className="border border-slate-300 rounded-md px-2 py-2 text-sm md:col-span-2"
-            placeholder="Título"
-            value={form.title}
-            onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
-            required
-          />
-          <input
-            className="border border-slate-300 rounded-md px-2 py-2 text-sm"
-            type="datetime-local"
-            value={form.startsAt}
-            onChange={(event) => setForm((prev) => ({ ...prev, startsAt: event.target.value }))}
-            required
-          />
-          <input
-            className="border border-slate-300 rounded-md px-2 py-2 text-sm"
-            type="datetime-local"
-            value={form.endsAt}
-            onChange={(event) => setForm((prev) => ({ ...prev, endsAt: event.target.value }))}
-            required
-          />
-          <select
-            className="border border-slate-300 rounded-md px-2 py-2 text-sm"
-            value={form.sessionType}
-            onChange={(event) => setForm((prev) => ({ ...prev, sessionType: event.target.value as MentorshipSessionType }))}
-          >
-            <option value="individual">individual</option>
-            <option value="grupal">grupal</option>
-          </select>
-          <button
-            className="rounded-md bg-slate-900 text-white text-sm px-3 py-2 disabled:opacity-50"
-            type="submit"
-            disabled={saving}
-          >
-            Crear
-          </button>
-          <input
-            className="border border-slate-300 rounded-md px-2 py-2 text-sm md:col-span-6"
-            placeholder="URL de reunión (opcional)"
-            value={form.meetingUrl}
-            onChange={(event) => setForm((prev) => ({ ...prev, meetingUrl: event.target.value }))}
-          />
-        </form>
-      )}
-      {loading ? (
-        <div className="bg-white rounded-xl border border-slate-200 p-4 text-sm text-slate-500">Cargando...</div>
-      ) : sessions.length === 0 ? (
-        <EmptyState message="No hay mentorías registradas." />
-      ) : (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+  if (!overview) {
+    return (
+      <div className="space-y-6">
+        <PageTitle title="Mentorías" subtitle="No fue posible cargar el módulo en este momento." />
+        <EmptyState message="No pudimos preparar la experiencia de mentorías. Intenta recargar la vista." />
+      </div>
+    );
+  }
+
+  if (currentRole !== 'lider') {
+    return (
+      <div className="space-y-8">
+        <PageTitle
+          title="Mentorías"
+          subtitle="Gestiona sesiones, revisa la semana activa y mantén visibilidad sobre la operación del acompañamiento."
+        />
+
+        <StatGrid stats={opsStats} />
+
+        {can('mentorias', 'create') && (
+          <section className="app-panel p-5 sm:p-6">
+            <div className="flex items-center gap-2">
+              <Sparkles size={16} className="text-[var(--brand-primary)]" />
+              <p className="app-section-kicker">Crear sesión operativa</p>
+            </div>
+            <form className="mt-5 grid gap-3 md:grid-cols-6" onSubmit={handleOpsCreate}>
+              <input
+                className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm md:col-span-2"
+                placeholder="Título"
+                value={opsForm.title}
+                onChange={(event) => setOpsForm((prev) => ({ ...prev, title: event.target.value }))}
+                required
+              />
+              <input
+                className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
+                type="datetime-local"
+                value={opsForm.startsAt}
+                onChange={(event) => setOpsForm((prev) => ({ ...prev, startsAt: event.target.value }))}
+                required
+              />
+              <input
+                className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
+                type="datetime-local"
+                value={opsForm.endsAt}
+                onChange={(event) => setOpsForm((prev) => ({ ...prev, endsAt: event.target.value }))}
+                required
+              />
+              <select
+                className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
+                value={opsForm.sessionType}
+                onChange={(event) =>
+                  setOpsForm((prev) => ({ ...prev, sessionType: event.target.value as MentorshipSessionType }))
+                }
+              >
+                <option value="individual">Individual</option>
+                <option value="grupal">Grupal</option>
+              </select>
+              <button
+                className="rounded-[16px] bg-[var(--brand-primary)] px-4 py-3 text-sm font-bold text-white disabled:opacity-50"
+                type="submit"
+                disabled={submittingOps}
+              >
+                Crear sesión
+              </button>
+              <input
+                className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm md:col-span-6"
+                placeholder="URL de reunión (opcional)"
+                value={opsForm.meetingUrl}
+                onChange={(event) => setOpsForm((prev) => ({ ...prev, meetingUrl: event.target.value }))}
+              />
+            </form>
+          </section>
+        )}
+
+        <section className="app-panel p-5 sm:p-6">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <CalendarDays size={16} className="text-[var(--brand-primary)]" />
+              <p className="app-section-kicker">Calendario semanal</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                className="rounded-full border border-[var(--app-border)] bg-white p-2 text-[var(--app-ink)]"
+                type="button"
+                onClick={() => setSelectedWeekStart((prev) => addDays(prev, -7))}
+              >
+                <ArrowLeft size={16} />
+              </button>
+              <button
+                className="rounded-full border border-[var(--app-border)] bg-white p-2 text-[var(--app-ink)]"
+                type="button"
+                onClick={() => setSelectedWeekStart(startOfWeek(new Date()))}
+              >
+                <CalendarDays size={16} />
+              </button>
+              <button
+                className="rounded-full border border-[var(--app-border)] bg-white p-2 text-[var(--app-ink)]"
+                type="button"
+                onClick={() => setSelectedWeekStart((prev) => addDays(prev, 7))}
+              >
+                <ArrowRight size={16} />
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-3 lg:grid-cols-7">
+            {days.map((day) => {
+              const dayItems = weekSessions.filter((session) => {
+                const date = new Date(session.startsAt);
+                return (
+                  date.getFullYear() === day.getFullYear() &&
+                  date.getMonth() === day.getMonth() &&
+                  date.getDate() === day.getDate()
+                );
+              });
+
+              return (
+                <div key={day.toISOString()} className="rounded-[18px] border border-[var(--app-border)] bg-white/86 p-3">
+                  <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[var(--app-muted)]">
+                    {formatWeekday(day)}
+                  </p>
+                  <div className="mt-3 space-y-2">
+                    {dayItems.length === 0 ? (
+                      <p className="text-xs text-[var(--app-muted)]">Sin sesiones</p>
+                    ) : (
+                      dayItems.map((session) => (
+                        <div key={session.sessionId} className="rounded-[14px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-2">
+                          <p className="text-xs font-bold text-[var(--app-ink)]">{session.title}</p>
+                          <p className="mt-1 text-[11px] text-[var(--app-muted)]">{formatTime(session.startsAt)}</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="app-panel overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-slate-600">
+            <table className="w-full min-w-[780px] text-sm">
+              <thead className="border-b border-[var(--app-border)] bg-[rgba(248,250,252,0.82)] text-[var(--app-muted)]">
                 <tr className="text-left">
                   <th className="px-4 py-3">Título</th>
+                  <th className="px-4 py-3">Origen</th>
                   <th className="px-4 py-3">Mentor</th>
-                  <th className="px-4 py-3">Mentee</th>
                   <th className="px-4 py-3">Inicio</th>
                   <th className="px-4 py-3">Estado</th>
                   <th className="px-4 py-3">Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                {sessions.map((session) => (
-                  <tr key={session.sessionId} className="border-t border-slate-100">
-                    <td className="px-4 py-3 font-medium text-slate-800">{session.title}</td>
-                    <td className="px-4 py-3 text-slate-600">{session.mentorName}</td>
-                    <td className="px-4 py-3 text-slate-600">{session.menteeName ?? '-'}</td>
-                    <td className="px-4 py-3 text-slate-600">{toLocalDatetime(session.startsAt)}</td>
+                {overview.sessions.map((session) => (
+                  <tr key={session.sessionId} className="border-t border-[var(--app-border)]">
+                    <td className="px-4 py-3 font-semibold text-[var(--app-ink)]">{session.title}</td>
+                    <td className="px-4 py-3 text-[var(--app-muted)]">{sessionOriginLabel(session)}</td>
+                    <td className="px-4 py-3 text-[var(--app-muted)]">{session.mentorName}</td>
+                    <td className="px-4 py-3 text-[var(--app-muted)]">{formatDateTime(session.startsAt)}</td>
                     <td className="px-4 py-3">
                       {can('mentorias', 'update') ? (
                         <select
-                          className="border border-slate-300 rounded px-2 py-1 text-xs"
+                          className="rounded-[12px] border border-[var(--app-border)] bg-white px-3 py-2 text-xs"
                           value={session.status}
-                          onChange={(event) => onStatusChange(session, event.target.value as MentorshipStatus)}
+                          onChange={(event) =>
+                            void handleStatusChange(session, event.target.value as MentorshipStatus)
+                          }
                         >
                           <option value="scheduled">scheduled</option>
                           <option value="completed">completed</option>
@@ -242,38 +641,635 @@ export default function MentoriasPage() {
                           <option value="no_show">no_show</option>
                         </select>
                       ) : (
-                        <span className="text-xs px-2 py-1 rounded bg-slate-100 text-slate-700">{session.status}</span>
+                        <span className={clsx('rounded-full px-3 py-1 text-xs font-bold', SESSION_STATUS_META[session.status].tone)}>
+                          {SESSION_STATUS_META[session.status].label}
+                        </span>
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        {can('mentorias', 'update') && (
-                          <button
-                            className="text-xs px-2 py-1 rounded border border-slate-300 text-slate-700"
-                            type="button"
-                            onClick={() => void onRename(session)}
-                          >
-                            Renombrar
-                          </button>
-                        )}
-                        {can('mentorias', 'delete') && (
-                          <button
-                            className="text-xs px-2 py-1 rounded border border-red-300 text-red-600"
-                            onClick={() => void onDelete(session)}
-                            type="button"
-                          >
-                            Eliminar
-                          </button>
-                        )}
-                      </div>
+                      {can('mentorias', 'delete') && (
+                        <button
+                          className="rounded-[12px] border border-rose-300 px-3 py-2 text-xs font-semibold text-rose-600"
+                          type="button"
+                          onClick={() => void handleDeleteSession(session)}
+                        >
+                          Eliminar
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+        </section>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-8">
+      <PageTitle
+        title="Mentorías"
+        subtitle="Agenda las sesiones incluidas del programa, compra sesiones adicionales con ishineres disponibles y visualiza tu semana completa de acompañamiento."
+      />
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(340px,0.8fr)]">
+        <section className="rounded-[28px] border border-[var(--app-border)] bg-[linear-gradient(135deg,rgba(88,45,115,0.96),rgba(148,87,136,0.92),rgba(244,191,232,0.78))] px-6 py-6 text-white shadow-[0_30px_60px_rgba(63,35,84,0.18)]">
+          <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-white/70">Acompañamiento ejecutivo</p>
+          <h2
+            className="mt-3 text-[2.2rem] font-semibold leading-[0.95] text-white md:text-[3rem]"
+            data-display-font="true"
+          >
+            {leaderName}, tu ruta de mentorías vive aquí.
+          </h2>
+          <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/84 md:text-base">
+            Tienes sesiones incluidas por pertenecer al programa y también puedes activar espacios adicionales con los ishineres disponibles cuando necesites profundizar un reto puntual.
+          </p>
+
+          <div className="mt-6 flex flex-wrap gap-3 text-xs font-semibold text-white/88">
+            <span className="rounded-full border border-white/20 bg-white/10 px-3 py-2">
+              {overview.programEntitlements.filter((item) => item.status === 'available').length} incluidas por agendar
+            </span>
+            <span className="rounded-full border border-white/20 bg-white/10 px-3 py-2">
+              {overview.additionalOrders.filter((item) => item.status !== 'cancelled').length} adicionales registradas
+            </span>
+            <span className="rounded-full border border-white/20 bg-white/10 px-3 py-2">
+              {nextSessions.length} próximas sesiones visibles
+            </span>
+          </div>
+        </section>
+
+        <section className="app-panel p-5 sm:p-6">
+          <div className="flex items-center gap-2">
+            <CalendarDays size={16} className="text-[var(--brand-primary)]" />
+            <p className="app-section-kicker">Próximas sesiones</p>
+          </div>
+          <div className="mt-5 space-y-3">
+            {nextSessions.length === 0 ? (
+              <EmptyState message="Aún no tienes mentorías próximas en agenda." />
+            ) : (
+              nextSessions.map((session) => (
+                <article
+                  key={session.sessionId}
+                  className="rounded-[18px] border border-[var(--app-border)] bg-white/84 px-4 py-4"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="font-bold text-[var(--app-ink)]">{session.title}</p>
+                      <p className="mt-1 text-sm text-[var(--app-muted)]">
+                        {session.mentorName} · {formatDateTime(session.startsAt)}
+                      </p>
+                    </div>
+                    <span className={clsx('rounded-full px-3 py-1 text-xs font-bold', SESSION_STATUS_META[session.status].tone)}>
+                      {SESSION_STATUS_META[session.status].label}
+                    </span>
+                  </div>
+                </article>
+              ))
+            )}
+          </div>
+        </section>
+      </div>
+
+      <StatGrid stats={leaderStats} />
+
+      <div className="grid gap-6 2xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
+        <section className="app-panel p-5 sm:p-6">
+          <div className="flex items-center gap-2">
+            <BadgeCheck size={16} className="text-[var(--brand-primary)]" />
+            <p className="app-section-kicker">Mentorías incluidas</p>
+          </div>
+          <div className="mt-5 grid gap-4">
+            {overview.programEntitlements.length === 0 ? (
+              <EmptyState message="No encontramos derechos de mentoría configurados para este líder todavía." />
+            ) : (
+              overview.programEntitlements.map((item) => (
+                <article
+                  key={item.entitlementId}
+                  className={clsx(
+                    'rounded-[22px] border px-5 py-5',
+                    item.status === 'completed' && 'border-emerald-200 bg-emerald-50/80',
+                    item.status === 'scheduled' && 'border-amber-200 bg-amber-50/80',
+                    item.status === 'available' && 'border-[var(--app-border)] bg-white/86',
+                  )}
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[var(--app-muted)]">
+                        Semana sugerida {item.suggestedWeek} · {phaseLabel(item.phaseCode)}
+                      </p>
+                      <h3 className="mt-2 text-xl font-black text-[var(--app-ink)]">{item.title}</h3>
+                      <p className="mt-2 text-sm leading-relaxed text-[var(--app-muted)]">
+                        {item.description}
+                      </p>
+                    </div>
+                    <span
+                      className={clsx(
+                        'rounded-full border px-3 py-1 text-xs font-extrabold uppercase tracking-[0.16em]',
+                        PROGRAM_STATUS_META[item.status].tone,
+                      )}
+                    >
+                      {PROGRAM_STATUS_META[item.status].label}
+                    </span>
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {item.workbookCode && (
+                      <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--app-muted)]">
+                        Vinculada a {item.workbookCode.toUpperCase()}
+                      </span>
+                    )}
+                    <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--app-muted)]">
+                      {item.defaultDurationMinutes} min
+                    </span>
+                  </div>
+
+                  {(item.scheduledStartsAt || item.mentorName) && (
+                    <div className="mt-4 rounded-[18px] border border-[var(--app-border)] bg-white/88 px-4 py-4 text-sm text-[var(--app-muted)]">
+                      <p>
+                        <span className="font-semibold text-[var(--app-ink)]">Mentor actual:</span>{' '}
+                        {item.mentorName ?? 'Por asignar'}
+                      </p>
+                      <p className="mt-1">
+                        <span className="font-semibold text-[var(--app-ink)]">Fecha:</span>{' '}
+                        {formatDateTime(item.scheduledStartsAt)}
+                      </p>
+                    </div>
+                  )}
+
+                  {item.status !== 'completed' && (
+                    <button
+                      className="mt-5 inline-flex items-center gap-2 text-sm font-extrabold text-[var(--brand-primary)]"
+                      type="button"
+                      onClick={() =>
+                        setProgramForm((prev) => ({
+                          ...prev,
+                          entitlementId: item.entitlementId,
+                        }))
+                      }
+                    >
+                      {item.status === 'scheduled' ? 'Reagendar incluida' : 'Programar incluida'}
+                      <ArrowRight size={16} />
+                    </button>
+                  )}
+                </article>
+              ))
+            )}
+          </div>
+        </section>
+
+        <div className="space-y-6">
+          <section className="app-panel p-5 sm:p-6">
+            <div className="flex items-center gap-2">
+              <BookOpen size={16} className="text-[var(--brand-primary)]" />
+              <p className="app-section-kicker">Programar incluida</p>
+            </div>
+            {overview.mentorCatalog.length === 0 && (
+              <div className="mt-5 rounded-[18px] border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-800">
+                Tus mentorías incluidas ya están cargadas. Para poder reservarlas necesitamos activar al menos un ishiner en la base de datos.
+              </div>
+            )}
+            <form className="mt-5 space-y-3" onSubmit={handleProgramSchedule}>
+              <select
+                className="w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
+                value={programForm.entitlementId}
+                onChange={(event) => setProgramForm((prev) => ({ ...prev, entitlementId: event.target.value }))}
+                required
+              >
+                <option value="">Selecciona una mentoría incluida</option>
+                {overview.programEntitlements
+                  .filter((item) => item.status !== 'completed')
+                  .map((item) => (
+                    <option key={item.entitlementId} value={item.entitlementId}>
+                      {item.title}
+                    </option>
+                  ))}
+              </select>
+
+              <select
+                className="w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
+                value={programForm.mentorUserId}
+                onChange={(event) => setProgramForm((prev) => ({ ...prev, mentorUserId: event.target.value }))}
+                required
+              >
+                <option value="">Selecciona un ishiner</option>
+                {overview.mentorCatalog.map((mentor) => (
+                  <option key={mentor.mentorUserId} value={mentor.mentorUserId}>
+                    {mentor.name} · {mentor.specialty}
+                  </option>
+                ))}
+              </select>
+
+              <input
+                className="w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
+                type="datetime-local"
+                value={programForm.startsAt}
+                onChange={(event) => setProgramForm((prev) => ({ ...prev, startsAt: event.target.value }))}
+                required
+              />
+
+              <textarea
+                className="min-h-[120px] w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
+                placeholder="Contexto para el ishiner o foco que quieres trabajar."
+                value={programForm.note}
+                onChange={(event) => setProgramForm((prev) => ({ ...prev, note: event.target.value }))}
+              />
+
+              {selectedEntitlement && (
+                <div className="rounded-[18px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-4 text-sm text-[var(--app-muted)]">
+                  <p className="font-semibold text-[var(--app-ink)]">{selectedEntitlement.title}</p>
+                  <p className="mt-1">Duración sugerida: {selectedEntitlement.defaultDurationMinutes} minutos.</p>
+                </div>
+              )}
+
+              <button
+                className="w-full rounded-[16px] bg-[var(--brand-primary)] px-4 py-3 text-sm font-bold text-white disabled:opacity-50"
+                type="submit"
+                disabled={
+                  submittingProgram ||
+                  !programForm.entitlementId ||
+                  !programForm.mentorUserId ||
+                  overview.mentorCatalog.length === 0
+                }
+              >
+                Programar mentoría incluida
+              </button>
+            </form>
+          </section>
+
+          <section className="app-panel p-5 sm:p-6">
+            <div className="flex items-center gap-2">
+              <Clock3 size={16} className="text-[var(--brand-primary)]" />
+              <p className="app-section-kicker">Semana activa</p>
+            </div>
+            <div className="mt-4 flex items-center justify-between gap-3">
+              <p className="text-sm text-[var(--app-muted)]">
+                {selectedWeekStart.toLocaleDateString('es-CO', { dateStyle: 'medium' })} -{' '}
+                {addDays(selectedWeekStart, 6).toLocaleDateString('es-CO', { dateStyle: 'medium' })}
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  className="rounded-full border border-[var(--app-border)] bg-white p-2 text-[var(--app-ink)]"
+                  type="button"
+                  onClick={() => setSelectedWeekStart((prev) => addDays(prev, -7))}
+                >
+                  <ArrowLeft size={16} />
+                </button>
+                <button
+                  className="rounded-full border border-[var(--app-border)] bg-white p-2 text-[var(--app-ink)]"
+                  type="button"
+                  onClick={() => setSelectedWeekStart(startOfWeek(new Date()))}
+                >
+                  <CalendarDays size={16} />
+                </button>
+                <button
+                  className="rounded-full border border-[var(--app-border)] bg-white p-2 text-[var(--app-ink)]"
+                  type="button"
+                  onClick={() => setSelectedWeekStart((prev) => addDays(prev, 7))}
+                >
+                  <ArrowRight size={16} />
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-3">
+              {weekSessions.length === 0 ? (
+                <EmptyState message="No tienes mentorías programadas en esta semana." />
+              ) : (
+                days.map((day) => {
+                  const daySessions = weekSessions.filter((session) => {
+                    const sessionDate = new Date(session.startsAt);
+                    return (
+                      sessionDate.getFullYear() === day.getFullYear() &&
+                      sessionDate.getMonth() === day.getMonth() &&
+                      sessionDate.getDate() === day.getDate()
+                    );
+                  });
+
+                  return (
+                    <div
+                      key={day.toISOString()}
+                      className="rounded-[18px] border border-[var(--app-border)] bg-white/86 px-4 py-4"
+                    >
+                      <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--app-muted)]">
+                        {formatWeekday(day)}
+                      </p>
+                      <div className="mt-3 space-y-3">
+                        {daySessions.length === 0 ? (
+                          <p className="text-sm text-[var(--app-muted)]">Sin sesiones programadas.</p>
+                        ) : (
+                          daySessions.map((session) => (
+                            <article
+                              key={session.sessionId}
+                              className="rounded-[16px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-4"
+                            >
+                              <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div>
+                                  <p className="font-bold text-[var(--app-ink)]">{session.title}</p>
+                                  <p className="mt-1 text-sm text-[var(--app-muted)]">
+                                    {session.mentorName} · {formatTime(session.startsAt)}
+                                  </p>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                  <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--app-muted)]">
+                                    {sessionOriginLabel(session)}
+                                  </span>
+                                  <span className={clsx('rounded-full px-3 py-1 text-xs font-bold', SESSION_STATUS_META[session.status].tone)}>
+                                    {SESSION_STATUS_META[session.status].label}
+                                  </span>
+                                </div>
+                              </div>
+                            </article>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </section>
         </div>
-      )}
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(340px,0.9fr)]">
+        <section className="app-panel p-5 sm:p-6">
+          <div className="flex items-center gap-2">
+            <BriefcaseBusiness size={16} className="text-[var(--brand-primary)]" />
+            <p className="app-section-kicker">Ishineres disponibles</p>
+          </div>
+          <div className="mt-5 grid gap-4 md:grid-cols-2">
+            {overview.mentorCatalog.length === 0 ? (
+              <div className="md:col-span-2">
+                <EmptyState message="Aún no hay ishineres visibles para compra adicional." />
+              </div>
+            ) : (
+              overview.mentorCatalog.map((mentor) => {
+                const primaryOffer = mentor.offers[0];
+
+                return (
+                  <article
+                    key={mentor.mentorUserId}
+                    className="rounded-[22px] border border-[var(--app-border)] bg-white/86 px-5 py-5"
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--app-chip)] text-sm font-black text-[var(--brand-primary)]">
+                        {mentor.avatarInitial}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="truncate font-black text-[var(--app-ink)]">{mentor.name}</p>
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--app-muted)]">
+                            <Star size={12} className="text-[var(--brand-accent,#f6b74c)]" />
+                            {mentor.ratingAvg.toFixed(1)}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-sm text-[var(--app-muted)]">{mentor.specialty}</p>
+                        <p className="mt-1 text-xs uppercase tracking-[0.14em] text-[var(--app-muted)]">{mentor.sector}</p>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {mentor.availability.slice(0, 3).map((slot) => (
+                        <button
+                          key={slot.startsAt}
+                          className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--app-muted)]"
+                          type="button"
+                          onClick={() =>
+                            setAdditionalForm((prev) => ({
+                              ...prev,
+                              offerId: primaryOffer?.offerId ?? prev.offerId,
+                              startsAt: toDatetimeLocalInput(slot.startsAt),
+                            }))
+                          }
+                        >
+                          {formatDateTime(slot.startsAt)}
+                        </button>
+                      ))}
+                      {mentor.availability.length === 0 && (
+                        <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--app-muted)]">
+                          Disponibilidad por coordinar
+                        </span>
+                      )}
+                    </div>
+
+                    {primaryOffer ? (
+                      <div className="mt-4 rounded-[18px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-4">
+                        <p className="font-semibold text-[var(--app-ink)]">{primaryOffer.title}</p>
+                        <p className="mt-1 text-sm text-[var(--app-muted)]">{primaryOffer.description}</p>
+                        <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-[var(--app-muted)]">
+                          <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1">
+                            {primaryOffer.durationMinutes} min
+                          </span>
+                          <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1">
+                            {formatCurrency(primaryOffer.priceAmount, primaryOffer.currencyCode)}
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-4 rounded-[18px] border border-dashed border-[var(--app-border)] px-4 py-4 text-sm text-[var(--app-muted)]">
+                        Este ishiner aún no tiene una oferta activa cargada.
+                      </div>
+                    )}
+
+                    <button
+                      className="mt-5 inline-flex items-center gap-2 text-sm font-extrabold text-[var(--brand-primary)] disabled:opacity-50"
+                      type="button"
+                      disabled={!primaryOffer}
+                      onClick={() =>
+                        primaryOffer &&
+                        setAdditionalForm((prev) => ({
+                          ...prev,
+                          offerId: primaryOffer.offerId,
+                        }))
+                      }
+                    >
+                      Comprar sesión adicional
+                      <ShoppingBag size={16} />
+                    </button>
+                  </article>
+                );
+              })
+            )}
+          </div>
+        </section>
+
+        <div className="space-y-6">
+          <section className="app-panel p-5 sm:p-6">
+            <div className="flex items-center gap-2">
+              <CircleDollarSign size={16} className="text-[var(--brand-primary)]" />
+              <p className="app-section-kicker">Comprar sesión adicional</p>
+            </div>
+            {overview.mentorCatalog.length === 0 && (
+              <div className="mt-5 rounded-[18px] border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-800">
+                La compra de sesiones adicionales quedará activa cuando existan ishineres disponibles en la plataforma.
+              </div>
+            )}
+            <form className="mt-5 space-y-3" onSubmit={handleAdditionalPurchase}>
+              <select
+                className="w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
+                value={additionalForm.offerId}
+                onChange={(event) => setAdditionalForm((prev) => ({ ...prev, offerId: event.target.value }))}
+                required
+              >
+                <option value="">Selecciona una oferta</option>
+                {overview.mentorCatalog.flatMap((mentor) =>
+                  mentor.offers.map((offer) => (
+                    <option key={offer.offerId} value={offer.offerId}>
+                      {mentor.name} · {offer.title}
+                    </option>
+                  )),
+                )}
+              </select>
+
+              <input
+                className="w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
+                type="datetime-local"
+                value={additionalForm.startsAt}
+                onChange={(event) => setAdditionalForm((prev) => ({ ...prev, startsAt: event.target.value }))}
+                required
+              />
+
+              <input
+                className="w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
+                placeholder="Tema o reto que quieres trabajar"
+                value={additionalForm.topic}
+                onChange={(event) => setAdditionalForm((prev) => ({ ...prev, topic: event.target.value }))}
+              />
+
+              <textarea
+                className="min-h-[120px] w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
+                placeholder="Notas para orientar la compra y la sesión."
+                value={additionalForm.note}
+                onChange={(event) => setAdditionalForm((prev) => ({ ...prev, note: event.target.value }))}
+              />
+
+              {selectedOffer && (
+                <div className="rounded-[18px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-4 text-sm text-[var(--app-muted)]">
+                  <p className="font-semibold text-[var(--app-ink)]">
+                    {selectedOffer.mentor.name} · {selectedOffer.offer.title}
+                  </p>
+                  <p className="mt-1">
+                    {selectedOffer.offer.durationMinutes} min ·{' '}
+                    {formatCurrency(selectedOffer.offer.priceAmount, selectedOffer.offer.currencyCode)}
+                  </p>
+                </div>
+              )}
+
+              <button
+                className="w-full rounded-[16px] bg-[var(--brand-primary)] px-4 py-3 text-sm font-bold text-white disabled:opacity-50"
+                type="submit"
+                disabled={submittingAdditional || !additionalForm.offerId || overview.mentorCatalog.length === 0}
+              >
+                Comprar y reservar sesión
+              </button>
+
+              <p className="text-xs leading-relaxed text-[var(--app-muted)]">
+                La compra adicional queda registrada en plataforma con estado comercial para seguimiento y puede conectarse luego a checkout real sin perder la trazabilidad.
+              </p>
+            </form>
+          </section>
+
+          <section className="app-panel p-5 sm:p-6">
+            <div className="flex items-center gap-2">
+              <Video size={16} className="text-[var(--brand-primary)]" />
+              <p className="app-section-kicker">Sesiones adicionales</p>
+            </div>
+            <div className="mt-5 space-y-3">
+              {overview.additionalOrders.length === 0 ? (
+                <EmptyState message="Todavía no has comprado sesiones adicionales." />
+              ) : (
+                overview.additionalOrders.map((order: AdditionalMentorshipOrderRecord) => (
+                  <article
+                    key={order.orderId}
+                    className="rounded-[18px] border border-[var(--app-border)] bg-white/86 px-4 py-4"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="font-bold text-[var(--app-ink)]">{order.title}</p>
+                        <p className="mt-1 text-sm text-[var(--app-muted)]">
+                          {order.mentorName} · {formatDateTime(order.scheduledStartsAt)}
+                        </p>
+                        {order.topic && (
+                          <p className="mt-1 text-sm text-[var(--app-muted)]">{order.topic}</p>
+                        )}
+                      </div>
+                      <span className={clsx('rounded-full px-3 py-1 text-xs font-bold', ORDER_STATUS_META[order.status].tone)}>
+                        {ORDER_STATUS_META[order.status].label}
+                      </span>
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold text-[var(--app-muted)]">
+                      <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1">
+                        {formatCurrency(order.priceAmount, order.currencyCode)}
+                      </span>
+                      {order.offerTitle && (
+                        <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1">
+                          {order.offerTitle}
+                        </span>
+                      )}
+                    </div>
+                  </article>
+                ))
+              )}
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <section className="app-panel p-5 sm:p-6">
+        <div className="flex items-center gap-2">
+          <CheckCircle2 size={16} className="text-[var(--brand-primary)]" />
+          <p className="app-section-kicker">Sesiones programadas</p>
+        </div>
+
+        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {overview.sessions.length === 0 ? (
+            <div className="md:col-span-2 xl:col-span-3">
+              <EmptyState message="Todavía no hay sesiones en agenda para este líder." />
+            </div>
+          ) : (
+            overview.sessions.map((session) => (
+              <article
+                key={session.sessionId}
+                className="rounded-[20px] border border-[var(--app-border)] bg-white/86 px-5 py-5"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="font-black text-[var(--app-ink)]">{session.title}</p>
+                    <p className="mt-1 text-sm text-[var(--app-muted)]">
+                      {session.mentorName} · {formatDateTime(session.startsAt)}
+                    </p>
+                  </div>
+                  <span className={clsx('rounded-full px-3 py-1 text-xs font-bold', SESSION_STATUS_META[session.status].tone)}>
+                    {SESSION_STATUS_META[session.status].label}
+                  </span>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--app-muted)]">
+                    {sessionOriginLabel(session)}
+                  </span>
+                  {session.meetingUrl ? (
+                    <a
+                      className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--brand-primary)]"
+                      href={session.meetingUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Entrar a reunión
+                    </a>
+                  ) : (
+                    <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--app-muted)]">
+                      Link pendiente
+                    </span>
+                  )}
+                </div>
+              </article>
+            ))
+          )}
+        </div>
+      </section>
     </div>
   );
 }
