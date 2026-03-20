@@ -1,0 +1,503 @@
+"use client";
+
+import React from "react";
+import Link from "next/link";
+import clsx from "clsx";
+import ReactMarkdown from "react-markdown";
+import * as htmlToImage from "html-to-image";
+import { jsPDF } from "jspdf";
+import {
+  Copy,
+  Download,
+  ExternalLink,
+  Gauge,
+  Loader2,
+  Radar as RadarIcon,
+  RefreshCw,
+  Share2,
+} from "lucide-react";
+import {
+  PolarAngleAxis,
+  PolarGrid,
+  PolarRadiusAxis,
+  Radar,
+  RadarChart,
+  ResponsiveContainer,
+  Tooltip,
+} from "recharts";
+import { useAppDialog } from "@/components/ui/AppDialogProvider";
+import { PILLAR_INFO } from "./DiagnosticsData";
+import {
+  buildDiscoveryReports,
+  getDiscoveryStatus,
+  scoreDiscoveryAnswers,
+} from "./reporting";
+import { PdfReportData } from "./PdfReportData";
+import type {
+  DiscoveryPillarKey,
+  DiscoveryReportFilter,
+  DiscoverySessionRecord,
+  DiscoveryUserState,
+} from "./types";
+
+interface ResultsViewProps {
+  state: DiscoveryUserState;
+  publicId?: string | null;
+  isPublic?: boolean;
+  embedded?: boolean;
+  onShare?: () => Promise<DiscoverySessionRecord>;
+  onReset?: () => Promise<void> | void;
+}
+
+function buildShareUrl(publicId: string): string {
+  if (typeof window === "undefined") {
+    return `/descubrimiento/share/${publicId}`;
+  }
+
+  return `${window.location.origin}/descubrimiento/share/${publicId}`;
+}
+
+export function ResultsView({
+  state,
+  publicId,
+  isPublic = false,
+  embedded = true,
+  onShare,
+  onReset,
+}: ResultsViewProps) {
+  const { alert } = useAppDialog();
+  const scoring = React.useMemo(
+    () => scoreDiscoveryAnswers(state.answers),
+    [state.answers],
+  );
+  const reports = React.useMemo(
+    () => buildDiscoveryReports(state, scoring),
+    [state, scoring],
+  );
+  const [filter, setFilter] = React.useState<DiscoveryReportFilter>("all");
+  const [isExporting, setIsExporting] = React.useState(false);
+  const [isSharing, setIsSharing] = React.useState(false);
+  const [sharedPublicId, setSharedPublicId] = React.useState(publicId ?? null);
+  const hiddenPdfRef = React.useRef<HTMLDivElement>(null);
+  const stickyClass = embedded ? "top-[5rem] md:top-[5.5rem]" : "top-0";
+
+  React.useEffect(() => {
+    setSharedPublicId(publicId ?? null);
+  }, [publicId]);
+
+  const radarData = React.useMemo(
+    () => [
+      {
+        subject: "Within",
+        value: scoring.pillarMetrics.within.total,
+        fullMark: 100,
+      },
+      {
+        subject: "Out",
+        value: scoring.pillarMetrics.out.total,
+        fullMark: 100,
+      },
+      {
+        subject: "Up",
+        value: scoring.pillarMetrics.up.total,
+        fullMark: 100,
+      },
+      {
+        subject: "Beyond",
+        value: scoring.pillarMetrics.beyond.total,
+        fullMark: 100,
+      },
+    ],
+    [scoring],
+  );
+
+  const pillarRadarData = React.useMemo(() => {
+    if (filter === "all") return [];
+    return scoring.compList
+      .filter((item) => item.pillar === filter)
+      .map((item) => ({
+        subject:
+          item.name.length > 16 ? `${item.name.slice(0, 16)}…` : item.name,
+        fullName: item.name,
+        value: Math.round(((item.score - 1) / 4) * 100),
+        fullMark: 100,
+      }));
+  }, [filter, scoring.compList]);
+
+  const currentMetric =
+    filter === "all" ? null : scoring.pillarMetrics[filter as DiscoveryPillarKey];
+  const currentScore =
+    filter === "all" ? scoring.globalIndex : currentMetric?.total ?? 0;
+  const currentStatus = getDiscoveryStatus(currentScore);
+  const shareUrl = sharedPublicId ? buildShareUrl(sharedPublicId) : "";
+
+  const handleShare = async () => {
+    if (!onShare || isPublic) return;
+    setIsSharing(true);
+    try {
+      const nextSession = await onShare();
+      setSharedPublicId(nextSession.publicId);
+      await alert({
+        title: "Enlace listo",
+        message: "Ya puedes compartir esta lectura ejecutiva con quien lo necesites.",
+        tone: "success",
+      });
+    } catch (error) {
+      await alert({
+        title: "No pudimos compartir el diagnóstico",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Inténtalo nuevamente en unos segundos.",
+        tone: "error",
+      });
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
+  const copyToClipboard = async () => {
+    if (!shareUrl) return;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      await alert({
+        title: "Enlace copiado",
+        message: "El enlace público quedó copiado en tu portapapeles.",
+        tone: "success",
+      });
+    } catch {
+      await alert({
+        title: "No se pudo copiar",
+        message: "Tu navegador no permitió copiar el enlace automáticamente.",
+        tone: "warning",
+      });
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!hiddenPdfRef.current) return;
+
+    setIsExporting(true);
+    try {
+      await new Promise((resolve) => window.setTimeout(resolve, 450));
+      const imageData = await htmlToImage.toPng(hiddenPdfRef.current, {
+        pixelRatio: 2,
+        backgroundColor: "#ffffff",
+      });
+
+      const pdf = new jsPDF({
+        orientation: "p",
+        unit: "mm",
+        format: "a4",
+        compress: true,
+      });
+
+      const imageProps = pdf.getImageProperties(imageData);
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (imageProps.height * pdfWidth) / imageProps.width;
+      const pageHeight = pdf.internal.pageSize.getHeight();
+
+      let remainingHeight = pdfHeight;
+      let offsetY = 0;
+
+      pdf.addImage(imageData, "PNG", 0, 0, pdfWidth, pdfHeight);
+      remainingHeight -= pageHeight;
+
+      while (remainingHeight > 0) {
+        offsetY -= pageHeight;
+        pdf.addPage();
+        pdf.addImage(imageData, "PNG", 0, offsetY, pdfWidth, pdfHeight);
+        remainingHeight -= pageHeight;
+      }
+
+      const safeName = state.name
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-zA-Z0-9\s]/g, "")
+        .trim()
+        .replace(/\s+/g, "_");
+
+      pdf.save(`Descubrimiento_4Shine_${safeName || "usuario"}.pdf`);
+    } catch (error) {
+      await alert({
+        title: "No se pudo generar el PDF",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Inténtalo nuevamente en unos segundos.",
+        tone: "error",
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="pointer-events-none absolute left-[-9999px] top-[-9999px] w-[210mm]">
+        <PdfReportData ref={hiddenPdfRef} state={state} scoring={scoring} />
+      </div>
+
+      {!embedded && (
+        <div className="mx-auto max-w-6xl px-4 pt-8 md:px-6">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-white/90 px-4 py-2 text-sm font-semibold text-[var(--app-ink)] transition hover:bg-white"
+          >
+            Volver a 4Shine
+          </Link>
+        </div>
+      )}
+
+      <div
+        className={clsx(
+          "sticky z-10 rounded-[22px] border border-[var(--app-border)] bg-[rgba(255,255,255,0.88)] px-4 py-4 shadow-[0_20px_42px_rgba(55,32,80,0.08)] backdrop-blur-xl md:px-5",
+          stickyClass,
+        )}
+      >
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="app-section-kicker">Lectura ejecutiva</p>
+            <h3 className="mt-2 text-2xl font-black text-[var(--app-ink)] md:text-3xl">
+              Resultados del diagnóstico
+            </h3>
+            <p className="mt-2 text-sm text-[var(--app-muted)]">
+              {state.name} · {state.role}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className="rounded-full px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em]"
+              style={{
+                color: currentStatus.color,
+                backgroundColor: currentStatus.softColor,
+              }}
+            >
+              Avance {currentScore}%
+            </span>
+
+            {!isPublic && onShare && (
+              <button
+                type="button"
+                onClick={handleShare}
+                disabled={isSharing}
+                className="inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em] text-white transition hover:opacity-92 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isSharing ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Share2 size={14} />
+                )}
+                Compartir
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={handleDownloadPdf}
+              disabled={isExporting}
+              className="inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em] text-[var(--app-ink)] transition hover:bg-[var(--app-surface-muted)] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isExporting ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Download size={14} />
+              )}
+              Descargar PDF
+            </button>
+
+            {!isPublic && onReset && (
+              <button
+                type="button"
+                onClick={() => void onReset()}
+                className="inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em] text-[var(--app-muted)] transition hover:bg-[var(--app-surface-muted)]"
+              >
+                <RefreshCw size={14} />
+                Reiniciar
+              </button>
+            )}
+          </div>
+        </div>
+
+        {sharedPublicId && (
+          <div className="mt-4 flex flex-col gap-3 rounded-[18px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-4 md:flex-row md:items-center md:justify-between">
+            <div className="min-w-0">
+              <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-[var(--app-muted)]">
+                Enlace público
+              </p>
+              <p className="mt-1 truncate text-sm text-[var(--app-ink)]">
+                {shareUrl}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void copyToClipboard()}
+                className="inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-4 py-2 text-xs font-extrabold uppercase tracking-[0.16em] text-[var(--app-ink)] transition hover:bg-[var(--app-surface-strong)]"
+              >
+                <Copy size={14} />
+                Copiar
+              </button>
+              <Link
+                href={shareUrl}
+                target="_blank"
+                className="inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-4 py-2 text-xs font-extrabold uppercase tracking-[0.16em] text-[var(--app-ink)] transition hover:bg-[var(--app-surface-strong)]"
+              >
+                <ExternalLink size={14} />
+                Abrir
+              </Link>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.85fr)]">
+        <section className="app-panel p-5 sm:p-6">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="app-section-kicker">Mapa de liderazgo</p>
+              <h4 className="mt-2 text-2xl font-black text-[var(--app-ink)]">
+                {filter === "all"
+                  ? "Vista integral"
+                  : PILLAR_INFO[filter].title}
+              </h4>
+            </div>
+            <div
+              className="rounded-full px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em]"
+              style={{
+                color: currentStatus.color,
+                backgroundColor: currentStatus.softColor,
+              }}
+            >
+              {currentStatus.label}
+            </div>
+          </div>
+
+          <div className="mt-5 flex flex-wrap gap-2">
+            {(["all", "within", "out", "up", "beyond"] as const).map(
+              (item) => (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => setFilter(item)}
+                  className={clsx(
+                    "rounded-full px-4 py-2 text-xs font-extrabold uppercase tracking-[0.16em] transition",
+                    filter === item
+                      ? "bg-[var(--brand-primary)] text-white"
+                      : "border border-[var(--app-border)] bg-white text-[var(--app-muted)] hover:bg-[var(--app-surface-muted)]",
+                  )}
+                >
+                  {item === "all" ? "Global" : PILLAR_INFO[item].title}
+                </button>
+              ),
+            )}
+          </div>
+
+          <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
+            <div className="rounded-[22px] border border-[var(--app-border)] bg-white/80 px-5 py-5">
+              <div className="h-[320px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RadarChart
+                    cx="50%"
+                    cy="50%"
+                    outerRadius="72%"
+                    data={filter === "all" ? radarData : pillarRadarData}
+                  >
+                    <PolarGrid stroke="rgba(88,54,108,0.16)" />
+                    <PolarAngleAxis
+                      dataKey="subject"
+                      tick={{ fill: "#6e5a83", fontSize: 10, fontWeight: 700 }}
+                    />
+                    <PolarRadiusAxis tick={false} axisLine={false} domain={[0, 100]} />
+                    <Tooltip
+                      formatter={(value) => [`${String(value ?? 0)}%`, "Score"]}
+                      labelFormatter={(label, payload) =>
+                        payload?.[0]?.payload?.fullName ?? String(label)
+                      }
+                    />
+                    <Radar
+                      dataKey="value"
+                      stroke="var(--brand-primary)"
+                      fill="var(--brand-primary)"
+                      fillOpacity={0.16}
+                      strokeWidth={2.5}
+                    />
+                  </RadarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="rounded-[22px] border border-[var(--app-border)] bg-white/82 px-5 py-5">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-[16px] bg-[var(--app-chip)] p-3 text-[var(--brand-primary)]">
+                    <Gauge size={18} />
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[var(--app-muted)]">
+                      Score actual
+                    </p>
+                    <p className="mt-1 text-3xl font-black text-[var(--app-ink)]">
+                      {currentScore}%
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {currentMetric && (
+                <div className="rounded-[22px] border border-[var(--app-border)] bg-white/82 px-5 py-5">
+                  <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[var(--app-muted)]">
+                    Equilibrio del pilar
+                  </p>
+                  <div className="mt-4 grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs text-[var(--app-muted)]">Autopercepción</p>
+                      <p className="mt-1 text-2xl font-black text-[var(--app-ink)]">
+                        {currentMetric.likert}%
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-[var(--app-muted)]">Juicio situacional</p>
+                      <p className="mt-1 text-2xl font-black text-[var(--app-ink)]">
+                        {currentMetric.sjt}%
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="rounded-[22px] border border-[var(--app-border)] bg-white/82 px-5 py-5">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-[16px] bg-[var(--app-chip)] p-3 text-[var(--brand-primary)]">
+                    <RadarIcon size={18} />
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[var(--app-muted)]">
+                      Lectura disponible
+                    </p>
+                    <p className="mt-1 text-sm leading-relaxed text-[var(--app-muted)]">
+                      Cambia entre la visión global y cada pilar para profundizar la lectura ejecutiva.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <aside className="app-panel p-5 sm:p-6">
+          <p className="app-section-kicker">Informe ejecutivo</p>
+          <h4 className="mt-2 text-2xl font-black text-[var(--app-ink)]">
+            {filter === "all"
+              ? "Visión general"
+              : PILLAR_INFO[filter].title}
+          </h4>
+          <div className="prose prose-slate mt-6 max-w-none text-sm leading-7">
+            <ReactMarkdown>{reports[filter]}</ReactMarkdown>
+          </div>
+        </aside>
+      </div>
+    </div>
+  );
+}
