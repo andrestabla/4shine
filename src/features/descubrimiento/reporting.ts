@@ -11,7 +11,6 @@ import type {
 
 export const DISCOVERY_ITEMS_PER_PAGE = 6;
 export const DISCOVERY_TOTAL_ITEMS = DB.length;
-export const DEFAULT_DISCOVERY_ROLE = "Director/C-Level" as const;
 
 const PILLAR_SCORE_CODES: Record<
   DiscoveryPillarKey,
@@ -318,7 +317,7 @@ export function buildDiscoveryReport(
     "## Tu perfil estratégico",
     `${state.name}, tu lectura actual se ubica en **${scores.globalIndex}%** y hoy refleja un nivel **${globalStatus.label.toLowerCase()}**. La combinación entre ${listInline(strengths.slice(0, 2))} y ${listInline(gaps.slice(0, 2))} muestra un liderazgo con capacidad real de avance, pero todavía con frentes que requieren método y consistencia.`,
     "",
-    `Como ${state.role}, tu pilar más sólido hoy es **${PILLAR_INFO[topPillar[0]].title}** (${topPillar[1].total}%) y tu frente más sensible está en **${PILLAR_INFO[priorityPillar[0]].title}** (${priorityPillar[1].total}%). Esa combinación te dice dónde apalancarte y dónde concentrar la energía del próximo ciclo.`,
+    `Tu pilar más sólido hoy es **${PILLAR_INFO[topPillar[0]].title}** (${topPillar[1].total}%) y tu frente más sensible está en **${PILLAR_INFO[priorityPillar[0]].title}** (${priorityPillar[1].total}%). Esa combinación te dice dónde apalancarte y dónde concentrar la energía del próximo ciclo.`,
     "",
     "## Lo que hoy ya te impulsa",
     describeGapBullets(strengths.slice(0, 3)),
@@ -348,4 +347,3 @@ export function buildDiscoveryReports(
     beyond: buildDiscoveryReport("beyond", state, scores),
   };
 }
-

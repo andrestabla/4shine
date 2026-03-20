@@ -60,7 +60,7 @@ export const PdfReportData = React.forwardRef<HTMLDivElement, PdfReportDataProps
             Reporte ejecutivo de liderazgo
           </h1>
           <p className="mt-2 text-sm text-slate-500">
-            {state.name} · {state.role}
+            {state.name}
           </p>
         </section>
 
@@ -246,4 +246,3 @@ export const PdfReportData = React.forwardRef<HTMLDivElement, PdfReportDataProps
     );
   },
 );
-

@@ -39,4 +39,3 @@ export async function POST(request: Request) {
     return errorResponse(error, "Failed to share discovery session");
   }
 }
-

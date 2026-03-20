@@ -97,4 +97,3 @@ export async function DELETE(request: Request) {
     return errorResponse(error, "Failed to reset discovery session");
   }
 }
-

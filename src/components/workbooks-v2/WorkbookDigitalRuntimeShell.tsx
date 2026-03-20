@@ -1,9 +1,15 @@
 'use client'
 
 import React from 'react'
+import { Loader2 } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
 import { useUser } from '@/context/UserContext'
-import { updateLearningWorkbook } from '@/features/aprendizaje/client'
+import {
+    getLearningWorkbook,
+    type WorkbookRecord,
+    type WorkbookStatePayload,
+    updateLearningWorkbook
+} from '@/features/aprendizaje/client'
 
 const IDENTIFICATION_FIELDS_KEY_BY_SLUG: Partial<Record<string, string>> = {
     wb1: 'workbooks-v2-wb1-identification'
@@ -45,6 +51,59 @@ function safeJsonParse<T>(value: string | null, fallback: T): T {
     }
 }
 
+function collectScopedStatePayload(workbookId: string): WorkbookStatePayload {
+    if (typeof window === 'undefined') {
+        return {}
+    }
+
+    const prefix = `${workbookId}:`
+    const payload: WorkbookStatePayload = {}
+
+    for (let index = 0; index < window.localStorage.length; index += 1) {
+        const scopedKey = window.localStorage.key(index)
+        if (!scopedKey || !scopedKey.startsWith(prefix)) continue
+
+        const rawValue = window.localStorage.getItem(scopedKey)
+        if (typeof rawValue !== 'string') continue
+
+        payload[scopedKey.slice(prefix.length)] = rawValue
+    }
+
+    return payload
+}
+
+function clearScopedStatePayload(rawStorage: StoragePrototype, workbookId: string) {
+    if (typeof window === 'undefined') {
+        return
+    }
+
+    const prefix = `${workbookId}:`
+    const keysToRemove: string[] = []
+
+    for (let index = 0; index < window.localStorage.length; index += 1) {
+        const scopedKey = window.localStorage.key(index)
+        if (scopedKey?.startsWith(prefix)) {
+            keysToRemove.push(scopedKey)
+        }
+    }
+
+    for (const scopedKey of keysToRemove) {
+        rawStorage.removeItem.call(window.localStorage, scopedKey)
+    }
+}
+
+function hydrateScopedStatePayload(
+    rawStorage: StoragePrototype,
+    workbookId: string,
+    payload: WorkbookStatePayload,
+) {
+    clearScopedStatePayload(rawStorage, workbookId)
+
+    for (const [key, value] of Object.entries(payload)) {
+        rawStorage.setItem.call(window.localStorage, `${workbookId}:${key}`, value)
+    }
+}
+
 export function WorkbookDigitalRuntimeShell({
     slug,
     children
@@ -55,43 +114,37 @@ export function WorkbookDigitalRuntimeShell({
     const searchParams = useSearchParams()
     const { currentUser, currentRole } = useUser()
     const workbookId = searchParams.get('workbookId')?.trim() || 'preview'
-    const ownerName = searchParams.get('ownerName')?.trim() || currentUser?.name || 'Líder 4Shine'
+    const fallbackOwnerName = searchParams.get('ownerName')?.trim() || currentUser?.name || 'Líder 4Shine'
     const ownerRoleLabel = roleLabel(currentRole)
-    const lastSyncedProgressRef = React.useRef<number | null>(null)
+
+    const scopeKey = React.useCallback(
+        (key: string) => (shouldScopeStorageKey(key) ? `${workbookId}:${key}` : key),
+        [workbookId],
+    )
+
+    const rawStorageRef = React.useRef<StoragePrototype | null>(null)
+    const lastSyncedSnapshotRef = React.useRef('')
+    const [storageVersion, setStorageVersion] = React.useState(0)
     const [detectedProgress, setDetectedProgress] = React.useState<number | null>(null)
+    const [storageReady, setStorageReady] = React.useState(false)
+    const [remoteReady, setRemoteReady] = React.useState(false)
+    const [remoteWorkbook, setRemoteWorkbook] = React.useState<WorkbookRecord | null>(null)
 
-    React.useLayoutEffect(() => {
-        if (typeof window === 'undefined') return
+    const injectIdentificationDefaults = React.useCallback((ownerName: string) => {
+        if (typeof window === 'undefined' || !rawStorageRef.current) return
 
-        const storageProto = Object.getPrototypeOf(window.localStorage) as StoragePrototype
-        const originalGetItem = storageProto.getItem
-        const originalSetItem = storageProto.setItem
-        const originalRemoveItem = storageProto.removeItem
-
-        const scopeKey = (key: string) => (shouldScopeStorageKey(key) ? `${workbookId}:${key}` : key)
-
-        storageProto.getItem = (key: string) => {
-            return originalGetItem.call(window.localStorage, scopeKey(String(key)))
-        }
-
-        storageProto.setItem = (key: string, value: string) => {
-            return originalSetItem.call(window.localStorage, scopeKey(String(key)), value)
-        }
-
-        storageProto.removeItem = (key: string) => {
-            return originalRemoveItem.call(window.localStorage, scopeKey(String(key)))
-        }
-
+        const rawStorage = rawStorageRef.current
         const today = new Date().toISOString().slice(0, 10)
         const scopedIdLabel = workbookId === 'preview' ? 'PREVIEW' : workbookId.slice(0, 8).toUpperCase()
 
         const identificationFieldsKey = IDENTIFICATION_FIELDS_KEY_BY_SLUG[slug]
         if (identificationFieldsKey) {
             const current = safeJsonParse<Record<string, string>>(
-                originalGetItem.call(window.localStorage, scopeKey(identificationFieldsKey)),
+                rawStorage.getItem.call(window.localStorage, scopeKey(identificationFieldsKey)),
                 {},
             )
-            originalSetItem.call(
+
+            rawStorage.setItem.call(
                 window.localStorage,
                 scopeKey(identificationFieldsKey),
                 JSON.stringify({
@@ -107,7 +160,7 @@ export function WorkbookDigitalRuntimeShell({
         const stateKey = IDENTIFICATION_STATE_KEY_BY_SLUG[slug]
         if (stateKey) {
             const current = safeJsonParse<Record<string, unknown>>(
-                originalGetItem.call(window.localStorage, scopeKey(stateKey)),
+                rawStorage.getItem.call(window.localStorage, scopeKey(stateKey)),
                 {},
             )
             const currentIdentification =
@@ -115,7 +168,7 @@ export function WorkbookDigitalRuntimeShell({
                     ? (current.identification as Record<string, string>)
                     : {}
 
-            originalSetItem.call(
+            rawStorage.setItem.call(
                 window.localStorage,
                 scopeKey(stateKey),
                 JSON.stringify({
@@ -130,13 +183,112 @@ export function WorkbookDigitalRuntimeShell({
                 }),
             )
         }
+    }, [ownerRoleLabel, scopeKey, slug, workbookId])
+
+    React.useEffect(() => {
+        if (typeof window === 'undefined') return
+
+        const storageProto = Object.getPrototypeOf(window.localStorage) as StoragePrototype
+        const originalStorage: StoragePrototype = {
+            getItem: storageProto.getItem,
+            setItem: storageProto.setItem,
+            removeItem: storageProto.removeItem,
+        }
+        rawStorageRef.current = originalStorage
+
+        storageProto.getItem = (key: string) => {
+            return originalStorage.getItem.call(window.localStorage, scopeKey(String(key)))
+        }
+
+        storageProto.setItem = (key: string, value: string) => {
+            const normalizedKey = String(key)
+            const result = originalStorage.setItem.call(
+                window.localStorage,
+                scopeKey(normalizedKey),
+                value,
+            )
+            if (shouldScopeStorageKey(normalizedKey)) {
+                setStorageVersion((current) => current + 1)
+            }
+            return result
+        }
+
+        storageProto.removeItem = (key: string) => {
+            const normalizedKey = String(key)
+            const result = originalStorage.removeItem.call(
+                window.localStorage,
+                scopeKey(normalizedKey),
+            )
+            if (shouldScopeStorageKey(normalizedKey)) {
+                setStorageVersion((current) => current + 1)
+            }
+            return result
+        }
+
+        setStorageReady(true)
 
         return () => {
-            storageProto.getItem = originalGetItem
-            storageProto.setItem = originalSetItem
-            storageProto.removeItem = originalRemoveItem
+            storageProto.getItem = originalStorage.getItem
+            storageProto.setItem = originalStorage.setItem
+            storageProto.removeItem = originalStorage.removeItem
+            rawStorageRef.current = null
         }
-    }, [ownerName, ownerRoleLabel, slug, workbookId])
+    }, [scopeKey])
+
+    React.useEffect(() => {
+        if (!storageReady) return
+
+        let active = true
+
+        const hydrate = async () => {
+            if (workbookId === 'preview' || !rawStorageRef.current) {
+                injectIdentificationDefaults(fallbackOwnerName)
+                if (active) {
+                    setRemoteWorkbook(null)
+                    setRemoteReady(true)
+                }
+                return
+            }
+
+            setRemoteReady(false)
+
+            try {
+                const workbook = await getLearningWorkbook(workbookId)
+                if (!active || !rawStorageRef.current) return
+
+                const localPayload = collectScopedStatePayload(workbookId)
+                const persistedPayload = workbook.statePayload
+                const initialPayload =
+                    Object.keys(persistedPayload).length > 0 ? persistedPayload : localPayload
+
+                hydrateScopedStatePayload(rawStorageRef.current, workbookId, initialPayload)
+                injectIdentificationDefaults(workbook.ownerName || fallbackOwnerName)
+
+                const remoteSnapshot = JSON.stringify({
+                    completionPercent: Math.max(0, Math.min(100, Math.round(workbook.completionPercent))),
+                    statePayload: persistedPayload,
+                })
+
+                lastSyncedSnapshotRef.current = remoteSnapshot
+                setDetectedProgress(Math.max(0, Math.min(100, Math.round(workbook.completionPercent))))
+                setRemoteWorkbook(workbook)
+            } catch (error) {
+                console.error('Failed to hydrate workbook state', error)
+                if (!active) return
+                injectIdentificationDefaults(fallbackOwnerName)
+            } finally {
+                if (active) {
+                    setRemoteReady(true)
+                }
+            }
+        }
+
+        void hydrate()
+
+        return () => {
+            active = false
+        }
+    }, [fallbackOwnerName, injectIdentificationDefaults, storageReady, workbookId])
 
     React.useEffect(() => {
         if (typeof window === 'undefined') return
@@ -163,31 +315,57 @@ export function WorkbookDigitalRuntimeShell({
         return () => {
             observer.disconnect()
         }
-    }, [])
+    }, [remoteReady])
 
     React.useEffect(() => {
-        if (workbookId === 'preview' || detectedProgress === null) {
+        if (!storageReady || !remoteReady || workbookId === 'preview') {
             return
         }
 
-        if (lastSyncedProgressRef.current === detectedProgress) {
+        const statePayload = collectScopedStatePayload(workbookId)
+        const completionPercent =
+            detectedProgress ?? Math.max(0, Math.min(100, Math.round(remoteWorkbook?.completionPercent ?? 0)))
+
+        const nextSnapshot = JSON.stringify({
+            completionPercent,
+            statePayload,
+        })
+
+        if (nextSnapshot === lastSyncedSnapshotRef.current) {
             return
         }
 
         const timeoutId = window.setTimeout(() => {
-            lastSyncedProgressRef.current = detectedProgress
-
             void updateLearningWorkbook(workbookId, {
-                completionPercent: detectedProgress,
-            }).catch((error) => {
-                console.error('Failed to sync workbook progress', error)
+                completionPercent,
+                statePayload,
             })
-        }, 600)
+                .then((updatedWorkbook) => {
+                    lastSyncedSnapshotRef.current = nextSnapshot
+                    setRemoteWorkbook(updatedWorkbook)
+                })
+                .catch((error) => {
+                    console.error('Failed to sync workbook state', error)
+                })
+        }, 800)
 
         return () => {
             window.clearTimeout(timeoutId)
         }
-    }, [detectedProgress, workbookId])
+    }, [detectedProgress, remoteReady, remoteWorkbook?.completionPercent, storageReady, storageVersion, workbookId])
+
+    if (!storageReady || !remoteReady) {
+        return (
+            <div className="flex min-h-[60vh] items-center justify-center px-6 py-12">
+                <div className="text-center">
+                    <Loader2 size={34} className="mx-auto animate-spin text-[var(--brand-primary)]" />
+                    <p className="mt-3 text-sm text-[var(--app-muted)]">
+                        Preparando tu workbook con tu avance guardado...
+                    </p>
+                </div>
+            </div>
+        )
+    }
 
     return (
         <div className="workbook-digital-shell">
@@ -238,21 +416,23 @@ export function WorkbookDigitalRuntimeShell({
                     .workbook-digital-shell .wb7-toolbar a,
                     .workbook-digital-shell .wb8-toolbar button,
                     .workbook-digital-shell .wb8-toolbar a,
-                    .workbook-digital-shell header button,
-                    .workbook-digital-shell header a {
-                        width: 100%;
+                    .workbook-digital-shell .wb9-toolbar button,
+                    .workbook-digital-shell .wb9-toolbar a,
+                    .workbook-digital-shell .wb10-toolbar button,
+                    .workbook-digital-shell .wb10-toolbar a {
+                        width: 100% !important;
+                        justify-content: center !important;
                     }
 
-                    .workbook-digital-shell .wb1-toolbar span,
-                    .workbook-digital-shell .wb2-toolbar span,
-                    .workbook-digital-shell .wb3-toolbar span,
-                    .workbook-digital-shell .wb4-toolbar span,
-                    .workbook-digital-shell .wb5-toolbar span,
-                    .workbook-digital-shell .wb6-toolbar span,
-                    .workbook-digital-shell .wb7-toolbar span,
-                    .workbook-digital-shell .wb8-toolbar span {
-                        width: fit-content;
-                        max-width: 100%;
+                    .workbook-digital-shell .wb1-cover-layout,
+                    .workbook-digital-shell .wb2-cover-layout,
+                    .workbook-digital-shell .wb3-cover-layout,
+                    .workbook-digital-shell .wb4-cover-layout,
+                    .workbook-digital-shell .wb5-cover-layout,
+                    .workbook-digital-shell .wb6-cover-layout,
+                    .workbook-digital-shell .wb7-cover-layout,
+                    .workbook-digital-shell .wb8-cover-layout {
+                        grid-template-columns: 1fr !important;
                     }
                 }
             `}</style>

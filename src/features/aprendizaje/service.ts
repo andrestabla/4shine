@@ -56,6 +56,8 @@ export interface WorkbookEditableFields {
   ishinerNotes: string;
 }
 
+export type WorkbookStatePayload = Record<string, string>;
+
 export type WorkbookAccessState = 'active' | 'scheduled' | 'disabled' | 'hidden';
 
 export interface WorkbookRecord {
@@ -73,6 +75,7 @@ export interface WorkbookRecord {
   ownerName: string;
   editableFields: WorkbookEditableFields;
   completionPercent: number;
+  statePayload: WorkbookStatePayload;
   lastDownloadedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -86,6 +89,7 @@ export interface UpdateWorkbookInput {
   isHidden?: boolean;
   editableFields?: Partial<WorkbookEditableFields>;
   completionPercent?: number;
+  statePayload?: WorkbookStatePayload;
   markDownloaded?: boolean;
 }
 
@@ -139,6 +143,7 @@ interface WorkbookRow {
   owner_name: string;
   editable_fields: WorkbookEditableFields | null;
   completion_percent: number;
+  state_payload: WorkbookStatePayload | null;
   last_downloaded_at: string | null;
   created_at: string;
   updated_at: string;
@@ -176,6 +181,21 @@ function mergeWorkbookFields(
     ...currentFields,
     ...updates,
   });
+}
+
+function normalizeWorkbookStatePayload(input: unknown): WorkbookStatePayload {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    return {};
+  }
+
+  const payload: WorkbookStatePayload = {};
+  for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
+    if (typeof value === 'string') {
+      payload[key] = value;
+    }
+  }
+
+  return payload;
 }
 
 function calculateWorkbookCompletion(fields: WorkbookEditableFields): number {
@@ -217,6 +237,7 @@ function mapWorkbookRow(row: WorkbookRow): WorkbookRecord {
     ownerName: row.owner_name,
     editableFields,
     completionPercent: Number(row.completion_percent ?? calculateWorkbookCompletion(editableFields)),
+    statePayload: normalizeWorkbookStatePayload(row.state_payload),
     lastDownloadedAt: row.last_downloaded_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -304,6 +325,7 @@ async function getWorkbookById(client: PoolClient, workbookId: string): Promise<
         u.display_name AS owner_name,
         uw.editable_fields,
         uw.completion_percent::float,
+        uw.state_payload,
         uw.last_downloaded_at::text,
         uw.created_at::text,
         uw.updated_at::text
@@ -322,6 +344,29 @@ async function getWorkbookById(client: PoolClient, workbookId: string): Promise<
   }
 
   return mapWorkbookRow(row);
+}
+
+export async function getWorkbookForActor(
+  client: PoolClient,
+  actor: AuthUser,
+  workbookId: string,
+): Promise<WorkbookRecord> {
+  await requireModulePermission(client, 'aprendizaje', 'view');
+
+  const workbook = await getWorkbookById(client, workbookId);
+  const isManager = actor.role === 'gestor' || actor.role === 'admin';
+  const isLeaderOwner = actor.role === 'lider' && workbook.ownerUserId === actor.userId;
+  const isIshiner = actor.role === 'mentor';
+
+  if (!isManager && !isLeaderOwner && !isIshiner) {
+    throw new ForbiddenError('You do not have access to this workbook');
+  }
+
+  if (!isManager && workbook.accessState === 'hidden') {
+    throw new ForbiddenError('Workbook not found');
+  }
+
+  return workbook;
 }
 
 export async function listLearningResources(client: PoolClient, actor: AuthUser): Promise<LearningResourceRecord[]> {
@@ -532,6 +577,7 @@ export async function listWorkbooks(
         u.display_name AS owner_name,
         uw.editable_fields,
         uw.completion_percent::float,
+        NULL::jsonb AS state_payload,
         uw.last_downloaded_at::text,
         uw.created_at::text,
         uw.updated_at::text
@@ -588,6 +634,10 @@ export async function updateWorkbook(
       ? Math.max(0, Math.min(100, Math.round(input.completionPercent)))
       : null;
   const completionPercent = requestedCompletionPercent ?? calculateWorkbookCompletion(mergedFields);
+  const hasStatePayload = input.statePayload !== undefined;
+  const statePayload = hasStatePayload
+    ? normalizeWorkbookStatePayload(input.statePayload)
+    : current.statePayload;
 
   const { rows } = await client.query<{ workbook_id: string }>(
     `
@@ -601,6 +651,7 @@ export async function updateWorkbook(
         editable_fields = $7::jsonb,
         completion_percent = $8,
         last_downloaded_at = CASE WHEN $9 THEN now() ELSE last_downloaded_at END,
+        state_payload = CASE WHEN $10 THEN $11::jsonb ELSE state_payload END,
         updated_at = now()
       WHERE workbook_id = $1
       RETURNING workbook_id::text
@@ -615,6 +666,8 @@ export async function updateWorkbook(
       JSON.stringify(mergedFields),
       completionPercent,
       input.markDownloaded ?? false,
+      hasStatePayload,
+      JSON.stringify(statePayload),
     ],
   );
 

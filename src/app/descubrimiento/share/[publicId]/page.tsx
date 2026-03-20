@@ -23,7 +23,6 @@ export default async function DiscoverySharePage({ params }: PageParams) {
       <ResultsView
         state={{
           name: session.nameSnapshot,
-          role: session.roleSnapshot,
           answers: session.answers,
           currentIdx: session.currentIdx,
           status: "results",
@@ -35,4 +34,3 @@ export default async function DiscoverySharePage({ params }: PageParams) {
     </main>
   );
 }
-

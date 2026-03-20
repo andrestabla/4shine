@@ -2,7 +2,6 @@ import type { PoolClient } from "pg";
 import { requireModulePermission } from "@/server/auth/module-permissions";
 import type { AuthUser } from "@/server/auth/types";
 import {
-  DEFAULT_DISCOVERY_ROLE,
   DISCOVERY_TOTAL_ITEMS,
   calculateDiscoveryCompletionPercent,
   scoreDiscoveryAnswers,
@@ -10,7 +9,6 @@ import {
 } from "./reporting";
 import type {
   DiscoveryAnswers,
-  DiscoveryRoleSnapshot,
   DiscoverySessionRecord,
   DiscoveryStep,
   UpdateDiscoverySessionInput,
@@ -21,7 +19,6 @@ interface DiscoverySessionRow {
   attempt_id: string;
   user_id: string;
   name_snapshot: string;
-  role_snapshot: DiscoveryRoleSnapshot;
   status: DiscoveryStep;
   answers: DiscoveryAnswers | null;
   current_idx: number;
@@ -62,7 +59,6 @@ function mapDiscoverySessionRow(
     attemptId: row.attempt_id,
     userId: row.user_id,
     nameSnapshot: row.name_snapshot,
-    roleSnapshot: row.role_snapshot,
     status: row.status,
     answers: normalizeAnswers(row.answers),
     currentIdx: Number(row.current_idx ?? 0),
@@ -104,7 +100,6 @@ async function readDiscoverySession(
         ds.attempt_id::text,
         ds.user_id::text,
         ds.name_snapshot,
-        ds.role_snapshot,
         ds.status,
         ds.answers,
         ds.current_idx,
@@ -154,7 +149,6 @@ async function createDiscoverySession(
         attempt_id,
         user_id,
         name_snapshot,
-        role_snapshot,
         status,
         answers,
         current_idx,
@@ -164,7 +158,6 @@ async function createDiscoverySession(
         $1::uuid,
         $2::uuid,
         $3,
-        $4,
         'intro',
         '{}'::jsonb,
         0,
@@ -175,7 +168,6 @@ async function createDiscoverySession(
         attempt_id::text,
         user_id::text,
         name_snapshot,
-        role_snapshot,
         status,
         answers,
         current_idx,
@@ -186,7 +178,7 @@ async function createDiscoverySession(
         created_at::text,
         updated_at::text
     `,
-    [attemptId, actor.userId, actor.name, DEFAULT_DISCOVERY_ROLE],
+    [attemptId, actor.userId, actor.name],
   );
 
   if (!rows[0]) {
@@ -250,7 +242,6 @@ function buildNextState(
 
   return {
     nameSnapshot: actor.name,
-    roleSnapshot: input.roleSnapshot ?? current.roleSnapshot,
     status: nextStatus,
     answers: nextAnswers,
     currentIdx,
@@ -283,7 +274,6 @@ export async function getOrCreateDiscoverySession(
           attempt_id::text,
           user_id::text,
           name_snapshot,
-          role_snapshot,
           status,
           answers,
           current_idx,
@@ -319,12 +309,11 @@ export async function updateDiscoverySession(
     `
       UPDATE app_assessment.discovery_sessions
       SET name_snapshot = $2,
-          role_snapshot = $3,
-          status = $4,
-          answers = $5::jsonb,
-          current_idx = $6,
-          completion_percent = $7,
-          completed_at = $8::timestamptz,
+          status = $3,
+          answers = $4::jsonb,
+          current_idx = $5,
+          completion_percent = $6,
+          completed_at = $7::timestamptz,
           updated_at = now()
       WHERE session_id = $1::uuid
       RETURNING
@@ -332,7 +321,6 @@ export async function updateDiscoverySession(
         attempt_id::text,
         user_id::text,
         name_snapshot,
-        role_snapshot,
         status,
         answers,
         current_idx,
@@ -346,7 +334,6 @@ export async function updateDiscoverySession(
     [
       current.sessionId,
       next.nameSnapshot,
-      next.roleSnapshot,
       next.status,
       JSON.stringify(next.answers),
       next.currentIdx,
@@ -398,7 +385,6 @@ export async function resetDiscoverySession(
     `
       UPDATE app_assessment.discovery_sessions
       SET name_snapshot = $2,
-          role_snapshot = $3,
           status = 'intro',
           answers = '{}'::jsonb,
           current_idx = 0,
@@ -413,7 +399,6 @@ export async function resetDiscoverySession(
         attempt_id::text,
         user_id::text,
         name_snapshot,
-        role_snapshot,
         status,
         answers,
         current_idx,
@@ -424,7 +409,7 @@ export async function resetDiscoverySession(
         created_at::text,
         updated_at::text
     `,
-    [current.sessionId, actor.name, DEFAULT_DISCOVERY_ROLE],
+    [current.sessionId, actor.name],
   );
 
   await client.query(
@@ -468,7 +453,6 @@ export async function getDiscoverySessionByPublicId(
         ds.attempt_id::text,
         ds.user_id::text,
         ds.name_snapshot,
-        ds.role_snapshot,
         ds.status,
         ds.answers,
         ds.current_idx,
@@ -517,7 +501,6 @@ export async function shareDiscoverySession(
         attempt_id::text,
         user_id::text,
         name_snapshot,
-        role_snapshot,
         status,
         answers,
         current_idx,
@@ -558,4 +541,3 @@ export async function getDiscoverySessionForActor(
 
   return getOrCreateDiscoverySession(client, actor);
 }
-

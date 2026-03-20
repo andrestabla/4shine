@@ -2,11 +2,41 @@ import { NextResponse } from 'next/server';
 import { authenticateRequest } from '@/server/auth/request-auth';
 import { withClient, withRoleContext } from '@/server/db/pool';
 import type { UpdateWorkbookInput } from '@/features/aprendizaje/service';
-import { deleteWorkbook, updateWorkbook } from '@/features/aprendizaje/service';
+import { deleteWorkbook, getWorkbookForActor, updateWorkbook } from '@/features/aprendizaje/service';
 import { errorResponse, logModuleAudit, parseJsonBody, unauthorizedResponse } from '../../../_utils';
 
 interface ContextParams {
   params: Promise<{ workbookId: string }>;
+}
+
+export async function GET(request: Request, context: ContextParams) {
+  const identity = await authenticateRequest(request);
+  if (!identity) return unauthorizedResponse();
+
+  const { workbookId } = await context.params;
+
+  try {
+    const data = await withClient((client) =>
+      withRoleContext(client, identity.userId, identity.role, async () => {
+        const result = await getWorkbookForActor(client, identity, workbookId);
+        await logModuleAudit(client, request, identity, {
+          moduleCode: 'aprendizaje',
+          action: 'query_workbook',
+          entityTable: 'app_learning.user_workbooks',
+          entityId: workbookId,
+          changeSummary: {
+            ownerUserId: result.ownerUserId,
+            accessState: result.accessState,
+          },
+        });
+        return result;
+      }),
+    );
+
+    return NextResponse.json({ ok: true, data }, { status: 200 });
+  } catch (error) {
+    return errorResponse(error, 'Failed to load workbook');
+  }
 }
 
 export async function PATCH(request: Request, context: ContextParams) {

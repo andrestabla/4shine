@@ -6,6 +6,7 @@ import type {
   UpdateWorkbookInput,
   WorkbookEditableFields,
   WorkbookRecord,
+  WorkbookStatePayload,
 } from './service';
 
 export type {
@@ -14,6 +15,7 @@ export type {
   UpdateWorkbookInput,
   WorkbookEditableFields,
   WorkbookRecord,
+  WorkbookStatePayload,
 };
 
 export async function listLearningResources(): Promise<LearningResourceRecord[]> {
@@ -46,6 +48,10 @@ export async function updateLearningWorkbook(
     method: 'PATCH',
     body: JSON.stringify(input),
   });
+}
+
+export async function getLearningWorkbook(workbookId: string): Promise<WorkbookRecord> {
+  return requestApi<WorkbookRecord>(`/api/v1/modules/aprendizaje/workbooks/${workbookId}`);
 }
 
 export async function deleteLearningWorkbook(workbookId: string): Promise<{ workbookId: string }> {

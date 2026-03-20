@@ -1,14 +1,5 @@
 export type DiscoveryStep = "intro" | "instructions" | "quiz" | "results";
 
-export const DISCOVERY_ROLE_OPTIONS = [
-  "Director/C-Level",
-  "Gerente/Mando Medio",
-  "Coordinador/Líder de Proyecto",
-  "Individual Contributor",
-] as const;
-
-export type DiscoveryRoleSnapshot = (typeof DISCOVERY_ROLE_OPTIONS)[number];
-
 export type DiscoveryAnswerValue = string | number;
 export type DiscoveryAnswers = Record<string, DiscoveryAnswerValue>;
 
@@ -17,7 +8,6 @@ export type DiscoveryReportFilter = "all" | DiscoveryPillarKey;
 
 export interface DiscoveryUserState {
   name: string;
-  role: DiscoveryRoleSnapshot;
   answers: DiscoveryAnswers;
   currentIdx: number;
   status: DiscoveryStep;
@@ -46,7 +36,6 @@ export interface DiscoverySessionRecord {
   attemptId: string;
   userId: string;
   nameSnapshot: string;
-  roleSnapshot: DiscoveryRoleSnapshot;
   status: DiscoveryStep;
   answers: DiscoveryAnswers;
   currentIdx: number;
@@ -59,7 +48,6 @@ export interface DiscoverySessionRecord {
 }
 
 export interface UpdateDiscoverySessionInput {
-  roleSnapshot?: DiscoveryRoleSnapshot;
   status?: DiscoveryStep;
   answers?: DiscoveryAnswers;
   currentIdx?: number;
@@ -78,4 +66,3 @@ export interface DiscoveryStatusDescriptor {
   color: string;
   softColor: string;
 }
-

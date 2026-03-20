@@ -262,7 +262,7 @@ export function ResultsView({
               Resultados del diagnóstico
             </h3>
             <p className="mt-2 text-sm text-[var(--app-muted)]">
-              {state.name} · {state.role}
+              {state.name}
             </p>
           </div>
 

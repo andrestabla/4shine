@@ -16,7 +16,6 @@ import { useUser } from "@/context/UserContext";
 import { DB, SCALES } from "./DiagnosticsData";
 import {
   DISCOVERY_ITEMS_PER_PAGE,
-  DEFAULT_DISCOVERY_ROLE,
   calculateDiscoveryCompletionPercent,
 } from "./reporting";
 import {
@@ -27,7 +26,6 @@ import {
 } from "./client";
 import { ResultsView } from "./ResultsView";
 import {
-  DISCOVERY_ROLE_OPTIONS,
   type DiscoverySessionRecord,
   type DiscoveryUserState,
 } from "./types";
@@ -37,7 +35,6 @@ type SaveIndicator = "idle" | "saving" | "saved" | "error";
 function toUserState(session: DiscoverySessionRecord): DiscoveryUserState {
   return {
     name: session.nameSnapshot,
-    role: session.roleSnapshot,
     answers: session.answers,
     currentIdx: session.currentIdx,
     status: session.status,
@@ -46,7 +43,6 @@ function toUserState(session: DiscoverySessionRecord): DiscoveryUserState {
 
 function buildPersistPayload(state: DiscoveryUserState) {
   return {
-    roleSnapshot: state.role,
     status: state.status,
     answers: state.answers,
     currentIdx: state.currentIdx,
@@ -60,7 +56,6 @@ export function DiscoveryExperience() {
   const [session, setSession] = React.useState<DiscoverySessionRecord | null>(null);
   const [state, setState] = React.useState<DiscoveryUserState>({
     name: currentUser?.name ?? "Usuario 4Shine",
-    role: DEFAULT_DISCOVERY_ROLE,
     answers: {},
     currentIdx: 0,
     status: "intro",
@@ -374,40 +369,32 @@ export function DiscoveryExperience() {
                 <Compass size={18} />
               </div>
               <div>
-                <p className="app-section-kicker">Perfil evaluado</p>
+                <p className="app-section-kicker">Perfil vinculado</p>
                 <h4 className="mt-2 text-2xl font-black text-[var(--app-ink)]">
                   {currentUser?.name ?? state.name}
                 </h4>
+                <p className="mt-2 text-sm text-[var(--app-muted)]">
+                  Este diagnóstico ya está conectado a tu cuenta 4Shine y a tu
+                  ID único de usuario.
+                </p>
               </div>
             </div>
 
             <div className="mt-5 space-y-4">
-              <label className="block">
-                <span className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[var(--app-muted)]">
-                  Rol actual
-                </span>
-                <select
-                  value={state.role}
-                  onChange={(event) =>
-                    setState((current) => ({
-                      ...current,
-                      role: event.target.value as (typeof DISCOVERY_ROLE_OPTIONS)[number],
-                    }))
-                  }
-                  className="mt-2 h-12 w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 text-sm font-semibold text-[var(--app-ink)] outline-none transition focus:border-[var(--app-border-strong)]"
-                >
-                  {DISCOVERY_ROLE_OPTIONS.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-[18px] border border-[var(--app-border)] bg-white/72 px-4 py-4">
                   <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[var(--app-muted)]">
-                    Guardado
+                    ID diagnóstico
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-[var(--app-ink)]">
+                    {session?.sessionId
+                      ? session.sessionId.slice(0, 8).toUpperCase()
+                      : "Pendiente"}
+                  </p>
+                </div>
+                <div className="rounded-[18px] border border-[var(--app-border)] bg-white/72 px-4 py-4">
+                  <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[var(--app-muted)]">
+                    Último guardado
                   </p>
                   <p className="mt-2 text-sm font-semibold text-[var(--app-ink)]">
                     {session?.updatedAt
@@ -418,7 +405,7 @@ export function DiscoveryExperience() {
                       : "Sin sesión previa"}
                   </p>
                 </div>
-                <div className="rounded-[18px] border border-[var(--app-border)] bg-white/72 px-4 py-4">
+                <div className="rounded-[18px] border border-[var(--app-border)] bg-white/72 px-4 py-4 md:col-span-2">
                   <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[var(--app-muted)]">
                     Avance
                   </p>
