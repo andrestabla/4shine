@@ -166,38 +166,43 @@ export default function DashboardHomePage() {
         <StatGrid
           stats={[
             {
-              label: "Free",
-              value: learningContent.length,
-              hint: "Recursos abiertos en Aprendizaje.",
+              label: "Acceso actual",
+              value: "Free",
+              hint:
+                learningContent.length > 0
+                  ? `${learningContent.length} recursos abiertos en Aprendizaje.`
+                  : "Empieza con contenido abierto en Aprendizaje.",
             },
             {
               label: "Diagnóstico",
               value: viewerAccess?.hasDiscoveryPurchase ? "Activo" : "50 USD",
-              hint: "Compra individual disponible.",
+              hint: viewerAccess?.hasDiscoveryPurchase
+                ? "La prueba ya está disponible para esta cuenta."
+                : "Compra individual para conocer tu punto de partida.",
             },
             {
               label: "Mentorías",
               value: "50-200 USD",
-              hint: "Sesiones adicionales con ishiners.",
+              hint: "Sesiones adicionales con ishineres disponibles.",
             },
             {
-              label: "Programa",
+              label: "Programa 4Shine",
               value: "2.000 USD",
-              hint: "Ruta completa 4Shine.",
+              hint: "Ruta completa con acompañamiento y módulos integrales.",
             },
           ]}
         />
 
         <AccessOfferPanel
           badge="Líder sin suscripción"
-          title="Activa el nivel de experiencia que necesitas."
-          description="Puedes comprar el programa completo 4Shine, activar solo Descubrimiento o reservar mentorías adicionales con los ishiners disponibles. Mientras tanto, Aprendizaje te muestra únicamente contenido marcado como free."
+          title="Elige el nivel de acceso que mejor acompaña tu momento."
+          description="Activa el programa completo, compra solo Descubrimiento o reserva mentorías adicionales. La experiencia sigue clara y simple: empiezas con contenido free y escalas cuando lo necesites."
           products={commercialOffers}
           primaryAction={{
             href: "/dashboard/aprendizaje",
             label: "Explorar contenido free",
           }}
-          note="El programa 4Shine desbloquea Trayectoria, Descubrimiento, workbooks, mentorías incluidas, Networking, Convocatorias, Workshops y Mensajes."
+          note="El programa 4Shine desbloquea Trayectoria, Descubrimiento, biblioteca completa, workbooks únicos por usuario, mentorías incluidas y acceso a los módulos de comunidad."
         />
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">

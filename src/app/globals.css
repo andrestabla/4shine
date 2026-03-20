@@ -58,15 +58,15 @@ body {
   background:
     radial-gradient(
       circle at top left,
-      rgba(255, 255, 255, 0.9),
-      transparent 32%
+      rgba(255, 255, 255, 0.92),
+      transparent 28%
     ),
     radial-gradient(
-      circle at 85% 20%,
-      rgba(245, 183, 209, 0.26),
-      transparent 24%
+      circle at 88% 14%,
+      rgba(245, 183, 209, 0.18),
+      transparent 20%
     ),
-    linear-gradient(180deg, #fbf8ff 0%, var(--background) 26%, #f5f0ff 100%);
+    linear-gradient(180deg, #fdfbff 0%, #f8f3ff 42%, #f5effc 100%);
   font-family: var(--brand-font-family) !important;
   min-height: 100vh;
 }
@@ -140,27 +140,31 @@ h3,
 
 .app-display-title {
   font-family: var(--brand-font-family);
-  font-weight: 800;
-  letter-spacing: -0.035em;
-  line-height: 1.02;
+  font-weight: 780;
+  letter-spacing: -0.04em;
+  line-height: 1;
 }
 
 .app-section-kicker {
   color: color-mix(in srgb, var(--app-ink) 72%, white);
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 800;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.24em;
   text-transform: uppercase;
 }
 
 .app-panel {
-  background: var(--app-surface);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.94) 0%,
+    rgba(255, 255, 255, 0.9) 100%
+  );
   border: 1px solid var(--app-border);
-  border-radius: calc(var(--brand-radius-rem) * 1rem + 0.7rem);
+  border-radius: calc(var(--brand-radius-rem) * 1rem + 0.45rem);
   box-shadow:
-    0 20px 45px rgba(55, 32, 80, 0.07),
-    0 1px 0 rgba(255, 255, 255, 0.7) inset;
-  backdrop-filter: blur(20px);
+    0 14px 34px rgba(55, 32, 80, 0.055),
+    0 1px 0 rgba(255, 255, 255, 0.78) inset;
+  backdrop-filter: blur(16px);
 }
 
 .app-chip {
@@ -170,10 +174,10 @@ h3,
   border-radius: 999px;
   color: var(--app-ink);
   display: inline-flex;
-  font-size: 0.82rem;
-  font-weight: 700;
+  font-size: 0.8rem;
+  font-weight: 650;
   gap: 0.45rem;
-  padding: 0.5rem 0.85rem;
+  padding: 0.48rem 0.8rem;
 }
 
 .app-soft-divider {
@@ -185,9 +189,9 @@ h3,
     background:
       radial-gradient(
         circle at top right,
-        rgba(245, 183, 209, 0.18),
-        transparent 30%
+        rgba(245, 183, 209, 0.14),
+        transparent 24%
       ),
-      linear-gradient(180deg, #fbf8ff 0%, #f6efff 100%);
+      linear-gradient(180deg, #fcf9ff 0%, #f5effb 100%);
   }
 }
