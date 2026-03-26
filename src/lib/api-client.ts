@@ -1,3 +1,9 @@
+import {
+  hasTrackedSessionActivity,
+  redirectToLoginAfterSessionTimeout,
+  tryRefreshSessionFromActivity,
+} from '@/lib/session-timeout-client';
+
 interface ApiEnvelope<T> {
   ok: boolean;
   data?: T;
@@ -30,12 +36,24 @@ export async function requestApi<T>(input: string, init: RequestInit = {}): Prom
     headers.set('Content-Type', 'application/json');
   }
 
-  const response = await fetch(input, {
-    ...init,
-    headers,
-    credentials: 'include',
-    cache: 'no-store',
-  });
+  const makeRequest = () =>
+    fetch(input, {
+      ...init,
+      headers,
+      credentials: 'include',
+      cache: 'no-store',
+    });
+
+  let response = await makeRequest();
+
+  if (response.status === 401 && hasTrackedSessionActivity()) {
+    const refreshed = await tryRefreshSessionFromActivity();
+    if (refreshed) {
+      response = await makeRequest();
+    } else {
+      await redirectToLoginAfterSessionTimeout();
+    }
+  }
 
   const rawText = await response.text();
   let payload: ApiEnvelope<T> | null = null;

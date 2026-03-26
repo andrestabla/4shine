@@ -5,6 +5,16 @@ import type { ViewerAccessState } from '@/features/access/types';
 import type { BootstrapPayload, Role, User } from '@/server/bootstrap/types';
 import { useRouter } from 'next/navigation';
 import { hydrateFromBackend } from '@/lib/bootstrap-client';
+import { SESSION_IDLE_LIMIT_MS } from '@/lib/session-timeout';
+import {
+  clearTrackedSessionActivity,
+  hasTrackedSessionActivity,
+  isSessionIdleExpired,
+  readLastSessionActivity,
+  redirectToLoginAfterSessionTimeout,
+  trackSessionActivity,
+  tryRefreshSessionFromActivity,
+} from '@/lib/session-timeout-client';
 import {
   canModuleAction,
   emptyModulePermissionMap,
@@ -115,6 +125,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     setSessionUser(null);
     setBootstrapData(null);
     setModulePermissions(emptyModulePermissionMap());
+    clearTrackedSessionActivity();
   }, []);
 
   const fetchPermissions = React.useCallback(async (): Promise<ModulePermissionMap> => {
@@ -140,6 +151,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     async (nextSessionUser: SessionUser): Promise<void> => {
       const [permissions, data] = await Promise.all([fetchPermissions(), hydrateFromBackend()]);
 
+      trackSessionActivity();
       setSessionUser(nextSessionUser);
       setCurrentRole(nextSessionUser.role);
       setModulePermissions(permissions);
@@ -164,11 +176,37 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
     const restore = async () => {
       try {
-        const response = await fetch('/api/v1/auth/me', {
-          method: 'GET',
-          credentials: 'include',
-          cache: 'no-store',
-        });
+        const makeAuthMeRequest = () =>
+          fetch('/api/v1/auth/me', {
+            method: 'GET',
+            credentials: 'include',
+            cache: 'no-store',
+          });
+
+        let response = await makeAuthMeRequest();
+
+        if (!response.ok && response.status === 401 && hasTrackedSessionActivity()) {
+          if (!isSessionIdleExpired()) {
+            const refreshed = await tryRefreshSessionFromActivity();
+            if (refreshed) {
+              response = await makeAuthMeRequest();
+            } else {
+              if (!cancelled) {
+                clearSession();
+                setIsHydrating(false);
+              }
+              await redirectToLoginAfterSessionTimeout();
+              return;
+            }
+          } else {
+            if (!cancelled) {
+              clearSession();
+              setIsHydrating(false);
+            }
+            await redirectToLoginAfterSessionTimeout();
+            return;
+          }
+        }
 
         if (!response.ok) {
           if (!cancelled) {
@@ -279,6 +317,81 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
   const can = (moduleCode: ModuleCode, action: PermissionAction = 'view') =>
     canModuleAction(modulePermissions, moduleCode, action);
+
+  React.useEffect(() => {
+    if (!sessionUser) return;
+
+    let timeoutId: number | null = null;
+    let lastActivityWriteAt = 0;
+
+    const expireSession = async () => {
+      clearSession();
+      await redirectToLoginAfterSessionTimeout();
+    };
+
+    const scheduleExpirationCheck = () => {
+      if (timeoutId) {
+        window.clearTimeout(timeoutId);
+      }
+
+      const referenceTime = readLastSessionActivity() ?? Date.now();
+      const remainingMs = SESSION_IDLE_LIMIT_MS - (Date.now() - referenceTime);
+
+      if (remainingMs <= 0) {
+        void expireSession();
+        return;
+      }
+
+      timeoutId = window.setTimeout(() => {
+        void expireSession();
+      }, remainingMs);
+    };
+
+    const registerActivity = () => {
+      const now = Date.now();
+      if (now - lastActivityWriteAt < 5000) {
+        scheduleExpirationCheck();
+        return;
+      }
+
+      lastActivityWriteAt = now;
+      trackSessionActivity(now);
+      scheduleExpirationCheck();
+    };
+
+    const onVisibilityOrFocus = () => {
+      if (document.visibilityState === 'hidden') return;
+
+      if (isSessionIdleExpired()) {
+        void expireSession();
+        return;
+      }
+
+      registerActivity();
+    };
+
+    registerActivity();
+
+    const listenerOptions: AddEventListenerOptions = { passive: true };
+    window.addEventListener('pointerdown', registerActivity, listenerOptions);
+    window.addEventListener('keydown', registerActivity);
+    window.addEventListener('scroll', registerActivity, listenerOptions);
+    window.addEventListener('touchstart', registerActivity, listenerOptions);
+    window.addEventListener('focus', onVisibilityOrFocus);
+    document.addEventListener('visibilitychange', onVisibilityOrFocus);
+
+    return () => {
+      if (timeoutId) {
+        window.clearTimeout(timeoutId);
+      }
+      window.removeEventListener('pointerdown', registerActivity);
+      window.removeEventListener('keydown', registerActivity);
+      window.removeEventListener('scroll', registerActivity);
+      window.removeEventListener('touchstart', registerActivity);
+      window.removeEventListener('focus', onVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', onVisibilityOrFocus);
+    };
+  }, [clearSession, sessionUser]);
 
   return (
     <UserContext.Provider

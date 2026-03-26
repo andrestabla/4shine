@@ -1,10 +1,12 @@
 'use client';
 
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import { Gem, Loader2, Lock, Mail } from 'lucide-react';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useBranding } from '@/context/BrandingContext';
 import { useUser } from '@/context/UserContext';
+import { consumeSessionTimeoutNotice } from '@/lib/session-timeout-client';
 
 function hexToRgba(hex: string, opacity: number): string {
   const normalized = hex.replace('#', '').trim();
@@ -45,6 +47,7 @@ export default function LoginPage() {
   const { login, isHydrating } = useUser();
   const { branding, tokens, isLoading: isBrandingLoading } = useBranding();
   const { alert } = useAppDialog();
+  const router = useRouter();
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
 
@@ -89,6 +92,18 @@ export default function LoginPage() {
     () => pickRandom(imageWelcomeMessageCandidates, branding.imageWelcomeMessage),
     [branding.imageWelcomeMessage, imageWelcomeMessageCandidates],
   );
+
+  React.useEffect(() => {
+    const notice = consumeSessionTimeoutNotice();
+    if (!notice) return;
+
+    void alert({
+      title: 'Sesión expirada',
+      message: notice,
+      tone: 'error',
+    });
+    router.replace('/');
+  }, [alert, router]);
 
   const hasLoginBackgroundImage = hasText(dynamicLoginBackgroundImageUrl);
   const hasLoginImage = hasText(dynamicLoginImageUrl);

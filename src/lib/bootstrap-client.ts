@@ -1,3 +1,8 @@
+import {
+  hasTrackedSessionActivity,
+  redirectToLoginAfterSessionTimeout,
+  tryRefreshSessionFromActivity,
+} from '@/lib/session-timeout-client';
 import type { BootstrapPayload } from '@/server/bootstrap/types';
 
 interface BootstrapResponse {
@@ -5,18 +10,6 @@ interface BootstrapResponse {
   data: BootstrapPayload;
   error?: string;
   detail?: string;
-}
-
-async function postRefresh(): Promise<boolean> {
-  const refreshResponse = await fetch('/api/v1/auth/refresh', {
-    method: 'POST',
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  });
-
-  return refreshResponse.ok;
 }
 
 export async function hydrateFromBackend(): Promise<BootstrapPayload> {
@@ -32,10 +25,12 @@ export async function hydrateFromBackend(): Promise<BootstrapPayload> {
 
   let response = await makeRequest();
 
-  if (response.status === 401) {
-    const refreshed = await postRefresh();
+  if (response.status === 401 && hasTrackedSessionActivity()) {
+    const refreshed = await tryRefreshSessionFromActivity();
     if (refreshed) {
       response = await makeRequest();
+    } else {
+      await redirectToLoginAfterSessionTimeout();
     }
   }
 

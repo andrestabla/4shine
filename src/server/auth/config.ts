@@ -1,3 +1,5 @@
+import { SESSION_IDLE_LIMIT_MINUTES } from '@/lib/session-timeout';
+
 const DEFAULT_ACCESS_SECRET = '4shine-dev-access-secret-change-me';
 const DEFAULT_REFRESH_SECRET = '4shine-dev-refresh-secret-change-me';
 
@@ -35,7 +37,7 @@ export function getRefreshSecret(): string {
 }
 
 export const authConfig = {
-  accessTtlSeconds: 15 * 60,
+  accessTtlSeconds: SESSION_IDLE_LIMIT_MINUTES * 60,
   refreshTtlSeconds: 30 * 24 * 60 * 60,
   lockMaxAttempts: 5,
   lockMinutes: 15,
