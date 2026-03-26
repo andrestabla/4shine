@@ -663,14 +663,14 @@ export default function TrayectoriaPage() {
         <div className="flex flex-wrap gap-3">
           <Link
             href="/dashboard/mensajes"
-            className="inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-4 py-3 text-sm font-semibold text-[var(--app-ink)] shadow-[0_14px_30px_rgba(55,32,80,0.08)] transition hover:-translate-y-0.5"
+            className="app-button-secondary"
           >
             <MessageSquareMore size={16} />
             Mensajes
           </Link>
           <Link
             href={activePhase.primaryHref}
-            className="inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-4 py-3 text-sm font-extrabold text-white shadow-[0_16px_30px_rgba(55,32,80,0.16)] transition hover:opacity-95"
+            className="app-button-primary"
           >
             {activePhase.primaryLabel}
             <ArrowRight size={16} />
@@ -681,7 +681,7 @@ export default function TrayectoriaPage() {
       <StatGrid stats={leaderStats} />
 
       {loadError && (
-        <section className="rounded-[22px] border border-rose-200 bg-rose-50 px-5 py-5 text-sm text-rose-700">
+        <section className="rounded-[1.15rem] border border-rose-200 bg-rose-50 px-5 py-5 text-sm text-rose-700">
           No pudimos sincronizar la trayectoria con tus módulos actuales.{" "}
           {loadError}
         </section>
@@ -727,7 +727,7 @@ export default function TrayectoriaPage() {
 
                   <article
                     className={clsx(
-                      "rounded-[24px] border px-5 py-5 transition",
+                      "rounded-[1.2rem] border px-5 py-5 transition",
                       phase.status === "completed" &&
                         "border-emerald-200 bg-white shadow-[0_18px_34px_rgba(16,185,129,0.08)]",
                       phase.status === "current" &&
@@ -786,13 +786,13 @@ export default function TrayectoriaPage() {
                     </div>
 
                     <div className="mt-5 flex flex-wrap items-center gap-2">
-                      <span className="rounded-full border border-[var(--app-border)] bg-white/85 px-3 py-1 text-xs font-semibold text-[var(--app-muted)]">
+                      <span className="app-chip-soft">
                         {phase.totalUnits === 1
                           ? "1 hito principal"
                           : `${phase.completedUnits}/${phase.totalUnits} workbooks cerrados`}
                       </span>
                       {phase.mentorshipMoments[0] && (
-                        <span className="rounded-full border border-[var(--app-border)] bg-white/85 px-3 py-1 text-xs font-semibold text-[var(--app-muted)]">
+                        <span className="app-chip-soft">
                           {summarize(phase.mentorshipMoments[0], 58)}
                         </span>
                       )}
@@ -828,7 +828,7 @@ export default function TrayectoriaPage() {
               </div>
               <Link
                 href="/dashboard/descubrimiento"
-                className="rounded-full border border-[var(--app-border)] bg-white px-4 py-2 text-sm font-semibold text-[var(--app-ink)]"
+                className="app-button-secondary min-h-0 px-4 py-2"
               >
                 {impactReady ? "Ver informe completo" : "Completar diagnóstico"}
               </Link>
@@ -874,7 +874,7 @@ export default function TrayectoriaPage() {
             </div>
 
             {!impactReady && (
-              <p className="mt-4 rounded-[18px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-4 text-sm text-[var(--app-muted)]">
+              <p className="app-panel-soft mt-4 px-4 py-4 text-sm text-[var(--app-muted)]">
                 Completa Descubrimiento para activar una lectura comparativa de
                 tus pilares en esta vista.
               </p>
@@ -904,7 +904,7 @@ export default function TrayectoriaPage() {
               {activePhase.steps.map((step) => (
                 <span
                   key={step.weekLabel}
-                  className="rounded-full border border-[var(--app-border)] bg-white/86 px-3 py-1 text-xs font-semibold text-[var(--app-muted)]"
+                  className="app-chip-soft"
                 >
                   {step.weekLabel}
                 </span>
@@ -916,10 +916,10 @@ export default function TrayectoriaPage() {
                 <Link
                   key={card.title}
                   href={card.href}
-                  className="rounded-[20px] border border-[var(--app-border)] bg-white/82 px-4 py-4 transition hover:-translate-y-0.5 hover:shadow-[0_18px_30px_rgba(55,32,80,0.08)]"
+                  className="app-list-card"
                 >
                   <div className="flex items-start gap-3">
-                    <div className="rounded-[14px] bg-[var(--app-chip)] p-3 text-[var(--brand-primary)]">
+                    <div className="rounded-[1rem] bg-[var(--app-chip)] p-3 text-[var(--brand-primary)]">
                       <card.icon size={18} />
                     </div>
                     <div>
@@ -946,10 +946,10 @@ export default function TrayectoriaPage() {
                 return (
                   <article
                     key={`${challenge.title}-${index}`}
-                    className="rounded-[20px] border border-[var(--app-border)] bg-white/82 px-4 py-4"
+                    className="app-list-card"
                   >
                     <div className="flex items-start gap-3">
-                      <div className="rounded-[14px] bg-[var(--app-chip)] p-3 text-[var(--brand-primary)]">
+                      <div className="rounded-[1rem] bg-[var(--app-chip)] p-3 text-[var(--brand-primary)]">
                         <Icon size={18} />
                       </div>
                       <div>
@@ -981,7 +981,7 @@ export default function TrayectoriaPage() {
                   <article
                     key={phase.id}
                     className={clsx(
-                      "rounded-[20px] border px-4 py-5 text-center",
+                      "rounded-[1.15rem] border px-4 py-5 text-center",
                       isCompleted && "border-emerald-200 bg-emerald-50",
                       isCurrent && "border-amber-200 bg-amber-50",
                       !isCompleted && !isCurrent && "border-[var(--app-border)] bg-[rgba(248,250,252,0.82)]",

@@ -91,12 +91,12 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
   };
 
   return (
-    <header className="sticky top-0 z-20 border-b border-[var(--app-border)] bg-[rgba(251,248,255,0.86)] px-4 py-4 backdrop-blur-xl md:px-8">
+    <header className="sticky top-0 z-20 border-b border-[var(--app-border)] bg-[rgba(252,249,255,0.92)] px-4 py-4 md:px-8">
       <div className="mx-auto flex w-full max-w-[var(--brand-page-max-width)] items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-4">
           <button
             onClick={onMenuClick}
-            className="rounded-[14px] border border-[var(--app-border)] bg-white/80 p-2 text-[var(--app-ink)] transition hover:bg-white md:hidden"
+            className="app-button-secondary min-h-0 rounded-[1rem] p-2 md:hidden"
           >
             <Menu size={24} />
           </button>
@@ -119,14 +119,14 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
             <input
               type="text"
               placeholder="Buscar..."
-              className="h-12 w-56 rounded-[18px] border border-[var(--app-border)] bg-white/88 pl-11 pr-4 text-sm text-[var(--app-ink)] outline-none transition focus:border-[var(--app-border-strong)] focus:bg-white lg:w-72"
+              className="app-input h-12 w-56 pl-11 pr-4 lg:w-72"
             />
           </div>
 
           <div className="relative">
             <button
               onClick={() => setShowNotifications(!showNotifications)}
-              className="relative rounded-[16px] border border-[var(--app-border)] bg-white/88 p-3 text-[var(--app-muted)] transition hover:bg-white hover:text-[var(--app-ink)]"
+              className="relative flex h-12 w-12 items-center justify-center rounded-[1rem] border border-[var(--app-border)] bg-white/88 text-[var(--app-muted)] transition hover:bg-white hover:text-[var(--app-ink)]"
             >
               <Bell size={18} />
               {unreadCount > 0 && (
@@ -135,7 +135,7 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
             </button>
 
             {showNotifications && (
-              <div className="app-panel absolute right-0 mt-4 w-[22rem] origin-top-right overflow-hidden animate-fade-in">
+              <div className="app-panel-strong absolute right-0 mt-4 w-[22rem] origin-top-right overflow-hidden animate-fade-in">
                 <div className="flex items-center justify-between border-b border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-4">
                   <h3 className="text-sm font-bold text-[var(--app-ink)]">
                     Notificaciones
@@ -184,7 +184,7 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
                               e.stopPropagation();
                               markAsRead(notif.id);
                             }}
-                            className="absolute right-2 top-2 rounded-[10px] p-1 text-[var(--app-muted)] transition hover:bg-[var(--app-surface-muted)]"
+                            className="absolute right-2 top-2 rounded-[0.75rem] p-1 text-[var(--app-muted)] transition hover:bg-[var(--app-surface-muted)]"
                             title="Marcar como leída"
                           >
                             <Check size={12} />
@@ -204,7 +204,7 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 
           <div className="hidden h-8 w-px bg-[var(--app-border)] md:block" />
 
-          <div className="flex items-center gap-3 rounded-[18px] border border-[var(--app-border)] bg-white/90 px-2 py-1.5 sm:px-2.5">
+          <div className="flex items-center gap-3 rounded-[1.1rem] border border-[var(--app-border)] bg-white/92 px-2 py-1.5 sm:px-2.5">
             <div className="hidden text-right md:block">
               <p className="text-sm font-extrabold text-[var(--app-ink)]">
                 {currentUser?.name}

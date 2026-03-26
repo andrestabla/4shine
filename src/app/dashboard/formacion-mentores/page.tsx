@@ -14,13 +14,13 @@ export default function FormacionMentoresPage() {
     <div>
       <PageTitle title="Formación iShiners" subtitle="Ruta de capacitación para iShiners activos." />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {mentorTraining.map((item) => (
-          <article key={item.id} className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-            <h3 className="font-semibold text-slate-800">{item.title}</h3>
-            <p className="text-sm text-slate-500 mt-1">{item.category}</p>
-            <p className="text-xs text-slate-500 mt-3">Duración: {item.duration}</p>
-            <p className="text-xs text-slate-500">Progreso: {item.progress ?? 0}%</p>
+          <article key={item.id} className="app-panel p-5">
+            <h3 className="font-semibold text-[var(--app-ink)]">{item.title}</h3>
+            <p className="mt-1 text-sm text-[var(--app-muted)]">{item.category}</p>
+            <p className="mt-3 text-xs text-[var(--app-muted)]">Duración: {item.duration}</p>
+            <p className="text-xs text-[var(--app-muted)]">Progreso: {item.progress ?? 0}%</p>
           </article>
         ))}
       </div>

@@ -85,7 +85,7 @@ export function R2UploadButton({
         disabled={disabled || isUploading}
         className={
           className ??
-          'inline-flex items-center justify-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-60'
+          'app-button-secondary inline-flex items-center justify-center gap-2 text-xs disabled:opacity-60'
         }
       >
         {isUploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}

@@ -208,10 +208,10 @@ export default function DashboardHomePage() {
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           <Link
             href="/dashboard/aprendizaje"
-            className="app-panel block rounded-[18px] p-5 transition hover:-translate-y-0.5"
+            className="app-panel block p-5 transition hover:-translate-y-0.5"
           >
             <div className="flex items-center gap-3">
-              <div className="rounded-[14px] bg-[var(--app-chip)] p-3 text-[#4f2360]">
+              <div className="rounded-[1rem] bg-[var(--app-chip)] p-3 text-[#4f2360]">
                 <BookOpen size={18} />
               </div>
               <div>
@@ -227,10 +227,10 @@ export default function DashboardHomePage() {
 
           <Link
             href="/dashboard/mentorias"
-            className="app-panel block rounded-[18px] p-5 transition hover:-translate-y-0.5"
+            className="app-panel block p-5 transition hover:-translate-y-0.5"
           >
             <div className="flex items-center gap-3">
-              <div className="rounded-[14px] bg-[var(--app-chip)] p-3 text-[#4f2360]">
+              <div className="rounded-[1rem] bg-[var(--app-chip)] p-3 text-[#4f2360]">
                 <CalendarDays size={18} />
               </div>
               <div>
@@ -256,8 +256,7 @@ export default function DashboardHomePage() {
       />
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.7fr)]">
-        <section className="relative overflow-hidden rounded-[26px] border border-[var(--app-border)] bg-[linear-gradient(90deg,#53295f_0%,#53295f_62%,#df9ec6_100%)] px-6 py-7 text-white shadow-[0_24px_48px_rgba(55,32,80,0.16)] md:px-8 md:py-8">
-          <div className="absolute inset-y-0 right-[22%] hidden w-16 bg-white/35 blur-2xl md:block" />
+        <section className="app-hero-surface relative overflow-hidden px-6 py-7 md:px-8 md:py-8">
           <div className="relative max-w-2xl">
             <p className="text-xs font-black uppercase tracking-[0.28em] text-white/70">
               Espacio ejecutivo
@@ -277,7 +276,7 @@ export default function DashboardHomePage() {
               {executiveSummary.map((item) => (
                 <span
                   key={item}
-                  className="rounded-[999px] border border-white/18 bg-white/10 px-4 py-2 text-xs font-semibold text-white/92 backdrop-blur"
+                  className="rounded-[999px] border border-white/18 bg-white/10 px-4 py-2 text-xs font-semibold text-white/92"
                 >
                   {item}
                 </span>
@@ -286,7 +285,7 @@ export default function DashboardHomePage() {
 
             <Link
               href={quickActions[0]?.href ?? "/dashboard/aprendizaje"}
-              className="mt-7 inline-flex items-center gap-2 rounded-[18px] bg-white px-5 py-3 text-sm font-extrabold text-[#4f2360] transition hover:translate-x-0.5"
+              className="mt-7 inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-extrabold text-[#4f2360] transition hover:-translate-y-0.5"
             >
               Ir a tu siguiente paso
               <ArrowRight size={16} />
@@ -304,10 +303,10 @@ export default function DashboardHomePage() {
               <Link
                 key={action.href}
                 href={action.href}
-                className="rounded-[18px] border border-[var(--app-border)] bg-white/76 p-4 transition hover:-translate-y-0.5 hover:bg-white hover:shadow-[0_18px_32px_rgba(55,32,80,0.08)]"
+                className="app-list-card"
               >
                 <div className="flex items-center gap-3">
-                  <div className="rounded-[14px] bg-[var(--app-chip)] p-3 text-[#4f2360]">
+                  <div className="rounded-[1rem] bg-[var(--app-chip)] p-3 text-[#4f2360]">
                     <action.icon size={18} />
                   </div>
                   <div>

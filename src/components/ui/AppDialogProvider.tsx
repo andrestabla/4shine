@@ -242,7 +242,7 @@ export function AppDialogProvider({ children }: { children: React.ReactNode }) {
           style={{ backgroundColor: overlayBackground }}
         >
           <div
-            className="w-full max-w-md border bg-white shadow-2xl overflow-hidden animate-fade-in"
+            className="w-full max-w-md overflow-hidden border bg-white shadow-[var(--app-shadow-raised)] animate-fade-in"
             style={{
               borderColor: panelBorder,
               borderRadius: modalRadius,
@@ -280,11 +280,10 @@ export function AppDialogProvider({ children }: { children: React.ReactNode }) {
                 {activeDialog.options.multiline ? (
                   <textarea
                     ref={inputRef as React.RefObject<HTMLTextAreaElement>}
-                    className="mt-2 min-h-24 w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2"
+                    className="app-textarea mt-2 min-h-24"
                     style={{
                       borderColor: panelBorder,
                       borderRadius: `calc(${tokens.shape.borderRadiusRem}rem + 0.2rem)`,
-                      color: '#0f172a',
                     }}
                     value={promptValue}
                     placeholder={activeDialog.options.placeholder}
@@ -293,11 +292,10 @@ export function AppDialogProvider({ children }: { children: React.ReactNode }) {
                 ) : (
                   <input
                     ref={inputRef as React.RefObject<HTMLInputElement>}
-                    className="mt-2 w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2"
+                    className="app-input mt-2"
                     style={{
                       borderColor: panelBorder,
                       borderRadius: `calc(${tokens.shape.borderRadiusRem}rem + 0.2rem)`,
-                      color: '#0f172a',
                     }}
                     value={promptValue}
                     placeholder={activeDialog.options.placeholder}
@@ -311,7 +309,7 @@ export function AppDialogProvider({ children }: { children: React.ReactNode }) {
               {activeDialog.kind !== 'alert' && (
                 <button
                   type="button"
-                  className="rounded-md border px-3 py-2 text-sm transition-colors"
+                  className="app-button-secondary min-h-0 px-3 py-2 text-sm"
                   style={{
                     borderColor: panelBorder,
                     backgroundColor: cancelButtonBg,
@@ -325,7 +323,7 @@ export function AppDialogProvider({ children }: { children: React.ReactNode }) {
               )}
               <button
                 type="button"
-                className="rounded-md px-3 py-2 text-sm font-medium transition-colors"
+                className="app-button-primary min-h-0 px-3 py-2 text-sm font-medium transition-colors"
                 style={{
                   backgroundColor: tokens.colors.accent,
                   color: accentText,

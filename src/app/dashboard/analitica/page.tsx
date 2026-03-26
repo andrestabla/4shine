@@ -29,9 +29,9 @@ export default function AnaliticaPage() {
         ]}
       />
 
-      <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-        <h3 className="font-bold text-slate-800 mb-3">Resumen</h3>
-        <ul className="text-sm text-slate-600 space-y-2">
+      <div className="app-panel p-6">
+        <h3 className="mb-3 font-bold text-[var(--app-ink)]">Resumen</h3>
+        <ul className="space-y-2 text-sm text-[var(--app-muted)]">
           <li>Convocatorias activas: {jobs.length}</li>
           <li>Mentorías totales: {mentorships.length}</li>
           <li>Sesiones por completar: {mentorships.filter((session) => session.status === 'scheduled').length}</li>

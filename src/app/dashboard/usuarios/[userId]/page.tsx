@@ -276,7 +276,7 @@ export default function UsuarioDetallePage() {
   }
 
   if (loading || !detail) {
-    return <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">Cargando usuario...</div>;
+    return <div className="app-panel px-4 py-5 text-sm text-[var(--app-muted)]">Cargando usuario...</div>;
   }
 
   const canUpdate = can('usuarios', 'update');
@@ -285,34 +285,34 @@ export default function UsuarioDetallePage() {
 
   return (
     <div className="space-y-5">
-      <Link href="/dashboard/usuarios" className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900">
+      <Link href="/dashboard/usuarios" className="inline-flex items-center gap-2 text-sm text-[var(--app-muted)] transition hover:text-[var(--app-ink)]">
         <ArrowLeft size={16} />
         Volver a la Lista
       </Link>
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:p-7">
+      <section className="app-panel-strong p-5 md:p-7">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-4">
-            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-slate-100 text-3xl font-bold text-slate-700">
+            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[var(--app-chip)] text-3xl font-bold text-[var(--app-ink)]">
               {(detail.avatarInitial || detail.displayName.charAt(0) || 'U').toUpperCase()}
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-slate-800">{detail.displayName}</h1>
-              <p className="text-slate-500">{detail.email}</p>
+              <h1 className="text-3xl font-bold text-[var(--app-ink)]">{detail.displayName}</h1>
+              <p className="text-[var(--app-muted)]">{detail.email}</p>
               <div className="mt-3 flex flex-wrap gap-2">
-                <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700">
+                <span className="app-badge app-badge-muted">
                   {userTypeLabel(currentUserType)}
                 </span>
                 <span
-                  className={`rounded-full px-3 py-1 text-sm font-semibold ${
-                    detail.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-700'
+                  className={`app-badge ${
+                    detail.isActive ? 'app-badge-success' : 'app-badge-muted'
                   }`}
                 >
                   {detail.isActive ? 'ACTIVO' : 'INACTIVO'}
                 </span>
                 <span
-                  className={`rounded-full px-3 py-1 text-sm font-semibold ${
-                    detail.policyStatus === 'accepted' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'
+                  className={`app-badge ${
+                    detail.policyStatus === 'accepted' ? 'border-blue-200 bg-blue-50 text-blue-700' : 'app-badge-warning'
                   }`}
                 >
                   {detail.policyStatus === 'accepted' ? 'Políticas aceptadas' : 'Políticas pendientes'}
@@ -321,8 +321,8 @@ export default function UsuarioDetallePage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm text-slate-700">
-            <p className="text-xs font-semibold tracking-wide text-slate-500">ESTADÍSTICAS</p>
+          <div className="app-panel-soft px-5 py-4 text-sm text-[var(--app-ink)]">
+            <p className="text-xs font-semibold tracking-wide text-[var(--app-muted)]">ESTADÍSTICAS</p>
             <p className="mt-2">Proyectos: <strong>{detail.stats.projectsCount}</strong></p>
             <p>Mensajes enviados: <strong>{detail.stats.messagesSentCount}</strong></p>
             <p>Eventos navegación: <strong>{detail.stats.navigationEventsCount}</strong></p>
@@ -332,8 +332,8 @@ export default function UsuarioDetallePage() {
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
         <section className="space-y-5 xl:col-span-1">
-          <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="mb-4 text-xl font-bold text-slate-800">Gestión de Cuenta</h2>
+          <article className="app-panel p-5">
+            <h2 className="mb-4 text-xl font-bold text-[var(--app-ink)]">Gestión de Cuenta</h2>
             <div className="space-y-3">
               {canUpdate && (
                 <button
@@ -356,7 +356,7 @@ export default function UsuarioDetallePage() {
                   type="button"
                   onClick={() => void onResetPassword()}
                   disabled={processingAction !== null}
-                  className="flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-300 px-4 py-3 text-base font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                  className="app-button-secondary flex w-full text-base disabled:opacity-60"
                 >
                   <KeyRound size={18} />
                   Resetear Contraseña
@@ -368,7 +368,7 @@ export default function UsuarioDetallePage() {
                   type="button"
                   onClick={() => void onSendMessage()}
                   disabled={processingAction !== null}
-                  className="flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-300 px-4 py-3 text-base font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                  className="app-button-secondary flex w-full text-base disabled:opacity-60"
                 >
                   <Mail size={18} />
                   Enviar Mensaje
@@ -376,16 +376,16 @@ export default function UsuarioDetallePage() {
               )}
             </div>
 
-            <div className="mt-4 space-y-1 text-xs text-slate-500">
+            <div className="mt-4 space-y-1 text-xs text-[var(--app-muted)]">
               <p>Último cambio de contraseña: {formatDateTime(detail.passwordUpdatedAt)}</p>
               <p>Última sesión: {formatDateTime(detail.lastSessionAt)}</p>
               <p>Creado: {formatDateTime(detail.createdAt)}</p>
             </div>
           </article>
 
-          <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="mb-4 text-xl font-bold text-slate-800">Tipo de Usuario y Permisos</h2>
-            <div className="mb-3 rounded-2xl border border-slate-100 bg-slate-50 p-3 text-sm text-slate-500">
+          <article className="app-panel p-5">
+            <h2 className="mb-4 text-xl font-bold text-[var(--app-ink)]">Tipo de Usuario y Permisos</h2>
+            <div className="app-panel-soft mb-3 p-3 text-sm text-[var(--app-muted)]">
               Cambia el tipo del usuario sin perder visibilidad de los permisos activos por rol.
             </div>
 
@@ -398,8 +398,8 @@ export default function UsuarioDetallePage() {
                   onClick={() => void onChangeUserType(option)}
                   className={`rounded-xl border px-3 py-3 text-left text-sm font-semibold transition disabled:opacity-60 ${
                     currentUserType === option
-                      ? 'border-slate-900 bg-slate-900 text-white'
-                      : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                      ? 'border-[var(--app-ink)] bg-[var(--app-ink)] text-white'
+                      : 'border-[var(--app-border)] bg-white text-[var(--app-ink)] hover:bg-[var(--app-surface-muted)]'
                   }`}
                 >
                   {userTypeLabel(option)}
@@ -407,14 +407,14 @@ export default function UsuarioDetallePage() {
               ))}
             </div>
 
-            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-[var(--app-muted)]/74">
               Permisos activos del rol base: {roleLabel(detail.primaryRole)}
             </p>
-            <div className="max-h-72 space-y-2 overflow-y-auto rounded-xl border border-slate-100 p-3">
+            <div className="max-h-72 space-y-2 overflow-y-auto rounded-[1rem] border border-[rgba(91,52,117,0.08)] p-3">
               {detail.rolePermissions.map((permission) => (
-                <div key={permission.moduleCode} className="rounded-lg border border-slate-100 p-2">
-                  <p className="text-sm font-semibold text-slate-800">{permission.moduleName}</p>
-                  <p className="mt-1 text-xs text-slate-500">
+                <div key={permission.moduleCode} className="rounded-[0.9rem] border border-[rgba(91,52,117,0.08)] p-2">
+                  <p className="text-sm font-semibold text-[var(--app-ink)]">{permission.moduleName}</p>
+                  <p className="mt-1 text-xs text-[var(--app-muted)]">
                     {[
                       permission.canView && 'view',
                       permission.canCreate && 'create',
@@ -433,7 +433,7 @@ export default function UsuarioDetallePage() {
           </article>
 
           {canDelete && (
-            <article className="rounded-3xl border border-red-200 bg-red-50 p-5 shadow-sm">
+            <article className="rounded-[1.2rem] border border-red-200 bg-red-50 p-5 shadow-[var(--app-shadow-soft)]">
               <h2 className="flex items-center gap-2 text-xl font-bold text-red-700">
                 <AlertTriangle size={20} />
                 Zona de Peligro
@@ -445,7 +445,7 @@ export default function UsuarioDetallePage() {
                 type="button"
                 onClick={() => void onDeleteUser()}
                 disabled={processingAction !== null}
-                className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-red-300 bg-white px-4 py-3 text-base font-semibold text-red-600 hover:bg-red-100 disabled:opacity-60"
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-full border border-red-300 bg-white px-4 py-3 text-base font-semibold text-red-600 transition hover:bg-red-100 disabled:opacity-60"
               >
                 <Trash2 size={18} />
                 Eliminar Usuario
@@ -455,13 +455,13 @@ export default function UsuarioDetallePage() {
         </section>
 
         <section className="xl:col-span-2">
-          <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <article className="app-panel p-5">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="flex items-center gap-2 text-2xl font-bold text-slate-800">
+              <h2 className="flex items-center gap-2 text-2xl font-bold text-[var(--app-ink)]">
                 <Clock3 size={22} />
                 Historial de Actividad
               </h2>
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
+              <span className="app-badge app-badge-success">
                 <Shield size={14} />
                 Logs en vivo
               </span>
@@ -472,17 +472,17 @@ export default function UsuarioDetallePage() {
             ) : (
               <div className="space-y-3">
                 {logs.map((log) => (
-                  <div key={log.auditId} className="rounded-2xl border border-slate-100 p-4">
+                  <div key={log.auditId} className="rounded-[1rem] border border-[rgba(91,52,117,0.08)] p-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div>
-                        <p className="text-lg font-bold text-slate-800">{log.action}</p>
-                        <p className="text-sm text-slate-500">
+                        <p className="text-lg font-bold text-[var(--app-ink)]">{log.action}</p>
+                        <p className="text-sm text-[var(--app-muted)]">
                           {log.moduleCode ?? 'sistema'} · {log.entityTable}
                         </p>
                       </div>
-                      <p className="text-xs text-slate-500">{formatDateTime(log.occurredAt)}</p>
+                      <p className="text-xs text-[var(--app-muted)]">{formatDateTime(log.occurredAt)}</p>
                     </div>
-                    <pre className="mt-3 whitespace-pre-wrap rounded-xl bg-slate-50 p-3 text-xs text-slate-600">
+                    <pre className="mt-3 whitespace-pre-wrap rounded-[1rem] bg-[var(--app-surface-muted)] p-3 text-xs text-[var(--app-muted)]">
                       {summarizeLogPayload(log.changeSummary)}
                     </pre>
                   </div>

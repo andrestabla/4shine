@@ -210,9 +210,9 @@ export default function MensajesPage() {
       <PageTitle title="Mensajes" subtitle="Conversaciones en tiempo real con operaciones CRUD." />
 
       {can('mensajes', 'create') && (
-        <form className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm flex flex-wrap gap-2" onSubmit={onCreateThread}>
+        <form className="app-panel flex flex-wrap gap-2 p-4" onSubmit={onCreateThread}>
           <select
-            className="border border-slate-300 rounded-md px-2 py-2 text-sm min-w-72"
+            className="app-select min-w-72"
             value={selectedParticipantId}
             onChange={(event) => setSelectedParticipantId(event.target.value)}
             disabled={participants.length === 0}
@@ -225,7 +225,7 @@ export default function MensajesPage() {
             ))}
           </select>
           <button
-            className="rounded-md bg-slate-900 text-white text-sm px-3 py-2 disabled:opacity-50"
+            className="app-button-primary disabled:opacity-50"
             type="submit"
             disabled={!selectedParticipantId || participants.length === 0}
           >
@@ -234,13 +234,13 @@ export default function MensajesPage() {
         </form>
       )}
       {loading ? (
-        <div className="bg-white rounded-xl border border-slate-200 p-4 text-sm text-slate-500">Cargando...</div>
+        <div className="app-panel px-4 py-5 text-sm text-[var(--app-muted)]">Cargando...</div>
       ) : threads.length === 0 ? (
         <EmptyState message="No hay chats activos." />
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <section className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm max-h-[72vh] overflow-y-auto">
-            <h3 className="text-sm font-semibold text-slate-700 px-2 py-1">Chats</h3>
+          <section className="app-panel max-h-[72vh] overflow-y-auto p-3">
+            <h3 className="px-2 py-1 text-sm font-semibold text-[var(--app-ink)]">Chats</h3>
             <div className="space-y-2 mt-2">
               {threads.map((thread) => (
                 <button
@@ -248,36 +248,36 @@ export default function MensajesPage() {
                   type="button"
                   className={`w-full text-left rounded-lg border p-3 transition ${
                     selectedThreadId === thread.threadId
-                      ? 'border-slate-700 bg-slate-50'
-                      : 'border-slate-200 hover:border-slate-300'
+                      ? 'border-[var(--app-border-strong)] bg-[var(--app-surface-muted)]'
+                      : 'border-[rgba(91,52,117,0.08)] hover:border-[var(--app-border)] hover:bg-white/88'
                   }`}
                   onClick={() => setSelectedThreadId(thread.threadId)}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <p className="font-medium text-slate-800 truncate">{thread.title ?? `Chat ${thread.threadId.slice(0, 8)}`}</p>
+                    <p className="truncate font-medium text-[var(--app-ink)]">{thread.title ?? `Chat ${thread.threadId.slice(0, 8)}`}</p>
                     {thread.unreadCount > 0 && (
-                      <span className="text-xs px-2 py-0.5 rounded bg-red-100 text-red-700">{thread.unreadCount}</span>
+                      <span className="app-badge border-red-200 bg-red-50 text-red-700">{thread.unreadCount}</span>
                     )}
                   </div>
-                  <p className="text-xs text-slate-500 mt-1 truncate">{thread.lastMessage ?? 'Sin mensajes'}</p>
-                  <p className="text-xs text-slate-400 mt-1">{toTime(thread.lastMessageAt)}</p>
+                  <p className="mt-1 truncate text-xs text-[var(--app-muted)]">{thread.lastMessage ?? 'Sin mensajes'}</p>
+                  <p className="mt-1 text-xs text-[var(--app-muted)]/74">{toTime(thread.lastMessageAt)}</p>
                 </button>
               ))}
             </div>
           </section>
 
-          <section className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col max-h-[72vh]">
-            <div className="border-b border-slate-100 px-4 py-3">
-              <h3 className="font-semibold text-slate-800">
+          <section className="app-panel lg:col-span-2 flex max-h-[72vh] flex-col">
+            <div className="border-b border-[rgba(91,52,117,0.08)] px-4 py-3">
+              <h3 className="font-semibold text-[var(--app-ink)]">
                 {threads.find((thread) => thread.threadId === selectedThreadId)?.title ?? 'Conversación'}
               </h3>
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {messagesLoading ? (
-                <p className="text-sm text-slate-500">Cargando mensajes...</p>
+                <p className="text-sm text-[var(--app-muted)]">Cargando mensajes...</p>
               ) : messages.length === 0 ? (
-                <p className="text-sm text-slate-500">Sin mensajes en este chat.</p>
+                <p className="text-sm text-[var(--app-muted)]">Sin mensajes en este chat.</p>
               ) : (
                 messages.map((message) => {
                   const isMine = message.senderUserId === sessionUser?.id;
@@ -286,12 +286,14 @@ export default function MensajesPage() {
                     <article
                       key={message.messageId}
                       className={`rounded-lg p-3 border ${
-                        isMine ? 'bg-slate-900 text-white border-slate-900 ml-12' : 'bg-slate-50 text-slate-800 border-slate-200 mr-12'
+                        isMine
+                          ? 'ml-12 border-[var(--app-ink)] bg-[var(--app-ink)] text-white'
+                          : 'mr-12 border-[rgba(91,52,117,0.08)] bg-[var(--app-surface-muted)] text-[var(--app-ink)]'
                       }`}
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <p className={`text-xs ${isMine ? 'text-slate-200' : 'text-slate-500'}`}>{message.senderName}</p>
-                        <p className={`text-xs ${isMine ? 'text-slate-300' : 'text-slate-400'}`}>{toDateTime(message.createdAt)}</p>
+                        <p className={`text-xs ${isMine ? 'text-white/72' : 'text-[var(--app-muted)]'}`}>{message.senderName}</p>
+                        <p className={`text-xs ${isMine ? 'text-white/62' : 'text-[var(--app-muted)]/76'}`}>{toDateTime(message.createdAt)}</p>
                       </div>
                       <p className="text-sm mt-1 whitespace-pre-wrap">{message.messageText}</p>
                       {isMine && (
@@ -323,15 +325,15 @@ export default function MensajesPage() {
             </div>
 
             {can('mensajes', 'create') && (
-              <form className="border-t border-slate-100 p-3 flex gap-2" onSubmit={onSendMessage}>
+              <form className="flex gap-2 border-t border-[rgba(91,52,117,0.08)] p-3" onSubmit={onSendMessage}>
                 <input
-                  className="flex-1 border border-slate-300 rounded-md px-3 py-2 text-sm"
+                  className="app-input flex-1"
                   placeholder="Escribe un mensaje..."
                   value={messageText}
                   onChange={(event) => setMessageText(event.target.value)}
                 />
                 <button
-                  className="rounded-md bg-slate-900 text-white text-sm px-3 py-2 disabled:opacity-50"
+                  className="app-button-primary disabled:opacity-50"
                   type="submit"
                   disabled={!selectedThreadId || !messageText.trim()}
                 >

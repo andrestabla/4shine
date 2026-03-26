@@ -193,16 +193,16 @@ export default function WorkshopsPage() {
       <PageTitle title="Workshops" subtitle="Talleres programados y participación con CRUD real." />
 
       {can('workshops', 'create') && (
-        <form className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm grid grid-cols-1 md:grid-cols-6 gap-2" onSubmit={onCreate}>
+        <form className="app-panel grid grid-cols-1 gap-2 p-4 md:grid-cols-6" onSubmit={onCreate}>
           <input
-            className="border border-slate-300 rounded-md px-2 py-2 text-sm md:col-span-2"
+            className="app-input md:col-span-2"
             placeholder="Título"
             value={form.title}
             onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
             required
           />
           <select
-            className="border border-slate-300 rounded-md px-2 py-2 text-sm"
+            className="app-select"
             value={form.workshopType}
             onChange={(event) => setForm((prev) => ({ ...prev, workshopType: event.target.value as WorkshopType }))}
           >
@@ -213,36 +213,36 @@ export default function WorkshopsPage() {
             <option value="otro">otro</option>
           </select>
           <input
-            className="border border-slate-300 rounded-md px-2 py-2 text-sm"
+            className="app-input"
             type="datetime-local"
             value={form.startsAt}
             onChange={(event) => setForm((prev) => ({ ...prev, startsAt: event.target.value }))}
             required
           />
           <input
-            className="border border-slate-300 rounded-md px-2 py-2 text-sm"
+            className="app-input"
             type="datetime-local"
             value={form.endsAt}
             onChange={(event) => setForm((prev) => ({ ...prev, endsAt: event.target.value }))}
             required
           />
-          <button className="rounded-md bg-slate-900 text-white text-sm px-3 py-2" type="submit">
+          <button className="app-button-primary" type="submit">
             Crear
           </button>
           <input
-            className="border border-slate-300 rounded-md px-2 py-2 text-sm md:col-span-2"
+            className="app-input md:col-span-2"
             placeholder="Facilitador (opcional)"
             value={form.facilitatorName}
             onChange={(event) => setForm((prev) => ({ ...prev, facilitatorName: event.target.value }))}
           />
           <input
-            className="border border-slate-300 rounded-md px-2 py-2 text-sm md:col-span-2"
+            className="app-input md:col-span-2"
             placeholder="Link de sesión (opcional)"
             value={form.meetingUrl}
             onChange={(event) => setForm((prev) => ({ ...prev, meetingUrl: event.target.value }))}
           />
           <input
-            className="border border-slate-300 rounded-md px-2 py-2 text-sm md:col-span-2"
+            className="app-input md:col-span-2"
             placeholder="Descripción (opcional)"
             value={form.description}
             onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
@@ -250,18 +250,18 @@ export default function WorkshopsPage() {
         </form>
       )}
       {loading ? (
-        <div className="bg-white rounded-xl border border-slate-200 p-4 text-sm text-slate-500">Cargando...</div>
+        <div className="app-panel px-4 py-5 text-sm text-[var(--app-muted)]">Cargando...</div>
       ) : workshops.length === 0 ? (
         <EmptyState message="No hay workshops registrados." />
       ) : (
         <div className="space-y-4">
           {workshops.map((workshop) => (
-            <article key={workshop.workshopId} className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+            <article key={workshop.workshopId} className="app-panel p-5">
               <div className="flex items-center justify-between gap-3">
-                <h3 className="font-semibold text-slate-800">{workshop.title}</h3>
+                <h3 className="font-semibold text-[var(--app-ink)]">{workshop.title}</h3>
                 {can('workshops', 'update') ? (
                   <select
-                    className="border border-slate-300 rounded px-2 py-1 text-xs"
+                    className="app-select min-h-0 px-3 py-2 text-xs"
                     value={workshop.status}
                     onChange={(event) => onStatusChange(workshop, event.target.value as WorkshopStatus)}
                   >
@@ -270,20 +270,20 @@ export default function WorkshopsPage() {
                     <option value="cancelled">cancelled</option>
                   </select>
                 ) : (
-                  <span className="text-xs px-2 py-1 rounded bg-slate-100 text-slate-600">{workshop.status}</span>
+                  <span className="app-badge app-badge-muted">{workshop.status}</span>
                 )}
               </div>
-              <p className="text-sm text-slate-500 mt-1">
+              <p className="mt-1 text-sm text-[var(--app-muted)]">
                 {workshop.workshopType} · {toDateTime(workshop.startsAt)}
               </p>
-              <p className="text-sm text-slate-600 mt-3">{workshop.description ?? 'Sin descripción'}</p>
-              <p className="text-xs text-slate-500 mt-3">
+              <p className="mt-3 text-sm text-[var(--app-ink)]/84">{workshop.description ?? 'Sin descripción'}</p>
+              <p className="mt-3 text-xs text-[var(--app-muted)]">
                 Facilitador: {workshop.facilitatorName ?? '4Shine Team'} · Asistentes: {workshop.attendees}
               </p>
-              <div className="flex items-center gap-2 mt-4">
+              <div className="mt-4 flex items-center gap-2">
                 {can('workshops', 'update') && (
                   <button
-                    className="text-xs px-2 py-1 rounded border border-slate-300 text-slate-700"
+                    className="app-button-secondary min-h-0 px-3 py-2 text-xs"
                     type="button"
                     onClick={() => void onRename(workshop)}
                   >
@@ -292,7 +292,7 @@ export default function WorkshopsPage() {
                 )}
                 {can('workshops', 'delete') && (
                   <button
-                    className="text-xs px-2 py-1 rounded border border-red-300 text-red-600"
+                    className="rounded-full border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50"
                     type="button"
                     onClick={() => void onDelete(workshop)}
                   >

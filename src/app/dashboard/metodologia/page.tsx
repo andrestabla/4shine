@@ -20,13 +20,13 @@ export default function MetodologiaPage() {
       ) : (
         <div className="space-y-4">
           {methodologyContent.map((resource) => (
-            <article key={resource.id} className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-              <div className="flex items-center justify-between gap-3 mb-1">
-                <h3 className="font-semibold text-slate-800">{resource.title}</h3>
-                <span className="text-xs px-2 py-1 rounded bg-slate-100 text-slate-600">{resource.type}</span>
+            <article key={resource.id} className="app-panel p-5">
+              <div className="mb-1 flex items-center justify-between gap-3">
+                <h3 className="font-semibold text-[var(--app-ink)]">{resource.title}</h3>
+                <span className="app-badge app-badge-muted">{resource.type}</span>
               </div>
-              <p className="text-sm text-slate-500">{resource.description}</p>
-              <div className="mt-3 text-xs text-slate-500 flex items-center gap-3">
+              <p className="text-sm text-[var(--app-muted)]">{resource.description}</p>
+              <div className="mt-3 flex items-center gap-3 text-xs text-[var(--app-muted)]">
                 <span>{resource.category}</span>
                 <span>{resource.date}</span>
                 <span>Likes: {resource.likes}</span>

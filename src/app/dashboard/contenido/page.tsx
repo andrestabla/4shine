@@ -238,11 +238,11 @@ export default function ContenidoPage() {
         ]}
       />
 
-      <section className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+      <section className="app-panel p-4">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-medium text-slate-700">Filtrar alcance:</span>
+          <span className="text-sm font-medium text-[var(--app-ink)]">Filtrar alcance:</span>
           <select
-            className="border border-slate-300 rounded-md px-2 py-1 text-sm"
+            className="app-select min-h-0 w-auto px-3 py-2 text-sm"
             value={scopeFilter}
             onChange={(event) => setScopeFilter(event.target.value as ScopeFilter)}
           >
@@ -258,7 +258,7 @@ export default function ContenidoPage() {
         {canCreate && (
           <form className="grid grid-cols-1 md:grid-cols-6 gap-2 mt-4" onSubmit={onCreate}>
             <select
-              className="border border-slate-300 rounded-md px-2 py-2 text-sm"
+              className="app-select"
               value={createForm.scope}
               onChange={(event) =>
                 setCreateForm((prev) => ({ ...prev, scope: event.target.value as ContentScope }))
@@ -271,21 +271,21 @@ export default function ContenidoPage() {
               ))}
             </select>
             <input
-              className="border border-slate-300 rounded-md px-2 py-2 text-sm md:col-span-2"
+              className="app-input md:col-span-2"
               placeholder="Título"
               value={createForm.title}
               onChange={(event) => setCreateForm((prev) => ({ ...prev, title: event.target.value }))}
               required
             />
             <input
-              className="border border-slate-300 rounded-md px-2 py-2 text-sm"
+              className="app-input"
               placeholder="Categoría"
               value={createForm.category}
               onChange={(event) => setCreateForm((prev) => ({ ...prev, category: event.target.value }))}
               required
             />
             <select
-              className="border border-slate-300 rounded-md px-2 py-2 text-sm"
+              className="app-select"
               value={createForm.contentType}
               onChange={(event) =>
                 setCreateForm((prev) => ({ ...prev, contentType: event.target.value as ContentType }))
@@ -298,14 +298,14 @@ export default function ContenidoPage() {
               ))}
             </select>
             <button
-              className="rounded-md bg-slate-900 text-white text-sm px-3 py-2 disabled:opacity-50"
+              className="app-button-primary disabled:opacity-50"
               type="submit"
               disabled={submitting}
             >
               Crear
             </button>
             <input
-              className="border border-slate-300 rounded-md px-2 py-2 text-sm md:col-span-4"
+              className="app-input md:col-span-4"
               placeholder="URL (opcional)"
               value={createForm.url}
               onChange={(event) => setCreateForm((prev) => ({ ...prev, url: event.target.value }))}
@@ -318,11 +318,11 @@ export default function ContenidoPage() {
               pathPrefix={`contenido/${createForm.scope}/${createForm.contentType}`}
               accept={ACCEPT_BY_CONTENT_TYPE[createForm.contentType]}
               buttonLabel="Subir a R2"
-              className="h-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-60 inline-flex items-center justify-center gap-2"
+              className="app-button-secondary h-full disabled:opacity-60 inline-flex items-center justify-center gap-2"
               onUploaded={(url) => setCreateForm((prev) => ({ ...prev, url }))}
             />
             <input
-              className="border border-slate-300 rounded-md px-2 py-2 text-sm md:col-span-6"
+              className="app-input md:col-span-6"
               placeholder="Descripción (opcional)"
               value={createForm.description}
               onChange={(event) => setCreateForm((prev) => ({ ...prev, description: event.target.value }))}
@@ -331,22 +331,22 @@ export default function ContenidoPage() {
         )}
       </section>
       {loading ? (
-        <div className="bg-white rounded-xl border border-slate-200 p-4 text-sm text-slate-500">Cargando...</div>
+        <div className="app-panel px-4 py-5 text-sm text-[var(--app-muted)]">Cargando...</div>
       ) : filtered.length === 0 ? (
         <EmptyState message="No hay contenido para el filtro seleccionado." />
       ) : (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="app-table-shell">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-slate-600">
+            <table className="app-table text-sm">
+              <thead>
                 <tr className="text-left">
-                  <th className="px-4 py-3">Título</th>
-                  <th className="px-4 py-3">Alcance</th>
-                  <th className="px-4 py-3">Tipo</th>
-                  <th className="px-4 py-3">Estado</th>
-                  <th className="px-4 py-3">Recomendado</th>
-                  <th className="px-4 py-3">Actualizado</th>
-                  <th className="px-4 py-3">Acciones</th>
+                  <th>Título</th>
+                  <th>Alcance</th>
+                  <th>Tipo</th>
+                  <th>Estado</th>
+                  <th>Recomendado</th>
+                  <th>Actualizado</th>
+                  <th>Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -357,17 +357,17 @@ export default function ContenidoPage() {
                   const canApproveItem = can(moduleCode, 'approve');
 
                   return (
-                    <tr key={item.contentId} className="border-t border-slate-100 align-top">
-                      <td className="px-4 py-3">
-                        <p className="font-medium text-slate-800">{item.title}</p>
-                        <p className="text-xs text-slate-500">{item.category}</p>
+                    <tr key={item.contentId} className="align-top">
+                      <td>
+                        <p className="font-medium text-[var(--app-ink)]">{item.title}</p>
+                        <p className="text-xs text-[var(--app-muted)]">{item.category}</p>
                       </td>
-                      <td className="px-4 py-3 text-slate-600">{item.scope}</td>
-                      <td className="px-4 py-3 text-slate-600">{item.contentType}</td>
-                      <td className="px-4 py-3">
+                      <td className="text-[var(--app-muted)]">{item.scope}</td>
+                      <td className="text-[var(--app-muted)]">{item.contentType}</td>
+                      <td>
                         {canUpdateItem ? (
                           <select
-                            className="border border-slate-300 rounded px-2 py-1 text-xs"
+                            className="app-select min-h-0 px-3 py-2 text-xs"
                             value={item.status}
                             onChange={(event) =>
                               onStatusChange(item, event.target.value as ContentItemRecord['status'])
@@ -380,10 +380,10 @@ export default function ContenidoPage() {
                             {canApproveItem && <option value="rejected">rejected</option>}
                           </select>
                         ) : (
-                          <span className="text-xs px-2 py-1 rounded bg-slate-100 text-slate-700">{item.status}</span>
+                          <span className="app-badge app-badge-muted">{item.status}</span>
                         )}
                       </td>
-                      <td className="px-4 py-3">
+                      <td>
                         {canUpdateItem ? (
                           <input
                             type="checkbox"
@@ -392,15 +392,15 @@ export default function ContenidoPage() {
                             className="h-4 w-4"
                           />
                         ) : (
-                          <span className="text-slate-600 text-xs">{item.isRecommended ? 'Sí' : 'No'}</span>
+                          <span className="text-xs text-[var(--app-muted)]">{item.isRecommended ? 'Sí' : 'No'}</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-xs text-slate-500">{toLocalDateTime(item.updatedAt)}</td>
-                      <td className="px-4 py-3">
+                      <td className="text-xs text-[var(--app-muted)]">{toLocalDateTime(item.updatedAt)}</td>
+                      <td>
                         <div className="flex items-center gap-2">
                           {canUpdateItem && (
                             <button
-                              className="text-xs px-2 py-1 rounded border border-slate-300 text-slate-700"
+                              className="app-button-secondary min-h-0 px-3 py-2 text-xs"
                               onClick={() => void onRename(item)}
                               type="button"
                             >
@@ -409,7 +409,7 @@ export default function ContenidoPage() {
                           )}
                           {canDeleteItem && (
                             <button
-                              className="text-xs px-2 py-1 rounded border border-red-300 text-red-600"
+                              className="rounded-full border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50"
                               onClick={() => void onDelete(item)}
                               type="button"
                             >
@@ -428,7 +428,7 @@ export default function ContenidoPage() {
       )}
 
       {canApproveAny && (
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-[var(--app-muted)]">
           Publicación controlada por permiso <code>approve</code> por módulo.
         </p>
       )}

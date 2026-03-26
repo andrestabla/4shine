@@ -99,7 +99,7 @@ export default function NuevoUsuarioPage() {
 
   if (!canCreate) {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm">
+      <div className="app-panel px-6 py-6 text-sm text-[var(--app-muted)]">
         No tienes permisos para crear usuarios.
       </div>
     );
@@ -107,25 +107,25 @@ export default function NuevoUsuarioPage() {
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-5">
-      <Link href="/dashboard/usuarios" className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900">
+      <Link href="/dashboard/usuarios" className="inline-flex items-center gap-2 text-sm text-[var(--app-muted)] transition hover:text-[var(--app-ink)]">
         <ArrowLeft size={16} />
         Volver a la Lista
       </Link>
 
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-3xl font-bold text-slate-800">
+        <h1 className="flex items-center gap-2 text-3xl font-bold text-[var(--app-ink)]">
           <UserPlus size={28} />
           Crear Nuevo Usuario
         </h1>
-        <p className="text-slate-500">Registra un nuevo usuario manualmente y define su rol inicial.</p>
+        <p className="text-[var(--app-muted)]">Registra un nuevo usuario manualmente y define su rol inicial.</p>
       </header>
 
-      <form onSubmit={onSubmit} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm md:p-10">
+      <form onSubmit={onSubmit} className="app-panel-strong p-6 md:p-10">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <label className="md:col-span-2">
-            <span className="mb-1 block text-sm font-semibold text-slate-700">Nombre Completo *</span>
+            <span className="app-field-label">Nombre Completo *</span>
             <input
-              className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-slate-800 outline-none focus:border-slate-500"
+              className="app-input"
               placeholder="Ej: Juan Pérez"
               value={form.fullName}
               onChange={(event) => setForm((prev) => ({ ...prev, fullName: event.target.value }))}
@@ -134,10 +134,10 @@ export default function NuevoUsuarioPage() {
           </label>
 
           <label className="md:col-span-2">
-            <span className="mb-1 block text-sm font-semibold text-slate-700">Correo Electrónico *</span>
+            <span className="app-field-label">Correo Electrónico *</span>
             <input
               type="email"
-              className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-slate-800 outline-none focus:border-slate-500"
+              className="app-input"
               placeholder="usuario@empresa.com"
               value={form.email}
               onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))}
@@ -146,10 +146,10 @@ export default function NuevoUsuarioPage() {
           </label>
 
           <label>
-            <span className="mb-1 block text-sm font-semibold text-slate-700">Contraseña Inicial *</span>
+            <span className="app-field-label">Contraseña Inicial *</span>
             <input
               type="password"
-              className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-slate-800 outline-none focus:border-slate-500"
+              className="app-input"
               value={form.password}
               onChange={(event) => setForm((prev) => ({ ...prev, password: event.target.value }))}
               required
@@ -157,9 +157,9 @@ export default function NuevoUsuarioPage() {
           </label>
 
           <label className="md:col-span-2">
-            <span className="mb-1 block text-sm font-semibold text-slate-700">Tipo de usuario *</span>
+            <span className="app-field-label">Tipo de usuario *</span>
             <select
-              className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-slate-800 outline-none focus:border-slate-500"
+              className="app-select"
               value={form.userType}
               onChange={(event) => setForm((prev) => ({ ...prev, userType: event.target.value as UserTypeOption }))}
             >
@@ -169,17 +169,17 @@ export default function NuevoUsuarioPage() {
                 </option>
               ))}
             </select>
-            <p className="mt-2 text-sm text-slate-500">
+            <p className="mt-2 text-sm text-[var(--app-muted)]">
               Para líderes podrás distinguir si entra con acceso free o con suscripción activa al programa 4Shine.
             </p>
           </label>
         </div>
 
-        <div className="mt-6 border-t border-slate-100 pt-6">
+        <div className="mt-6 border-t border-[rgba(91,52,117,0.08)] pt-6">
           <button
             type="submit"
             disabled={submitting}
-            className="inline-flex min-w-56 items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 py-3 text-base font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+            className="app-button-primary min-w-56 text-base disabled:opacity-60"
           >
             <Save size={16} />
             {submitting ? 'Registrando...' : 'Registrar Usuario'}

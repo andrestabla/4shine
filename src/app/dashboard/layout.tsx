@@ -131,7 +131,7 @@ export default function DashboardLayout({
   if (isHydrating) {
     const loaderText = tokens.text.loaderText?.trim() ?? "";
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center px-6">
+      <div className="flex min-h-screen items-center justify-center bg-[var(--app-bg)] px-6">
         <div className="text-center">
           {tokens.assets.loaderAssetUrl.trim().length > 0 ? (
             <>
@@ -151,7 +151,7 @@ export default function DashboardLayout({
           )}
 
           {tokens.text.visibility.loaderText && loaderText.length > 0 && (
-            <p className="mt-3 text-sm text-slate-600">{loaderText}</p>
+            <p className="mt-3 text-sm text-[var(--app-muted)]">{loaderText}</p>
           )}
         </div>
       </div>
@@ -177,10 +177,6 @@ export default function DashboardLayout({
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
       <main className="relative flex w-full flex-1 flex-col overflow-y-auto bg-transparent">
-        <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute left-[-8rem] top-[-6rem] h-56 w-56 rounded-full bg-[rgba(245,183,209,0.22)] blur-3xl" />
-          <div className="absolute right-[-3rem] top-28 h-64 w-64 rounded-full bg-[rgba(177,151,242,0.18)] blur-3xl" />
-        </div>
         <Header onMenuClick={() => setIsSidebarOpen(true)} />
         <div
           className="relative z-10 mx-auto min-h-full w-full animate-fade-in px-4 pb-20 pt-5 md:px-8 md:pt-8"

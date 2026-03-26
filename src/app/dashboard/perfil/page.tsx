@@ -251,7 +251,7 @@ export default function PerfilPage() {
   };
 
   if (loading || !form || !profile) {
-    return <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">Cargando perfil...</div>;
+    return <div className="app-panel px-4 py-5 text-sm text-[var(--app-muted)]">Cargando perfil...</div>;
   }
 
   const avatarFallback = (profile.avatarInitial || profile.displayName.charAt(0) || 'U').toUpperCase();
@@ -261,7 +261,7 @@ export default function PerfilPage() {
     <div className="space-y-5">
       <PageTitle title="Mi Perfil" subtitle="Información profesional, proyectos, redes e intereses." />
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:p-7">
+      <section className="app-panel p-5 md:p-7">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-4">
             <div className="space-y-2">
@@ -285,7 +285,7 @@ export default function PerfilPage() {
                     entityTable="app_core.users"
                     fieldName="avatar_url"
                     buttonLabel={form.avatarUrl ? 'Cambiar foto' : 'Subir foto'}
-                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                    className="app-button-secondary inline-flex items-center justify-center gap-2 px-3 py-1.5 text-xs"
                     preprocessFile={(file) =>
                       optimizeAvatarForUpload(file, {
                         targetSize: 512,
@@ -297,13 +297,13 @@ export default function PerfilPage() {
                       setForm((prev) => (prev ? { ...prev, avatarUrl: url } : prev));
                     }}
                   />
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-[11px] text-[var(--app-muted)]">
                     Recorte automático cuadrado + optimización 512x512 antes de subir a R2.
                   </p>
                   {form.avatarUrl && (
                     <button
                       type="button"
-                      className="inline-flex items-center justify-center gap-1 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
+                      className="inline-flex items-center justify-center gap-1 rounded-full border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50"
                       onClick={() => setForm((prev) => (prev ? { ...prev, avatarUrl: '' } : prev))}
                     >
                       <Trash2 size={12} />
@@ -314,8 +314,8 @@ export default function PerfilPage() {
               )}
             </div>
             <div>
-              <h3 className="text-3xl font-bold text-slate-800">{profile.displayName}</h3>
-              <p className="text-slate-500">
+              <h3 className="text-3xl font-bold text-[var(--app-ink)]">{profile.displayName}</h3>
+              <p className="text-[var(--app-muted)]">
                 {profile.profession ?? 'Profesional'}
                 {profile.organizationName ? ` · ${profile.organizationName}` : ''}
               </p>
@@ -328,7 +328,7 @@ export default function PerfilPage() {
                 <button
                   type="button"
                   onClick={() => setIsEditing(true)}
-                  className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                  className="app-button-secondary"
                 >
                   <Edit3 size={15} />
                   Editar Perfil
@@ -339,7 +339,7 @@ export default function PerfilPage() {
                     type="button"
                     onClick={onCancelEdit}
                     disabled={isSaving}
-                    className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                    className="app-button-secondary disabled:opacity-60"
                   >
                     <X size={15} />
                     Cancelar
@@ -348,7 +348,7 @@ export default function PerfilPage() {
                     type="button"
                     onClick={() => void onSaveProfile()}
                     disabled={isSaving}
-                    className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+                    className="app-button-primary disabled:opacity-60"
                   >
                     <Save size={15} />
                     {isSaving ? 'Guardando...' : 'Guardar'}
@@ -364,80 +364,80 @@ export default function PerfilPage() {
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
         <div className="space-y-5 xl:col-span-2">
-          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h4 className="mb-3 flex items-center gap-2 text-lg font-bold text-slate-800">
+          <section className="app-panel p-5">
+            <h4 className="mb-3 flex items-center gap-2 text-lg font-bold text-[var(--app-ink)]">
               <UserCircle2 size={18} />
               Acerca de mí
             </h4>
 
             {!isEditing ? (
               <>
-                <p className="rounded-xl bg-slate-50 p-4 text-slate-700">{profile.bio ?? 'Sin biografía registrada.'}</p>
+                <p className="rounded-[1rem] bg-[var(--app-surface-muted)] p-4 text-[var(--app-ink)]/84">{profile.bio ?? 'Sin biografía registrada.'}</p>
                 <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-                  <div className="rounded-xl border border-slate-100 p-3">
-                    <p className="text-xs text-slate-500">Profesión</p>
-                    <p className="font-semibold text-slate-800">{profile.profession ?? 'No registrada'}</p>
+                  <div className="app-panel-soft p-3">
+                    <p className="text-xs text-[var(--app-muted)]">Profesión</p>
+                    <p className="font-semibold text-[var(--app-ink)]">{profile.profession ?? 'No registrada'}</p>
                   </div>
-                  <div className="rounded-xl border border-slate-100 p-3">
-                    <p className="text-xs text-slate-500">Industria</p>
-                    <p className="font-semibold text-slate-800">{profile.industry ?? 'No registrada'}</p>
+                  <div className="app-panel-soft p-3">
+                    <p className="text-xs text-[var(--app-muted)]">Industria</p>
+                    <p className="font-semibold text-[var(--app-ink)]">{profile.industry ?? 'No registrada'}</p>
                   </div>
-                  <div className="rounded-xl border border-slate-100 p-3">
-                    <p className="text-xs text-slate-500">Ubicación</p>
-                    <p className="font-semibold text-slate-800">{profile.location ?? 'No registrada'}</p>
+                  <div className="app-panel-soft p-3">
+                    <p className="text-xs text-[var(--app-muted)]">Ubicación</p>
+                    <p className="font-semibold text-[var(--app-ink)]">{profile.location ?? 'No registrada'}</p>
                   </div>
-                  <div className="rounded-xl border border-slate-100 p-3">
-                    <p className="text-xs text-slate-500">Zona horaria</p>
-                    <p className="font-semibold text-slate-800">{profile.timezone}</p>
+                  <div className="app-panel-soft p-3">
+                    <p className="text-xs text-[var(--app-muted)]">Zona horaria</p>
+                    <p className="font-semibold text-[var(--app-ink)]">{profile.timezone}</p>
                   </div>
                 </div>
               </>
             ) : (
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <label className="md:col-span-2">
-                  <span className="mb-1 block text-xs font-semibold text-slate-500">Nombre visible</span>
+                  <span className="app-field-label">Nombre visible</span>
                   <input
-                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                    className="app-input"
                     value={form.displayName}
                     onChange={(event) => setForm((prev) => (prev ? { ...prev, displayName: event.target.value } : prev))}
                   />
                 </label>
                 <label>
-                  <span className="mb-1 block text-xs font-semibold text-slate-500">Profesión</span>
+                  <span className="app-field-label">Profesión</span>
                   <input
-                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                    className="app-input"
                     value={form.profession}
                     onChange={(event) => setForm((prev) => (prev ? { ...prev, profession: event.target.value } : prev))}
                   />
                 </label>
                 <label>
-                  <span className="mb-1 block text-xs font-semibold text-slate-500">Industria</span>
+                  <span className="app-field-label">Industria</span>
                   <input
-                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                    className="app-input"
                     value={form.industry}
                     onChange={(event) => setForm((prev) => (prev ? { ...prev, industry: event.target.value } : prev))}
                   />
                 </label>
                 <label>
-                  <span className="mb-1 block text-xs font-semibold text-slate-500">Ubicación</span>
+                  <span className="app-field-label">Ubicación</span>
                   <input
-                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                    className="app-input"
                     value={form.location}
                     onChange={(event) => setForm((prev) => (prev ? { ...prev, location: event.target.value } : prev))}
                   />
                 </label>
                 <label>
-                  <span className="mb-1 block text-xs font-semibold text-slate-500">Zona horaria</span>
+                  <span className="app-field-label">Zona horaria</span>
                   <input
-                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                    className="app-input"
                     value={form.timezone}
                     onChange={(event) => setForm((prev) => (prev ? { ...prev, timezone: event.target.value } : prev))}
                   />
                 </label>
                 <label>
-                  <span className="mb-1 block text-xs font-semibold text-slate-500">Plan</span>
+                  <span className="app-field-label">Plan</span>
                   <select
-                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                    className="app-select"
                     value={form.planType}
                     onChange={(event) =>
                       setForm((prev) => (prev ? { ...prev, planType: event.target.value as PlanType | '' } : prev))
@@ -451,9 +451,9 @@ export default function PerfilPage() {
                   </select>
                 </label>
                 <label>
-                  <span className="mb-1 block text-xs font-semibold text-slate-500">Nivel</span>
+                  <span className="app-field-label">Nivel</span>
                   <select
-                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                    className="app-select"
                     value={form.seniorityLevel}
                     onChange={(event) =>
                       setForm((prev) =>
@@ -475,9 +475,9 @@ export default function PerfilPage() {
                   </select>
                 </label>
                 <label className="md:col-span-2">
-                  <span className="mb-1 block text-xs font-semibold text-slate-500">Biografía</span>
+                  <span className="app-field-label">Biografía</span>
                   <textarea
-                    className="h-28 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                    className="app-textarea min-h-28"
                     value={form.bio}
                     onChange={(event) => setForm((prev) => (prev ? { ...prev, bio: event.target.value } : prev))}
                   />
@@ -486,8 +486,8 @@ export default function PerfilPage() {
             )}
           </section>
 
-          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h4 className="mb-3 flex items-center gap-2 text-lg font-bold text-slate-800">
+          <section className="app-panel p-5">
+            <h4 className="mb-3 flex items-center gap-2 text-lg font-bold text-[var(--app-ink)]">
               <Briefcase size={18} />
               Proyectos Destacados
             </h4>
@@ -498,16 +498,16 @@ export default function PerfilPage() {
                   <EmptyState message="No hay proyectos destacados." />
                 ) : (
                   profile.projects.map((project) => (
-                    <article key={project.projectId} className="rounded-xl border border-slate-200 p-4">
+                    <article key={project.projectId} className="app-list-card p-4">
                       <div className="flex flex-wrap items-start justify-between gap-2">
-                        <h5 className="font-semibold text-slate-800">{project.title}</h5>
+                        <h5 className="font-semibold text-[var(--app-ink)]">{project.title}</h5>
                         {project.projectRole && (
-                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
+                          <span className="app-badge app-badge-muted">
                             {project.projectRole}
                           </span>
                         )}
                       </div>
-                      {project.description && <p className="mt-2 text-sm text-slate-600">{project.description}</p>}
+                      {project.description && <p className="mt-2 text-sm text-[var(--app-muted)]">{project.description}</p>}
                     </article>
                   ))
                 )}
@@ -515,10 +515,10 @@ export default function PerfilPage() {
             ) : (
               <div className="space-y-3">
                 {form.projects.map((project, index) => (
-                  <div key={`project-${index}`} className="rounded-xl border border-slate-200 p-3">
+                  <div key={`project-${index}`} className="app-list-card p-3">
                     <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                       <input
-                        className="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2"
+                        className="app-input md:col-span-2"
                         placeholder="Título del proyecto"
                         value={project.title}
                         onChange={(event) =>
@@ -531,7 +531,7 @@ export default function PerfilPage() {
                         }
                       />
                       <input
-                        className="rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                        className="app-input"
                         placeholder="Rol en el proyecto"
                         value={project.projectRole}
                         onChange={(event) =>
@@ -544,7 +544,7 @@ export default function PerfilPage() {
                         }
                       />
                       <input
-                        className="rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                        className="app-input"
                         placeholder="URL imagen (opcional)"
                         value={project.imageUrl}
                         onChange={(event) =>
@@ -557,7 +557,7 @@ export default function PerfilPage() {
                         }
                       />
                       <textarea
-                        className="h-20 rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2"
+                        className="app-textarea min-h-20 md:col-span-2"
                         placeholder="Descripción"
                         value={project.description}
                         onChange={(event) =>
@@ -592,7 +592,7 @@ export default function PerfilPage() {
 
                 <button
                   type="button"
-                  className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700"
+                  className="app-button-secondary inline-flex items-center gap-1 px-3 py-1.5 text-xs"
                   onClick={() =>
                     setForm((prev) =>
                       prev
@@ -613,35 +613,35 @@ export default function PerfilPage() {
         </div>
 
         <aside className="space-y-5">
-          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h4 className="mb-3 flex items-center gap-2 text-lg font-bold text-slate-800">
+          <section className="app-panel p-5">
+            <h4 className="mb-3 flex items-center gap-2 text-lg font-bold text-[var(--app-ink)]">
               <Link2 size={18} />
               Redes y Contacto
             </h4>
 
             {!isEditing ? (
-              <div className="space-y-2 text-sm text-slate-700">
+              <div className="space-y-2 text-sm text-[var(--app-ink)]">
                 <p>{profile.linkedinUrl || 'LinkedIn no configurado'}</p>
                 <p>{profile.twitterUrl || 'Twitter no configurado'}</p>
                 <p>{profile.websiteUrl || 'Sitio web no configurado'}</p>
-                <p className="text-slate-500">{profile.email}</p>
+                <p className="text-[var(--app-muted)]">{profile.email}</p>
               </div>
             ) : (
               <div className="space-y-2">
                 <input
-                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                  className="app-input"
                   placeholder="URL LinkedIn"
                   value={form.linkedinUrl}
                   onChange={(event) => setForm((prev) => (prev ? { ...prev, linkedinUrl: event.target.value } : prev))}
                 />
                 <input
-                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                  className="app-input"
                   placeholder="Usuario Twitter/X"
                   value={form.twitterUrl}
                   onChange={(event) => setForm((prev) => (prev ? { ...prev, twitterUrl: event.target.value } : prev))}
                 />
                 <input
-                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                  className="app-input"
                   placeholder="Sitio web"
                   value={form.websiteUrl}
                   onChange={(event) => setForm((prev) => (prev ? { ...prev, websiteUrl: event.target.value } : prev))}
@@ -650,8 +650,8 @@ export default function PerfilPage() {
             )}
           </section>
 
-          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h4 className="mb-3 text-lg font-bold text-slate-800">Intereses</h4>
+          <section className="app-panel p-5">
+            <h4 className="mb-3 text-lg font-bold text-[var(--app-ink)]">Intereses</h4>
 
             {!isEditing ? (
               <div className="flex flex-wrap gap-2">
@@ -665,18 +665,18 @@ export default function PerfilPage() {
                     </span>
                   ))
                 ) : (
-                  <p className="text-sm text-slate-500">Sin intereses registrados.</p>
+                  <p className="text-sm text-[var(--app-muted)]">Sin intereses registrados.</p>
                 )}
               </div>
             ) : (
               <>
                 <textarea
-                  className="h-24 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                  className="app-textarea min-h-24"
                   placeholder="Interés 1, Interés 2, Interés 3"
                   value={form.interestsText}
                   onChange={(event) => setForm((prev) => (prev ? { ...prev, interestsText: event.target.value } : prev))}
                 />
-                <p className="mt-1 text-xs text-slate-500">Separa cada interés con coma.</p>
+                <p className="mt-1 text-xs text-[var(--app-muted)]">Separa cada interés con coma.</p>
               </>
             )}
           </section>

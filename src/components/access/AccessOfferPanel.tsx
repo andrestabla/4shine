@@ -143,10 +143,9 @@ export function AccessOfferPanel({
     null;
 
   return (
-    <section className="app-panel overflow-hidden p-4 sm:p-5 lg:p-6">
+    <section className="app-panel-strong overflow-hidden p-4 sm:p-5 lg:p-6">
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,0.88fr)_minmax(0,1.12fr)]">
-        <div className="relative overflow-hidden rounded-[24px] border border-[rgba(255,255,255,0.12)] bg-[linear-gradient(145deg,#472159_0%,#69397e_52%,#dfa8c8_100%)] px-6 py-6 text-white sm:px-7 sm:py-7">
-          <div className="absolute inset-y-0 right-[16%] hidden w-24 bg-white/20 blur-3xl md:block" />
+        <div className="app-hero-surface relative overflow-hidden px-6 py-6 sm:px-7 sm:py-7">
           <div className="relative">
             <div className="flex items-center gap-2 text-white/74">
               <Lock size={15} />
@@ -156,7 +155,7 @@ export function AccessOfferPanel({
             </div>
 
             <h3
-              className="app-display-title mt-4 max-w-xl text-[2.15rem] font-semibold leading-[0.96] text-white md:text-[2.85rem]"
+              className="app-display-title mt-4 max-w-xl text-[2rem] font-semibold leading-[0.96] text-white md:text-[2.55rem]"
               data-display-font="true"
             >
               {title}
@@ -167,7 +166,7 @@ export function AccessOfferPanel({
             </p>
 
             <div className="mt-6 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-[20px] border border-white/14 bg-white/10 px-4 py-4 backdrop-blur">
+              <div className="rounded-[1.15rem] border border-white/14 bg-white/10 px-4 py-4">
                 <p className="text-[10px] font-extrabold uppercase tracking-[0.26em] text-white/62">
                   Disponible desde
                 </p>
@@ -179,7 +178,7 @@ export function AccessOfferPanel({
                 </p>
               </div>
 
-              <div className="rounded-[20px] border border-white/14 bg-white/10 px-4 py-4 backdrop-blur">
+              <div className="rounded-[1.15rem] border border-white/14 bg-white/10 px-4 py-4">
                 <p className="text-[10px] font-extrabold uppercase tracking-[0.26em] text-white/62">
                   Opciones activables
                 </p>
@@ -193,7 +192,7 @@ export function AccessOfferPanel({
             </div>
 
             {featuredProduct ? (
-              <div className="mt-6 rounded-[22px] border border-white/14 bg-white/10 px-4 py-4 backdrop-blur">
+              <div className="mt-6 rounded-[1.2rem] border border-white/14 bg-white/10 px-4 py-4">
                 <p className="text-[10px] font-extrabold uppercase tracking-[0.26em] text-white/62">
                   Recomendado
                 </p>
@@ -216,7 +215,7 @@ export function AccessOfferPanel({
             {primaryAction ? (
               <Link
                 href={primaryAction.href}
-                className="mt-6 inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-[#4f2360] transition hover:translate-x-0.5 hover:bg-white/96"
+                className="mt-6 inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-[#4f2360] transition hover:-translate-y-0.5 hover:bg-white/96"
               >
                 {primaryAction.label}
                 <ArrowRight size={16} />
@@ -239,11 +238,11 @@ export function AccessOfferPanel({
               return (
                 <article
                   key={product.productCode}
-                  className={`group rounded-[22px] border p-5 shadow-[0_18px_34px_rgba(55,32,80,0.05)] transition hover:-translate-y-0.5 hover:shadow-[0_22px_38px_rgba(55,32,80,0.08)] ${accent.surfaceClassName}`}
+                  className={`group rounded-[1.2rem] border p-5 shadow-[var(--app-shadow-soft)] transition hover:-translate-y-0.5 hover:shadow-[var(--app-shadow-card)] ${accent.surfaceClassName}`}
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-start gap-3">
-                      <div className="rounded-[16px] bg-[var(--app-chip)] p-3 text-[var(--app-ink)]">
+                      <div className="rounded-[1rem] bg-[var(--app-chip)] p-3 text-[var(--app-ink)]">
                         <ProductIcon size={18} />
                       </div>
                       <div>
@@ -259,7 +258,7 @@ export function AccessOfferPanel({
                       </div>
                     </div>
 
-                    <div className="rounded-[18px] border border-[var(--app-border)] bg-white/88 px-3 py-2 text-right">
+                    <div className="rounded-[1rem] border border-[var(--app-border)] bg-white/88 px-3 py-2 text-right">
                       <p className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-[var(--app-muted)]">
                         Precio
                       </p>
@@ -291,7 +290,7 @@ export function AccessOfferPanel({
                     {productAction ? (
                       <Link
                         href={productAction.href}
-                        className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[var(--app-border)] bg-white px-3 py-2 text-xs font-semibold text-[var(--app-ink)] transition hover:bg-[var(--app-surface-muted)]"
+                        className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[var(--app-border)] bg-white px-3 py-2 text-xs font-semibold text-[var(--app-ink)] transition hover:-translate-y-0.5 hover:bg-[var(--app-surface-muted)]"
                       >
                         {productAction.label}
                         <ArrowUpRight size={14} />
@@ -304,7 +303,7 @@ export function AccessOfferPanel({
           </div>
 
           {note ? (
-            <div className="rounded-[22px] border border-[var(--app-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.94)_0%,rgba(247,242,255,0.94)_100%)] px-5 py-5">
+            <div className="app-panel-soft px-5 py-5">
               <div className="flex items-center gap-2 text-[var(--app-ink)]">
                 <Sparkles size={16} className="text-[var(--brand-primary)]" />
                 <span className="text-sm font-semibold">Qué desbloqueas</span>

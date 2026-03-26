@@ -105,45 +105,45 @@ export default async function WorkbookPage({ params }: { params: Promise<{ slug:
     }
 
     return (
-        <div className="min-h-screen bg-[#f4f7fb] px-4 py-8 text-[#0f172a] md:px-8">
+        <div className="min-h-screen bg-[var(--app-bg)] px-4 py-8 text-[var(--app-ink)] md:px-8">
             <div className="mx-auto max-w-4xl space-y-6">
                 <Link
                     href="/dashboard/aprendizaje"
-                    className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                    className="app-button-secondary"
                 >
                     <ArrowLeft size={16} />
                     Volver
                 </Link>
 
-                <section className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-                    <div className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
+                <section className="app-panel-strong p-8">
+                    <div className="app-badge app-badge-warning gap-2 uppercase tracking-[0.18em]">
                         <Clock3 size={14} />
                         En construcción
                     </div>
 
-                    <h1 className="mt-5 text-3xl font-extrabold tracking-tight text-slate-900">
+                    <h1 className="mt-5 text-3xl font-extrabold tracking-tight text-[var(--app-ink)]">
                         {workbook.code} · {workbook.title}
                     </h1>
-                    <p className="mt-3 text-sm text-slate-500">
-                        Pilar: <span className="font-semibold text-slate-700">{workbook.pillar}</span>
+                    <p className="mt-3 text-sm text-[var(--app-muted)]">
+                        Pilar: <span className="font-semibold text-[var(--app-ink)]">{workbook.pillar}</span>
                     </p>
-                    <p className="mt-6 text-base leading-relaxed text-slate-600">
+                    <p className="mt-6 text-base leading-relaxed text-[var(--app-muted)]">
                         Este workbook sí existe en el catálogo del proyecto origen, pero todavía no tiene el componente digital operativo
                         dentro de esta integración. Dejé el registro y la navegación preparados para conectarlo cuando el archivo final esté listo.
                     </p>
 
-                    <div className="mt-8 rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                        <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                    <div className="app-panel-soft mt-8 p-5">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-[var(--app-ink)]">
                             <Sparkles size={16} />
                             Estado actual
                         </div>
-                        <p className="mt-3 text-sm text-slate-600">{workbook.summary}</p>
+                        <p className="mt-3 text-sm text-[var(--app-muted)]">{workbook.summary}</p>
                         <div className="mt-4">
-                            <div className="mb-2 flex items-center justify-between text-xs text-slate-500">
+                            <div className="mb-2 flex items-center justify-between text-xs text-[var(--app-muted)]">
                                 <span>Progreso digital</span>
                                 <span>{workbook.progress}%</span>
                             </div>
-                            <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+                            <div className="h-2 overflow-hidden rounded-full bg-[rgba(91,52,117,0.12)]">
                                 <div
                                     className="h-full rounded-full bg-gradient-to-r from-amber-500 to-orange-500"
                                     style={{ width: `${workbook.progress}%` }}

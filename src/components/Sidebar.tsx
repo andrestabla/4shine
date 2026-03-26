@@ -221,19 +221,19 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const panelBg = isLightPrimary
     ? rgbaFromHex("#ffffff", 0.88)
     : rgbaFromHex("#ffffff", 0.12);
-  const shellGradient = `linear-gradient(180deg, color-mix(in srgb, ${tokens.colors.primary} 92%, #5f2b72 8%) 0%, color-mix(in srgb, ${tokens.colors.primary} 74%, #2f123b 26%) 100%)`;
+  const shellGradient = `linear-gradient(180deg, color-mix(in srgb, ${tokens.colors.primary} 96%, #4c245b 4%) 0%, color-mix(in srgb, ${tokens.colors.primary} 84%, #2f123b 16%) 100%)`;
   const sidebarHighlights = [
     {
       title: currentRole === "lider" ? "Ruta activa" : "Experiencia guiada",
       text:
         currentRole === "lider"
           ? `${currentUser.stats?.progress ?? 0}% de avance visible en tu programa.`
-          : "Acompaña la experiencia con una vista clara, móvil y accionable.",
+          : "Acompaña cada recorrido con una vista clara, móvil y accionable.",
       icon: BookOpen,
     },
     {
       title: "Soporte cercano",
-      text: "Accede rápido a mensajes, mentorías y seguimiento desde cualquier pantalla.",
+      text: "Mantén mensajes, mentorías y seguimiento siempre a mano.",
       icon: MessageSquare,
     },
   ];
@@ -259,9 +259,9 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
         href={item.path}
         onClick={onClose}
         className={clsx(
-          "group relative flex w-full items-center gap-3 rounded-[16px] px-3 py-3 text-left text-sm font-semibold transition-all duration-200",
+          "group relative flex w-full items-center gap-3 rounded-[1rem] px-3 py-3 text-left text-sm font-semibold transition-all duration-200",
           isActive
-            ? "translate-x-1 shadow-[0_14px_28px_rgba(32,17,41,0.18)]"
+            ? "shadow-[0_10px_24px_rgba(32,17,41,0.14)]"
             : isLightPrimary
               ? "hover:bg-black/10"
               : "hover:bg-white/10",
@@ -302,9 +302,9 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
     <>
       <aside
         className={clsx(
-          "fixed inset-y-0 left-0 z-30 flex h-screen flex-col overflow-x-hidden border-r shadow-2xl transition-all duration-300 md:static md:h-screen",
+          "fixed inset-y-0 left-0 z-30 flex h-screen flex-col overflow-x-hidden border-r shadow-[0_18px_40px_rgba(31,16,41,0.18)] transition-all duration-300 md:static md:h-screen",
           isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
-          isCollapsed ? "w-20" : "w-[18.5rem]",
+          isCollapsed ? "w-20" : "w-[17.75rem]",
         )}
         style={{
           background: shellGradient,
@@ -326,11 +326,11 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
                 <img
                   src={branding.logoUrl}
                   alt={branding.platformName}
-                  className="h-10 w-10 rounded-xl bg-white/10 object-cover p-1"
+                  className="h-10 w-10 rounded-[1rem] bg-white/10 object-cover p-1"
                 />
               ) : (
                 <Gem
-                  className="h-8 w-8 animate-pulse-slow"
+                  className="h-8 w-8"
                   style={{ color: tokens.colors.accent }}
                 />
               )}
@@ -353,11 +353,11 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           {isCollapsed &&
             (branding.logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={branding.logoUrl}
-                alt={branding.platformName}
-                className="h-9 w-9 rounded-xl bg-white/10 object-cover p-1"
-              />
+                <img
+                  src={branding.logoUrl}
+                  alt={branding.platformName}
+                  className="h-9 w-9 rounded-[1rem] bg-white/10 object-cover p-1"
+                />
             ) : (
               <Gem
                 className="h-8 w-8"
@@ -390,7 +390,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
 
         <nav className="flex-1 space-y-4 overflow-y-auto overflow-x-hidden p-4">
           {mainNavItems.length > 0 ? (
-            <div className="space-y-1.5">{mainNavItems.map(navItem)}</div>
+            <div className="space-y-1">{mainNavItems.map(navItem)}</div>
           ) : (
             <p className="text-xs px-2 py-3" style={{ color: subtleText }}>
               No tienes módulos habilitados.
@@ -409,7 +409,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
                   </p>
                 </div>
               )}
-              <div className="space-y-1.5">{adminNavItems.map(navItem)}</div>
+              <div className="space-y-1">{adminNavItems.map(navItem)}</div>
             </>
           )}
 
@@ -418,7 +418,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
               {sidebarHighlights.map((item) => (
                 <div
                   key={item.title}
-                  className="rounded-[18px] border px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]"
+                  className="rounded-[1rem] border px-4 py-4"
                   style={{
                     backgroundColor: panelBg,
                     borderColor,
@@ -426,7 +426,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
                 >
                   <div className="flex items-start gap-3">
                     <div
-                      className="rounded-[14px] bg-white/14 p-2.5"
+                      className="rounded-[0.95rem] bg-white/14 p-2.5"
                       style={{ color: tokens.colors.accent }}
                     >
                       <item.icon size={16} />
@@ -457,7 +457,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
             href="/dashboard/perfil"
             onClick={onClose}
             className={clsx(
-              "mb-4 flex cursor-pointer items-center gap-3 rounded-[18px] border p-3 transition",
+              "mb-4 flex cursor-pointer items-center gap-3 rounded-[1.05rem] border p-3 transition",
               isLightPrimary ? "hover:bg-black/10" : "hover:bg-white/10",
               isCollapsed && "justify-center gap-0",
             )}
@@ -507,7 +507,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           <button
             onClick={() => void onLogoutClick()}
             className={clsx(
-              "flex w-full items-center justify-center gap-2 rounded-[16px] border px-4 py-3 text-sm font-semibold transition",
+              "flex w-full items-center justify-center gap-2 rounded-[1rem] border px-4 py-3 text-sm font-semibold transition",
               isLightPrimary ? "hover:bg-black/10" : "hover:bg-white/10",
               isCollapsed && "px-0",
             )}
