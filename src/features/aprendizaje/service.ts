@@ -523,9 +523,9 @@ export async function listLearningResources(
       SELECT COUNT(*)::text AS total
       FROM app_learning.content_items ci
       WHERE ci.scope = 'aprendizaje'
-        AND ($2::boolean = true OR ci.status = 'published')
+        AND ($1::boolean = true OR ci.status = 'published')
         AND (
-          $3::boolean = false
+          $2::boolean = false
           OR EXISTS (
             SELECT 1
             FROM app_learning.content_tags ct
@@ -534,24 +534,24 @@ export async function listLearningResources(
               AND lower(t.tag_name) = 'free'
           )
         )
-        AND ($4::text IS NULL OR ci.content_type = $4)
-        AND ($5::text IS NULL OR ci.status = $5)
-        AND ($6::text IS NULL OR COALESCE(ci.competency_metadata->>'pillar', '') = $6)
+        AND ($3::text IS NULL OR ci.content_type = $3)
+        AND ($4::text IS NULL OR ci.status = $4)
+        AND ($5::text IS NULL OR COALESCE(ci.competency_metadata->>'pillar', '') = $5)
         AND (
-          $7::text IS NULL
-          OR lower(ci.title) LIKE $7
-          OR lower(COALESCE(ci.description, '')) LIKE $7
-          OR lower(ci.category) LIKE $7
-          OR lower(COALESCE(ci.author_name, '')) LIKE $7
-          OR lower(COALESCE(ci.competency_metadata->>'component', '')) LIKE $7
-          OR lower(COALESCE(ci.competency_metadata->>'competency', '')) LIKE $7
-          OR lower(COALESCE(ci.competency_metadata->>'stage', '')) LIKE $7
+          $6::text IS NULL
+          OR lower(ci.title) LIKE $6
+          OR lower(COALESCE(ci.description, '')) LIKE $6
+          OR lower(ci.category) LIKE $6
+          OR lower(COALESCE(ci.author_name, '')) LIKE $6
+          OR lower(COALESCE(ci.competency_metadata->>'component', '')) LIKE $6
+          OR lower(COALESCE(ci.competency_metadata->>'competency', '')) LIKE $6
+          OR lower(COALESCE(ci.competency_metadata->>'stage', '')) LIKE $6
           OR EXISTS (
             SELECT 1
             FROM app_learning.content_tags ct
             JOIN app_learning.tags t ON t.tag_id = ct.tag_id
             WHERE ct.content_id = ci.content_id
-              AND lower(t.tag_name) LIKE $7
+              AND lower(t.tag_name) LIKE $6
           )
         )
     `,
