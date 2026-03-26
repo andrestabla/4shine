@@ -301,6 +301,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   return (
     <>
       <aside
+        data-dashboard-sidebar
         className={clsx(
           "fixed inset-y-0 left-0 z-30 flex h-screen flex-col overflow-x-hidden border-r shadow-[0_18px_40px_rgba(31,16,41,0.18)] transition-all duration-300 md:static md:h-screen",
           isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",

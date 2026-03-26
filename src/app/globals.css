@@ -76,6 +76,12 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+body.app-learning-editor-open [data-dashboard-sidebar],
+body.app-learning-editor-open [data-dashboard-header] {
+  opacity: 0;
+  pointer-events: none;
+}
+
 h1,
 h2,
 h3,

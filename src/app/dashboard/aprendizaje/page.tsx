@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import React from "react";
+import { createPortal } from "react-dom";
 import {
+  ArrowLeft,
   BookOpen,
   CalendarClock,
   CheckCircle2,
@@ -1305,6 +1307,7 @@ export default function AprendizajePage() {
     if (!isResourceModalOpen) return;
 
     const previousOverflow = document.body.style.overflow;
+    document.body.classList.add("app-learning-editor-open");
     document.body.style.overflow = "hidden";
 
     const onKeyDown = (event: KeyboardEvent) => {
@@ -1316,6 +1319,7 @@ export default function AprendizajePage() {
 
     window.addEventListener("keydown", onKeyDown);
     return () => {
+      document.body.classList.remove("app-learning-editor-open");
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", onKeyDown);
     };
@@ -2453,12 +2457,11 @@ export default function AprendizajePage() {
         </>
       )}
 
-      {isResourceManager && isResourceModalOpen && (
-        <div className="fixed inset-0 z-[130]">
-          <div
-            className="absolute inset-0 bg-[rgba(35,20,48,0.52)] backdrop-blur-sm"
-            onClick={() => closeResourceModal()}
-          />
+      {isResourceManager &&
+        isResourceModalOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 z-[220] bg-[linear-gradient(180deg,#fcfbff_0%,#f7f1ff_100%)]">
           <div
             role="dialog"
             aria-modal="true"
@@ -2467,11 +2470,14 @@ export default function AprendizajePage() {
                 ? `Editar ${isCourseEditor ? "curso" : "recurso"} de aprendizaje`
                 : `Crear ${isCourseEditor ? "curso" : "recurso"} de aprendizaje`
             }
-            className="relative flex h-full w-full flex-col overflow-hidden bg-[linear-gradient(180deg,rgba(250,247,255,0.99),rgba(246,240,255,0.98))] shadow-[0_28px_90px_rgba(28,17,46,0.34)]"
+            className="relative flex h-full w-full flex-col overflow-hidden"
           >
             <form className="flex min-h-0 flex-1 flex-col" onSubmit={onSubmitResource}>
-              <div className="border-b border-[var(--app-border)] bg-white/86 px-5 py-4 sm:px-7 sm:py-5">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div
+                className="border-b border-[var(--app-border)] bg-white/92 px-4 pb-4 pt-4 sm:px-6 lg:px-8"
+                style={{ paddingTop: "max(1rem, env(safe-area-inset-top))" }}
+              >
+                <div className="mx-auto flex w-full max-w-[1540px] flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div className="max-w-3xl">
                     <p className="app-section-kicker">
                       {editingResourceId
@@ -2494,15 +2500,23 @@ export default function AprendizajePage() {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      className="app-button-secondary"
+                      onClick={() => closeResourceModal()}
+                    >
+                      <ArrowLeft size={16} />
+                      Volver a Aprendizaje
+                    </button>
                     <span className="app-chip-soft">
                       <Layers3 size={13} />
                       {isCourseEditor ? "Modo curso" : "Modo recurso"}
                     </span>
-                    <span className="app-chip-soft">
+                    <span className="hidden sm:inline-flex app-chip-soft">
                       <FileUp size={13} />
                       {resourceTypeProfile.assetLabel}
                     </span>
-                    <span className="app-chip-soft">
+                    <span className="hidden lg:inline-flex app-chip-soft">
                       <Lightbulb size={13} />
                       Presets por formato
                     </span>
@@ -2518,8 +2532,8 @@ export default function AprendizajePage() {
                 </div>
               </div>
 
-              <div className="grid min-h-0 flex-1 grid-cols-1 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.72fr)]">
-                <div className="min-h-0 overflow-y-auto px-5 py-5 sm:px-7 sm:py-6">
+              <div className="mx-auto grid min-h-0 w-full max-w-[1540px] flex-1 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_22rem] 2xl:grid-cols-[minmax(0,1fr)_24rem]">
+                <div className="min-h-0 overflow-y-auto px-4 py-5 sm:px-6 lg:px-8 lg:py-6">
                   <div className="space-y-5">
                     <section className="rounded-[24px] border border-[var(--app-border)] bg-white/88 p-5 shadow-[0_18px_38px_rgba(55,32,80,0.05)]">
                       <div className="flex items-center gap-3">
@@ -3273,7 +3287,7 @@ export default function AprendizajePage() {
                   </div>
                 </div>
 
-                <aside className="min-h-0 overflow-y-auto border-t border-[var(--app-border)] bg-[rgba(252,249,255,0.88)] px-5 py-5 xl:border-l xl:border-t-0 sm:px-6 sm:py-6">
+                <aside className="min-h-0 overflow-y-auto border-t border-[var(--app-border)] bg-[rgba(252,249,255,0.96)] px-4 py-5 xl:border-l xl:border-t-0 sm:px-6 lg:px-7 lg:py-6">
                   <div className="space-y-4">
                     <div className="rounded-[24px] border border-[rgba(95,52,113,0.12)] bg-[linear-gradient(135deg,rgba(81,40,95,0.96),rgba(121,76,145,0.92),rgba(243,183,209,0.9))] p-5 text-white shadow-[0_22px_40px_rgba(55,32,80,0.14)]">
                       <p className="text-xs font-black uppercase tracking-[0.24em] text-white/72">
@@ -3399,8 +3413,11 @@ export default function AprendizajePage() {
                 </aside>
               </div>
 
-              <div className="border-t border-[var(--app-border)] bg-white/88 px-5 py-4 sm:px-7">
-                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div
+                className="border-t border-[var(--app-border)] bg-white/94 px-4 py-4 sm:px-6 lg:px-8"
+                style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
+              >
+                <div className="mx-auto flex w-full max-w-[1540px] flex-col gap-3 md:flex-row md:items-center md:justify-between">
                   <p className="text-sm text-[var(--app-muted)]">
                     {isCourseEditor
                       ? "Puedes dejar el curso en borrador y retomarlo más tarde. Si lo publicas ahora, asegúrate de tener acceso, estructura y metadatos completos."
@@ -3433,7 +3450,8 @@ export default function AprendizajePage() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

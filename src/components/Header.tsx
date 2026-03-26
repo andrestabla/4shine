@@ -91,7 +91,10 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
   };
 
   return (
-    <header className="sticky top-0 z-20 border-b border-[var(--app-border)] bg-[rgba(252,249,255,0.92)] px-4 py-4 md:px-8">
+    <header
+      data-dashboard-header
+      className="sticky top-0 z-20 border-b border-[var(--app-border)] bg-[rgba(252,249,255,0.92)] px-4 py-4 md:px-8"
+    >
       <div className="mx-auto flex w-full max-w-[var(--brand-page-max-width)] items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-4">
           <button
