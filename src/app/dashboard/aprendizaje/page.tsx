@@ -1052,14 +1052,17 @@ export default function AprendizajePage() {
 
     setSubmittingResource(true);
     try {
-      if (editingResourceId) {
-        await updateContent(editingResourceId, buildResourcePayload());
-      } else {
-        await createContent(buildResourcePayload());
-      }
+      const savedResource = editingResourceId
+        ? await updateContent(editingResourceId, buildResourcePayload())
+        : await createContent(buildResourcePayload());
+
+      setSelectedResourceId(savedResource.contentId);
 
       closeResourceModal(true);
-      await Promise.all([loadModule(), refreshBootstrap()]);
+
+      void Promise.all([loadModule(), refreshBootstrap()]).catch((error) => {
+        console.error("Learning module background refresh failed", error);
+      });
     } catch (error) {
       await showError("No se pudo guardar el recurso", error);
     } finally {
