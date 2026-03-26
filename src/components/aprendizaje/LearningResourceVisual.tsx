@@ -11,14 +11,21 @@ import {
   Presentation,
 } from "lucide-react";
 import type { LearningResourceRecord } from "@/features/aprendizaje/client";
+import { buildLearningThumbnailUrl } from "@/features/aprendizaje/media";
 import { learningContentTypeLabel, learningPillarLabel } from "@/features/aprendizaje/presentation";
 
 interface LearningResourceVisualProps {
   resource: Pick<
     LearningResourceRecord,
-    "contentType" | "title" | "category" | "durationLabel" | "competencyMetadata"
+    | "contentType"
+    | "title"
+    | "category"
+    | "durationLabel"
+    | "competencyMetadata"
+    | "url"
   >;
   size?: "card" | "hero";
+  showTitle?: boolean;
 }
 
 function visualTheme(contentType: LearningResourceRecord["contentType"]) {
@@ -81,21 +88,39 @@ function visualTheme(contentType: LearningResourceRecord["contentType"]) {
 export function LearningResourceVisual({
   resource,
   size = "card",
+  showTitle = true,
 }: LearningResourceVisualProps) {
   const theme = visualTheme(resource.contentType);
   const pillarLabel = learningPillarLabel(resource.competencyMetadata?.pillar);
   const isHero = size === "hero";
+  const thumbnailUrl = buildLearningThumbnailUrl(resource.url);
+  const hasThumbnail = Boolean(thumbnailUrl);
 
   return (
     <div
       className={[
         "relative overflow-hidden rounded-[22px] border border-white/15 shadow-[0_16px_36px_rgba(55,32,80,0.10)]",
-        theme.classes,
-        isHero ? "min-h-[260px] p-6 sm:p-7" : "min-h-[176px] p-4",
+        hasThumbnail
+          ? "bg-[linear-gradient(135deg,#342045_0%,#8a5da5_62%,#e7b0cf_100%)] text-white"
+          : theme.classes,
+        isHero ? "min-h-[220px] p-5 sm:min-h-[260px] sm:p-7" : "min-h-[184px] p-4",
       ].join(" ")}
     >
-      <div className="absolute -right-8 top-4 h-24 w-24 rounded-full bg-white/15 blur-3xl" />
-      <div className="absolute -bottom-10 left-4 h-24 w-24 rounded-full bg-white/10 blur-3xl" />
+      {hasThumbnail ? (
+        <>
+          <div
+            className="absolute inset-0 bg-cover bg-center"
+            style={{ backgroundImage: `url("${thumbnailUrl}")` }}
+            aria-hidden="true"
+          />
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(37,24,50,0.18)_0%,rgba(37,24,50,0.38)_40%,rgba(37,24,50,0.82)_100%)]" />
+        </>
+      ) : (
+        <>
+          <div className="absolute -right-8 top-4 h-24 w-24 rounded-full bg-white/15 blur-3xl" />
+          <div className="absolute -bottom-10 left-4 h-24 w-24 rounded-full bg-white/10 blur-3xl" />
+        </>
+      )}
 
       <div className="relative flex h-full flex-col justify-between">
         <div className="flex items-start justify-between gap-4">
@@ -111,21 +136,35 @@ export function LearningResourceVisual({
         </div>
 
         <div className={isHero ? "mt-10" : "mt-6"}>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] opacity-75">
-            {resource.category || pillarLabel}
-          </p>
-          <h2
+          {showTitle ? (
+            <>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] opacity-75">
+                {resource.category || pillarLabel}
+              </p>
+              <h2
+                className={[
+                  "mt-2 font-semibold leading-tight",
+                  isHero ? "text-3xl sm:text-4xl" : "line-clamp-3 text-xl",
+                ].join(" ")}
+              >
+                {resource.title}
+              </h2>
+            </>
+          ) : null}
+          <div
             className={[
-              "mt-2 font-semibold leading-tight",
-              isHero ? "text-3xl sm:text-4xl" : "line-clamp-3 text-xl",
+              "flex flex-wrap gap-2 text-xs opacity-80",
+              showTitle ? "mt-4" : "mt-auto pt-10",
             ].join(" ")}
           >
-            {resource.title}
-          </h2>
-          <div className="mt-4 flex flex-wrap gap-2 text-xs opacity-80">
             <span className="rounded-full border border-white/18 bg-white/10 px-3 py-1">
               {learningContentTypeLabel(resource.contentType)}
             </span>
+            {resource.category ? (
+              <span className="rounded-full border border-white/18 bg-white/10 px-3 py-1">
+                {resource.category}
+              </span>
+            ) : null}
             {pillarLabel ? (
               <span className="rounded-full border border-white/18 bg-white/10 px-3 py-1">
                 {pillarLabel}

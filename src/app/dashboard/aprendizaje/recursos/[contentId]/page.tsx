@@ -20,13 +20,18 @@ import { useUser } from "@/context/UserContext";
 import {
   createLearningComment,
   getLearningResourceDetail,
+  toggleLearningCommentReaction,
   toggleLearningLike,
   type LearningResourceRecord,
 } from "@/features/aprendizaje/client";
+import type { LearningCommentReactionType } from "@/features/aprendizaje/comment-reactions";
 import { getObservableBehaviors } from "@/features/aprendizaje/competency-map";
+import { buildYouTubeEmbedUrl, isDirectAudioUrl } from "@/features/aprendizaje/media";
 import {
   formatLearningDate,
   formatLearningDateTime,
+  learningContentTypeLabel,
+  learningPillarLabel,
   learningRoleLabel,
   learningStatusClasses,
   learningStatusLabel,
@@ -41,39 +46,6 @@ function courseModuleResourceTypeLabel(type: string): string {
   if (type === "article") return "Artículo";
   if (type === "video") return "Video";
   return "Enlace";
-}
-
-function extractYoutubeEmbedUrl(url: string | null | undefined): string | null {
-  if (!url) return null;
-
-  try {
-    const parsed = new URL(url);
-    if (parsed.hostname.includes("youtu.be")) {
-      const videoId = parsed.pathname.replace("/", "").trim();
-      return videoId ? `https://www.youtube.com/embed/${videoId}` : null;
-    }
-
-    if (parsed.hostname.includes("youtube.com")) {
-      const videoId = parsed.searchParams.get("v");
-      if (videoId) {
-        return `https://www.youtube.com/embed/${videoId}`;
-      }
-
-      const embedPath = parsed.pathname.match(/\/embed\/([^/]+)/);
-      if (embedPath?.[1]) {
-        return `https://www.youtube.com/embed/${embedPath[1]}`;
-      }
-    }
-  } catch {
-    return null;
-  }
-
-  return null;
-}
-
-function isDirectAudioUrl(url: string | null | undefined): boolean {
-  if (!url) return false;
-  return /\.(mp3|m4a|wav|ogg)(\?.*)?$/i.test(url);
 }
 
 export default function LearningResourceDetailPage() {
@@ -93,6 +65,8 @@ export default function LearningResourceDetailPage() {
   const [togglingLike, setTogglingLike] = React.useState(false);
   const [commentDraft, setCommentDraft] = React.useState("");
   const [submittingComment, setSubmittingComment] = React.useState(false);
+  const [togglingCommentReaction, setTogglingCommentReaction] =
+    React.useState<string | null>(null);
   const [deleting, setDeleting] = React.useState(false);
 
   const showError = React.useCallback(
@@ -135,7 +109,7 @@ export default function LearningResourceDetailPage() {
   );
 
   const youtubeEmbedUrl = React.useMemo(
-    () => extractYoutubeEmbedUrl(resource?.url),
+    () => buildYouTubeEmbedUrl(resource?.url),
     [resource?.url],
   );
 
@@ -185,6 +159,35 @@ export default function LearningResourceDetailPage() {
       setSubmittingComment(false);
     }
   }, [commentDraft, resource, showError, submittingComment]);
+
+  const onToggleCommentReaction = React.useCallback(
+    async (commentId: string, reactionType: LearningCommentReactionType) => {
+      if (!resource || togglingCommentReaction) return;
+
+      const reactionKey = `${commentId}:${reactionType}`;
+      setTogglingCommentReaction(reactionKey);
+      try {
+        const result = await toggleLearningCommentReaction(commentId, reactionType);
+        setResource((current) =>
+          current
+            ? {
+                ...current,
+                comments: current.comments.map((comment) =>
+                  comment.commentId === result.commentId
+                    ? { ...comment, reactions: result.reactions }
+                    : comment,
+                ),
+              }
+            : current,
+        );
+      } catch (error) {
+        await showError("No se pudo actualizar la reacción", error);
+      } finally {
+        setTogglingCommentReaction(null);
+      }
+    },
+    [resource, showError, togglingCommentReaction],
+  );
 
   const onDeleteResource = React.useCallback(async () => {
     if (!resource || !canManage || deleting) return;
@@ -277,44 +280,92 @@ export default function LearningResourceDetailPage() {
 
       <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.15fr)_360px]">
         <div className="space-y-6">
-          <LearningResourceVisual resource={resource} size="hero" />
+          <LearningResourceVisual
+            resource={resource}
+            size="hero"
+            showTitle={false}
+          />
 
           <div className="app-panel p-5 sm:p-6">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
               <div className="max-w-3xl">
-                <p className="app-section-kicker">Descripción</p>
-                <h2
+                <p className="app-section-kicker">
+                  {resource.category || "Recurso 4Shine"}
+                </p>
+                <h1
                   className="app-display-title mt-2 text-3xl font-semibold"
                   data-display-font="true"
                 >
                   {resource.title}
-                </h2>
+                </h1>
                 <p className="mt-4 text-base leading-relaxed text-[var(--app-muted)]">
                   {resource.description ?? "Sin descripción disponible."}
                 </p>
+
+                <div className="mt-4 flex flex-wrap gap-2 text-xs font-medium text-[var(--app-muted)]">
+                  <span className="rounded-full border border-[var(--app-border)] bg-[var(--app-chip)] px-3 py-1">
+                    {learningContentTypeLabel(resource.contentType)}
+                  </span>
+                  {resource.durationLabel ? (
+                    <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1">
+                      {resource.durationLabel}
+                    </span>
+                  ) : null}
+                  {resource.competencyMetadata.stage ? (
+                    <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1">
+                      {resource.competencyMetadata.stage}
+                    </span>
+                  ) : null}
+                  {resource.competencyMetadata.pillar ? (
+                    <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1">
+                      {learningPillarLabel(resource.competencyMetadata.pillar)}
+                    </span>
+                  ) : null}
+                  {resource.contentType === "scorm" ? (
+                    <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1">
+                      {resource.structurePayload.modules?.length ?? 0} módulos
+                    </span>
+                  ) : null}
+                </div>
+
+                <p className="mt-4 text-sm text-[var(--app-muted)]">
+                  Por <span className="font-medium text-[var(--app-ink)]">{resource.authorName ?? "4Shine"}</span>
+                  {" · "}
+                  {formatLearningDate(resource.publishedAt)}
+                </p>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="grid grid-cols-2 gap-3 xl:min-w-[240px]">
                 <button
                   type="button"
                   className={
                     resource.liked
-                      ? "inline-flex items-center gap-2 rounded-[16px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700"
-                      : "app-button-secondary"
+                      ? "flex min-h-[82px] flex-col items-start justify-between rounded-[20px] border border-rose-200 bg-rose-50 px-4 py-3 text-left text-sm font-semibold text-rose-700"
+                      : "flex min-h-[82px] flex-col items-start justify-between rounded-[20px] border border-[var(--app-border)] bg-white px-4 py-3 text-left text-sm font-semibold text-[var(--app-ink)]"
                   }
                   onClick={() => void onToggleLike()}
                   disabled={togglingLike}
                 >
                   <Heart
-                    size={16}
+                    size={18}
                     className={resource.liked ? "fill-current" : undefined}
                   />
-                  {togglingLike ? "Actualizando..." : `${resource.likes} me gusta`}
+                  <span className="text-xl font-semibold leading-none">
+                    {resource.likes}
+                  </span>
+                  <span className="text-sm font-medium">
+                    {togglingLike ? "Actualizando..." : "Me gusta"}
+                  </span>
                 </button>
-                <span className="inline-flex items-center gap-2 rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--app-muted)]">
-                  <MessageCircle size={16} />
-                  {resource.commentCount} comentarios
-                </span>
+                <div className="flex min-h-[82px] flex-col items-start justify-between rounded-[20px] border border-[var(--app-border)] bg-white px-4 py-3 text-left">
+                  <MessageCircle size={18} className="text-[var(--app-muted)]" />
+                  <span className="text-xl font-semibold leading-none text-[var(--app-ink)]">
+                    {resource.commentCount}
+                  </span>
+                  <span className="text-sm font-medium text-[var(--app-muted)]">
+                    Comentarios
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -469,13 +520,18 @@ export default function LearningResourceDetailPage() {
                     className="rounded-[18px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4"
                   >
                     <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold text-[var(--app-ink)]">
-                          {comment.authorName}
-                        </p>
-                        <p className="text-xs text-[var(--app-muted)]">
-                          {learningRoleLabel(comment.authorRole)}
-                        </p>
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-sm font-semibold text-[var(--app-ink)] shadow-[0_8px_16px_rgba(45,26,68,0.08)]">
+                          {comment.authorAvatar}
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-[var(--app-ink)]">
+                            {comment.authorName}
+                          </p>
+                          <p className="text-xs text-[var(--app-muted)]">
+                            {learningRoleLabel(comment.authorRole)}
+                          </p>
+                        </div>
                       </div>
                       <span className="text-xs text-[var(--app-muted)]">
                         {formatLearningDateTime(comment.createdAt)}
@@ -484,6 +540,41 @@ export default function LearningResourceDetailPage() {
                     <p className="mt-3 text-sm leading-relaxed text-[var(--app-ink)]">
                       {comment.commentText}
                     </p>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {comment.reactions.map((reaction) => {
+                        const isBusy =
+                          togglingCommentReaction ===
+                          `${comment.commentId}:${reaction.value}`;
+                        const hasCount = reaction.count > 0;
+
+                        return (
+                          <button
+                            key={reaction.value}
+                            type="button"
+                            className={
+                              reaction.reacted
+                                ? "inline-flex items-center gap-2 rounded-full border border-[var(--brand-primary,#3f2371)] bg-[var(--brand-primary-soft,#f3ebff)] px-3 py-1.5 text-xs font-semibold text-[var(--brand-primary,#3f2371)]"
+                                : "inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-3 py-1.5 text-xs font-medium text-[var(--app-muted)] hover:border-[var(--app-border-strong)] hover:text-[var(--app-ink)]"
+                            }
+                            onClick={() =>
+                              void onToggleCommentReaction(
+                                comment.commentId,
+                                reaction.value,
+                              )
+                            }
+                            disabled={Boolean(togglingCommentReaction)}
+                          >
+                            <span>{reaction.emoji}</span>
+                            <span>{reaction.label}</span>
+                            {hasCount ? (
+                              <span className="rounded-full bg-black/5 px-1.5 py-0.5 text-[11px]">
+                                {isBusy ? "..." : reaction.count}
+                              </span>
+                            ) : null}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </article>
                 ))
               )}
@@ -512,7 +603,7 @@ export default function LearningResourceDetailPage() {
         <aside className="space-y-4">
           <div className="app-panel p-5 sm:p-6">
             <p className="app-section-kicker">Detalle</p>
-            <div className="mt-4 grid grid-cols-1 gap-3">
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-1">
               <div className="rounded-[18px] bg-[var(--app-surface-muted)] p-4">
                 <p className="text-xs uppercase tracking-[0.18em] text-[var(--app-muted)]">
                   Autor

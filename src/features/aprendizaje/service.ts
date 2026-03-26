@@ -1,5 +1,12 @@
 import type { PoolClient } from 'pg';
 import { getViewerAccessState, requireProgramSubscriptionAccess } from '@/features/access/service';
+import {
+  buildEmptyLearningCommentReactions,
+  isLearningCommentReactionType,
+  mergeLearningCommentReactions,
+  type LearningCommentReactionSummary,
+  type LearningCommentReactionType,
+} from '@/features/aprendizaje/comment-reactions';
 import type { AuthUser } from '@/server/auth/types';
 import { ForbiddenError, requireModulePermission } from '@/server/auth/module-permissions';
 import type {
@@ -19,6 +26,7 @@ export interface LearningCommentRecord {
   commentText: string;
   createdAt: string;
   updatedAt: string;
+  reactions: LearningCommentReactionSummary[];
 }
 
 export interface LearningResourceRecord {
@@ -68,6 +76,16 @@ export interface LearningLikeToggleResult {
   contentId: string;
   liked: boolean;
   likes: number;
+}
+
+export interface ToggleLearningCommentReactionInput {
+  commentId: string;
+  reactionType: LearningCommentReactionType;
+}
+
+export interface LearningCommentReactionToggleResult {
+  commentId: string;
+  reactions: LearningCommentReactionSummary[];
 }
 
 export interface CreateLearningCommentInput {
@@ -130,6 +148,11 @@ interface LearningCommentRow {
   comment_text: string;
   created_at: string;
   updated_at: string;
+  reactions: Array<{
+    reactionType?: string | null;
+    count?: number | null;
+    reacted?: boolean | null;
+  }> | null;
 }
 
 interface LearningResourceRow {
@@ -169,6 +192,7 @@ function mapLearningComments(comments: LearningCommentRow[] | null | undefined):
     commentText: comment.comment_text,
     createdAt: comment.created_at,
     updatedAt: comment.updated_at,
+    reactions: mergeLearningCommentReactions(comment.reactions),
   }));
 }
 
@@ -759,12 +783,41 @@ export async function getLearningResourceDetail(
               'author_role', u.primary_role,
               'comment_text', cc.comment_text,
               'created_at', cc.created_at::text,
-              'updated_at', cc.updated_at::text
+              'updated_at', cc.updated_at::text,
+              'reactions', COALESCE(reaction_rows.reactions, '[]'::json)
             )
             ORDER BY cc.created_at DESC
           ) AS comments
         FROM app_learning.content_comments cc
         JOIN app_core.users u ON u.user_id = cc.author_user_id
+        LEFT JOIN LATERAL (
+          SELECT
+            COALESCE(
+              json_agg(
+                json_build_object(
+                  'reactionType', reaction_counts.reaction_type,
+                  'count', reaction_counts.reaction_count,
+                  'reacted', COALESCE(my_reactions.reacted, false)
+                )
+                ORDER BY reaction_counts.reaction_type
+              ),
+              '[]'::json
+            ) AS reactions
+          FROM (
+            SELECT reaction_type, COUNT(*)::int AS reaction_count
+            FROM app_learning.content_comment_reactions
+            WHERE comment_id = cc.comment_id
+            GROUP BY reaction_type
+          ) reaction_counts
+          LEFT JOIN (
+            SELECT reaction_type, true AS reacted
+            FROM app_learning.content_comment_reactions
+            WHERE comment_id = cc.comment_id
+              AND user_id = $1
+            GROUP BY reaction_type
+          ) my_reactions
+            ON my_reactions.reaction_type = reaction_counts.reaction_type
+        ) reaction_rows ON true
         GROUP BY cc.content_id
       ) comments ON comments.content_id = ci.content_id
       WHERE ci.scope = 'aprendizaje'
@@ -813,7 +866,7 @@ export async function createLearningComment(
         $6::text AS author_role,
         comment_text,
         created_at::text,
-        updated_at::text
+      updated_at::text
     `,
     [
       input.contentId,
@@ -840,6 +893,121 @@ export async function createLearningComment(
     commentText: created.comment_text,
     createdAt: created.created_at,
     updatedAt: created.updated_at,
+    reactions: buildEmptyLearningCommentReactions(),
+  };
+}
+
+async function getLearningCommentReactions(
+  client: PoolClient,
+  actorUserId: string,
+  commentId: string,
+): Promise<LearningCommentReactionSummary[]> {
+  const { rows } = await client.query<{
+    reaction_type: string;
+    count: number;
+    reacted: boolean;
+  }>(
+    `
+      WITH counts AS (
+        SELECT reaction_type, COUNT(*)::int AS count
+        FROM app_learning.content_comment_reactions
+        WHERE comment_id = $1
+        GROUP BY reaction_type
+      ),
+      mine AS (
+        SELECT reaction_type, true AS reacted
+        FROM app_learning.content_comment_reactions
+        WHERE comment_id = $1
+          AND user_id = $2
+      )
+      SELECT
+        COALESCE(counts.reaction_type, mine.reaction_type) AS reaction_type,
+        COALESCE(counts.count, 0)::int AS count,
+        COALESCE(mine.reacted, false) AS reacted
+      FROM counts
+      FULL OUTER JOIN mine
+        ON mine.reaction_type = counts.reaction_type
+    `,
+    [commentId, actorUserId],
+  );
+
+  return mergeLearningCommentReactions(
+    rows.map((row) => ({
+      reactionType: row.reaction_type,
+      count: Number(row.count ?? 0),
+      reacted: row.reacted,
+    })),
+  );
+}
+
+export async function toggleLearningCommentReaction(
+  client: PoolClient,
+  actor: AuthUser,
+  input: ToggleLearningCommentReactionInput,
+): Promise<LearningCommentReactionToggleResult> {
+  await requireModulePermission(client, 'aprendizaje', 'view');
+
+  if (!isLearningCommentReactionType(input.reactionType)) {
+    throw new Error('Invalid reaction type');
+  }
+
+  const commentLookup = await client.query<{ comment_id: string; content_id: string }>(
+    `
+      SELECT comment_id::text, content_id::text
+      FROM app_learning.content_comments
+      WHERE comment_id = $1
+      LIMIT 1
+    `,
+    [input.commentId],
+  );
+
+  const comment = commentLookup.rows[0];
+  if (!comment) {
+    throw new Error('Learning comment not found');
+  }
+
+  await getAccessibleLearningItem(client, actor, comment.content_id);
+
+  const existing = await client.query<{ comment_id: string }>(
+    `
+      SELECT comment_id::text
+      FROM app_learning.content_comment_reactions
+      WHERE comment_id = $1
+        AND user_id = $2
+        AND reaction_type = $3
+      LIMIT 1
+    `,
+    [input.commentId, actor.userId, input.reactionType],
+  );
+
+  if (existing.rows[0]) {
+    await client.query(
+      `
+        DELETE FROM app_learning.content_comment_reactions
+        WHERE comment_id = $1
+          AND user_id = $2
+          AND reaction_type = $3
+      `,
+      [input.commentId, actor.userId, input.reactionType],
+    );
+  } else {
+    await client.query(
+      `
+        INSERT INTO app_learning.content_comment_reactions (
+          comment_id,
+          user_id,
+          reaction_type
+        )
+        VALUES ($1, $2, $3)
+        ON CONFLICT DO NOTHING
+      `,
+      [input.commentId, actor.userId, input.reactionType],
+    );
+  }
+
+  return {
+    commentId: input.commentId,
+    reactions: await getLearningCommentReactions(client, actor.userId, input.commentId),
   };
 }
 

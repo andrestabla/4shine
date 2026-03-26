@@ -1,10 +1,15 @@
 import { requestApi } from '@/lib/api-client';
 import type {
+  LearningCommentReactionSummary,
+  LearningCommentReactionType,
+} from './comment-reactions';
+import type {
   LearningMetadataAssistantInput,
   LearningMetadataAssistantResult,
 } from './metadata-assistant';
 import type {
   CreateLearningCommentInput,
+  LearningCommentReactionToggleResult,
   LearningLikeToggleResult,
   LearningCommentRecord,
   LearningResourceListQuery,
@@ -18,6 +23,9 @@ import type {
 
 export type {
   LearningCommentRecord,
+  LearningCommentReactionSummary,
+  LearningCommentReactionToggleResult,
+  LearningCommentReactionType,
   LearningLikeToggleResult,
   LearningMetadataAssistantInput,
   LearningMetadataAssistantResult,
@@ -53,6 +61,19 @@ export async function createLearningComment(input: CreateLearningCommentInput): 
     method: 'POST',
     body: JSON.stringify(input),
   });
+}
+
+export async function toggleLearningCommentReaction(
+  commentId: string,
+  reactionType: LearningCommentReactionType,
+): Promise<LearningCommentReactionToggleResult> {
+  return requestApi<LearningCommentReactionToggleResult>(
+    `/api/v1/modules/aprendizaje/comments/${commentId}/reactions`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ reactionType }),
+    },
+  );
 }
 
 export async function toggleLearningLike(contentId: string): Promise<LearningLikeToggleResult> {
