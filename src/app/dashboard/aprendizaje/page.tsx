@@ -5,6 +5,7 @@ import React from "react";
 import { createPortal } from "react-dom";
 import {
   ArrowLeft,
+  ArrowRight,
   BookOpen,
   CalendarClock,
   CheckCircle2,
@@ -119,6 +120,19 @@ const EMPTY_RESOURCE_FORM: ResourceFormState = {
 };
 
 type ResourceEditorKind = "resource" | "course";
+
+type ResourceEditorStepKey =
+  | "identity"
+  | "asset"
+  | "taxonomy"
+  | "discovery";
+
+interface ResourceEditorStepItem {
+  key: ResourceEditorStepKey;
+  title: string;
+  description: string;
+  ready: boolean;
+}
 
 const COURSE_MODULE_RESOURCE_TYPE_OPTIONS: CourseModuleResourceType[] = [
   "video",
@@ -452,6 +466,206 @@ function ResourceTagComposer({
   );
 }
 
+function LearningEditorStepNav({
+  steps,
+  activeIndex,
+  onSelect,
+}: {
+  steps: ResourceEditorStepItem[];
+  activeIndex: number;
+  onSelect: (index: number) => void;
+}) {
+  return (
+    <div className="flex gap-2 overflow-x-auto pb-1">
+      {steps.map((step, index) => {
+        const isActive = index === activeIndex;
+        return (
+          <button
+            key={step.key}
+            type="button"
+            onClick={() => onSelect(index)}
+            className={`min-w-[13rem] rounded-[20px] border px-4 py-3 text-left transition ${
+              isActive
+                ? "border-[#5a2f6b] bg-[rgba(90,47,107,0.08)] shadow-[0_8px_24px_rgba(55,32,80,0.06)]"
+                : "border-[var(--app-border)] bg-white/84 hover:border-[var(--app-border-strong)]"
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <span
+                className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-black ${
+                  step.ready
+                    ? "bg-emerald-100 text-emerald-700"
+                    : isActive
+                      ? "bg-[#5a2f6b] text-white"
+                      : "bg-[var(--app-surface-muted)] text-[var(--app-muted)]"
+                }`}
+              >
+                {step.ready ? <CheckCircle2 size={14} /> : index + 1}
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-[var(--app-ink)]">
+                  {step.title}
+                </p>
+                <p className="line-clamp-2 text-xs leading-relaxed text-[var(--app-muted)]">
+                  {step.description}
+                </p>
+              </div>
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function LearningEditorSupportRail({
+  isCourseEditor,
+  title,
+  description,
+  contentType,
+  category,
+  status,
+  courseModuleCount,
+  courseResourceCount,
+  checklist,
+  editorialDescription,
+  stageLabel,
+  audienceLabel,
+}: {
+  isCourseEditor: boolean;
+  title: string;
+  description: string;
+  contentType: ContentType;
+  category: string;
+  status: ContentStatus;
+  courseModuleCount: number;
+  courseResourceCount: number;
+  checklist: Array<{ label: string; ready: boolean }>;
+  editorialDescription: string;
+  stageLabel: string;
+  audienceLabel: string;
+}) {
+  return (
+    <div className="space-y-4">
+      <div className="rounded-[24px] border border-[rgba(95,52,113,0.12)] bg-[linear-gradient(135deg,rgba(81,40,95,0.96),rgba(121,76,145,0.92),rgba(243,183,209,0.9))] p-5 text-white shadow-[0_22px_40px_rgba(55,32,80,0.14)]">
+        <p className="text-xs font-black uppercase tracking-[0.24em] text-white/72">
+          Vista rápida
+        </p>
+        <h4 className="mt-3 text-2xl font-semibold leading-tight">
+          {title.trim() ||
+            (isCourseEditor
+              ? "Tu curso todavía no tiene título"
+              : "Tu recurso todavía no tiene título")}
+        </h4>
+        <p className="mt-3 text-sm leading-relaxed text-white/80">
+          {description.trim() ||
+            (isCourseEditor
+              ? "Aquí verás una lectura rápida del curso mientras completas estructura, metadatos y acceso."
+              : "Aquí verás una lectura rápida del recurso mientras completas la configuración.")}
+        </p>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          <span className="rounded-full border border-white/16 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white/90">
+            {contentTypeLabel(contentType)}
+          </span>
+          <span className="rounded-full border border-white/16 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white/90">
+            {category || "Categoría pendiente"}
+          </span>
+          <span className="rounded-full border border-white/16 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white/90">
+            {statusLabel(status)}
+          </span>
+          {isCourseEditor && (
+            <>
+              <span className="rounded-full border border-white/16 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white/90">
+                {courseModuleCount} módulos
+              </span>
+              <span className="rounded-full border border-white/16 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white/90">
+                {courseResourceCount} recursos internos
+              </span>
+            </>
+          )}
+        </div>
+      </div>
+
+      {isCourseEditor && (
+        <div className="rounded-[24px] border border-[var(--app-border)] bg-white/90 p-5">
+          <div className="flex items-center gap-2">
+            <Layers3 size={18} className="text-[#5f3471]" />
+            <h4 className="font-semibold text-[var(--app-ink)]">
+              Resumen del curso
+            </h4>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <div className="rounded-[18px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--app-muted)]">
+                Módulos
+              </p>
+              <p className="mt-2 text-2xl font-extrabold text-[var(--app-ink)]">
+                {courseModuleCount}
+              </p>
+            </div>
+            <div className="rounded-[18px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--app-muted)]">
+                Recursos internos
+              </p>
+              <p className="mt-2 text-2xl font-extrabold text-[var(--app-ink)]">
+                {courseResourceCount}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="rounded-[24px] border border-[var(--app-border)] bg-white/90 p-5">
+        <div className="flex items-center gap-2">
+          <CheckCircle2 size={18} className="text-emerald-600" />
+          <h4 className="font-semibold text-[var(--app-ink)]">
+            Checklist de publicación
+          </h4>
+        </div>
+        <div className="mt-4 space-y-3">
+          {checklist.map((item) => (
+            <div
+              key={item.label}
+              className="flex items-center justify-between gap-3 rounded-[18px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-3"
+            >
+              <span className="text-sm font-medium text-[var(--app-ink)]">
+                {item.label}
+              </span>
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                  item.ready
+                    ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
+                    : "border border-[var(--app-border)] bg-white text-[var(--app-muted)]"
+                }`}
+              >
+                {item.ready ? "Listo" : "Pendiente"}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="rounded-[24px] border border-[var(--app-border)] bg-white/90 p-5">
+        <div className="flex items-center gap-2">
+          <Lightbulb size={18} className="text-[#5f3471]" />
+          <h4 className="font-semibold text-[var(--app-ink)]">
+            Recomendación editorial
+          </h4>
+        </div>
+        <p className="mt-3 text-sm leading-relaxed text-[var(--app-muted)]">
+          {editorialDescription}
+        </p>
+        <p className="mt-3 text-sm leading-relaxed text-[var(--app-muted)]">
+          {stageLabel
+            ? `Quedará asociado a ${stageLabel} y se descubrirá para audiencia ${audienceLabel}.`
+            : "Agrega etapa del programa y audiencia para que este contenido aparezca en el momento correcto."}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function formatDate(value: string | null | undefined): string {
   if (!value) return "Sin fecha";
 
@@ -613,6 +827,8 @@ export default function AprendizajePage() {
     React.useState<LearningMetadataAssistantResult | null>(null);
   const [metadataAssistantLoading, setMetadataAssistantLoading] =
     React.useState(false);
+  const [resourceEditorStepIndex, setResourceEditorStepIndex] =
+    React.useState(0);
   const [workbookOwnerFilter, setWorkbookOwnerFilter] = React.useState<
     "all" | string
   >("all");
@@ -917,6 +1133,9 @@ export default function AprendizajePage() {
   const currentCourseResourceCount = countCourseResources(
     resourceForm.courseModules,
   );
+  const currentAudienceLabel =
+    audienceOptions.find((option) => option.value === resourceForm.audience)
+      ?.label ?? resourceForm.audience;
 
   const resetResourceForm = React.useCallback(() => {
     setEditingResourceId(null);
@@ -926,6 +1145,7 @@ export default function AprendizajePage() {
     setCustomCategoryDraft("");
     setUploadedResourceAsset(null);
     setMetadataAssistantResult(null);
+    setResourceEditorStepIndex(0);
   }, []);
 
   const closeResourceModal = React.useCallback((force = false) => {
@@ -976,6 +1196,7 @@ export default function AprendizajePage() {
       setResourceCategoryMode(knownCategory ? "preset" : "custom");
       setUploadedResourceAsset(null);
       setMetadataAssistantResult(null);
+      setResourceEditorStepIndex(0);
       setIsResourceModalOpen(true);
     },
     [resources],
@@ -1410,6 +1631,102 @@ export default function AprendizajePage() {
       resourceForm.url,
     ],
   );
+
+  const resourceEditorSteps = React.useMemo<ResourceEditorStepItem[]>(
+    () => [
+      {
+        key: "identity",
+        title: "Base e IA",
+        description: "Tipo, título, categoría y apoyo del asistente.",
+        ready: Boolean(resourceForm.title.trim() && resourceForm.category.trim()),
+      },
+      {
+        key: "asset",
+        title: isCourseEditor ? "Acceso y estructura" : "Activo y acceso",
+        description: isCourseEditor
+          ? "URL principal, carga a R2 y módulos del curso."
+          : "Archivo, URL y disponibilidad del recurso.",
+        ready:
+          editorKind === "course"
+            ? Boolean(
+                resourceForm.url.trim() ||
+                  countCourseResources(resourceForm.courseModules) > 0,
+              )
+            : Boolean(resourceForm.url.trim()),
+      },
+      {
+        key: "taxonomy",
+        title: "Mapa 4Shine",
+        description: "Pilar, componente, competencia, etapa y audiencia.",
+        ready: Boolean(
+          resourceForm.pillar &&
+            resourceForm.component &&
+            resourceForm.competency,
+        ),
+      },
+      {
+        key: "discovery",
+        title: "Descubrimiento",
+        description: "Tags, revisión final y publicación.",
+        ready: resourceForm.tags.length > 0,
+      },
+    ],
+    [
+      editorKind,
+      isCourseEditor,
+      resourceForm.category,
+      resourceForm.competency,
+      resourceForm.component,
+      resourceForm.courseModules,
+      resourceForm.pillar,
+      resourceForm.tags.length,
+      resourceForm.title,
+      resourceForm.url,
+    ],
+  );
+
+  const currentResourceEditorStep =
+    resourceEditorSteps[
+      Math.min(resourceEditorStepIndex, resourceEditorSteps.length - 1)
+    ] ?? resourceEditorSteps[0];
+  const completedEditorSteps = resourceEditorSteps.filter(
+    (step) => step.ready,
+  ).length;
+  const isIdentityEditorStep = currentResourceEditorStep.key === "identity";
+  const isAssetEditorStep = currentResourceEditorStep.key === "asset";
+  const isTaxonomyEditorStep = currentResourceEditorStep.key === "taxonomy";
+  const isDiscoveryEditorStep = currentResourceEditorStep.key === "discovery";
+
+  const goToResourceEditorStep = React.useCallback((nextIndex: number) => {
+    const lastIndex = resourceEditorSteps.length - 1;
+    setResourceEditorStepIndex(Math.max(0, Math.min(lastIndex, nextIndex)));
+  }, [resourceEditorSteps.length]);
+
+  const goToNextResourceEditorStep = React.useCallback(async () => {
+    if (resourceEditorStepIndex === 0) {
+      if (!resourceForm.title.trim() || !resourceForm.category.trim()) {
+        await alert({
+          title: "Completa la base del contenido",
+          message:
+            "Antes de continuar, define al menos el título y la categoría. Eso ayuda a que el resto del flujo sea más inteligente.",
+          tone: "warning",
+        });
+        return;
+      }
+    }
+
+    goToResourceEditorStep(resourceEditorStepIndex + 1);
+  }, [
+    alert,
+    goToResourceEditorStep,
+    resourceEditorStepIndex,
+    resourceForm.category,
+    resourceForm.title,
+  ]);
+
+  const goToPreviousResourceEditorStep = React.useCallback(() => {
+    goToResourceEditorStep(resourceEditorStepIndex - 1);
+  }, [goToResourceEditorStep, resourceEditorStepIndex]);
 
   React.useEffect(() => {
     if (!isResourceModalOpen) return;
@@ -2582,67 +2899,138 @@ export default function AprendizajePage() {
           >
             <form className="flex min-h-0 flex-1 flex-col" onSubmit={onSubmitResource}>
               <div
-                className="border-b border-[var(--app-border)] bg-white/92 px-4 pb-4 pt-4 sm:px-6 lg:px-8"
+                className="border-b border-[var(--app-border)] bg-white/94 px-4 pb-4 pt-4 sm:px-6 lg:px-8"
                 style={{ paddingTop: "max(1rem, env(safe-area-inset-top))" }}
               >
-                <div className="mx-auto flex w-full max-w-[1540px] flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="max-w-3xl">
-                    <p className="app-section-kicker">
-                      {editingResourceId
-                        ? `Edición de ${isCourseEditor ? "curso" : "recurso"}`
-                        : `Nuevo ${isCourseEditor ? "curso" : "recurso"}`}
-                    </p>
-                    <h3
-                      className="app-display-title mt-2 text-3xl font-semibold"
-                      data-display-font="true"
-                    >
-                      {editingResourceId
-                        ? `Edita y republica tu ${isCourseEditor ? "curso" : "recurso"}`
-                        : `Crear ${isCourseEditor ? "curso" : "recurso"} de aprendizaje`}
-                    </h3>
-                    <p className="mt-2 text-sm leading-relaxed text-[var(--app-muted)]">
-                      {isCourseEditor
-                        ? "Define la identidad del curso, su URL o paquete principal y la estructura interna por módulos y recursos."
-                        : "Completa lo esencial, sube el archivo a R2 y usa los campos inteligentes para dejar el recurso listo para búsqueda, filtrado y recomendación."}
-                    </p>
+                <div className="mx-auto w-full max-w-[1540px]">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="max-w-3xl">
+                      <p className="app-section-kicker">
+                        {editingResourceId
+                          ? `Edición de ${isCourseEditor ? "curso" : "recurso"}`
+                          : `Nuevo ${isCourseEditor ? "curso" : "recurso"}`}
+                      </p>
+                      <h3
+                        className="app-display-title mt-2 text-3xl font-semibold"
+                        data-display-font="true"
+                      >
+                        {editingResourceId
+                          ? `Edita ${isCourseEditor ? "tu curso" : "tu recurso"} con un flujo guiado`
+                          : `Crear ${isCourseEditor ? "curso" : "recurso"} de aprendizaje`}
+                      </h3>
+                      <p className="mt-2 text-sm leading-relaxed text-[var(--app-muted)]">
+                        {isCourseEditor
+                          ? "Define base editorial, acceso principal, estructura interna, metadatos y publicación desde una sola experiencia."
+                          : "Completa base editorial, activo, metadatos y descubrimiento con una secuencia clara y ligera."}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        className="app-button-secondary"
+                        onClick={() => closeResourceModal()}
+                      >
+                        <ArrowLeft size={16} />
+                        Volver a Aprendizaje
+                      </button>
+                      <span className="app-chip-soft">
+                        <Layers3 size={13} />
+                        {isCourseEditor ? "Modo curso" : "Modo recurso"}
+                      </span>
+                      <button
+                        type="button"
+                        className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[var(--app-border)] bg-white text-[var(--app-muted)] transition hover:text-[var(--app-ink)]"
+                        onClick={() => closeResourceModal()}
+                        aria-label="Cerrar editor"
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      className="app-button-secondary"
-                      onClick={() => closeResourceModal()}
-                    >
-                      <ArrowLeft size={16} />
-                      Volver a Aprendizaje
-                    </button>
-                    <span className="app-chip-soft">
-                      <Layers3 size={13} />
-                      {isCourseEditor ? "Modo curso" : "Modo recurso"}
-                    </span>
-                    <span className="hidden sm:inline-flex app-chip-soft">
-                      <FileUp size={13} />
-                      {resourceTypeProfile.assetLabel}
-                    </span>
-                    <span className="hidden lg:inline-flex app-chip-soft">
-                      <Lightbulb size={13} />
-                      Presets por formato
-                    </span>
-                    <button
-                      type="button"
-                      className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[var(--app-border)] bg-white text-[var(--app-muted)] transition hover:text-[var(--app-ink)]"
-                      onClick={() => closeResourceModal()}
-                      aria-label="Cerrar editor"
-                    >
-                      <X size={18} />
-                    </button>
+                  <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+                    <div>
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm font-semibold text-[var(--app-ink)]">
+                          Paso {resourceEditorStepIndex + 1} de{" "}
+                          {resourceEditorSteps.length}
+                        </p>
+                        <span className="rounded-full border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-1 text-xs font-semibold text-[var(--app-muted)]">
+                          {completedEditorSteps}/{resourceEditorSteps.length} listos
+                        </span>
+                      </div>
+                      <p className="mt-1 text-sm text-[var(--app-muted)]">
+                        {currentResourceEditorStep.description}
+                      </p>
+                      <div className="mt-3 h-2 overflow-hidden rounded-full bg-[var(--app-surface-muted)]">
+                        <div
+                          className="h-full rounded-full bg-[linear-gradient(90deg,#5a2f6b_0%,#c789b8_100%)] transition-all"
+                          style={{
+                            width: `${
+                              ((resourceEditorStepIndex + 1) /
+                                resourceEditorSteps.length) *
+                              100
+                            }%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="hidden lg:flex items-center gap-2">
+                      <span className="app-chip-soft">
+                        <FileUp size={13} />
+                        {resourceTypeProfile.assetLabel}
+                      </span>
+                      <span className="app-chip-soft">
+                        <Lightbulb size={13} />
+                        Flujo guiado
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mt-5">
+                    <LearningEditorStepNav
+                      steps={resourceEditorSteps}
+                      activeIndex={resourceEditorStepIndex}
+                      onSelect={goToResourceEditorStep}
+                    />
                   </div>
                 </div>
               </div>
 
-              <div className="mx-auto grid min-h-0 w-full max-w-[1540px] flex-1 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_22rem] 2xl:grid-cols-[minmax(0,1fr)_24rem]">
+              <div className="mx-auto grid min-h-0 w-full max-w-[1540px] flex-1 grid-cols-1 2xl:grid-cols-[minmax(0,1fr)_22rem]">
                 <div className="min-h-0 overflow-y-auto px-4 py-5 sm:px-6 lg:px-8 lg:py-6">
                   <div className="space-y-5">
+                    <div className="2xl:hidden rounded-[24px] border border-[var(--app-border)] bg-white/90 p-4 shadow-[0_18px_38px_rgba(55,32,80,0.05)]">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--app-muted)]">
+                            Resumen rápido
+                          </p>
+                          <h4 className="mt-1 text-lg font-semibold text-[var(--app-ink)]">
+                            {resourceForm.title.trim() ||
+                              (isCourseEditor
+                                ? "Curso sin título aún"
+                                : "Recurso sin título aún")}
+                          </h4>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <span className="app-chip-soft">
+                            {contentTypeLabel(resourceForm.contentType)}
+                          </span>
+                          <span className="app-chip-soft">
+                            {resourceForm.category || "Categoría pendiente"}
+                          </span>
+                          <span className="app-chip-soft">
+                            {completedEditorSteps}/{resourceEditorSteps.length} pasos listos
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {isIdentityEditorStep && (
+                      <>
                     <section className="rounded-[24px] border border-[var(--app-border)] bg-white/88 p-5 shadow-[0_18px_38px_rgba(55,32,80,0.05)]">
                       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                         <div className="max-w-3xl">
@@ -3036,7 +3424,11 @@ export default function AprendizajePage() {
                         </label>
                       </div>
                     </section>
+                      </>
+                    )}
 
+                    {isAssetEditorStep && (
+                      <>
                     <section className="rounded-[24px] border border-[var(--app-border)] bg-white/88 p-5 shadow-[0_18px_38px_rgba(55,32,80,0.05)]">
                       <div className="flex items-center gap-3">
                         <div className="rounded-[16px] bg-[var(--app-chip)] p-3 text-[#4f2360]">
@@ -3359,7 +3751,10 @@ export default function AprendizajePage() {
                         </div>
                       </section>
                     )}
+                      </>
+                    )}
 
+                    {isTaxonomyEditorStep && (
                     <section className="rounded-[24px] border border-[var(--app-border)] bg-white/88 p-5 shadow-[0_18px_38px_rgba(55,32,80,0.05)]">
                       <div className="flex items-center gap-3">
                         <div className="rounded-[16px] bg-[var(--app-chip)] p-3 text-[#4f2360]">
@@ -3526,7 +3921,10 @@ export default function AprendizajePage() {
                         )}
                       </div>
                     </section>
+                    )}
 
+                    {isDiscoveryEditorStep && (
+                      <>
                     <ResourceTagComposer
                       tags={resourceForm.tags}
                       draft={resourceTagDraft}
@@ -3535,132 +3933,42 @@ export default function AprendizajePage() {
                       onAddTag={addTagToResourceForm}
                       onRemoveTag={removeTagFromResourceForm}
                     />
+                        <div className="2xl:hidden">
+                          <LearningEditorSupportRail
+                            isCourseEditor={isCourseEditor}
+                            title={resourceForm.title}
+                            description={resourceForm.description}
+                            contentType={resourceForm.contentType}
+                            category={resourceForm.category}
+                            status={resourceForm.status}
+                            courseModuleCount={resourceForm.courseModules.length}
+                            courseResourceCount={currentCourseResourceCount}
+                            checklist={resourceSetupChecklist}
+                            editorialDescription={resourceTypeProfile.description}
+                            stageLabel={resourceForm.stage}
+                            audienceLabel={currentAudienceLabel}
+                          />
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
 
-                <aside className="min-h-0 overflow-y-auto border-t border-[var(--app-border)] bg-[rgba(252,249,255,0.96)] px-4 py-5 xl:border-l xl:border-t-0 sm:px-6 lg:px-7 lg:py-6">
-                  <div className="space-y-4">
-                    <div className="rounded-[24px] border border-[rgba(95,52,113,0.12)] bg-[linear-gradient(135deg,rgba(81,40,95,0.96),rgba(121,76,145,0.92),rgba(243,183,209,0.9))] p-5 text-white shadow-[0_22px_40px_rgba(55,32,80,0.14)]">
-                      <p className="text-xs font-black uppercase tracking-[0.24em] text-white/72">
-                        Vista rápida
-                      </p>
-                      <h4 className="mt-3 text-2xl font-semibold leading-tight">
-                        {resourceForm.title.trim() ||
-                          (isCourseEditor
-                            ? "Tu curso todavía no tiene título"
-                            : "Tu recurso todavía no tiene título")}
-                      </h4>
-                      <p className="mt-3 text-sm leading-relaxed text-white/80">
-                        {resourceForm.description.trim() ||
-                          (isCourseEditor
-                            ? "Aquí verás una lectura rápida del curso mientras completas su estructura, metadatos y acceso."
-                            : "Aquí verás una lectura rápida del recurso mientras completas el formulario.")}
-                      </p>
-
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        <span className="rounded-full border border-white/16 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white/90">
-                          {contentTypeLabel(resourceForm.contentType)}
-                        </span>
-                        <span className="rounded-full border border-white/16 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white/90">
-                          {resourceForm.category || "Categoría pendiente"}
-                        </span>
-                        <span className="rounded-full border border-white/16 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white/90">
-                          {statusLabel(resourceForm.status)}
-                        </span>
-                        {isCourseEditor && (
-                          <>
-                            <span className="rounded-full border border-white/16 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white/90">
-                              {resourceForm.courseModules.length} módulos
-                            </span>
-                            <span className="rounded-full border border-white/16 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white/90">
-                              {currentCourseResourceCount} recursos internos
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-
-                    {isCourseEditor && (
-                      <div className="rounded-[24px] border border-[var(--app-border)] bg-white/90 p-5">
-                        <div className="flex items-center gap-2">
-                          <Layers3 size={18} className="text-[#5f3471]" />
-                          <h4 className="font-semibold text-[var(--app-ink)]">
-                            Resumen del curso
-                          </h4>
-                        </div>
-                        <div className="mt-4 grid grid-cols-2 gap-3">
-                          <div className="rounded-[18px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4">
-                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--app-muted)]">
-                              Módulos
-                            </p>
-                            <p className="mt-2 text-2xl font-extrabold text-[var(--app-ink)]">
-                              {resourceForm.courseModules.length}
-                            </p>
-                          </div>
-                          <div className="rounded-[18px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4">
-                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--app-muted)]">
-                              Recursos internos
-                            </p>
-                            <p className="mt-2 text-2xl font-extrabold text-[var(--app-ink)]">
-                              {currentCourseResourceCount}
-                            </p>
-                          </div>
-                        </div>
-                        <p className="mt-4 text-sm leading-relaxed text-[var(--app-muted)]">
-                          Diseña el curso como una ruta clara: cada módulo debe
-                          resolver un tramo concreto y cada recurso debe tener un
-                          propósito visible.
-                        </p>
-                      </div>
-                    )}
-
-                    <div className="rounded-[24px] border border-[var(--app-border)] bg-white/90 p-5">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 size={18} className="text-emerald-600" />
-                        <h4 className="font-semibold text-[var(--app-ink)]">
-                          Checklist de publicación
-                        </h4>
-                      </div>
-                      <div className="mt-4 space-y-3">
-                        {resourceSetupChecklist.map((item) => (
-                          <div
-                            key={item.label}
-                            className="flex items-center justify-between gap-3 rounded-[18px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-3"
-                          >
-                            <span className="text-sm font-medium text-[var(--app-ink)]">
-                              {item.label}
-                            </span>
-                            <span
-                              className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                                item.ready
-                                  ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
-                                  : "border border-[var(--app-border)] bg-white text-[var(--app-muted)]"
-                              }`}
-                            >
-                              {item.ready ? "Listo" : "Pendiente"}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="rounded-[24px] border border-[var(--app-border)] bg-white/90 p-5">
-                      <div className="flex items-center gap-2">
-                        <Lightbulb size={18} className="text-[#5f3471]" />
-                        <h4 className="font-semibold text-[var(--app-ink)]">
-                          Recomendación editorial
-                        </h4>
-                      </div>
-                      <p className="mt-3 text-sm leading-relaxed text-[var(--app-muted)]">
-                        {resourceTypeProfile.description}
-                      </p>
-                      <p className="mt-3 text-sm leading-relaxed text-[var(--app-muted)]">
-                        {resourceForm.stage
-                          ? `Este ${isCourseEditor ? "curso" : "recurso"} quedará asociado a ${resourceForm.stage} y podrá ser descubierto por audiencia ${audienceOptions.find((option) => option.value === resourceForm.audience)?.label ?? resourceForm.audience}.`
-                          : "Agrega una etapa del programa para ordenar mejor el contenido dentro de la experiencia."}
-                      </p>
-                    </div>
-                  </div>
+                <aside className="hidden min-h-0 overflow-y-auto border-l border-[var(--app-border)] bg-[rgba(252,249,255,0.96)] px-4 py-5 2xl:block sm:px-6 lg:px-7 lg:py-6">
+                  <LearningEditorSupportRail
+                    isCourseEditor={isCourseEditor}
+                    title={resourceForm.title}
+                    description={resourceForm.description}
+                    contentType={resourceForm.contentType}
+                    category={resourceForm.category}
+                    status={resourceForm.status}
+                    courseModuleCount={resourceForm.courseModules.length}
+                    courseResourceCount={currentCourseResourceCount}
+                    checklist={resourceSetupChecklist}
+                    editorialDescription={resourceTypeProfile.description}
+                    stageLabel={resourceForm.stage}
+                    audienceLabel={currentAudienceLabel}
+                  />
                 </aside>
               </div>
 
@@ -3669,33 +3977,71 @@ export default function AprendizajePage() {
                 style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
               >
                 <div className="mx-auto flex w-full max-w-[1540px] flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                  <p className="text-sm text-[var(--app-muted)]">
-                    {isCourseEditor
-                      ? "Puedes dejar el curso en borrador y retomarlo más tarde. Si lo publicas ahora, asegúrate de tener acceso, estructura y metadatos completos."
-                      : "Puedes dejar el recurso en borrador y retomarlo más tarde. Si lo publicas ahora, asegúrate de tener activo y metadatos completos."}
-                  </p>
-                  <div className="flex flex-col gap-2 sm:flex-row">
+                  <div>
+                    <p className="text-sm font-semibold text-[var(--app-ink)]">
+                      {currentResourceEditorStep.title}
+                    </p>
+                    <p className="mt-1 text-sm text-[var(--app-muted)]">
+                      {isCourseEditor
+                        ? "Puedes avanzar por pasos o guardar y salir en cualquier momento. El curso quedará listo cuando estructura, acceso y metadatos estén completos."
+                        : "Puedes avanzar por pasos o guardar y salir en cualquier momento. El recurso quedará listo cuando activo, metadatos y descubrimiento estén completos."}
+                    </p>
+                  </div>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
                     <button
                       type="button"
-                      className="app-button-secondary"
+                      className="app-button-ghost"
                       onClick={() => closeResourceModal()}
                     >
                       Cancelar
                     </button>
-                    <button
-                      type="submit"
-                      disabled={submittingResource}
-                      className="app-button-primary disabled:opacity-60"
-                    >
-                      {editingResourceId ? <Save size={16} /> : <Plus size={16} />}
-                      {submittingResource
-                        ? "Guardando..."
-                        : editingResourceId
-                          ? "Guardar cambios"
-                          : isCourseEditor
-                            ? "Crear curso"
-                            : "Crear recurso"}
-                    </button>
+                    {resourceEditorStepIndex > 0 && (
+                      <button
+                        type="button"
+                        className="app-button-secondary"
+                        onClick={goToPreviousResourceEditorStep}
+                      >
+                        <ArrowLeft size={16} />
+                        Atrás
+                      </button>
+                    )}
+                    {resourceEditorStepIndex < resourceEditorSteps.length - 1 && (
+                      <button
+                        className="app-button-secondary"
+                        type="submit"
+                        disabled={submittingResource}
+                      >
+                        {editingResourceId ? <Save size={16} /> : <Plus size={16} />}
+                        {submittingResource
+                          ? "Guardando..."
+                          : "Guardar y salir"}
+                      </button>
+                    )}
+                    {resourceEditorStepIndex < resourceEditorSteps.length - 1 ? (
+                      <button
+                        type="button"
+                        className="app-button-primary"
+                        onClick={() => void goToNextResourceEditorStep()}
+                      >
+                        Continuar
+                        <ArrowRight size={16} />
+                      </button>
+                    ) : (
+                      <button
+                        type="submit"
+                        disabled={submittingResource}
+                        className="app-button-primary disabled:opacity-60"
+                      >
+                        {editingResourceId ? <Save size={16} /> : <Plus size={16} />}
+                        {submittingResource
+                          ? "Guardando..."
+                          : editingResourceId
+                            ? "Guardar cambios"
+                            : isCourseEditor
+                              ? "Crear curso"
+                              : "Crear recurso"}
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
