@@ -43,6 +43,7 @@ export async function listLearningResources(
 ): Promise<LearningResourceListResult> {
   const params = new URLSearchParams();
   if (query.q?.trim()) params.set('q', query.q.trim());
+  if (query.family) params.set('family', query.family);
   if (query.contentType) params.set('contentType', query.contentType);
   if (query.status) params.set('status', query.status);
   if (query.pillar) params.set('pillar', query.pillar);

@@ -14,9 +14,13 @@ import { LearningResourceVisual } from "./LearningResourceVisual";
 
 interface LearningResourceCardProps {
   resource: LearningResourceRecord;
+  href?: string;
 }
 
-export function LearningResourceCard({ resource }: LearningResourceCardProps) {
+export function LearningResourceCard({
+  resource,
+  href,
+}: LearningResourceCardProps) {
   const courseModuleCount = resource.structurePayload.modules?.length ?? 0;
   const pillarLabel = learningPillarLabel(resource.competencyMetadata.pillar);
   const metaLine = [
@@ -29,7 +33,7 @@ export function LearningResourceCard({ resource }: LearningResourceCardProps) {
 
   return (
     <Link
-      href={`/dashboard/aprendizaje/recursos/${resource.contentId}`}
+      href={href ?? `/dashboard/aprendizaje/recursos/${resource.contentId}`}
       className="group flex h-full flex-col overflow-hidden rounded-[24px] border border-[var(--app-border)] bg-white/92 shadow-[0_18px_38px_rgba(55,32,80,0.05)] transition hover:-translate-y-0.5 hover:border-[var(--app-border-strong)] hover:shadow-[0_24px_48px_rgba(55,32,80,0.08)]"
     >
       <div className="p-3 pb-0">

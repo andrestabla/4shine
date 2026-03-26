@@ -13,6 +13,9 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const query = {
       q: url.searchParams.get('q') ?? undefined,
+      family:
+        (url.searchParams.get('family') as 'resource' | 'course' | null) ??
+        undefined,
       contentType: (url.searchParams.get('contentType') as ContentType | null) ?? undefined,
       status: (url.searchParams.get('status') as ContentStatus | null) ?? undefined,
       pillar: url.searchParams.get('pillar') ?? undefined,

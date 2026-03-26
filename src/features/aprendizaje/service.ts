@@ -57,6 +57,7 @@ export interface LearningResourceRecord {
 
 export interface LearningResourceListQuery {
   q?: string;
+  family?: 'resource' | 'course' | null;
   contentType?: ContentType | null;
   status?: ContentStatus | null;
   pillar?: string | null;
@@ -541,6 +542,7 @@ export async function listLearningResources(
   const pageSize = Math.min(Math.max(query?.pageSize ?? 24, 1), 48);
   const offset = (page - 1) * pageSize;
   const statusFilter = canManage ? query?.status ?? null : null;
+  const familyFilter = query?.family ?? null;
 
   const countResult = await client.query<{ total: string }>(
     `
@@ -558,29 +560,35 @@ export async function listLearningResources(
               AND lower(t.tag_name) = 'free'
           )
         )
-        AND ($3::text IS NULL OR ci.content_type = $3)
-        AND ($4::text IS NULL OR ci.status = $4)
-        AND ($5::text IS NULL OR COALESCE(ci.competency_metadata->>'pillar', '') = $5)
         AND (
-          $6::text IS NULL
-          OR lower(ci.title) LIKE $6
-          OR lower(COALESCE(ci.description, '')) LIKE $6
-          OR lower(ci.category) LIKE $6
-          OR lower(COALESCE(ci.competency_metadata->>'component', '')) LIKE $6
-          OR lower(COALESCE(ci.competency_metadata->>'competency', '')) LIKE $6
-          OR lower(COALESCE(ci.competency_metadata->>'stage', '')) LIKE $6
+          $3::text IS NULL
+          OR ($3::text = 'course' AND ci.content_type = 'scorm')
+          OR ($3::text = 'resource' AND ci.content_type <> 'scorm')
+        )
+        AND ($4::text IS NULL OR ci.content_type = $4)
+        AND ($5::text IS NULL OR ci.status = $5)
+        AND ($6::text IS NULL OR COALESCE(ci.competency_metadata->>'pillar', '') = $6)
+        AND (
+          $7::text IS NULL
+          OR lower(ci.title) LIKE $7
+          OR lower(COALESCE(ci.description, '')) LIKE $7
+          OR lower(ci.category) LIKE $7
+          OR lower(COALESCE(ci.competency_metadata->>'component', '')) LIKE $7
+          OR lower(COALESCE(ci.competency_metadata->>'competency', '')) LIKE $7
+          OR lower(COALESCE(ci.competency_metadata->>'stage', '')) LIKE $7
           OR EXISTS (
             SELECT 1
             FROM app_learning.content_tags ct
             JOIN app_learning.tags t ON t.tag_id = ct.tag_id
             WHERE ct.content_id = ci.content_id
-              AND lower(t.tag_name) LIKE $6
+              AND lower(t.tag_name) LIKE $7
           )
         )
     `,
     [
       canManage,
       freeOnly,
+      familyFilter,
       query?.contentType ?? null,
       statusFilter,
       query?.pillar ?? null,
@@ -653,23 +661,28 @@ export async function listLearningResources(
               AND lower(t.tag_name) = 'free'
           )
         )
-        AND ($4::text IS NULL OR ci.content_type = $4)
-        AND ($5::text IS NULL OR ci.status = $5)
-        AND ($6::text IS NULL OR COALESCE(ci.competency_metadata->>'pillar', '') = $6)
         AND (
-          $7::text IS NULL
-          OR lower(ci.title) LIKE $7
-          OR lower(COALESCE(ci.description, '')) LIKE $7
-          OR lower(ci.category) LIKE $7
-          OR lower(COALESCE(ci.competency_metadata->>'component', '')) LIKE $7
-          OR lower(COALESCE(ci.competency_metadata->>'competency', '')) LIKE $7
-          OR lower(COALESCE(ci.competency_metadata->>'stage', '')) LIKE $7
+          $4::text IS NULL
+          OR ($4::text = 'course' AND ci.content_type = 'scorm')
+          OR ($4::text = 'resource' AND ci.content_type <> 'scorm')
+        )
+        AND ($5::text IS NULL OR ci.content_type = $5)
+        AND ($6::text IS NULL OR ci.status = $6)
+        AND ($7::text IS NULL OR COALESCE(ci.competency_metadata->>'pillar', '') = $7)
+        AND (
+          $8::text IS NULL
+          OR lower(ci.title) LIKE $8
+          OR lower(COALESCE(ci.description, '')) LIKE $8
+          OR lower(ci.category) LIKE $8
+          OR lower(COALESCE(ci.competency_metadata->>'component', '')) LIKE $8
+          OR lower(COALESCE(ci.competency_metadata->>'competency', '')) LIKE $8
+          OR lower(COALESCE(ci.competency_metadata->>'stage', '')) LIKE $8
           OR EXISTS (
             SELECT 1
             FROM app_learning.content_tags ct
             JOIN app_learning.tags t ON t.tag_id = ct.tag_id
             WHERE ct.content_id = ci.content_id
-              AND lower(t.tag_name) LIKE $7
+              AND lower(t.tag_name) LIKE $8
           )
         )
       ORDER BY
@@ -683,13 +696,14 @@ export async function listLearningResources(
         END,
         ci.published_at DESC NULLS LAST,
         ci.created_at DESC
-      LIMIT $8
-      OFFSET $9
+      LIMIT $9
+      OFFSET $10
     `,
     [
       actor.userId,
       canManage,
       freeOnly,
+      familyFilter,
       query?.contentType ?? null,
       statusFilter,
       query?.pillar ?? null,

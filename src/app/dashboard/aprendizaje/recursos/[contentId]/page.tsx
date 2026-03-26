@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import React from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   ExternalLink,
@@ -50,12 +50,14 @@ function courseModuleResourceTypeLabel(type: string): string {
 export default function LearningResourceDetailPage() {
   const params = useParams<{ contentId: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { currentRole } = useUser();
   const { alert, confirm } = useAppDialog();
 
   const contentId =
     typeof params?.contentId === "string" ? params.contentId : "";
   const canManage = currentRole === "gestor" || currentRole === "admin";
+  const requestedTab = searchParams.get("tab");
 
   const [resource, setResource] = React.useState<LearningResourceRecord | null>(
     null,
@@ -204,12 +206,21 @@ export default function LearningResourceDetailPage() {
     setDeleting(true);
     try {
       await deleteContent(resource.contentId);
-      router.push("/dashboard/aprendizaje");
+      const fallbackTab = resource.contentType === "scorm" ? "cursos" : "recursos";
+      const nextTab =
+        requestedTab === "cursos" || requestedTab === "recursos"
+          ? requestedTab
+          : fallbackTab;
+      router.push(
+        nextTab === "recursos"
+          ? "/dashboard/aprendizaje"
+          : `/dashboard/aprendizaje?tab=${nextTab}`,
+      );
     } catch (error) {
       await showError("No se pudo eliminar el recurso", error);
       setDeleting(false);
     }
-  }, [canManage, confirm, deleting, resource, router, showError]);
+  }, [canManage, confirm, deleting, requestedTab, resource, router, showError]);
 
   if (loading) {
     return (
@@ -226,10 +237,24 @@ export default function LearningResourceDetailPage() {
     );
   }
 
+  const fallbackTab = resource.contentType === "scorm" ? "cursos" : "recursos";
+  const backTab =
+    requestedTab === "cursos" || requestedTab === "recursos"
+      ? requestedTab
+      : fallbackTab;
+  const backHref =
+    backTab === "recursos"
+      ? "/dashboard/aprendizaje"
+      : `/dashboard/aprendizaje?tab=${backTab}`;
+  const editHref =
+    backTab === "recursos"
+      ? `/dashboard/aprendizaje?edit=${resource.contentId}`
+      : `/dashboard/aprendizaje?tab=${backTab}&edit=${resource.contentId}`;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <Link href="/dashboard/aprendizaje" className="app-button-secondary">
+        <Link href={backHref} className="app-button-secondary">
           <ArrowLeft size={16} />
           Volver a Aprendizaje
         </Link>
@@ -256,9 +281,7 @@ export default function LearningResourceDetailPage() {
               <button
                 type="button"
                 className="app-button-secondary"
-                onClick={() =>
-                  router.push(`/dashboard/aprendizaje?edit=${resource.contentId}`)
-                }
+                onClick={() => router.push(editHref)}
               >
                 <Pencil size={16} />
                 Editar

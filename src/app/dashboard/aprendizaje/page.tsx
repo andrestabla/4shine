@@ -25,7 +25,6 @@ import {
 } from "lucide-react";
 import { LearningResourceCard } from "@/components/aprendizaje/LearningResourceCard";
 import { AccessOfferPanel } from "@/components/access/AccessOfferPanel";
-import { StatGrid } from "@/components/dashboard/StatGrid";
 import { EmptyState } from "@/components/dashboard/EmptyState";
 import { useAppDialog } from "@/components/ui/AppDialogProvider";
 import { R2UploadButton } from "@/components/ui/R2UploadButton";
@@ -82,6 +81,36 @@ const RESOURCE_STATUS_OPTIONS: ContentStatus[] = [
 ];
 const RESOURCE_PAGE_SIZE = 18;
 
+type LearningTabKey = "recursos" | "cursos" | "workbooks";
+
+interface LearningTabItem {
+  key: LearningTabKey;
+  label: string;
+  description: string;
+}
+
+const LEARNING_TABS: LearningTabItem[] = [
+  {
+    key: "recursos",
+    label: "Recursos",
+    description: "Videos, pódcast, documentos y piezas individuales.",
+  },
+  {
+    key: "cursos",
+    label: "Cursos",
+    description: "Experiencias estructuradas con módulos y recursos internos.",
+  },
+  {
+    key: "workbooks",
+    label: "Workbooks",
+    description: "Cuadernos digitales del programa con avance sincronizado.",
+  },
+];
+
+function isLearningTabKey(value: string | null): value is LearningTabKey {
+  return value === "recursos" || value === "cursos" || value === "workbooks";
+}
+
 interface ResourceFormState {
   title: string;
   category: string;
@@ -117,6 +146,25 @@ const EMPTY_RESOURCE_FORM: ResourceFormState = {
   isRecommended: false,
   courseModules: [],
 };
+
+function createInitialResourceForm(
+  kind: ResourceEditorKind = "resource",
+): ResourceFormState {
+  if (kind === "course") {
+    return {
+      ...EMPTY_RESOURCE_FORM,
+      contentType: "scorm",
+      category: CONTENT_TYPE_EXPERIENCE.scorm.categoryPresets[0] ?? "",
+      durationLabel: CONTENT_TYPE_EXPERIENCE.scorm.durationPresets[0] ?? "",
+      courseModules: [createEmptyCourseModule()],
+    };
+  }
+
+  return {
+    ...EMPTY_RESOURCE_FORM,
+    courseModules: [],
+  };
+}
 
 type ResourceEditorKind = "resource" | "course";
 
@@ -800,6 +848,13 @@ export default function AprendizajePage() {
   });
   const deferredResourceSearch = React.useDeferredValue(resourceSearch);
   const editResourceId = searchParams.get("edit");
+  const activeLearningTab = React.useMemo<LearningTabKey>(() => {
+    const requestedTab = searchParams.get("tab");
+    return isLearningTabKey(requestedTab) ? requestedTab : "recursos";
+  }, [searchParams]);
+  const isResourcesTab = activeLearningTab === "recursos";
+  const isCoursesTab = activeLearningTab === "cursos";
+  const isWorkbooksTab = activeLearningTab === "workbooks";
 
   const showError = React.useCallback(
     async (fallbackMessage: string, cause: unknown) => {
@@ -812,21 +867,67 @@ export default function AprendizajePage() {
     [alert],
   );
 
+  const buildLearningTabHref = React.useCallback(
+    (tab: LearningTabKey) => {
+      const nextParams = new URLSearchParams(searchParams.toString());
+      nextParams.delete("edit");
+      if (tab === "recursos") {
+        nextParams.delete("tab");
+      } else {
+        nextParams.set("tab", tab);
+      }
+      const nextQuery = nextParams.toString();
+      return nextQuery
+        ? `/dashboard/aprendizaje?${nextQuery}`
+        : "/dashboard/aprendizaje";
+    },
+    [searchParams],
+  );
+
+  const buildLearningResourceDetailHref = React.useCallback(
+    (contentId: string) => {
+      const tab = isCoursesTab ? "cursos" : "recursos";
+      return `/dashboard/aprendizaje/recursos/${contentId}?tab=${tab}`;
+    },
+    [isCoursesTab],
+  );
+
   const loadModule = React.useCallback(async () => {
     setLoading(true);
     try {
+      const resourceFamily =
+        activeLearningTab === "cursos"
+          ? "course"
+          : activeLearningTab === "recursos"
+            ? "resource"
+            : null;
+      const resourceRequest =
+        activeLearningTab === "workbooks"
+          ? Promise.resolve({
+              items: [] as LearningResourceRecord[],
+              total: 0,
+              totalPages: 1,
+              page: 1,
+              pageSize: RESOURCE_PAGE_SIZE,
+            })
+          : listLearningResources({
+              q: deferredResourceSearch,
+              family: resourceFamily,
+              contentType:
+                activeLearningTab === "recursos" &&
+                resourceTypeFilter !== "all"
+                  ? resourceTypeFilter
+                  : null,
+              status:
+                resourceStatusFilter === "all" ? null : resourceStatusFilter,
+              pillar:
+                resourcePillarFilter === "all" ? null : resourcePillarFilter,
+              page: resourcePage,
+              pageSize: RESOURCE_PAGE_SIZE,
+            });
+
       const [resourceData, workbookData] = await Promise.all([
-        listLearningResources({
-          q: deferredResourceSearch,
-          contentType:
-            resourceTypeFilter === "all" ? null : resourceTypeFilter,
-          status:
-            resourceStatusFilter === "all" ? null : resourceStatusFilter,
-          pillar:
-            resourcePillarFilter === "all" ? null : resourcePillarFilter,
-          page: resourcePage,
-          pageSize: RESOURCE_PAGE_SIZE,
-        }),
+        resourceRequest,
         listLearningWorkbooks(),
       ]);
       setResources(resourceData.items);
@@ -839,6 +940,7 @@ export default function AprendizajePage() {
       setLoading(false);
     }
   }, [
+    activeLearningTab,
     deferredResourceSearch,
     resourcePage,
     resourcePillarFilter,
@@ -858,7 +960,19 @@ export default function AprendizajePage() {
     resourceTypeFilter,
     resourceStatusFilter,
     resourcePillarFilter,
+    activeLearningTab,
   ]);
+
+  React.useEffect(() => {
+    if (activeLearningTab !== "recursos" && resourceTypeFilter !== "all") {
+      setResourceTypeFilter("all");
+      return;
+    }
+
+    if (activeLearningTab === "recursos" && resourceTypeFilter === "scorm") {
+      setResourceTypeFilter("all");
+    }
+  }, [activeLearningTab, resourceTypeFilter]);
 
   const componentOptions = React.useMemo(
     () => getComponentOptionsByPillarCode(resourceForm.pillar),
@@ -925,9 +1039,6 @@ export default function AprendizajePage() {
   ]);
 
   const filteredResources = resources;
-  const scormResources = filteredResources.filter(
-    (resource) => resource.contentType === "scorm",
-  );
 
   const workbookOwners = Array.from(
     new Map(
@@ -1046,24 +1157,15 @@ export default function AprendizajePage() {
     ],
   );
 
-  const publishedResourceCount = resources.filter(
-    (resource) => resource.status === "published",
-  ).length;
-  const draftResourceCount = resources.filter(
-    (resource) => resource.status === "draft",
-  ).length;
-  const recommendedResourceCount = resources.filter(
-    (resource) => resource.isRecommended,
-  ).length;
-  const activeCourseCount = resources.filter(
-    (resource) => resource.contentType === "scorm",
-  ).length;
   const currentCourseResourceCount = countCourseResources(
     resourceForm.courseModules,
   );
   const currentAudienceLabel =
     audienceOptions.find((option) => option.value === resourceForm.audience)
       ?.label ?? resourceForm.audience;
+  const activeTabMeta =
+    LEARNING_TABS.find((tab) => tab.key === activeLearningTab) ?? LEARNING_TABS[0];
+  const activeCollectionLabel = isCoursesTab ? "cursos" : "recursos";
   const visibleResourceStart =
     resourceTotal === 0 ? 0 : (resourcePage - 1) * RESOURCE_PAGE_SIZE + 1;
   const visibleResourceEnd =
@@ -1074,16 +1176,19 @@ export default function AprendizajePage() {
     return Array.from({ length: end - start + 1 }, (_, index) => start + index);
   }, [resourcePage, resourceTotalPages]);
 
-  const resetResourceForm = React.useCallback(() => {
+  const resetResourceForm = React.useCallback(
+    (kind: ResourceEditorKind = "resource") => {
     setEditingResourceId(null);
-    setResourceForm(EMPTY_RESOURCE_FORM);
+      setResourceForm(createInitialResourceForm(kind));
     setResourceTagDraft("");
     setResourceCategoryMode("preset");
     setCustomCategoryDraft("");
     setUploadedResourceAsset(null);
     setMetadataAssistantResult(null);
     setResourceEditorStepIndex(0);
-  }, []);
+    },
+    [],
+  );
 
   const closeResourceModal = React.useCallback((force = false) => {
     if (submittingResource && !force) return;
@@ -1091,10 +1196,13 @@ export default function AprendizajePage() {
     resetResourceForm();
   }, [resetResourceForm, submittingResource]);
 
-  const openCreateResourceModal = React.useCallback(() => {
-    resetResourceForm();
+  const openCreateResourceModal = React.useCallback(
+    (kind: ResourceEditorKind = "resource") => {
+      resetResourceForm(kind);
     setIsResourceModalOpen(true);
-  }, [resetResourceForm]);
+    },
+    [resetResourceForm],
+  );
 
   const populateResourceForm = React.useCallback(
     (resource: LearningResourceRecord) => {
@@ -1735,128 +1843,104 @@ export default function AprendizajePage() {
 
   const fieldClass =
     "h-12 rounded-[16px] border border-[var(--app-border)] bg-white/86 px-4 text-sm text-[var(--app-ink)] outline-none transition focus:border-[var(--app-border-strong)] focus:bg-white";
-  const panelClass = "app-panel p-5 sm:p-6";
-
   return (
     <div className="space-y-8">
-      <section className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.7fr)]">
-        <div className="relative overflow-hidden rounded-[26px] border border-[var(--app-border)] bg-[linear-gradient(90deg,#51285f_0%,#5f3371_64%,#f2b6d0_100%)] px-6 py-7 text-white shadow-[0_24px_48px_rgba(55,32,80,0.16)] sm:px-8 sm:py-8">
-          <div className="absolute inset-y-0 right-[20%] hidden w-16 bg-white/30 blur-2xl md:block" />
-          <div className="relative max-w-2xl">
-            <p className="text-xs font-black uppercase tracking-[0.28em] text-white/72">
-              Biblioteca viva
-            </p>
-            <h2
-              className="app-display-title mt-3 text-4xl font-semibold leading-[0.92] text-white md:text-[3.5rem]"
-              data-display-font="true"
-            >
-              Recursos, cursos y workbooks en una sola ruta.
-            </h2>
-            <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/82 md:text-base">
-              {isOpenLeader
-                ? "Explora recursos marcados como free y activa el programa para desbloquear la biblioteca completa, los cursos premium y los workbooks."
-                : "Explora contenido conectado al mapa de competencias, retoma tus workbooks y sigue tu progreso sin salir de la experiencia."}
-            </p>
-
-            <div className="mt-6 flex flex-wrap gap-2">
-              <span className="rounded-full border border-white/16 bg-white/10 px-4 py-2 text-xs font-semibold text-white/90">
-                {resources.length} recursos del módulo
-              </span>
-              <span className="rounded-full border border-white/16 bg-white/10 px-4 py-2 text-xs font-semibold text-white/90">
-                {
-                  resources.filter(
-                    (resource) => resource.contentType === "scorm",
-                  ).length
-                }{" "}
-                cursos activos
-              </span>
-              <span className="rounded-full border border-white/16 bg-white/10 px-4 py-2 text-xs font-semibold text-white/90">
-                {isOpenLeader
-                  ? "Solo contenido free visible"
-                  : `${workbooks.length} workbooks activos en catálogo`}
-              </span>
-            </div>
-          </div>
+      <section className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="max-w-3xl">
+          <p className="app-section-kicker">Aprendizaje</p>
+          <h2
+            className="app-display-title mt-2 text-4xl font-semibold leading-[0.95]"
+            data-display-font="true"
+          >
+            {activeTabMeta.label}
+          </h2>
+          <p className="mt-3 text-sm leading-relaxed text-[var(--app-muted)] md:text-base">
+            {isResourcesTab
+              ? isOpenLeader
+                ? "Explora el contenido libre de la plataforma con una biblioteca más clara y enfocada."
+                : "Busca recursos individuales por formato, pilar, competencia o etapa, sin mezclar cursos y workbooks en la misma vista."
+              : isCoursesTab
+                ? isOpenLeader
+                  ? "Revisa las rutas de aprendizaje disponibles y activa el programa para desbloquear la experiencia completa."
+                  : "Accede a cursos estructurados con módulos y recursos internos, listos para navegar como experiencias completas."
+                : isOpenLeader
+                  ? "Los workbooks del programa se activan al comprar el plan 4Shine."
+                  : "Cada workbook vive en su propio espacio, con progreso real sincronizado por usuario y acceso según cronograma."}
+          </p>
         </div>
 
-        <aside className="app-panel p-5 sm:p-6">
-          <p className="app-section-kicker">Atajos de aprendizaje</p>
-          <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3 xl:grid-cols-1">
-            <div className="rounded-[18px] border border-[var(--app-border)] bg-white/78 p-4">
-              <div className="w-fit rounded-[14px] bg-[var(--app-chip)] p-3 text-[#4f2360]">
-                <BookOpen size={18} />
-              </div>
-              <p className="mt-4 font-extrabold text-[var(--app-ink)]">
-                Biblioteca curada
-              </p>
-              <p className="mt-1 text-sm text-[var(--app-muted)]">
-                {isOpenLeader
-                  ? "Accede al contenido libre por formato, pilar o competencia."
-                  : "Busca por formato, estado, pilar o competencia."}
-              </p>
-            </div>
-            <div className="rounded-[18px] border border-[var(--app-border)] bg-white/78 p-4">
-              <div className="w-fit rounded-[14px] bg-[var(--app-chip)] p-3 text-[#4f2360]">
-                <Layers3 size={18} />
-              </div>
-              <p className="mt-4 font-extrabold text-[var(--app-ink)]">
-                Cursos estructurados
-              </p>
-              <p className="mt-1 text-sm text-[var(--app-muted)]">
-                {isOpenLeader
-                  ? "Disponibles al activar el programa completo."
-                  : "Acceso directo a cursos listos para navegar."}
-              </p>
-            </div>
-            <div className="rounded-[18px] border border-[var(--app-border)] bg-white/78 p-4">
-              <div className="w-fit rounded-[14px] bg-[var(--app-chip)] p-3 text-[#4f2360]">
-                <CalendarClock size={18} />
-              </div>
-              <p className="mt-4 font-extrabold text-[var(--app-ink)]">
-                Progreso sincronizado
-              </p>
-              <p className="mt-1 text-sm text-[var(--app-muted)]">
-                {isOpenLeader
-                  ? "Los workbooks se habilitan cuando activas el programa."
-                  : "Cada workbook refleja el avance real del usuario."}
-              </p>
-            </div>
-          </div>
-        </aside>
+        <div className="flex flex-wrap items-center gap-2">
+          {isWorkbooksTab ? (
+            <span className="app-chip-soft">
+              <CalendarClock size={13} />
+              {workbooks.length} workbooks en catálogo
+            </span>
+          ) : (
+            <span className="app-chip-soft">
+              {resourceTotal} {activeCollectionLabel} en esta vista
+            </span>
+          )}
+          {isOpenLeader ? (
+            <span className="app-chip-soft">Cuenta free</span>
+          ) : null}
+          {isResourceManager && !isWorkbooksTab ? (
+            <button
+              type="button"
+              className="app-button-primary"
+              onClick={() =>
+                openCreateResourceModal(isCoursesTab ? "course" : "resource")
+              }
+            >
+              <Plus size={16} />
+              {isCoursesTab ? "Nuevo curso" : "Nuevo recurso"}
+            </button>
+          ) : null}
+        </div>
       </section>
 
-      <StatGrid
-        stats={[
-          {
-            label: "Recursos",
-            value: resourceTotal,
-            hint: "Biblioteca total del módulo",
-          },
-          {
-            label: "Cursos",
-            value: resources.filter(
-              (resource) => resource.contentType === "scorm",
-            ).length,
-            hint: "Cursos visibles en esta página",
-          },
-          {
-            label: "Workbooks",
-            value: workbooks.length,
-            hint: isOpenLeader
-              ? "Disponibles al activar plan 4Shine"
-              : "Instancias únicas por líder",
-          },
-          {
-            label: "Habilitados",
-            value: workbooks.filter(
-              (workbook) => workbook.accessState === "active",
-            ).length,
-            hint: isOpenLeader
-              ? "La cuenta free no desbloquea workbooks"
-              : "Editables hoy según cronograma",
-          },
-        ]}
-      />
+      <nav className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        {LEARNING_TABS.map((tab) => {
+          const isActive = tab.key === activeLearningTab;
+          const Icon =
+            tab.key === "recursos"
+              ? BookOpen
+              : tab.key === "cursos"
+                ? Layers3
+                : CalendarClock;
+
+          return (
+            <Link
+              key={tab.key}
+              href={buildLearningTabHref(tab.key)}
+              className={`rounded-[22px] border px-5 py-4 transition ${
+                isActive
+                  ? "border-[#5a2f6b] bg-[rgba(90,47,107,0.08)] shadow-[0_18px_38px_rgba(55,32,80,0.06)]"
+                  : "border-[var(--app-border)] bg-white/82 hover:border-[var(--app-border-strong)] hover:bg-white"
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                <div
+                  className={`rounded-[14px] p-3 ${
+                    isActive
+                      ? "bg-[rgba(90,47,107,0.12)] text-[#4f2360]"
+                      : "bg-[var(--app-chip)] text-[#4f2360]"
+                  }`}
+                >
+                  <Icon size={18} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-base font-semibold text-[var(--app-ink)]">
+                    {tab.label}
+                  </p>
+                  <p className="mt-1 text-sm leading-relaxed text-[var(--app-muted)]">
+                    {tab.description}
+                  </p>
+                </div>
+              </div>
+            </Link>
+          );
+        })}
+      </nav>
 
       {loading ? (
         <div className="app-panel p-6 text-sm text-[var(--app-muted)]">
@@ -1864,293 +1948,234 @@ export default function AprendizajePage() {
         </div>
       ) : (
         <>
-          {isOpenLeader && (
-            <AccessOfferPanel
-              badge="Acceso free"
-              title="Tu biblioteca abierta ya está activa."
-              description="Esta cuenta puede ver y comentar únicamente los recursos etiquetados como free. Para desbloquear la biblioteca completa, los cursos premium y los 10 workbooks del programa, activa 4Shine."
-              products={programOffers}
-              primaryAction={{
-                href: "/dashboard",
-                label: "Ver plan 4Shine",
-              }}
-              note="Los recursos gratuitos siguen disponibles desde esta misma vista. El upgrade suma contenido premium, workbooks únicos por usuario y continuidad completa del journey."
-            />
-          )}
+          {(isResourcesTab || isCoursesTab) && (
+            <section className="space-y-4">
+              {isOpenLeader && isResourcesTab ? (
+                <div className="rounded-[22px] border border-[var(--app-border)] bg-white/80 px-4 py-4 text-sm leading-relaxed text-[var(--app-muted)]">
+                  Estás navegando la biblioteca abierta de 4Shine. Aquí ves solo
+                  recursos etiquetados como <span className="font-semibold text-[var(--app-ink)]">free</span>;
+                  los cursos premium y la experiencia completa se activan con el
+                  programa.
+                </div>
+              ) : null}
 
-          {isResourceManager && (
-            <section className={panelClass}>
-              <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-                <div className="max-w-3xl">
-                  <p className="app-section-kicker">Administración</p>
+              {isOpenLeader && isCoursesTab ? (
+                <AccessOfferPanel
+                  badge="Programa 4Shine"
+                  title="Activa el programa para desbloquear la ruta completa de cursos."
+                  description="Los cursos viven en un espacio propio para facilitar la navegación por experiencias estructuradas, módulos y recursos internos."
+                  products={programOffers}
+                  primaryAction={{
+                    href: "/dashboard",
+                    label: "Ver plan 4Shine",
+                  }}
+                  note="Si en el futuro habilitas cursos free, también aparecerán aquí sin mezclarse con los recursos individuales."
+                />
+              ) : null}
+
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <p className="app-section-kicker">
+                    {isCoursesTab ? "Cursos" : "Recursos"}
+                  </p>
                   <h3
                     className="app-display-title mt-2 text-3xl font-semibold"
                     data-display-font="true"
                   >
-                    Agrega recursos y cursos desde un editor completo.
+                    {isCoursesTab
+                      ? "Catálogo de cursos"
+                      : "Biblioteca de recursos"}
                   </h3>
                   <p className="mt-2 text-sm leading-relaxed text-[var(--app-muted)]">
-                    Admin y gestor ahora crean recursos y cursos desde una
-                    pantalla completa: carga directa a R2, listas desplegables,
-                    sugerencias inteligentes, metadatos conectados al mapa
-                    4Shine y estructura interna por módulos para los cursos.
+                    {isCoursesTab
+                      ? "Cada curso se consulta de forma independiente, con su propia estructura interna y una navegación más limpia."
+                      : "Las piezas individuales viven en una biblioteca separada para reducir carga cognitiva y facilitar búsqueda, filtrado y visualización."}
                   </p>
-
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <span className="app-chip-soft">
-                      <FileUp size={13} />
-                      R2 conectado
-                    </span>
-                    <span className="app-chip-soft">
-                      <Lightbulb size={13} />
-                      Campos inteligentes
-                    </span>
-                    <span className="app-chip-soft">
-                      <CheckCircle2 size={13} />
-                      Metadatos listos para búsqueda y filtrado
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-3 xl:min-w-[19rem]">
-                  <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                    <div className="rounded-[20px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4">
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--app-muted)]">
-                        Publicados
-                      </p>
-                      <p className="mt-2 text-2xl font-extrabold text-[var(--app-ink)]">
-                        {publishedResourceCount}
-                      </p>
-                    </div>
-                    <div className="rounded-[20px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4">
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--app-muted)]">
-                        Borradores
-                      </p>
-                      <p className="mt-2 text-2xl font-extrabold text-[var(--app-ink)]">
-                        {draftResourceCount}
-                      </p>
-                    </div>
-                    <div className="rounded-[20px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4">
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--app-muted)]">
-                        Curados
-                      </p>
-                      <p className="mt-2 text-2xl font-extrabold text-[var(--app-ink)]">
-                        {recommendedResourceCount}
-                      </p>
-                    </div>
-                    <div className="rounded-[20px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4">
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--app-muted)]">
-                        Cursos
-                      </p>
-                      <p className="mt-2 text-2xl font-extrabold text-[var(--app-ink)]">
-                        {activeCourseCount}
-                      </p>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    className="app-button-primary w-full"
-                    onClick={openCreateResourceModal}
-                  >
-                    <Plus size={16} />
-                    Abrir editor completo
-                  </button>
                 </div>
               </div>
+
+              {!isOpenLeader || isResourcesTab ? (
+                <>
+                  <div
+                    className={`grid grid-cols-1 gap-3 ${
+                      isResourceManager
+                        ? isResourcesTab
+                          ? "xl:grid-cols-4"
+                          : "xl:grid-cols-3"
+                        : isResourcesTab
+                          ? "xl:grid-cols-3"
+                          : "xl:grid-cols-2"
+                    }`}
+                  >
+                    <div className="rounded-[18px] border border-[var(--app-border)] bg-white/82 px-4 py-3 shadow-[0_16px_36px_rgba(55,32,80,0.05)] xl:col-span-2">
+                      <label className="flex items-center gap-2 text-sm text-[var(--app-muted)]">
+                        <Search size={16} />
+                        <input
+                          className="w-full bg-transparent py-1 text-sm text-[var(--app-ink)] outline-none"
+                          placeholder={
+                            isCoursesTab
+                              ? "Buscar por título, categoría o competencia"
+                              : "Buscar por título, categoría, tags o competencia"
+                          }
+                          value={resourceSearch}
+                          onChange={(event) =>
+                            setResourceSearch(event.target.value)
+                          }
+                        />
+                      </label>
+                    </div>
+                    {isResourcesTab ? (
+                      <select
+                        className={fieldClass}
+                        value={resourceTypeFilter}
+                        onChange={(event) =>
+                          setResourceTypeFilter(
+                            event.target.value as "all" | ContentType,
+                          )
+                        }
+                      >
+                        <option value="all">Todos los formatos</option>
+                        {RESOURCE_TYPE_OPTIONS.filter(
+                          (type) => type !== "scorm",
+                        ).map((type) => (
+                          <option key={type} value={type}>
+                            {contentTypeLabel(type)}
+                          </option>
+                        ))}
+                      </select>
+                    ) : null}
+                    {isResourceManager ? (
+                      <select
+                        className={fieldClass}
+                        value={resourceStatusFilter}
+                        onChange={(event) =>
+                          setResourceStatusFilter(
+                            event.target.value as "all" | ContentStatus,
+                          )
+                        }
+                      >
+                        <option value="all">Todos los estados</option>
+                        {RESOURCE_STATUS_OPTIONS.map((status) => (
+                          <option key={status} value={status}>
+                            {statusLabel(status)}
+                          </option>
+                        ))}
+                      </select>
+                    ) : null}
+                    <select
+                      className={fieldClass}
+                      value={resourcePillarFilter}
+                      onChange={(event) =>
+                        setResourcePillarFilter(event.target.value)
+                      }
+                    >
+                      <option value="all">Todos los pilares</option>
+                      {COMPETENCY_PILLAR_OPTIONS.map((pillar) => (
+                        <option key={pillar.value} value={pillar.value}>
+                          {pillar.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex flex-col gap-3 rounded-[22px] border border-[var(--app-border)] bg-white/78 p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-[var(--app-ink)]">
+                        {resourceTotal === 0
+                          ? `Aún no hay ${activeCollectionLabel} con este filtro.`
+                          : `Mostrando ${visibleResourceStart}-${visibleResourceEnd} de ${resourceTotal} ${activeCollectionLabel}`}
+                      </p>
+                      <p className="mt-1 text-sm text-[var(--app-muted)]">
+                        {isCoursesTab
+                          ? "Los cursos se paginan por separado para mantener una navegación clara cuando el catálogo crezca."
+                          : "La biblioteca de recursos está preparada para crecer por páginas sin mezclar piezas individuales con cursos o workbooks."}
+                      </p>
+                    </div>
+                    <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-sm text-[var(--app-muted)]">
+                      Página {resourcePage} de {resourceTotalPages}
+                    </span>
+                  </div>
+
+                  {filteredResources.length === 0 ? (
+                    <EmptyState
+                      message={
+                        isCoursesTab
+                          ? "No encontramos cursos con los filtros seleccionados."
+                          : "No encontramos recursos con los filtros seleccionados."
+                      }
+                    />
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3">
+                        {filteredResources.map((resource) => (
+                          <LearningResourceCard
+                            key={resource.contentId}
+                            resource={resource}
+                            href={buildLearningResourceDetailHref(
+                              resource.contentId,
+                            )}
+                          />
+                        ))}
+                      </div>
+
+                      {resourceTotalPages > 1 && (
+                        <div className="flex flex-col gap-3 rounded-[22px] border border-[var(--app-border)] bg-white/82 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+                          <p className="text-sm text-[var(--app-muted)]">
+                            Página {resourcePage} de {resourceTotalPages}
+                          </p>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              className="app-button-secondary"
+                              onClick={() =>
+                                setResourcePage((current) =>
+                                  Math.max(1, current - 1),
+                                )
+                              }
+                              disabled={resourcePage === 1}
+                            >
+                              <ArrowLeft size={16} />
+                              Anterior
+                            </button>
+                            {resourcePaginationItems.map((pageNumber) => (
+                              <button
+                                key={pageNumber}
+                                type="button"
+                                className={
+                                  pageNumber === resourcePage
+                                    ? "inline-flex h-11 min-w-11 items-center justify-center rounded-full bg-[#4f2360] px-4 text-sm font-semibold text-white"
+                                    : "inline-flex h-11 min-w-11 items-center justify-center rounded-full border border-[var(--app-border)] bg-white px-4 text-sm font-semibold text-[var(--app-ink)]"
+                                }
+                                onClick={() => setResourcePage(pageNumber)}
+                              >
+                                {pageNumber}
+                              </button>
+                            ))}
+                            <button
+                              type="button"
+                              className="app-button-secondary"
+                              onClick={() =>
+                                setResourcePage((current) =>
+                                  Math.min(resourceTotalPages, current + 1),
+                                )
+                              }
+                              disabled={resourcePage === resourceTotalPages}
+                            >
+                              Siguiente
+                              <ArrowRight size={16} />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </>
+              ) : null}
             </section>
           )}
 
-          <section className="space-y-4">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <p className="app-section-kicker">Recursos</p>
-                <h3
-                  className="app-display-title mt-2 text-3xl font-semibold"
-                  data-display-font="true"
-                >
-                  Biblioteca individual + cursos
-                </h3>
-                <p className="mt-2 text-sm leading-relaxed text-[var(--app-muted)]">
-                  {isOpenLeader
-                    ? "Esta cuenta ve solo contenidos free. Los líderes suscritos y los iShiners acceden a la biblioteca completa; gestores y admins administran el catálogo."
-                    : "Los líderes e iShiners pueden buscar, filtrar, visualizar y comentar. Los gestores y admins administran el catálogo."}
-                </p>
-              </div>
-
-              {isResourceManager && (
-                <button
-                  type="button"
-                  className="app-button-secondary"
-                  onClick={openCreateResourceModal}
-                >
-                  <Plus size={16} />
-                  Nuevo recurso o curso
-                </button>
-              )}
-            </div>
-
-            <div
-              className={`grid grid-cols-1 gap-3 ${
-                isResourceManager ? "xl:grid-cols-4" : "xl:grid-cols-3"
-              }`}
-            >
-              <div className="rounded-[18px] border border-[var(--app-border)] bg-white/82 px-4 py-3 shadow-[0_16px_36px_rgba(55,32,80,0.05)] xl:col-span-2">
-                <label className="flex items-center gap-2 text-sm text-[var(--app-muted)]">
-                  <Search size={16} />
-                  <input
-                    className="w-full bg-transparent py-1 text-sm text-[var(--app-ink)] outline-none"
-                    placeholder="Buscar por título, categoría, tags o competencia"
-                    value={resourceSearch}
-                    onChange={(event) => setResourceSearch(event.target.value)}
-                  />
-                </label>
-              </div>
-              <select
-                className={fieldClass}
-                value={resourceTypeFilter}
-                onChange={(event) =>
-                  setResourceTypeFilter(
-                    event.target.value as "all" | ContentType,
-                  )
-                }
-              >
-                <option value="all">Todos los formatos</option>
-                {RESOURCE_TYPE_OPTIONS.map((type) => (
-                  <option key={type} value={type}>
-                    {contentTypeLabel(type)}
-                  </option>
-                ))}
-              </select>
-              <div
-                className={`grid grid-cols-1 gap-3 ${
-                  isResourceManager ? "md:grid-cols-2 xl:grid-cols-2" : ""
-                }`}
-              >
-                {isResourceManager && (
-                  <select
-                    className={fieldClass}
-                    value={resourceStatusFilter}
-                    onChange={(event) =>
-                      setResourceStatusFilter(
-                        event.target.value as "all" | ContentStatus,
-                      )
-                    }
-                  >
-                    <option value="all">Todos los estados</option>
-                    {RESOURCE_STATUS_OPTIONS.map((status) => (
-                      <option key={status} value={status}>
-                        {statusLabel(status)}
-                      </option>
-                    ))}
-                  </select>
-                )}
-                <select
-                  className={fieldClass}
-                  value={resourcePillarFilter}
-                  onChange={(event) =>
-                    setResourcePillarFilter(event.target.value)
-                  }
-                >
-                  <option value="all">Todos los pilares</option>
-                  {COMPETENCY_PILLAR_OPTIONS.map((pillar) => (
-                    <option key={pillar.value} value={pillar.value}>
-                      {pillar.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-3 rounded-[22px] border border-[var(--app-border)] bg-white/78 p-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm font-semibold text-[var(--app-ink)]">
-                  {resourceTotal === 0
-                    ? "Aún no hay recursos con este filtro."
-                    : `Mostrando ${visibleResourceStart}-${visibleResourceEnd} de ${resourceTotal} recursos`}
-                </p>
-                <p className="mt-1 text-sm text-[var(--app-muted)]">
-                  Catálogo pensado para crecer por páginas, con detalle individual por recurso y curso.
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--app-muted)]">
-                {scormResources.length > 0 ? (
-                  <span className="rounded-full border border-[var(--app-border)] bg-[var(--app-chip)] px-3 py-1">
-                    {scormResources.length} cursos en esta página
-                  </span>
-                ) : null}
-                <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1">
-                  Página {resourcePage} de {resourceTotalPages}
-                </span>
-              </div>
-            </div>
-
-            {filteredResources.length === 0 ? (
-              <EmptyState message="No encontramos recursos con los filtros seleccionados." />
-            ) : (
-              <>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3">
-                  {filteredResources.map((resource) => (
-                    <LearningResourceCard
-                      key={resource.contentId}
-                      resource={resource}
-                    />
-                  ))}
-                </div>
-
-                {resourceTotalPages > 1 && (
-                  <div className="flex flex-col gap-3 rounded-[22px] border border-[var(--app-border)] bg-white/82 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="text-sm text-[var(--app-muted)]">
-                      Página {resourcePage} de {resourceTotalPages}
-                    </p>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        className="app-button-secondary"
-                        onClick={() =>
-                          setResourcePage((current) => Math.max(1, current - 1))
-                        }
-                        disabled={resourcePage === 1}
-                      >
-                        <ArrowLeft size={16} />
-                        Anterior
-                      </button>
-                      {resourcePaginationItems.map((pageNumber) => (
-                        <button
-                          key={pageNumber}
-                          type="button"
-                          className={
-                            pageNumber === resourcePage
-                              ? "inline-flex h-11 min-w-11 items-center justify-center rounded-full bg-[#4f2360] px-4 text-sm font-semibold text-white"
-                              : "inline-flex h-11 min-w-11 items-center justify-center rounded-full border border-[var(--app-border)] bg-white px-4 text-sm font-semibold text-[var(--app-ink)]"
-                          }
-                          onClick={() => setResourcePage(pageNumber)}
-                        >
-                          {pageNumber}
-                        </button>
-                      ))}
-                      <button
-                        type="button"
-                        className="app-button-secondary"
-                        onClick={() =>
-                          setResourcePage((current) =>
-                            Math.min(resourceTotalPages, current + 1),
-                          )
-                        }
-                        disabled={resourcePage === resourceTotalPages}
-                      >
-                        Siguiente
-                        <ArrowRight size={16} />
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-          </section>
-
-          <section className="space-y-4">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          {isWorkbooksTab && (
+            <section className="space-y-4">
               <div>
                 <p className="app-section-kicker">Workbooks</p>
                 <h3
@@ -2159,223 +2184,173 @@ export default function AprendizajePage() {
                 >
                   {isOpenLeader
                     ? "Workbooks del programa"
-                    : "10 workbooks digitales del programa"}
+                    : "Workbooks digitales del programa"}
                 </h3>
                 <p className="mt-2 text-sm leading-relaxed text-[var(--app-muted)]">
                   {isOpenLeader
-                    ? "Los workbooks únicos por usuario se habilitan al activar el programa 4Shine."
-                    : "Entra directo a cada workbook, continúa donde ibas y revisa tu avance real sincronizado por usuario."}
+                    ? "Los workbooks viven en un espacio aparte y se activan cuando compras el programa 4Shine."
+                    : "Aquí solo ves los workbooks, sin mezclar recursos ni cursos, para mantener una continuidad clara de trabajo."}
                 </p>
               </div>
-            </div>
 
-            {isOpenLeader ? (
-              <AccessOfferPanel
-                badge="Programa 4Shine"
-                title="Desbloquea los 10 workbooks del journey."
-                description="Cada workbook es único por usuario y se libera según cronograma. Esta cuenta free no genera ni muestra instancias del programa hasta activar la suscripción."
-                products={programOffers}
-                primaryAction={{
-                  href: "/dashboard",
-                  label: "Desbloquear workbooks",
-                }}
-                note="Los workbooks también sincronizan progreso real con Trayectoria y Mentorías, por eso solo se crean para líderes con plan activo."
-              />
-            ) : (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.7fr)_minmax(260px,0.7fr)]">
-                <div className="rounded-[18px] border border-[var(--app-border)] bg-white/82 px-4 py-3 shadow-[0_16px_36px_rgba(55,32,80,0.05)] md:col-span-2">
-                  <label className="flex items-center gap-2 text-sm text-[var(--app-muted)]">
-                    <Search size={16} />
-                    <input
-                      className="w-full bg-transparent py-1 text-sm text-[var(--app-ink)] outline-none"
-                      placeholder="Buscar workbook por título, usuario o pilar"
-                      value={workbookSearch}
-                      onChange={(event) =>
-                        setWorkbookSearch(event.target.value)
-                      }
-                    />
-                  </label>
-                </div>
-                {currentRole === "lider" ? (
-                  <div className="flex items-center rounded-[18px] border border-[var(--app-border)] bg-white/82 px-4 py-3 text-sm text-[var(--app-muted)] shadow-[0_16px_36px_rgba(55,32,80,0.05)]">
-                    <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--app-muted)]">
-                      Tu ruta
-                    </span>
-                    <span className="ml-3 font-semibold text-[var(--app-ink)]">
-                      {workbookOwners.find(
-                        (owner) => owner.userId === workbookOwnerFilter,
-                      )?.ownerName ?? "Tus workbooks"}
-                    </span>
-                  </div>
-                ) : (
-                  <select
-                    className={fieldClass}
-                    value={workbookOwnerFilter}
-                    onChange={(event) =>
-                      setWorkbookOwnerFilter(event.target.value)
-                    }
-                  >
-                    <option value="all">Todos los líderes</option>
-                    {workbookOwners.map((owner) => (
-                      <option key={owner.userId} value={owner.userId}>
-                        {owner.ownerName}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
-
-              {filteredWorkbooks.length === 0 ? (
-                <EmptyState message="No hay workbooks disponibles con este filtro." />
+              {isOpenLeader ? (
+                <AccessOfferPanel
+                  badge="Programa 4Shine"
+                  title="Desbloquea los 10 workbooks del journey."
+                  description="Cada workbook es único por usuario y se libera según cronograma. Esta cuenta free no genera ni muestra instancias del programa hasta activar la suscripción."
+                  products={programOffers}
+                  primaryAction={{
+                    href: "/dashboard",
+                    label: "Desbloquear workbooks",
+                  }}
+                  note="Los workbooks también sincronizan progreso real con Trayectoria y Mentorías, por eso solo se crean para líderes con plan activo."
+                />
               ) : (
-                <div className="grid grid-cols-1 gap-4 xl:grid-cols-2 2xl:grid-cols-3">
-                  {filteredWorkbooks.map((workbook) => {
-                    const digitalWorkbook =
-                      workbookCatalogBySlug.get(
-                        workbook.templateCode.toLowerCase(),
-                      ) ?? null;
-                    const progress = clampPercent(workbook.completionPercent);
-
-                    return (
-                      <Link
-                        key={workbook.workbookId}
-                        href={buildWorkbookDigitalHref(workbook)}
-                        className="group overflow-hidden rounded-[24px] border border-[var(--app-border)] bg-white/82 text-left text-[var(--app-ink)] shadow-[0_18px_38px_rgba(55,32,80,0.06)] transition hover:-translate-y-1 hover:border-[var(--app-border-strong)] hover:shadow-[0_24px_44px_rgba(55,32,80,0.1)]"
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.7fr)_minmax(260px,0.7fr)]">
+                    <div className="rounded-[18px] border border-[var(--app-border)] bg-white/82 px-4 py-3 shadow-[0_16px_36px_rgba(55,32,80,0.05)] md:col-span-2">
+                      <label className="flex items-center gap-2 text-sm text-[var(--app-muted)]">
+                        <Search size={16} />
+                        <input
+                          className="w-full bg-transparent py-1 text-sm text-[var(--app-ink)] outline-none"
+                          placeholder="Buscar workbook por título, usuario o pilar"
+                          value={workbookSearch}
+                          onChange={(event) =>
+                            setWorkbookSearch(event.target.value)
+                          }
+                        />
+                      </label>
+                    </div>
+                    {currentRole === "lider" ? (
+                      <div className="flex items-center rounded-[18px] border border-[var(--app-border)] bg-white/82 px-4 py-3 text-sm text-[var(--app-muted)] shadow-[0_16px_36px_rgba(55,32,80,0.05)]">
+                        <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--app-muted)]">
+                          Tu ruta
+                        </span>
+                        <span className="ml-3 font-semibold text-[var(--app-ink)]">
+                          {workbookOwners.find(
+                            (owner) => owner.userId === workbookOwnerFilter,
+                          )?.ownerName ?? "Tus workbooks"}
+                        </span>
+                      </div>
+                    ) : (
+                      <select
+                        className={fieldClass}
+                        value={workbookOwnerFilter}
+                        onChange={(event) =>
+                          setWorkbookOwnerFilter(event.target.value)
+                        }
                       >
-                        <div
-                          className={`relative min-h-[220px] p-5 ${workbookVisualClasses(workbook.sequenceNo)}`}
-                        >
-                          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.02),rgba(15,23,42,0.3))]" />
-                          <div className="relative flex h-full flex-col">
-                            <div className="flex items-start justify-between gap-3">
-                              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/72">
-                                Workbook{" "}
-                                {String(workbook.sequenceNo).padStart(2, "0")}
-                              </p>
-                              <span
-                                className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${workbookStateClasses(workbook.accessState)}`}
-                              >
-                                {workbookStateLabel(workbook.accessState)}
-                              </span>
+                        <option value="all">Todos los líderes</option>
+                        {workbookOwners.map((owner) => (
+                          <option key={owner.userId} value={owner.userId}>
+                            {owner.ownerName}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+
+                  {filteredWorkbooks.length === 0 ? (
+                    <EmptyState message="No hay workbooks disponibles con este filtro." />
+                  ) : (
+                    <div className="grid grid-cols-1 gap-4 xl:grid-cols-2 2xl:grid-cols-3">
+                      {filteredWorkbooks.map((workbook) => {
+                        const digitalWorkbook =
+                          workbookCatalogBySlug.get(
+                            workbook.templateCode.toLowerCase(),
+                          ) ?? null;
+                        const progress = clampPercent(
+                          workbook.completionPercent,
+                        );
+
+                        return (
+                          <Link
+                            key={workbook.workbookId}
+                            href={buildWorkbookDigitalHref(workbook)}
+                            className="group overflow-hidden rounded-[24px] border border-[var(--app-border)] bg-white/82 text-left text-[var(--app-ink)] shadow-[0_18px_38px_rgba(55,32,80,0.06)] transition hover:-translate-y-1 hover:border-[var(--app-border-strong)] hover:shadow-[0_24px_44px_rgba(55,32,80,0.1)]"
+                          >
+                            <div
+                              className={`relative min-h-[220px] p-5 ${workbookVisualClasses(workbook.sequenceNo)}`}
+                            >
+                              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.02),rgba(15,23,42,0.3))]" />
+                              <div className="relative flex h-full flex-col">
+                                <div className="flex items-start justify-between gap-3">
+                                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/72">
+                                    Workbook{" "}
+                                    {String(workbook.sequenceNo).padStart(2, "0")}
+                                  </p>
+                                  <span
+                                    className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${workbookStateClasses(workbook.accessState)}`}
+                                  >
+                                    {workbookStateLabel(workbook.accessState)}
+                                  </span>
+                                </div>
+
+                                <div className="mt-auto">
+                                  <h4 className="text-[1.65rem] font-extrabold leading-tight text-white">
+                                    {workbook.title}
+                                  </h4>
+                                  <p className="mt-3 max-w-lg text-sm leading-relaxed text-white/80">
+                                    {digitalWorkbook?.summary ??
+                                      workbook.description ??
+                                      "Sin descripción disponible."}
+                                  </p>
+                                </div>
+                              </div>
                             </div>
 
-                            <div className="mt-auto">
-                              <h4 className="text-[1.65rem] font-extrabold leading-tight text-white">
-                                {workbook.title}
-                              </h4>
-                              <p className="mt-3 max-w-lg text-sm leading-relaxed text-white/80">
-                                {digitalWorkbook?.summary ??
-                                  workbook.description ??
-                                  "Sin descripción disponible."}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
+                            <div className="p-4 sm:p-5">
+                              <div className="rounded-[16px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-3">
+                                <div className="flex items-center justify-between gap-3 text-xs text-[var(--app-muted)]">
+                                  <span>Progreso real</span>
+                                  <span className="font-semibold text-[var(--app-ink)]">
+                                    {progress}%
+                                  </span>
+                                </div>
+                                <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/80">
+                                  <div
+                                    className={`h-full rounded-full ${workbookProgressClasses(progress)}`}
+                                    style={{ width: `${progress}%` }}
+                                  />
+                                </div>
+                              </div>
 
-                        <div className="p-4 sm:p-5">
-                          <div className="rounded-[16px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-3">
-                            <div className="flex items-center justify-between gap-3 text-xs text-[var(--app-muted)]">
-                              <span>Progreso real</span>
-                              <span className="font-semibold text-[var(--app-ink)]">
-                                {progress}%
-                              </span>
-                            </div>
-                            <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/80">
-                              <div
-                                className={`h-full rounded-full ${workbookProgressClasses(progress)}`}
-                                style={{ width: `${progress}%` }}
-                              />
-                            </div>
-                          </div>
+                              <div className="mt-4 flex flex-wrap items-center gap-2">
+                                {currentRole !== "lider" && (
+                                  <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs text-[var(--app-muted)]">
+                                    {workbook.ownerName}
+                                  </span>
+                                )}
+                                <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs text-[var(--app-muted)]">
+                                  {pillarLabel(workbook.pillarCode)}
+                                </span>
+                                <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs text-[var(--app-muted)]">
+                                  {formatDate(workbook.availableFrom)}
+                                </span>
+                              </div>
 
-                          <div className="mt-4 flex flex-wrap items-center gap-2">
-                            {currentRole !== "lider" && (
-                              <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs text-[var(--app-muted)]">
-                                {workbook.ownerName}
-                              </span>
-                            )}
-                            <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs text-[var(--app-muted)]">
-                              {pillarLabel(workbook.pillarCode)}
-                            </span>
-                            <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs text-[var(--app-muted)]">
-                              {formatDate(workbook.availableFrom)}
-                            </span>
-                          </div>
-
-                          <div className="mt-5 flex items-center justify-between border-t border-[var(--app-border)] pt-4">
-                            <span className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--app-muted)]">
-                              <BookOpen size={16} />
-                              {progress > 0
-                                ? "Continuar workbook"
-                                : "Abrir workbook"}
-                            </span>
-                            <span className="text-sm font-black text-[var(--app-ink)]">
-                              {digitalWorkbook?.code ??
-                                `WB${String(workbook.sequenceNo)}`}
-                            </span>
-                          </div>
-                        </div>
-                      </Link>
-                    );
-                  })}
+                              <div className="mt-5 flex items-center justify-between border-t border-[var(--app-border)] pt-4">
+                                <span className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--app-muted)]">
+                                  <BookOpen size={16} />
+                                  {progress > 0
+                                    ? "Continuar workbook"
+                                    : "Abrir workbook"}
+                                </span>
+                                <span className="text-sm font-black text-[var(--app-ink)]">
+                                  {digitalWorkbook?.code ??
+                                    `WB${String(workbook.sequenceNo)}`}
+                                </span>
+                              </div>
+                            </div>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
-            )}
-          </section>
-
-          <section className={panelClass}>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <div className="rounded-[18px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-[14px] bg-[var(--app-chip)] p-3 text-[#4f2360]">
-                    <BookOpen size={18} />
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-[var(--app-ink)]">
-                      Recursos individuales
-                    </h4>
-                    <p className="text-sm text-[var(--app-muted)]">
-                      Videos, pódcast y documentos listos para búsqueda y
-                      comentario.
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div className="rounded-[18px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-[14px] bg-amber-500/10 p-3 text-amber-700">
-                    <Layers3 size={18} />
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-[var(--app-ink)]">
-                      Cursos
-                    </h4>
-                    <p className="text-sm text-[var(--app-muted)]">
-                      Agrupados como experiencias completas de aprendizaje.
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div className="rounded-[18px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-[14px] bg-emerald-500/10 p-3 text-emerald-700">
-                    <CalendarClock size={18} />
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-[var(--app-ink)]">
-                      Cronograma de workbooks
-                    </h4>
-                    <p className="text-sm text-[var(--app-muted)]">
-                      Cada líder recibe 10 workbooks únicos con habilitación
-                      gradual.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
+            </section>
+          )}
         </>
       )}
 
