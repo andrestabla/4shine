@@ -454,14 +454,14 @@ export async function createContent(
         $6,
         $7,
         $8,
-        $9,
+        $9::uuid,
         $10,
         $11,
         $12,
         $13::jsonb,
         $14::jsonb,
-        $15,
-        CASE WHEN $11 = 'published' THEN $15 ELSE NULL END,
+        $15::uuid,
+        CASE WHEN $11 = 'published' THEN $15::uuid ELSE NULL::uuid END,
         CASE WHEN $11 = 'published' THEN now() ELSE NULL END,
         CASE WHEN $11 = 'published' THEN now() ELSE NULL END
       )
