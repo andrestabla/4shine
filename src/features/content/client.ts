@@ -4,6 +4,29 @@ export type ContentScope = 'aprendizaje' | 'metodologia' | 'formacion_mentores' 
 export type ContentType = 'video' | 'pdf' | 'scorm' | 'article' | 'podcast' | 'html' | 'ppt';
 export type ContentStatus = 'draft' | 'pending_review' | 'published' | 'archived' | 'rejected';
 export type ContentCompetencyMetadata = Record<string, string | null>;
+export type CourseModuleResourceType = Exclude<ContentType, 'scorm'> | 'link';
+
+export interface CourseModuleResource {
+  id: string;
+  title: string;
+  description?: string | null;
+  contentType: CourseModuleResourceType;
+  url?: string | null;
+  durationLabel?: string | null;
+  linkedContentId?: string | null;
+}
+
+export interface CourseModule {
+  id: string;
+  title: string;
+  description?: string | null;
+  resources: CourseModuleResource[];
+}
+
+export interface ContentStructurePayload {
+  kind: 'resource' | 'course';
+  modules?: CourseModule[];
+}
 
 export interface ContentItemRecord {
   contentId: string;
@@ -24,6 +47,7 @@ export interface ContentItemRecord {
   approvedAt: string | null;
   publishedAt: string | null;
   competencyMetadata: ContentCompetencyMetadata;
+  structurePayload: ContentStructurePayload;
   tags: string[];
   createdAt: string;
   updatedAt: string;
@@ -41,6 +65,7 @@ export interface CreateContentInput {
   status?: ContentStatus;
   isRecommended?: boolean;
   competencyMetadata?: ContentCompetencyMetadata;
+  structurePayload?: ContentStructurePayload;
   tags?: string[];
 }
 
@@ -55,6 +80,7 @@ export interface UpdateContentInput {
   status?: ContentStatus;
   isRecommended?: boolean;
   competencyMetadata?: ContentCompetencyMetadata;
+  structurePayload?: ContentStructurePayload;
   tags?: string[];
 }
 

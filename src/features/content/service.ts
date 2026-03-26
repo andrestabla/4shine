@@ -7,6 +7,29 @@ export type ContentScope = 'aprendizaje' | 'metodologia' | 'formacion_mentores' 
 export type ContentType = 'video' | 'pdf' | 'scorm' | 'article' | 'podcast' | 'html' | 'ppt';
 export type ContentStatus = 'draft' | 'pending_review' | 'published' | 'archived' | 'rejected';
 export type ContentCompetencyMetadata = Record<string, string | null>;
+export type CourseModuleResourceType = Exclude<ContentType, 'scorm'> | 'link';
+
+export interface CourseModuleResource {
+  id: string;
+  title: string;
+  description?: string | null;
+  contentType: CourseModuleResourceType;
+  url?: string | null;
+  durationLabel?: string | null;
+  linkedContentId?: string | null;
+}
+
+export interface CourseModule {
+  id: string;
+  title: string;
+  description?: string | null;
+  resources: CourseModuleResource[];
+}
+
+export interface ContentStructurePayload {
+  kind: 'resource' | 'course';
+  modules?: CourseModule[];
+}
 
 export interface ContentItemRecord {
   contentId: string;
@@ -27,6 +50,7 @@ export interface ContentItemRecord {
   approvedAt: string | null;
   publishedAt: string | null;
   competencyMetadata: ContentCompetencyMetadata;
+  structurePayload: ContentStructurePayload;
   tags: string[];
   createdAt: string;
   updatedAt: string;
@@ -44,6 +68,7 @@ export interface CreateContentInput {
   status?: ContentStatus;
   isRecommended?: boolean;
   competencyMetadata?: ContentCompetencyMetadata;
+  structurePayload?: ContentStructurePayload;
   tags?: string[];
 }
 
@@ -58,6 +83,7 @@ export interface UpdateContentInput {
   status?: ContentStatus;
   isRecommended?: boolean;
   competencyMetadata?: ContentCompetencyMetadata;
+  structurePayload?: ContentStructurePayload;
   tags?: string[];
 }
 
@@ -80,6 +106,7 @@ interface ContentRow {
   approved_at: string | null;
   published_at: string | null;
   competency_metadata: ContentCompetencyMetadata | null;
+  structure_payload: ContentStructurePayload | null;
   tags: string[] | null;
   created_at: string;
   updated_at: string;
@@ -112,6 +139,7 @@ const CONTENT_SELECT = `
     ci.approved_at::text,
     ci.published_at::text,
     ci.competency_metadata,
+    ci.structure_payload,
     COALESCE(tags.tags, ARRAY[]::text[]) AS tags,
     ci.created_at::text,
     ci.updated_at::text
@@ -144,6 +172,11 @@ function mapRow(row: ContentRow): ContentItemRecord {
     approvedAt: row.approved_at,
     publishedAt: row.published_at,
     competencyMetadata: row.competency_metadata ?? {},
+    structurePayload:
+      row.structure_payload ?? {
+        kind: row.content_type === 'scorm' ? 'course' : 'resource',
+        modules: [],
+      },
     tags: row.tags ?? [],
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -178,6 +211,105 @@ function normalizeCompetencyMetadata(metadata: ContentCompetencyMetadata | undef
     acc[normalizedKey] = typeof value === 'string' ? value.trim() || null : null;
     return acc;
   }, {});
+}
+
+function normalizeCourseModuleResource(input: unknown): CourseModuleResource | null {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    return null;
+  }
+
+  const resource = input as Record<string, unknown>;
+  const title = typeof resource.title === 'string' ? resource.title.trim() : '';
+  if (!title) {
+    return null;
+  }
+
+  const rawType = typeof resource.contentType === 'string' ? resource.contentType.trim() : 'link';
+  const contentType: CourseModuleResourceType =
+    rawType === 'video' ||
+    rawType === 'pdf' ||
+    rawType === 'article' ||
+    rawType === 'podcast' ||
+    rawType === 'html' ||
+    rawType === 'ppt' ||
+    rawType === 'link'
+      ? rawType
+      : 'link';
+
+  return {
+    id:
+      typeof resource.id === 'string' && resource.id.trim().length > 0
+        ? resource.id.trim()
+        : crypto.randomUUID(),
+    title,
+    description:
+      typeof resource.description === 'string' && resource.description.trim().length > 0
+        ? resource.description.trim()
+        : null,
+    contentType,
+    url:
+      typeof resource.url === 'string' && resource.url.trim().length > 0
+        ? resource.url.trim()
+        : null,
+    durationLabel:
+      typeof resource.durationLabel === 'string' && resource.durationLabel.trim().length > 0
+        ? resource.durationLabel.trim()
+        : null,
+    linkedContentId:
+      typeof resource.linkedContentId === 'string' && resource.linkedContentId.trim().length > 0
+        ? resource.linkedContentId.trim()
+        : null,
+  };
+}
+
+function normalizeCourseModule(input: unknown): CourseModule | null {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    return null;
+  }
+
+  const moduleData = input as Record<string, unknown>;
+  const title = typeof moduleData.title === 'string' ? moduleData.title.trim() : '';
+  if (!title) {
+    return null;
+  }
+
+  const resources = Array.isArray(moduleData.resources)
+    ? moduleData.resources
+        .map((resource) => normalizeCourseModuleResource(resource))
+        .filter((resource): resource is CourseModuleResource => Boolean(resource))
+    : [];
+
+  return {
+    id:
+      typeof moduleData.id === 'string' && moduleData.id.trim().length > 0
+        ? moduleData.id.trim()
+        : crypto.randomUUID(),
+    title,
+    description:
+      typeof moduleData.description === 'string' && moduleData.description.trim().length > 0
+        ? moduleData.description.trim()
+        : null,
+    resources,
+  };
+}
+
+function normalizeStructurePayload(
+  input: ContentStructurePayload | undefined,
+  contentTypeHint?: ContentType,
+): ContentStructurePayload {
+  const kind: ContentStructurePayload['kind'] =
+    input?.kind === 'course' || contentTypeHint === 'scorm' ? 'course' : 'resource';
+
+  const modules = Array.isArray(input?.modules)
+    ? input.modules
+        .map((moduleItem) => normalizeCourseModule(moduleItem))
+        .filter((moduleItem): moduleItem is CourseModule => Boolean(moduleItem))
+    : [];
+
+  return {
+    kind,
+    modules,
+  };
 }
 
 async function syncContentTags(client: PoolClient, contentId: string, tags: string[]) {
@@ -285,6 +417,7 @@ export async function createContent(
 
   const status = input.status ?? 'draft';
   const competencyMetadata = normalizeCompetencyMetadata(input.competencyMetadata);
+  const structurePayload = normalizeStructurePayload(input.structurePayload, input.contentType);
   const tags = normalizeTags(input.tags);
   if (status === 'published') {
     await requireModulePermission(client, moduleCode, 'approve');
@@ -306,6 +439,7 @@ export async function createContent(
         status,
         is_recommended,
         competency_metadata,
+        structure_payload,
         created_by,
         approved_by,
         approved_at,
@@ -325,8 +459,9 @@ export async function createContent(
         $11,
         $12,
         $13::jsonb,
-        $14,
-        CASE WHEN $11 = 'published' THEN $14 ELSE NULL END,
+        $14::jsonb,
+        $15,
+        CASE WHEN $11 = 'published' THEN $15 ELSE NULL END,
         CASE WHEN $11 = 'published' THEN now() ELSE NULL END,
         CASE WHEN $11 = 'published' THEN now() ELSE NULL END
       )
@@ -346,6 +481,7 @@ export async function createContent(
       status,
       input.isRecommended ?? false,
       JSON.stringify(competencyMetadata),
+      JSON.stringify(structurePayload),
       actor.userId,
     ],
   );
@@ -381,6 +517,10 @@ export async function updateContent(
 
   const competencyMetadata =
     input.competencyMetadata === undefined ? undefined : normalizeCompetencyMetadata(input.competencyMetadata);
+  const structurePayload =
+    input.structurePayload === undefined
+      ? undefined
+      : normalizeStructurePayload(input.structurePayload, input.contentType);
 
   const { rows } = await client.query<{ content_id: string }>(
     `
@@ -396,7 +536,8 @@ export async function updateContent(
         status = COALESCE($9, status),
         is_recommended = COALESCE($10, is_recommended),
         competency_metadata = COALESCE($11::jsonb, competency_metadata),
-        approved_by = CASE WHEN $9 = 'published' THEN $12 ELSE approved_by END,
+        structure_payload = COALESCE($12::jsonb, structure_payload),
+        approved_by = CASE WHEN $9 = 'published' THEN $13 ELSE approved_by END,
         approved_at = CASE WHEN $9 = 'published' THEN now() ELSE approved_at END,
         published_at = CASE WHEN $9 = 'published' THEN COALESCE(published_at, now()) ELSE published_at END,
         updated_at = now()
@@ -415,6 +556,7 @@ export async function updateContent(
       input.status ?? null,
       input.isRecommended ?? null,
       competencyMetadata ? JSON.stringify(competencyMetadata) : null,
+      structurePayload ? JSON.stringify(structurePayload) : null,
       actor.userId,
     ],
   );

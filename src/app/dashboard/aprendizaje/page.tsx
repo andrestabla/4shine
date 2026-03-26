@@ -38,7 +38,11 @@ import {
   createContent,
   deleteContent,
   updateContent,
+  type CourseModule,
+  type CourseModuleResource,
+  type CourseModuleResourceType,
   type ContentStatus,
+  type ContentStructurePayload,
   type ContentType,
 } from "@/features/content/client";
 import {
@@ -83,6 +87,7 @@ interface ResourceFormState {
   stage: string;
   audience: string;
   isRecommended: boolean;
+  courseModules: CourseModule[];
 }
 
 const EMPTY_RESOURCE_FORM: ResourceFormState = {
@@ -100,7 +105,20 @@ const EMPTY_RESOURCE_FORM: ResourceFormState = {
   stage: "",
   audience: "lider",
   isRecommended: false,
+  courseModules: [],
 };
+
+type ResourceEditorKind = "resource" | "course";
+
+const COURSE_MODULE_RESOURCE_TYPE_OPTIONS: CourseModuleResourceType[] = [
+  "video",
+  "pdf",
+  "article",
+  "podcast",
+  "html",
+  "ppt",
+  "link",
+];
 
 const PROGRAM_STAGE_OPTIONS = [
   "Descubrimiento",
@@ -207,15 +225,15 @@ const CONTENT_TYPE_EXPERIENCE: Record<
     tagPresets: ["deck", "presentación", "ejecutivo"],
   },
   scorm: {
-    description: "Pensado para paquetes completos, rutas de aprendizaje y experiencias secuenciales.",
-    assetLabel: "Paquete SCORM",
-    uploadLabel: "Subir paquete SCORM a R2",
-    uploadHelp: "Carga el archivo ZIP final del paquete listo para distribución.",
+    description: "Pensado para cursos completos con módulos, recursos internos y experiencia secuencial.",
+    assetLabel: "Paquete o URL de lanzamiento del curso",
+    uploadLabel: "Subir curso a R2",
+    uploadHelp: "Carga el ZIP final del curso o vincula la URL de lanzamiento. Además puedes estructurarlo por módulos y recursos internos.",
     urlPlaceholder: "https://... o URL generada en R2",
     accept: ".zip,application/zip,application/x-zip-compressed",
-    categoryPresets: ["Ruta SCORM", "Módulo", "Experiencia", "Programa"],
+    categoryPresets: ["Curso", "Ruta", "Academia", "Programa"],
     durationPresets: ["15 min", "30 min", "45 min", "60 min", "90 min"],
-    tagPresets: ["scorm", "ruta", "premium"],
+    tagPresets: ["curso", "ruta", "premium"],
   },
 };
 
@@ -242,6 +260,96 @@ function formatFileSize(bytes: number): string {
     return `${Math.round(bytes / 1024)} KB`;
   }
   return `${bytes} B`;
+}
+
+function buildEditorId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `tmp_${Date.now()}_${Math.random().toString(16).slice(2, 10)}`;
+}
+
+function createEmptyCourseResource(): CourseModuleResource {
+  return {
+    id: buildEditorId(),
+    title: "",
+    description: "",
+    contentType: "video",
+    url: "",
+    durationLabel: "",
+    linkedContentId: null,
+  };
+}
+
+function createEmptyCourseModule(): CourseModule {
+  return {
+    id: buildEditorId(),
+    title: "",
+    description: "",
+    resources: [createEmptyCourseResource()],
+  };
+}
+
+function editorKindFromContentType(type: ContentType): ResourceEditorKind {
+  return type === "scorm" ? "course" : "resource";
+}
+
+function normalizeCourseModulesFromStructure(
+  structurePayload: ContentStructurePayload | null | undefined,
+): CourseModule[] {
+  if (!structurePayload || !Array.isArray(structurePayload.modules)) {
+    return [];
+  }
+
+  return structurePayload.modules.map((module) => ({
+    id: module.id || buildEditorId(),
+    title: module.title ?? "",
+    description: module.description ?? "",
+    resources: Array.isArray(module.resources)
+      ? module.resources.map((resource) => ({
+          id: resource.id || buildEditorId(),
+          title: resource.title ?? "",
+          description: resource.description ?? "",
+          contentType: resource.contentType ?? "video",
+          url: resource.url ?? "",
+          durationLabel: resource.durationLabel ?? "",
+          linkedContentId: resource.linkedContentId ?? null,
+        }))
+      : [createEmptyCourseResource()],
+  }));
+}
+
+function normalizeCourseModulesForSave(modules: CourseModule[]): CourseModule[] {
+  return modules
+    .map((module) => ({
+      id: module.id || buildEditorId(),
+      title: module.title.trim(),
+      description: module.description?.trim() || null,
+      resources: (module.resources ?? [])
+        .map((resource) => ({
+          id: resource.id || buildEditorId(),
+          title: resource.title.trim(),
+          description: resource.description?.trim() || null,
+          contentType: resource.contentType,
+          url: resource.url?.trim() || null,
+          durationLabel: resource.durationLabel?.trim() || null,
+          linkedContentId: resource.linkedContentId?.trim() || null,
+        }))
+        .filter((resource) => resource.title.length > 0),
+    }))
+    .filter((module) => module.title.length > 0);
+}
+
+function countCourseResources(modules: CourseModule[]): number {
+  return modules.reduce(
+    (total, module) => total + (module.resources?.filter((resource) => resource.title.trim().length > 0).length ?? 0),
+    0,
+  );
+}
+
+function courseModuleResourceTypeLabel(type: CourseModuleResourceType): string {
+  if (type === "link") return "Enlace";
+  return contentTypeLabel(type);
 }
 
 function ResourceTagComposer({
@@ -366,7 +474,7 @@ function roleLabel(role: string | null | undefined): string {
 function contentTypeLabel(type: ContentType): string {
   if (type === "pdf") return "PDF";
   if (type === "ppt") return "PPT";
-  if (type === "scorm") return "SCORM";
+  if (type === "scorm") return "Curso";
   return type.charAt(0).toUpperCase() + type.slice(1);
 }
 
@@ -544,6 +652,11 @@ export default function AprendizajePage() {
     () => CONTENT_TYPE_EXPERIENCE[resourceForm.contentType],
     [resourceForm.contentType],
   );
+  const editorKind = React.useMemo<ResourceEditorKind>(
+    () => editorKindFromContentType(resourceForm.contentType),
+    [resourceForm.contentType],
+  );
+  const isCourseEditor = editorKind === "course";
 
   const competencyOptions = React.useMemo(
     () => getCompetencyOptions(resourceForm.pillar, resourceForm.component),
@@ -605,6 +718,10 @@ export default function AprendizajePage() {
       resource.competencyMetadata.component ?? "",
       resource.competencyMetadata.competency ?? "",
       resource.competencyMetadata.stage ?? "",
+      ...(resource.structurePayload.modules?.map((module) => module.title) ?? []),
+      ...(resource.structurePayload.modules?.flatMap((module) =>
+        module.resources.map((courseResource) => courseResource.title),
+      ) ?? []),
     ]
       .join(" ")
       .toLowerCase();
@@ -781,6 +898,12 @@ export default function AprendizajePage() {
   const recommendedResourceCount = resources.filter(
     (resource) => resource.isRecommended,
   ).length;
+  const activeCourseCount = resources.filter(
+    (resource) => resource.contentType === "scorm",
+  ).length;
+  const currentCourseResourceCount = countCourseResources(
+    resourceForm.courseModules,
+  );
 
   const resetResourceForm = React.useCallback(() => {
     setEditingResourceId(null);
@@ -828,6 +951,9 @@ export default function AprendizajePage() {
         stage: resource.competencyMetadata.stage ?? "",
         audience: resource.competencyMetadata.audience ?? "lider",
         isRecommended: resource.isRecommended,
+        courseModules: normalizeCourseModulesFromStructure(
+          resource.structurePayload,
+        ),
       });
       setResourceTagDraft("");
       setCustomCategoryDraft(
@@ -858,6 +984,13 @@ export default function AprendizajePage() {
       stage: resourceForm.stage.trim() || null,
       audience: resourceForm.audience.trim() || null,
     },
+    structurePayload: {
+      kind: editorKind,
+      modules:
+        editorKind === "course"
+          ? normalizeCourseModulesForSave(resourceForm.courseModules)
+          : [],
+    },
   });
 
   const onSubmitResource = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -872,11 +1005,31 @@ export default function AprendizajePage() {
       });
       return;
     }
-    if (resourceForm.status === "published" && !resourceForm.url.trim()) {
+    const hasCourseStructure = countCourseResources(resourceForm.courseModules) > 0;
+    if (
+      resourceForm.status === "published" &&
+      !resourceForm.url.trim() &&
+      !hasCourseStructure
+    ) {
       await alert({
         title: "Completa el recurso",
         message:
-          "Antes de publicar, sube el archivo a R2 o agrega una URL válida para que el recurso quede disponible.",
+          editorKind === "course"
+            ? "Antes de publicar el curso, vincula una URL o construye al menos un módulo con recursos internos."
+            : "Antes de publicar, sube el archivo a R2 o agrega una URL válida para que el recurso quede disponible.",
+        tone: "warning",
+      });
+      return;
+    }
+    if (
+      editorKind === "course" &&
+      resourceForm.status === "published" &&
+      !hasCourseStructure
+    ) {
+      await alert({
+        title: "Estructura pendiente",
+        message:
+          "Un curso publicado debe tener al menos un módulo con un recurso interno.",
         tone: "warning",
       });
       return;
@@ -933,10 +1086,34 @@ export default function AprendizajePage() {
           !prev.durationLabel && CONTENT_TYPE_EXPERIENCE[nextType].durationPresets[0]
             ? CONTENT_TYPE_EXPERIENCE[nextType].durationPresets[0]
             : prev.durationLabel,
+        courseModules:
+          nextType === "scorm" && prev.courseModules.length === 0
+            ? [createEmptyCourseModule()]
+            : prev.courseModules,
       }));
     },
     [resourceCategoryMode],
   );
+
+  const onChangeEditorKind = React.useCallback((nextKind: ResourceEditorKind) => {
+    if (nextKind === "course") {
+      setResourceForm((prev) => ({
+        ...prev,
+        contentType: "scorm",
+        category: prev.category || CONTENT_TYPE_EXPERIENCE.scorm.categoryPresets[0],
+        durationLabel:
+          prev.durationLabel || CONTENT_TYPE_EXPERIENCE.scorm.durationPresets[0],
+        courseModules:
+          prev.courseModules.length > 0 ? prev.courseModules : [createEmptyCourseModule()],
+      }));
+      return;
+    }
+
+    setResourceForm((prev) => ({
+      ...prev,
+      contentType: prev.contentType === "scorm" ? "video" : prev.contentType,
+    }));
+  }, []);
 
   const onSelectResourceCategory = React.useCallback((value: string) => {
     if (value === "__custom") {
@@ -951,31 +1128,172 @@ export default function AprendizajePage() {
     setResourceForm((prev) => ({ ...prev, category: value }));
   }, []);
 
-  const resourceSetupChecklist = React.useMemo(
-    () => [
-      {
-        label: "Título y categoría",
-        ready: Boolean(resourceForm.title.trim() && resourceForm.category.trim()),
-      },
-      {
-        label: "Activo o URL vinculada",
-        ready: Boolean(resourceForm.url.trim()),
-      },
-      {
-        label: "Mapa de competencias",
-        ready: Boolean(
-          resourceForm.pillar && resourceForm.component && resourceForm.competency,
+  const addCourseModule = React.useCallback(() => {
+    setResourceForm((prev) => ({
+      ...prev,
+      courseModules: [...prev.courseModules, createEmptyCourseModule()],
+    }));
+  }, []);
+
+  const updateCourseModule = React.useCallback(
+    (moduleId: string, field: "title" | "description", value: string) => {
+      setResourceForm((prev) => ({
+        ...prev,
+        courseModules: prev.courseModules.map((module) =>
+          module.id === moduleId ? { ...module, [field]: value } : module,
         ),
-      },
-      {
-        label: "Tags de descubrimiento",
-        ready: resourceForm.tags.length > 0,
-      },
-    ],
+      }));
+    },
+    [],
+  );
+
+  const removeCourseModule = React.useCallback((moduleId: string) => {
+    setResourceForm((prev) => ({
+      ...prev,
+      courseModules:
+        prev.courseModules.length <= 1
+          ? [createEmptyCourseModule()]
+          : prev.courseModules.filter((module) => module.id !== moduleId),
+    }));
+  }, []);
+
+  const addCourseModuleResource = React.useCallback((moduleId: string) => {
+    setResourceForm((prev) => ({
+      ...prev,
+      courseModules: prev.courseModules.map((module) =>
+        module.id === moduleId
+          ? {
+              ...module,
+              resources: [...module.resources, createEmptyCourseResource()],
+            }
+          : module,
+      ),
+    }));
+  }, []);
+
+  const updateCourseModuleResource = React.useCallback(
+    (
+      moduleId: string,
+      resourceId: string,
+      field:
+        | "title"
+        | "description"
+        | "contentType"
+        | "url"
+        | "durationLabel",
+      value: string,
+    ) => {
+      setResourceForm((prev) => ({
+        ...prev,
+        courseModules: prev.courseModules.map((module) =>
+          module.id === moduleId
+            ? {
+                ...module,
+                resources: module.resources.map((resource) =>
+                  resource.id === resourceId
+                    ? {
+                        ...resource,
+                        [field]:
+                          field === "contentType"
+                            ? (value as CourseModuleResourceType)
+                            : value,
+                      }
+                    : resource,
+                ),
+              }
+            : module,
+        ),
+      }));
+    },
+    [],
+  );
+
+  const removeCourseModuleResource = React.useCallback(
+    (moduleId: string, resourceId: string) => {
+      setResourceForm((prev) => ({
+        ...prev,
+        courseModules: prev.courseModules.map((module) => {
+          if (module.id !== moduleId) {
+            return module;
+          }
+
+          const nextResources =
+            module.resources.length <= 1
+              ? [createEmptyCourseResource()]
+              : module.resources.filter((resource) => resource.id !== resourceId);
+
+          return {
+            ...module,
+            resources: nextResources,
+          };
+        }),
+      }));
+    },
+    [],
+  );
+
+  const resourceSetupChecklist = React.useMemo(
+    () => {
+      const baseChecklist = [
+        {
+          label: "Título y categoría",
+          ready: Boolean(resourceForm.title.trim() && resourceForm.category.trim()),
+        },
+        {
+          label:
+            editorKind === "course"
+              ? "Activo principal o URL del curso"
+              : "Activo o URL vinculada",
+          ready:
+            editorKind === "course"
+              ? Boolean(
+                  resourceForm.url.trim() ||
+                    countCourseResources(resourceForm.courseModules) > 0,
+                )
+              : Boolean(resourceForm.url.trim()),
+        },
+        {
+          label:
+            editorKind === "course"
+              ? "Módulos y recursos del curso"
+              : "Mapa de competencias",
+          ready:
+            editorKind === "course"
+              ? countCourseResources(resourceForm.courseModules) > 0
+              : Boolean(
+                  resourceForm.pillar &&
+                    resourceForm.component &&
+                    resourceForm.competency,
+                ),
+        },
+        {
+          label:
+            editorKind === "course"
+              ? "Tags y señales del curso"
+              : "Tags de descubrimiento",
+          ready: resourceForm.tags.length > 0,
+        },
+      ];
+
+      if (editorKind === "course") {
+        baseChecklist.splice(3, 0, {
+          label: "Mapa de competencias",
+          ready: Boolean(
+            resourceForm.pillar &&
+              resourceForm.component &&
+              resourceForm.competency,
+          ),
+        });
+      }
+
+      return baseChecklist;
+    },
     [
+      editorKind,
       resourceForm.category,
       resourceForm.competency,
       resourceForm.component,
+      resourceForm.courseModules,
       resourceForm.pillar,
       resourceForm.tags.length,
       resourceForm.title,
@@ -1074,11 +1392,11 @@ export default function AprendizajePage() {
               className="app-display-title mt-3 text-4xl font-semibold leading-[0.92] text-white md:text-[3.5rem]"
               data-display-font="true"
             >
-              Recursos, experiencias SCORM y workbooks en una sola ruta.
+              Recursos, cursos y workbooks en una sola ruta.
             </h2>
             <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/82 md:text-base">
               {isOpenLeader
-                ? "Explora recursos marcados como free y activa el programa para desbloquear la biblioteca completa, los SCORM premium y los workbooks."
+                ? "Explora recursos marcados como free y activa el programa para desbloquear la biblioteca completa, los cursos premium y los workbooks."
                 : "Explora contenido conectado al mapa de competencias, retoma tus workbooks y sigue tu progreso sin salir de la experiencia."}
             </p>
 
@@ -1092,7 +1410,7 @@ export default function AprendizajePage() {
                     (resource) => resource.contentType === "scorm",
                   ).length
                 }{" "}
-                paquetes SCORM
+                cursos activos
               </span>
               <span className="rounded-full border border-white/16 bg-white/10 px-4 py-2 text-xs font-semibold text-white/90">
                 {isOpenLeader
@@ -1124,12 +1442,12 @@ export default function AprendizajePage() {
                 <Layers3 size={18} />
               </div>
               <p className="mt-4 font-extrabold text-[var(--app-ink)]">
-                Experiencias SCORM
+                Cursos estructurados
               </p>
               <p className="mt-1 text-sm text-[var(--app-muted)]">
                 {isOpenLeader
                   ? "Disponibles al activar el programa completo."
-                  : "Acceso directo a paquetes listos para navegar."}
+                  : "Acceso directo a cursos listos para navegar."}
               </p>
             </div>
             <div className="rounded-[18px] border border-[var(--app-border)] bg-white/78 p-4">
@@ -1157,11 +1475,11 @@ export default function AprendizajePage() {
             hint: "Biblioteca total del módulo",
           },
           {
-            label: "SCORM",
+            label: "Cursos",
             value: resources.filter(
               (resource) => resource.contentType === "scorm",
             ).length,
-            hint: "Paquetes agrupados disponibles",
+            hint: "Cursos estructurados disponibles",
           },
           {
             label: "Workbooks",
@@ -1192,7 +1510,7 @@ export default function AprendizajePage() {
             <AccessOfferPanel
               badge="Acceso free"
               title="Tu biblioteca abierta ya está activa."
-              description="Esta cuenta puede ver y comentar únicamente los recursos etiquetados como free. Para desbloquear la biblioteca completa, los SCORM premium y los 10 workbooks del programa, activa 4Shine."
+              description="Esta cuenta puede ver y comentar únicamente los recursos etiquetados como free. Para desbloquear la biblioteca completa, los cursos premium y los 10 workbooks del programa, activa 4Shine."
               products={programOffers}
               primaryAction={{
                 href: "/dashboard",
@@ -1211,13 +1529,13 @@ export default function AprendizajePage() {
                     className="app-display-title mt-2 text-3xl font-semibold"
                     data-display-font="true"
                   >
-                    Agrega recursos desde un modal guiado.
+                    Agrega recursos y cursos desde un editor completo.
                   </h3>
                   <p className="mt-2 text-sm leading-relaxed text-[var(--app-muted)]">
-                    Admin y gestor ahora crean recursos con una experiencia más
-                    enfocada: carga directa a R2, listas desplegables,
-                    sugerencias inteligentes y metadatos conectados al mapa de
-                    competencias 4Shine.
+                    Admin y gestor ahora crean recursos y cursos desde una
+                    pantalla completa: carga directa a R2, listas desplegables,
+                    sugerencias inteligentes, metadatos conectados al mapa
+                    4Shine y estructura interna por módulos para los cursos.
                   </p>
 
                   <div className="mt-4 flex flex-wrap gap-2">
@@ -1237,7 +1555,7 @@ export default function AprendizajePage() {
                 </div>
 
                 <div className="flex flex-col gap-3 xl:min-w-[19rem]">
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                     <div className="rounded-[20px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4">
                       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--app-muted)]">
                         Publicados
@@ -1262,6 +1580,14 @@ export default function AprendizajePage() {
                         {recommendedResourceCount}
                       </p>
                     </div>
+                    <div className="rounded-[20px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--app-muted)]">
+                        Cursos
+                      </p>
+                      <p className="mt-2 text-2xl font-extrabold text-[var(--app-ink)]">
+                        {activeCourseCount}
+                      </p>
+                    </div>
                   </div>
 
                   <button
@@ -1270,7 +1596,7 @@ export default function AprendizajePage() {
                     onClick={openCreateResourceModal}
                   >
                     <Plus size={16} />
-                    Crear recurso en modal
+                    Abrir editor completo
                   </button>
                 </div>
               </div>
@@ -1285,7 +1611,7 @@ export default function AprendizajePage() {
                   className="app-display-title mt-2 text-3xl font-semibold"
                   data-display-font="true"
                 >
-                  Biblioteca individual + paquetes SCORM
+                  Biblioteca individual + cursos
                 </h3>
                 <p className="mt-2 text-sm leading-relaxed text-[var(--app-muted)]">
                   {isOpenLeader
@@ -1301,7 +1627,7 @@ export default function AprendizajePage() {
                   onClick={openCreateResourceModal}
                 >
                   <Plus size={16} />
-                  Nuevo recurso
+                  Nuevo recurso o curso
                 </button>
               )}
             </div>
@@ -1379,7 +1705,7 @@ export default function AprendizajePage() {
                       className="app-display-title text-2xl font-semibold"
                       data-display-font="true"
                     >
-                      Paquetes SCORM destacados
+                      Cursos destacados
                     </h4>
                     <p className="text-sm text-[var(--app-muted)]">
                       Disponibles como agrupadores de contenido dentro del
@@ -1399,7 +1725,7 @@ export default function AprendizajePage() {
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-600">
-                            SCORM
+                            Curso
                           </p>
                           <h5 className="mt-2 font-semibold text-[var(--app-ink)]">
                             {resource.title}
@@ -1417,6 +1743,17 @@ export default function AprendizajePage() {
                       <div className="mt-4 flex items-center gap-4 text-xs text-[var(--app-muted)]">
                         <span>
                           {resource.durationLabel ?? "Duración flexible"}
+                        </span>
+                        <span>
+                          {resource.structurePayload.modules?.length ?? 0} módulos
+                        </span>
+                        <span>
+                          {countCourseResources(
+                            normalizeCourseModulesFromStructure(
+                              resource.structurePayload,
+                            ),
+                          )}{" "}
+                          recursos internos
                         </span>
                         <span>{resource.comments.length} comentarios</span>
                       </div>
@@ -1559,6 +1896,21 @@ export default function AprendizajePage() {
                         <span>
                           {pillarLabel(resource.competencyMetadata.pillar)}
                         </span>
+                        {resource.contentType === "scorm" && (
+                          <>
+                            <span>
+                              {resource.structurePayload.modules?.length ?? 0} módulos
+                            </span>
+                            <span>
+                              {countCourseResources(
+                                normalizeCourseModulesFromStructure(
+                                  resource.structurePayload,
+                                ),
+                              )}{" "}
+                              recursos internos
+                            </span>
+                          </>
+                        )}
                         <span>{resource.comments.length} comentarios</span>
                         <span>{resource.progressPercent}% avance</span>
                       </div>
@@ -1704,12 +2056,96 @@ export default function AprendizajePage() {
                         )}
                       </div>
 
+                      {selectedResource.contentType === "scorm" && (
+                        <div className="rounded-[20px] border border-[var(--app-border)] bg-white/74 p-4">
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <p className="app-section-kicker">Estructura del curso</p>
+                              <p className="mt-1 text-sm text-[var(--app-muted)]">
+                                Módulos internos y recursos que componen la experiencia.
+                              </p>
+                            </div>
+                            <span className="rounded-full border border-[var(--app-border)] bg-[var(--app-chip)] px-3 py-1 text-xs text-[var(--app-muted)]">
+                              {selectedResource.structurePayload.modules?.length ?? 0} módulos
+                            </span>
+                          </div>
+
+                          <div className="mt-4 space-y-3">
+                            {normalizeCourseModulesFromStructure(
+                              selectedResource.structurePayload,
+                            ).length > 0 ? (
+                              normalizeCourseModulesFromStructure(
+                                selectedResource.structurePayload,
+                              ).map((module, moduleIndex) => (
+                                <div
+                                  key={module.id}
+                                  className="rounded-[18px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4"
+                                >
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--app-muted)]">
+                                        Módulo {moduleIndex + 1}
+                                      </p>
+                                      <h5 className="mt-1 text-sm font-semibold text-[var(--app-ink)]">
+                                        {module.title}
+                                      </h5>
+                                      {module.description && (
+                                        <p className="mt-1 text-sm text-[var(--app-muted)]">
+                                          {module.description}
+                                        </p>
+                                      )}
+                                    </div>
+                                    <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs text-[var(--app-muted)]">
+                                      {module.resources.length} recursos
+                                    </span>
+                                  </div>
+
+                                  <div className="mt-3 space-y-2">
+                                    {module.resources.map((courseResource) => (
+                                      <div
+                                        key={courseResource.id}
+                                        className="rounded-[14px] bg-white px-3 py-3"
+                                      >
+                                        <div className="flex flex-wrap items-center gap-2">
+                                          <span className="rounded-full border border-[var(--app-border)] bg-[var(--app-chip)] px-2.5 py-1 text-xs text-[var(--app-muted)]">
+                                            {courseModuleResourceTypeLabel(
+                                              courseResource.contentType,
+                                            )}
+                                          </span>
+                                          {courseResource.durationLabel && (
+                                            <span className="rounded-full border border-[var(--app-border)] bg-white px-2.5 py-1 text-xs text-[var(--app-muted)]">
+                                              {courseResource.durationLabel}
+                                            </span>
+                                          )}
+                                        </div>
+                                        <p className="mt-2 text-sm font-semibold text-[var(--app-ink)]">
+                                          {courseResource.title}
+                                        </p>
+                                        {courseResource.description && (
+                                          <p className="mt-1 text-sm text-[var(--app-muted)]">
+                                            {courseResource.description}
+                                          </p>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))
+                            ) : (
+                              <p className="rounded-[16px] bg-[var(--app-surface-muted)] px-4 py-3 text-sm text-[var(--app-muted)]">
+                                Este curso aún no tiene módulos cargados.
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
                       <div className="rounded-[20px] border border-[var(--app-border)] bg-white/74 p-4">
                         <div className="flex items-center justify-between gap-3">
                           <div>
                             <p className="app-section-kicker">Comentarios</p>
                             <p className="mt-1 text-sm text-[var(--app-muted)]">
-                              Conversación sobre el recurso entre líderes,
+                              Conversación sobre este contenido entre líderes,
                               iShiners y equipo gestor.
                             </p>
                           </div>
@@ -1988,7 +2424,7 @@ export default function AprendizajePage() {
                   </div>
                   <div>
                     <h4 className="font-semibold text-[var(--app-ink)]">
-                      Paquetes SCORM
+                      Cursos
                     </h4>
                     <p className="text-sm text-[var(--app-muted)]">
                       Agrupados como experiencias completas de aprendizaje.
@@ -2018,7 +2454,7 @@ export default function AprendizajePage() {
       )}
 
       {isResourceManager && isResourceModalOpen && (
-        <div className="fixed inset-0 z-[130] p-3 sm:p-5">
+        <div className="fixed inset-0 z-[130]">
           <div
             className="absolute inset-0 bg-[rgba(35,20,48,0.52)] backdrop-blur-sm"
             onClick={() => closeResourceModal()}
@@ -2028,34 +2464,40 @@ export default function AprendizajePage() {
             aria-modal="true"
             aria-label={
               editingResourceId
-                ? "Editar recurso de aprendizaje"
-                : "Crear recurso de aprendizaje"
+                ? `Editar ${isCourseEditor ? "curso" : "recurso"} de aprendizaje`
+                : `Crear ${isCourseEditor ? "curso" : "recurso"} de aprendizaje`
             }
-            className="relative mx-auto flex max-h-[calc(100vh-1.5rem)] w-full max-w-[1180px] flex-col overflow-hidden rounded-[32px] border border-[rgba(92,54,112,0.16)] bg-[linear-gradient(180deg,rgba(250,247,255,0.98),rgba(246,240,255,0.97))] shadow-[0_28px_90px_rgba(28,17,46,0.34)]"
+            className="relative flex h-full w-full flex-col overflow-hidden bg-[linear-gradient(180deg,rgba(250,247,255,0.99),rgba(246,240,255,0.98))] shadow-[0_28px_90px_rgba(28,17,46,0.34)]"
           >
             <form className="flex min-h-0 flex-1 flex-col" onSubmit={onSubmitResource}>
               <div className="border-b border-[var(--app-border)] bg-white/86 px-5 py-4 sm:px-7 sm:py-5">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div className="max-w-3xl">
                     <p className="app-section-kicker">
-                      {editingResourceId ? "Edición" : "Nuevo recurso"}
+                      {editingResourceId
+                        ? `Edición de ${isCourseEditor ? "curso" : "recurso"}`
+                        : `Nuevo ${isCourseEditor ? "curso" : "recurso"}`}
                     </p>
                     <h3
                       className="app-display-title mt-2 text-3xl font-semibold"
                       data-display-font="true"
                     >
                       {editingResourceId
-                        ? "Edita y republica el recurso"
-                        : "Crear recurso de aprendizaje"}
+                        ? `Edita y republica tu ${isCourseEditor ? "curso" : "recurso"}`
+                        : `Crear ${isCourseEditor ? "curso" : "recurso"} de aprendizaje`}
                     </h3>
                     <p className="mt-2 text-sm leading-relaxed text-[var(--app-muted)]">
-                      Completa lo esencial, sube el archivo a R2 y usa los
-                      campos inteligentes para dejar el recurso listo para
-                      búsqueda, filtrado y recomendación.
+                      {isCourseEditor
+                        ? "Define la identidad del curso, su URL o paquete principal y la estructura interna por módulos y recursos."
+                        : "Completa lo esencial, sube el archivo a R2 y usa los campos inteligentes para dejar el recurso listo para búsqueda, filtrado y recomendación."}
                     </p>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
+                    <span className="app-chip-soft">
+                      <Layers3 size={13} />
+                      {isCourseEditor ? "Modo curso" : "Modo recurso"}
+                    </span>
                     <span className="app-chip-soft">
                       <FileUp size={13} />
                       {resourceTypeProfile.assetLabel}
@@ -2068,7 +2510,7 @@ export default function AprendizajePage() {
                       type="button"
                       className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[var(--app-border)] bg-white text-[var(--app-muted)] transition hover:text-[var(--app-ink)]"
                       onClick={() => closeResourceModal()}
-                      aria-label="Cerrar modal"
+                      aria-label="Cerrar editor"
                     >
                       <X size={18} />
                     </button>
@@ -2086,21 +2528,62 @@ export default function AprendizajePage() {
                         </div>
                         <div>
                           <h4 className="text-lg font-semibold text-[var(--app-ink)]">
-                            Identidad del recurso
+                            Identidad del {isCourseEditor ? "curso" : "recurso"}
                           </h4>
                           <p className="text-sm text-[var(--app-muted)]">
-                            Define el tipo, el encuadre editorial y el estado
-                            del recurso.
+                            {isCourseEditor
+                              ? "Define el encuadre editorial, el estado y la intención del curso."
+                              : "Define el tipo, el encuadre editorial y el estado del recurso."}
                           </p>
                         </div>
                       </div>
 
                       <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
                         <div className="lg:col-span-2">
-                          <label className="app-field-label">Título del recurso</label>
+                          <label className="app-field-label">Tipo de pieza</label>
+                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <button
+                              type="button"
+                              className={`rounded-[20px] border px-4 py-4 text-left transition ${
+                                !isCourseEditor
+                                  ? "border-[#5a2f6b] bg-[rgba(90,47,107,0.08)] text-[var(--app-ink)]"
+                                  : "border-[var(--app-border)] bg-white text-[var(--app-muted)]"
+                              }`}
+                              onClick={() => onChangeEditorKind("resource")}
+                            >
+                              <p className="text-sm font-semibold">Recurso</p>
+                              <p className="mt-1 text-sm leading-relaxed">
+                                Video, documento, pódcast, artículo o pieza individual.
+                              </p>
+                            </button>
+                            <button
+                              type="button"
+                              className={`rounded-[20px] border px-4 py-4 text-left transition ${
+                                isCourseEditor
+                                  ? "border-[#5a2f6b] bg-[rgba(90,47,107,0.08)] text-[var(--app-ink)]"
+                                  : "border-[var(--app-border)] bg-white text-[var(--app-muted)]"
+                              }`}
+                              onClick={() => onChangeEditorKind("course")}
+                            >
+                              <p className="text-sm font-semibold">Curso</p>
+                              <p className="mt-1 text-sm leading-relaxed">
+                                Experiencia estructurada con módulos y recursos internos.
+                              </p>
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="lg:col-span-2">
+                          <label className="app-field-label">
+                            Título del {isCourseEditor ? "curso" : "recurso"}
+                          </label>
                           <input
                             className="app-input"
-                            placeholder="Ej. Comunicación ejecutiva en conversaciones difíciles"
+                            placeholder={
+                              isCourseEditor
+                                ? "Ej. Curso de conversaciones de liderazgo con impacto"
+                                : "Ej. Comunicación ejecutiva en conversaciones difíciles"
+                            }
                             value={resourceForm.title}
                             onChange={(event) =>
                               setResourceForm((prev) => ({
@@ -2112,24 +2595,33 @@ export default function AprendizajePage() {
                           />
                         </div>
 
-                        <div>
-                          <label className="app-field-label">Formato</label>
-                          <select
-                            className="app-select"
-                            value={resourceForm.contentType}
-                            onChange={(event) =>
-                              onChangeResourceContentType(
-                                event.target.value as ContentType,
-                              )
-                            }
-                          >
-                            {RESOURCE_TYPE_OPTIONS.map((type) => (
-                              <option key={type} value={type}>
-                                {contentTypeLabel(type)}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
+                        {!isCourseEditor ? (
+                          <div>
+                            <label className="app-field-label">Formato</label>
+                            <select
+                              className="app-select"
+                              value={resourceForm.contentType}
+                              onChange={(event) =>
+                                onChangeResourceContentType(
+                                  event.target.value as ContentType,
+                                )
+                              }
+                            >
+                              {RESOURCE_TYPE_OPTIONS.filter((type) => type !== "scorm").map((type) => (
+                                <option key={type} value={type}>
+                                  {contentTypeLabel(type)}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        ) : (
+                          <div>
+                            <label className="app-field-label">Formato del curso</label>
+                            <div className="app-input flex items-center">
+                              Curso estructurado
+                            </div>
+                          </div>
+                        )}
 
                         <div>
                           <label className="app-field-label">Estado editorial</label>
@@ -2242,15 +2734,19 @@ export default function AprendizajePage() {
                         </div>
 
                         <div className="lg:col-span-2">
-                          <label className="app-field-label">
-                            Descripción y contexto de uso
-                          </label>
-                          <textarea
-                            className="app-textarea"
-                            placeholder="Explica cuándo conviene usar este recurso, qué transforma y cómo se conecta con la experiencia del líder."
-                            value={resourceForm.description}
-                            onChange={(event) =>
-                              setResourceForm((prev) => ({
+                        <label className="app-field-label">
+                          Descripción y contexto de uso
+                        </label>
+                        <textarea
+                          className="app-textarea"
+                          placeholder={
+                            isCourseEditor
+                              ? "Explica qué recorrido propone este curso, qué resultados habilita y cómo se integra con la experiencia del líder."
+                              : "Explica cuándo conviene usar este recurso, qué transforma y cómo se conecta con la experiencia del líder."
+                          }
+                          value={resourceForm.description}
+                          onChange={(event) =>
+                            setResourceForm((prev) => ({
                                 ...prev,
                                 description: event.target.value,
                               }))
@@ -2269,7 +2765,9 @@ export default function AprendizajePage() {
                               }))
                             }
                           />
-                          Marcar como recurso recomendado dentro del catálogo
+                          {isCourseEditor
+                            ? "Marcar como curso recomendado dentro del catálogo"
+                            : "Marcar como recurso recomendado dentro del catálogo"}
                         </label>
                       </div>
                     </section>
@@ -2281,10 +2779,14 @@ export default function AprendizajePage() {
                         </div>
                         <div>
                           <h4 className="text-lg font-semibold text-[var(--app-ink)]">
-                            Archivo, paquete o URL
+                            {isCourseEditor
+                              ? "Curso, paquete o URL de lanzamiento"
+                              : "Archivo o URL del recurso"}
                           </h4>
                           <p className="text-sm text-[var(--app-muted)]">
-                            Carga el activo a R2 o pega la URL final del recurso.
+                            {isCourseEditor
+                              ? "Carga el activo principal a R2 o pega la URL de acceso del curso."
+                              : "Carga el activo a R2 o pega la URL final del recurso."}
                           </p>
                         </div>
                       </div>
@@ -2364,12 +2866,234 @@ export default function AprendizajePage() {
                         ) : (
                           <p className="text-sm text-[var(--app-muted)]">
                             Aún no hay un activo vinculado. Puedes dejarlo en
-                            borrador y terminar luego, o subir el archivo ahora
-                            mismo.
+                            borrador y terminar luego, o subir{" "}
+                            {isCourseEditor ? "el activo principal" : "el archivo"}{" "}
+                            ahora mismo.
                           </p>
                         )}
                       </div>
                     </section>
+
+                    {isCourseEditor && (
+                      <section className="rounded-[24px] border border-[var(--app-border)] bg-white/88 p-5 shadow-[0_18px_38px_rgba(55,32,80,0.05)]">
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="rounded-[16px] bg-[var(--app-chip)] p-3 text-[#4f2360]">
+                              <Layers3 size={18} />
+                            </div>
+                            <div>
+                              <h4 className="text-lg font-semibold text-[var(--app-ink)]">
+                                Estructura interna del curso
+                              </h4>
+                              <p className="text-sm text-[var(--app-muted)]">
+                                Organiza el curso por módulos y agrega los recursos
+                                que componen cada tramo de la experiencia.
+                              </p>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            className="app-button-secondary"
+                            onClick={addCourseModule}
+                          >
+                            <Plus size={16} />
+                            Agregar módulo
+                          </button>
+                        </div>
+
+                        <div className="mt-5 space-y-4">
+                          {resourceForm.courseModules.map((module, moduleIndex) => (
+                            <div
+                              key={module.id}
+                              className="rounded-[22px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4"
+                            >
+                              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                                <div>
+                                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--app-muted)]">
+                                    Módulo {moduleIndex + 1}
+                                  </p>
+                                  <p className="mt-1 text-sm text-[var(--app-muted)]">
+                                    {module.resources.length} recursos internos en este módulo.
+                                  </p>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  className="app-button-ghost"
+                                  onClick={() => removeCourseModule(module.id)}
+                                >
+                                  <Trash2 size={15} />
+                                  Eliminar módulo
+                                </button>
+                              </div>
+
+                              <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+                                <div>
+                                  <label className="app-field-label">Título del módulo</label>
+                                  <input
+                                    className="app-input"
+                                    placeholder="Ej. Módulo 1 · Preparar la conversación"
+                                    value={module.title}
+                                    onChange={(event) =>
+                                      updateCourseModule(
+                                        module.id,
+                                        "title",
+                                        event.target.value,
+                                      )
+                                    }
+                                  />
+                                </div>
+                                <div>
+                                  <label className="app-field-label">Descripción del módulo</label>
+                                  <input
+                                    className="app-input"
+                                    placeholder="Propósito, foco o resultado esperado"
+                                    value={module.description ?? ""}
+                                    onChange={(event) =>
+                                      updateCourseModule(
+                                        module.id,
+                                        "description",
+                                        event.target.value,
+                                      )
+                                    }
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="mt-5 space-y-3">
+                                {module.resources.map((courseResource, resourceIndex) => (
+                                  <div
+                                    key={courseResource.id}
+                                    className="rounded-[18px] border border-[var(--app-border)] bg-white p-4"
+                                  >
+                                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                                      <div>
+                                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--app-muted)]">
+                                          Recurso {resourceIndex + 1}
+                                        </p>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        className="app-button-ghost"
+                                        onClick={() =>
+                                          removeCourseModuleResource(
+                                            module.id,
+                                            courseResource.id,
+                                          )
+                                        }
+                                      >
+                                        <Trash2 size={15} />
+                                        Eliminar recurso
+                                      </button>
+                                    </div>
+
+                                    <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+                                      <div className="lg:col-span-2">
+                                        <label className="app-field-label">Título del recurso interno</label>
+                                        <input
+                                          className="app-input"
+                                          placeholder="Ej. Video de introducción"
+                                          value={courseResource.title}
+                                          onChange={(event) =>
+                                            updateCourseModuleResource(
+                                              module.id,
+                                              courseResource.id,
+                                              "title",
+                                              event.target.value,
+                                            )
+                                          }
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="app-field-label">Tipo</label>
+                                        <select
+                                          className="app-select"
+                                          value={courseResource.contentType}
+                                          onChange={(event) =>
+                                            updateCourseModuleResource(
+                                              module.id,
+                                              courseResource.id,
+                                              "contentType",
+                                              event.target.value,
+                                            )
+                                          }
+                                        >
+                                          {COURSE_MODULE_RESOURCE_TYPE_OPTIONS.map((type) => (
+                                            <option key={type} value={type}>
+                                              {courseModuleResourceTypeLabel(type)}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </div>
+                                      <div>
+                                        <label className="app-field-label">Duración</label>
+                                        <input
+                                          className="app-input"
+                                          placeholder="Ej. 8 min"
+                                          value={courseResource.durationLabel ?? ""}
+                                          onChange={(event) =>
+                                            updateCourseModuleResource(
+                                              module.id,
+                                              courseResource.id,
+                                              "durationLabel",
+                                              event.target.value,
+                                            )
+                                          }
+                                        />
+                                      </div>
+                                      <div className="lg:col-span-2">
+                                        <label className="app-field-label">URL o activo del recurso</label>
+                                        <input
+                                          className="app-input"
+                                          placeholder="https://..."
+                                          value={courseResource.url ?? ""}
+                                          onChange={(event) =>
+                                            updateCourseModuleResource(
+                                              module.id,
+                                              courseResource.id,
+                                              "url",
+                                              event.target.value,
+                                            )
+                                          }
+                                        />
+                                      </div>
+                                      <div className="lg:col-span-2">
+                                        <label className="app-field-label">Nota contextual</label>
+                                        <input
+                                          className="app-input"
+                                          placeholder="Explica cómo se usa dentro del módulo"
+                                          value={courseResource.description ?? ""}
+                                          onChange={(event) =>
+                                            updateCourseModuleResource(
+                                              module.id,
+                                              courseResource.id,
+                                              "description",
+                                              event.target.value,
+                                            )
+                                          }
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+
+                              <div className="mt-4">
+                                <button
+                                  type="button"
+                                  className="app-button-secondary"
+                                  onClick={() => addCourseModuleResource(module.id)}
+                                >
+                                  <Plus size={16} />
+                                  Agregar recurso al módulo
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </section>
+                    )}
 
                     <section className="rounded-[24px] border border-[var(--app-border)] bg-white/88 p-5 shadow-[0_18px_38px_rgba(55,32,80,0.05)]">
                       <div className="flex items-center gap-3">
@@ -2381,8 +3105,9 @@ export default function AprendizajePage() {
                             Metadatos del mapa 4Shine
                           </h4>
                           <p className="text-sm text-[var(--app-muted)]">
-                            Usa listas dependientes para conectar el recurso con
-                            la taxonomía oficial.
+                            Usa listas dependientes para conectar{" "}
+                            {isCourseEditor ? "el curso" : "el recurso"} con la
+                            taxonomía oficial.
                           </p>
                         </div>
                       </div>
@@ -2529,7 +3254,8 @@ export default function AprendizajePage() {
                             </p>
                             <p className="mt-2 text-sm text-[var(--app-muted)]">
                               Selecciona pilar, componente y competencia para
-                              conectar el recurso con la taxonomía oficial.
+                              conectar {isCourseEditor ? "el curso" : "el recurso"}{" "}
+                              con la taxonomía oficial.
                             </p>
                           </>
                         )}
@@ -2554,11 +3280,16 @@ export default function AprendizajePage() {
                         Vista rápida
                       </p>
                       <h4 className="mt-3 text-2xl font-semibold leading-tight">
-                        {resourceForm.title.trim() || "Tu recurso todavía no tiene título"}
+                        {resourceForm.title.trim() ||
+                          (isCourseEditor
+                            ? "Tu curso todavía no tiene título"
+                            : "Tu recurso todavía no tiene título")}
                       </h4>
                       <p className="mt-3 text-sm leading-relaxed text-white/80">
                         {resourceForm.description.trim() ||
-                          "Aquí verás una lectura rápida del recurso mientras completas el formulario."}
+                          (isCourseEditor
+                            ? "Aquí verás una lectura rápida del curso mientras completas su estructura, metadatos y acceso."
+                            : "Aquí verás una lectura rápida del recurso mientras completas el formulario.")}
                       </p>
 
                       <div className="mt-4 flex flex-wrap gap-2">
@@ -2571,8 +3302,52 @@ export default function AprendizajePage() {
                         <span className="rounded-full border border-white/16 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white/90">
                           {statusLabel(resourceForm.status)}
                         </span>
+                        {isCourseEditor && (
+                          <>
+                            <span className="rounded-full border border-white/16 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white/90">
+                              {resourceForm.courseModules.length} módulos
+                            </span>
+                            <span className="rounded-full border border-white/16 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white/90">
+                              {currentCourseResourceCount} recursos internos
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
+
+                    {isCourseEditor && (
+                      <div className="rounded-[24px] border border-[var(--app-border)] bg-white/90 p-5">
+                        <div className="flex items-center gap-2">
+                          <Layers3 size={18} className="text-[#5f3471]" />
+                          <h4 className="font-semibold text-[var(--app-ink)]">
+                            Resumen del curso
+                          </h4>
+                        </div>
+                        <div className="mt-4 grid grid-cols-2 gap-3">
+                          <div className="rounded-[18px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4">
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--app-muted)]">
+                              Módulos
+                            </p>
+                            <p className="mt-2 text-2xl font-extrabold text-[var(--app-ink)]">
+                              {resourceForm.courseModules.length}
+                            </p>
+                          </div>
+                          <div className="rounded-[18px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4">
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--app-muted)]">
+                              Recursos internos
+                            </p>
+                            <p className="mt-2 text-2xl font-extrabold text-[var(--app-ink)]">
+                              {currentCourseResourceCount}
+                            </p>
+                          </div>
+                        </div>
+                        <p className="mt-4 text-sm leading-relaxed text-[var(--app-muted)]">
+                          Diseña el curso como una ruta clara: cada módulo debe
+                          resolver un tramo concreto y cada recurso debe tener un
+                          propósito visible.
+                        </p>
+                      </div>
+                    )}
 
                     <div className="rounded-[24px] border border-[var(--app-border)] bg-white/90 p-5">
                       <div className="flex items-center gap-2">
@@ -2616,7 +3391,7 @@ export default function AprendizajePage() {
                       </p>
                       <p className="mt-3 text-sm leading-relaxed text-[var(--app-muted)]">
                         {resourceForm.stage
-                          ? `Este recurso quedará asociado a ${resourceForm.stage} y podrá ser descubierto por audiencia ${audienceOptions.find((option) => option.value === resourceForm.audience)?.label ?? resourceForm.audience}.`
+                          ? `Este ${isCourseEditor ? "curso" : "recurso"} quedará asociado a ${resourceForm.stage} y podrá ser descubierto por audiencia ${audienceOptions.find((option) => option.value === resourceForm.audience)?.label ?? resourceForm.audience}.`
                           : "Agrega una etapa del programa para ordenar mejor el contenido dentro de la experiencia."}
                       </p>
                     </div>
@@ -2627,9 +3402,9 @@ export default function AprendizajePage() {
               <div className="border-t border-[var(--app-border)] bg-white/88 px-5 py-4 sm:px-7">
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                   <p className="text-sm text-[var(--app-muted)]">
-                    Puedes dejar el recurso en borrador y retomarlo más tarde.
-                    Si lo publicas ahora, asegúrate de tener activo y metadatos
-                    completos.
+                    {isCourseEditor
+                      ? "Puedes dejar el curso en borrador y retomarlo más tarde. Si lo publicas ahora, asegúrate de tener acceso, estructura y metadatos completos."
+                      : "Puedes dejar el recurso en borrador y retomarlo más tarde. Si lo publicas ahora, asegúrate de tener activo y metadatos completos."}
                   </p>
                   <div className="flex flex-col gap-2 sm:flex-row">
                     <button
@@ -2649,7 +3424,9 @@ export default function AprendizajePage() {
                         ? "Guardando..."
                         : editingResourceId
                           ? "Guardar cambios"
-                          : "Crear recurso"}
+                          : isCourseEditor
+                            ? "Crear curso"
+                            : "Crear recurso"}
                     </button>
                   </div>
                 </div>

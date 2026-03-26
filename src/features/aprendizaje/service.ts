@@ -4,6 +4,7 @@ import type { AuthUser } from '@/server/auth/types';
 import { ForbiddenError, requireModulePermission } from '@/server/auth/module-permissions';
 import type {
   ContentCompetencyMetadata,
+  ContentStructurePayload,
   ContentStatus,
   ContentType,
 } from '@/features/content/service';
@@ -42,6 +43,7 @@ export interface LearningResourceRecord {
   updatedAt: string;
   publishedAt: string | null;
   comments: LearningCommentRecord[];
+  structurePayload: ContentStructurePayload;
 }
 
 export interface CreateLearningCommentInput {
@@ -128,6 +130,7 @@ interface LearningResourceRow {
   updated_at: string;
   published_at: string | null;
   comments: LearningCommentRow[] | null;
+  structure_payload: ContentStructurePayload | null;
 }
 
 interface WorkbookRow {
@@ -442,6 +445,7 @@ export async function listLearningResources(client: PoolClient, actor: AuthUser)
         ci.status,
         ci.is_recommended,
         ci.competency_metadata,
+        ci.structure_payload,
         COALESCE(tags.tags, ARRAY[]::text[]) AS tags,
         COALESCE(like_counts.likes, 0)::int AS likes,
         COALESCE(me_liked.liked, false) AS liked,
@@ -543,6 +547,11 @@ export async function listLearningResources(client: PoolClient, actor: AuthUser)
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     publishedAt: row.published_at,
+    structurePayload:
+      row.structure_payload ?? {
+        kind: row.content_type === 'scorm' ? 'course' : 'resource',
+        modules: [],
+      },
     comments: (row.comments ?? []).map((comment) => ({
       commentId: comment.comment_id,
       contentId: comment.content_id,
