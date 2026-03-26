@@ -37,6 +37,7 @@ export interface LearningResourceRecord {
   tags: string[];
   likes: number;
   liked: boolean;
+  commentCount: number;
   progressPercent: number;
   seen: boolean;
   createdAt: string;
@@ -44,6 +45,29 @@ export interface LearningResourceRecord {
   publishedAt: string | null;
   comments: LearningCommentRecord[];
   structurePayload: ContentStructurePayload;
+}
+
+export interface LearningResourceListQuery {
+  q?: string;
+  contentType?: ContentType | null;
+  status?: ContentStatus | null;
+  pillar?: string | null;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface LearningResourceListResult {
+  items: LearningResourceRecord[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface LearningLikeToggleResult {
+  contentId: string;
+  liked: boolean;
+  likes: number;
 }
 
 export interface CreateLearningCommentInput {
@@ -124,6 +148,7 @@ interface LearningResourceRow {
   tags: string[] | null;
   likes: number;
   liked: boolean;
+  comment_count: number;
   progress_percent: number | null;
   seen: boolean | null;
   created_at: string;
@@ -131,6 +156,52 @@ interface LearningResourceRow {
   published_at: string | null;
   comments: LearningCommentRow[] | null;
   structure_payload: ContentStructurePayload | null;
+}
+
+function mapLearningComments(comments: LearningCommentRow[] | null | undefined): LearningCommentRecord[] {
+  return (comments ?? []).map((comment) => ({
+    commentId: comment.comment_id,
+    contentId: comment.content_id,
+    authorUserId: comment.author_user_id,
+    authorName: comment.author_name,
+    authorAvatar: comment.author_avatar,
+    authorRole: comment.author_role,
+    commentText: comment.comment_text,
+    createdAt: comment.created_at,
+    updatedAt: comment.updated_at,
+  }));
+}
+
+function mapLearningResourceRow(row: LearningResourceRow): LearningResourceRecord {
+  return {
+    contentId: row.content_id,
+    title: row.title,
+    description: row.description,
+    contentType: row.content_type,
+    category: row.category,
+    durationMinutes: row.duration_minutes,
+    durationLabel: row.duration_label,
+    url: row.url,
+    authorName: row.author_name,
+    status: row.status,
+    isRecommended: row.is_recommended,
+    competencyMetadata: row.competency_metadata ?? {},
+    tags: row.tags ?? [],
+    likes: Number(row.likes ?? 0),
+    liked: row.liked,
+    commentCount: Number(row.comment_count ?? 0),
+    progressPercent: Number(row.progress_percent ?? 0),
+    seen: row.seen ?? false,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    publishedAt: row.published_at,
+    structurePayload:
+      row.structure_payload ?? {
+        kind: row.content_type === 'scorm' ? 'course' : 'resource',
+        modules: [],
+      },
+    comments: mapLearningComments(row.comments),
+  };
 }
 
 interface WorkbookRow {
@@ -312,6 +383,9 @@ async function getAccessibleLearningItem(
   actor: AuthUser,
   contentId: string,
 ): Promise<{ contentId: string; status: ContentStatus; isFree: boolean }> {
+  await requireModulePermission(client, 'aprendizaje', 'view');
+
+  const canManage = actor.role === 'gestor' || actor.role === 'admin';
   const access =
     actor.role === 'lider'
       ? await getViewerAccessState(client, actor, { includeCatalog: false })
@@ -339,6 +413,10 @@ async function getAccessibleLearningItem(
 
   const item = rows[0];
   if (!item) {
+    throw new ForbiddenError('Learning resource not found or not accessible');
+  }
+
+  if (!canManage && item.status !== 'published') {
     throw new ForbiddenError('Learning resource not found or not accessible');
   }
 
@@ -422,13 +500,72 @@ export async function getWorkbookForActor(
   return workbook;
 }
 
-export async function listLearningResources(client: PoolClient, actor: AuthUser): Promise<LearningResourceRecord[]> {
+export async function listLearningResources(
+  client: PoolClient,
+  actor: AuthUser,
+  query?: LearningResourceListQuery,
+): Promise<LearningResourceListResult> {
   await requireModulePermission(client, 'aprendizaje', 'view');
+  const canManage = actor.role === 'gestor' || actor.role === 'admin';
   const access =
     actor.role === 'lider'
       ? await getViewerAccessState(client, actor, { includeCatalog: false })
       : null;
   const freeOnly = actor.role === 'lider' && Boolean(access?.freeLearningOnly);
+  const normalizedQuery = query?.q?.trim() ? `%${query.q.trim().toLowerCase()}%` : null;
+  const page = Math.max(query?.page ?? 1, 1);
+  const pageSize = Math.min(Math.max(query?.pageSize ?? 24, 1), 48);
+  const offset = (page - 1) * pageSize;
+  const statusFilter = canManage ? query?.status ?? null : null;
+
+  const countResult = await client.query<{ total: string }>(
+    `
+      SELECT COUNT(*)::text AS total
+      FROM app_learning.content_items ci
+      WHERE ci.scope = 'aprendizaje'
+        AND ($2::boolean = true OR ci.status = 'published')
+        AND (
+          $3::boolean = false
+          OR EXISTS (
+            SELECT 1
+            FROM app_learning.content_tags ct
+            JOIN app_learning.tags t ON t.tag_id = ct.tag_id
+            WHERE ct.content_id = ci.content_id
+              AND lower(t.tag_name) = 'free'
+          )
+        )
+        AND ($4::text IS NULL OR ci.content_type = $4)
+        AND ($5::text IS NULL OR ci.status = $5)
+        AND ($6::text IS NULL OR COALESCE(ci.competency_metadata->>'pillar', '') = $6)
+        AND (
+          $7::text IS NULL
+          OR lower(ci.title) LIKE $7
+          OR lower(COALESCE(ci.description, '')) LIKE $7
+          OR lower(ci.category) LIKE $7
+          OR lower(COALESCE(ci.author_name, '')) LIKE $7
+          OR lower(COALESCE(ci.competency_metadata->>'component', '')) LIKE $7
+          OR lower(COALESCE(ci.competency_metadata->>'competency', '')) LIKE $7
+          OR lower(COALESCE(ci.competency_metadata->>'stage', '')) LIKE $7
+          OR EXISTS (
+            SELECT 1
+            FROM app_learning.content_tags ct
+            JOIN app_learning.tags t ON t.tag_id = ct.tag_id
+            WHERE ct.content_id = ci.content_id
+              AND lower(t.tag_name) LIKE $7
+          )
+        )
+    `,
+    [
+      canManage,
+      freeOnly,
+      query?.contentType ?? null,
+      statusFilter,
+      query?.pillar ?? null,
+      normalizedQuery,
+    ],
+  );
+
+  const total = Number(countResult.rows[0]?.total ?? 0);
 
   const { rows } = await client.query<LearningResourceRow>(
     `
@@ -449,6 +586,134 @@ export async function listLearningResources(client: PoolClient, actor: AuthUser)
         COALESCE(tags.tags, ARRAY[]::text[]) AS tags,
         COALESCE(like_counts.likes, 0)::int AS likes,
         COALESCE(me_liked.liked, false) AS liked,
+        COALESCE(comment_counts.comment_count, 0)::int AS comment_count,
+        COALESCE(cp.progress_percent, 0)::float AS progress_percent,
+        COALESCE(cp.seen, false) AS seen,
+        ci.created_at::text,
+        ci.updated_at::text,
+        ci.published_at::text,
+        ARRAY[]::json[] AS comments
+      FROM app_learning.content_items ci
+      LEFT JOIN app_core.users au ON au.user_id = ci.author_user_id
+      LEFT JOIN (
+        SELECT ct.content_id, ARRAY_AGG(t.tag_name ORDER BY t.tag_name) AS tags
+        FROM app_learning.content_tags ct
+        JOIN app_learning.tags t ON t.tag_id = ct.tag_id
+        GROUP BY ct.content_id
+      ) tags ON tags.content_id = ci.content_id
+      LEFT JOIN (
+        SELECT content_id, COUNT(*)::int AS likes
+        FROM app_learning.content_likes
+        GROUP BY content_id
+      ) like_counts ON like_counts.content_id = ci.content_id
+      LEFT JOIN (
+        SELECT content_id, COUNT(*)::int AS comment_count
+        FROM app_learning.content_comments
+        GROUP BY content_id
+      ) comment_counts ON comment_counts.content_id = ci.content_id
+      LEFT JOIN (
+        SELECT content_id, true AS liked
+        FROM app_learning.content_likes
+        WHERE user_id = $1
+      ) me_liked ON me_liked.content_id = ci.content_id
+      LEFT JOIN app_learning.content_progress cp
+        ON cp.content_id = ci.content_id
+       AND cp.user_id = $1
+      WHERE ci.scope = 'aprendizaje'
+        AND ($2::boolean = true OR ci.status = 'published')
+        AND (
+          $3::boolean = false
+          OR EXISTS (
+            SELECT 1
+            FROM app_learning.content_tags ct
+            JOIN app_learning.tags t ON t.tag_id = ct.tag_id
+            WHERE ct.content_id = ci.content_id
+              AND lower(t.tag_name) = 'free'
+          )
+        )
+        AND ($4::text IS NULL OR ci.content_type = $4)
+        AND ($5::text IS NULL OR ci.status = $5)
+        AND ($6::text IS NULL OR COALESCE(ci.competency_metadata->>'pillar', '') = $6)
+        AND (
+          $7::text IS NULL
+          OR lower(ci.title) LIKE $7
+          OR lower(COALESCE(ci.description, '')) LIKE $7
+          OR lower(ci.category) LIKE $7
+          OR lower(COALESCE(ci.author_name, '')) LIKE $7
+          OR lower(COALESCE(ci.competency_metadata->>'component', '')) LIKE $7
+          OR lower(COALESCE(ci.competency_metadata->>'competency', '')) LIKE $7
+          OR lower(COALESCE(ci.competency_metadata->>'stage', '')) LIKE $7
+          OR EXISTS (
+            SELECT 1
+            FROM app_learning.content_tags ct
+            JOIN app_learning.tags t ON t.tag_id = ct.tag_id
+            WHERE ct.content_id = ci.content_id
+              AND lower(t.tag_name) LIKE $7
+          )
+        )
+      ORDER BY
+        ci.is_recommended DESC,
+        CASE ci.status
+          WHEN 'published' THEN 0
+          WHEN 'pending_review' THEN 1
+          WHEN 'draft' THEN 2
+          WHEN 'archived' THEN 3
+          ELSE 4
+        END,
+        ci.published_at DESC NULLS LAST,
+        ci.created_at DESC
+      LIMIT $8
+      OFFSET $9
+    `,
+    [
+      actor.userId,
+      canManage,
+      freeOnly,
+      query?.contentType ?? null,
+      statusFilter,
+      query?.pillar ?? null,
+      normalizedQuery,
+      pageSize,
+      offset,
+    ],
+  );
+
+  return {
+    items: rows.map(mapLearningResourceRow),
+    page,
+    pageSize,
+    total,
+    totalPages: Math.max(1, Math.ceil(total / pageSize)),
+  };
+}
+
+export async function getLearningResourceDetail(
+  client: PoolClient,
+  actor: AuthUser,
+  contentId: string,
+): Promise<LearningResourceRecord> {
+  await getAccessibleLearningItem(client, actor, contentId);
+
+  const { rows } = await client.query<LearningResourceRow>(
+    `
+      SELECT
+        ci.content_id::text,
+        ci.title,
+        ci.description,
+        ci.content_type,
+        ci.category,
+        ci.duration_minutes,
+        ci.duration_label,
+        ci.url,
+        COALESCE(ci.author_name, au.display_name) AS author_name,
+        ci.status,
+        ci.is_recommended,
+        ci.competency_metadata,
+        ci.structure_payload,
+        COALESCE(tags.tags, ARRAY[]::text[]) AS tags,
+        COALESCE(like_counts.likes, 0)::int AS likes,
+        COALESCE(me_liked.liked, false) AS liked,
+        COALESCE(comment_counts.comment_count, 0)::int AS comment_count,
         COALESCE(cp.progress_percent, 0)::float AS progress_percent,
         COALESCE(cp.seen, false) AS seen,
         ci.created_at::text,
@@ -473,6 +738,11 @@ export async function listLearningResources(client: PoolClient, actor: AuthUser)
         FROM app_learning.content_likes
         WHERE user_id = $1
       ) me_liked ON me_liked.content_id = ci.content_id
+      LEFT JOIN (
+        SELECT content_id, COUNT(*)::int AS comment_count
+        FROM app_learning.content_comments
+        GROUP BY content_id
+      ) comment_counts ON comment_counts.content_id = ci.content_id
       LEFT JOIN app_learning.content_progress cp
         ON cp.content_id = ci.content_id
        AND cp.user_id = $1
@@ -498,72 +768,18 @@ export async function listLearningResources(client: PoolClient, actor: AuthUser)
         GROUP BY cc.content_id
       ) comments ON comments.content_id = ci.content_id
       WHERE ci.scope = 'aprendizaje'
-        AND (
-          $2::boolean = false
-          OR (
-            ci.status = 'published'
-            AND EXISTS (
-              SELECT 1
-              FROM app_learning.content_tags ct
-              JOIN app_learning.tags t ON t.tag_id = ct.tag_id
-              WHERE ct.content_id = ci.content_id
-                AND lower(t.tag_name) = 'free'
-            )
-          )
-        )
-      ORDER BY
-        CASE ci.status
-          WHEN 'published' THEN 0
-          WHEN 'pending_review' THEN 1
-          WHEN 'draft' THEN 2
-          WHEN 'archived' THEN 3
-          ELSE 4
-        END,
-        ci.published_at DESC NULLS LAST,
-        ci.created_at DESC
-      LIMIT 200
+        AND ci.content_id = $2
+      LIMIT 1
     `,
-    [actor.userId, freeOnly],
+    [actor.userId, contentId],
   );
 
-  return rows.map((row) => ({
-    contentId: row.content_id,
-    title: row.title,
-    description: row.description,
-    contentType: row.content_type,
-    category: row.category,
-    durationMinutes: row.duration_minutes,
-    durationLabel: row.duration_label,
-    url: row.url,
-    authorName: row.author_name,
-    status: row.status,
-    isRecommended: row.is_recommended,
-    competencyMetadata: row.competency_metadata ?? {},
-    tags: row.tags ?? [],
-    likes: Number(row.likes ?? 0),
-    liked: row.liked,
-    progressPercent: Number(row.progress_percent ?? 0),
-    seen: row.seen ?? false,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-    publishedAt: row.published_at,
-    structurePayload:
-      row.structure_payload ?? {
-        kind: row.content_type === 'scorm' ? 'course' : 'resource',
-        modules: [],
-      },
-    comments: (row.comments ?? []).map((comment) => ({
-      commentId: comment.comment_id,
-      contentId: comment.content_id,
-      authorUserId: comment.author_user_id,
-      authorName: comment.author_name,
-      authorAvatar: comment.author_avatar,
-      authorRole: comment.author_role,
-      commentText: comment.comment_text,
-      createdAt: comment.created_at,
-      updatedAt: comment.updated_at,
-    })),
-  }));
+  const row = rows[0];
+  if (!row) {
+    throw new Error('Learning resource not found');
+  }
+
+  return mapLearningResourceRow(row);
 }
 
 export async function createLearningComment(
@@ -624,6 +840,63 @@ export async function createLearningComment(
     commentText: created.comment_text,
     createdAt: created.created_at,
     updatedAt: created.updated_at,
+  };
+}
+
+export async function toggleLearningLike(
+  client: PoolClient,
+  actor: AuthUser,
+  contentId: string,
+): Promise<LearningLikeToggleResult> {
+  await requireModulePermission(client, 'aprendizaje', 'view');
+  await getAccessibleLearningItem(client, actor, contentId);
+
+  const existing = await client.query<{ content_id: string }>(
+    `
+      SELECT content_id::text
+      FROM app_learning.content_likes
+      WHERE content_id = $1
+        AND user_id = $2
+      LIMIT 1
+    `,
+    [contentId, actor.userId],
+  );
+
+  let liked = false;
+  if (existing.rows[0]) {
+    await client.query(
+      `
+        DELETE FROM app_learning.content_likes
+        WHERE content_id = $1
+          AND user_id = $2
+      `,
+      [contentId, actor.userId],
+    );
+  } else {
+    await client.query(
+      `
+        INSERT INTO app_learning.content_likes (content_id, user_id)
+        VALUES ($1, $2)
+        ON CONFLICT DO NOTHING
+      `,
+      [contentId, actor.userId],
+    );
+    liked = true;
+  }
+
+  const { rows } = await client.query<{ likes: number }>(
+    `
+      SELECT COUNT(*)::int AS likes
+      FROM app_learning.content_likes
+      WHERE content_id = $1
+    `,
+    [contentId],
+  );
+
+  return {
+    contentId,
+    liked,
+    likes: Number(rows[0]?.likes ?? 0),
   };
 }
 

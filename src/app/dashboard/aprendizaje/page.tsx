@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import React from "react";
 import { createPortal } from "react-dom";
 import {
@@ -9,14 +10,11 @@ import {
   BookOpen,
   CalendarClock,
   CheckCircle2,
-  Eye,
   FileUp,
   Layers3,
   Lightbulb,
   Link2,
   Loader2,
-  MessageCircle,
-  Pencil,
   Plus,
   Save,
   Search,
@@ -25,6 +23,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { LearningResourceCard } from "@/components/aprendizaje/LearningResourceCard";
 import { AccessOfferPanel } from "@/components/access/AccessOfferPanel";
 import { StatGrid } from "@/components/dashboard/StatGrid";
 import { EmptyState } from "@/components/dashboard/EmptyState";
@@ -33,8 +32,8 @@ import { R2UploadButton } from "@/components/ui/R2UploadButton";
 import { useUser } from "@/context/UserContext";
 import { filterCommercialProducts } from "@/features/access/catalog";
 import {
-  createLearningComment,
   extractLearningMetadataWithAi,
+  getLearningResourceDetail,
   listLearningResources,
   listLearningWorkbooks,
   type LearningMetadataAssistantResult,
@@ -47,7 +46,6 @@ import {
 } from "@/features/aprendizaje/metadata-assistant";
 import {
   createContent,
-  deleteContent,
   updateContent,
   type CourseModule,
   type CourseModuleResource,
@@ -82,6 +80,7 @@ const RESOURCE_STATUS_OPTIONS: ContentStatus[] = [
   "archived",
   "rejected",
 ];
+const RESOURCE_PAGE_SIZE = 18;
 
 interface ResourceFormState {
   title: string;
@@ -676,24 +675,6 @@ function formatDate(value: string | null | undefined): string {
   });
 }
 
-function formatDateTime(value: string | null | undefined): string {
-  if (!value) return "Sin fecha";
-
-  return new Date(value).toLocaleString("es-CO", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-}
-
-function roleLabel(role: string | null | undefined): string {
-  if (!role) return "Usuario";
-  if (role === "mentor") return "iShine";
-  if (role === "lider") return "Líder";
-  if (role === "gestor") return "Gestor";
-  if (role === "admin") return "Admin";
-  return role;
-}
-
 function contentTypeLabel(type: ContentType): string {
   if (type === "pdf") return "PDF";
   if (type === "ppt") return "PPT";
@@ -724,18 +705,6 @@ function workbookStateClasses(state: WorkbookRecord["accessState"]): string {
   if (state === "hidden")
     return "bg-rose-50 text-rose-700 border border-rose-200";
   return "bg-emerald-50 text-emerald-700 border border-emerald-200";
-}
-
-function resourceBadgeClasses(status: ContentStatus): string {
-  if (status === "published")
-    return "bg-emerald-50 text-emerald-700 border border-emerald-200";
-  if (status === "pending_review")
-    return "bg-amber-50 text-amber-700 border border-amber-200";
-  if (status === "archived")
-    return "border border-[var(--app-border)] bg-white/70 text-[var(--app-muted)]";
-  if (status === "rejected")
-    return "bg-rose-50 text-rose-700 border border-rose-200";
-  return "bg-sky-50 text-sky-700 border border-sky-200";
 }
 
 function pillarLabel(value: string | null | undefined): string {
@@ -774,23 +743,18 @@ function workbookVisualClasses(sequenceNo: number): string {
   return themes[(sequenceNo - 1) % themes.length];
 }
 
-function resourceSurfaceClasses(contentType: ContentType): string {
-  if (contentType === "scorm")
-    return "bg-[linear-gradient(135deg,rgba(91,51,109,0.96),rgba(120,74,146,0.9))] text-white border-transparent";
-  if (contentType === "video")
-    return "bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(246,237,255,0.92))] text-[var(--app-ink)]";
-  if (contentType === "podcast")
-    return "bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(249,232,241,0.9))] text-[var(--app-ink)]";
-  return "bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(241,233,255,0.86))] text-[var(--app-ink)]";
-}
-
 export default function AprendizajePage() {
   const { currentRole, refreshBootstrap, viewerAccess } = useUser();
-  const { alert, confirm } = useAppDialog();
+  const { alert } = useAppDialog();
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [resources, setResources] = React.useState<LearningResourceRecord[]>(
     [],
   );
+  const [resourceTotal, setResourceTotal] = React.useState(0);
+  const [resourceTotalPages, setResourceTotalPages] = React.useState(1);
+  const [resourcePage, setResourcePage] = React.useState(1);
   const [workbooks, setWorkbooks] = React.useState<WorkbookRecord[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [submittingResource, setSubmittingResource] = React.useState(false);
@@ -805,9 +769,6 @@ export default function AprendizajePage() {
   const [resourcePillarFilter, setResourcePillarFilter] = React.useState<
     "all" | string
   >("all");
-  const [selectedResourceId, setSelectedResourceId] = React.useState<
-    string | null
-  >(null);
   const [editingResourceId, setEditingResourceId] = React.useState<
     string | null
   >(null);
@@ -820,9 +781,6 @@ export default function AprendizajePage() {
   const [customCategoryDraft, setCustomCategoryDraft] = React.useState("");
   const [uploadedResourceAsset, setUploadedResourceAsset] =
     React.useState<R2UploadResponse | null>(null);
-  const [commentDrafts, setCommentDrafts] = React.useState<
-    Record<string, string>
-  >({});
   const [metadataAssistantResult, setMetadataAssistantResult] =
     React.useState<LearningMetadataAssistantResult | null>(null);
   const [metadataAssistantLoading, setMetadataAssistantLoading] =
@@ -840,6 +798,8 @@ export default function AprendizajePage() {
   const programOffers = filterCommercialProducts(viewerAccess?.catalog, {
     codes: ["program_4shine"],
   });
+  const deferredResourceSearch = React.useDeferredValue(resourceSearch);
+  const editResourceId = searchParams.get("edit");
 
   const showError = React.useCallback(
     async (fallbackMessage: string, cause: unknown) => {
@@ -856,21 +816,49 @@ export default function AprendizajePage() {
     setLoading(true);
     try {
       const [resourceData, workbookData] = await Promise.all([
-        listLearningResources(),
+        listLearningResources({
+          q: deferredResourceSearch,
+          contentType:
+            resourceTypeFilter === "all" ? null : resourceTypeFilter,
+          status:
+            resourceStatusFilter === "all" ? null : resourceStatusFilter,
+          pillar:
+            resourcePillarFilter === "all" ? null : resourcePillarFilter,
+          page: resourcePage,
+          pageSize: RESOURCE_PAGE_SIZE,
+        }),
         listLearningWorkbooks(),
       ]);
-      setResources(resourceData);
+      setResources(resourceData.items);
+      setResourceTotal(resourceData.total);
+      setResourceTotalPages(resourceData.totalPages);
       setWorkbooks(workbookData);
     } catch (error) {
       await showError("No se pudo cargar el módulo de aprendizaje", error);
     } finally {
       setLoading(false);
     }
-  }, [showError]);
+  }, [
+    deferredResourceSearch,
+    resourcePage,
+    resourcePillarFilter,
+    resourceStatusFilter,
+    resourceTypeFilter,
+    showError,
+  ]);
 
   React.useEffect(() => {
     void loadModule();
   }, [loadModule]);
+
+  React.useEffect(() => {
+    setResourcePage(1);
+  }, [
+    deferredResourceSearch,
+    resourceTypeFilter,
+    resourceStatusFilter,
+    resourcePillarFilter,
+  ]);
 
   const componentOptions = React.useMemo(
     () => getComponentOptionsByPillarCode(resourceForm.pillar),
@@ -936,69 +924,9 @@ export default function AprendizajePage() {
     resourceForm.pillar,
   ]);
 
-  const filteredResources = resources.filter((resource) => {
-    const normalizedQuery = resourceSearch.trim().toLowerCase();
-    const searchable = [
-      resource.title,
-      resource.description ?? "",
-      resource.category,
-      resource.authorName ?? "",
-      resource.tags.join(" "),
-      resource.competencyMetadata.component ?? "",
-      resource.competencyMetadata.competency ?? "",
-      resource.competencyMetadata.stage ?? "",
-      ...(resource.structurePayload.modules?.map((module) => module.title) ?? []),
-      ...(resource.structurePayload.modules?.flatMap((module) =>
-        module.resources.map((courseResource) => courseResource.title),
-      ) ?? []),
-    ]
-      .join(" ")
-      .toLowerCase();
-
-    const matchesSearch =
-      normalizedQuery.length === 0 || searchable.includes(normalizedQuery);
-    const matchesType =
-      resourceTypeFilter === "all" ||
-      resource.contentType === resourceTypeFilter;
-    const matchesStatus =
-      resourceStatusFilter === "all" ||
-      resource.status === resourceStatusFilter;
-    const matchesPillar =
-      resourcePillarFilter === "all" ||
-      (resource.competencyMetadata.pillar ?? "") === resourcePillarFilter;
-
-    return matchesSearch && matchesType && matchesStatus && matchesPillar;
-  });
-
-  React.useEffect(() => {
-    if (filteredResources.length === 0) {
-      setSelectedResourceId(null);
-      return;
-    }
-
-    const exists = filteredResources.some(
-      (resource) => resource.contentId === selectedResourceId,
-    );
-    if (!exists) {
-      setSelectedResourceId(filteredResources[0].contentId);
-    }
-  }, [filteredResources, selectedResourceId]);
-
-  const selectedResource =
-    filteredResources.find(
-      (resource) => resource.contentId === selectedResourceId,
-    ) ?? null;
+  const filteredResources = resources;
   const scormResources = filteredResources.filter(
     (resource) => resource.contentType === "scorm",
-  );
-  const selectedResourceBehaviors = React.useMemo(
-    () =>
-      getObservableBehaviors(
-        selectedResource?.competencyMetadata.pillar ?? null,
-        selectedResource?.competencyMetadata.component ?? null,
-        selectedResource?.competencyMetadata.competency ?? null,
-      ),
-    [selectedResource],
   );
 
   const workbookOwners = Array.from(
@@ -1136,6 +1064,15 @@ export default function AprendizajePage() {
   const currentAudienceLabel =
     audienceOptions.find((option) => option.value === resourceForm.audience)
       ?.label ?? resourceForm.audience;
+  const visibleResourceStart =
+    resourceTotal === 0 ? 0 : (resourcePage - 1) * RESOURCE_PAGE_SIZE + 1;
+  const visibleResourceEnd =
+    resourceTotal === 0 ? 0 : visibleResourceStart + resources.length - 1;
+  const resourcePaginationItems = React.useMemo(() => {
+    const start = Math.max(1, resourcePage - 1);
+    const end = Math.min(resourceTotalPages, start + 2);
+    return Array.from({ length: end - start + 1 }, (_, index) => start + index);
+  }, [resourcePage, resourceTotalPages]);
 
   const resetResourceForm = React.useCallback(() => {
     setEditingResourceId(null);
@@ -1201,6 +1138,53 @@ export default function AprendizajePage() {
     },
     [resources],
   );
+
+  React.useEffect(() => {
+    if (!editResourceId || !isResourceManager || isResourceModalOpen) return;
+
+    let cancelled = false;
+
+    const openRequestedResource = async () => {
+      try {
+        const resource =
+          resources.find((item) => item.contentId === editResourceId) ??
+          (await getLearningResourceDetail(editResourceId));
+
+        if (cancelled) return;
+
+        populateResourceForm(resource);
+
+        const nextParams = new URLSearchParams(searchParams.toString());
+        nextParams.delete("edit");
+        const nextQuery = nextParams.toString();
+        router.replace(
+          nextQuery
+            ? `/dashboard/aprendizaje?${nextQuery}`
+            : "/dashboard/aprendizaje",
+          { scroll: false },
+        );
+      } catch (error) {
+        if (!cancelled) {
+          void showError("No se pudo abrir el recurso para edición", error);
+        }
+      }
+    };
+
+    void openRequestedResource();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    editResourceId,
+    isResourceManager,
+    isResourceModalOpen,
+    populateResourceForm,
+    resources,
+    router,
+    searchParams,
+    showError,
+  ]);
 
   const buildResourcePayload = () => ({
     scope: "aprendizaje" as const,
@@ -1273,11 +1257,10 @@ export default function AprendizajePage() {
 
     setSubmittingResource(true);
     try {
-      const savedResource = editingResourceId
-        ? await updateContent(editingResourceId, buildResourcePayload())
-        : await createContent(buildResourcePayload());
-
-      setSelectedResourceId(savedResource.contentId);
+      const saveRequest = editingResourceId
+        ? updateContent(editingResourceId, buildResourcePayload())
+        : createContent(buildResourcePayload());
+      await saveRequest;
 
       closeResourceModal(true);
 
@@ -1750,60 +1733,6 @@ export default function AprendizajePage() {
     };
   }, [closeResourceModal, isResourceModalOpen]);
 
-  const onChangeResourceStatus = async (
-    resource: LearningResourceRecord,
-    status: ContentStatus,
-  ) => {
-    if (!isResourceManager) return;
-
-    try {
-      await updateContent(resource.contentId, { status });
-      await Promise.all([loadModule(), refreshBootstrap()]);
-    } catch (error) {
-      await showError("No se pudo actualizar el estado del recurso", error);
-    }
-  };
-
-  const onDeleteResource = async (resource: LearningResourceRecord) => {
-    if (!isResourceManager) return;
-
-    const accepted = await confirm({
-      title: "Eliminar recurso",
-      message: `¿Deseas eliminar "${resource.title}"?`,
-      confirmText: "Eliminar",
-      cancelText: "Cancelar",
-      tone: "warning",
-    });
-
-    if (!accepted) return;
-
-    try {
-      await deleteContent(resource.contentId);
-      if (selectedResourceId === resource.contentId) {
-        setSelectedResourceId(null);
-      }
-      await Promise.all([loadModule(), refreshBootstrap()]);
-    } catch (error) {
-      await showError("No se pudo eliminar el recurso", error);
-    }
-  };
-
-  const onSubmitComment = async (resource: LearningResourceRecord) => {
-    const commentText = commentDrafts[resource.contentId]?.trim();
-    if (!commentText) return;
-
-    try {
-      await createLearningComment({
-        contentId: resource.contentId,
-        commentText,
-      });
-      setCommentDrafts((prev) => ({ ...prev, [resource.contentId]: "" }));
-      await Promise.all([loadModule(), refreshBootstrap()]);
-    } catch (error) {
-      await showError("No se pudo guardar el comentario", error);
-    }
-  };
-
   const fieldClass =
     "h-12 rounded-[16px] border border-[var(--app-border)] bg-white/86 px-4 text-sm text-[var(--app-ink)] outline-none transition focus:border-[var(--app-border-strong)] focus:bg-white";
   const panelClass = "app-panel p-5 sm:p-6";
@@ -1900,7 +1829,7 @@ export default function AprendizajePage() {
         stats={[
           {
             label: "Recursos",
-            value: resources.length,
+            value: resourceTotal,
             hint: "Biblioteca total del módulo",
           },
           {
@@ -1908,7 +1837,7 @@ export default function AprendizajePage() {
             value: resources.filter(
               (resource) => resource.contentType === "scorm",
             ).length,
-            hint: "Cursos estructurados disponibles",
+            hint: "Cursos visibles en esta página",
           },
           {
             label: "Workbooks",
@@ -2061,7 +1990,11 @@ export default function AprendizajePage() {
               )}
             </div>
 
-            <div className="grid grid-cols-1 gap-3 xl:grid-cols-4">
+            <div
+              className={`grid grid-cols-1 gap-3 ${
+                isResourceManager ? "xl:grid-cols-4" : "xl:grid-cols-3"
+              }`}
+            >
               <div className="rounded-[18px] border border-[var(--app-border)] bg-white/82 px-4 py-3 shadow-[0_16px_36px_rgba(55,32,80,0.05)] xl:col-span-2">
                 <label className="flex items-center gap-2 text-sm text-[var(--app-muted)]">
                   <Search size={16} />
@@ -2089,23 +2022,29 @@ export default function AprendizajePage() {
                   </option>
                 ))}
               </select>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-2">
-                <select
-                  className={fieldClass}
-                  value={resourceStatusFilter}
-                  onChange={(event) =>
-                    setResourceStatusFilter(
-                      event.target.value as "all" | ContentStatus,
-                    )
-                  }
-                >
-                  <option value="all">Todos los estados</option>
-                  {RESOURCE_STATUS_OPTIONS.map((status) => (
-                    <option key={status} value={status}>
-                      {statusLabel(status)}
-                    </option>
-                  ))}
-                </select>
+              <div
+                className={`grid grid-cols-1 gap-3 ${
+                  isResourceManager ? "md:grid-cols-2 xl:grid-cols-2" : ""
+                }`}
+              >
+                {isResourceManager && (
+                  <select
+                    className={fieldClass}
+                    value={resourceStatusFilter}
+                    onChange={(event) =>
+                      setResourceStatusFilter(
+                        event.target.value as "all" | ContentStatus,
+                      )
+                    }
+                  >
+                    <option value="all">Todos los estados</option>
+                    {RESOURCE_STATUS_OPTIONS.map((status) => (
+                      <option key={status} value={status}>
+                        {statusLabel(status)}
+                      </option>
+                    ))}
+                  </select>
+                )}
                 <select
                   className={fieldClass}
                   value={resourcePillarFilter}
@@ -2123,532 +2062,90 @@ export default function AprendizajePage() {
               </div>
             </div>
 
-            {scormResources.length > 0 && (
-              <div className="overflow-hidden rounded-[24px] border border-[rgba(193,148,39,0.24)] bg-[linear-gradient(135deg,rgba(255,248,228,0.94),rgba(255,255,255,0.82))] p-5 shadow-[0_20px_40px_rgba(55,32,80,0.06)]">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-[14px] bg-amber-500/10 p-3 text-amber-700">
-                    <Layers3 size={20} />
-                  </div>
-                  <div>
-                    <h4
-                      className="app-display-title text-2xl font-semibold"
-                      data-display-font="true"
-                    >
-                      Cursos destacados
-                    </h4>
-                    <p className="text-sm text-[var(--app-muted)]">
-                      Disponibles como agrupadores de contenido dentro del
-                      programa.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-3">
-                  {scormResources.slice(0, 3).map((resource) => (
-                    <button
-                      key={resource.contentId}
-                      className="rounded-[20px] border border-[rgba(193,148,39,0.24)] bg-white/92 p-4 text-left shadow-[0_14px_28px_rgba(55,32,80,0.05)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_32px_rgba(55,32,80,0.08)]"
-                      onClick={() => setSelectedResourceId(resource.contentId)}
-                      type="button"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-600">
-                            Curso
-                          </p>
-                          <h5 className="mt-2 font-semibold text-[var(--app-ink)]">
-                            {resource.title}
-                          </h5>
-                        </div>
-                        <span
-                          className={`rounded-full px-2 py-1 text-xs font-medium ${resourceBadgeClasses(resource.status)}`}
-                        >
-                          {statusLabel(resource.status)}
-                        </span>
-                      </div>
-                      <p className="mt-3 line-clamp-2 text-sm text-[var(--app-muted)]">
-                        {resource.description ?? "Sin descripción disponible."}
-                      </p>
-                      <div className="mt-4 flex items-center gap-4 text-xs text-[var(--app-muted)]">
-                        <span>
-                          {resource.durationLabel ?? "Duración flexible"}
-                        </span>
-                        <span>
-                          {resource.structurePayload.modules?.length ?? 0} módulos
-                        </span>
-                        <span>
-                          {countCourseResources(
-                            normalizeCourseModulesFromStructure(
-                              resource.structurePayload,
-                            ),
-                          )}{" "}
-                          recursos internos
-                        </span>
-                        <span>{resource.comments.length} comentarios</span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
+            <div className="flex flex-col gap-3 rounded-[22px] border border-[var(--app-border)] bg-white/78 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-[var(--app-ink)]">
+                  {resourceTotal === 0
+                    ? "Aún no hay recursos con este filtro."
+                    : `Mostrando ${visibleResourceStart}-${visibleResourceEnd} de ${resourceTotal} recursos`}
+                </p>
+                <p className="mt-1 text-sm text-[var(--app-muted)]">
+                  Catálogo pensado para crecer por páginas, con detalle individual por recurso y curso.
+                </p>
               </div>
-            )}
+              <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--app-muted)]">
+                {scormResources.length > 0 ? (
+                  <span className="rounded-full border border-[var(--app-border)] bg-[var(--app-chip)] px-3 py-1">
+                    {scormResources.length} cursos en esta página
+                  </span>
+                ) : null}
+                <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1">
+                  Página {resourcePage} de {resourceTotalPages}
+                </span>
+              </div>
+            </div>
 
             {filteredResources.length === 0 ? (
               <EmptyState message="No encontramos recursos con los filtros seleccionados." />
             ) : (
-              <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-                <div className="space-y-3">
+              <>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3">
                   {filteredResources.map((resource) => (
-                    <article
+                    <LearningResourceCard
                       key={resource.contentId}
-                      className={`rounded-[24px] border p-5 shadow-[0_18px_38px_rgba(55,32,80,0.05)] transition ${
-                        selectedResource?.contentId === resource.contentId
-                          ? "border-transparent bg-[linear-gradient(135deg,rgba(79,35,96,0.96),rgba(106,60,129,0.92))] text-white"
-                          : `${resourceSurfaceClasses(resource.contentType)} border-[var(--app-border)] hover:border-[var(--app-border-strong)]`
-                      }`}
-                    >
-                      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                        <button
-                          className="text-left"
-                          onClick={() =>
-                            setSelectedResourceId(resource.contentId)
-                          }
-                          type="button"
-                        >
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span
-                              className={`rounded-full px-2 py-1 text-xs font-medium ${
-                                selectedResource?.contentId ===
-                                resource.contentId
-                                  ? "border border-white/15 bg-white/10 text-white"
-                                  : resourceBadgeClasses(resource.status)
-                              }`}
-                            >
-                              {statusLabel(resource.status)}
-                            </span>
-                            <span
-                              className={`rounded-full px-2 py-1 text-xs font-medium ${
-                                selectedResource?.contentId ===
-                                resource.contentId
-                                  ? "border border-white/15 bg-white/10 text-white"
-                                  : "border border-[var(--app-border)] bg-white/70 text-[var(--app-muted)]"
-                              }`}
-                            >
-                              {contentTypeLabel(resource.contentType)}
-                            </span>
-                            {resource.isRecommended && (
-                              <span
-                                className={`rounded-full px-2 py-1 text-xs font-medium ${
-                                  selectedResource?.contentId ===
-                                  resource.contentId
-                                    ? "border border-amber-300/40 bg-amber-400/10 text-amber-100"
-                                    : "border border-amber-200 bg-amber-50 text-amber-700"
-                                }`}
-                              >
-                                Recomendado
-                              </span>
-                            )}
-                          </div>
-                          <h4 className="mt-3 text-lg font-semibold">
-                            {resource.title}
-                          </h4>
-                          <p
-                            className={`mt-2 text-sm ${
-                              selectedResource?.contentId === resource.contentId
-                                ? "text-white/80"
-                                : "text-[var(--app-muted)]"
-                            }`}
-                          >
-                            {resource.description ??
-                              "Sin descripción disponible."}
-                          </p>
-                        </button>
-
-                        <div className="flex flex-wrap items-center gap-2">
-                          {isResourceManager && (
-                            <>
-                              <button
-                                className={`inline-flex items-center gap-2 rounded-[14px] px-3 py-2 text-sm font-medium ${
-                                  selectedResource?.contentId ===
-                                  resource.contentId
-                                    ? "border border-white/15 bg-white/10 text-white"
-                                    : "border border-[var(--app-border)] bg-white/70 text-[var(--app-ink)]"
-                                }`}
-                                onClick={() => populateResourceForm(resource)}
-                                type="button"
-                              >
-                                <Pencil size={15} />
-                                Editar
-                              </button>
-                              <button
-                                className={`inline-flex items-center gap-2 rounded-[14px] px-3 py-2 text-sm font-medium ${
-                                  selectedResource?.contentId ===
-                                  resource.contentId
-                                    ? "border border-rose-300/20 bg-rose-500/10 text-rose-100"
-                                    : "border border-rose-200 bg-rose-50 text-rose-700"
-                                }`}
-                                onClick={() => void onDeleteResource(resource)}
-                                type="button"
-                              >
-                                <Trash2 size={15} />
-                                Eliminar
-                              </button>
-                            </>
-                          )}
-                          {resource.url && (
-                            <a
-                              className={`inline-flex items-center gap-2 rounded-[14px] px-3 py-2 text-sm font-medium ${
-                                selectedResource?.contentId ===
-                                resource.contentId
-                                  ? "border border-white/15 bg-white/10 text-white"
-                                  : "border border-[var(--app-border)] bg-white/70 text-[var(--app-ink)]"
-                              }`}
-                              href={resource.url}
-                              rel="noreferrer"
-                              target="_blank"
-                            >
-                              <Eye size={15} />
-                              Ver
-                            </a>
-                          )}
-                        </div>
-                      </div>
-
-                      <div
-                        className={`mt-4 flex flex-wrap items-center gap-4 text-xs ${
-                          selectedResource?.contentId === resource.contentId
-                            ? "text-white/72"
-                            : "text-[var(--app-muted)]"
-                        }`}
-                      >
-                        <span>{resource.category}</span>
-                        <span>{resource.durationLabel ?? "Sin duración"}</span>
-                        <span>
-                          {pillarLabel(resource.competencyMetadata.pillar)}
-                        </span>
-                        {resource.contentType === "scorm" && (
-                          <>
-                            <span>
-                              {resource.structurePayload.modules?.length ?? 0} módulos
-                            </span>
-                            <span>
-                              {countCourseResources(
-                                normalizeCourseModulesFromStructure(
-                                  resource.structurePayload,
-                                ),
-                              )}{" "}
-                              recursos internos
-                            </span>
-                          </>
-                        )}
-                        <span>{resource.comments.length} comentarios</span>
-                        <span>{resource.progressPercent}% avance</span>
-                      </div>
-
-                      {isResourceManager && (
-                        <div className="mt-4">
-                          <select
-                            className={`rounded-[14px] px-3 py-2 text-sm outline-none ${
-                              selectedResource?.contentId === resource.contentId
-                                ? "border border-white/15 bg-white/10 text-white"
-                                : "border border-[var(--app-border)] bg-white/70 text-[var(--app-ink)]"
-                            }`}
-                            value={resource.status}
-                            onChange={(event) =>
-                              void onChangeResourceStatus(
-                                resource,
-                                event.target.value as ContentStatus,
-                              )
-                            }
-                          >
-                            {RESOURCE_STATUS_OPTIONS.map((status) => (
-                              <option key={status} value={status}>
-                                {statusLabel(status)}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
-                    </article>
+                      resource={resource}
+                    />
                   ))}
                 </div>
 
-                <aside className={panelClass}>
-                  {selectedResource ? (
-                    <div className="space-y-5">
-                      <div>
-                        <p className="app-section-kicker">Detalle</p>
-                        <h4
-                          className="app-display-title mt-2 text-3xl font-semibold"
-                          data-display-font="true"
+                {resourceTotalPages > 1 && (
+                  <div className="flex flex-col gap-3 rounded-[22px] border border-[var(--app-border)] bg-white/82 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-sm text-[var(--app-muted)]">
+                      Página {resourcePage} de {resourceTotalPages}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        className="app-button-secondary"
+                        onClick={() =>
+                          setResourcePage((current) => Math.max(1, current - 1))
+                        }
+                        disabled={resourcePage === 1}
+                      >
+                        <ArrowLeft size={16} />
+                        Anterior
+                      </button>
+                      {resourcePaginationItems.map((pageNumber) => (
+                        <button
+                          key={pageNumber}
+                          type="button"
+                          className={
+                            pageNumber === resourcePage
+                              ? "inline-flex h-11 min-w-11 items-center justify-center rounded-full bg-[#4f2360] px-4 text-sm font-semibold text-white"
+                              : "inline-flex h-11 min-w-11 items-center justify-center rounded-full border border-[var(--app-border)] bg-white px-4 text-sm font-semibold text-[var(--app-ink)]"
+                          }
+                          onClick={() => setResourcePage(pageNumber)}
                         >
-                          {selectedResource.title}
-                        </h4>
-                        <p className="mt-2 text-sm leading-relaxed text-[var(--app-muted)]">
-                          {selectedResource.description ??
-                            "Sin descripción disponible."}
-                        </p>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="rounded-[16px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-3">
-                          <p className="text-xs uppercase tracking-wide text-[var(--app-muted)]">
-                            Autor
-                          </p>
-                          <p className="mt-2 text-sm font-medium text-[var(--app-ink)]">
-                            {selectedResource.authorName ?? "4Shine"}
-                          </p>
-                        </div>
-                        <div className="rounded-[16px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-3">
-                          <p className="text-xs uppercase tracking-wide text-[var(--app-muted)]">
-                            Publicado
-                          </p>
-                          <p className="mt-2 text-sm font-medium text-[var(--app-ink)]">
-                            {formatDate(selectedResource.publishedAt)}
-                          </p>
-                        </div>
-                        <div className="rounded-[16px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-3">
-                          <p className="text-xs uppercase tracking-wide text-[var(--app-muted)]">
-                            Componente
-                          </p>
-                          <p className="mt-2 text-sm font-medium text-[var(--app-ink)]">
-                            {selectedResource.competencyMetadata.component ??
-                              "Sin definir"}
-                          </p>
-                        </div>
-                        <div className="rounded-[16px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-3">
-                          <p className="text-xs uppercase tracking-wide text-[var(--app-muted)]">
-                            Competencia
-                          </p>
-                          <p className="mt-2 text-sm font-medium text-[var(--app-ink)]">
-                            {selectedResource.competencyMetadata.competency ??
-                              "Sin definir"}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="rounded-[20px] border border-[var(--app-border)] bg-white/74 p-4">
-                        <p className="app-section-kicker">Metadatos</p>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          <span className="rounded-full border border-[var(--app-border)] bg-[var(--app-chip)] px-3 py-1 text-xs text-[var(--app-ink)]">
-                            {pillarLabel(
-                              selectedResource.competencyMetadata.pillar,
-                            )}
-                          </span>
-                          {(selectedResource.tags.length
-                            ? selectedResource.tags
-                            : ["Sin tags"]
-                          ).map((tag) => (
-                            <span
-                              key={tag}
-                              className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs text-[var(--app-muted)]"
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                          <div className="rounded-[16px] bg-[var(--app-surface-muted)] p-3">
-                            <p className="text-xs uppercase tracking-wide text-[var(--app-muted)]">
-                              Etapa
-                            </p>
-                            <p className="mt-2 text-sm text-[var(--app-ink)]">
-                              {selectedResource.competencyMetadata.stage ??
-                                "Sin definir"}
-                            </p>
-                          </div>
-                          <div className="rounded-[16px] bg-[var(--app-surface-muted)] p-3">
-                            <p className="text-xs uppercase tracking-wide text-[var(--app-muted)]">
-                              Audiencia
-                            </p>
-                            <p className="mt-2 text-sm text-[var(--app-ink)]">
-                              {selectedResource.competencyMetadata.audience ??
-                                "Liderazgo"}
-                            </p>
-                          </div>
-                        </div>
-                        {selectedResourceBehaviors.length > 0 && (
-                          <div className="mt-4 rounded-[18px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4">
-                            <p className="app-section-kicker">
-                              Conductas observables
-                            </p>
-                            <ul className="mt-3 space-y-2 text-sm text-[var(--app-ink)]">
-                              {selectedResourceBehaviors.map((behavior) => (
-                                <li
-                                  key={behavior}
-                                  className="rounded-[18px] bg-white px-3 py-2"
-                                >
-                                  {behavior}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-
-                      {selectedResource.contentType === "scorm" && (
-                        <div className="rounded-[20px] border border-[var(--app-border)] bg-white/74 p-4">
-                          <div className="flex items-center justify-between gap-3">
-                            <div>
-                              <p className="app-section-kicker">Estructura del curso</p>
-                              <p className="mt-1 text-sm text-[var(--app-muted)]">
-                                Módulos internos y recursos que componen la experiencia.
-                              </p>
-                            </div>
-                            <span className="rounded-full border border-[var(--app-border)] bg-[var(--app-chip)] px-3 py-1 text-xs text-[var(--app-muted)]">
-                              {selectedResource.structurePayload.modules?.length ?? 0} módulos
-                            </span>
-                          </div>
-
-                          <div className="mt-4 space-y-3">
-                            {normalizeCourseModulesFromStructure(
-                              selectedResource.structurePayload,
-                            ).length > 0 ? (
-                              normalizeCourseModulesFromStructure(
-                                selectedResource.structurePayload,
-                              ).map((module, moduleIndex) => (
-                                <div
-                                  key={module.id}
-                                  className="rounded-[18px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4"
-                                >
-                                  <div className="flex items-start justify-between gap-3">
-                                    <div>
-                                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--app-muted)]">
-                                        Módulo {moduleIndex + 1}
-                                      </p>
-                                      <h5 className="mt-1 text-sm font-semibold text-[var(--app-ink)]">
-                                        {module.title}
-                                      </h5>
-                                      {module.description && (
-                                        <p className="mt-1 text-sm text-[var(--app-muted)]">
-                                          {module.description}
-                                        </p>
-                                      )}
-                                    </div>
-                                    <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs text-[var(--app-muted)]">
-                                      {module.resources.length} recursos
-                                    </span>
-                                  </div>
-
-                                  <div className="mt-3 space-y-2">
-                                    {module.resources.map((courseResource) => (
-                                      <div
-                                        key={courseResource.id}
-                                        className="rounded-[14px] bg-white px-3 py-3"
-                                      >
-                                        <div className="flex flex-wrap items-center gap-2">
-                                          <span className="rounded-full border border-[var(--app-border)] bg-[var(--app-chip)] px-2.5 py-1 text-xs text-[var(--app-muted)]">
-                                            {courseModuleResourceTypeLabel(
-                                              courseResource.contentType,
-                                            )}
-                                          </span>
-                                          {courseResource.durationLabel && (
-                                            <span className="rounded-full border border-[var(--app-border)] bg-white px-2.5 py-1 text-xs text-[var(--app-muted)]">
-                                              {courseResource.durationLabel}
-                                            </span>
-                                          )}
-                                        </div>
-                                        <p className="mt-2 text-sm font-semibold text-[var(--app-ink)]">
-                                          {courseResource.title}
-                                        </p>
-                                        {courseResource.description && (
-                                          <p className="mt-1 text-sm text-[var(--app-muted)]">
-                                            {courseResource.description}
-                                          </p>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              ))
-                            ) : (
-                              <p className="rounded-[16px] bg-[var(--app-surface-muted)] px-4 py-3 text-sm text-[var(--app-muted)]">
-                                Este curso aún no tiene módulos cargados.
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="rounded-[20px] border border-[var(--app-border)] bg-white/74 p-4">
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <p className="app-section-kicker">Comentarios</p>
-                            <p className="mt-1 text-sm text-[var(--app-muted)]">
-                              Conversación sobre este contenido entre líderes,
-                              iShiners y equipo gestor.
-                            </p>
-                          </div>
-                          <span className="inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-[var(--app-chip)] px-3 py-1 text-xs text-[var(--app-muted)]">
-                            <MessageCircle size={14} />
-                            {selectedResource.comments.length}
-                          </span>
-                        </div>
-
-                        <div className="mt-4 space-y-3">
-                          {selectedResource.comments.length === 0 ? (
-                            <p className="rounded-[16px] bg-[var(--app-surface-muted)] px-4 py-3 text-sm text-[var(--app-muted)]">
-                              Todavía no hay comentarios en este recurso.
-                            </p>
-                          ) : (
-                            selectedResource.comments.map((comment) => (
-                              <article
-                                key={comment.commentId}
-                                className="rounded-[16px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-3"
-                              >
-                                <div className="flex items-center justify-between gap-3">
-                                  <div>
-                                    <p className="text-sm font-semibold text-[var(--app-ink)]">
-                                      {comment.authorName}
-                                    </p>
-                                    <p className="text-xs text-[var(--app-muted)]">
-                                      {roleLabel(comment.authorRole)}
-                                    </p>
-                                  </div>
-                                  <span className="text-xs text-[var(--app-muted)]">
-                                    {formatDateTime(comment.createdAt)}
-                                  </span>
-                                </div>
-                                <p className="mt-3 text-sm text-[var(--app-ink)]">
-                                  {comment.commentText}
-                                </p>
-                              </article>
-                            ))
-                          )}
-                        </div>
-
-                        <div className="mt-4 space-y-3">
-                          <textarea
-                            className="min-h-24 w-full rounded-[18px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm text-[var(--app-ink)] outline-none transition focus:border-[var(--app-border-strong)]"
-                            placeholder="Escribe un comentario sobre este recurso"
-                            value={
-                              commentDrafts[selectedResource.contentId] ?? ""
-                            }
-                            onChange={(event) =>
-                              setCommentDrafts((prev) => ({
-                                ...prev,
-                                [selectedResource.contentId]:
-                                  event.target.value,
-                              }))
-                            }
-                          />
-                          <button
-                            className="inline-flex items-center gap-2 rounded-[16px] bg-[#4f2360] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#401b4d]"
-                            onClick={() =>
-                              void onSubmitComment(selectedResource)
-                            }
-                            type="button"
-                          >
-                            <MessageCircle size={15} />
-                            Comentar
-                          </button>
-                        </div>
-                      </div>
+                          {pageNumber}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        className="app-button-secondary"
+                        onClick={() =>
+                          setResourcePage((current) =>
+                            Math.min(resourceTotalPages, current + 1),
+                          )
+                        }
+                        disabled={resourcePage === resourceTotalPages}
+                      >
+                        Siguiente
+                        <ArrowRight size={16} />
+                      </button>
                     </div>
-                  ) : (
-                    <EmptyState message="Selecciona un recurso para ver su detalle." />
-                  )}
-                </aside>
-              </div>
+                  </div>
+                )}
+              </>
             )}
           </section>
 

@@ -5,7 +5,10 @@ import type {
 } from './metadata-assistant';
 import type {
   CreateLearningCommentInput,
+  LearningLikeToggleResult,
   LearningCommentRecord,
+  LearningResourceListQuery,
+  LearningResourceListResult,
   LearningResourceRecord,
   UpdateWorkbookInput,
   WorkbookEditableFields,
@@ -15,8 +18,11 @@ import type {
 
 export type {
   LearningCommentRecord,
+  LearningLikeToggleResult,
   LearningMetadataAssistantInput,
   LearningMetadataAssistantResult,
+  LearningResourceListQuery,
+  LearningResourceListResult,
   LearningResourceRecord,
   UpdateWorkbookInput,
   WorkbookEditableFields,
@@ -24,14 +30,34 @@ export type {
   WorkbookStatePayload,
 };
 
-export async function listLearningResources(): Promise<LearningResourceRecord[]> {
-  return requestApi<LearningResourceRecord[]>('/api/v1/modules/aprendizaje/resources');
+export async function listLearningResources(
+  query: LearningResourceListQuery = {},
+): Promise<LearningResourceListResult> {
+  const params = new URLSearchParams();
+  if (query.q?.trim()) params.set('q', query.q.trim());
+  if (query.contentType) params.set('contentType', query.contentType);
+  if (query.status) params.set('status', query.status);
+  if (query.pillar) params.set('pillar', query.pillar);
+  if (query.page) params.set('page', String(query.page));
+  if (query.pageSize) params.set('pageSize', String(query.pageSize));
+  const suffix = params.toString() ? `?${params.toString()}` : '';
+  return requestApi<LearningResourceListResult>(`/api/v1/modules/aprendizaje/resources${suffix}`);
+}
+
+export async function getLearningResourceDetail(contentId: string): Promise<LearningResourceRecord> {
+  return requestApi<LearningResourceRecord>(`/api/v1/modules/aprendizaje/resources/${contentId}`);
 }
 
 export async function createLearningComment(input: CreateLearningCommentInput): Promise<LearningCommentRecord> {
   return requestApi<LearningCommentRecord>('/api/v1/modules/aprendizaje/comments', {
     method: 'POST',
     body: JSON.stringify(input),
+  });
+}
+
+export async function toggleLearningLike(contentId: string): Promise<LearningLikeToggleResult> {
+  return requestApi<LearningLikeToggleResult>(`/api/v1/modules/aprendizaje/resources/${contentId}/like`, {
+    method: 'POST',
   });
 }
 
