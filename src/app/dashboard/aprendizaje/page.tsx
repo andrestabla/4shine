@@ -13,11 +13,13 @@ import {
   Layers3,
   Lightbulb,
   Link2,
+  Loader2,
   MessageCircle,
   Pencil,
   Plus,
   Save,
   Search,
+  Sparkles,
   Tag,
   Trash2,
   X,
@@ -31,11 +33,17 @@ import { useUser } from "@/context/UserContext";
 import { filterCommercialProducts } from "@/features/access/catalog";
 import {
   createLearningComment,
+  extractLearningMetadataWithAi,
   listLearningResources,
   listLearningWorkbooks,
+  type LearningMetadataAssistantResult,
   type LearningResourceRecord,
   type WorkbookRecord,
 } from "@/features/aprendizaje/client";
+import {
+  LEARNING_AUDIENCE_OPTIONS,
+  LEARNING_PROGRAM_STAGE_OPTIONS,
+} from "@/features/aprendizaje/metadata-assistant";
 import {
   createContent,
   deleteContent,
@@ -122,23 +130,8 @@ const COURSE_MODULE_RESOURCE_TYPE_OPTIONS: CourseModuleResourceType[] = [
   "link",
 ];
 
-const PROGRAM_STAGE_OPTIONS = [
-  "Descubrimiento",
-  "Shine Within",
-  "Shine Out",
-  "Shine Up",
-  "Shine Beyond",
-  "Programa completo",
-  "Free",
-] as const;
-
-const AUDIENCE_OPTIONS = [
-  { value: "lider", label: "Líderes" },
-  { value: "lider_suscrito", label: "Líderes con suscripción" },
-  { value: "lider_sin_suscripcion", label: "Líderes sin suscripción" },
-  { value: "ishiners", label: "iShiners" },
-  { value: "all", label: "Toda la plataforma" },
-] as const;
+const PROGRAM_STAGE_OPTIONS = LEARNING_PROGRAM_STAGE_OPTIONS;
+const AUDIENCE_OPTIONS = LEARNING_AUDIENCE_OPTIONS;
 
 const CONTENT_TYPE_EXPERIENCE: Record<
   ContentType,
@@ -346,6 +339,20 @@ function countCourseResources(modules: CourseModule[]): number {
   return modules.reduce(
     (total, module) => total + (module.resources?.filter((resource) => resource.title.trim().length > 0).length ?? 0),
     0,
+  );
+}
+
+function hasMeaningfulCourseStructure(modules: CourseModule[]): boolean {
+  return modules.some(
+    (module) =>
+      module.title.trim().length > 0 ||
+      (module.description?.trim().length ?? 0) > 0 ||
+      module.resources.some(
+        (resource) =>
+          resource.title.trim().length > 0 ||
+          (resource.description?.trim().length ?? 0) > 0 ||
+          (resource.url?.trim().length ?? 0) > 0,
+      ),
   );
 }
 
@@ -602,6 +609,10 @@ export default function AprendizajePage() {
   const [commentDrafts, setCommentDrafts] = React.useState<
     Record<string, string>
   >({});
+  const [metadataAssistantResult, setMetadataAssistantResult] =
+    React.useState<LearningMetadataAssistantResult | null>(null);
+  const [metadataAssistantLoading, setMetadataAssistantLoading] =
+    React.useState(false);
   const [workbookOwnerFilter, setWorkbookOwnerFilter] = React.useState<
     "all" | string
   >("all");
@@ -914,6 +925,7 @@ export default function AprendizajePage() {
     setResourceCategoryMode("preset");
     setCustomCategoryDraft("");
     setUploadedResourceAsset(null);
+    setMetadataAssistantResult(null);
   }, []);
 
   const closeResourceModal = React.useCallback((force = false) => {
@@ -963,6 +975,7 @@ export default function AprendizajePage() {
       );
       setResourceCategoryMode(knownCategory ? "preset" : "custom");
       setUploadedResourceAsset(null);
+      setMetadataAssistantResult(null);
       setIsResourceModalOpen(true);
     },
     [resources],
@@ -1077,6 +1090,7 @@ export default function AprendizajePage() {
 
   const onChangeResourceContentType = React.useCallback(
     (nextType: ContentType) => {
+      setMetadataAssistantResult(null);
       setResourceForm((prev) => ({
         ...prev,
         contentType: nextType,
@@ -1098,6 +1112,7 @@ export default function AprendizajePage() {
   );
 
   const onChangeEditorKind = React.useCallback((nextKind: ResourceEditorKind) => {
+    setMetadataAssistantResult(null);
     if (nextKind === "course") {
       setResourceForm((prev) => ({
         ...prev,
@@ -1116,6 +1131,96 @@ export default function AprendizajePage() {
       contentType: prev.contentType === "scorm" ? "video" : prev.contentType,
     }));
   }, []);
+
+  const onExtractMetadataWithAi = React.useCallback(async () => {
+    if (!isResourceManager || metadataAssistantLoading) return;
+
+    const hasSignal =
+      resourceForm.url.trim().length > 0 ||
+      resourceForm.title.trim().length > 0 ||
+      resourceForm.description.trim().length > 0;
+
+    if (!hasSignal) {
+      await alert({
+        title: "Agrega contexto primero",
+        message:
+          "Pega una URL, un título o una descripción para que el asistente pueda sugerir metadatos útiles.",
+        tone: "warning",
+      });
+      return;
+    }
+
+    setMetadataAssistantLoading(true);
+    try {
+      const result = await extractLearningMetadataWithAi({
+        kind: editorKind,
+        contentType: resourceForm.contentType,
+        url: resourceForm.url.trim() || null,
+        title: resourceForm.title.trim() || null,
+        description: resourceForm.description.trim() || null,
+        category: resourceForm.category.trim() || null,
+        durationLabel: resourceForm.durationLabel.trim() || null,
+      });
+
+      const suggestedCategory = result.suggestion.category.trim();
+      const knownCategory = uniqueStrings([
+        ...CONTENT_TYPE_EXPERIENCE[resourceForm.contentType].categoryPresets,
+        ...resources.map((resource) => resource.category),
+        suggestedCategory,
+      ]).some((category) => category === suggestedCategory);
+
+      const shouldReplaceCourseStructure =
+        editorKind === "course" &&
+        result.suggestion.courseModules.length > 0 &&
+        !hasMeaningfulCourseStructure(resourceForm.courseModules);
+
+      setMetadataAssistantResult(result);
+      setResourceCategoryMode(
+        suggestedCategory && !knownCategory ? "custom" : "preset",
+      );
+      setCustomCategoryDraft(
+        suggestedCategory && !knownCategory ? suggestedCategory : "",
+      );
+
+      setResourceForm((prev) => ({
+        ...prev,
+        title: result.suggestion.title || prev.title,
+        description: result.suggestion.description || prev.description,
+        category: suggestedCategory || prev.category,
+        durationLabel: result.suggestion.durationLabel ?? prev.durationLabel,
+        pillar: result.suggestion.pillar ?? prev.pillar,
+        component: result.suggestion.component ?? prev.component,
+        competency: result.suggestion.competency ?? prev.competency,
+        stage: result.suggestion.stage ?? prev.stage,
+        audience: result.suggestion.audience ?? prev.audience,
+        tags: uniqueStrings([...prev.tags, ...result.suggestion.tags]),
+        courseModules: shouldReplaceCourseStructure
+          ? result.suggestion.courseModules
+          : prev.courseModules,
+      }));
+    } catch (error) {
+      await showError(
+        "No se pudieron extraer metadatos con el asistente IA",
+        error,
+      );
+    } finally {
+      setMetadataAssistantLoading(false);
+    }
+  }, [
+    alert,
+    editorKind,
+    isResourceManager,
+    metadataAssistantLoading,
+    resourceForm.category,
+    resourceForm.contentType,
+    resourceForm.courseModules,
+    resourceForm.description,
+    resourceForm.durationLabel,
+    resourceForm.title,
+    resourceForm.url,
+    resources,
+    showError,
+  ]);
 
   const onSelectResourceCategory = React.useCallback((value: string) => {
     if (value === "__custom") {
@@ -2535,6 +2640,149 @@ export default function AprendizajePage() {
               <div className="mx-auto grid min-h-0 w-full max-w-[1540px] flex-1 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_22rem] 2xl:grid-cols-[minmax(0,1fr)_24rem]">
                 <div className="min-h-0 overflow-y-auto px-4 py-5 sm:px-6 lg:px-8 lg:py-6">
                   <div className="space-y-5">
+                    <section className="rounded-[24px] border border-[var(--app-border)] bg-white/88 p-5 shadow-[0_18px_38px_rgba(55,32,80,0.05)]">
+                      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                        <div className="max-w-3xl">
+                          <div className="flex items-center gap-3">
+                            <div className="rounded-[16px] bg-[var(--app-chip)] p-3 text-[#4f2360]">
+                              <Sparkles size={18} />
+                            </div>
+                            <div>
+                              <h4 className="text-lg font-semibold text-[var(--app-ink)]">
+                                Asistente IA de metadatos
+                              </h4>
+                              <p className="text-sm text-[var(--app-muted)]">
+                                Usa OpenAI para sugerir metadatos editoriales y,
+                                cuando detecta un enlace de YouTube, aprovecha la
+                                YouTube Data API para leer título, descripción y
+                                duración antes de clasificar.
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            <span className="app-chip-soft">
+                              <Sparkles size={13} />
+                              OpenAI
+                            </span>
+                            <span className="app-chip-soft">
+                              <Link2 size={13} />
+                              YouTube Data API
+                            </span>
+                            <span className="app-chip-soft">
+                              <CheckCircle2 size={13} />
+                              Sugerencias sobre el mapa 4Shine
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex w-full flex-col gap-2 lg:w-auto lg:min-w-[18rem]">
+                          <button
+                            type="button"
+                            className="app-button-secondary w-full justify-center"
+                            onClick={() => void onExtractMetadataWithAi()}
+                            disabled={metadataAssistantLoading}
+                          >
+                            {metadataAssistantLoading ? (
+                              <Loader2 size={16} className="animate-spin" />
+                            ) : (
+                              <Sparkles size={16} />
+                            )}
+                            {metadataAssistantLoading
+                              ? "Extrayendo metadatos..."
+                              : "Extraer metadatos con IA"}
+                          </button>
+                          <p className="text-xs leading-relaxed text-[var(--app-muted)]">
+                            Funciona mejor si ya pegaste una URL o escribiste un
+                            título provisional. Si el enlace es de YouTube, la
+                            lectura será más precisa.
+                          </p>
+                        </div>
+                      </div>
+
+                      {metadataAssistantResult ? (
+                        <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
+                          <div className="rounded-[20px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="rounded-full border border-[rgba(95,52,113,0.14)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--app-ink)]">
+                                {metadataAssistantResult.source.youtubeUsed
+                                  ? "YouTube verificado"
+                                  : "Sugerencia editorial IA"}
+                              </span>
+                              {metadataAssistantResult.suggestion.pillar && (
+                                <span className="rounded-full border border-[rgba(95,52,113,0.14)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--app-ink)]">
+                                  {getPillarLabelFromCode(
+                                    metadataAssistantResult.suggestion.pillar,
+                                  )}
+                                </span>
+                              )}
+                              {metadataAssistantResult.suggestion.stage && (
+                                <span className="rounded-full border border-[rgba(95,52,113,0.14)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--app-ink)]">
+                                  {metadataAssistantResult.suggestion.stage}
+                                </span>
+                              )}
+                            </div>
+                            <p className="mt-4 text-sm leading-relaxed text-[var(--app-muted)]">
+                              {metadataAssistantResult.editorialNote}
+                            </p>
+                            {metadataAssistantResult.source.youtubeWarning && (
+                              <div className="mt-4 rounded-[16px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                                {metadataAssistantResult.source.youtubeWarning}
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="rounded-[20px] border border-[var(--app-border)] bg-white p-4">
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--app-muted)]">
+                              Qué completó
+                            </p>
+                            <div className="mt-3 space-y-2 text-sm text-[var(--app-muted)]">
+                              <p>
+                                <span className="font-semibold text-[var(--app-ink)]">
+                                  Categoría:
+                                </span>{" "}
+                                {metadataAssistantResult.suggestion.category ||
+                                  "Sin sugerencia"}
+                              </p>
+                              <p>
+                                <span className="font-semibold text-[var(--app-ink)]">
+                                  Tags:
+                                </span>{" "}
+                                {metadataAssistantResult.suggestion.tags.length > 0
+                                  ? metadataAssistantResult.suggestion.tags.join(", ")
+                                  : "Sin tags sugeridos"}
+                              </p>
+                              <p>
+                                <span className="font-semibold text-[var(--app-ink)]">
+                                  Duración:
+                                </span>{" "}
+                                {metadataAssistantResult.suggestion.durationLabel ||
+                                  "Sin duración"}
+                              </p>
+                              {editorKind === "course" && (
+                                <p>
+                                  <span className="font-semibold text-[var(--app-ink)]">
+                                    Módulos sugeridos:
+                                  </span>{" "}
+                                  {
+                                    metadataAssistantResult.suggestion.courseModules
+                                      .length
+                                  }
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mt-5 rounded-[20px] border border-dashed border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-4 text-sm leading-relaxed text-[var(--app-muted)]">
+                          El asistente no publica ni reemplaza tu criterio
+                          editorial: propone un punto de partida para acelerar
+                          título, descripción, clasificación, tags y metadatos
+                          del mapa 4Shine.
+                        </div>
+                      )}
+                    </section>
+
                     <section className="rounded-[24px] border border-[var(--app-border)] bg-white/88 p-5 shadow-[0_18px_38px_rgba(55,32,80,0.05)]">
                       <div className="flex items-center gap-3">
                         <div className="rounded-[16px] bg-[var(--app-chip)] p-3 text-[#4f2360]">

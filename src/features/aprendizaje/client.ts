@@ -1,5 +1,9 @@
 import { requestApi } from '@/lib/api-client';
 import type {
+  LearningMetadataAssistantInput,
+  LearningMetadataAssistantResult,
+} from './metadata-assistant';
+import type {
   CreateLearningCommentInput,
   LearningCommentRecord,
   LearningResourceRecord,
@@ -11,6 +15,8 @@ import type {
 
 export type {
   LearningCommentRecord,
+  LearningMetadataAssistantInput,
+  LearningMetadataAssistantResult,
   LearningResourceRecord,
   UpdateWorkbookInput,
   WorkbookEditableFields,
@@ -27,6 +33,18 @@ export async function createLearningComment(input: CreateLearningCommentInput): 
     method: 'POST',
     body: JSON.stringify(input),
   });
+}
+
+export async function extractLearningMetadataWithAi(
+  input: LearningMetadataAssistantInput,
+): Promise<LearningMetadataAssistantResult> {
+  return requestApi<LearningMetadataAssistantResult>(
+    '/api/v1/modules/aprendizaje/metadata-assistant',
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  );
 }
 
 export async function listLearningWorkbooks(ownerUserId?: string): Promise<WorkbookRecord[]> {

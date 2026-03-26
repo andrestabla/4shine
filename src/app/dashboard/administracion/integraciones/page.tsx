@@ -434,6 +434,48 @@ const INTEGRATION_ASSISTANTS: Record<IntegrationKey, AssistantDefinition> = {
       },
     ],
   },
+  youtube_data_api: {
+    intro:
+      'Conecta YouTube Data API para leer título, descripción, duración y canal cuando el editor de Aprendizaje reciba enlaces de YouTube.',
+    primarySecretField: 'apiKey',
+    steps: [
+      {
+        id: 'auth',
+        title: 'Credenciales',
+        description: 'Usa una API key con YouTube Data API v3 habilitada en Google Cloud.',
+        fields: [
+          { key: 'apiKey', label: 'API Key', type: 'password', required: true, placeholder: 'AIza...' },
+          {
+            key: 'baseUrl',
+            label: 'Base URL',
+            type: 'url',
+            defaultValue: 'https://www.googleapis.com/youtube/v3',
+          },
+        ],
+      },
+      {
+        id: 'defaults',
+        title: 'Parámetros de extracción',
+        description: 'Define idioma y contexto por defecto para sugerencias editoriales desde YouTube.',
+        fields: [
+          {
+            key: 'defaultLanguage',
+            label: 'Idioma preferido',
+            type: 'text',
+            defaultValue: 'es',
+            helpText: 'Se usa para solicitar metadatos localizados cuando YouTube tenga variantes disponibles.',
+          },
+          {
+            key: 'regionCode',
+            label: 'Región',
+            type: 'text',
+            defaultValue: 'CO',
+            helpText: 'Referencia editorial para la operación en Latinoamérica. No bloquea la extracción.',
+          },
+        ],
+      },
+    ],
+  },
 };
 
 const OUTBOUND_EMAIL_ASSISTANT: AssistantDefinition = {
