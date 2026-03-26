@@ -566,7 +566,6 @@ export async function listLearningResources(
           OR lower(ci.title) LIKE $6
           OR lower(COALESCE(ci.description, '')) LIKE $6
           OR lower(ci.category) LIKE $6
-          OR lower(COALESCE(ci.author_name, '')) LIKE $6
           OR lower(COALESCE(ci.competency_metadata->>'component', '')) LIKE $6
           OR lower(COALESCE(ci.competency_metadata->>'competency', '')) LIKE $6
           OR lower(COALESCE(ci.competency_metadata->>'stage', '')) LIKE $6
@@ -602,7 +601,7 @@ export async function listLearningResources(
         ci.duration_minutes,
         ci.duration_label,
         ci.url,
-        COALESCE(ci.author_name, au.display_name) AS author_name,
+        NULL::text AS author_name,
         ci.status,
         ci.is_recommended,
         ci.competency_metadata,
@@ -618,7 +617,6 @@ export async function listLearningResources(
         ci.published_at::text,
         ARRAY[]::json[] AS comments
       FROM app_learning.content_items ci
-      LEFT JOIN app_core.users au ON au.user_id = ci.author_user_id
       LEFT JOIN (
         SELECT ct.content_id, ARRAY_AGG(t.tag_name ORDER BY t.tag_name) AS tags
         FROM app_learning.content_tags ct
@@ -663,7 +661,6 @@ export async function listLearningResources(
           OR lower(ci.title) LIKE $7
           OR lower(COALESCE(ci.description, '')) LIKE $7
           OR lower(ci.category) LIKE $7
-          OR lower(COALESCE(ci.author_name, '')) LIKE $7
           OR lower(COALESCE(ci.competency_metadata->>'component', '')) LIKE $7
           OR lower(COALESCE(ci.competency_metadata->>'competency', '')) LIKE $7
           OR lower(COALESCE(ci.competency_metadata->>'stage', '')) LIKE $7
@@ -729,7 +726,7 @@ export async function getLearningResourceDetail(
         ci.duration_minutes,
         ci.duration_label,
         ci.url,
-        COALESCE(ci.author_name, au.display_name) AS author_name,
+        NULL::text AS author_name,
         ci.status,
         ci.is_recommended,
         ci.competency_metadata,
@@ -745,7 +742,6 @@ export async function getLearningResourceDetail(
         ci.published_at::text,
         COALESCE(comments.comments, ARRAY[]::json[]) AS comments
       FROM app_learning.content_items ci
-      LEFT JOIN app_core.users au ON au.user_id = ci.author_user_id
       LEFT JOIN (
         SELECT ct.content_id, ARRAY_AGG(t.tag_name ORDER BY t.tag_name) AS tags
         FROM app_learning.content_tags ct

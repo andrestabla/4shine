@@ -13,7 +13,6 @@ import {
   Send,
   Trash2,
 } from "lucide-react";
-import { LearningResourceVisual } from "@/components/aprendizaje/LearningResourceVisual";
 import { EmptyState } from "@/components/dashboard/EmptyState";
 import { useAppDialog } from "@/components/ui/AppDialogProvider";
 import { useUser } from "@/context/UserContext";
@@ -280,12 +279,6 @@ export default function LearningResourceDetailPage() {
 
       <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.15fr)_360px]">
         <div className="space-y-6">
-          <LearningResourceVisual
-            resource={resource}
-            size="hero"
-            showTitle={false}
-          />
-
           <div className="app-panel p-5 sm:p-6">
             <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
               <div className="max-w-3xl">
@@ -327,12 +320,6 @@ export default function LearningResourceDetailPage() {
                     </span>
                   ) : null}
                 </div>
-
-                <p className="mt-4 text-sm text-[var(--app-muted)]">
-                  Por <span className="font-medium text-[var(--app-ink)]">{resource.authorName ?? "4Shine"}</span>
-                  {" · "}
-                  {formatLearningDate(resource.publishedAt)}
-                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-3 xl:min-w-[240px]">
@@ -604,14 +591,6 @@ export default function LearningResourceDetailPage() {
           <div className="app-panel p-5 sm:p-6">
             <p className="app-section-kicker">Detalle</p>
             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-1">
-              <div className="rounded-[18px] bg-[var(--app-surface-muted)] p-4">
-                <p className="text-xs uppercase tracking-[0.18em] text-[var(--app-muted)]">
-                  Autor
-                </p>
-                <p className="mt-2 font-semibold text-[var(--app-ink)]">
-                  {resource.authorName ?? "4Shine"}
-                </p>
-              </div>
               <div className="rounded-[18px] bg-[var(--app-surface-muted)] p-4">
                 <p className="text-xs uppercase tracking-[0.18em] text-[var(--app-muted)]">
                   Publicado
