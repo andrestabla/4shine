@@ -24,6 +24,7 @@ import {
   X,
 } from "lucide-react";
 import { LearningResourceCard } from "@/components/aprendizaje/LearningResourceCard";
+import { LearningAnalyticsPanel } from "@/components/aprendizaje/LearningAnalyticsPanel";
 import { AccessOfferPanel } from "@/components/access/AccessOfferPanel";
 import { EmptyState } from "@/components/dashboard/EmptyState";
 import { useAppDialog } from "@/components/ui/AppDialogProvider";
@@ -46,6 +47,7 @@ import {
 import {
   createContent,
   updateContent,
+  deleteContent,
   type CourseModule,
   type CourseModuleResource,
   type CourseModuleResourceType,
@@ -948,6 +950,27 @@ export default function AprendizajePage() {
     resourceTypeFilter,
     showError,
   ]);
+
+  const onDeleteResource = React.useCallback(
+    async (contentId: string) => {
+      const accepted = await confirm({
+        title: "Eliminar recurso",
+        message: "¿Deseas eliminar este recurso? Esta acción no se puede deshacer.",
+        confirmText: "Eliminar",
+        cancelText: "Cancelar",
+        tone: "warning",
+      });
+      if (!accepted) return;
+
+      try {
+        await deleteContent(contentId);
+        void loadModule();
+      } catch (error) {
+        await showError("No se pudo eliminar el recurso", error);
+      }
+    },
+    [confirm, loadModule, showError],
+  );
 
   React.useEffect(() => {
     void loadModule();
@@ -1994,6 +2017,13 @@ export default function AprendizajePage() {
                 </div>
               </div>
 
+              {isCoursesTab && isResourceManager ? (
+                <LearningAnalyticsPanel 
+                  resources={filteredResources}
+                  totalAvailable={resourceTotal}
+                />
+              ) : null}
+
               {!isOpenLeader || isResourcesTab ? (
                 <>
                   <div
@@ -2111,9 +2141,10 @@ export default function AprendizajePage() {
                           <LearningResourceCard
                             key={resource.contentId}
                             resource={resource}
-                            href={buildLearningResourceDetailHref(
-                              resource.contentId,
-                            )}
+                            href={buildLearningResourceDetailHref(resource.contentId)}
+                            canManage={isResourceManager}
+                            onEdit={(id) => router.push(`/dashboard/aprendizaje?tab=${activeLearningTab}&edit=${id}`)}
+                            onDelete={onDeleteResource}
                           />
                         ))}
                       </div>

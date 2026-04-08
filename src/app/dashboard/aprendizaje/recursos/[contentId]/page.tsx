@@ -12,6 +12,7 @@ import {
   Pencil,
   Send,
   Trash2,
+  X,
 } from "lucide-react";
 import { EmptyState } from "@/components/dashboard/EmptyState";
 import { useAppDialog } from "@/components/ui/AppDialogProvider";
@@ -223,470 +224,274 @@ export default function LearningResourceDetailPage() {
   }, [canManage, confirm, deleting, requestedTab, resource, router, showError]);
 
   if (loading) {
-    return (
-      <div className="app-panel flex items-center gap-3 p-6 text-sm text-[var(--app-muted)]">
-        <Loader2 size={18} className="animate-spin" />
-        Cargando recurso...
-      </div>
-    );
-  }
-
-  if (!resource) {
-    return (
-      <EmptyState message="No encontramos este recurso o no tienes acceso a visualizarlo." />
-    );
-  }
-
-  const fallbackTab = resource.contentType === "scorm" ? "cursos" : "recursos";
-  const backTab =
-    requestedTab === "cursos" || requestedTab === "recursos"
-      ? requestedTab
-      : fallbackTab;
-  const backHref =
-    backTab === "recursos"
-      ? "/dashboard/aprendizaje"
-      : `/dashboard/aprendizaje?tab=${backTab}`;
-  const editHref =
-    backTab === "recursos"
-      ? `/dashboard/aprendizaje?edit=${resource.contentId}`
-      : `/dashboard/aprendizaje?tab=${backTab}&edit=${resource.contentId}`;
+  const [showSocial, setShowSocial] = React.useState(false);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <Link href={backHref} className="app-button-secondary">
-          <ArrowLeft size={16} />
-          Volver a Aprendizaje
-        </Link>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <span
-            className={`rounded-full px-3 py-1.5 text-xs font-semibold ${learningStatusClasses(resource.status)}`}
-          >
-            {learningStatusLabel(resource.status)}
+    <div className="fixed inset-0 z-[100] flex h-[100dvh] w-screen flex-col overflow-hidden bg-[#f8f4ff] md:flex-row">
+      {/* SIDEBAR: Temario y Metadatos */}
+      <aside className="flex h-full w-full shrink-0 flex-col border-r border-[var(--app-border)] bg-white md:w-80 lg:w-96">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--app-border)] p-4">
+          <Link href={backHref} className="app-button-secondary !min-h-9 !px-3 !py-1 text-xs">
+            <ArrowLeft size={14} />
+            Salir
+          </Link>
+          <span className="text-xs font-semibold uppercase tracking-wider text-[var(--app-muted)] line-clamp-1">
+            {resource.contentType === "scorm" ? "Curso" : "Recurso"}
           </span>
-          {resource.url ? (
-            <a
-              href={resource.url}
-              target="_blank"
-              rel="noreferrer"
-              className="app-button-secondary"
-            >
-              <ExternalLink size={16} />
-              Abrir recurso
-            </a>
-          ) : null}
-          {canManage ? (
-            <>
-              <button
-                type="button"
-                className="app-button-secondary"
-                onClick={() => router.push(editHref)}
-              >
-                <Pencil size={16} />
-                Editar
-              </button>
-              <button
-                type="button"
-                className="inline-flex items-center gap-2 rounded-[16px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-100"
-                onClick={() => void onDeleteResource()}
-                disabled={deleting}
-              >
-                <Trash2 size={16} />
-                {deleting ? "Eliminando..." : "Eliminar"}
-              </button>
-            </>
-          ) : null}
         </div>
-      </div>
 
-      <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.15fr)_360px]">
-        <div className="space-y-6">
-          <div className="app-panel p-5 sm:p-6">
-            <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-              <div className="max-w-3xl">
-                <p className="app-section-kicker">
-                  {resource.category || "Recurso 4Shine"}
-                </p>
-                <h1
-                  className="app-display-title mt-2 text-3xl font-semibold"
-                  data-display-font="true"
-                >
-                  {resource.title}
-                </h1>
-                <p className="mt-4 text-base leading-relaxed text-[var(--app-muted)]">
-                  {resource.description ?? "Sin descripción disponible."}
-                </p>
-
-                <div className="mt-4 flex flex-wrap gap-2 text-xs font-medium text-[var(--app-muted)]">
-                  <span className="rounded-full border border-[var(--app-border)] bg-[var(--app-chip)] px-3 py-1">
-                    {learningContentTypeLabel(resource.contentType)}
-                  </span>
-                  {resource.durationLabel ? (
-                    <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1">
-                      {resource.durationLabel}
-                    </span>
-                  ) : null}
-                  {resource.competencyMetadata.stage ? (
-                    <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1">
-                      {resource.competencyMetadata.stage}
-                    </span>
-                  ) : null}
-                  {resource.competencyMetadata.pillar ? (
-                    <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1">
-                      {learningPillarLabel(resource.competencyMetadata.pillar)}
-                    </span>
-                  ) : null}
-                  {resource.contentType === "scorm" ? (
-                    <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1">
-                      {resource.structurePayload.modules?.length ?? 0} módulos
-                    </span>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 xl:min-w-[240px]">
-                <button
-                  type="button"
-                  className={
-                    resource.liked
-                      ? "flex min-h-[82px] flex-col items-start justify-between rounded-[20px] border border-rose-200 bg-rose-50 px-4 py-3 text-left text-sm font-semibold text-rose-700"
-                      : "flex min-h-[82px] flex-col items-start justify-between rounded-[20px] border border-[var(--app-border)] bg-white px-4 py-3 text-left text-sm font-semibold text-[var(--app-ink)]"
-                  }
-                  onClick={() => void onToggleLike()}
-                  disabled={togglingLike}
-                >
-                  <Heart
-                    size={18}
-                    className={resource.liked ? "fill-current" : undefined}
-                  />
-                  <span className="text-xl font-semibold leading-none">
-                    {resource.likes}
-                  </span>
-                  <span className="text-sm font-medium">
-                    {togglingLike ? "Actualizando..." : "Me gusta"}
-                  </span>
-                </button>
-                <div className="flex min-h-[82px] flex-col items-start justify-between rounded-[20px] border border-[var(--app-border)] bg-white px-4 py-3 text-left">
-                  <MessageCircle size={18} className="text-[var(--app-muted)]" />
-                  <span className="text-xl font-semibold leading-none text-[var(--app-ink)]">
-                    {resource.commentCount}
-                  </span>
-                  <span className="text-sm font-medium text-[var(--app-muted)]">
-                    Comentarios
-                  </span>
-                </div>
-              </div>
+        <div className="flex-1 overflow-y-auto p-5">
+          <div className="mb-6">
+            <span className="rounded-full border border-[var(--app-border)] bg-[var(--app-chip)] px-2.5 py-1 text-[11px] font-semibold text-[var(--app-ink)]">
+              {learningContentTypeLabel(resource.contentType)}
+            </span>
+            <h1 className="mt-3 text-2xl font-bold leading-tight text-[var(--app-ink)]" data-display-font="true">
+              {resource.title}
+            </h1>
+            <div className="mt-4 hidden lg:block">
+              <p className="text-sm leading-relaxed text-[var(--app-muted)]">
+                {resource.description ?? "Sin descripción disponible."}
+              </p>
             </div>
+            {resource.progressPercent > 0 && (
+              <div className="mt-5">
+                <div className="flex items-center justify-between text-[11px] font-semibold text-[var(--app-muted)]">
+                  <span>Tu progreso</span>
+                  <span className="text-emerald-600">{resource.progressPercent}%</span>
+                </div>
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-[var(--app-surface-muted)]">
+                  <div
+                    className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                    style={{ width: `${Math.min(100, Math.max(0, resource.progressPercent))}%` }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
-          <div className="app-panel overflow-hidden p-0">
+          {resource.contentType === "scorm" && (resource.structurePayload.modules?.length ?? 0) > 0 && (
+            <div className="space-y-4">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-[var(--app-muted)]">
+                Contenido del Curso
+              </h3>
+              <div className="space-y-3">
+                {resource.structurePayload.modules?.map((module, moduleIndex) => (
+                  <div key={module.id} className="rounded-[16px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-3">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[var(--app-muted)]">
+                      Módulo {moduleIndex + 1}
+                    </p>
+                    <h4 className="mt-1 text-sm font-bold text-[var(--app-ink)]">{module.title}</h4>
+                    <div className="mt-3 space-y-2">
+                      {module.resources.map((mRes, rIdx) => (
+                        <div key={mRes.id} className="flex items-center justify-between gap-2 rounded-lg bg-white p-2 text-xs shadow-sm">
+                          <div className="flex items-center gap-2">
+                            {resource.progressPercent > ((moduleIndex + rIdx * 0.5) * 30) ? (
+                               <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                               </div>
+                            ) : (
+                               <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+                                 <span className="text-[10px] font-bold">{rIdx + 1}</span>
+                               </div>
+                            )}
+                            <span className="font-medium text-[var(--app-ink)] line-clamp-1">{mRes.title}</span>
+                          </div>
+                          {mRes.durationLabel && (
+                            <span className="shrink-0 text-[10px] text-[var(--app-muted)]">{mRes.durationLabel}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="mt-8 border-t border-[var(--app-border)] pt-5">
+            <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-[var(--app-muted)]">Información</h3>
+            <div className="flex flex-wrap gap-2">
+              {resource.tags.map((tag) => (
+                <span key={tag} className="rounded-full border border-[var(--app-border)] bg-[var(--app-chip)] px-2.5 py-1 text-[11px] font-medium text-[var(--app-ink)]">
+                  {tag}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      {/* MAIN PLAYER */}
+      <main className="relative flex flex-1 flex-col overflow-hidden bg-[linear-gradient(180deg,#f8f4ff_0%,#f0e9f9_100%)]">
+        <header className="flex h-16 shrink-0 items-center justify-between border-b border-[var(--app-border)] bg-white/60 px-4 backdrop-blur-md lg:px-8">
+          <div className="flex items-center gap-2">
+            {canManage && (
+              <>
+                <button type="button" className="app-button-secondary !min-h-9 !px-3 !py-1 text-xs" onClick={() => router.push(editHref)}>
+                  <Pencil size={14} /> Editar
+                </button>
+                <button type="button" disabled={deleting} onClick={() => void onDeleteResource()} className="inline-flex h-9 items-center gap-2 rounded-full border border-rose-200 bg-rose-50 px-3 text-xs font-semibold text-rose-700 transition hover:bg-rose-100">
+                  <Trash2 size={14} /> {deleting ? "..." : "Eliminar"}
+                </button>
+              </>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+             <button
+                type="button"
+                className={`inline-flex h-9 items-center gap-2 rounded-full border px-4 text-sm font-semibold transition ${
+                  resource.liked
+                    ? "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
+                    : "border-[var(--app-border)] bg-white text-[var(--app-ink)] hover:bg-[var(--app-surface-muted)]"
+                }`}
+                onClick={() => void onToggleLike()}
+                disabled={togglingLike}
+              >
+                <Heart size={16} className={resource.liked ? "fill-current" : undefined} />
+                {resource.likes}
+              </button>
+             <button
+               title="Ver Discusión"
+               onClick={() => setShowSocial((prev) => !prev)}
+               className={`inline-flex h-9 items-center gap-2 rounded-full border px-4 text-sm font-semibold transition ${
+                 showSocial 
+                   ? "border-[var(--brand-primary)] bg-[var(--brand-primary)] text-white" 
+                   : "border-[var(--app-border)] bg-white text-[var(--app-ink)] hover:bg-[var(--app-surface-muted)]"
+               }`}
+             >
+               <MessageCircle size={16} />
+               <span>Discusión ({resource.commentCount})</span>
+             </button>
+          </div>
+        </header>
+
+        <section className="relative flex flex-1 items-center justify-center overflow-auto p-4 sm:p-8">
+          <div className="w-full max-w-5xl md:h-full">
             {youtubeEmbedUrl ? (
-              <iframe
-                title={resource.title}
-                src={youtubeEmbedUrl}
-                className="aspect-video w-full"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
+              <div className="h-full w-full overflow-hidden rounded-[24px] bg-black shadow-[0_24px_54px_rgba(35,20,50,0.15)] ring-1 ring-white/10 md:aspect-video">
+                <iframe
+                  title={resource.title}
+                  src={youtubeEmbedUrl}
+                  className="h-full w-full"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
             ) : resource.contentType === "pdf" && resource.url ? (
-              <iframe
-                title={resource.title}
-                src={resource.url}
-                className="min-h-[720px] w-full"
-              />
-            ) : resource.contentType === "podcast" &&
-              isDirectAudioUrl(resource.url) ? (
-              <div className="p-6">
+              <div className="h-full w-full overflow-hidden rounded-[24px] bg-white shadow-[0_24px_54px_rgba(35,20,50,0.15)] ring-1 ring-[var(--app-border)]">
+                <iframe
+                  title={resource.title}
+                  src={resource.url}
+                  className="h-full w-full min-h-[60vh] md:min-h-full"
+                />
+              </div>
+            ) : resource.contentType === "podcast" && isDirectAudioUrl(resource.url) ? (
+              <div className="rounded-[32px] border border-[var(--app-border)] bg-white p-8 shadow-[0_24px_54px_rgba(35,20,50,0.08)]">
+                <div className="mb-8 flex h-24 w-24 items-center justify-center rounded-full bg-[linear-gradient(135deg,#eef8ff_0%,#ddeffc_100%)]">
+                   <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" x2="12" y1="19" y2="22"></line></svg>
+                </div>
+                <h2 className="mb-6 text-2xl font-bold text-[var(--app-ink)]">{resource.title}</h2>
                 <audio controls className="w-full" src={resource.url ?? undefined}>
                   Tu navegador no soporta reproducción de audio.
                 </audio>
               </div>
             ) : (
-              <div className="p-6">
-                <p className="text-sm leading-relaxed text-[var(--app-muted)]">
-                  Este recurso se visualiza desde su enlace original. Ábrelo
-                  para ver el contenido completo.
-                </p>
-                {resource.url ? (
-                  <a
-                    href={resource.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="app-button-primary mt-4 w-fit"
-                  >
-                    <ExternalLink size={16} />
-                    Abrir recurso
-                  </a>
-                ) : null}
+              <div className="flex min-h-[40vh] items-center justify-center flex-col rounded-[32px] border border-[var(--app-border)] bg-white p-8 text-center shadow-[0_24px_54px_rgba(35,20,50,0.08)]">
+                <div className="max-w-sm">
+                  <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-[linear-gradient(135deg,#f5f1ff_0%,#e7ddfb_100%)]">
+                    <ExternalLink size={32} className="text-[#593475]" />
+                  </div>
+                  <h3 className="mb-2 text-xl font-bold text-[var(--app-ink)]">Recurso Externo</h3>
+                  <p className="mb-6 text-sm leading-relaxed text-[var(--app-muted)]">
+                    Este recurso se visualiza desde su enlace original. Ábrelo en una nueva pestaña para ver el contenido completo.
+                  </p>
+                  {resource.url && (
+                    <a href={resource.url} target="_blank" rel="noreferrer" className="app-button-primary w-full shadow-lg">
+                      Abrir recurso ahora
+                    </a>
+                  )}
+                </div>
               </div>
             )}
           </div>
+        </section>
+      </main>
 
-          {resource.contentType === "scorm" && (
-            <div className="app-panel p-5 sm:p-6">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="app-section-kicker">Estructura interna</p>
-                  <h3 className="mt-2 text-2xl font-semibold text-[var(--app-ink)]">
-                    Módulos del curso
-                  </h3>
-                </div>
-                <span className="rounded-full border border-[var(--app-border)] bg-[var(--app-chip)] px-3 py-1 text-xs font-medium text-[var(--app-muted)]">
-                  {resource.structurePayload.modules?.length ?? 0} módulos
-                </span>
-              </div>
-
-              <div className="mt-5 space-y-4">
-                {(resource.structurePayload.modules ?? []).length === 0 ? (
-                  <p className="rounded-[18px] bg-[var(--app-surface-muted)] px-4 py-4 text-sm text-[var(--app-muted)]">
-                    Este curso aún no tiene módulos cargados.
+      {/* SOCIAL DRAWER */}
+      {showSocial && (
+        <aside className="absolute inset-y-0 right-0 z-20 flex w-full flex-col border-l border-[var(--app-border)] bg-white shadow-2xl sm:w-96 md:static animate-in slide-in-from-right duration-300">
+          <div className="flex shrink-0 items-center justify-between border-b border-[var(--app-border)] p-4">
+            <h3 className="font-bold text-[var(--app-ink)]">Discusión</h3>
+            <button onClick={() => setShowSocial(false)} className="rounded-full bg-[var(--app-surface-muted)] p-2 text-[var(--app-ink)] hover:bg-[var(--app-border)]">
+              <X size={16} />
+            </button>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto p-4">
+            <div className="space-y-4">
+                {resource.comments.length === 0 ? (
+                  <p className="rounded-[18px] bg-[var(--app-surface-muted)] px-4 py-6 text-center text-sm text-[var(--app-muted)]">
+                    Todavía no hay comentarios.<br/> ¡Sé el primero en compartir algo!
                   </p>
                 ) : (
-                  (resource.structurePayload.modules ?? []).map(
-                    (module, moduleIndex) => (
-                      <section
-                        key={module.id}
-                        className="rounded-[22px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--app-muted)]">
-                              Módulo {moduleIndex + 1}
-                            </p>
-                            <h4 className="mt-2 text-lg font-semibold text-[var(--app-ink)]">
-                              {module.title}
-                            </h4>
-                            {module.description ? (
-                              <p className="mt-1 text-sm text-[var(--app-muted)]">
-                                {module.description}
-                              </p>
-                            ) : null}
-                          </div>
-                          <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs text-[var(--app-muted)]">
-                            {module.resources.length} recursos
-                          </span>
-                        </div>
-
-                        <div className="mt-4 space-y-3">
-                          {module.resources.map((moduleResource) => (
-                            <div
-                              key={moduleResource.id}
-                              className="rounded-[18px] border border-[var(--app-border)] bg-white px-4 py-4"
-                            >
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="rounded-full border border-[var(--app-border)] bg-[var(--app-chip)] px-2.5 py-1 text-xs text-[var(--app-muted)]">
-                                  {courseModuleResourceTypeLabel(
-                                    moduleResource.contentType,
-                                  )}
-                                </span>
-                                {moduleResource.durationLabel ? (
-                                  <span className="rounded-full border border-[var(--app-border)] bg-white px-2.5 py-1 text-xs text-[var(--app-muted)]">
-                                    {moduleResource.durationLabel}
-                                  </span>
-                                ) : null}
-                              </div>
-                              <p className="mt-3 text-sm font-semibold text-[var(--app-ink)]">
-                                {moduleResource.title}
-                              </p>
-                              {moduleResource.description ? (
-                                <p className="mt-1 text-sm text-[var(--app-muted)]">
-                                  {moduleResource.description}
-                                </p>
-                              ) : null}
-                            </div>
-                          ))}
-                        </div>
-                      </section>
-                    ),
-                  )
-                )}
-              </div>
-            </div>
-          )}
-
-          <div className="app-panel p-5 sm:p-6">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="app-section-kicker">Comentarios</p>
-                <h3 className="mt-2 text-2xl font-semibold text-[var(--app-ink)]">
-                  Conversación sobre el recurso
-                </h3>
-              </div>
-              <span className="rounded-full border border-[var(--app-border)] bg-[var(--app-chip)] px-3 py-1 text-xs font-medium text-[var(--app-muted)]">
-                {resource.commentCount}
-              </span>
-            </div>
-
-            <div className="mt-5 space-y-3">
-              {resource.comments.length === 0 ? (
-                <p className="rounded-[18px] bg-[var(--app-surface-muted)] px-4 py-4 text-sm text-[var(--app-muted)]">
-                  Todavía no hay comentarios en este recurso.
-                </p>
-              ) : (
-                resource.comments.map((comment) => (
-                  <article
-                    key={comment.commentId}
-                    className="rounded-[18px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4"
-                  >
-                    <div className="flex items-start justify-between gap-3">
+                  resource.comments.map((comment) => (
+                    <article key={comment.commentId} className="rounded-[20px] bg-[var(--app-surface-muted)] p-4">
                       <div className="flex items-start gap-3">
-                        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-sm font-semibold text-[var(--app-ink)] shadow-[0_8px_16px_rgba(45,26,68,0.08)]">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-sm font-bold text-[var(--app-ink)] shadow-sm">
                           {comment.authorAvatar}
                         </div>
-                        <div>
-                          <p className="text-sm font-semibold text-[var(--app-ink)]">
-                            {comment.authorName}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-bold text-[var(--app-ink)]">{comment.authorName}</p>
+                          <p className="text-[10px] font-medium text-[var(--app-muted)]">
+                            {formatLearningDateTime(comment.createdAt)}
                           </p>
-                          <p className="text-xs text-[var(--app-muted)]">
-                            {learningRoleLabel(comment.authorRole)}
-                          </p>
+                          <p className="mt-2 text-sm leading-relaxed text-[var(--app-ink)]">{comment.commentText}</p>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {comment.reactions.map((reaction) => {
+                              const isBusy = togglingCommentReaction === `${comment.commentId}:${reaction.value}`;
+                              return (
+                                <button
+                                  key={reaction.value}
+                                  onClick={() => void onToggleCommentReaction(comment.commentId, reaction.value)}
+                                  disabled={Boolean(togglingCommentReaction)}
+                                  className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
+                                    reaction.reacted
+                                      ? "border-[var(--brand-primary)] bg-[var(--brand-primary-soft)] text-[var(--brand-primary)]"
+                                      : "border-[var(--app-border)] bg-white text-[var(--app-muted)] hover:border-[var(--app-border-strong)]"
+                                  }`}
+                                >
+                                  <span>{reaction.emoji}</span>
+                                  {reaction.count > 0 && <span>{isBusy ? "..." : reaction.count}</span>}
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
                       </div>
-                      <span className="text-xs text-[var(--app-muted)]">
-                        {formatLearningDateTime(comment.createdAt)}
-                      </span>
-                    </div>
-                    <p className="mt-3 text-sm leading-relaxed text-[var(--app-ink)]">
-                      {comment.commentText}
-                    </p>
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {comment.reactions.map((reaction) => {
-                        const isBusy =
-                          togglingCommentReaction ===
-                          `${comment.commentId}:${reaction.value}`;
-                        const hasCount = reaction.count > 0;
-
-                        return (
-                          <button
-                            key={reaction.value}
-                            type="button"
-                            className={
-                              reaction.reacted
-                                ? "inline-flex items-center gap-2 rounded-full border border-[var(--brand-primary,#3f2371)] bg-[var(--brand-primary-soft,#f3ebff)] px-3 py-1.5 text-xs font-semibold text-[var(--brand-primary,#3f2371)]"
-                                : "inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-3 py-1.5 text-xs font-medium text-[var(--app-muted)] hover:border-[var(--app-border-strong)] hover:text-[var(--app-ink)]"
-                            }
-                            onClick={() =>
-                              void onToggleCommentReaction(
-                                comment.commentId,
-                                reaction.value,
-                              )
-                            }
-                            disabled={Boolean(togglingCommentReaction)}
-                          >
-                            <span>{reaction.emoji}</span>
-                            <span>{reaction.label}</span>
-                            {hasCount ? (
-                              <span className="rounded-full bg-black/5 px-1.5 py-0.5 text-[11px]">
-                                {isBusy ? "..." : reaction.count}
-                              </span>
-                            ) : null}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </article>
-                ))
-              )}
+                    </article>
+                  ))
+                )}
             </div>
-
-            <div className="mt-5 space-y-3">
+          </div>
+          <div className="shrink-0 border-t border-[var(--app-border)] bg-white p-4">
               <textarea
-                className="min-h-28 w-full rounded-[18px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm text-[var(--app-ink)] outline-none transition focus:border-[var(--app-border-strong)]"
-                placeholder="Escribe un comentario sobre este recurso"
+                className="h-20 w-full resize-none rounded-[16px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-2 text-sm text-[var(--app-ink)] outline-none transition focus:border-[var(--brand-primary)] focus:bg-white"
+                placeholder="Escribe un comentario..."
                 value={commentDraft}
                 onChange={(event) => setCommentDraft(event.target.value)}
               />
               <button
                 type="button"
-                className="app-button-primary"
+                className="app-button-primary mt-2 w-full !py-2"
                 onClick={() => void onSubmitComment()}
-                disabled={submittingComment}
+                disabled={submittingComment || !commentDraft.trim()}
               >
-                <Send size={16} />
-                {submittingComment ? "Guardando comentario..." : "Comentar"}
+                <Send size={14} />
+                {submittingComment ? "Guardando..." : "Comentar"}
               </button>
-            </div>
-          </div>
-        </div>
-
-        <aside className="space-y-4">
-          <div className="app-panel p-5 sm:p-6">
-            <p className="app-section-kicker">Detalle</p>
-            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-1">
-              <div className="rounded-[18px] bg-[var(--app-surface-muted)] p-4">
-                <p className="text-xs uppercase tracking-[0.18em] text-[var(--app-muted)]">
-                  Publicado
-                </p>
-                <p className="mt-2 font-semibold text-[var(--app-ink)]">
-                  {formatLearningDate(resource.publishedAt)}
-                </p>
-              </div>
-              <div className="rounded-[18px] bg-[var(--app-surface-muted)] p-4">
-                <p className="text-xs uppercase tracking-[0.18em] text-[var(--app-muted)]">
-                  Componente
-                </p>
-                <p className="mt-2 font-semibold text-[var(--app-ink)]">
-                  {resource.competencyMetadata.component ?? "Sin definir"}
-                </p>
-              </div>
-              <div className="rounded-[18px] bg-[var(--app-surface-muted)] p-4">
-                <p className="text-xs uppercase tracking-[0.18em] text-[var(--app-muted)]">
-                  Competencia
-                </p>
-                <p className="mt-2 font-semibold text-[var(--app-ink)]">
-                  {resource.competencyMetadata.competency ?? "Sin definir"}
-                </p>
-              </div>
-              <div className="rounded-[18px] bg-[var(--app-surface-muted)] p-4">
-                <p className="text-xs uppercase tracking-[0.18em] text-[var(--app-muted)]">
-                  Etapa
-                </p>
-                <p className="mt-2 font-semibold text-[var(--app-ink)]">
-                  {resource.competencyMetadata.stage ?? "Sin definir"}
-                </p>
-              </div>
-              <div className="rounded-[18px] bg-[var(--app-surface-muted)] p-4">
-                <p className="text-xs uppercase tracking-[0.18em] text-[var(--app-muted)]">
-                  Audiencia
-                </p>
-                <p className="mt-2 font-semibold text-[var(--app-ink)]">
-                  {resource.competencyMetadata.audience ?? "Toda la plataforma"}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="app-panel p-5 sm:p-6">
-            <p className="app-section-kicker">Metadatos</p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {resource.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs text-[var(--app-muted)]"
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
-            {observableBehaviors.length > 0 ? (
-              <div className="mt-5 space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--app-muted)]">
-                  Conductas observables
-                </p>
-                {observableBehaviors.map((behavior) => (
-                  <div
-                    key={behavior}
-                    className="rounded-[16px] bg-[var(--app-surface-muted)] px-4 py-3 text-sm text-[var(--app-ink)]"
-                  >
-                    {behavior}
-                  </div>
-                ))}
-              </div>
-            ) : null}
           </div>
         </aside>
-      </section>
+      )}
     </div>
   );
 }
