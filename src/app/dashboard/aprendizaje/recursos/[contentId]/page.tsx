@@ -31,7 +31,7 @@ import {
 } from "@/features/aprendizaje/client";
 import type { LearningCommentReactionType } from "@/features/aprendizaje/comment-reactions";
 import { getObservableBehaviors } from "@/features/aprendizaje/competency-map";
-import { buildYouTubeEmbedUrl, isDirectAudioUrl } from "@/features/aprendizaje/media";
+import { buildYouTubeEmbedUrl, isDirectAudioUrl, isDirectVideoUrl } from "@/features/aprendizaje/media";
 import {
   formatLearningDate,
   formatLearningDateTime,
@@ -73,7 +73,7 @@ export default function LearningResourceDetailPage() {
   const [deleting, setDeleting] = React.useState(false);
   
   const [activeTab, setActiveTab] = React.useState<"temario" | "discusion">("temario");
-  const [activeResourceIndex, setActiveResourceIndex] = React.useState(0);
+  const [activeResourceIndex, setActiveResourceIndex] = React.useState(-1);
   const [suggestedResources, setSuggestedResources] = React.useState<LearningResourceRecord[]>([]);
 
   const flatItems = React.useMemo(() => {
@@ -316,6 +316,25 @@ export default function LearningResourceDetailPage() {
           <div className="flex-1 overflow-y-auto">
             {activeTab === "temario" ? (
               <div className="p-4 space-y-2">
+                {/* 0. Course Overview Entry */}
+                <button
+                  onClick={() => setActiveResourceIndex(-1)}
+                  className={`w-full flex items-center gap-3 rounded-[12px] p-3 text-left transition ${
+                    activeResourceIndex === -1 ? "border border-[var(--brand-primary)] bg-[var(--brand-primary-soft)]" : "border border-transparent hover:bg-[var(--app-surface-muted)]"
+                  }`}
+                >
+                  <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
+                    activeResourceIndex === -1 ? "bg-[var(--brand-primary)] text-white" : "bg-slate-100 text-slate-500"
+                  }`}>
+                    0
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`truncate text-sm font-bold ${activeResourceIndex === -1 ? "text-[#e85d24]" : "text-[var(--app-ink)]"}`}>
+                      Información del Curso
+                    </p>
+                  </div>
+                </button>
+
                 {flatItems.map((item, idx) => {
                   const isActive = idx === activeResourceIndex;
                   return (
@@ -421,26 +440,102 @@ export default function LearningResourceDetailPage() {
         <main className="relative flex flex-1 flex-col overflow-hidden bg-black">
           <section className="relative flex flex-1 items-center justify-center overflow-auto p-4 sm:p-8 pb-24">
             <div className="w-full max-w-5xl">
-              {youtubeEmbedUrl ? (
+              {activeResourceIndex === -1 ? (
+                // COURSE OVERVIEW PANEL
+                <div className="w-full overflow-hidden rounded-[24px] border border-slate-800 bg-[#0f172a] shadow-2xl flex flex-col md:flex-row min-h-[400px]">
+                  <div className="w-full md:w-2/5 p-8 flex flex-col justify-center bg-gradient-to-br from-slate-900 to-indigo-950">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-orange-500/20 text-orange-500 mb-6">
+                       <MessageCircle size={24} />
+                    </div>
+                    <h2 className="text-3xl font-extrabold text-white mb-4 leading-tight">{resource.title}</h2>
+                    <div className="flex flex-wrap gap-2 mb-6">
+                      {resource.tags?.map(t => (
+                        <span key={t} className="px-2 py-0.5 rounded-full bg-white/10 text-white/70 text-[10px] font-bold uppercase tracking-wider">{t}</span>
+                      ))}
+                    </div>
+                    <button 
+                      onClick={() => setActiveResourceIndex(0)}
+                      className="group flex items-center justify-center gap-2 rounded-full bg-white px-6 py-3.5 text-sm font-bold text-slate-900 transition hover:bg-orange-500 hover:text-white"
+                    >
+                      Comenzar curso <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
+                    </button>
+                  </div>
+                  <div className="flex-1 p-8 md:p-12 overflow-y-auto bg-slate-900/40 backdrop-blur-sm">
+                    <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Sobre este curso</h3>
+                    <div className="prose prose-invert prose-sm max-w-none text-slate-300 leading-relaxed">
+                      {resource.description ? (
+                        <p className="whitespace-pre-wrap">{resource.description}</p>
+                      ) : (
+                        <p className="italic opacity-50">Sin descripción disponible.</p>
+                      )}
+                    </div>
+                    <div className="mt-8 grid grid-cols-2 gap-4 border-t border-white/10 pt-8">
+                       <div>
+                         <p className="text-[10px] font-bold text-slate-500 uppercase">Autor</p>
+                         <p className="text-sm font-semibold text-white mt-1">{resource.authorName || "Equipo 4Shine"}</p>
+                       </div>
+                       <div>
+                         <p className="text-[10px] font-bold text-slate-500 uppercase">Duración</p>
+                         <p className="text-sm font-semibold text-white mt-1">{resource.durationLabel || "Pendiente"}</p>
+                       </div>
+                    </div>
+                  </div>
+                </div>
+              ) : currentItem?.contentType === "video" && isDirectVideoUrl(currentItem.url) ? (
+                // DIRECT VIDEO PLAYER
+                <div className="w-full overflow-hidden rounded-[16px] bg-black ring-1 ring-white/10 md:aspect-video relative group">
+                  <video
+                    src={currentItem.url!}
+                    className="h-full w-full object-contain"
+                    controls
+                    autoPlay
+                    poster={resource.url ? undefined : undefined} // Could use generic poster
+                  />
+                </div>
+              ) : currentItem?.contentType === "pdf" && currentItem.url ? (
+                // PDF VIEWER
+                <div className="w-full overflow-hidden rounded-[16px] bg-slate-800 ring-1 ring-white/10 h-[70vh] md:h-[80vh] relative">
+                  <iframe
+                    title={currentItem.title}
+                    src={currentItem.url}
+                    className="absolute inset-0 h-full w-full border-none"
+                  />
+                </div>
+              ) : buildYouTubeEmbedUrl(currentItem?.url) ? (
+                // YOUTUBE PLAYER
                 <div className="w-full overflow-hidden rounded-[16px] bg-[#0f172a] ring-1 ring-white/10 md:aspect-video flex flex-col items-center justify-center relative">
                   <iframe
-                    title={resource.title}
-                    src={youtubeEmbedUrl}
+                    title={currentItem?.title}
+                    src={buildYouTubeEmbedUrl(currentItem?.url)!}
                     className="absolute inset-0 h-full w-full"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowFullScreen
                   />
                 </div>
               ) : (
+                // FALLBACK PLACEHOLDER
                 <div className="w-full overflow-hidden rounded-[16px] border border-slate-800 bg-[#0f172a] shadow-2xl md:aspect-video flex flex-col justify-between">
                   <div className="flex flex-1 items-center justify-center">
                       <div className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 hover:scale-105">
-                         <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                         {currentItem?.url ? (
+                            <a href={currentItem.url} target="_blank" rel="noopener noreferrer">
+                               <ExternalLink size={32} />
+                            </a>
+                         ) : (
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                         )}
                       </div>
                   </div>
                   <div className="p-8 pb-10 bg-gradient-to-t from-black/60 to-transparent">
-                      <h2 className="text-2xl font-bold text-white mb-2">{currentItem?.title ?? resource.title}</h2>
-                      <p className="text-slate-300 text-sm">{resource.description ?? "En este módulo aprenderemos los principales conceptos."}</p>
+                      <h2 className="text-2xl font-bold text-white mb-2">{currentItem?.title || "Sin título"}</h2>
+                      <p className="text-slate-300 text-sm">
+                        {currentItem?.description || "Este recurso no tiene descripción adicional."}
+                      </p>
+                      {currentItem?.url && (
+                        <a href={currentItem.url} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex items-center gap-2 text-orange-400 font-bold hover:underline">
+                           Abrir en nueva pestaña <ExternalLink size={14} />
+                        </a>
+                      )}
                   </div>
                 </div>
               )}
@@ -450,17 +545,19 @@ export default function LearningResourceDetailPage() {
           <div className="absolute bottom-0 left-0 right-0 z-20 flex h-20 items-center justify-between border-t border-slate-800 bg-[#1e293b] px-6 text-white md:px-12">
              <button
                onClick={handlePrev}
-               disabled={activeResourceIndex === 0}
+               disabled={activeResourceIndex <= -1}
                className="flex items-center gap-2 text-sm font-semibold text-slate-300 transition hover:text-white disabled:opacity-30 disabled:hover:text-slate-300"
              >
                <ArrowLeft size={16} /> Anterior
              </button>
              <div className="text-sm font-semibold text-slate-400">
-               Módulo {activeResourceIndex + 1} de {totalItems}
+               {activeResourceIndex === -1 
+                  ? "Introducción" 
+                  : `Recurso ${activeResourceIndex + 1} de ${totalItems}`}
              </div>
              <button
                onClick={handleNext}
-               disabled={activeResourceIndex === totalItems - 1}
+               disabled={activeResourceIndex >= totalItems - 1}
                className="flex h-10 items-center justify-center gap-2 rounded-[8px] bg-[#f97316] px-5 text-sm font-bold text-white transition hover:bg-[#ea580c] disabled:opacity-50"
              >
                Siguiente <ArrowRight size={16} />

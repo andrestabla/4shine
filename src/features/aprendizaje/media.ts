@@ -52,3 +52,8 @@ export function isDirectAudioUrl(url: string | null | undefined): boolean {
   if (!url) return false;
   return /\.(mp3|m4a|wav|ogg)(\?.*)?$/i.test(url);
 }
+
+export function isDirectVideoUrl(url: string | null | undefined): boolean {
+  if (!url) return false;
+  return /\.(mp4|m4v|webm|ogv|mov)(\?.*)?$/i.test(url);
+}
