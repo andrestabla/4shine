@@ -1257,6 +1257,7 @@ export default function AprendizajePage() {
           "",
         competency: resource.competencyMetadata.competency ?? "",
         stage: resource.competencyMetadata.stage ?? "",
+        audience: resource.competencyMetadata.audience ?? "lider",
         thumbnailUrl: resource.thumbnailUrl ?? "",
         isRecommended: resource.isRecommended,
         courseModules: normalizeCourseModulesFromStructure(
