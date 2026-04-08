@@ -28,6 +28,7 @@ import {
   listLearningResources,
   toggleLearningCommentReaction,
   toggleLearningLike,
+  updateLearningProgress,
   type LearningResourceRecord,
 } from "@/features/aprendizaje/client";
 import type { LearningCommentReactionType } from "@/features/aprendizaje/comment-reactions";
@@ -90,6 +91,32 @@ export default function LearningResourceDetailPage() {
 
   const totalItems = Math.max(1, flatItems.length);
   const currentItem = flatItems[activeResourceIndex];
+
+  const calculatedProgress = React.useMemo(() => {
+    if (!resource || resource.contentType !== "scorm") return resource?.progressPercent ?? 0;
+    if (activeResourceIndex === -1) return resource.progressPercent ?? 0;
+    const navProgress = Math.round(((activeResourceIndex + 1) / totalItems) * 100);
+    return Math.max(resource.progressPercent ?? 0, navProgress);
+  }, [activeResourceIndex, resource, totalItems]);
+
+  React.useEffect(() => {
+    if (!resource || resource.contentType !== "scorm" || activeResourceIndex === -1) return;
+    
+    const newProgress = Math.round(((activeResourceIndex + 1) / totalItems) * 100);
+    if (newProgress > (resource.progressPercent ?? 0)) {
+      const syncProgress = async () => {
+        try {
+          const result = await updateLearningProgress(resource.contentId, {
+            progressPercent: newProgress,
+          });
+          setResource(prev => prev ? { ...prev, progressPercent: result.progressPercent, seen: result.seen } : null);
+        } catch (e) {
+          console.error("Failed to sync progress:", e);
+        }
+      };
+      void syncProgress();
+    }
+  }, [activeResourceIndex, resource, totalItems]);
 
   const handleNext = () => {
     if (activeResourceIndex < totalItems - 1) {
@@ -277,10 +304,10 @@ export default function LearningResourceDetailPage() {
                 <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--app-surface-muted)]">
                   <div
                     className="h-full rounded-full bg-slate-300 transition-all duration-500"
-                    style={{ width: `${Math.min(100, Math.max(0, resource.progressPercent))}%` }}
+                    style={{ width: `${Math.min(100, Math.max(0, calculatedProgress))}%` }}
                   />
                 </div>
-                <span className="text-[11px] font-bold text-[var(--app-ink)]">{resource.progressPercent}%</span>
+                <span className="text-[11px] font-bold text-[var(--app-ink)]">{calculatedProgress}%</span>
               </div>
               <button 
                 onClick={() => void onToggleLike()}

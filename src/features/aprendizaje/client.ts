@@ -15,6 +15,8 @@ import type {
   LearningResourceListQuery,
   LearningResourceListResult,
   LearningResourceRecord,
+  LearningProgressUpdateInput,
+  LearningProgressUpdateResult,
   UpdateWorkbookInput,
   WorkbookEditableFields,
   WorkbookRecord,
@@ -32,6 +34,8 @@ export type {
   LearningResourceListQuery,
   LearningResourceListResult,
   LearningResourceRecord,
+  LearningProgressUpdateInput,
+  LearningProgressUpdateResult,
   UpdateWorkbookInput,
   WorkbookEditableFields,
   WorkbookRecord,
@@ -81,6 +85,20 @@ export async function toggleLearningLike(contentId: string): Promise<LearningLik
   return requestApi<LearningLikeToggleResult>(`/api/v1/modules/aprendizaje/resources/${contentId}/like`, {
     method: 'POST',
   });
+}
+
+export async function updateLearningProgress(
+  contentId: string,
+  input: LearningProgressUpdateInput,
+): Promise<LearningProgressUpdateResult> {
+  const result = await requestApi<{ ok: boolean; data: LearningProgressUpdateResult }>(
+    `/api/v1/modules/aprendizaje/resources/${contentId}/progress`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  );
+  return result.data;
 }
 
 export async function extractLearningMetadataWithAi(

@@ -81,6 +81,16 @@ export interface LearningLikeToggleResult {
   likes: number;
 }
 
+export interface LearningProgressUpdateInput {
+  progressPercent: number;
+}
+
+export interface LearningProgressUpdateResult {
+  contentId: string;
+  progressPercent: number;
+  seen: boolean;
+}
+
 export interface ToggleLearningCommentReactionInput {
   commentId: string;
   reactionType: LearningCommentReactionType;
@@ -1024,6 +1034,51 @@ export async function toggleLearningCommentReaction(
   return {
     commentId: input.commentId,
     reactions: await getLearningCommentReactions(client, actor.userId, input.commentId),
+  };
+}
+
+export async function updateLearningProgress(
+  client: PoolClient,
+  actor: AuthUser,
+  contentId: string,
+  input: LearningProgressUpdateInput,
+): Promise<LearningProgressUpdateResult> {
+  await requireModulePermission(client, 'aprendizaje', 'view');
+  await getAccessibleLearningItem(client, actor, contentId);
+
+  const progressPercent = Math.min(100, Math.max(0, input.progressPercent));
+  const seen = progressPercent >= 100;
+
+  const { rows } = await client.query<{ progress_percent: number; seen: boolean }>(
+    `
+      INSERT INTO app_learning.content_progress (
+        content_id, 
+        user_id, 
+        progress_percent, 
+        seen, 
+        last_viewed_at,
+        started_at
+      )
+      VALUES ($1, $2, $3, $4, NOW(), NOW())
+      ON CONFLICT (content_id, user_id) 
+      DO UPDATE SET
+        progress_percent = GREATEST(app_learning.content_progress.progress_percent, EXCLUDED.progress_percent),
+        seen = app_learning.content_progress.seen OR EXCLUDED.seen,
+        last_viewed_at = NOW(),
+        completed_at = CASE 
+          WHEN (app_learning.content_progress.progress_percent < 100 AND EXCLUDED.progress_percent >= 100) 
+          THEN NOW() 
+          ELSE app_learning.content_progress.completed_at 
+        END
+      RETURNING progress_percent, seen
+    `,
+    [contentId, actor.userId, progressPercent, seen],
+  );
+
+  return {
+    contentId,
+    progressPercent: Number(rows[0].progress_percent),
+    seen: rows[0].seen,
   };
 }
 
