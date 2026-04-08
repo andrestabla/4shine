@@ -51,9 +51,11 @@ export interface LearningResourceRecord {
   createdAt: string;
   updatedAt: string;
   publishedAt: string | null;
+  thumbnailUrl: string | null;
   comments: LearningCommentRecord[];
   structurePayload: ContentStructurePayload;
 }
+
 
 export interface LearningResourceListQuery {
   q?: string;

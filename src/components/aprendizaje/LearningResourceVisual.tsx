@@ -23,6 +23,7 @@ interface LearningResourceVisualProps {
     | "durationLabel"
     | "competencyMetadata"
     | "url"
+    | "thumbnailUrl"
   >;
   size?: "card" | "hero";
   showTitle?: boolean;
@@ -93,7 +94,7 @@ export function LearningResourceVisual({
   const theme = visualTheme(resource.contentType);
   const pillarLabel = learningPillarLabel(resource.competencyMetadata?.pillar);
   const isHero = size === "hero";
-  const thumbnailUrl = buildLearningThumbnailUrl(resource.url);
+  const thumbnailUrl = resource.thumbnailUrl || buildLearningThumbnailUrl(resource.url);
   const hasThumbnail = Boolean(thumbnailUrl);
 
   return (

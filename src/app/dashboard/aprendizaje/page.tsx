@@ -127,6 +127,7 @@ interface ResourceFormState {
   competency: string;
   stage: string;
   audience: string;
+  thumbnailUrl: string;
   isRecommended: boolean;
   courseModules: CourseModule[];
 }
@@ -145,6 +146,7 @@ const EMPTY_RESOURCE_FORM: ResourceFormState = {
   competency: "",
   stage: "",
   audience: "lider",
+  thumbnailUrl: "",
   isRecommended: false,
   courseModules: [],
 };
@@ -294,6 +296,10 @@ const CONTENT_TYPE_EXPERIENCE: Record<
     tagPresets: ["curso", "ruta", "premium"],
   },
 };
+
+function getContentTypeAccept(type: ContentType): string {
+  return CONTENT_TYPE_EXPERIENCE[type]?.accept || "*/*";
+}
 
 function uniqueStrings(values: Array<string | null | undefined>): string[] {
   return Array.from(
@@ -1251,7 +1257,7 @@ export default function AprendizajePage() {
           "",
         competency: resource.competencyMetadata.competency ?? "",
         stage: resource.competencyMetadata.stage ?? "",
-        audience: resource.competencyMetadata.audience ?? "lider",
+        thumbnailUrl: resource.thumbnailUrl ?? "",
         isRecommended: resource.isRecommended,
         courseModules: normalizeCourseModulesFromStructure(
           resource.structurePayload,
@@ -1326,6 +1332,7 @@ export default function AprendizajePage() {
     description: resourceForm.description.trim() || null,
     durationLabel: resourceForm.durationLabel.trim() || null,
     status: resourceForm.status,
+    thumbnailUrl: resourceForm.thumbnailUrl.trim() || null,
     isRecommended: resourceForm.isRecommended,
     tags: resourceForm.tags,
     competencyMetadata: {
@@ -2890,6 +2897,68 @@ export default function AprendizajePage() {
                         </div>
 
                         <div className="lg:col-span-2">
+                          <label className="app-field-label">Imagen de carátula (Thumbnail)</label>
+                          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                            <div className="flex flex-1 flex-col gap-2">
+                              <input
+                                className="app-input"
+                                placeholder="URL de la imagen o cárgala directamente"
+                                value={resourceForm.thumbnailUrl}
+                                onChange={(event) =>
+                                  setResourceForm((prev) => ({
+                                    ...prev,
+                                    thumbnailUrl: event.target.value,
+                                  }))
+                                }
+                              />
+                              <p className="text-xs text-[var(--app-muted)]">
+                                Se visualizará en las tarjetas del catálogo. Ideal 800x450px.
+                              </p>
+                              <div className="mt-2">
+                                <R2UploadButton
+                                  moduleCode="aprendizaje"
+                                  action={editingResourceId ? "update" : "create"}
+                                  entityTable="app_learning.content_items"
+                                  fieldName="thumbnail_url"
+                                  pathPrefix={`aprendizaje/thumbnails/${resourceForm.contentType}`}
+                                  accept="image/*"
+                                  buttonLabel="Subir carátula a R2"
+                                  className="app-button-secondary w-full justify-center lg:w-auto"
+                                  onUploaded={(url) => {
+                                    setResourceForm((prev) => ({
+                                      ...prev,
+                                      thumbnailUrl: url,
+                                    }));
+                                  }}
+                                />
+                              </div>
+                            </div>
+
+                            {resourceForm.thumbnailUrl && (
+                              <div className="relative h-24 w-40 shrink-0 overflow-hidden rounded-[16px] border border-[var(--app-border)] bg-black/5">
+                                <img
+                                  src={resourceForm.thumbnailUrl}
+                                  alt="Preview carátula"
+                                  className="h-full w-full object-cover"
+                                />
+                                <button
+                                  type="button"
+                                  className="absolute right-1 top-1 rounded-full bg-black/50 p-1 text-white hover:bg-black/70"
+                                  onClick={() =>
+                                    setResourceForm((prev) => ({
+                                      ...prev,
+                                      thumbnailUrl: "",
+                                    }))
+                                  }
+                                >
+                                  <X size={12} />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="lg:col-span-2">
                         <label className="app-field-label">
                           Descripción y contexto de uso
                         </label>
@@ -3217,6 +3286,26 @@ export default function AprendizajePage() {
                                             )
                                           }
                                         />
+                                        <div className="mt-2 text-right">
+                                          <R2UploadButton
+                                            moduleCode="aprendizaje"
+                                            action={editingResourceId ? "update" : "create"}
+                                            entityTable="app_learning.content_items"
+                                            fieldName="structure_payload"
+                                            pathPrefix={`aprendizaje/cursos/${editingResourceId || "new"}/recursos`}
+                                            accept={getContentTypeAccept(courseResource.contentType as ContentType)}
+                                            buttonLabel="Subir activo a R2"
+                                            className="app-button-secondary text-xs"
+                                            onUploaded={(url) => {
+                                              updateCourseModuleResource(
+                                                module.id,
+                                                courseResource.id,
+                                                "url",
+                                                url,
+                                              );
+                                            }}
+                                          />
+                                        </div>
                                       </div>
                                       <div className="lg:col-span-2">
                                         <label className="app-field-label">Nota contextual</label>

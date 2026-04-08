@@ -443,22 +443,33 @@ export default function LearningResourceDetailPage() {
               {activeResourceIndex === -1 ? (
                 // COURSE OVERVIEW PANEL
                 <div className="w-full overflow-hidden rounded-[24px] border border-slate-800 bg-[#0f172a] shadow-2xl flex flex-col md:flex-row min-h-[400px]">
-                  <div className="w-full md:w-2/5 p-8 flex flex-col justify-center bg-gradient-to-br from-slate-900 to-indigo-950">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-orange-500/20 text-orange-500 mb-6">
-                       <MessageCircle size={24} />
+                  <div className="relative w-full md:w-2/5 p-8 flex flex-col justify-center bg-gradient-to-br from-slate-900 to-indigo-950 overflow-hidden">
+                    {resource.thumbnailUrl && (
+                      <>
+                        <div 
+                          className="absolute inset-0 bg-cover bg-center opacity-40" 
+                          style={{ backgroundImage: `url("${resource.thumbnailUrl}")` }} 
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-br from-slate-900/80 to-indigo-950/90" />
+                      </>
+                    )}
+                    <div className="relative z-10">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-orange-500/20 text-orange-500 mb-6 font-bold">
+                         <Layers3 size={24} />
+                      </div>
+                      <h2 className="text-3xl font-extrabold text-white mb-4 leading-tight">{resource.title}</h2>
+                      <div className="flex flex-wrap gap-2 mb-6">
+                        {resource.tags?.map(t => (
+                          <span key={t} className="px-2 py-0.5 rounded-full bg-white/10 text-white/70 text-[10px] font-bold uppercase tracking-wider">{t}</span>
+                        ))}
+                      </div>
+                      <button 
+                        onClick={() => setActiveResourceIndex(0)}
+                        className="group flex items-center justify-center gap-2 rounded-full bg-white px-6 py-3.5 text-sm font-bold text-slate-900 transition hover:bg-orange-500 hover:text-white"
+                      >
+                        Comenzar curso <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
+                      </button>
                     </div>
-                    <h2 className="text-3xl font-extrabold text-white mb-4 leading-tight">{resource.title}</h2>
-                    <div className="flex flex-wrap gap-2 mb-6">
-                      {resource.tags?.map(t => (
-                        <span key={t} className="px-2 py-0.5 rounded-full bg-white/10 text-white/70 text-[10px] font-bold uppercase tracking-wider">{t}</span>
-                      ))}
-                    </div>
-                    <button 
-                      onClick={() => setActiveResourceIndex(0)}
-                      className="group flex items-center justify-center gap-2 rounded-full bg-white px-6 py-3.5 text-sm font-bold text-slate-900 transition hover:bg-orange-500 hover:text-white"
-                    >
-                      Comenzar curso <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
-                    </button>
                   </div>
                   <div className="flex-1 p-8 md:p-12 overflow-y-auto bg-slate-900/40 backdrop-blur-sm">
                     <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Sobre este curso</h3>

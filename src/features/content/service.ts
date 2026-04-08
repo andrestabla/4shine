@@ -52,6 +52,7 @@ export interface ContentItemRecord {
   competencyMetadata: ContentCompetencyMetadata;
   structurePayload: ContentStructurePayload;
   tags: string[];
+  thumbnailUrl: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -70,6 +71,7 @@ export interface CreateContentInput {
   competencyMetadata?: ContentCompetencyMetadata;
   structurePayload?: ContentStructurePayload;
   tags?: string[];
+  thumbnailUrl?: string | null;
 }
 
 export interface UpdateContentInput {
@@ -85,6 +87,7 @@ export interface UpdateContentInput {
   competencyMetadata?: ContentCompetencyMetadata;
   structurePayload?: ContentStructurePayload;
   tags?: string[];
+  thumbnailUrl?: string | null;
 }
 
 interface ContentRow {
@@ -107,6 +110,7 @@ interface ContentRow {
   published_at: string | null;
   competency_metadata: ContentCompetencyMetadata | null;
   structure_payload: ContentStructurePayload | null;
+  thumbnail_url: string | null;
   tags: string[] | null;
   created_at: string;
   updated_at: string;
@@ -140,6 +144,7 @@ const CONTENT_SELECT = `
     ci.published_at::text,
     ci.competency_metadata,
     ci.structure_payload,
+    ci.thumbnail_url,
     COALESCE(tags.tags, ARRAY[]::text[]) AS tags,
     ci.created_at::text,
     ci.updated_at::text
@@ -177,6 +182,7 @@ function mapRow(row: ContentRow): ContentItemRecord {
         kind: row.content_type === 'scorm' ? 'course' : 'resource',
         modules: [],
       },
+    thumbnailUrl: row.thumbnail_url,
     tags: row.tags ?? [],
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -440,6 +446,7 @@ export async function createContent(
         is_recommended,
         competency_metadata,
         structure_payload,
+        thumbnail_url,
         created_by,
         approved_by,
         approved_at,
@@ -460,8 +467,9 @@ export async function createContent(
         $12,
         $13::jsonb,
         $14::jsonb,
-        $15::uuid,
-        CASE WHEN $11 = 'published' THEN $15::uuid ELSE NULL::uuid END,
+        $15,
+        $16::uuid,
+        CASE WHEN $11 = 'published' THEN $16::uuid ELSE NULL::uuid END,
         CASE WHEN $11 = 'published' THEN now() ELSE NULL END,
         CASE WHEN $11 = 'published' THEN now() ELSE NULL END
       )
@@ -482,6 +490,7 @@ export async function createContent(
       input.isRecommended ?? false,
       JSON.stringify(competencyMetadata),
       JSON.stringify(structurePayload),
+      input.thumbnailUrl ?? null,
       actor.userId,
     ],
   );
@@ -539,7 +548,8 @@ export async function updateContent(
         is_recommended = COALESCE($10, is_recommended),
         competency_metadata = COALESCE($11::jsonb, competency_metadata),
         structure_payload = COALESCE($12::jsonb, structure_payload),
-        approved_by = CASE WHEN $9 = 'published' THEN $13 ELSE approved_by END,
+        thumbnail_url = COALESCE($13, thumbnail_url),
+        approved_by = CASE WHEN $9 = 'published' THEN $14 ELSE approved_by END,
         approved_at = CASE WHEN $9 = 'published' THEN now() ELSE approved_at END,
         published_at = CASE WHEN $9 = 'published' THEN COALESCE(published_at, now()) ELSE published_at END,
         updated_at = now()
@@ -559,6 +569,7 @@ export async function updateContent(
       input.isRecommended ?? null,
       competencyMetadata ? JSON.stringify(competencyMetadata) : null,
       structurePayload ? JSON.stringify(structurePayload) : null,
+      input.thumbnailUrl ?? null,
       actor.userId,
     ],
   );
