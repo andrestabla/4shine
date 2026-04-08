@@ -795,7 +795,7 @@ function workbookVisualClasses(sequenceNo: number): string {
 
 export default function AprendizajePage() {
   const { currentRole, refreshBootstrap, viewerAccess } = useUser();
-  const { alert } = useAppDialog();
+  const { alert, confirm } = useAppDialog();
   const router = useRouter();
   const searchParams = useSearchParams();
 
