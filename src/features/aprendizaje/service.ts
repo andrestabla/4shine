@@ -180,6 +180,7 @@ interface LearningResourceRow {
   created_at: string;
   updated_at: string;
   published_at: string | null;
+  thumbnail_url: string | null;
   comments: LearningCommentRow[] | null;
   structure_payload: ContentStructurePayload | null;
 }
@@ -222,6 +223,7 @@ function mapLearningResourceRow(row: LearningResourceRow): LearningResourceRecor
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     publishedAt: row.published_at,
+    thumbnailUrl: row.thumbnail_url,
     structurePayload:
       row.structure_payload ?? {
         kind: row.content_type === 'scorm' ? 'course' : 'resource',
@@ -625,6 +627,7 @@ export async function listLearningResources(
         ci.created_at::text,
         ci.updated_at::text,
         ci.published_at::text,
+        ci.thumbnail_url,
         ARRAY[]::json[] AS comments
       FROM app_learning.content_items ci
       LEFT JOIN (
@@ -756,6 +759,7 @@ export async function getLearningResourceDetail(
         ci.created_at::text,
         ci.updated_at::text,
         ci.published_at::text,
+        ci.thumbnail_url,
         COALESCE(comments.comments, ARRAY[]::json[]) AS comments
       FROM app_learning.content_items ci
       LEFT JOIN (
