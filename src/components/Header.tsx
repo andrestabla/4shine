@@ -99,7 +99,7 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
         <div className="flex min-w-0 items-center gap-4">
           <button
             onClick={onMenuClick}
-            className="app-button-secondary min-h-0 rounded-[1rem] p-2 md:hidden"
+            className="flex h-[38px] w-[38px] items-center justify-center rounded-[1rem] border border-[var(--app-border)] bg-white/92 text-[var(--app-ink)] shadow-sm transition hover:bg-white md:hidden"
           >
             <Menu size={24} />
           </button>

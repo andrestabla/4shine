@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import React from "react";
+import { createPortal } from "react-dom";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
@@ -253,7 +254,11 @@ export default function LearningResourceDetailPage() {
       ? `/dashboard/aprendizaje?edit=${resource.contentId}`
       : `/dashboard/aprendizaje?tab=${backTab}&edit=${resource.contentId}`;
 
-  return (
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  return createPortal(
     <div className="fixed inset-0 z-[100] flex h-[100dvh] w-screen flex-col overflow-hidden bg-[#f8f4ff] md:flex-row">
       {/* SIDEBAR: Temario y Metadatos */}
       <aside className="flex h-full w-full shrink-0 flex-col border-r border-[var(--app-border)] bg-white md:w-80 lg:w-96">
@@ -519,6 +524,7 @@ export default function LearningResourceDetailPage() {
           </div>
         </aside>
       )}
-    </div>
+    </div>,
+    document.body
   );
 }
