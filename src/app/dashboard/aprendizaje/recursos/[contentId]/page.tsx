@@ -115,6 +115,7 @@ export default function LearningResourceDetailPage() {
 
   const [activeTab, setActiveTab] = React.useState<"temario" | "discusion">("temario");
   const [activeResourceIndex, setActiveResourceIndex] = React.useState(0);
+  const [suggestedResources, setSuggestedResources] = React.useState<LearningResourceRecord[]>([]);
 
   const flatItems = React.useMemo(() => {
     if (resource?.contentType !== "scorm") return [];
