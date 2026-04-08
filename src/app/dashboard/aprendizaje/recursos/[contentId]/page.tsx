@@ -224,6 +224,34 @@ export default function LearningResourceDetailPage() {
   }, [canManage, confirm, deleting, requestedTab, resource, router, showError]);
 
   if (loading) {
+    return (
+      <div className="app-panel flex items-center gap-3 p-6 text-sm text-[var(--app-muted)]">
+        <Loader2 size={18} className="animate-spin" />
+        Cargando recurso...
+      </div>
+    );
+  }
+
+  if (!resource) {
+    return (
+      <EmptyState message="No encontramos este recurso o no tienes acceso a visualizarlo." />
+    );
+  }
+
+  const fallbackTab = resource.contentType === "scorm" ? "cursos" : "recursos";
+  const backTab =
+    requestedTab === "cursos" || requestedTab === "recursos"
+      ? requestedTab
+      : fallbackTab;
+  const backHref =
+    backTab === "recursos"
+      ? "/dashboard/aprendizaje"
+      : `/dashboard/aprendizaje?tab=${backTab}`;
+  const editHref =
+    backTab === "recursos"
+      ? `/dashboard/aprendizaje?edit=${resource.contentId}`
+      : `/dashboard/aprendizaje?tab=${backTab}&edit=${resource.contentId}`;
+
   const [showSocial, setShowSocial] = React.useState(false);
 
   return (

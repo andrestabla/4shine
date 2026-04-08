@@ -111,8 +111,6 @@ export function LearningResourceCard({
           ) : null}
         </div>
 
-        </div>
-
         {resource.progressPercent > 0 && !canManage && (
           <div className="mt-4">
             <div className="flex items-center justify-between text-[11px] font-semibold text-[var(--app-muted)]">
