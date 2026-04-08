@@ -22,6 +22,7 @@ import {
   X,
 } from "lucide-react";
 
+import { LearningResourceCard } from "@/components/aprendizaje/LearningResourceCard";
 import { EmptyState } from "@/components/dashboard/EmptyState";
 
 import { useAppDialog } from "@/components/ui/AppDialogProvider";
@@ -31,6 +32,7 @@ import { useUser } from "@/context/UserContext";
 import {
   createLearningComment,
   getLearningResourceDetail,
+  listLearningResources,
   toggleLearningCommentReaction,
   toggleLearningLike,
   type LearningResourceRecord,
@@ -160,11 +162,18 @@ export default function LearningResourceDetailPage() {
 
     setLoading(true);
 
-    try {
+        try {
       const data = await getLearningResourceDetail(contentId);
-
       setResource(data);
-
+      
+      if (data.contentType !== "scorm") {
+        try {
+          const sugg = await listLearningResources({ family: "resource" });
+          setSuggestedResources(sugg.filter(r => r.contentId !== contentId).slice(0, 4));
+        } catch (e) {
+          console.error(e);
+        }
+      }
     } catch (error) {
       await showError("No se pudo cargar el recurso", error);
 
@@ -383,7 +392,8 @@ export default function LearningResourceDetailPage() {
 
   }
 
-  return createPortal(
+  if (resource.contentType === "scorm") {
+    return createPortal(
     <div className="fixed inset-0 z-[100] flex h-[100dvh] w-screen flex-col overflow-hidden bg-black md:flex-row">
       {/* SIDEBAR: Temario y Discusión */}
       <aside className="flex h-full w-full shrink-0 flex-col bg-white md:w-80 lg:w-96">
@@ -633,5 +643,7 @@ export default function LearningResourceDetailPage() {
     </div>,
     document.body
   );
+
+}
 
 }
