@@ -70,6 +70,7 @@ export default function LearningResourceDetailPage() {
   const [togglingCommentReaction, setTogglingCommentReaction] =
     React.useState<string | null>(null);
   const [deleting, setDeleting] = React.useState(false);
+  const [showSocial, setShowSocial] = React.useState(false);
 
   const showError = React.useCallback(
     async (fallbackMessage: string, cause: unknown) => {
@@ -251,8 +252,6 @@ export default function LearningResourceDetailPage() {
     backTab === "recursos"
       ? `/dashboard/aprendizaje?edit=${resource.contentId}`
       : `/dashboard/aprendizaje?tab=${backTab}&edit=${resource.contentId}`;
-
-  const [showSocial, setShowSocial] = React.useState(false);
 
   return (
     <div className="fixed inset-0 z-[100] flex h-[100dvh] w-screen flex-col overflow-hidden bg-[#f8f4ff] md:flex-row">
