@@ -170,7 +170,7 @@ export default function LearningResourceDetailPage() {
       if (data.contentType !== "scorm") {
         try {
           const sugg = await listLearningResources({ family: "resource" });
-          setSuggestedResources(sugg.filter(r => r.contentId !== contentId).slice(0, 4));
+          setSuggestedResources(sugg.items.filter(r => r.contentId !== contentId).slice(0, 4));
         } catch (e) {
           console.error(e);
         }
