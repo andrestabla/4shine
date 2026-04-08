@@ -9,6 +9,7 @@ import {
   ArrowRight,
   ExternalLink,
   Heart,
+  Layers3,
   Loader2,
   MessageCircle,
   Pencil,
