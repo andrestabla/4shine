@@ -301,7 +301,7 @@ export default function LearningResourceDetailPage() {
     if (totalItems > 0 && activeResourceIndex >= totalItems) {
       setActiveResourceIndex(totalItems - 1);
     }
-  }, [activeResourceIndex, totalItems]);
+  }, [activeResourceIndex, totalItems, setActiveResourceIndex]);
 
   React.useEffect(() => {
     if (!resource || resource.contentType !== "scorm" || !currentItem) return;
@@ -309,30 +309,38 @@ export default function LearningResourceDetailPage() {
 
     const syncKey = `${resource.contentId}:${currentItem.id}:${activeResourceIndex}`;
     latestProgressSyncKeyRef.current = syncKey;
+    const optimisticCompletedIds = Array.from(
+      new Set([...validCompletedResourceIds, currentItem.id]),
+    );
+    const optimisticProgressPercent =
+      totalItems > 0
+        ? Math.min(100, Math.round((optimisticCompletedIds.length / totalItems) * 100))
+        : resource.progressPercent;
+    const optimisticSeen = totalItems > 0 && optimisticProgressPercent >= 100;
 
     const syncProgress = async () => {
-      try {
-        const result = await updateLearningProgress(resource.contentId, {
-          resourceId: currentItem.id,
-        });
-        if (latestProgressSyncKeyRef.current !== syncKey) return;
+      if (latestProgressSyncKeyRef.current !== syncKey) return;
 
-        React.startTransition(() => {
-          setResource((prev) => {
-            if (!prev || prev.contentId !== resource.contentId) return prev;
-            const newCompleted = Array.from(
-              new Set([...(prev.completedResourceIds || []), currentItem.id]),
-            );
-            return normalizeLearningResourceRecord({
-              ...prev,
-              progressPercent: result.progressPercent,
-              seen: result.seen,
-              completedResourceIds: newCompleted,
-            });
+      React.startTransition(() => {
+        setResource((prev) => {
+          if (!prev || prev.contentId !== resource.contentId) return prev;
+          return normalizeLearningResourceRecord({
+            ...prev,
+            progressPercent: optimisticProgressPercent,
+            seen: optimisticSeen,
+            completedResourceIds: optimisticCompletedIds,
           });
         });
+      });
+
+      try {
+        await updateLearningProgress(resource.contentId, {
+          resourceId: currentItem.id,
+        });
       } catch (e) {
-        console.error("Failed to sync progress:", e);
+        if (latestProgressSyncKeyRef.current === syncKey) {
+          console.error("Failed to sync progress:", e);
+        }
       }
     };
     const timer = window.setTimeout(() => void syncProgress(), 1400);
@@ -342,17 +350,17 @@ export default function LearningResourceDetailPage() {
       }
       window.clearTimeout(timer);
     };
-  }, [activeResourceIndex, currentItem, resource, validCompletedResourceIds]);
+  }, [activeResourceIndex, currentItem, resource, totalItems, validCompletedResourceIds]);
 
   const handleNext = () => {
     if (totalItems > 0 && activeResourceIndex < totalItems - 1) {
-      setActiveResourceIndex(prev => prev + 1);
+      setActiveResourceIndex((prev) => Math.min(totalItems - 1, prev + 1));
     }
   };
 
   const handlePrev = () => {
     if (activeResourceIndex > 0) {
-      setActiveResourceIndex(prev => prev - 1);
+      setActiveResourceIndex((prev) => Math.max(0, prev - 1));
     }
   };
 
