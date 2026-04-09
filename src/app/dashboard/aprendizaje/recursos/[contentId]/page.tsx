@@ -17,6 +17,8 @@ import {
   Trash2,
   X,
   Menu,
+  FileDown,
+  Download,
 } from "lucide-react";
 
 import { LearningResourceCard } from "@/components/aprendizaje/LearningResourceCard";
@@ -79,6 +81,15 @@ export default function LearningResourceDetailPage() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [activeResourceIndex, setActiveResourceIndex] = React.useState(-1);
   const [suggestedResources, setSuggestedResources] = React.useState<LearningResourceRecord[]>([]);
+  const [isMobile, setIsMobile] = React.useState(false);
+
+  React.useEffect(() => {
+    const mql = window.matchMedia("(max-width: 768px)");
+    const onChange = () => setIsMobile(mql.matches);
+    mql.addEventListener("change", onChange);
+    setIsMobile(mql.matches);
+    return () => mql.removeEventListener("change", onChange);
+  }, []);
 
   const flatItems = React.useMemo(() => {
     if (resource?.contentType !== "scorm") return [];
@@ -619,11 +630,32 @@ export default function LearningResourceDetailPage() {
                   ) : currentItem?.contentType === "pdf" && currentItem.url ? (
                     // PDF VIEWER
                     <div key={`pdf-${currentItem.id}`} className="w-full overflow-hidden rounded-[16px] bg-slate-800 ring-1 ring-white/10 h-[70vh] md:h-[80vh] relative">
-                      <iframe
-                        title={currentItem.title || "Documento PDF"}
-                        src={currentItem.url}
-                        className="absolute inset-0 h-full w-full border-none"
-                      />
+                      {isMobile ? (
+                        <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-slate-900 to-indigo-950 p-6 text-center">
+                          <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-orange-500/20 text-orange-500">
+                             <FileDown size={40} />
+                          </div>
+                          <h3 className="mb-2 text-xl font-bold text-white leading-tight">{currentItem.title || "Documento PDF"}</h3>
+                          <p className="mb-8 max-w-xs text-sm text-slate-400">
+                            Para una mejor experiencia en dispositivos móviles, te recomendamos descargar el documento.
+                          </p>
+                          <a 
+                            href={currentItem.url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="flex w-full items-center justify-center gap-3 rounded-full bg-white py-4 px-8 text-sm font-bold text-slate-900 transition hover:bg-orange-500 hover:text-white sm:w-auto"
+                          >
+                            <Download size={18} />
+                            Ver / Descargar PDF
+                          </a>
+                        </div>
+                      ) : (
+                        <iframe
+                          title={currentItem.title || "Documento PDF"}
+                          src={currentItem.url}
+                          className="absolute inset-0 h-full w-full border-none"
+                        />
+                      )}
                     </div>
                   ) : currentItem && buildYouTubeEmbedUrl(currentItem.url) ? (
                     // YOUTUBE PLAYER
@@ -741,11 +773,32 @@ export default function LearningResourceDetailPage() {
             allowFullScreen
           />
         ) : resource.contentType === "pdf" && resource.url ? (
-          <iframe
-            title={resource.title}
-            src={resource.url}
-            className="absolute inset-0 h-full w-full min-h-[60vh] md:min-h-full"
-          />
+          isMobile ? (
+            <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-slate-900 to-indigo-950 p-8 text-center min-h-[400px]">
+              <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-orange-500/20 text-orange-500 shadow-xl shadow-orange-500/10">
+                 <FileDown size={48} />
+              </div>
+              <h3 className="mb-3 text-2xl font-bold text-white leading-tight">{resource.title}</h3>
+              <p className="mb-8 max-w-sm text-base text-slate-400">
+                Los archivos PDF pueden no mostrarse correctamente en navegadores móviles. Haz clic abajo para descargar y visualizar el contenido.
+              </p>
+              <a 
+                href={resource.url} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex w-full items-center justify-center gap-3 rounded-full bg-white py-4 px-10 text-base font-bold text-slate-900 transition hover:bg-orange-500 hover:text-white sm:w-auto"
+              >
+                <Download size={20} />
+                Descargar Documento
+              </a>
+            </div>
+          ) : (
+            <iframe
+              title={resource.title}
+              src={resource.url}
+              className="absolute inset-0 h-full w-full min-h-[60vh] md:min-h-full"
+            />
+          )
         ) : (
           <div className="flex flex-1 flex-col items-center justify-center p-8 text-center bg-gradient-to-br from-slate-900 to-indigo-950 w-full h-full">
              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white/10 text-white shadow-lg backdrop-blur-md transition hover:scale-105 hover:bg-white/20">
