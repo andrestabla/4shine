@@ -54,6 +54,7 @@ export interface LearningResourceRecord {
   thumbnailUrl: string | null;
   comments: LearningCommentRecord[];
   structurePayload: ContentStructurePayload;
+  completedResourceIds: string[];
 }
 
 
@@ -82,7 +83,7 @@ export interface LearningLikeToggleResult {
 }
 
 export interface LearningProgressUpdateInput {
-  progressPercent: number;
+  resourceId: string;
 }
 
 export interface LearningProgressUpdateResult {
@@ -193,6 +194,7 @@ interface LearningResourceRow {
   thumbnail_url: string | null;
   comments: LearningCommentRow[] | null;
   structure_payload: ContentStructurePayload | null;
+  completed_resource_ids: string[] | null;
 }
 
 function mapLearningComments(comments: LearningCommentRow[] | null | undefined): LearningCommentRecord[] {
@@ -234,11 +236,11 @@ function mapLearningResourceRow(row: LearningResourceRow): LearningResourceRecor
     updatedAt: row.updated_at,
     publishedAt: row.published_at,
     thumbnailUrl: row.thumbnail_url,
-    structurePayload:
-      row.structure_payload ?? {
-        kind: row.content_type === 'scorm' ? 'course' : 'resource',
-        modules: [],
-      },
+    structurePayload: row.structure_payload ?? {
+      kind: row.content_type === 'scorm' ? 'course' : 'resource',
+      modules: [],
+    },
+    completedResourceIds: row.completed_resource_ids ?? [],
     comments: mapLearningComments(row.comments),
   };
 }
@@ -634,6 +636,7 @@ export async function listLearningResources(
         COALESCE(comment_counts.comment_count, 0)::int AS comment_count,
         COALESCE(cp.progress_percent, 0)::float AS progress_percent,
         COALESCE(cp.seen, false) AS seen,
+        cp.completed_resource_ids,
         ci.created_at::text,
         ci.updated_at::text,
         ci.published_at::text,
@@ -766,6 +769,7 @@ export async function getLearningResourceDetail(
         COALESCE(comment_counts.comment_count, 0)::int AS comment_count,
         COALESCE(cp.progress_percent, 0)::float AS progress_percent,
         COALESCE(cp.seen, false) AS seen,
+        cp.completed_resource_ids,
         ci.created_at::text,
         ci.updated_at::text,
         ci.published_at::text,
@@ -1044,9 +1048,12 @@ export async function updateLearningProgress(
   input: LearningProgressUpdateInput,
 ): Promise<LearningProgressUpdateResult> {
   await requireModulePermission(client, 'aprendizaje', 'view');
-  await getAccessibleLearningItem(client, actor, contentId);
+  const resource = await getAccessibleLearningItem(client, actor, contentId);
 
-  const progressPercent = Math.min(100, Math.max(0, input.progressPercent));
+  // Calculate new progress based on cumulative resource completion
+  const updatedCompletedIds = Array.from(new Set([...(resource.completedResourceIds || []), input.resourceId]));
+  const totalItems = resource.structurePayload?.modules?.flatMap(m => m.resources || []).length || 1;
+  const progressPercent = Math.min(100, Math.round((updatedCompletedIds.length / totalItems) * 100));
   const seen = progressPercent >= 100;
 
   const { rows } = await client.query<{ progress_percent: number; seen: boolean }>(
@@ -1056,23 +1063,28 @@ export async function updateLearningProgress(
         user_id, 
         progress_percent, 
         seen, 
+        completed_resource_ids,
         last_viewed_at,
         started_at
       )
-      VALUES ($1, $2, $3, $4, NOW(), NOW())
+      VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
       ON CONFLICT (content_id, user_id) 
       DO UPDATE SET
-        progress_percent = GREATEST(app_learning.content_progress.progress_percent, EXCLUDED.progress_percent),
-        seen = app_learning.content_progress.seen OR EXCLUDED.seen,
+        completed_resource_ids = (
+          SELECT jsonb_agg(DISTINCT x) 
+          FROM jsonb_array_elements(COALESCE(app_learning.content_progress.completed_resource_ids, '[]'::jsonb) || $5::jsonb) t(x)
+        ),
+        progress_percent = $3,
+        seen = app_learning.content_progress.seen OR $4,
         last_viewed_at = NOW(),
         completed_at = CASE 
-          WHEN (app_learning.content_progress.progress_percent < 100 AND EXCLUDED.progress_percent >= 100) 
+          WHEN (app_learning.content_progress.progress_percent < 100 AND $3 >= 100) 
           THEN NOW() 
           ELSE app_learning.content_progress.completed_at 
         END
       RETURNING progress_percent, seen
     `,
-    [contentId, actor.userId, progressPercent, seen],
+    [contentId, actor.userId, progressPercent, seen, JSON.stringify(updatedCompletedIds)],
   );
 
   return {

@@ -94,29 +94,55 @@ export default function LearningResourceDetailPage() {
 
   const calculatedProgress = React.useMemo(() => {
     if (!resource || resource.contentType !== "scorm") return resource?.progressPercent ?? 0;
-    if (activeResourceIndex === -1) return resource.progressPercent ?? 0;
-    const navProgress = Math.round(((activeResourceIndex + 1) / totalItems) * 100);
-    return Math.max(resource.progressPercent ?? 0, navProgress);
-  }, [activeResourceIndex, resource, totalItems]);
+    
+    // Current total items in structure
+    const currentTotalItems = flatItems.length || 1;
+    
+    // Server-provided progress is already recalculated based on current structure
+    const dbProgress = resource.progressPercent ?? 0;
+    
+    if (activeResourceIndex === -1) return dbProgress;
+    
+    // If not in DB yet, we anticipate the 1-item gain for better UX
+    const currentItem = flatItems[activeResourceIndex];
+    const isCompleted = currentItem && resource.completedResourceIds?.includes(currentItem.id);
+    
+    if (isCompleted) return dbProgress;
+    
+    const sessionSeenCount = (resource.completedResourceIds?.length || 0) + 1;
+    const sessionProgress = Math.round((sessionSeenCount / currentTotalItems) * 100);
+    
+    return Math.max(dbProgress, sessionProgress);
+  }, [activeResourceIndex, resource, flatItems.length]);
 
   React.useEffect(() => {
     if (!resource || resource.contentType !== "scorm" || activeResourceIndex === -1) return;
     
-    const newProgress = Math.round(((activeResourceIndex + 1) / totalItems) * 100);
-    if (newProgress > (resource.progressPercent ?? 0)) {
-      const syncProgress = async () => {
-        try {
-          const result = await updateLearningProgress(resource.contentId, {
-            progressPercent: newProgress,
-          });
-          setResource(prev => prev ? { ...prev, progressPercent: result.progressPercent, seen: result.seen } : null);
-        } catch (e) {
-          console.error("Failed to sync progress:", e);
-        }
-      };
-      void syncProgress();
-    }
-  }, [activeResourceIndex, resource, totalItems]);
+    const currentItem = flatItems[activeResourceIndex];
+    if (!currentItem || resource.completedResourceIds?.includes(currentItem.id)) return;
+    
+    const syncProgress = async () => {
+      try {
+        const result = await updateLearningProgress(resource.contentId, {
+          resourceId: currentItem.id,
+        });
+        setResource(prev => {
+           if (!prev) return null;
+           const newCompleted = Array.from(new Set([...(prev.completedResourceIds || []), currentItem.id]));
+           return { 
+             ...prev, 
+             progressPercent: result.progressPercent, 
+             seen: result.seen,
+             completedResourceIds: newCompleted
+           };
+        });
+      } catch (e) {
+        console.error("Failed to sync progress:", e);
+      }
+    };
+    const timer = setTimeout(() => void syncProgress(), 1000); // Small delay to avoid noise on rapid nav
+    return () => clearTimeout(timer);
+  }, [activeResourceIndex, resource?.contentId, flatItems]);
 
   const handleNext = () => {
     if (activeResourceIndex < totalItems - 1) {
