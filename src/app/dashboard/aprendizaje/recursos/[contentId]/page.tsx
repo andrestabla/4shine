@@ -16,6 +16,7 @@ import {
   Send,
   Trash2,
   X,
+  Menu,
 } from "lucide-react";
 
 import { LearningResourceCard } from "@/components/aprendizaje/LearningResourceCard";
@@ -75,6 +76,7 @@ export default function LearningResourceDetailPage() {
   const [deleting, setDeleting] = React.useState(false);
   
   const [activeTab, setActiveTab] = React.useState<"temario" | "discusion">("temario");
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [activeResourceIndex, setActiveResourceIndex] = React.useState(-1);
   const [suggestedResources, setSuggestedResources] = React.useState<LearningResourceRecord[]>([]);
 
@@ -319,10 +321,40 @@ export default function LearningResourceDetailPage() {
   if (resource.contentType === "scorm") {
     return createPortal(
       <div className="fixed inset-0 z-[100] flex h-[100dvh] w-screen flex-col overflow-hidden bg-black md:flex-row">
+        {/* MOBILE OVERLAY TOGGLE BUTTON */}
+        <div className="flex shrink-0 items-center justify-between border-b border-white/5 bg-black px-4 py-3 md:hidden">
+          <div className="flex items-center gap-2">
+             <button 
+                onClick={() => router.push(backHref)}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white"
+             >
+               <ArrowLeft size={16} />
+             </button>
+             <h4 className="text-xs font-bold text-white uppercase tracking-wider truncate max-w-[200px]">{resource.title}</h4>
+          </div>
+          <button 
+            onClick={() => setIsMobileMenuOpen(true)}
+            className="flex h-10 items-center gap-2 rounded-full bg-[var(--brand-primary)] px-4 text-[11px] font-bold text-white shadow-lg shadow-orange-500/20"
+          >
+            <Menu size={16} />
+            TEMARIO
+          </button>
+        </div>
+
         {/* SIDEBAR: Temario y Discusión */}
-        <aside className="flex h-full w-full shrink-0 flex-col bg-white md:w-80 lg:w-96">
-          <div className="flex shrink-0 flex-col px-6 pt-8 pb-4">
-            <h1 className="text-[17px] font-bold leading-tight text-[var(--app-ink)]" data-display-font="true">
+        <aside className={`flex h-full shrink-0 flex-col bg-white transition-all duration-300 md:relative md:w-80 lg:w-96 md:flex ${
+          isMobileMenuOpen ? "fixed inset-0 z-[110] w-full" : "hidden md:flex"
+        }`}>
+          <div className="flex shrink-0 flex-col px-6 pt-8 pb-4 relative">
+            {isMobileMenuOpen && (
+              <button 
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="absolute top-6 right-6 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-500 md:hidden"
+              >
+                <X size={20} />
+              </button>
+            )}
+            <h1 className="text-[17px] font-bold leading-tight text-[var(--app-ink)] pr-8 md:pr-0" data-display-font="true">
               {resource.title}
             </h1>
             <div className="mt-4 flex items-center justify-between">
@@ -372,7 +404,10 @@ export default function LearningResourceDetailPage() {
               <div className="p-4 space-y-2">
                 {/* 0. Course Overview Entry */}
                 <button
-                  onClick={() => setActiveResourceIndex(-1)}
+                  onClick={() => {
+                    setActiveResourceIndex(-1);
+                    setIsMobileMenuOpen(false);
+                  }}
                   className={`w-full flex items-center gap-3 rounded-[12px] p-3 text-left transition ${
                     activeResourceIndex === -1 ? "border border-[var(--brand-primary)] bg-[var(--brand-primary-soft)]" : "border border-transparent hover:bg-[var(--app-surface-muted)]"
                   }`}
@@ -407,7 +442,10 @@ export default function LearningResourceDetailPage() {
                           return (
                             <button
                               key={item.id}
-                              onClick={() => setActiveResourceIndex(idx)}
+                              onClick={() => {
+                                setActiveResourceIndex(idx);
+                                setIsMobileMenuOpen(false);
+                              }}
                               className={`w-full flex items-center gap-3 rounded-[12px] p-2.5 ml-1 text-left transition ${
                                 isActive ? "border border-[var(--brand-primary)] bg-[var(--brand-primary-soft)]" : "border border-transparent hover:bg-[var(--app-surface-muted)]"
                               }`}
@@ -602,7 +640,7 @@ export default function LearningResourceDetailPage() {
                     </div>
                   ) : (
                     // FALLBACK PLACEHOLDER
-                    <div className="w-full overflow-hidden rounded-[16px] border border-slate-800 bg-[#0f172a] shadow-2xl md:aspect-video flex flex-col justify-between">
+                    <div className="w-full overflow-hidden rounded-[16px] border border-slate-800 bg-[#0f172a] shadow-2xl aspect-video md:aspect-video flex flex-col justify-between">
                       <div className="flex flex-1 items-center justify-center">
                           <div className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 hover:scale-105">
                              {currentItem.url ? (
@@ -695,7 +733,7 @@ export default function LearningResourceDetailPage() {
         )}
       </div>
 
-      <div className="w-full overflow-hidden rounded-[24px] bg-[#0f172a] shadow-xl md:aspect-[21/9] lg:aspect-video relative flex flex-col items-center justify-center">
+      <div className="w-full overflow-hidden rounded-[24px] bg-[#0f172a] shadow-xl aspect-video md:aspect-[21/9] lg:aspect-video relative flex flex-col items-center justify-center">
         {youtubeEmbedUrl ? (
           <iframe
             title={resource.title}
@@ -741,7 +779,7 @@ export default function LearningResourceDetailPage() {
               </div>
            )}
 
-           <h1 className="text-3xl font-extrabold text-[var(--app-ink)] md:text-4xl" data-display-font="true">
+           <h1 className="text-2xl font-extrabold text-[var(--app-ink)] md:text-3xl lg:text-4xl" data-display-font="true">
              {resource.title}
            </h1>
            
@@ -793,11 +831,11 @@ export default function LearningResourceDetailPage() {
         </div>
       </div>
 
-      <section className="mt-8 rounded-[24px] bg-white p-6 md:p-10 shadow-sm border border-[var(--app-border)]">
-        <div className="flex items-center justify-between mb-8">
+      <section className="mt-8 rounded-[24px] bg-white p-5 md:p-10 shadow-sm border border-[var(--app-border)]">
+        <div className="flex items-center justify-between mb-6">
            <h3 className="text-xl font-bold flex items-center gap-3 text-[var(--app-ink)]">
              <MessageCircle className="text-[var(--brand-primary)]" />
-             Conversación ({resource.commentCount})
+             Discusión ({resource.commentCount})
            </h3>
         </div>
 
@@ -833,8 +871,8 @@ export default function LearningResourceDetailPage() {
               </p>
            ) : (
               resource.comments.map((comment) => (
-                <article key={comment.commentId} className="flex gap-4">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--app-surface-muted)] font-bold text-[var(--app-ink)]">
+                <article key={comment.commentId} className="flex gap-3 md:gap-4">
+                  <div className="flex h-8 w-8 md:h-10 md:w-10 shrink-0 items-center justify-center rounded-full bg-[var(--app-surface-muted)] text-sm font-bold text-[var(--app-ink)]">
                     {comment.authorAvatar}
                   </div>
                   <div className="flex-1 border-b border-[var(--app-border)] pb-6">
