@@ -468,7 +468,12 @@ export default function LearningResourceDetailPage() {
         <main className="relative flex flex-1 flex-col overflow-hidden bg-black">
           <section className="relative flex flex-1 items-center justify-center overflow-auto p-4 sm:p-8 pb-24">
             <div className="w-full max-w-5xl">
-              {activeResourceIndex === -1 ? (
+              {(!resource) ? (
+                <div className="flex flex-col items-center justify-center p-12 text-slate-500">
+                  <Loader2 className="animate-spin mb-4" size={32} />
+                  <p>Cargando contenidos...</p>
+                </div>
+              ) : activeResourceIndex === -1 ? (
                 // COURSE OVERVIEW PANEL
                 <div className="w-full overflow-hidden rounded-[24px] border border-slate-800 bg-[#0f172a] shadow-2xl flex flex-col md:flex-row min-h-[400px]">
                   <div className="relative w-full md:w-2/5 p-8 flex flex-col justify-center bg-gradient-to-br from-slate-900 to-indigo-950 overflow-hidden">
@@ -520,62 +525,69 @@ export default function LearningResourceDetailPage() {
                     </div>
                   </div>
                 </div>
-              ) : currentItem?.contentType === "video" && isDirectVideoUrl(currentItem.url) ? (
-                // DIRECT VIDEO PLAYER
-                <div className="w-full overflow-hidden rounded-[16px] bg-black ring-1 ring-white/10 md:aspect-video relative group">
-                  <video
-                    src={currentItem.url!}
-                    className="h-full w-full object-contain"
-                    controls
-                    autoPlay
-                    poster={resource.url ? undefined : undefined} // Could use generic poster
-                  />
-                </div>
-              ) : currentItem?.contentType === "pdf" && currentItem.url ? (
-                // PDF VIEWER
-                <div className="w-full overflow-hidden rounded-[16px] bg-slate-800 ring-1 ring-white/10 h-[70vh] md:h-[80vh] relative">
-                  <iframe
-                    title={currentItem.title}
-                    src={currentItem.url}
-                    className="absolute inset-0 h-full w-full border-none"
-                  />
-                </div>
-              ) : buildYouTubeEmbedUrl(currentItem?.url) ? (
-                // YOUTUBE PLAYER
-                <div className="w-full overflow-hidden rounded-[16px] bg-[#0f172a] ring-1 ring-white/10 md:aspect-video flex flex-col items-center justify-center relative">
-                  <iframe
-                    title={currentItem?.title}
-                    src={buildYouTubeEmbedUrl(currentItem?.url)!}
-                    className="absolute inset-0 h-full w-full"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  />
+              ) : currentItem ? (
+                <div key={`${resource.contentId}-${activeResourceIndex}`} className="w-full">
+                  {currentItem.contentType === "video" && isDirectVideoUrl(currentItem.url) ? (
+                    // DIRECT VIDEO PLAYER
+                    <div className="w-full overflow-hidden rounded-[16px] bg-black ring-1 ring-white/10 md:aspect-video relative group">
+                      <video
+                        src={currentItem.url!}
+                        className="h-full w-full object-contain"
+                        controls
+                        autoPlay
+                      />
+                    </div>
+                  ) : currentItem.contentType === "pdf" && currentItem.url ? (
+                    // PDF VIEWER
+                    <div className="w-full overflow-hidden rounded-[16px] bg-slate-800 ring-1 ring-white/10 h-[70vh] md:h-[80vh] relative">
+                      <iframe
+                        title={currentItem.title}
+                        src={currentItem.url}
+                        className="absolute inset-0 h-full w-full border-none"
+                      />
+                    </div>
+                  ) : buildYouTubeEmbedUrl(currentItem.url) ? (
+                    // YOUTUBE PLAYER
+                    <div className="w-full overflow-hidden rounded-[16px] bg-[#0f172a] ring-1 ring-white/10 md:aspect-video flex flex-col items-center justify-center relative">
+                      <iframe
+                        title={currentItem.title}
+                        src={buildYouTubeEmbedUrl(currentItem.url)!}
+                        className="absolute inset-0 h-full w-full"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                    </div>
+                  ) : (
+                    // FALLBACK PLACEHOLDER
+                    <div className="w-full overflow-hidden rounded-[16px] border border-slate-800 bg-[#0f172a] shadow-2xl md:aspect-video flex flex-col justify-between">
+                      <div className="flex flex-1 items-center justify-center">
+                          <div className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 hover:scale-105">
+                             {currentItem.url ? (
+                                <a href={currentItem.url} target="_blank" rel="noopener noreferrer">
+                                   <ExternalLink size={32} />
+                                </a>
+                             ) : (
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                             )}
+                          </div>
+                      </div>
+                      <div className="p-8 pb-10 bg-gradient-to-t from-black/60 to-transparent">
+                          <h2 className="text-2xl font-bold text-white mb-2">{currentItem.title || "Sin título"}</h2>
+                          <p className="text-slate-300 text-sm">
+                            {currentItem.description || "Este recurso no tiene descripción adicional."}
+                          </p>
+                          {currentItem.url && (
+                            <a href={currentItem.url} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex items-center gap-2 text-orange-400 font-bold hover:underline">
+                               Abrir en nueva pestaña <ExternalLink size={14} />
+                            </a>
+                          )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
-                // FALLBACK PLACEHOLDER
-                <div className="w-full overflow-hidden rounded-[16px] border border-slate-800 bg-[#0f172a] shadow-2xl md:aspect-video flex flex-col justify-between">
-                  <div className="flex flex-1 items-center justify-center">
-                      <div className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 hover:scale-105">
-                         {currentItem?.url ? (
-                            <a href={currentItem.url} target="_blank" rel="noopener noreferrer">
-                               <ExternalLink size={32} />
-                            </a>
-                         ) : (
-                            <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-                         )}
-                      </div>
-                  </div>
-                  <div className="p-8 pb-10 bg-gradient-to-t from-black/60 to-transparent">
-                      <h2 className="text-2xl font-bold text-white mb-2">{currentItem?.title || "Sin título"}</h2>
-                      <p className="text-slate-300 text-sm">
-                        {currentItem?.description || "Este recurso no tiene descripción adicional."}
-                      </p>
-                      {currentItem?.url && (
-                        <a href={currentItem.url} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex items-center gap-2 text-orange-400 font-bold hover:underline">
-                           Abrir en nueva pestaña <ExternalLink size={14} />
-                        </a>
-                      )}
-                  </div>
+                <div className="flex flex-col items-center justify-center p-12 text-slate-500">
+                  <p>No se pudo encontrar el recurso seleccionado.</p>
                 </div>
               )}
             </div>
