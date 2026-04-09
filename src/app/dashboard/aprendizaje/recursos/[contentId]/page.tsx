@@ -77,6 +77,77 @@ interface CoursePlayerModule {
   items: CoursePlayerItem[];
 }
 
+interface CoursePlayerErrorBoundaryProps {
+  children: React.ReactNode;
+  resetKey: string;
+}
+
+interface CoursePlayerErrorBoundaryState {
+  hasError: boolean;
+}
+
+class CoursePlayerErrorBoundary extends React.Component<
+  CoursePlayerErrorBoundaryProps,
+  CoursePlayerErrorBoundaryState
+> {
+  constructor(props: CoursePlayerErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(): CoursePlayerErrorBoundaryState {
+    return { hasError: true };
+  }
+
+  componentDidUpdate(prevProps: CoursePlayerErrorBoundaryProps): void {
+    if (prevProps.resetKey !== this.props.resetKey && this.state.hasError) {
+      this.setState({ hasError: false });
+    }
+  }
+
+  componentDidCatch(error: unknown): void {
+    console.error("Course player render error:", error);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex h-full min-h-[60vh] w-full items-center justify-center p-6 text-center text-slate-300">
+          <div>
+            <p className="text-sm font-semibold">No pudimos renderizar este recurso.</p>
+            <p className="mt-2 text-xs text-slate-400">
+              Intenta pasar al siguiente recurso o volver a cargar.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+function normalizeLearningResourceRecord(data: LearningResourceRecord): LearningResourceRecord {
+  const fallbackStructure: LearningResourceRecord["structurePayload"] = {
+    kind: data.contentType === "scorm" ? "course" : "resource",
+    modules: [],
+  };
+  const normalizedStructure =
+    data.structurePayload && typeof data.structurePayload === "object"
+      ? data.structurePayload
+      : fallbackStructure;
+
+  return {
+    ...data,
+    tags: Array.isArray(data.tags) ? data.tags : [],
+    comments: Array.isArray(data.comments) ? data.comments : [],
+    completedResourceIds: Array.isArray(data.completedResourceIds)
+      ? data.completedResourceIds
+      : [],
+    structurePayload: normalizedStructure,
+  };
+}
+
 export default function LearningResourceDetailPage() {
   const params = useParams<{ contentId: string }>();
   const router = useRouter();
@@ -101,6 +172,7 @@ export default function LearningResourceDetailPage() {
   const [activeResourceIndex, setActiveResourceIndex] = React.useState(-1);
   const [suggestedResources, setSuggestedResources] = React.useState<LearningResourceRecord[]>([]);
   const [isMobile, setIsMobile] = React.useState(false);
+  const latestProgressSyncKeyRef = React.useRef("");
 
   React.useEffect(() => {
     const mql = window.matchMedia("(max-width: 768px)");
@@ -206,13 +278,8 @@ export default function LearningResourceDetailPage() {
     if (!resource || resource.contentType !== "scorm") return resource?.progressPercent ?? 0;
     if (totalItems === 0) return 0;
 
-    const completedIds = new Set(validCompletedResourceIds);
-    if (currentItem) {
-      completedIds.add(currentItem.id);
-    }
-
-    return Math.min(100, Math.round((completedIds.size / totalItems) * 100));
-  }, [currentItem, resource, totalItems, validCompletedResourceIds]);
+    return Math.min(100, Math.round((validCompletedResourceIds.length / totalItems) * 100));
+  }, [resource, totalItems, validCompletedResourceIds.length]);
 
   React.useEffect(() => {
     setActiveResourceIndex(-1);
@@ -240,28 +307,42 @@ export default function LearningResourceDetailPage() {
     if (!resource || resource.contentType !== "scorm" || !currentItem) return;
     if (validCompletedResourceIds.includes(currentItem.id)) return;
 
+    const syncKey = `${resource.contentId}:${currentItem.id}:${activeResourceIndex}`;
+    latestProgressSyncKeyRef.current = syncKey;
+
     const syncProgress = async () => {
       try {
         const result = await updateLearningProgress(resource.contentId, {
           resourceId: currentItem.id,
         });
-        setResource(prev => {
-           if (!prev) return null;
-           const newCompleted = Array.from(new Set([...(prev.completedResourceIds || []), currentItem.id]));
-           return { 
-             ...prev, 
-             progressPercent: result.progressPercent, 
-             seen: result.seen,
-             completedResourceIds: newCompleted
-           };
+        if (latestProgressSyncKeyRef.current !== syncKey) return;
+
+        React.startTransition(() => {
+          setResource((prev) => {
+            if (!prev || prev.contentId !== resource.contentId) return prev;
+            const newCompleted = Array.from(
+              new Set([...(prev.completedResourceIds || []), currentItem.id]),
+            );
+            return normalizeLearningResourceRecord({
+              ...prev,
+              progressPercent: result.progressPercent,
+              seen: result.seen,
+              completedResourceIds: newCompleted,
+            });
+          });
         });
       } catch (e) {
         console.error("Failed to sync progress:", e);
       }
     };
-    const timer = setTimeout(() => void syncProgress(), 1000);
-    return () => clearTimeout(timer);
-  }, [currentItem, resource, validCompletedResourceIds]);
+    const timer = window.setTimeout(() => void syncProgress(), 1400);
+    return () => {
+      if (latestProgressSyncKeyRef.current === syncKey) {
+        latestProgressSyncKeyRef.current = "";
+      }
+      window.clearTimeout(timer);
+    };
+  }, [activeResourceIndex, currentItem, resource, validCompletedResourceIds]);
 
   const handleNext = () => {
     if (totalItems > 0 && activeResourceIndex < totalItems - 1) {
@@ -291,7 +372,7 @@ export default function LearningResourceDetailPage() {
     setLoading(true);
     try {
       const data = await getLearningResourceDetail(contentId);
-      setResource(data);
+      setResource(normalizeLearningResourceRecord(data));
       
       if (data.contentType !== "scorm") {
         try {
@@ -425,6 +506,8 @@ export default function LearningResourceDetailPage() {
     return <EmptyState message="No encontramos este recurso o no tienes acceso a visualizarlo." />;
   }
 
+  const safeComments = Array.isArray(resource.comments) ? resource.comments : [];
+  const safeTags = Array.isArray(resource.tags) ? resource.tags : [];
   const fallbackTab = resource.contentType === "scorm" ? "cursos" : "recursos";
   const backTab = requestedTab === "cursos" || requestedTab === "recursos" ? requestedTab : fallbackTab;
   const backHref = backTab === "recursos" ? "/dashboard/aprendizaje" : `/dashboard/aprendizaje?tab=${backTab}`;
@@ -437,6 +520,7 @@ export default function LearningResourceDetailPage() {
   // 1. IMMERSIVE PLAYER LAYOUT (SCORM)
   if (resource.contentType === "scorm") {
     return createPortal(
+      <CoursePlayerErrorBoundary resetKey={`${resource.contentId}:${activeResourceIndex}`}>
       <div className="fixed inset-0 z-[100] flex h-[100dvh] w-screen flex-col overflow-hidden bg-black md:flex-row">
         {/* MOBILE OVERLAY TOGGLE BUTTON */}
         <div className="flex shrink-0 items-center justify-between border-b border-white/5 bg-black px-4 py-3 md:hidden">
@@ -590,12 +674,12 @@ export default function LearningResourceDetailPage() {
             ) : (
               <div className="flex h-full flex-col">
                 <div className="flex-1 space-y-4 p-4 overflow-y-auto">
-                  {(!resource?.comments || resource.comments.length === 0) ? (
+                  {safeComments.length === 0 ? (
                     <p className="rounded-[18px] bg-[var(--app-surface-muted)] px-4 py-6 text-center text-sm text-[var(--app-muted)]">
                       Todavía no hay comentarios.<br/> ¡Sé el primero en compartir algo!
                     </p>
                   ) : (
-                    resource.comments.map((comment) => (
+                    safeComments.map((comment) => (
                       <article key={comment.commentId} className="rounded-[20px] bg-[var(--app-surface-muted)] p-4">
                         <div className="flex items-start gap-3">
                           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-sm font-bold text-[var(--app-ink)] shadow-sm">
@@ -686,7 +770,7 @@ export default function LearningResourceDetailPage() {
                       </div>
                       <h2 className="text-3xl font-extrabold text-white mb-4 leading-tight">{resource.title}</h2>
                       <div className="flex flex-wrap gap-2 mb-6">
-                        {resource.tags?.map(t => (
+                        {safeTags.map((t) => (
                           <span key={t} className="px-2 py-0.5 rounded-full bg-white/10 text-white/70 text-[10px] font-bold uppercase tracking-wider">{t}</span>
                         ))}
                       </div>
@@ -840,7 +924,8 @@ export default function LearningResourceDetailPage() {
              </button>
           </div>
         </main>
-      </div>,
+      </div>
+      </CoursePlayerErrorBoundary>,
       document.body
     );
   }
@@ -934,9 +1019,9 @@ export default function LearningResourceDetailPage() {
 
       <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
         <div className="flex-1 space-y-4">
-           {resource.tags && resource.tags.length > 0 && (
+           {safeTags.length > 0 && (
               <div className="flex flex-wrap gap-2">
-                {resource.tags.map(tag => (
+                {safeTags.map((tag) => (
                   <span key={tag} className="rounded-full bg-[var(--app-surface-muted)] px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-[var(--brand-primary)]">
                     {tag}
                   </span>
@@ -1000,7 +1085,7 @@ export default function LearningResourceDetailPage() {
         <div className="flex items-center justify-between mb-6">
            <h3 className="text-xl font-bold flex items-center gap-3 text-[var(--app-ink)]">
              <MessageCircle className="text-[var(--brand-primary)]" />
-             Discusión ({resource.commentCount})
+             Discusión ({safeComments.length})
            </h3>
         </div>
 
@@ -1030,12 +1115,12 @@ export default function LearningResourceDetailPage() {
         </div>
 
         <div className="space-y-6">
-           {(!resource?.comments || resource.comments.length === 0) ? (
+           {safeComments.length === 0 ? (
               <p className="text-center text-[var(--app-muted)] py-10 font-medium">
                 Nadie ha comentado aún. ¡Sé la primera voz!
               </p>
            ) : (
-              resource.comments.map((comment) => (
+              safeComments.map((comment) => (
                 <article key={comment.commentId} className="flex gap-3 md:gap-4">
                   <div className="flex h-8 w-8 md:h-10 md:w-10 shrink-0 items-center justify-center rounded-full bg-[var(--app-surface-muted)] text-sm font-bold text-[var(--app-ink)]">
                     {comment.authorAvatar}
