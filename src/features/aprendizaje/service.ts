@@ -1048,7 +1048,7 @@ export async function updateLearningProgress(
   input: LearningProgressUpdateInput,
 ): Promise<LearningProgressUpdateResult> {
   await requireModulePermission(client, 'aprendizaje', 'view');
-  const resource = await getAccessibleLearningItem(client, actor, contentId);
+  const resource = await getLearningResourceDetail(client, actor, contentId);
 
   // Calculate new progress based on cumulative resource completion
   const updatedCompletedIds = Array.from(new Set([...(resource.completedResourceIds || []), input.resourceId]));
