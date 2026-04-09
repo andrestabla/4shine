@@ -197,6 +197,79 @@ interface LearningResourceRow {
   completed_resource_ids: string[] | null;
 }
 
+function getCourseResourceFallbackId(moduleId: string | null | undefined, moduleIndex: number, resourceId: string | null | undefined, resourceIndex: number): string {
+  const normalizedModuleId =
+    typeof moduleId === 'string' && moduleId.trim().length > 0
+      ? moduleId.trim()
+      : `module-${moduleIndex + 1}`;
+  const normalizedResourceId =
+    typeof resourceId === 'string' && resourceId.trim().length > 0
+      ? resourceId.trim()
+      : `resource-${resourceIndex + 1}`;
+  return `${normalizedModuleId}::${normalizedResourceId}`;
+}
+
+function getCourseResourceIds(structurePayload: ContentStructurePayload | null | undefined): string[] {
+  const modules = Array.isArray(structurePayload?.modules) ? structurePayload.modules : [];
+  const resourceIds: string[] = [];
+
+  modules.forEach((module, moduleIndex) => {
+    if (!module || typeof module !== 'object') {
+      return;
+    }
+
+    const resources = Array.isArray(module.resources) ? module.resources : [];
+    resources.forEach((resource, resourceIndex) => {
+      if (!resource || typeof resource !== 'object') {
+        return;
+      }
+
+      resourceIds.push(
+        getCourseResourceFallbackId(module.id, moduleIndex, resource.id, resourceIndex),
+      );
+    });
+  });
+
+  return resourceIds;
+}
+
+function getValidCompletedResourceIds(
+  structurePayload: ContentStructurePayload | null | undefined,
+  completedResourceIds: string[] | null | undefined,
+): string[] {
+  const validIds = new Set(getCourseResourceIds(structurePayload));
+  if (validIds.size === 0) {
+    return [];
+  }
+
+  const seen = new Set<string>();
+  const normalizedCompletedIds: string[] = [];
+
+  for (const item of completedResourceIds ?? []) {
+    if (typeof item !== 'string') continue;
+    const normalizedItem = item.trim();
+    if (!normalizedItem || !validIds.has(normalizedItem) || seen.has(normalizedItem)) continue;
+    seen.add(normalizedItem);
+    normalizedCompletedIds.push(normalizedItem);
+  }
+
+  return normalizedCompletedIds;
+}
+
+function calculateCourseProgress(
+  structurePayload: ContentStructurePayload | null | undefined,
+  completedResourceIds: string[] | null | undefined,
+  fallbackProgressPercent: number | null | undefined,
+): number {
+  const totalResources = getCourseResourceIds(structurePayload).length;
+  if (totalResources === 0) {
+    return Number(fallbackProgressPercent ?? 0);
+  }
+
+  const completedCount = getValidCompletedResourceIds(structurePayload, completedResourceIds).length;
+  return Math.min(100, Math.round((completedCount / totalResources) * 100));
+}
+
 function mapLearningComments(comments: LearningCommentRow[] | null | undefined): LearningCommentRecord[] {
   return (comments ?? []).map((comment) => ({
     commentId: comment.comment_id,
@@ -213,6 +286,18 @@ function mapLearningComments(comments: LearningCommentRow[] | null | undefined):
 }
 
 function mapLearningResourceRow(row: LearningResourceRow): LearningResourceRecord {
+  const validCompletedResourceIds = getValidCompletedResourceIds(
+    row.structure_payload,
+    row.completed_resource_ids,
+  );
+  const isCourse = row.content_type === 'scorm';
+  const progressPercent = isCourse
+    ? calculateCourseProgress(row.structure_payload, validCompletedResourceIds, row.progress_percent)
+    : Number(row.progress_percent ?? 0);
+  const seen = isCourse
+    ? progressPercent >= 100 && getCourseResourceIds(row.structure_payload).length > 0
+    : row.seen ?? false;
+
   return {
     contentId: row.content_id,
     title: row.title,
@@ -230,17 +315,17 @@ function mapLearningResourceRow(row: LearningResourceRow): LearningResourceRecor
     likes: Number(row.likes ?? 0),
     liked: row.liked,
     commentCount: Number(row.comment_count ?? 0),
-    progressPercent: Number(row.progress_percent ?? 0),
-    seen: row.seen ?? false,
+    progressPercent,
+    seen,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     publishedAt: row.published_at,
     thumbnailUrl: row.thumbnail_url,
     structurePayload: row.structure_payload ?? {
-      kind: row.content_type === 'scorm' ? 'course' : 'resource',
-      modules: [],
-    },
-    completedResourceIds: row.completed_resource_ids ?? [],
+        kind: row.content_type === 'scorm' ? 'course' : 'resource',
+        modules: [],
+      },
+    completedResourceIds: validCompletedResourceIds,
     comments: mapLearningComments(row.comments),
   };
 }
@@ -1049,12 +1134,21 @@ export async function updateLearningProgress(
 ): Promise<LearningProgressUpdateResult> {
   await requireModulePermission(client, 'aprendizaje', 'view');
   const resource = await getLearningResourceDetail(client, actor, contentId);
+  const normalizedResourceId =
+    typeof input.resourceId === 'string' ? input.resourceId.trim() : '';
+  const validCourseResourceIds = new Set(getCourseResourceIds(resource.structurePayload));
 
-  // Calculate new progress based on cumulative resource completion
-  const updatedCompletedIds = Array.from(new Set([...(resource.completedResourceIds || []), input.resourceId]));
-  const totalItems = resource.structurePayload?.modules?.flatMap(m => m.resources || []).length || 1;
-  const progressPercent = Math.min(100, Math.round((updatedCompletedIds.length / totalItems) * 100));
-  const seen = progressPercent >= 100;
+  if (!normalizedResourceId || !validCourseResourceIds.has(normalizedResourceId)) {
+    throw new Error('Learning course resource not found');
+  }
+
+  const updatedCompletedIds = Array.from(
+    new Set([...(resource.completedResourceIds || []), normalizedResourceId]),
+  );
+  const totalItems = validCourseResourceIds.size;
+  const progressPercent =
+    totalItems > 0 ? Math.min(100, Math.round((updatedCompletedIds.length / totalItems) * 100)) : 0;
+  const seen = totalItems > 0 && progressPercent >= 100;
 
   const { rows } = await client.query<{ progress_percent: number; seen: boolean }>(
     `

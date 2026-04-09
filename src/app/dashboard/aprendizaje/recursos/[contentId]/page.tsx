@@ -35,27 +35,46 @@ import {
   type LearningResourceRecord,
 } from "@/features/aprendizaje/client";
 import type { LearningCommentReactionType } from "@/features/aprendizaje/comment-reactions";
-import { getObservableBehaviors } from "@/features/aprendizaje/competency-map";
 import { buildYouTubeEmbedUrl, isDirectAudioUrl, isDirectVideoUrl } from "@/features/aprendizaje/media";
 import {
   formatLearningDate,
   formatLearningDateTime,
-  learningContentTypeLabel,
-  learningPillarLabel,
-  learningRoleLabel,
   learningStatusClasses,
   learningStatusLabel,
 } from "@/features/aprendizaje/presentation";
 import { deleteContent } from "@/features/content/client";
 
-function courseModuleResourceTypeLabel(type: string): string {
-  if (type === "pdf") return "PDF";
-  if (type === "ppt") return "PPT";
-  if (type === "html") return "HTML";
-  if (type === "podcast") return "Pódcast";
-  if (type === "article") return "Artículo";
-  if (type === "video") return "Video";
-  return "Enlace";
+function getCourseItemFallbackId(
+  moduleId: string | null | undefined,
+  moduleIndex: number,
+  resourceId: string | null | undefined,
+  resourceIndex: number,
+): string {
+  const normalizedModuleId =
+    typeof moduleId === "string" && moduleId.trim().length > 0
+      ? moduleId.trim()
+      : `module-${moduleIndex + 1}`;
+  const normalizedResourceId =
+    typeof resourceId === "string" && resourceId.trim().length > 0
+      ? resourceId.trim()
+      : `resource-${resourceIndex + 1}`;
+  return `${normalizedModuleId}::${normalizedResourceId}`;
+}
+
+interface CoursePlayerItem {
+  id: string;
+  title: string;
+  description: string | null;
+  contentType: string;
+  url: string | null;
+  durationLabel: string | null;
+  globalIndex: number;
+}
+
+interface CoursePlayerModule {
+  id: string;
+  title: string;
+  items: CoursePlayerItem[];
 }
 
 export default function LearningResourceDetailPage() {
@@ -91,47 +110,136 @@ export default function LearningResourceDetailPage() {
     return () => mql.removeEventListener("change", onChange);
   }, []);
 
-  const flatItems = React.useMemo(() => {
+  const courseModules = React.useMemo<CoursePlayerModule[]>(() => {
     if (resource?.contentType !== "scorm") return [];
-    return resource.structurePayload?.modules?.flatMap((m, mIdx) => 
-      (m.resources || []).map((r, rIdx) => ({
-        ...r,
-        moduleTitle: m.title,
-        moduleIndex: mIdx,
-      }))
-    ) ?? [];
+
+    const modules = Array.isArray(resource.structurePayload?.modules)
+      ? resource.structurePayload.modules
+      : [];
+    let globalIndex = 0;
+
+    return modules.reduce<CoursePlayerModule[]>((acc, module, moduleIndex) => {
+      if (!module || typeof module !== "object") return acc;
+
+      const moduleTitle =
+        typeof module.title === "string" && module.title.trim().length > 0
+          ? module.title.trim()
+          : `Módulo ${moduleIndex + 1}`;
+      const rawResources = Array.isArray(module.resources) ? module.resources : [];
+      const items = rawResources.reduce<CoursePlayerItem[]>((moduleItems, item, resourceIndex) => {
+        if (!item || typeof item !== "object") return moduleItems;
+
+        const itemTitle =
+          typeof item.title === "string" && item.title.trim().length > 0
+            ? item.title.trim()
+            : `Recurso ${resourceIndex + 1}`;
+        const itemId = getCourseItemFallbackId(
+          module.id,
+          moduleIndex,
+          item.id,
+          resourceIndex,
+        );
+
+        moduleItems.push({
+          id: itemId,
+          title: itemTitle,
+          description:
+            typeof item.description === "string" && item.description.trim().length > 0
+              ? item.description.trim()
+              : null,
+          contentType:
+            typeof item.contentType === "string" && item.contentType.trim().length > 0
+              ? item.contentType.trim()
+              : "link",
+          url:
+            typeof item.url === "string" && item.url.trim().length > 0
+              ? item.url.trim()
+              : null,
+          durationLabel:
+            typeof item.durationLabel === "string" && item.durationLabel.trim().length > 0
+              ? item.durationLabel.trim()
+              : null,
+          globalIndex,
+        });
+        globalIndex += 1;
+        return moduleItems;
+      }, []);
+
+      if (items.length === 0) return acc;
+
+      acc.push({
+        id:
+          typeof module.id === "string" && module.id.trim().length > 0
+            ? module.id.trim()
+            : `module-${moduleIndex + 1}`,
+        title: moduleTitle,
+        items,
+      });
+      return acc;
+    }, []);
   }, [resource]);
 
-  const totalItems = Math.max(1, flatItems.length);
-  const currentItem = flatItems[activeResourceIndex];
+  const flatItems = React.useMemo(
+    () => courseModules.flatMap((module) => module.items),
+    [courseModules],
+  );
+  const totalItems = flatItems.length;
+  const currentItem =
+    activeResourceIndex >= 0 ? flatItems[activeResourceIndex] ?? null : null;
+  const validCompletedResourceIds = React.useMemo(() => {
+    const validIds = new Set(flatItems.map((item) => item.id));
+    const seen = new Set<string>();
+    const completedIds: string[] = [];
+
+    for (const itemId of resource?.completedResourceIds ?? []) {
+      if (typeof itemId !== "string") continue;
+      const normalizedId = itemId.trim();
+      if (!normalizedId || !validIds.has(normalizedId) || seen.has(normalizedId)) continue;
+      seen.add(normalizedId);
+      completedIds.push(normalizedId);
+    }
+
+    return completedIds;
+  }, [flatItems, resource?.completedResourceIds]);
 
   const calculatedProgress = React.useMemo(() => {
     if (!resource || resource.contentType !== "scorm") return resource?.progressPercent ?? 0;
-    
-    // Safety check for flatItems
-    const totalCount = flatItems.length || 1;
-    const dbProgress = resource?.progressPercent ?? 0;
-    
-    if (activeResourceIndex === -1) return dbProgress;
-    
-    const currentItem = flatItems[activeResourceIndex];
-    if (!currentItem) return dbProgress;
+    if (totalItems === 0) return 0;
 
-    const isCompleted = currentItem && resource.completedResourceIds?.includes(currentItem.id);
-    if (isCompleted) return dbProgress;
-    
-    const seenCount = (resource.completedResourceIds?.length || 0) + 1;
-    const sessionProgress = Math.round((seenCount / totalCount) * 100);
-    
-    return Math.max(dbProgress, sessionProgress);
-  }, [activeResourceIndex, resource, flatItems]);
+    const completedIds = new Set(validCompletedResourceIds);
+    if (currentItem) {
+      completedIds.add(currentItem.id);
+    }
+
+    return Math.min(100, Math.round((completedIds.size / totalItems) * 100));
+  }, [currentItem, resource, totalItems, validCompletedResourceIds]);
 
   React.useEffect(() => {
-    if (!resource || resource.contentType !== "scorm" || activeResourceIndex === -1) return;
-    
-    const currentItem = flatItems[activeResourceIndex];
-    if (!currentItem || resource.completedResourceIds?.includes(currentItem.id)) return;
-    
+    setActiveResourceIndex(-1);
+    setActiveTab("temario");
+    setIsMobileMenuOpen(false);
+  }, [contentId]);
+
+  React.useEffect(() => {
+    if (activeResourceIndex < -1) {
+      setActiveResourceIndex(-1);
+      return;
+    }
+
+    if (totalItems === 0 && activeResourceIndex > -1) {
+      setActiveResourceIndex(-1);
+      return;
+    }
+
+    if (totalItems > 0 && activeResourceIndex >= totalItems) {
+      setActiveResourceIndex(totalItems - 1);
+    }
+  }, [activeResourceIndex, totalItems]);
+
+  React.useEffect(() => {
+    if (!resource || resource.contentType !== "scorm" || !currentItem) return;
+    if (validCompletedResourceIds.includes(currentItem.id)) return;
+
     const syncProgress = async () => {
       try {
         const result = await updateLearningProgress(resource.contentId, {
@@ -151,12 +259,12 @@ export default function LearningResourceDetailPage() {
         console.error("Failed to sync progress:", e);
       }
     };
-    const timer = setTimeout(() => void syncProgress(), 1000); // Small delay to avoid noise on rapid nav
+    const timer = setTimeout(() => void syncProgress(), 1000);
     return () => clearTimeout(timer);
-  }, [activeResourceIndex, resource?.contentId, flatItems]);
+  }, [currentItem, resource, validCompletedResourceIds]);
 
   const handleNext = () => {
-    if (activeResourceIndex < totalItems - 1) {
+    if (totalItems > 0 && activeResourceIndex < totalItems - 1) {
       setActiveResourceIndex(prev => prev + 1);
     }
   };
@@ -434,10 +542,8 @@ export default function LearningResourceDetailPage() {
                 </button>
 
                 {/* Hierarchical Modules and Resources */}
-                {(() => {
-                  let globalIdx = 0;
-                  return resource.structurePayload?.modules?.map((module, mIdx) => (
-                    <div key={module.id || `mod-${mIdx}`} className="mt-6 first:mt-3">
+                {courseModules.map((module) => (
+                    <div key={module.id} className="mt-6 first:mt-3">
                       <div className="px-3 mb-2 flex items-center gap-2">
                          <div className="h-[1px] w-4 bg-slate-200" />
                          <h4 className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 truncate">
@@ -445,14 +551,13 @@ export default function LearningResourceDetailPage() {
                          </h4>
                       </div>
                       <div className="space-y-1">
-                        {module.resources?.map((item) => {
-                          const idx = globalIdx++;
-                          const isActive = idx === activeResourceIndex;
+                        {module.items.map((item) => {
+                          const isActive = item.globalIndex === activeResourceIndex;
                           return (
                             <button
                               key={item.id}
                               onClick={() => {
-                                setActiveResourceIndex(idx);
+                                setActiveResourceIndex(item.globalIndex);
                                 setIsMobileMenuOpen(false);
                               }}
                               className={`w-full flex items-center gap-3 rounded-[12px] p-2.5 ml-1 text-left transition ${
@@ -462,7 +567,7 @@ export default function LearningResourceDetailPage() {
                               <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
                                 isActive ? "bg-[var(--brand-primary)] text-white" : "bg-slate-100 text-slate-500"
                               }`}>
-                                {idx + 1}
+                                {item.globalIndex + 1}
                               </div>
                               <div className="flex-1 min-w-0">
                                 <p className={`truncate text-sm font-bold ${isActive ? "text-[#e85d24]" : "text-[var(--app-ink)]"}`}>
@@ -480,8 +585,7 @@ export default function LearningResourceDetailPage() {
                         })}
                       </div>
                     </div>
-                  ));
-                })()}
+                  ))}
               </div>
             ) : (
               <div className="flex h-full flex-col">
@@ -587,10 +691,18 @@ export default function LearningResourceDetailPage() {
                         ))}
                       </div>
                       <button 
-                        onClick={() => setActiveResourceIndex(0)}
-                        className="group flex items-center justify-center gap-2 rounded-full bg-white px-6 py-3.5 text-sm font-bold text-slate-900 transition hover:bg-orange-500 hover:text-white"
+                        onClick={() => {
+                          if (totalItems > 0) {
+                            setActiveResourceIndex(0);
+                          }
+                        }}
+                        disabled={totalItems === 0}
+                        className="group flex items-center justify-center gap-2 rounded-full bg-white px-6 py-3.5 text-sm font-bold text-slate-900 transition hover:bg-orange-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-white disabled:hover:text-slate-900"
                       >
-                        Comenzar curso <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
+                        {totalItems > 0 ? "Comenzar curso" : "Curso sin recursos"}
+                        {totalItems > 0 && (
+                          <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
+                        )}
                       </button>
                     </div>
                   </div>
@@ -715,11 +827,13 @@ export default function LearningResourceDetailPage() {
              <div className="text-sm font-semibold text-slate-400">
                {activeResourceIndex === -1 
                   ? "Introducción" 
-                  : `Recurso ${activeResourceIndex + 1} de ${totalItems}`}
+                  : totalItems > 0
+                    ? `Recurso ${activeResourceIndex + 1} de ${totalItems}`
+                    : "Curso sin recursos"}
              </div>
              <button
                onClick={handleNext}
-               disabled={activeResourceIndex >= totalItems - 1}
+               disabled={totalItems === 0 || activeResourceIndex >= totalItems - 1}
                className="flex h-10 items-center justify-center gap-2 rounded-[8px] bg-[#f97316] px-5 text-sm font-bold text-white transition hover:bg-[#ea580c] disabled:opacity-50"
              >
                Siguiente <ArrowRight size={16} />
