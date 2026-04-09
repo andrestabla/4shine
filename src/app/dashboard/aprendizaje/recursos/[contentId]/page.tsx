@@ -363,35 +363,52 @@ export default function LearningResourceDetailPage() {
                   </div>
                 </button>
 
-                {flatItems.map((item, idx) => {
-                  const isActive = idx === activeResourceIndex;
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => setActiveResourceIndex(idx)}
-                      className={`w-full flex items-center gap-3 rounded-[12px] p-3 text-left transition ${
-                        isActive ? "border border-[var(--brand-primary)] bg-[var(--brand-primary-soft)]" : "border border-transparent hover:bg-[var(--app-surface-muted)]"
-                      }`}
-                    >
-                      <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
-                        isActive ? "bg-[var(--brand-primary)] text-white" : "bg-slate-100 text-slate-500"
-                      }`}>
-                        {idx + 1}
+                {/* Hierarchical Modules and Resources */}
+                {(() => {
+                  let globalIdx = 0;
+                  return resource.structurePayload?.modules?.map((module, mIdx) => (
+                    <div key={module.id || `mod-${mIdx}`} className="mt-6 first:mt-3">
+                      <div className="px-3 mb-2 flex items-center gap-2">
+                         <div className="h-[1px] w-4 bg-slate-200" />
+                         <h4 className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 truncate">
+                           {module.title}
+                         </h4>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className={`truncate text-sm font-bold ${isActive ? "text-[#e85d24]" : "text-[var(--app-ink)]"}`}>
-                          {item.title}
-                        </p>
-                        {item.durationLabel && (
-                          <div className="mt-1 flex items-center gap-1.5 text-[10px] text-slate-500 font-medium">
-                            <Loader2 size={10} />
-                            {item.durationLabel}
-                          </div>
-                        )}
+                      <div className="space-y-1">
+                        {module.resources?.map((item) => {
+                          const idx = globalIdx++;
+                          const isActive = idx === activeResourceIndex;
+                          return (
+                            <button
+                              key={item.id}
+                              onClick={() => setActiveResourceIndex(idx)}
+                              className={`w-full flex items-center gap-3 rounded-[12px] p-2.5 ml-1 text-left transition ${
+                                isActive ? "border border-[var(--brand-primary)] bg-[var(--brand-primary-soft)]" : "border border-transparent hover:bg-[var(--app-surface-muted)]"
+                              }`}
+                            >
+                              <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
+                                isActive ? "bg-[var(--brand-primary)] text-white" : "bg-slate-100 text-slate-500"
+                              }`}>
+                                {idx + 1}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className={`truncate text-sm font-bold ${isActive ? "text-[#e85d24]" : "text-[var(--app-ink)]"}`}>
+                                  {item.title}
+                                </p>
+                                {item.durationLabel && (
+                                  <div className="mt-1 flex items-center gap-1.5 text-[9px] text-slate-500 font-medium">
+                                    <Loader2 size={10} />
+                                    {item.durationLabel}
+                                  </div>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
                       </div>
-                    </button>
-                  );
-                })}
+                    </div>
+                  ));
+                })()}
               </div>
             ) : (
               <div className="flex h-full flex-col">
