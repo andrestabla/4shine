@@ -97,25 +97,23 @@ export default function LearningResourceDetailPage() {
   const calculatedProgress = React.useMemo(() => {
     if (!resource || resource.contentType !== "scorm") return resource?.progressPercent ?? 0;
     
-    // Current total items in structure
-    const currentTotalItems = flatItems.length || 1;
-    
-    // Server-provided progress is already recalculated based on current structure
-    const dbProgress = resource.progressPercent ?? 0;
+    // Safety check for flatItems
+    const totalCount = flatItems.length || 1;
+    const dbProgress = resource?.progressPercent ?? 0;
     
     if (activeResourceIndex === -1) return dbProgress;
     
-    // If not in DB yet, we anticipate the 1-item gain for better UX
     const currentItem = flatItems[activeResourceIndex];
+    if (!currentItem) return dbProgress;
+
     const isCompleted = currentItem && resource.completedResourceIds?.includes(currentItem.id);
-    
     if (isCompleted) return dbProgress;
     
-    const sessionSeenCount = (resource.completedResourceIds?.length || 0) + 1;
-    const sessionProgress = Math.round((sessionSeenCount / currentTotalItems) * 100);
+    const seenCount = (resource.completedResourceIds?.length || 0) + 1;
+    const sessionProgress = Math.round((seenCount / totalCount) * 100);
     
     return Math.max(dbProgress, sessionProgress);
-  }, [activeResourceIndex, resource, flatItems.length]);
+  }, [activeResourceIndex, resource, flatItems]);
 
   React.useEffect(() => {
     if (!resource || resource.contentType !== "scorm" || activeResourceIndex === -1) return;
@@ -477,7 +475,7 @@ export default function LearningResourceDetailPage() {
             ) : (
               <div className="flex h-full flex-col">
                 <div className="flex-1 space-y-4 p-4 overflow-y-auto">
-                  {(!resource.comments || resource.comments.length === 0) ? (
+                  {(!resource?.comments || resource.comments.length === 0) ? (
                     <p className="rounded-[18px] bg-[var(--app-surface-muted)] px-4 py-6 text-center text-sm text-[var(--app-muted)]">
                       Todavía no hay comentarios.<br/> ¡Sé el primero en compartir algo!
                     </p>
@@ -618,20 +616,20 @@ export default function LearningResourceDetailPage() {
                         autoPlay
                       />
                     </div>
-                  ) : currentItem.contentType === "pdf" && currentItem.url ? (
+                  ) : currentItem?.contentType === "pdf" && currentItem.url ? (
                     // PDF VIEWER
-                    <div className="w-full overflow-hidden rounded-[16px] bg-slate-800 ring-1 ring-white/10 h-[70vh] md:h-[80vh] relative">
+                    <div key={`pdf-${currentItem.id}`} className="w-full overflow-hidden rounded-[16px] bg-slate-800 ring-1 ring-white/10 h-[70vh] md:h-[80vh] relative">
                       <iframe
-                        title={currentItem.title}
+                        title={currentItem.title || "Documento PDF"}
                         src={currentItem.url}
                         className="absolute inset-0 h-full w-full border-none"
                       />
                     </div>
-                  ) : buildYouTubeEmbedUrl(currentItem.url) ? (
+                  ) : currentItem && buildYouTubeEmbedUrl(currentItem.url) ? (
                     // YOUTUBE PLAYER
-                    <div className="w-full overflow-hidden rounded-[16px] bg-[#0f172a] ring-1 ring-white/10 md:aspect-video flex flex-col items-center justify-center relative">
+                    <div key={`yt-${currentItem.id}`} className="w-full overflow-hidden rounded-[16px] bg-[#0f172a] ring-1 ring-white/10 md:aspect-video flex flex-col items-center justify-center relative">
                       <iframe
-                        title={currentItem.title}
+                        title={currentItem.title || "YouTube Video"}
                         src={buildYouTubeEmbedUrl(currentItem.url)!}
                         className="absolute inset-0 h-full w-full"
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -865,7 +863,7 @@ export default function LearningResourceDetailPage() {
         </div>
 
         <div className="space-y-6">
-           {(!resource.comments || resource.comments.length === 0) ? (
+           {(!resource?.comments || resource.comments.length === 0) ? (
               <p className="text-center text-[var(--app-muted)] py-10 font-medium">
                 Nadie ha comentado aún. ¡Sé la primera voz!
               </p>
