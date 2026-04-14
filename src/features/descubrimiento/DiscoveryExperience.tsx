@@ -711,39 +711,74 @@ export function DiscoveryExperience() {
     setIsUploadingRagDocs(true);
     try {
       const uploadedDocs: DiscoveryFeedbackSettingsRecord["contextDocuments"] = [];
+      const failedUploads: Array<{ fileName: string; reason: string }> = [];
 
       for (const file of files) {
-        const uploaded = await uploadToR2({
-          file,
-          moduleCode: "descubrimiento",
-          action: "update",
-          pathPrefix: "descubrimiento/context",
-          entityTable: "app_assessment.discovery_feedback_settings",
-          fieldName: "context_documents",
-        });
+        try {
+          const uploaded = await uploadToR2({
+            file,
+            moduleCode: "descubrimiento",
+            action: "update",
+            pathPrefix: "descubrimiento/context",
+            entityTable: "app_assessment.discovery_feedback_settings",
+            fieldName: "context_documents",
+          });
 
-        uploadedDocs.push({
-          id: (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${file.name}`),
-          name: uploaded.fileName,
-          url: uploaded.url,
-          uploadedAt: new Date().toISOString(),
-        });
+          uploadedDocs.push({
+            id: (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${file.name}`),
+            name: uploaded.fileName,
+            url: uploaded.url,
+            uploadedAt: new Date().toISOString(),
+          });
+        } catch (error) {
+          const detail =
+            error instanceof Error
+              ? error.message
+              : "No se pudo cargar este archivo.";
+          failedUploads.push({
+            fileName: file.name,
+            reason: detail.includes("(413)")
+              ? "Supera el tamaño permitido por el servidor. Intenta con un archivo mas liviano."
+              : detail,
+          });
+        }
       }
 
-      setSettings((prev) =>
-        prev
-          ? {
-              ...prev,
-              contextDocuments: [...uploadedDocs, ...prev.contextDocuments],
-            }
-          : prev,
-      );
+      if (uploadedDocs.length > 0) {
+        setSettings((prev) =>
+          prev
+            ? {
+                ...prev,
+                contextDocuments: [...uploadedDocs, ...prev.contextDocuments],
+              }
+            : prev,
+        );
+      }
 
-      await alert({
-        title: "Archivos cargados",
-        message: `Se cargaron ${uploadedDocs.length} archivo(s) de contexto.`,
-        tone: "success",
-      });
+      if (uploadedDocs.length > 0 && failedUploads.length === 0) {
+        await alert({
+          title: "Archivos cargados",
+          message: `Se cargaron ${uploadedDocs.length} archivo(s) de contexto.`,
+          tone: "success",
+        });
+      } else if (uploadedDocs.length > 0 && failedUploads.length > 0) {
+        await alert({
+          title: "Carga parcial completada",
+          message: `Se cargaron ${uploadedDocs.length} archivo(s). Fallaron ${failedUploads.length}: ${failedUploads
+            .slice(0, 2)
+            .map((item) => `${item.fileName}: ${item.reason}`)
+            .join(" | ")}`,
+          tone: "warning",
+        });
+      } else {
+        await alert({
+          title: "No se pudieron cargar archivos",
+          message: failedUploads
+            .map((item) => `${item.fileName}: ${item.reason}`)
+            .join(" | "),
+          tone: "error",
+        });
+      }
     } catch (error) {
       await alert({
         title: "No se pudieron cargar archivos",
