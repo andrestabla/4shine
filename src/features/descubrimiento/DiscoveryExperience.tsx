@@ -52,6 +52,7 @@ type SaveIndicator = "idle" | "saving" | "saved" | "error";
 type ManagerTab = "preview" | "mailing" | "rag" | "results";
 
 interface MailingBuilderState {
+  headerLogoUrl: string;
   headerTitle: string;
   preheader: string;
   introText: string;
@@ -198,6 +199,7 @@ export function DiscoveryExperience() {
   const [isSavingSettings, setIsSavingSettings] = React.useState(false);
   const [isUploadingRagDocs, setIsUploadingRagDocs] = React.useState(false);
   const [mailingBuilder, setMailingBuilder] = React.useState<MailingBuilderState>({
+    headerLogoUrl: "{{platform_logo_url}}",
     headerTitle: "Diagnostico 4Shine",
     preheader: "Acceso personalizado a tu lectura ejecutiva",
     introText:
@@ -584,6 +586,7 @@ export function DiscoveryExperience() {
       `<div style="font-family:Inter,Segoe UI,Arial,sans-serif;background:${builder.colors.pageBg};padding:28px;color:${builder.colors.bodyText};">`,
       `<div style="max-width:620px;margin:0 auto;background:${builder.colors.cardBg};border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;">`,
       `<div style="background:${builder.colors.headerBg};padding:20px 24px;color:${builder.colors.headerText};">`,
+      `<p style="margin:0 0 10px 0;"><img src="${builder.headerLogoUrl}" alt="Logo 4Shine" style="display:block;height:36px;max-width:180px;object-fit:contain;" /></p>`,
       `<h1 style="margin:0;font-size:22px;line-height:1.2;">${builder.headerTitle}</h1>`,
       `<p style="margin:8px 0 0 0;opacity:.9;">${builder.preheader}</p>`,
       `</div>`,
@@ -962,6 +965,14 @@ export function DiscoveryExperience() {
 
                 <div className="mt-3 grid gap-3 md:grid-cols-2">
                   <input
+                    value={mailingBuilder.headerLogoUrl}
+                    onChange={(event) =>
+                      setMailingBuilder((prev) => ({ ...prev, headerLogoUrl: event.target.value }))
+                    }
+                    placeholder="URL logo del cabezote"
+                    className="h-10 rounded-[10px] border border-[var(--app-border)] bg-white px-3 text-sm md:col-span-2"
+                  />
+                  <input
                     value={mailingBuilder.headerTitle}
                     onChange={(event) =>
                       setMailingBuilder((prev) => ({ ...prev, headerTitle: event.target.value }))
@@ -1128,7 +1139,7 @@ export function DiscoveryExperience() {
               </label>
 
               <p className="text-xs text-[var(--app-muted)]">
-                Placeholders disponibles: <code>{"{{access_code}}"}</code>, <code>{"{{invite_url}}"}</code>, <code>{"{{recipient_email}}"}</code>, <code>{"{{diagnostic_id}}"}</code>, <code>{"{{participant_name}}"}</code>
+                Placeholders disponibles: <code>{"{{access_code}}"}</code>, <code>{"{{invite_url}}"}</code>, <code>{"{{recipient_email}}"}</code>, <code>{"{{diagnostic_id}}"}</code>, <code>{"{{participant_name}}"}</code>, <code>{"{{platform_logo_url}}"}</code>
               </p>
 
               <button

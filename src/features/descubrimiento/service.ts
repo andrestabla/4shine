@@ -357,11 +357,16 @@ function defaultInviteEmailText(platformName: string): string {
   ].join("\n");
 }
 
-function defaultInviteEmailHtml(platformName: string, primaryColor: string, accentColor: string): string {
+function defaultInviteEmailHtml(
+  platformName: string,
+  primaryColor: string,
+  accentColor: string,
+): string {
   return [
     `<div style=\"font-family:Inter,Segoe UI,Arial,sans-serif;background:#f8fafc;padding:28px;color:#0f172a;\">`,
     `<div style=\"max-width:620px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;\">`,
     `<div style=\"background:${primaryColor};padding:20px 24px;color:#ffffff;\">`,
+    `<p style=\"margin:0 0 10px 0;\"><img src=\"{{platform_logo_url}}\" alt=\"${platformName}\" style=\"display:block;height:36px;max-width:180px;object-fit:contain;\" /></p>`,
     `<h1 style=\"margin:0;font-size:22px;line-height:1.2;\">Diagnostico 4Shine</h1>`,
     `<p style=\"margin:8px 0 0 0;opacity:.9;\">Acceso personalizado a tu lectura ejecutiva</p>`,
     `</div>`,
@@ -388,6 +393,36 @@ function fillTemplate(template: string, params: Record<string, string>): string 
     result = result.split(`{{${key}}}`).join(value);
   }
   return result;
+}
+
+function resolveAppBaseUrl(): string {
+  const candidates = [
+    process.env.APP_BASE_URL?.trim(),
+    process.env.NEXT_PUBLIC_APP_URL?.trim(),
+    process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim()
+      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL.trim()}`
+      : "",
+    process.env.VERCEL_URL?.trim() ? `https://${process.env.VERCEL_URL.trim()}` : "",
+    "https://www.4shine.co",
+  ];
+
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    try {
+      const parsed = new URL(candidate);
+      if (
+        process.env.NODE_ENV === "production" &&
+        (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1")
+      ) {
+        continue;
+      }
+      return candidate.replace(/\/$/, "");
+    } catch {
+      continue;
+    }
+  }
+
+  return "https://www.4shine.co";
 }
 
 async function resolveDiscoveryTestId(client: PoolClient): Promise<string> {
@@ -1488,7 +1523,7 @@ export async function createDiscoveryInvitations(
     sanitizeText(input.emailText, settings.inviteEmailText, 10000) ||
     defaultInviteEmailText(branding.platform_name);
 
-  const baseUrl = process.env.APP_BASE_URL?.trim() || "http://localhost:3000";
+  const baseUrl = resolveAppBaseUrl();
   const outboundConfig = await resolveOutboundConfig(client, organizationId);
   if (!outboundConfig) {
     throw new Error(
@@ -1561,7 +1596,10 @@ export async function createDiscoveryInvitations(
       accessCode,
     });
 
-    const inviteUrl = `${baseUrl.replace(/\/$/, "")}/descubrimiento/invitacion/${inviteToken}`;
+    const inviteUrl = `${baseUrl}/descubrimiento/invitacion/${inviteToken}`;
+    const platformLogoUrl =
+      branding.logo_url?.trim() ||
+      `${baseUrl}/workbooks-v2/diamond.svg`;
     const params = {
       recipient_email: email,
       access_code: accessCode,
@@ -1570,6 +1608,7 @@ export async function createDiscoveryInvitations(
       participant_name: sharedSession
         ? `${sharedSession.firstName} ${sharedSession.lastName}`.trim()
         : "Participante invitado",
+      platform_logo_url: platformLogoUrl,
     };
 
     await sendOutboundEmail(outboundConfig, {
