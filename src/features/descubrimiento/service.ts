@@ -27,6 +27,7 @@ import type {
   DiscoveryParticipantProfile,
   DiscoverySessionRecord,
   DiscoveryStep,
+  DiscoveryUserState,
   UpdateDiscoverySessionInput,
 } from "./types";
 
@@ -62,6 +63,7 @@ interface DiscoveryInvitationRow {
   access_code_last4: string;
   access_code_sent_at: string;
   opened_at: string | null;
+  meta: unknown;
   created_at: string;
   updated_at: string;
 }
@@ -155,6 +157,8 @@ function normalizeProfile(
 
   const incomingRole =
     typeof input?.jobRole === "string" ? input.jobRole.trim() : fallback?.jobRole ?? "";
+  const normalizedRole =
+    incomingRole === "Gerente/Mand medio" ? "Gerente/Mando medio" : incomingRole;
 
   const ageValue = input?.age ?? fallback?.age ?? null;
   const yearsValue = input?.yearsExperience ?? fallback?.yearsExperience ?? null;
@@ -171,7 +175,7 @@ function normalizeProfile(
     firstName,
     lastName,
     country,
-    jobRole: incomingRole as DiscoveryJobRole | "",
+    jobRole: normalizedRole as DiscoveryJobRole | "",
     age,
     yearsExperience,
   };
@@ -238,6 +242,38 @@ function mapInvitationRow(row: DiscoveryInvitationRow): DiscoveryInvitationRecor
     openedAt: row.opened_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+function parseInvitationExternalProgress(meta: unknown): DiscoveryUserState | null {
+  if (!meta || typeof meta !== "object" || Array.isArray(meta)) return null;
+  const record = meta as Record<string, unknown>;
+  const external = record.external_progress;
+  if (!external || typeof external !== "object" || Array.isArray(external)) return null;
+  const payload = external as Record<string, unknown>;
+  const profile = normalizeProfile(
+    (payload.profile as Partial<DiscoveryParticipantProfile> | undefined) ?? {},
+  );
+  return {
+    name:
+      typeof payload.name === "string" && payload.name.trim()
+        ? payload.name.trim().slice(0, 160)
+        : `${profile.firstName} ${profile.lastName}`.trim() || "Invitado",
+    answers: normalizeAnswers(payload.answers),
+    currentIdx: clampCurrentIdx(
+      typeof payload.currentIdx === "number" && Number.isFinite(payload.currentIdx)
+        ? payload.currentIdx
+        : undefined,
+    ),
+    status:
+      payload.status === "intro" ||
+      payload.status === "instructions" ||
+      payload.status === "quiz" ||
+      payload.status === "results"
+        ? payload.status
+        : "intro",
+    profile,
+    profileCompleted: isProfileCompleted(profile),
   };
 }
 
@@ -385,6 +421,15 @@ function defaultInviteEmailHtml(
     `</div>`,
     `</div>`,
   ].join("");
+}
+
+function ensureInviteTemplateHasLogo(template: string): string {
+  if (template.includes("{{platform_logo_url}}")) return template;
+  if (!template.includes("<h1")) return template;
+  return template.replace(
+    "<h1",
+    `<p style="margin:0 0 10px 0;"><img src="{{platform_logo_url}}" alt="4Shine Platform" style="display:block;height:36px;max-width:180px;object-fit:contain;" /></p><h1`,
+  );
 }
 
 function fillTemplate(template: string, params: Record<string, string>): string {
@@ -1454,6 +1499,7 @@ export async function listDiscoveryInvitationsForSession(
         access_code_last4,
         access_code_sent_at::text,
         opened_at::text,
+        meta,
         created_at::text,
         updated_at::text
       FROM app_assessment.discovery_invitations
@@ -1518,6 +1564,7 @@ export async function createDiscoveryInvitations(
   const htmlTemplate =
     sanitizeText(input.emailHtml, settings.inviteEmailHtml, 20000) ||
     defaultInviteEmailHtml(branding.platform_name, branding.primary_color, branding.accent_color);
+  const htmlTemplateWithLogo = ensureInviteTemplateHasLogo(htmlTemplate);
 
   const textTemplate =
     sanitizeText(input.emailText, settings.inviteEmailText, 10000) ||
@@ -1575,6 +1622,7 @@ export async function createDiscoveryInvitations(
           access_code_last4,
           access_code_sent_at::text,
           opened_at::text,
+          meta,
           created_at::text,
           updated_at::text
       `,
@@ -1614,7 +1662,7 @@ export async function createDiscoveryInvitations(
     await sendOutboundEmail(outboundConfig, {
       to: email,
       subject: fillTemplate(subjectTemplate, params),
-      html: fillTemplate(htmlTemplate, params),
+      html: fillTemplate(htmlTemplateWithLogo, params),
       text: fillTemplate(textTemplate, params),
     });
   }
@@ -1678,6 +1726,7 @@ export async function verifyDiscoveryInvitationAccess(
         di.access_code_last4,
         di.access_code_sent_at::text,
         di.opened_at::text,
+        di.meta,
         di.created_at::text,
         di.updated_at::text,
         row_to_json(ds)::jsonb AS session_payload
@@ -1709,6 +1758,10 @@ export async function verifyDiscoveryInvitationAccess(
   );
 
   const session = row.session_payload ? mapDiscoverySessionRow(row.session_payload) : null;
+  const externalProgress = parseInvitationExternalProgress(row.meta);
+  const alreadyCompleted =
+    externalProgress?.status === "results" &&
+    calculateDiscoveryCompletionPercent(externalProgress.answers) >= 100;
 
   return {
     invitation: {
@@ -1719,6 +1772,85 @@ export async function verifyDiscoveryInvitationAccess(
     },
     accessMode: session ? "results" : "diagnostic",
     session,
+    externalProgress,
+    alreadyCompleted,
+  };
+}
+
+export async function saveDiscoveryInvitationProgress(
+  client: PoolClient,
+  input: {
+    inviteToken: string;
+    accessCode: string;
+    state: DiscoveryUserState;
+  },
+): Promise<DiscoveryInvitationAccessPayload> {
+  const verified = await verifyDiscoveryInvitationAccess(
+    client,
+    input.inviteToken,
+    input.accessCode,
+  );
+
+  if (verified.accessMode !== "diagnostic") {
+    return verified;
+  }
+
+  const profile = normalizeProfile(input.state.profile);
+  const status: DiscoveryStep =
+    input.state.status === "intro" ||
+    input.state.status === "instructions" ||
+    input.state.status === "quiz" ||
+    input.state.status === "results"
+      ? input.state.status
+      : "intro";
+  const answers = normalizeAnswers(input.state.answers);
+  const completionPercent = calculateDiscoveryCompletionPercent(answers);
+  const globalIndex = scoreDiscoveryAnswers(answers).globalIndex;
+  const normalizedState: DiscoveryUserState = {
+    name:
+      typeof input.state.name === "string" && input.state.name.trim().length > 0
+        ? input.state.name.trim().slice(0, 160)
+        : `${profile.firstName} ${profile.lastName}`.trim() || "Invitado",
+    answers,
+    currentIdx: clampCurrentIdx(input.state.currentIdx),
+    status,
+    profile,
+    profileCompleted: isProfileCompleted(profile),
+  };
+
+  const completionDate =
+    status === "results" || completionPercent >= 100
+      ? new Date().toISOString()
+      : null;
+
+  await client.query(
+    `
+      UPDATE app_assessment.discovery_invitations
+      SET
+        meta = jsonb_set(
+          COALESCE(meta, '{}'::jsonb),
+          '{external_progress}',
+          $2::jsonb,
+          true
+        ),
+        updated_at = now()
+      WHERE invitation_id = $1::uuid
+    `,
+    [
+      verified.invitation.invitationId,
+      JSON.stringify({
+        ...normalizedState,
+        completionPercent,
+        globalIndex,
+        completedAt: completionDate,
+      }),
+    ],
+  );
+
+  return {
+    ...verified,
+    externalProgress: normalizedState,
+    alreadyCompleted: Boolean(completionDate),
   };
 }
 
@@ -1786,6 +1918,13 @@ export async function getDiscoveryOverview(
     updated_at: string;
   }
 
+  interface DiscoveryInvitationOverviewRow {
+    invitation_id: string;
+    invited_email: string;
+    meta: unknown;
+    updated_at: string;
+  }
+
   const rowsResult = await client.query<DiscoveryOverviewDbRow>(
     `
       SELECT
@@ -1810,11 +1949,13 @@ export async function getDiscoveryOverview(
     params,
   );
 
-  const rows: DiscoveryOverviewRow[] = rowsResult.rows.map((row) => ({
+  const platformRows: DiscoveryOverviewRow[] = rowsResult.rows.map((row) => ({
     sessionId: row.session_id,
     diagnosticIdentifier: row.diagnostic_identifier,
     userId: row.user_id,
     participantName: row.participant_name || "Sin nombre",
+    sourceType: "platform" as const,
+    invitedEmail: "",
     country: row.country ?? "",
     jobRole: row.job_role ?? "",
     age: row.age,
@@ -1823,6 +1964,77 @@ export async function getDiscoveryOverview(
     globalIndex: row.global_index !== null ? Number(row.global_index) : null,
     updatedAt: row.updated_at,
   }));
+  const invitationResult = await client.query<DiscoveryInvitationOverviewRow>(
+    `
+      SELECT
+        invitation_id::text,
+        invited_email,
+        meta,
+        updated_at::text
+      FROM app_assessment.discovery_invitations
+      WHERE session_id IS NULL
+      ORDER BY updated_at DESC
+      LIMIT 500
+    `,
+  );
+
+  const invitedRows: DiscoveryOverviewRow[] = invitationResult.rows
+    .map((invitation) => {
+      const externalProgress = parseInvitationExternalProgress(invitation.meta);
+      const answers = externalProgress?.answers ?? {};
+      const completionPercent = calculateDiscoveryCompletionPercent(answers);
+      const score = scoreDiscoveryAnswers(answers);
+      const profile = externalProgress?.profile;
+      const participantName =
+        externalProgress?.name ||
+        `${profile?.firstName ?? ""} ${profile?.lastName ?? ""}`.trim() ||
+        invitation.invited_email;
+
+      return {
+        sessionId: `inv-${invitation.invitation_id}`,
+        diagnosticIdentifier: `DX-INV-${invitation.invitation_id.replace(/-/g, "").slice(0, 8).toUpperCase()}`,
+        userId: invitation.invitation_id,
+        participantName,
+        sourceType: "invited" as const,
+        invitedEmail: invitation.invited_email,
+        country: profile?.country ?? "",
+        jobRole: profile?.jobRole ?? "",
+        age: profile?.age ?? null,
+        yearsExperience: profile?.yearsExperience ?? null,
+        completionPercent,
+        globalIndex:
+          externalProgress?.status === "results" || completionPercent >= 100
+            ? score.globalIndex
+            : null,
+        updatedAt: invitation.updated_at,
+      };
+    })
+    .filter((row) => {
+      if (filters.userId) return false;
+      if (filters.country && row.country.toLowerCase() !== filters.country.trim().toLowerCase()) {
+        return false;
+      }
+      if (filters.jobRole && row.jobRole !== filters.jobRole.trim()) return false;
+      if (Number.isFinite(filters.ageMin) && (row.age ?? -1) < Number(filters.ageMin)) return false;
+      if (Number.isFinite(filters.ageMax) && (row.age ?? 999) > Number(filters.ageMax)) return false;
+      if (
+        Number.isFinite(filters.yearsExperienceMin) &&
+        (row.yearsExperience ?? -1) < Number(filters.yearsExperienceMin)
+      ) {
+        return false;
+      }
+      if (
+        Number.isFinite(filters.yearsExperienceMax) &&
+        (row.yearsExperience ?? 999) > Number(filters.yearsExperienceMax)
+      ) {
+        return false;
+      }
+      return true;
+    });
+
+  const rows = [...platformRows, ...invitedRows]
+    .sort((left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime())
+    .slice(0, 500);
 
   const completedRows = rows.filter((row) => row.globalIndex !== null);
   const averageGlobalIndex =
@@ -1868,6 +2080,13 @@ export async function getDiscoveryOverview(
     `,
   );
 
+  const invitedCountries = invitedRows
+    .map((row) => row.country.trim())
+    .filter(Boolean);
+  const invitedRoles = invitedRows
+    .map((row) => row.jobRole.trim())
+    .filter(Boolean);
+
   return {
     stats: {
       totalDiagnostics: rows.length,
@@ -1877,8 +2096,12 @@ export async function getDiscoveryOverview(
     rows,
     availableFilters: {
       users: usersResult.rows.map((row) => ({ userId: row.user_id, name: row.name })),
-      countries: countriesResult.rows.map((row) => row.country),
-      jobRoles: rolesResult.rows.map((row) => row.job_role),
+      countries: Array.from(
+        new Set([...countriesResult.rows.map((row) => row.country), ...invitedCountries]),
+      ).sort((a, b) => a.localeCompare(b, "es")),
+      jobRoles: Array.from(
+        new Set([...rolesResult.rows.map((row) => row.job_role), ...invitedRoles]),
+      ).sort((a, b) => a.localeCompare(b, "es")),
     },
   };
 }

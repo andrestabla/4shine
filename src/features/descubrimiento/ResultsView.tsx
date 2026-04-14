@@ -12,6 +12,7 @@ import {
   ExternalLink,
   Gauge,
   Loader2,
+  Mail,
   Radar as RadarIcon,
   RefreshCw,
   Share2,
@@ -49,12 +50,38 @@ interface ResultsViewProps {
   onReset?: () => Promise<void> | void;
 }
 
+const SURVEY_QUESTIONS = [
+  "¿Te resultó fácil responder el diagnóstico?",
+  "¿Entendiste bien las preguntas del diagnóstico?",
+  "¿Sentiste que el diagnóstico reflejó tu realidad?",
+  "¿Te gustó la experiencia de hacer el diagnóstico?",
+  "¿El diagnóstico te ayudó a conocerte mejor como líder?",
+] as const;
+
 function buildShareUrl(publicId: string): string {
   if (typeof window === "undefined") {
     return `/descubrimiento/share/${publicId}`;
   }
 
   return `${window.location.origin}/descubrimiento/share/${publicId}`;
+}
+
+function parseEmailList(raw: string): string[] {
+  const seen = new Set<string>();
+  const output: string[] = [];
+  const candidates = raw
+    .split(/[\n,;\s]+/)
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+
+  for (const email of candidates) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) continue;
+    if (seen.has(email)) continue;
+    seen.add(email);
+    output.push(email);
+  }
+
+  return output;
 }
 
 export function ResultsView({
@@ -78,12 +105,41 @@ export function ResultsView({
   const [isExporting, setIsExporting] = React.useState(false);
   const [isSharing, setIsSharing] = React.useState(false);
   const [sharedPublicId, setSharedPublicId] = React.useState(publicId ?? null);
+  const [isShareModalOpen, setIsShareModalOpen] = React.useState(false);
+  const [emailRecipients, setEmailRecipients] = React.useState("");
+  const [isTourOpen, setIsTourOpen] = React.useState(false);
+  const [isSurveyOpen, setIsSurveyOpen] = React.useState(false);
+  const [pendingDownloadAfterSurvey, setPendingDownloadAfterSurvey] = React.useState(false);
+  const [surveyAnswers, setSurveyAnswers] = React.useState<Record<string, number>>({});
   const hiddenPdfRef = React.useRef<HTMLDivElement>(null);
   const stickyClass = embedded ? "top-[5rem] md:top-[5.5rem]" : "top-0";
+  const surveyStorageKey = React.useMemo(
+    () => `discovery-survey:${state.name || "anon"}`,
+    [state.name],
+  );
 
   React.useEffect(() => {
     setSharedPublicId(publicId ?? null);
   }, [publicId]);
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    const seenTour = window.localStorage.getItem("discovery-results-tour-seen") === "1";
+    if (!seenTour) {
+      setIsTourOpen(true);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.localStorage.getItem(surveyStorageKey)) return;
+
+    const timer = window.setTimeout(() => {
+      setIsSurveyOpen(true);
+    }, 120000);
+
+    return () => window.clearTimeout(timer);
+  }, [surveyStorageKey]);
 
   const radarData = React.useMemo(
     () => [
@@ -156,6 +212,52 @@ export function ResultsView({
     }
   };
 
+  const ensureSharableUrl = async (): Promise<string> => {
+    if (shareUrl) return shareUrl;
+    if (!isPublic && onShare) {
+      const nextSession = await onShare();
+      if (nextSession.publicId) {
+        setSharedPublicId(nextSession.publicId);
+        return buildShareUrl(nextSession.publicId);
+      }
+    }
+    if (typeof window !== "undefined") return window.location.href;
+    return "";
+  };
+
+  const handleShareByEmail = async () => {
+    const emails = parseEmailList(emailRecipients);
+    if (emails.length === 0) {
+      await alert({
+        title: "Correos inválidos",
+        message: "Agrega uno o más correos válidos para compartir.",
+        tone: "warning",
+      });
+      return;
+    }
+
+    try {
+      const link = await ensureSharableUrl();
+      if (!link) {
+        throw new Error("No se pudo generar el enlace para compartir.");
+      }
+
+      const subject = encodeURIComponent("Resultados diagnóstico 4Shine");
+      const body = encodeURIComponent(
+        `Hola,\n\nTe comparto mi lectura ejecutiva del diagnóstico 4Shine:\n${link}\n\nSaludos.`,
+      );
+      window.location.href = `mailto:${emails.join(",")}?subject=${subject}&body=${body}`;
+      setIsShareModalOpen(false);
+      setEmailRecipients("");
+    } catch (error) {
+      await alert({
+        title: "No se pudo compartir",
+        message: error instanceof Error ? error.message : "Error inesperado.",
+        tone: "error",
+      });
+    }
+  };
+
   const copyToClipboard = async () => {
     if (!shareUrl) return;
     try {
@@ -174,7 +276,7 @@ export function ResultsView({
     }
   };
 
-  const handleDownloadPdf = async () => {
+  const runDownloadPdf = async () => {
     if (!hiddenPdfRef.current) return;
 
     setIsExporting(true);
@@ -232,6 +334,40 @@ export function ResultsView({
     }
   };
 
+  const handleDownloadPdf = async () => {
+    if (typeof window !== "undefined" && !window.localStorage.getItem(surveyStorageKey)) {
+      setPendingDownloadAfterSurvey(true);
+      setIsSurveyOpen(true);
+      return;
+    }
+    await runDownloadPdf();
+  };
+
+  const submitSurvey = async () => {
+    if (Object.keys(surveyAnswers).length < SURVEY_QUESTIONS.length) {
+      await alert({
+        title: "Encuesta incompleta",
+        message: "Responde las 5 preguntas para registrar tu experiencia.",
+        tone: "warning",
+      });
+      return;
+    }
+
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(
+        surveyStorageKey,
+        JSON.stringify({ answeredAt: new Date().toISOString(), answers: surveyAnswers }),
+      );
+    }
+
+    setIsSurveyOpen(false);
+
+    if (pendingDownloadAfterSurvey) {
+      setPendingDownloadAfterSurvey(false);
+      await runDownloadPdf();
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="pointer-events-none absolute left-[-9999px] top-[-9999px] w-[210mm]">
@@ -261,9 +397,7 @@ export function ResultsView({
             <h3 className="mt-2 text-2xl font-black text-[var(--app-ink)] md:text-3xl">
               Resultados del diagnóstico
             </h3>
-            <p className="mt-2 text-sm text-[var(--app-muted)]">
-              {state.name}
-            </p>
+            <p className="mt-2 text-sm text-[var(--app-muted)]">{state.name}</p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -284,26 +418,27 @@ export function ResultsView({
                 disabled={isSharing}
                 className="inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em] text-white transition hover:opacity-92 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isSharing ? (
-                  <Loader2 size={14} className="animate-spin" />
-                ) : (
-                  <Share2 size={14} />
-                )}
-                Compartir
+                {isSharing ? <Loader2 size={14} className="animate-spin" /> : <Share2 size={14} />}
+                Compartir enlace
               </button>
             )}
 
             <button
               type="button"
-              onClick={handleDownloadPdf}
+              onClick={() => setIsShareModalOpen(true)}
+              className="inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em] text-[var(--app-ink)] transition hover:bg-[var(--app-surface-muted)]"
+            >
+              <Mail size={14} />
+              Compartir por correo
+            </button>
+
+            <button
+              type="button"
+              onClick={() => void handleDownloadPdf()}
               disabled={isExporting}
               className="inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em] text-[var(--app-ink)] transition hover:bg-[var(--app-surface-muted)] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isExporting ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <Download size={14} />
-              )}
+              {isExporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
               Descargar PDF
             </button>
 
@@ -326,9 +461,7 @@ export function ResultsView({
               <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-[var(--app-muted)]">
                 Enlace público
               </p>
-              <p className="mt-1 truncate text-sm text-[var(--app-ink)]">
-                {shareUrl}
-              </p>
+              <p className="mt-1 truncate text-sm text-[var(--app-ink)]">{shareUrl}</p>
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -358,9 +491,7 @@ export function ResultsView({
             <div>
               <p className="app-section-kicker">Mapa de liderazgo</p>
               <h4 className="mt-2 text-2xl font-black text-[var(--app-ink)]">
-                {filter === "all"
-                  ? "Vista integral"
-                  : PILLAR_INFO[filter].title}
+                {filter === "all" ? "Vista integral" : PILLAR_INFO[filter].title}
               </h4>
             </div>
             <div
@@ -375,23 +506,21 @@ export function ResultsView({
           </div>
 
           <div className="mt-5 flex flex-wrap gap-2">
-            {(["all", "within", "out", "up", "beyond"] as const).map(
-              (item) => (
-                <button
-                  key={item}
-                  type="button"
-                  onClick={() => setFilter(item)}
-                  className={clsx(
-                    "rounded-full px-4 py-2 text-xs font-extrabold uppercase tracking-[0.16em] transition",
-                    filter === item
-                      ? "bg-[var(--brand-primary)] text-white"
-                      : "border border-[var(--app-border)] bg-white text-[var(--app-muted)] hover:bg-[var(--app-surface-muted)]",
-                  )}
-                >
-                  {item === "all" ? "Global" : PILLAR_INFO[item].title}
-                </button>
-              ),
-            )}
+            {(["all", "within", "out", "up", "beyond"] as const).map((item) => (
+              <button
+                key={item}
+                type="button"
+                onClick={() => setFilter(item)}
+                className={clsx(
+                  "rounded-full px-4 py-2 text-xs font-extrabold uppercase tracking-[0.16em] transition",
+                  filter === item
+                    ? "bg-[var(--brand-primary)] text-white"
+                    : "border border-[var(--app-border)] bg-white text-[var(--app-muted)] hover:bg-[var(--app-surface-muted)]",
+                )}
+              >
+                {item === "all" ? "Global" : PILLAR_INFO[item].title}
+              </button>
+            ))}
           </div>
 
           <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
@@ -438,9 +567,7 @@ export function ResultsView({
                     <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[var(--app-muted)]">
                       Score actual
                     </p>
-                    <p className="mt-1 text-3xl font-black text-[var(--app-ink)]">
-                      {currentScore}%
-                    </p>
+                    <p className="mt-1 text-3xl font-black text-[var(--app-ink)]">{currentScore}%</p>
                   </div>
                 </div>
               </div>
@@ -453,15 +580,11 @@ export function ResultsView({
                   <div className="mt-4 grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-xs text-[var(--app-muted)]">Autopercepción</p>
-                      <p className="mt-1 text-2xl font-black text-[var(--app-ink)]">
-                        {currentMetric.likert}%
-                      </p>
+                      <p className="mt-1 text-2xl font-black text-[var(--app-ink)]">{currentMetric.likert}%</p>
                     </div>
                     <div>
                       <p className="text-xs text-[var(--app-muted)]">Juicio situacional</p>
-                      <p className="mt-1 text-2xl font-black text-[var(--app-ink)]">
-                        {currentMetric.sjt}%
-                      </p>
+                      <p className="mt-1 text-2xl font-black text-[var(--app-ink)]">{currentMetric.sjt}%</p>
                     </div>
                   </div>
                 </div>
@@ -489,15 +612,138 @@ export function ResultsView({
         <aside className="app-panel p-5 sm:p-6">
           <p className="app-section-kicker">Informe ejecutivo</p>
           <h4 className="mt-2 text-2xl font-black text-[var(--app-ink)]">
-            {filter === "all"
-              ? "Visión general"
-              : PILLAR_INFO[filter].title}
+            {filter === "all" ? "Visión general" : PILLAR_INFO[filter].title}
           </h4>
           <div className="prose prose-slate mt-6 max-w-none text-sm leading-7">
             <ReactMarkdown>{reports[filter]}</ReactMarkdown>
           </div>
         </aside>
       </div>
+
+      {isShareModalOpen && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-[rgba(15,23,42,0.48)] px-4">
+          <div className="w-full max-w-lg rounded-[20px] border border-[var(--app-border)] bg-white p-5 shadow-xl">
+            <h3 className="text-xl font-black text-[var(--app-ink)]">Compartir por correo</h3>
+            <p className="mt-2 text-sm text-[var(--app-muted)]">
+              Agrega uno o varios correos (separados por coma o salto de línea).
+            </p>
+            <textarea
+              value={emailRecipients}
+              onChange={(event) => setEmailRecipients(event.target.value)}
+              placeholder="correo1@empresa.com\ncorreo2@empresa.com"
+              className="mt-4 min-h-28 w-full rounded-[12px] border border-[var(--app-border)] bg-white p-3 text-sm"
+            />
+
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIsShareModalOpen(false)}
+                className="rounded-full border border-[var(--app-border)] bg-white px-4 py-2 text-sm font-semibold text-[var(--app-ink)]"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleShareByEmail()}
+                className="rounded-full bg-[var(--brand-primary)] px-4 py-2 text-sm font-extrabold text-white"
+              >
+                Compartir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isTourOpen && (
+        <div className="fixed inset-0 z-[125] flex items-center justify-center bg-[rgba(15,23,42,0.48)] px-4">
+          <div className="w-full max-w-xl rounded-[22px] border border-[var(--app-border)] bg-white p-6 shadow-xl">
+            <p className="app-section-kicker">Tour de resultados</p>
+            <h3 className="mt-2 text-2xl font-black text-[var(--app-ink)]">Guía rápida de lectura</h3>
+            <ul className="mt-4 space-y-2 text-sm text-[var(--app-muted)]">
+              <li>1. Revisa el indicador de avance para ubicar tu nivel global.</li>
+              <li>2. Usa los tabs Global/Within/Out/Up/Beyond para ver brechas por pilar.</li>
+              <li>3. En la parte superior puedes compartir por correo y descargar PDF.</li>
+            </ul>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsTourOpen(false);
+                  if (typeof window !== "undefined") {
+                    window.localStorage.setItem("discovery-results-tour-seen", "1");
+                  }
+                }}
+                className="rounded-full bg-[var(--brand-primary)] px-5 py-2 text-sm font-extrabold text-white"
+              >
+                Entendido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isSurveyOpen && (
+        <div className="fixed inset-0 z-[140] flex items-center justify-center bg-[rgba(15,23,42,0.48)] px-4">
+          <div className="w-full max-w-2xl rounded-[22px] border border-[var(--app-border)] bg-white p-6 shadow-xl">
+            <p className="app-section-kicker">Encuesta breve</p>
+            <h3 className="mt-2 text-2xl font-black text-[var(--app-ink)]">Califica tu experiencia</h3>
+            <p className="mt-2 text-sm text-[var(--app-muted)]">
+              Califica tu experiencia en este proceso de descubrimiento (escala de caritas).
+            </p>
+
+            <div className="mt-5 space-y-4">
+              {SURVEY_QUESTIONS.map((question) => (
+                <div key={question} className="rounded-[14px] border border-[var(--app-border)] p-3">
+                  <p className="text-sm font-semibold text-[var(--app-ink)]">{question}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {[1, 2, 3, 4, 5].map((value) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() =>
+                          setSurveyAnswers((current) => ({
+                            ...current,
+                            [question]: value,
+                          }))
+                        }
+                        className={clsx(
+                          "h-10 w-10 rounded-full border text-lg",
+                          surveyAnswers[question] === value
+                            ? "border-[var(--brand-primary)] bg-[var(--brand-primary)] text-white"
+                            : "border-[var(--app-border)] bg-white",
+                        )}
+                      >
+                        {value === 1 ? "😞" : value === 2 ? "🙁" : value === 3 ? "😐" : value === 4 ? "🙂" : "😄"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setPendingDownloadAfterSurvey(false);
+                  setIsSurveyOpen(false);
+                }}
+                className="rounded-full border border-[var(--app-border)] bg-white px-4 py-2 text-sm font-semibold text-[var(--app-ink)]"
+              >
+                Responder luego
+              </button>
+              <button
+                type="button"
+                onClick={() => void submitSurvey()}
+                className="rounded-full bg-[var(--brand-primary)] px-5 py-2 text-sm font-extrabold text-white"
+              >
+                Enviar respuestas
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

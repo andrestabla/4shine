@@ -3,10 +3,15 @@
 import React from "react";
 import clsx from "clsx";
 import { ChevronLeft, ChevronRight, Loader2, Lock, Mail } from "lucide-react";
+import { useAppDialog } from "@/components/ui/AppDialogProvider";
 import { ResultsView } from "./ResultsView";
 import { DB, SCALES } from "./DiagnosticsData";
-import { DISCOVERY_ITEMS_PER_PAGE } from "./reporting";
-import { getInvitationPublicInfo, verifyInvitationAccess } from "./client";
+import { DISCOVERY_ITEMS_PER_PAGE, calculateDiscoveryCompletionPercent } from "./reporting";
+import {
+  getInvitationPublicInfo,
+  saveInvitationProgress,
+  verifyInvitationAccess,
+} from "./client";
 import { DISCOVERY_JOB_ROLE_OPTIONS, type DiscoveryUserState } from "./types";
 
 interface InvitationAccessExperienceProps {
@@ -45,9 +50,11 @@ function isProfileComplete(state: DiscoveryUserState): boolean {
 export function InvitationAccessExperience({
   inviteToken,
 }: InvitationAccessExperienceProps) {
+  const { alert } = useAppDialog();
   const [isLoading, setIsLoading] = React.useState(true);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [accessCode, setAccessCode] = React.useState("");
+  const [verifiedCode, setVerifiedCode] = React.useState<string | null>(null);
   const [maskedEmail, setMaskedEmail] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
   const [session, setSession] = React.useState<Awaited<
@@ -57,6 +64,8 @@ export function InvitationAccessExperience({
   const [externalState, setExternalState] = React.useState<DiscoveryUserState>(
     buildEmptyExternalState(),
   );
+  const [showCompletedNotice, setShowCompletedNotice] = React.useState(false);
+  const [isPersisting, setIsPersisting] = React.useState(false);
 
   React.useEffect(() => {
     let active = true;
@@ -83,6 +92,28 @@ export function InvitationAccessExperience({
     };
   }, [inviteToken]);
 
+  React.useEffect(() => {
+    if (accessMode !== "diagnostic") return;
+    if (!verifiedCode) return;
+
+    const timer = window.setTimeout(async () => {
+      try {
+        setIsPersisting(true);
+        await saveInvitationProgress({
+          inviteToken,
+          accessCode: verifiedCode,
+          state: externalState,
+        });
+      } catch {
+        // Silencioso: no bloqueamos la experiencia.
+      } finally {
+        setIsPersisting(false);
+      }
+    }, 650);
+
+    return () => window.clearTimeout(timer);
+  }, [accessMode, externalState, inviteToken, verifiedCode]);
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!accessCode.trim()) return;
@@ -90,12 +121,21 @@ export function InvitationAccessExperience({
     setError(null);
     setIsSubmitting(true);
     try {
+      const normalizedCode = accessCode.trim().toUpperCase();
       const response = await verifyInvitationAccess({
         inviteToken,
-        accessCode: accessCode.trim().toUpperCase(),
+        accessCode: normalizedCode,
       });
+      setVerifiedCode(normalizedCode);
       setSession(response.session);
       setAccessMode(response.accessMode);
+
+      if (response.accessMode === "diagnostic") {
+        if (response.externalProgress) {
+          setExternalState(response.externalProgress);
+        }
+        setShowCompletedNotice(response.alreadyCompleted);
+      }
     } catch (submitError) {
       setError(
         submitError instanceof Error
@@ -135,6 +175,47 @@ export function InvitationAccessExperience({
   }
 
   if (accessMode === "diagnostic") {
+    const answeredCount = Object.keys(externalState.answers).length;
+    const completionPercent = calculateDiscoveryCompletionPercent(externalState.answers);
+
+    if (showCompletedNotice) {
+      return (
+        <main className="mx-auto min-h-screen w-full max-w-4xl px-4 pb-16 pt-8 md:px-6">
+          <section className="app-panel p-6 md:p-8">
+            <p className="app-section-kicker">Diagnostico 4Shine</p>
+            <h2 className="mt-2 text-2xl font-black text-[var(--app-ink)]">
+              Tu ya realizaste este diagnostico
+            </h2>
+            <p className="mt-3 text-sm text-[var(--app-muted)]">
+              Puedes ingresar directamente a tus resultados con este mismo enlace y codigo.
+            </p>
+
+            <div className="mt-6 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCompletedNotice(false);
+                  setExternalState((current) => ({ ...current, status: "results" }));
+                }}
+                className="inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-5 py-3 text-sm font-extrabold text-white"
+              >
+                Ver resultados
+                <ChevronRight size={16} />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowCompletedNotice(false)}
+                className="inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-5 py-3 text-sm font-semibold text-[var(--app-ink)]"
+              >
+                Continuar navegando
+              </button>
+            </div>
+          </section>
+        </main>
+      );
+    }
+
     if (externalState.status === "results") {
       return (
         <main className="mx-auto min-h-screen w-full max-w-6xl px-4 pb-16 pt-8 md:px-6">
@@ -246,7 +327,14 @@ export function InvitationAccessExperience({
             <button
               type="button"
               onClick={() => {
-                if (!isProfileComplete(externalState)) return;
+                if (!isProfileComplete(externalState)) {
+                  void alert({
+                    title: "Perfil incompleto",
+                    message: "Completa todos los campos para iniciar el diagnostico.",
+                    tone: "warning",
+                  });
+                  return;
+                }
                 setExternalState((current) => ({
                   ...current,
                   name: `${current.profile.firstName} ${current.profile.lastName}`.trim(),
@@ -265,19 +353,65 @@ export function InvitationAccessExperience({
     }
 
     if (externalState.status === "instructions") {
+      const instructionCards = [
+        {
+          number: "1",
+          title: "Sinceridad",
+          description:
+            'No hay respuestas "correctas". Responde como eres hoy, no como aspiras ser.',
+        },
+        {
+          number: "2",
+          title: "Sin juicios",
+          description:
+            "Este es un mapa de navegacion, no un examen. El objetivo es identificar palancas de crecimiento.",
+        },
+        {
+          number: "3",
+          title: "Escala Likert",
+          description: "96 items para evaluar tu autopercepcion conductual.",
+        },
+        {
+          number: "4",
+          title: "Juicio situacional",
+          description: "29 escenarios reales con opciones de respuesta ponderadas.",
+        },
+        {
+          number: "5",
+          title: "Analisis 4 pilares",
+          description: "Within, Out, Up y Beyond para una vision 360 grados.",
+        },
+      ];
+
       return (
-        <main className="mx-auto min-h-screen w-full max-w-4xl px-4 pb-16 pt-8 md:px-6">
+        <main className="mx-auto min-h-screen w-full max-w-5xl px-4 pb-16 pt-8 md:px-6">
           <section className="app-panel p-6 md:p-8">
-            <h2 className="text-2xl font-black text-[var(--app-ink)]">Instrucciones</h2>
-            <ul className="mt-4 space-y-2 text-sm text-[var(--app-muted)]">
-              <li>Responde con base en tu realidad actual.</li>
-              <li>Completa todas las preguntas de cada bloque.</li>
-              <li>Al final recibiras una lectura ejecutiva de tus resultados.</li>
-            </ul>
+            <h2 className="text-3xl font-black text-[var(--app-ink)]">Instrucciones</h2>
+            <p className="mt-3 text-sm text-[var(--app-muted)]">
+              Tiempo estimado: <strong>20-25 minutos</strong>. El objetivo de este diagnostico es
+              identificar tus brechas de liderazgo actuales y proporcionarte una hoja de ruta
+              personalizada basada en el modelo 4Shine.
+            </p>
+
+            <div className="mt-6 grid gap-3 md:grid-cols-2">
+              {instructionCards.map((item) => (
+                <article
+                  key={item.number}
+                  className="rounded-[18px] border border-[var(--app-border)] bg-white px-4 py-4"
+                >
+                  <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--app-muted)]">
+                    {item.number}
+                  </p>
+                  <h3 className="mt-2 text-lg font-black text-[var(--app-ink)]">{item.title}</h3>
+                  <p className="mt-1 text-sm text-[var(--app-muted)]">{item.description}</p>
+                </article>
+              ))}
+            </div>
+
             <button
               type="button"
               onClick={() => setExternalState((current) => ({ ...current, status: "quiz" }))}
-              className="mt-6 inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-5 py-3 text-sm font-extrabold text-white"
+              className="mt-7 inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-5 py-3 text-sm font-extrabold text-white"
             >
               Ir al cuestionario
               <ChevronRight size={16} />
@@ -294,6 +428,23 @@ export function InvitationAccessExperience({
     return (
       <main className="mx-auto min-h-screen w-full max-w-5xl px-4 pb-16 pt-8 md:px-6">
         <section className="space-y-4">
+          <div className="rounded-[18px] border border-[var(--app-border)] bg-white p-4">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-[var(--app-ink)]">
+                Progreso: {answeredCount} / {DB.length} respuestas ({completionPercent}%)
+              </p>
+              {isPersisting && (
+                <p className="text-xs font-semibold text-[var(--app-muted)]">Guardando...</p>
+              )}
+            </div>
+            <div className="mt-2 h-2 rounded-full bg-[var(--app-surface-muted)]">
+              <div
+                className="h-2 rounded-full bg-[var(--brand-primary)] transition-all"
+                style={{ width: `${completionPercent}%` }}
+              />
+            </div>
+          </div>
+
           {pageItems.map((question, index) => {
             const answer = externalState.answers[String(question.id)];
             const questionNumber = start + index + 1;

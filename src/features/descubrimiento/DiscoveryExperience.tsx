@@ -767,6 +767,27 @@ export function DiscoveryExperience() {
     }
   };
 
+  React.useEffect(() => {
+    if (!isManager) return;
+    if (managerTab !== "results") return;
+
+    const intervalId = window.setInterval(() => {
+      const apiFilters: DiscoveryOverviewFilters = {
+        userId: resultsFilters.userId || undefined,
+        country: resultsFilters.country || undefined,
+        jobRole: resultsFilters.jobRole || undefined,
+        ageMin: parseNumber(resultsFilters.ageMin),
+        ageMax: parseNumber(resultsFilters.ageMax),
+        yearsExperienceMin: parseNumber(resultsFilters.yearsExperienceMin),
+        yearsExperienceMax: parseNumber(resultsFilters.yearsExperienceMax),
+      };
+
+      void loadManagerOverview(apiFilters);
+    }, 10000);
+
+    return () => window.clearInterval(intervalId);
+  }, [isManager, loadManagerOverview, managerTab, resultsFilters]);
+
   if (isLockedForViewer) {
     return (
       <div className="space-y-8">
@@ -1373,7 +1394,9 @@ export function DiscoveryExperience() {
                 <thead>
                   <tr className="border-b border-[var(--app-border)] text-[var(--app-muted)]">
                     <th className="px-2 py-2">ID</th>
+                    <th className="px-2 py-2">Tipo</th>
                     <th className="px-2 py-2">Usuario</th>
+                    <th className="px-2 py-2">Correo</th>
                     <th className="px-2 py-2">Pais</th>
                     <th className="px-2 py-2">Cargo</th>
                     <th className="px-2 py-2">Edad</th>
@@ -1386,7 +1409,9 @@ export function DiscoveryExperience() {
                   {overview?.rows.map((row) => (
                     <tr key={row.sessionId} className="border-b border-[var(--app-border)]">
                       <td className="px-2 py-2 font-semibold">{row.diagnosticIdentifier}</td>
+                      <td className="px-2 py-2">{row.sourceType === "invited" ? "Invitado" : "Plataforma"}</td>
                       <td className="px-2 py-2">{row.participantName}</td>
+                      <td className="px-2 py-2">{row.invitedEmail || "-"}</td>
                       <td className="px-2 py-2">{row.country || "-"}</td>
                       <td className="px-2 py-2">{row.jobRole || "-"}</td>
                       <td className="px-2 py-2">{row.age ?? "-"}</td>
@@ -1551,19 +1576,32 @@ export function DiscoveryExperience() {
   if (state.status === "instructions") {
     const instructions = [
       {
-        title: "Responde desde tu realidad actual",
+        id: "1",
+        title: "Sinceridad",
         description:
-          "No busques la version ideal. El valor del diagnostico aparece cuando contestas desde lo que hoy haces de verdad.",
+          'No hay respuestas \"correctas\". Responde como eres hoy, no como aspiras ser.',
       },
       {
-        title: "Combina intencion y criterio",
+        id: "2",
+        title: "Sin juicios",
         description:
-          "La autopercepcion muestra como te ves; los escenarios situacionales revelan como decides bajo presion.",
+          "Este es un mapa de navegacion, no un examen. El objetivo es identificar palancas de crecimiento.",
       },
       {
-        title: "Duracion estimada",
+        id: "3",
+        title: "Escala Likert",
         description:
-          "Reserva entre 20 y 25 minutos. El cuestionario esta paginado y guarda tu avance automaticamente.",
+          "96 items para evaluar tu autopercepcion conductual.",
+      },
+      {
+        id: "4",
+        title: "Juicio situacional",
+        description: "29 escenarios reales con opciones de respuesta ponderadas.",
+      },
+      {
+        id: "5",
+        title: "Analisis 4 pilares",
+        description: "Within, Out, Up y Beyond para una vision 360 grados.",
       },
     ];
 
@@ -1571,13 +1609,17 @@ export function DiscoveryExperience() {
       <div className="space-y-8">
         <PageTitle
           title="Descubrimiento"
-          subtitle="Alineemos el proposito del diagnostico y la forma correcta de interpretarlo."
+          subtitle="Tiempo estimado: 20-25 minutos. Sigue estas instrucciones antes de iniciar."
         />
 
         <section className="app-panel p-6 md:p-8">
+          <p className="text-sm text-[var(--app-muted)]">
+            El objetivo de este diagnostico es identificar tus brechas de liderazgo actuales y proporcionarte una hoja de ruta personalizada basada en el modelo 4Shine.
+          </p>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             {instructions.map((item) => (
               <article key={item.title} className="rounded-[20px] border border-[var(--app-border)] bg-white/78 px-5 py-5">
+                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--app-muted)]">{item.id}</p>
                 <h4 className="text-lg font-black text-[var(--app-ink)]">{item.title}</h4>
                 <p className="mt-2 text-sm leading-relaxed text-[var(--app-muted)]">{item.description}</p>
               </article>
@@ -1647,6 +1689,12 @@ export function DiscoveryExperience() {
                     : "Autoguardado"}
             </span>
           </div>
+        </div>
+        <div className="mt-3 h-2 rounded-full bg-[var(--app-surface-muted)]">
+          <div
+            className="h-2 rounded-full bg-[var(--brand-primary)] transition-all"
+            style={{ width: `${completionPercent}%` }}
+          />
         </div>
       </div>
 

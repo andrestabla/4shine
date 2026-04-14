@@ -8,6 +8,7 @@ import type {
   DiscoveryOverviewFilters,
   DiscoveryOverviewPayload,
   DiscoverySessionRecord,
+  DiscoveryUserState,
   UpdateDiscoverySessionInput,
 } from "./types";
 
@@ -20,6 +21,7 @@ export type {
   DiscoveryOverviewFilters,
   DiscoveryOverviewPayload,
   DiscoverySessionRecord,
+  DiscoveryUserState,
   UpdateDiscoverySessionInput,
 } from "./types";
 
@@ -149,5 +151,19 @@ export async function getInvitationPublicInfo(inviteToken: string): Promise<{
 }> {
   return requestApi<{ inviteToken: string; invitedEmailMasked: string; openedAt: string | null }>(
     `/api/v1/public/descubrimiento/invitaciones/${encodeURIComponent(inviteToken)}`,
+  );
+}
+
+export async function saveInvitationProgress(input: {
+  inviteToken: string;
+  accessCode: string;
+  state: DiscoveryUserState;
+}): Promise<DiscoveryInvitationAccessPayload> {
+  return requestApi<DiscoveryInvitationAccessPayload>(
+    "/api/v1/public/descubrimiento/invitaciones/progress",
+    {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    },
   );
 }

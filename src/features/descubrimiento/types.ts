@@ -8,7 +8,7 @@ export type DiscoveryReportFilter = "all" | DiscoveryPillarKey;
 
 export const DISCOVERY_JOB_ROLE_OPTIONS = [
   "Director/C-Level",
-  "Gerente/Mand medio",
+  "Gerente/Mando medio",
   "Coordinador",
   "Lider de proyecto con equipo a cargo",
   "Individual contributor",
@@ -125,6 +125,8 @@ export interface DiscoveryOverviewRow {
   diagnosticIdentifier: string;
   userId: string;
   participantName: string;
+  sourceType: "platform" | "invited";
+  invitedEmail?: string;
   country: string;
   jobRole: string;
   age: number | null;
@@ -173,6 +175,8 @@ export interface DiscoveryInvitationAccessPayload {
   };
   session: DiscoverySessionRecord | null;
   accessMode: "results" | "diagnostic";
+  externalProgress: DiscoveryUserState | null;
+  alreadyCompleted: boolean;
 }
 
 export interface UpdateDiscoverySessionInput {
