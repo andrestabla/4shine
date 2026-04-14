@@ -38,7 +38,23 @@ export interface UploadR2Input {
   pathPrefix?: string;
 }
 
+export interface PrepareR2UploadInput {
+  fileName: string;
+  fileType?: string;
+  fileSizeBytes?: number;
+  pathPrefix?: string;
+}
+
 export interface UploadR2Result {
+  key: string;
+  url: string;
+  bucket: string;
+  size: number;
+  contentType: string;
+  fileName: string;
+}
+
+export interface PreparedR2Upload {
   key: string;
   url: string;
   bucket: string;
@@ -244,9 +260,52 @@ export async function uploadFileToR2(
   config: R2StorageConfig,
   input: UploadR2Input,
 ): Promise<UploadR2Result> {
+  const prepared = prepareR2Upload(config, {
+    fileName: input.fileName,
+    fileType: input.fileType,
+    fileSizeBytes: input.fileBuffer.byteLength,
+    pathPrefix: input.pathPrefix,
+  });
+
+  const client = createR2S3Client(config);
+  await client.send(
+    new PutObjectCommand({
+      Bucket: config.bucketName,
+      Key: prepared.key,
+      Body: input.fileBuffer,
+      ContentType: prepared.contentType,
+      CacheControl: 'public, max-age=31536000, immutable',
+    }),
+  );
+
+  return prepared;
+}
+
+export function createR2S3Client(config: R2StorageConfig): S3Client {
+  return new S3Client({
+    region: config.region,
+    endpoint: config.endpoint,
+    forcePathStyle: true,
+    credentials: {
+      accessKeyId: config.accessKeyId,
+      secretAccessKey: config.secretAccessKey,
+    },
+  });
+}
+
+export function prepareR2Upload(
+  config: R2StorageConfig,
+  input: PrepareR2UploadInput,
+): PreparedR2Upload {
   const contentType = input.fileType?.trim() || 'application/octet-stream';
   if (!isMimeTypeAllowed(contentType, config.allowedMimeTypes)) {
     throw new Error(`MIME type not allowed for upload: ${contentType}`);
+  }
+
+  const fileSizeBytes = Number(input.fileSizeBytes ?? 0);
+  if (Number.isFinite(fileSizeBytes) && fileSizeBytes > config.maxFileSizeBytes) {
+    const maxMb = Math.round(config.maxFileSizeBytes / (1024 * 1024));
+    throw new Error(`File too large. Max allowed: ${maxMb}MB`);
   }
 
   const safePrefix = normalizePrefix(input.pathPrefix);
@@ -257,31 +316,11 @@ export async function uploadFileToR2(
   const stamp = now.toISOString().replace(/[^\d]/g, '').slice(0, 14);
   const key = `${safePrefix}/${now.getUTCFullYear()}/${month}/${day}/${stamp}-${randomUUID().slice(0, 8)}-${safeFileName}`;
 
-  const client = new S3Client({
-    region: config.region,
-    endpoint: config.endpoint,
-    forcePathStyle: true,
-    credentials: {
-      accessKeyId: config.accessKeyId,
-      secretAccessKey: config.secretAccessKey,
-    },
-  });
-
-  await client.send(
-    new PutObjectCommand({
-      Bucket: config.bucketName,
-      Key: key,
-      Body: input.fileBuffer,
-      ContentType: contentType,
-      CacheControl: 'public, max-age=31536000, immutable',
-    }),
-  );
-
   return {
     key,
     bucket: config.bucketName,
     url: buildObjectUrl(config, key),
-    size: input.fileBuffer.byteLength,
+    size: Math.max(0, fileSizeBytes),
     contentType,
     fileName: safeFileName,
   };

@@ -14,7 +14,23 @@ import {
   ShieldCheck,
   Upload,
 } from "lucide-react";
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  PolarAngleAxis,
+  PolarGrid,
+  PolarRadiusAxis,
+  Radar,
+  RadarChart,
+  RadialBar,
+  RadialBarChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { AccessOfferPanel } from "@/components/access/AccessOfferPanel";
 import { PageTitle } from "@/components/dashboard/PageTitle";
 import { StatGrid } from "@/components/dashboard/StatGrid";
@@ -241,6 +257,7 @@ export function DiscoveryExperience() {
     yearsExperienceMin: "",
     yearsExperienceMax: "",
   });
+  const [selectedOverviewRowId, setSelectedOverviewRowId] = React.useState("");
 
   const managerPreviewStart = managerPreviewIdx;
   const managerPreviewEnd = Math.min(
@@ -262,6 +279,22 @@ export function DiscoveryExperience() {
       (user) => user.userId !== currentUser?.id,
     );
   }, [currentUser?.id, overview?.availableFilters.users]);
+
+  const selectedOverviewRow = React.useMemo(
+    () => overview?.rows.find((row) => row.sessionId === selectedOverviewRowId) ?? null,
+    [overview?.rows, selectedOverviewRowId],
+  );
+
+  const activeAnalytics = selectedOverviewRow?.analytics ?? overview?.analytics ?? {
+    general: [],
+    pillars: [],
+    components: [],
+    satisfaction: {
+      responses: 0,
+      average: 0,
+      questions: [],
+    },
+  };
 
   const loadManagerOverview = React.useCallback(
     async (inputFilters?: DiscoveryOverviewFilters) => {
@@ -832,6 +865,14 @@ export function DiscoveryExperience() {
 
     return () => window.clearInterval(intervalId);
   }, [isManager, loadManagerOverview, managerTab, resultsFilters]);
+
+  React.useEffect(() => {
+    if (!selectedOverviewRowId) return;
+    const exists = overview?.rows.some((row) => row.sessionId === selectedOverviewRowId);
+    if (!exists) {
+      setSelectedOverviewRowId("");
+    }
+  }, [overview?.rows, selectedOverviewRowId]);
 
   if (isLockedForViewer) {
     return (
@@ -1439,13 +1480,24 @@ export function DiscoveryExperience() {
                 <p className="app-section-kicker">Resultados generales</p>
                 <div className="mt-3 h-60 w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={overview?.analytics.general ?? []}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(108,88,134,0.2)" />
-                      <XAxis dataKey="label" tick={{ fontSize: 12 }} />
-                      <YAxis allowDecimals={false} />
+                    <RadialBarChart
+                      data={activeAnalytics.general}
+                      innerRadius="26%"
+                      outerRadius="88%"
+                      startAngle={90}
+                      endAngle={-270}
+                    >
+                      <PolarGrid radialLines={false} />
                       <Tooltip />
-                      <Bar dataKey="value" fill="var(--brand-primary)" radius={[8, 8, 0, 0]} />
-                    </BarChart>
+                      <RadialBar dataKey="value" background cornerRadius={10}>
+                        {activeAnalytics.general.map((entry, index) => (
+                          <Cell
+                            key={`${entry.label}-${index}`}
+                            fill={index % 2 === 0 ? "var(--brand-primary)" : "#7c3aed"}
+                          />
+                        ))}
+                      </RadialBar>
+                    </RadialBarChart>
                   </ResponsiveContainer>
                 </div>
               </div>
@@ -1454,13 +1506,18 @@ export function DiscoveryExperience() {
                 <p className="app-section-kicker">Promedio por pilar</p>
                 <div className="mt-3 h-60 w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={overview?.analytics.pillars ?? []}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(108,88,134,0.2)" />
-                      <XAxis dataKey="label" tick={{ fontSize: 12 }} />
-                      <YAxis domain={[0, 100]} />
+                    <RadarChart data={activeAnalytics.pillars}>
+                      <PolarGrid stroke="rgba(108,88,134,0.22)" />
+                      <PolarAngleAxis dataKey="label" tick={{ fontSize: 12 }} />
+                      <PolarRadiusAxis domain={[0, 100]} tick={{ fontSize: 10 }} />
                       <Tooltip />
-                      <Bar dataKey="average" fill="#7c3aed" radius={[8, 8, 0, 0]} />
-                    </BarChart>
+                      <Radar
+                        dataKey="average"
+                        stroke="var(--brand-primary)"
+                        fill="var(--brand-primary)"
+                        fillOpacity={0.42}
+                      />
+                    </RadarChart>
                   </ResponsiveContainer>
                 </div>
               </div>
@@ -1469,7 +1526,7 @@ export function DiscoveryExperience() {
                 <p className="app-section-kicker">Componentes (Top 12)</p>
                 <div className="mt-3 h-64 w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={overview?.analytics.components ?? []} layout="vertical">
+                    <BarChart data={activeAnalytics.components ?? []} layout="vertical">
                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(108,88,134,0.2)" />
                       <XAxis type="number" domain={[0, 100]} />
                       <YAxis type="category" dataKey="component" width={140} tick={{ fontSize: 11 }} />
@@ -1483,11 +1540,11 @@ export function DiscoveryExperience() {
               <div className="app-panel p-4">
                 <p className="app-section-kicker">Satisfaccion de experiencia</p>
                 <p className="mt-1 text-sm text-[var(--app-muted)]">
-                  Respuestas: {overview?.analytics.satisfaction.responses ?? 0} · Promedio: {overview?.analytics.satisfaction.average ?? 0}/5
+                  Respuestas: {activeAnalytics.satisfaction.responses ?? 0} · Promedio: {activeAnalytics.satisfaction.average ?? 0}/5
                 </p>
                 <div className="mt-3 h-64 w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={overview?.analytics.satisfaction.questions ?? []}>
+                    <BarChart data={activeAnalytics.satisfaction.questions ?? []}>
                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(108,88,134,0.2)" />
                       <XAxis dataKey="question" hide />
                       <YAxis domain={[0, 5]} />
@@ -1497,7 +1554,7 @@ export function DiscoveryExperience() {
                   </ResponsiveContainer>
                 </div>
                 <ul className="mt-3 space-y-1 text-xs text-[var(--app-muted)]">
-                  {(overview?.analytics.satisfaction.questions ?? []).map((item) => (
+                  {(activeAnalytics.satisfaction.questions ?? []).map((item) => (
                     <li key={item.question}>
                       {item.question}: <strong>{item.average}/5</strong> ({item.count} resp.)
                     </li>
@@ -1505,6 +1562,19 @@ export function DiscoveryExperience() {
                 </ul>
               </div>
             </div>
+
+            {selectedOverviewRow && (
+              <div className="app-panel p-3 text-sm text-[var(--app-muted)]">
+                Filtro por fila activo: <strong>{selectedOverviewRow.participantName}</strong>.
+                <button
+                  type="button"
+                  onClick={() => setSelectedOverviewRowId("")}
+                  className="ml-2 font-semibold text-[var(--brand-primary)] underline"
+                >
+                  Limpiar
+                </button>
+              </div>
+            )}
 
             <div className="app-panel overflow-auto p-4">
               <table className="min-w-full text-left text-sm">
@@ -1524,7 +1594,14 @@ export function DiscoveryExperience() {
                 </thead>
                 <tbody>
                   {overview?.rows.map((row) => (
-                    <tr key={row.sessionId} className="border-b border-[var(--app-border)]">
+                    <tr
+                      key={row.sessionId}
+                      onClick={() => setSelectedOverviewRowId(row.sessionId)}
+                      className={clsx(
+                        "cursor-pointer border-b border-[var(--app-border)] transition-colors hover:bg-[var(--app-chip)]",
+                        selectedOverviewRowId === row.sessionId && "bg-[var(--app-chip)]",
+                      )}
+                    >
                       <td className="px-2 py-2 font-semibold">{row.diagnosticIdentifier}</td>
                       <td className="px-2 py-2">{row.sourceType === "invited" ? "Invitado" : "Plataforma"}</td>
                       <td className="px-2 py-2">{row.participantName}</td>

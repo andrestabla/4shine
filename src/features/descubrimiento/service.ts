@@ -104,7 +104,15 @@ interface BrandingRow {
 }
 
 const DISCOVERY_TEST_CODE = "diagnostico_4shine";
+const DISCOVERY_INVITED_FILTER_PREFIX = "inv:";
 const ACCESS_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const DISCOVERY_SURVEY_QUESTIONS = [
+  "¿Te resultó fácil responder el diagnóstico?",
+  "¿Entendiste bien las preguntas del diagnóstico?",
+  "¿Sentiste que el diagnóstico reflejó tu realidad?",
+  "¿Te gustó la experiencia de hacer el diagnóstico?",
+  "¿El diagnóstico te ayudó a conocerte mejor como líder?",
+] as const;
 const DEFAULT_AI_FEEDBACK_INSTRUCTIONS = `
 Eres un analista experto en la metodologia 4Shine.
 Tu objetivo es analizar el perfil de liderazgo del usuario usando el contexto metodologico cargado por el admin en RAG.
@@ -1955,9 +1963,14 @@ export async function getDiscoveryOverview(
 
   const params: Array<string | number> = [];
   const where: string[] = [];
+  const rawUserFilter = filters.userId?.trim() || "";
+  const invitedUserFilterId = rawUserFilter.startsWith(DISCOVERY_INVITED_FILTER_PREFIX)
+    ? rawUserFilter.slice(DISCOVERY_INVITED_FILTER_PREFIX.length).toLowerCase()
+    : "";
+  const platformUserFilterId = rawUserFilter && !invitedUserFilterId ? rawUserFilter : "";
 
-  if (filters.userId) {
-    params.push(filters.userId);
+  if (platformUserFilterId) {
+    params.push(platformUserFilterId);
     where.push(`ds.user_id = $${params.length}::uuid`);
   }
 
@@ -2016,6 +2029,97 @@ export async function getDiscoveryOverview(
     updated_at: string;
   }
 
+  interface OverviewAnalyticsEntry {
+    score: ReturnType<typeof scoreDiscoveryAnswers> | null;
+    survey: DiscoveryExperienceSurvey | null;
+    completed: boolean;
+  }
+
+  const pillarLabels: Record<"within" | "out" | "up" | "beyond", string> = {
+    within: "Shine Within",
+    out: "Shine Out",
+    up: "Shine Up",
+    beyond: "Shine Beyond",
+  };
+
+  const buildAnalyticsBundle = (
+    entries: OverviewAnalyticsEntry[],
+    totalRows: number,
+  ): DiscoveryOverviewPayload["analytics"] => {
+    const scoreEntries = entries.filter((entry) => entry.score !== null);
+    const completedCount = entries.filter((entry) => entry.completed).length;
+    const inProgressCount = Math.max(0, totalRows - completedCount);
+
+    const pillars = (["within", "out", "up", "beyond"] as const).map((pillar) => {
+      const values = scoreEntries.map((entry) => entry.score!.pillarMetrics[pillar].total);
+      const average =
+        values.length > 0
+          ? Math.round(values.reduce((acc, value) => acc + value, 0) / values.length)
+          : 0;
+      return {
+        pillar,
+        label: pillarLabels[pillar],
+        average,
+      };
+    });
+
+    const componentMap = new Map<string, number[]>();
+    for (const entry of scoreEntries) {
+      for (const component of entry.score!.compList) {
+        const values = componentMap.get(component.name) ?? [];
+        values.push(Math.round(((component.score - 1) / 4) * 100));
+        componentMap.set(component.name, values);
+      }
+    }
+    const components = Array.from(componentMap.entries())
+      .map(([component, values]) => ({
+        component,
+        average:
+          values.length > 0
+            ? Math.round(values.reduce((acc, value) => acc + value, 0) / values.length)
+            : 0,
+        count: values.length,
+      }))
+      .sort((a, b) => b.average - a.average)
+      .slice(0, 12);
+
+    const surveyEntries = entries
+      .map((entry) => entry.survey)
+      .filter((value): value is DiscoveryExperienceSurvey => Boolean(value));
+    const surveyQuestionStats = DISCOVERY_SURVEY_QUESTIONS.map((question) => {
+      const values = surveyEntries
+        .map((survey) => survey.answers[question])
+        .filter((value): value is number => Number.isFinite(value));
+      return {
+        question,
+        average:
+          values.length > 0
+            ? Number((values.reduce((acc, value) => acc + value, 0) / values.length).toFixed(2))
+            : 0,
+        count: values.length,
+      };
+    });
+    const surveyValues = surveyEntries.map((survey) => survey.average).filter(Number.isFinite);
+    const surveyAverage =
+      surveyValues.length > 0
+        ? Number((surveyValues.reduce((acc, value) => acc + value, 0) / surveyValues.length).toFixed(2))
+        : 0;
+
+    return {
+      general: [
+        { label: "Completados", value: completedCount },
+        { label: "En progreso", value: inProgressCount },
+      ],
+      pillars,
+      components,
+      satisfaction: {
+        responses: surveyEntries.length,
+        average: surveyAverage,
+        questions: surveyQuestionStats,
+      },
+    };
+  };
+
   const rowsResult = await client.query<DiscoveryOverviewDbRow>(
     `
       SELECT
@@ -2042,14 +2146,22 @@ export async function getDiscoveryOverview(
     params,
   );
 
-  const analyticsScores: Array<ReturnType<typeof scoreDiscoveryAnswers>> = [];
-  const analyticsSurveys: DiscoveryExperienceSurvey[] = [];
-
   const platformRows: DiscoveryOverviewRow[] = rowsResult.rows.map((row) => {
     const normalizedAnswers = normalizeAnswers(row.answers);
-    analyticsScores.push(scoreDiscoveryAnswers(normalizedAnswers));
+    const hasAnswers = Object.keys(normalizedAnswers).length > 0;
+    const score = hasAnswers ? scoreDiscoveryAnswers(normalizedAnswers) : null;
     const survey = parseExperienceSurvey(row.feedback_survey);
-    if (survey) analyticsSurveys.push(survey);
+    const isCompleted = row.global_index !== null;
+    const analytics = buildAnalyticsBundle(
+      [
+        {
+          score,
+          survey,
+          completed: isCompleted,
+        },
+      ],
+      1,
+    );
 
     return {
       sessionId: row.session_id,
@@ -2065,8 +2177,10 @@ export async function getDiscoveryOverview(
       completionPercent: Number(row.completion_percent ?? 0),
       globalIndex: row.global_index !== null ? Number(row.global_index) : null,
       updatedAt: row.updated_at,
+      analytics,
     };
   });
+
   const invitationResult = await client.query<DiscoveryInvitationOverviewRow>(
     `
       SELECT
@@ -2086,20 +2200,31 @@ export async function getDiscoveryOverview(
       const externalProgress = parseInvitationExternalProgress(invitation.meta);
       const answers = externalProgress?.answers ?? {};
       const completionPercent = calculateDiscoveryCompletionPercent(answers);
-      const score = scoreDiscoveryAnswers(answers);
-      analyticsScores.push(score);
+      const hasAnswers = Object.keys(answers).length > 0;
+      const score = hasAnswers ? scoreDiscoveryAnswers(answers) : null;
       const externalSurvey = parseInvitationExternalSurvey(invitation.meta);
-      if (externalSurvey) analyticsSurveys.push(externalSurvey);
       const profile = externalProgress?.profile;
       const participantName =
         externalProgress?.name ||
         `${profile?.firstName ?? ""} ${profile?.lastName ?? ""}`.trim() ||
         invitation.invited_email;
+      const isCompleted =
+        externalProgress?.status === "results" || completionPercent >= 100;
+      const analytics = buildAnalyticsBundle(
+        [
+          {
+            score,
+            survey: externalSurvey,
+            completed: isCompleted,
+          },
+        ],
+        1,
+      );
 
       return {
         sessionId: `inv-${invitation.invitation_id}`,
         diagnosticIdentifier: `DX-INV-${invitation.invitation_id.replace(/-/g, "").slice(0, 8).toUpperCase()}`,
-        userId: invitation.invitation_id,
+        userId: `${DISCOVERY_INVITED_FILTER_PREFIX}${invitation.invitation_id}`,
         participantName,
         sourceType: "invited" as const,
         invitedEmail: invitation.invited_email,
@@ -2109,14 +2234,20 @@ export async function getDiscoveryOverview(
         yearsExperience: profile?.yearsExperience ?? null,
         completionPercent,
         globalIndex:
-          externalProgress?.status === "results" || completionPercent >= 100
+          isCompleted && score
             ? score.globalIndex
             : null,
         updatedAt: invitation.updated_at,
+        analytics,
       };
     })
     .filter((row) => {
-      if (filters.userId) return false;
+      if (rawUserFilter) {
+        if (!invitedUserFilterId) return false;
+        if (row.userId !== `${DISCOVERY_INVITED_FILTER_PREFIX}${invitedUserFilterId}`) {
+          return false;
+        }
+      }
       if (filters.country && row.country.toLowerCase() !== filters.country.trim().toLowerCase()) {
         return false;
       }
@@ -2186,78 +2317,72 @@ export async function getDiscoveryOverview(
     `,
   );
 
-  const invitedCountries = invitedRows
+  const invitedCountries = invitationResult.rows
+    .map((invitation) => parseInvitationExternalProgress(invitation.meta)?.profile?.country?.trim() ?? "")
+    .filter(Boolean);
+  const invitedRoles = invitationResult.rows
+    .map((invitation) => parseInvitationExternalProgress(invitation.meta)?.profile?.jobRole?.trim() ?? "")
+    .filter(Boolean);
+  const invitedUsers = invitationResult.rows.map((invitation) => {
+    const externalProgress = parseInvitationExternalProgress(invitation.meta);
+    const profile = externalProgress?.profile;
+    const participantName =
+      externalProgress?.name ||
+      `${profile?.firstName ?? ""} ${profile?.lastName ?? ""}`.trim() ||
+      invitation.invited_email;
+    return {
+      userId: `${DISCOVERY_INVITED_FILTER_PREFIX}${invitation.invitation_id}`,
+      name: `${participantName} (Invitado)`,
+    };
+  });
+
+  const analytics = buildAnalyticsBundle(
+    rows.map((row) => ({
+      score:
+        row.analytics.pillars.length > 0 || row.analytics.components.length > 0
+          ? {
+              pillarMetrics: {
+                within: { total: row.analytics.pillars.find((item) => item.pillar === "within")?.average ?? 0, likert: 0, sjt: 0 },
+                out: { total: row.analytics.pillars.find((item) => item.pillar === "out")?.average ?? 0, likert: 0, sjt: 0 },
+                up: { total: row.analytics.pillars.find((item) => item.pillar === "up")?.average ?? 0, likert: 0, sjt: 0 },
+                beyond: { total: row.analytics.pillars.find((item) => item.pillar === "beyond")?.average ?? 0, likert: 0, sjt: 0 },
+              },
+              globalIndex: row.globalIndex ?? 0,
+              compList: row.analytics.components.map((component) => ({
+                pillar: "within" as const,
+                name: component.component,
+                score: (component.average / 100) * 4 + 1,
+              })),
+            }
+          : null,
+      survey:
+        row.analytics.satisfaction.responses > 0
+          ? {
+              answers: Object.fromEntries(
+                row.analytics.satisfaction.questions.map((question) => [question.question, question.average]),
+              ),
+              submittedAt: row.updatedAt,
+              average: row.analytics.satisfaction.average,
+            }
+          : null,
+      completed: row.globalIndex !== null,
+    })),
+    rows.length,
+  );
+
+  const platformFilterUsers = usersResult.rows.map((row) => ({ userId: row.user_id, name: row.name }));
+  const uniqueFilterUsers = new Map<string, { userId: string; name: string }>();
+  for (const user of [...platformFilterUsers, ...invitedUsers]) {
+    if (!user.userId || !user.name) continue;
+    uniqueFilterUsers.set(user.userId, user);
+  }
+
+  const invitedCountriesFromRows = invitedRows
     .map((row) => row.country.trim())
     .filter(Boolean);
-  const invitedRoles = invitedRows
+  const invitedRolesFromRows = invitedRows
     .map((row) => row.jobRole.trim())
     .filter(Boolean);
-
-  const pillarLabels: Record<"within" | "out" | "up" | "beyond", string> = {
-    within: "Shine Within",
-    out: "Shine Out",
-    up: "Shine Up",
-    beyond: "Shine Beyond",
-  };
-
-  const analyticsPillars = (["within", "out", "up", "beyond"] as const).map((pillar) => {
-    const values = analyticsScores.map((score) => score.pillarMetrics[pillar].total);
-    const average =
-      values.length > 0
-        ? Math.round(values.reduce((acc, value) => acc + value, 0) / values.length)
-        : 0;
-    return {
-      pillar,
-      label: pillarLabels[pillar],
-      average,
-    };
-  });
-
-  const componentMap = new Map<string, number[]>();
-  for (const score of analyticsScores) {
-    for (const component of score.compList) {
-      const list = componentMap.get(component.name) ?? [];
-      list.push(Math.round(((component.score - 1) / 4) * 100));
-      componentMap.set(component.name, list);
-    }
-  }
-  const analyticsComponents = Array.from(componentMap.entries())
-    .map(([component, values]) => ({
-      component,
-      average:
-        values.length > 0
-          ? Math.round(values.reduce((acc, value) => acc + value, 0) / values.length)
-          : 0,
-      count: values.length,
-    }))
-    .sort((a, b) => b.average - a.average)
-    .slice(0, 12);
-
-  const surveyQuestions = [
-    "¿Te resultó fácil responder el diagnóstico?",
-    "¿Entendiste bien las preguntas del diagnóstico?",
-    "¿Sentiste que el diagnóstico reflejó tu realidad?",
-    "¿Te gustó la experiencia de hacer el diagnóstico?",
-    "¿El diagnóstico te ayudó a conocerte mejor como líder?",
-  ] as const;
-  const surveyQuestionStats = surveyQuestions.map((question) => {
-    const values = analyticsSurveys
-      .map((survey) => survey.answers[question])
-      .filter((value): value is number => Number.isFinite(value));
-    return {
-      question,
-      average:
-        values.length > 0
-          ? Number((values.reduce((acc, value) => acc + value, 0) / values.length).toFixed(2))
-          : 0,
-      count: values.length,
-    };
-  });
-  const surveyValues = analyticsSurveys.map((survey) => survey.average).filter(Number.isFinite);
-  const surveyAverage =
-    surveyValues.length > 0
-      ? Number((surveyValues.reduce((acc, value) => acc + value, 0) / surveyValues.length).toFixed(2))
-      : 0;
 
   return {
     stats: {
@@ -2266,26 +2391,24 @@ export async function getDiscoveryOverview(
       averageGlobalIndex,
     },
     rows,
-    analytics: {
-      general: [
-        { label: "Completados", value: completedRows.length },
-        { label: "En progreso", value: Math.max(0, rows.length - completedRows.length) },
-      ],
-      pillars: analyticsPillars,
-      components: analyticsComponents,
-      satisfaction: {
-        responses: analyticsSurveys.length,
-        average: surveyAverage,
-        questions: surveyQuestionStats,
-      },
-    },
+    analytics,
     availableFilters: {
-      users: usersResult.rows.map((row) => ({ userId: row.user_id, name: row.name })),
+      users: Array.from(uniqueFilterUsers.values()).sort((left, right) =>
+        left.name.localeCompare(right.name, "es"),
+      ),
       countries: Array.from(
-        new Set([...countriesResult.rows.map((row) => row.country), ...invitedCountries]),
+        new Set([
+          ...countriesResult.rows.map((row) => row.country),
+          ...invitedCountries,
+          ...invitedCountriesFromRows,
+        ]),
       ).sort((a, b) => a.localeCompare(b, "es")),
       jobRoles: Array.from(
-        new Set([...rolesResult.rows.map((row) => row.job_role), ...invitedRoles]),
+        new Set([
+          ...rolesResult.rows.map((row) => row.job_role),
+          ...invitedRoles,
+          ...invitedRolesFromRows,
+        ]),
       ).sort((a, b) => a.localeCompare(b, "es")),
     },
   };

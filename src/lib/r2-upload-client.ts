@@ -16,6 +16,11 @@ export interface R2UploadResponse {
   fileName: string;
 }
 
+export interface R2UploadPresignResponse extends R2UploadResponse {
+  uploadUrl: string;
+  expiresIn: number;
+}
+
 export interface UploadToR2Input {
   file: File;
   moduleCode: ModuleCode;
@@ -34,6 +39,50 @@ function buildUploadError(payload: UploadEnvelope<unknown> | null, status: numbe
 }
 
 export async function uploadToR2(input: UploadToR2Input): Promise<R2UploadResponse> {
+  const presignResponse = await fetch('/api/v1/uploads/r2/presign', {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      fileName: input.file.name,
+      fileType: input.file.type,
+      fileSize: input.file.size,
+      moduleCode: input.moduleCode,
+      action: input.action,
+      pathPrefix: input.pathPrefix,
+      entityTable: input.entityTable,
+      fieldName: input.fieldName,
+    }),
+  });
+
+  let presignPayload: UploadEnvelope<R2UploadPresignResponse> | null = null;
+  try {
+    presignPayload = (await presignResponse.json()) as UploadEnvelope<R2UploadPresignResponse>;
+  } catch {
+    presignPayload = null;
+  }
+
+  if (presignResponse.ok && presignPayload?.ok && presignPayload.data?.uploadUrl) {
+    const putResponse = await fetch(presignPayload.data.uploadUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': input.file.type || 'application/octet-stream',
+      },
+      body: input.file,
+    });
+
+    if (!putResponse.ok) {
+      throw new Error(`Failed to upload file directly to storage (${putResponse.status})`);
+    }
+
+    const { uploadUrl, expiresIn, ...result } = presignPayload.data;
+    void uploadUrl;
+    void expiresIn;
+    return result;
+  }
+
   const formData = new FormData();
   formData.append('file', input.file);
   formData.append('moduleCode', input.moduleCode);
@@ -42,22 +91,22 @@ export async function uploadToR2(input: UploadToR2Input): Promise<R2UploadRespon
   if (input.entityTable) formData.append('entityTable', input.entityTable);
   if (input.fieldName) formData.append('fieldName', input.fieldName);
 
-  const response = await fetch('/api/v1/uploads/r2', {
+  const fallbackResponse = await fetch('/api/v1/uploads/r2', {
     method: 'POST',
     body: formData,
     credentials: 'include',
   });
 
-  let payload: UploadEnvelope<R2UploadResponse> | null = null;
+  let fallbackPayload: UploadEnvelope<R2UploadResponse> | null = null;
   try {
-    payload = (await response.json()) as UploadEnvelope<R2UploadResponse>;
+    fallbackPayload = (await fallbackResponse.json()) as UploadEnvelope<R2UploadResponse>;
   } catch {
-    payload = null;
+    fallbackPayload = null;
   }
 
-  if (!response.ok || !payload?.ok || !payload.data) {
-    throw new Error(buildUploadError(payload, response.status));
+  if (!fallbackResponse.ok || !fallbackPayload?.ok || !fallbackPayload.data) {
+    throw new Error(buildUploadError(fallbackPayload, fallbackResponse.status));
   }
 
-  return payload.data;
+  return fallbackPayload.data;
 }

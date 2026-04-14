@@ -142,6 +142,16 @@ export interface DiscoveryOverviewRow {
   completionPercent: number;
   globalIndex: number | null;
   updatedAt: string;
+  analytics: {
+    general: Array<{ label: string; value: number }>;
+    pillars: Array<{ pillar: DiscoveryPillarKey; label: string; average: number }>;
+    components: Array<{ component: string; average: number; count: number }>;
+    satisfaction: {
+      responses: number;
+      average: number;
+      questions: Array<{ question: string; average: number; count: number }>;
+    };
+  };
 }
 
 export interface DiscoveryOverviewStats {
