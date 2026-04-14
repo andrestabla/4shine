@@ -22,10 +22,19 @@ export default async function DiscoverySharePage({ params }: PageParams) {
     <main className="mx-auto min-h-screen w-full max-w-6xl px-4 pb-16 pt-8 md:px-6">
       <ResultsView
         state={{
-          name: session.nameSnapshot,
+          name: `${session.firstName} ${session.lastName}`.trim() || session.nameSnapshot,
           answers: session.answers,
           currentIdx: session.currentIdx,
           status: "results",
+          profile: {
+            firstName: session.firstName,
+            lastName: session.lastName,
+            country: session.country,
+            jobRole: session.jobRole,
+            age: session.age,
+            yearsExperience: session.yearsExperience,
+          },
+          profileCompleted: session.profileCompleted,
         }}
         publicId={session.publicId}
         isPublic={true}

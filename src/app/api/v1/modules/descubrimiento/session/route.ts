@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { authenticateRequest } from "@/server/auth/request-auth";
 import { withClient, withRoleContext } from "@/server/db/pool";
 import {
-  getOrCreateDiscoverySession,
+  getDiscoverySessionForActor,
   resetDiscoverySession,
   updateDiscoverySession,
 } from "@/features/descubrimiento/service";
@@ -18,10 +18,13 @@ export async function GET(request: Request) {
   const identity = await authenticateRequest(request);
   if (!identity) return unauthorizedResponse();
 
+  const url = new URL(request.url);
+  const userId = url.searchParams.get("userId")?.trim() || undefined;
+
   try {
     const data = await withClient((client) =>
       withRoleContext(client, identity.userId, identity.role, async () => {
-        const result = await getOrCreateDiscoverySession(client, identity);
+        const result = await getDiscoverySessionForActor(client, identity, userId);
         await logModuleAudit(client, request, identity, {
           moduleCode: "descubrimiento",
           action: "query_discovery_session",

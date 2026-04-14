@@ -2,16 +2,22 @@
 
 import React from "react";
 import clsx from "clsx";
+import { read, utils } from "xlsx";
 import {
   ChevronLeft,
   ChevronRight,
   Compass,
   Loader2,
+  Mail,
+  RefreshCw,
+  Send,
   ShieldCheck,
+  Upload,
 } from "lucide-react";
 import { AccessOfferPanel } from "@/components/access/AccessOfferPanel";
 import { PageTitle } from "@/components/dashboard/PageTitle";
 import { StatGrid } from "@/components/dashboard/StatGrid";
+import { R2UploadButton } from "@/components/ui/R2UploadButton";
 import { useAppDialog } from "@/components/ui/AppDialogProvider";
 import { useUser } from "@/context/UserContext";
 import { filterCommercialProducts } from "@/features/access/catalog";
@@ -21,26 +27,60 @@ import {
   calculateDiscoveryCompletionPercent,
 } from "./reporting";
 import {
+  createDiscoveryInvitations,
+  getDiscoveryFeedbackSettings,
+  getDiscoveryOverview,
   getDiscoverySession,
+  listDiscoveryInvitations,
   resetDiscoverySessionRequest,
-  shareDiscoverySessionRequest,
+  updateDiscoveryFeedbackSettings,
   updateDiscoverySessionRequest,
 } from "./client";
 import { ResultsView } from "./ResultsView";
 import {
+  DISCOVERY_JOB_ROLE_OPTIONS,
+  type DiscoveryFeedbackSettingsRecord,
+  type DiscoveryInvitationRecord,
+  type DiscoveryOverviewPayload,
+  type DiscoveryParticipantProfile,
   type DiscoverySessionRecord,
   type DiscoveryUserState,
 } from "./types";
 
 type SaveIndicator = "idle" | "saving" | "saved" | "error";
 
+function defaultProfile(session: DiscoverySessionRecord): DiscoveryParticipantProfile {
+  return {
+    firstName: session.firstName ?? "",
+    lastName: session.lastName ?? "",
+    country: session.country ?? "",
+    jobRole: session.jobRole ?? "",
+    age: session.age,
+    yearsExperience: session.yearsExperience,
+  };
+}
+
 function toUserState(session: DiscoverySessionRecord): DiscoveryUserState {
+  const profile = defaultProfile(session);
   return {
     name: session.nameSnapshot,
     answers: session.answers,
     currentIdx: session.currentIdx,
     status: session.status,
+    profile,
+    profileCompleted: session.profileCompleted,
   };
+}
+
+function isProfileComplete(profile: DiscoveryParticipantProfile): boolean {
+  return Boolean(
+    profile.firstName &&
+      profile.lastName &&
+      profile.country &&
+      profile.jobRole &&
+      Number.isFinite(profile.age) &&
+      Number.isFinite(profile.yearsExperience),
+  );
 }
 
 function buildPersistPayload(state: DiscoveryUserState) {
@@ -49,23 +89,77 @@ function buildPersistPayload(state: DiscoveryUserState) {
     answers: state.answers,
     currentIdx: state.currentIdx,
     completionPercent: calculateDiscoveryCompletionPercent(state.answers),
+    profile: state.profile,
   };
+}
+
+function parseEmailsFromText(input: string): string[] {
+  return input
+    .split(/[\n,;\s]+/g)
+    .map((entry) => entry.trim().toLowerCase())
+    .filter((entry) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(entry));
+}
+
+async function parseEmailsFromSpreadsheet(file: File): Promise<string[]> {
+  const buffer = await file.arrayBuffer();
+  const workbook = read(buffer, { type: "array" });
+  const firstSheetName = workbook.SheetNames[0];
+  if (!firstSheetName) return [];
+
+  const rows = utils.sheet_to_json<Array<string | number | null>>(
+    workbook.Sheets[firstSheetName],
+    {
+      header: 1,
+      defval: "",
+    },
+  );
+
+  const emails: string[] = [];
+  for (const row of rows) {
+    for (const cell of row) {
+      const value = String(cell ?? "").trim().toLowerCase();
+      if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+        emails.push(value);
+      }
+    }
+  }
+
+  return emails;
 }
 
 export function DiscoveryExperience() {
   const { currentRole, currentUser, viewerAccess } = useUser();
   const { alert, confirm } = useAppDialog();
+  const isManager = currentRole === "admin" || currentRole === "gestor";
+
   const [session, setSession] = React.useState<DiscoverySessionRecord | null>(null);
   const [state, setState] = React.useState<DiscoveryUserState>({
     name: currentUser?.name ?? "Usuario 4Shine",
     answers: {},
     currentIdx: 0,
     status: "intro",
+    profile: {
+      firstName: "",
+      lastName: "",
+      country: "",
+      jobRole: "",
+      age: null,
+      yearsExperience: null,
+    },
+    profileCompleted: false,
   });
   const [isLoading, setIsLoading] = React.useState(true);
   const [saveIndicator, setSaveIndicator] = React.useState<SaveIndicator>("idle");
   const hydratedRef = React.useRef(false);
   const lastSnapshotRef = React.useRef("");
+
+  const [overview, setOverview] = React.useState<DiscoveryOverviewPayload | null>(null);
+  const [settings, setSettings] = React.useState<DiscoveryFeedbackSettingsRecord | null>(null);
+  const [selectedUserId, setSelectedUserId] = React.useState<string>("");
+  const [managerEmails, setManagerEmails] = React.useState("");
+  const [invitations, setInvitations] = React.useState<DiscoveryInvitationRecord[]>([]);
+  const [isSendingInvites, setIsSendingInvites] = React.useState(false);
+  const [isSavingSettings, setIsSavingSettings] = React.useState(false);
 
   const applySession = React.useCallback((next: DiscoverySessionRecord) => {
     setSession(next);
@@ -74,6 +168,27 @@ export function DiscoveryExperience() {
     lastSnapshotRef.current = JSON.stringify(buildPersistPayload(nextState));
     hydratedRef.current = true;
   }, []);
+
+  const loadManagerData = React.useCallback(async () => {
+    const [overviewPayload, settingsPayload] = await Promise.all([
+      getDiscoveryOverview(),
+      getDiscoveryFeedbackSettings(),
+    ]);
+
+    setOverview(overviewPayload);
+    setSettings(settingsPayload);
+
+    const defaultUserId =
+      selectedUserId || overviewPayload.availableFilters.users[0]?.userId || "";
+
+    if (defaultUserId) {
+      const nextSession = await getDiscoverySession(defaultUserId);
+      applySession(nextSession);
+      setSelectedUserId(defaultUserId);
+      const invitationRows = await listDiscoveryInvitations(nextSession.sessionId);
+      setInvitations(invitationRows);
+    }
+  }, [applySession, selectedUserId]);
 
   React.useEffect(() => {
     if (
@@ -89,6 +204,11 @@ export function DiscoveryExperience() {
 
     const load = async () => {
       try {
+        if (isManager) {
+          await loadManagerData();
+          return;
+        }
+
         const nextSession = await getDiscoverySession();
         if (!active) return;
         applySession(nextSession);
@@ -99,7 +219,7 @@ export function DiscoveryExperience() {
           message:
             error instanceof Error
               ? error.message
-              : "Inténtalo nuevamente en unos segundos.",
+              : "Intentalo nuevamente en unos segundos.",
           tone: "error",
         });
       } finally {
@@ -114,9 +234,10 @@ export function DiscoveryExperience() {
     return () => {
       active = false;
     };
-  }, [alert, applySession, currentRole, viewerAccess]);
+  }, [alert, applySession, currentRole, isManager, loadManagerData, viewerAccess]);
 
   React.useEffect(() => {
+    if (isManager) return;
     if (!hydratedRef.current) return;
     const snapshot = JSON.stringify(buildPersistPayload(state));
     if (snapshot === lastSnapshotRef.current) return;
@@ -136,10 +257,10 @@ export function DiscoveryExperience() {
       } catch {
         setSaveIndicator("error");
       }
-    }, 500);
+    }, 600);
 
     return () => window.clearTimeout(timeoutId);
-  }, [state]);
+  }, [isManager, state]);
 
   React.useEffect(() => {
     if (state.status !== "quiz") return;
@@ -161,10 +282,10 @@ export function DiscoveryExperience() {
   const answeredCount = Object.keys(state.answers).length;
   const completionPercent = calculateDiscoveryCompletionPercent(state.answers);
   const stats = [
-    { label: "Preguntas", value: DB.length, hint: "Diagnóstico integral" },
+    { label: "Preguntas", value: DB.length, hint: "Diagnostico integral" },
     { label: "Pilares", value: 4, hint: "Within, Out, Up y Beyond" },
     { label: "Situacionales", value: 29, hint: "Criterio aplicado" },
-    { label: "Duración", value: "20-25m", hint: "Promedio estimado" },
+    { label: "Duracion", value: "20-25m", hint: "Promedio estimado" },
   ];
   const canResume = answeredCount > 0;
 
@@ -178,10 +299,21 @@ export function DiscoveryExperience() {
     setSaveIndicator("saved");
   };
 
-  const handleIntroStart = () => {
+  const handleIntroStart = async () => {
+    if (!isProfileComplete(state.profile)) {
+      await alert({
+        title: "Completa tu perfil",
+        message:
+          "Antes de iniciar el diagnostico debes completar nombres, apellidos, pais, cargo, edad y anos de experiencia.",
+        tone: "warning",
+      });
+      return;
+    }
+
     setState((current) => ({
       ...current,
       name: currentUser?.name ?? current.name,
+      profileCompleted: true,
       status:
         current.status === "results"
           ? "results"
@@ -191,9 +323,20 @@ export function DiscoveryExperience() {
     }));
   };
 
-  const handleStartQuiz = () => {
+  const handleStartQuiz = async () => {
+    if (!isProfileComplete(state.profile)) {
+      await alert({
+        title: "Completa tu perfil",
+        message:
+          "Antes de iniciar el diagnostico debes completar nombres, apellidos, pais, cargo, edad y anos de experiencia.",
+        tone: "warning",
+      });
+      return;
+    }
+
     setState((current) => ({
       ...current,
+      profileCompleted: true,
       name: currentUser?.name ?? current.name,
       status: "quiz",
     }));
@@ -243,11 +386,11 @@ export function DiscoveryExperience() {
         await persistImmediately(nextState, true);
       } catch (error) {
         await alert({
-          title: "No pudimos cerrar tu diagnóstico",
+          title: "No pudimos cerrar tu diagnostico",
           message:
             error instanceof Error
               ? error.message
-              : "Inténtalo nuevamente en unos segundos.",
+              : "Intentalo nuevamente en unos segundos.",
           tone: "error",
         });
       }
@@ -262,9 +405,9 @@ export function DiscoveryExperience() {
 
   const handleReset = async () => {
     const approved = await confirm({
-      title: "Reiniciar diagnóstico",
+      title: "Reiniciar diagnostico",
       message:
-        "Se limpiarán tus respuestas y volverás al inicio del diagnóstico.",
+        "Se limpiaran tus respuestas y volveras al inicio del diagnostico.",
       tone: "warning",
       confirmText: "Reiniciar",
       cancelText: "Cancelar",
@@ -282,22 +425,131 @@ export function DiscoveryExperience() {
         message:
           error instanceof Error
             ? error.message
-            : "Inténtalo nuevamente en unos segundos.",
+            : "Intentalo nuevamente en unos segundos.",
         tone: "error",
       });
     }
   };
 
-  const handleShare = async () => {
-    const nextSession = await shareDiscoverySessionRequest({
-      ...buildPersistPayload({
-        ...state,
-        status: "results",
-      }),
-      markCompleted: true,
-    });
-    applySession(nextSession);
-    return nextSession;
+  const handleManagerUserChange = async (userId: string) => {
+    setSelectedUserId(userId);
+    if (!userId) return;
+
+    setIsLoading(true);
+    try {
+      const nextSession = await getDiscoverySession(userId);
+      applySession(nextSession);
+      const invitationRows = await listDiscoveryInvitations(nextSession.sessionId);
+      setInvitations(invitationRows);
+    } catch (error) {
+      await alert({
+        title: "No se pudo cargar la previsualizacion",
+        message: error instanceof Error ? error.message : "Error desconocido.",
+        tone: "error",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleInviteFromText = async () => {
+    if (!session || !selectedUserId) return;
+
+    const emails = parseEmailsFromText(managerEmails);
+    if (emails.length === 0) {
+      await alert({
+        title: "Sin correos validos",
+        message: "Ingresa correos manuales o carga un archivo CSV/XLS con correos.",
+        tone: "warning",
+      });
+      return;
+    }
+
+    setIsSendingInvites(true);
+    try {
+      const result = await createDiscoveryInvitations({
+        userId: selectedUserId,
+        emails,
+        emailSubject: settings?.inviteEmailSubject,
+        emailHtml: settings?.inviteEmailHtml,
+        emailText: settings?.inviteEmailText,
+      });
+
+      setManagerEmails("");
+      applySession(result.session);
+      const invitationRows = await listDiscoveryInvitations(result.session.sessionId);
+      setInvitations(invitationRows);
+
+      await alert({
+        title: "Invitaciones enviadas",
+        message: `Se enviaron ${result.sentCount} invitaciones con codigo unico de acceso.`,
+        tone: "success",
+      });
+    } catch (error) {
+      await alert({
+        title: "No se pudieron enviar invitaciones",
+        message: error instanceof Error ? error.message : "Error desconocido.",
+        tone: "error",
+      });
+    } finally {
+      setIsSendingInvites(false);
+    }
+  };
+
+  const handleImportFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    try {
+      const emails = await parseEmailsFromSpreadsheet(file);
+      if (emails.length === 0) {
+        await alert({
+          title: "Archivo sin correos",
+          message: "No encontramos direcciones de correo validas en el archivo.",
+          tone: "warning",
+        });
+        return;
+      }
+
+      setManagerEmails((current) => {
+        const merged = new Set([...parseEmailsFromText(current), ...emails]);
+        return Array.from(merged).join("\n");
+      });
+    } catch (error) {
+      await alert({
+        title: "No se pudo leer el archivo",
+        message: error instanceof Error ? error.message : "Error desconocido.",
+        tone: "error",
+      });
+    }
+  };
+
+  const saveSettings = async (next: DiscoveryFeedbackSettingsRecord) => {
+    setIsSavingSettings(true);
+    try {
+      const updated = await updateDiscoveryFeedbackSettings({
+        aiFeedbackInstructions: next.aiFeedbackInstructions,
+        contextDocuments: next.contextDocuments,
+        inviteEmailSubject: next.inviteEmailSubject,
+        inviteEmailHtml: next.inviteEmailHtml,
+        inviteEmailText: next.inviteEmailText,
+      });
+      setSettings(updated);
+      await alert({
+        title: "Configuracion guardada",
+        message: "Se actualizaron instrucciones IA y plantillas de invitacion.",
+        tone: "success",
+      });
+    } catch (error) {
+      await alert({
+        title: "No se pudo guardar",
+        message: error instanceof Error ? error.message : "Error desconocido.",
+        tone: "error",
+      });
+    } finally {
+      setIsSavingSettings(false);
+    }
   };
 
   if (isLockedForViewer) {
@@ -305,19 +557,19 @@ export function DiscoveryExperience() {
       <div className="space-y-8">
         <PageTitle
           title="Descubrimiento"
-          subtitle="Activa el diagnóstico individual o el programa completo para abrir esta lectura ejecutiva."
+          subtitle="Activa el diagnostico individual o el programa completo para abrir esta lectura ejecutiva."
         />
         <StatGrid stats={stats} />
         <AccessOfferPanel
           badge="Compra requerida"
-          title="Desbloquea tu diagnóstico 4Shine."
-          description="Esta experiencia se vincula a tu usuario y guarda un diagnóstico único por cuenta. Puedes activar solo Descubrimiento o entrar al programa completo 4Shine."
+          title="Desbloquea tu diagnostico 4Shine."
+          description="Esta experiencia se vincula a tu usuario y guarda un diagnostico unico por cuenta. Puedes activar solo Descubrimiento o entrar al programa completo 4Shine."
           products={discoveryOffers}
           primaryAction={{
             href: "/dashboard",
             label: "Ver opciones disponibles",
           }}
-          note="Con Descubrimiento obtienes la prueba diagnóstica y su lectura ejecutiva. Con el programa 4Shine, además, activas Trayectoria, workbooks, mentorías incluidas y comunidad."
+          note="Con Descubrimiento obtienes la prueba diagnostica y su lectura ejecutiva."
         />
       </div>
     );
@@ -329,8 +581,289 @@ export function DiscoveryExperience() {
         <div className="text-center">
           <Loader2 size={34} className="mx-auto animate-spin text-[var(--brand-primary)]" />
           <p className="mt-3 text-sm text-[var(--app-muted)]">
-            Preparando tu experiencia de descubrimiento...
+            Preparando experiencia de descubrimiento...
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isManager) {
+    const currentSettings = settings;
+
+    return (
+      <div className="space-y-6">
+        <PageTitle
+          title="Descubrimiento · Gestion"
+          subtitle="Previsualiza diagnosticos completos, comparte por correo con codigo unico y administra instrucciones IA + contexto documental."
+        />
+
+        <div className="grid gap-6 xl:grid-cols-[minmax(320px,0.92fr)_minmax(0,1.08fr)]">
+          <section className="space-y-4">
+            <div className="app-panel p-5">
+              <p className="app-section-kicker">Participante</p>
+              <label className="mt-2 block text-sm text-[var(--app-muted)]">
+                Selecciona usuario
+              </label>
+              <select
+                value={selectedUserId}
+                onChange={(event) => void handleManagerUserChange(event.target.value)}
+                className="mt-2 h-11 w-full rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
+              >
+                <option value="">Seleccionar...</option>
+                {overview?.availableFilters.users.map((user) => (
+                  <option key={user.userId} value={user.userId}>
+                    {user.name || user.userId}
+                  </option>
+                ))}
+              </select>
+
+              {session && (
+                <div className="mt-4 rounded-[14px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-3 text-sm text-[var(--app-ink)]">
+                  <p>
+                    <strong>ID diagnostico:</strong> {session.diagnosticIdentifier}
+                  </p>
+                  <p>
+                    <strong>Perfil:</strong> {session.firstName} {session.lastName} · {session.country}
+                  </p>
+                  <p>
+                    <strong>Cargo:</strong> {session.jobRole || "Sin definir"}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="app-panel p-5">
+              <div className="flex items-center gap-2">
+                <Mail size={16} className="text-[var(--brand-primary)]" />
+                <h3 className="text-lg font-black text-[var(--app-ink)]">Invitar por correo</h3>
+              </div>
+
+              <textarea
+                value={managerEmails}
+                onChange={(event) => setManagerEmails(event.target.value)}
+                placeholder="correo1@empresa.com\ncorreo2@empresa.com"
+                className="mt-3 min-h-28 w-full rounded-[12px] border border-[var(--app-border)] bg-white p-3 text-sm"
+              />
+
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-4 py-2 text-xs font-semibold text-[var(--app-ink)]">
+                  <Upload size={13} />
+                  CSV/XLS
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept=".csv,.xls,.xlsx"
+                    onChange={(event) => void handleImportFile(event)}
+                  />
+                </label>
+
+                <button
+                  type="button"
+                  disabled={!selectedUserId || isSendingInvites}
+                  onClick={() => void handleInviteFromText()}
+                  className="inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-4 py-2 text-xs font-extrabold uppercase tracking-[0.14em] text-white disabled:opacity-60"
+                >
+                  {isSendingInvites ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+                  Enviar invitaciones
+                </button>
+              </div>
+
+              <div className="mt-4">
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--app-muted)]">
+                  Historial ({invitations.length})
+                </p>
+                <ul className="mt-2 space-y-2 text-sm">
+                  {invitations.slice(0, 8).map((invitation) => (
+                    <li key={invitation.invitationId} className="rounded-[10px] border border-[var(--app-border)] p-2">
+                      <p className="font-semibold text-[var(--app-ink)]">{invitation.invitedEmail}</p>
+                      <p className="text-xs text-[var(--app-muted)]">
+                        Codigo terminado en {invitation.accessCodeLast4} · enviado {new Date(invitation.accessCodeSentAt).toLocaleString("es-CO")}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            {currentSettings && (
+              <div className="app-panel p-5 space-y-3">
+                <h3 className="text-lg font-black text-[var(--app-ink)]">Feedback IA y Mailing</h3>
+
+                <label className="block text-sm font-semibold text-[var(--app-ink)]">
+                  Instrucciones de feedback IA
+                  <textarea
+                    value={currentSettings.aiFeedbackInstructions}
+                    onChange={(event) =>
+                      setSettings((prev) =>
+                        prev
+                          ? { ...prev, aiFeedbackInstructions: event.target.value }
+                          : prev,
+                      )
+                    }
+                    className="mt-2 min-h-24 w-full rounded-[12px] border border-[var(--app-border)] bg-white p-3 text-sm"
+                  />
+                </label>
+
+                <label className="block text-sm font-semibold text-[var(--app-ink)]">
+                  Asunto del correo
+                  <input
+                    value={currentSettings.inviteEmailSubject}
+                    onChange={(event) =>
+                      setSettings((prev) =>
+                        prev ? { ...prev, inviteEmailSubject: event.target.value } : prev,
+                      )
+                    }
+                    className="mt-2 h-10 w-full rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
+                  />
+                </label>
+
+                <label className="block text-sm font-semibold text-[var(--app-ink)]">
+                  HTML del mailing
+                  <textarea
+                    value={currentSettings.inviteEmailHtml}
+                    onChange={(event) =>
+                      setSettings((prev) =>
+                        prev ? { ...prev, inviteEmailHtml: event.target.value } : prev,
+                      )
+                    }
+                    className="mt-2 min-h-40 w-full rounded-[12px] border border-[var(--app-border)] bg-white p-3 font-mono text-xs"
+                  />
+                </label>
+
+                <label className="block text-sm font-semibold text-[var(--app-ink)]">
+                  Texto plano del mailing
+                  <textarea
+                    value={currentSettings.inviteEmailText}
+                    onChange={(event) =>
+                      setSettings((prev) =>
+                        prev ? { ...prev, inviteEmailText: event.target.value } : prev,
+                      )
+                    }
+                    className="mt-2 min-h-24 w-full rounded-[12px] border border-[var(--app-border)] bg-white p-3 text-sm"
+                  />
+                </label>
+
+                <div className="rounded-[12px] border border-[var(--app-border)] p-3">
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--app-muted)]">
+                    Documentos de contexto ({currentSettings.contextDocuments.length})
+                  </p>
+                  <ul className="mt-2 space-y-1 text-sm">
+                    {currentSettings.contextDocuments.map((doc) => (
+                      <li key={doc.id} className="flex items-center justify-between gap-2">
+                        <a href={doc.url} target="_blank" rel="noreferrer" className="text-[var(--brand-primary)] underline">
+                          {doc.name}
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSettings((prev) =>
+                              prev
+                                ? {
+                                    ...prev,
+                                    contextDocuments: prev.contextDocuments.filter(
+                                      (item) => item.id !== doc.id,
+                                    ),
+                                  }
+                                : prev,
+                            )
+                          }
+                          className="text-xs font-semibold text-rose-700"
+                        >
+                          Eliminar
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <div className="mt-3">
+                    <R2UploadButton
+                      moduleCode="descubrimiento"
+                      action="update"
+                      pathPrefix="descubrimiento/context"
+                      entityTable="app_assessment.discovery_feedback_settings"
+                      fieldName="context_documents"
+                      accept=".pdf,.doc,.docx,.txt,.md"
+                      buttonLabel="Subir documento"
+                      onUploaded={async (url, payload) => {
+                        setSettings((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                contextDocuments: [
+                                  {
+                                    id: crypto.randomUUID(),
+                                    name: payload.fileName,
+                                    url,
+                                    uploadedAt: new Date().toISOString(),
+                                  },
+                                  ...prev.contextDocuments,
+                                ],
+                              }
+                            : prev,
+                        );
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={!settings || isSavingSettings}
+                  onClick={() => settings && void saveSettings(settings)}
+                  className="inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-4 py-2 text-xs font-extrabold uppercase tracking-[0.14em] text-white disabled:opacity-60"
+                >
+                  {isSavingSettings ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+                  Guardar configuracion
+                </button>
+              </div>
+            )}
+          </section>
+
+          <section className="space-y-4">
+            {overview && (
+              <StatGrid
+                stats={[
+                  {
+                    label: "Diagnosticos",
+                    value: overview.stats.totalDiagnostics,
+                    hint: "Filtrados",
+                  },
+                  {
+                    label: "Completados",
+                    value: overview.stats.completedDiagnostics,
+                    hint: "Con indice global",
+                  },
+                  {
+                    label: "Indice promedio",
+                    value: `${overview.stats.averageGlobalIndex}%`,
+                    hint: "Global",
+                  },
+                  {
+                    label: "Usuarios",
+                    value: overview.availableFilters.users.length,
+                    hint: "Con sesion",
+                  },
+                ]}
+              />
+            )}
+
+            {session ? (
+              <ResultsView
+                state={{
+                  ...state,
+                  name: `${session.firstName} ${session.lastName}`.trim() || session.nameSnapshot,
+                }}
+                publicId={session.publicId}
+                embedded={true}
+                isPublic={false}
+              />
+            ) : (
+              <div className="app-panel p-6 text-sm text-[var(--app-muted)]">
+                Selecciona un participante para previsualizar su diagnostico.
+              </div>
+            )}
+          </section>
         </div>
       </div>
     );
@@ -341,12 +874,11 @@ export function DiscoveryExperience() {
       <div className="space-y-8">
         <PageTitle
           title="Descubrimiento"
-          subtitle="Tu lectura ejecutiva 4Shine reúne autopercepción, juicio situacional y prioridades concretas para el siguiente ciclo."
+          subtitle="Tu lectura ejecutiva 4Shine integra autopercepcion y criterio situacional en un mapa accionable."
         />
         <ResultsView
           state={state}
           publicId={session?.publicId}
-          onShare={handleShare}
           onReset={handleReset}
         />
       </div>
@@ -358,51 +890,125 @@ export function DiscoveryExperience() {
       <div className="space-y-8">
         <PageTitle
           title="Descubrimiento"
-          subtitle="Aquí vive el diagnóstico 4Shine que traduce tu momento actual en una lectura ejecutiva accionable."
+          subtitle="Antes de iniciar, completa tu ficha personal. Este perfil habilita filtros de analitica y lectura comparativa del diagnostico."
         />
         <StatGrid stats={stats} />
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.75fr)]">
-          <section className="relative overflow-hidden rounded-[24px] border border-[var(--app-border)] bg-[linear-gradient(120deg,rgba(49,31,68,0.98),rgba(74,43,93,0.94)_58%,rgba(245,183,209,0.78)_100%)] px-6 py-7 text-white shadow-[0_24px_48px_rgba(55,32,80,0.14)] md:px-8 md:py-8">
-            <div className="absolute inset-y-0 right-[22%] hidden w-16 bg-white/28 blur-2xl md:block" />
-            <div className="relative max-w-2xl">
-              <p className="text-xs font-black uppercase tracking-[0.28em] text-white/70">
-                Diagnóstico 4Shine
-              </p>
-              <h3 className="mt-3 text-4xl font-black leading-[0.92] text-white md:text-[3.3rem]">
-                Lee tu liderazgo antes de intentar corregirlo.
-              </h3>
-              <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/82 md:text-base">
-                Este módulo integra autopercepción, escenarios situacionales y una
-                lectura ejecutiva por pilares para ayudarte a identificar la
-                prioridad real de desarrollo.
-              </p>
-
-              <div className="mt-6 flex flex-wrap gap-2">
-                {[
-                  "Shine Within",
-                  "Shine Out",
-                  "Shine Up",
-                  "Shine Beyond",
-                ].map((item) => (
-                  <span
-                    key={item}
-                    className="rounded-full border border-white/18 bg-white/10 px-4 py-2 text-xs font-semibold text-white/92 backdrop-blur"
-                  >
-                    {item}
-                  </span>
-                ))}
+          <section className="app-panel p-6 md:p-7">
+            <div className="flex items-center gap-3">
+              <div className="rounded-[16px] bg-[var(--app-chip)] p-3 text-[var(--brand-primary)]">
+                <ShieldCheck size={18} />
               </div>
-
-              <button
-                type="button"
-                onClick={handleIntroStart}
-                className="mt-7 inline-flex items-center gap-2 rounded-[18px] bg-white px-5 py-3 text-sm font-extrabold text-[var(--brand-primary)] transition hover:translate-x-0.5"
-              >
-                {canResume ? "Continuar diagnóstico" : "Empezar diagnóstico"}
-                <ChevronRight size={16} />
-              </button>
+              <div>
+                <p className="app-section-kicker">Perfil obligatorio</p>
+                <h3 className="mt-2 text-2xl font-black text-[var(--app-ink)]">
+                  Datos previos al diagnostico
+                </h3>
+              </div>
             </div>
+
+            <div className="mt-6 grid gap-3 md:grid-cols-2">
+              <input
+                value={state.profile.firstName}
+                onChange={(event) =>
+                  setState((current) => ({
+                    ...current,
+                    profile: { ...current.profile, firstName: event.target.value },
+                  }))
+                }
+                placeholder="Nombres"
+                className="h-11 rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
+              />
+              <input
+                value={state.profile.lastName}
+                onChange={(event) =>
+                  setState((current) => ({
+                    ...current,
+                    profile: { ...current.profile, lastName: event.target.value },
+                  }))
+                }
+                placeholder="Apellidos"
+                className="h-11 rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
+              />
+              <input
+                value={state.profile.country}
+                onChange={(event) =>
+                  setState((current) => ({
+                    ...current,
+                    profile: { ...current.profile, country: event.target.value },
+                  }))
+                }
+                placeholder="Pais"
+                className="h-11 rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
+              />
+              <select
+                value={state.profile.jobRole}
+                onChange={(event) =>
+                  setState((current) => ({
+                    ...current,
+                    profile: {
+                      ...current.profile,
+                      jobRole: event.target.value as DiscoveryParticipantProfile["jobRole"],
+                    },
+                  }))
+                }
+                className="h-11 rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
+              >
+                <option value="">Selecciona cargo</option>
+                {DISCOVERY_JOB_ROLE_OPTIONS.map((jobRole) => (
+                  <option key={jobRole} value={jobRole}>
+                    {jobRole}
+                  </option>
+                ))}
+              </select>
+              <input
+                value={state.profile.age ?? ""}
+                onChange={(event) =>
+                  setState((current) => ({
+                    ...current,
+                    profile: {
+                      ...current.profile,
+                      age: event.target.value ? Number(event.target.value) : null,
+                    },
+                  }))
+                }
+                type="number"
+                min={16}
+                max={100}
+                placeholder="Edad"
+                className="h-11 rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
+              />
+              <input
+                value={state.profile.yearsExperience ?? ""}
+                onChange={(event) =>
+                  setState((current) => ({
+                    ...current,
+                    profile: {
+                      ...current.profile,
+                      yearsExperience: event.target.value
+                        ? Number(event.target.value)
+                        : null,
+                    },
+                  }))
+                }
+                type="number"
+                step="0.5"
+                min={0}
+                max={80}
+                placeholder="Anos de experiencia"
+                className="h-11 rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => void handleIntroStart()}
+              className="mt-6 inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-5 py-3 text-sm font-extrabold text-white"
+            >
+              {canResume ? "Continuar diagnostico" : "Empezar diagnostico"}
+              <ChevronRight size={16} />
+            </button>
           </section>
 
           <aside className="app-panel p-5 sm:p-6">
@@ -415,59 +1021,24 @@ export function DiscoveryExperience() {
                 <h4 className="mt-2 text-2xl font-black text-[var(--app-ink)]">
                   {currentUser?.name ?? state.name}
                 </h4>
-                <p className="mt-2 text-sm text-[var(--app-muted)]">
-                  Este diagnóstico ya está conectado a tu cuenta 4Shine y a tu
-                  ID único de usuario.
-                </p>
               </div>
             </div>
 
-            <div className="mt-5 space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-[18px] border border-[var(--app-border)] bg-white/72 px-4 py-4">
-                  <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[var(--app-muted)]">
-                    ID diagnóstico
-                  </p>
-                  <p className="mt-2 text-sm font-semibold text-[var(--app-ink)]">
-                    {session?.sessionId
-                      ? session.sessionId.slice(0, 8).toUpperCase()
-                      : "Pendiente"}
-                  </p>
-                </div>
-                <div className="rounded-[18px] border border-[var(--app-border)] bg-white/72 px-4 py-4">
-                  <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[var(--app-muted)]">
-                    Último guardado
-                  </p>
-                  <p className="mt-2 text-sm font-semibold text-[var(--app-ink)]">
-                    {session?.updatedAt
-                      ? new Date(session.updatedAt).toLocaleString("es-CO", {
-                          dateStyle: "short",
-                          timeStyle: "short",
-                        })
-                      : "Sin sesión previa"}
-                  </p>
-                </div>
-                <div className="rounded-[18px] border border-[var(--app-border)] bg-white/72 px-4 py-4 md:col-span-2">
-                  <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[var(--app-muted)]">
-                    Avance
-                  </p>
-                  <p className="mt-2 text-2xl font-black text-[var(--app-ink)]">
-                    {completionPercent}%
-                  </p>
-                </div>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <div className="rounded-[18px] border border-[var(--app-border)] bg-white/72 px-4 py-4">
+                <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[var(--app-muted)]">
+                  ID diagnostico
+                </p>
+                <p className="mt-2 text-sm font-semibold text-[var(--app-ink)]">
+                  {session?.diagnosticIdentifier || "Pendiente"}
+                </p>
               </div>
-
-              {canResume && (
-                <div className="rounded-[18px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-4">
-                  <p className="text-sm font-semibold text-[var(--app-ink)]">
-                    Ya tienes respuestas guardadas.
-                  </p>
-                  <p className="mt-1 text-sm text-[var(--app-muted)]">
-                    Puedes retomar desde la pregunta {state.currentIdx + 1} con{" "}
-                    {answeredCount} respuestas registradas.
-                  </p>
-                </div>
-              )}
+              <div className="rounded-[18px] border border-[var(--app-border)] bg-white/72 px-4 py-4">
+                <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[var(--app-muted)]">
+                  Avance
+                </p>
+                <p className="mt-2 text-sm font-semibold text-[var(--app-ink)]">{completionPercent}%</p>
+              </div>
             </div>
           </aside>
         </div>
@@ -480,22 +1051,17 @@ export function DiscoveryExperience() {
       {
         title: "Responde desde tu realidad actual",
         description:
-          "No busques la versión ideal. El valor del diagnóstico aparece cuando contestas desde lo que hoy haces de verdad.",
+          "No busques la version ideal. El valor del diagnostico aparece cuando contestas desde lo que hoy haces de verdad.",
       },
       {
-        title: "Combina intención y criterio",
+        title: "Combina intencion y criterio",
         description:
-          "La autopercepción muestra cómo te ves; los escenarios situacionales revelan cómo decides bajo presión.",
+          "La autopercepcion muestra como te ves; los escenarios situacionales revelan como decides bajo presion.",
       },
       {
-        title: "Usa el resultado como lectura",
+        title: "Duracion estimada",
         description:
-          "No es un examen. Es una radiografía para decidir dónde concentrar tu energía de desarrollo.",
-      },
-      {
-        title: "Duración estimada",
-        description:
-          "Reserva entre 20 y 25 minutos. El cuestionario está paginado y guarda tu avance automáticamente.",
+          "Reserva entre 20 y 25 minutos. El cuestionario esta paginado y guarda tu avance automaticamente.",
       },
     ];
 
@@ -503,23 +1069,11 @@ export function DiscoveryExperience() {
       <div className="space-y-8">
         <PageTitle
           title="Descubrimiento"
-          subtitle="Antes de empezar, vale la pena alinear el propósito del diagnóstico y la forma correcta de leerlo."
+          subtitle="Alineemos el proposito del diagnostico y la forma correcta de interpretarlo."
         />
 
         <section className="app-panel p-6 md:p-8">
-          <div className="flex items-center gap-3">
-            <div className="rounded-[16px] bg-[var(--app-chip)] p-3 text-[var(--brand-primary)]">
-              <ShieldCheck size={18} />
-            </div>
-            <div>
-              <p className="app-section-kicker">Instrucciones</p>
-              <h3 className="mt-2 text-3xl font-black text-[var(--app-ink)]">
-                Cómo aprovechar esta lectura
-              </h3>
-            </div>
-          </div>
-
-          <div className="mt-6 grid gap-4 md:grid-cols-2">
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
             {instructions.map((item) => (
               <article
                 key={item.title}
@@ -544,15 +1098,15 @@ export function DiscoveryExperience() {
                   status: "intro",
                 }))
               }
-              className="inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-5 py-3 text-sm font-semibold text-[var(--app-ink)] transition hover:bg-[var(--app-surface-muted)]"
+              className="inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-5 py-3 text-sm font-semibold text-[var(--app-ink)]"
             >
               <ChevronLeft size={16} />
               Volver
             </button>
             <button
               type="button"
-              onClick={handleStartQuiz}
-              className="inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-5 py-3 text-sm font-extrabold text-white transition hover:opacity-92"
+              onClick={() => void handleStartQuiz()}
+              className="inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-5 py-3 text-sm font-extrabold text-white"
             >
               Empezar cuestionario
               <ChevronRight size={16} />
@@ -571,14 +1125,13 @@ export function DiscoveryExperience() {
     <div className="space-y-6">
       <PageTitle
         title="Descubrimiento"
-        subtitle="Avanza por bloques cortos. El sistema guarda tus respuestas automáticamente mientras completas el diagnóstico."
+        subtitle="Avanza por bloques cortos. El sistema guarda tus respuestas automaticamente."
       />
 
-      <div className="sticky top-[5rem] z-10 rounded-[22px] border border-[var(--app-border)] bg-[rgba(255,255,255,0.88)] px-4 py-4 shadow-[0_20px_42px_rgba(55,32,80,0.08)] backdrop-blur-xl md:top-[5.5rem] md:px-5">
+      <div className="sticky top-[5rem] z-10 rounded-[22px] border border-[var(--app-border)] bg-[rgba(255,255,255,0.88)] px-4 py-4 shadow-[0_20px_42px_rgba(55,32,80,0.08)] backdrop-blur-xl md:px-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="app-section-kicker">Cuestionario</p>
-            <h3 className="mt-2 text-2xl font-black text-[var(--app-ink)] md:text-3xl">
+            <h3 className="text-2xl font-black text-[var(--app-ink)] md:text-3xl">
               Preguntas {start + 1} a {end}
             </h3>
             <p className="mt-2 text-sm text-[var(--app-muted)]">
@@ -613,13 +1166,6 @@ export function DiscoveryExperience() {
             </span>
           </div>
         </div>
-
-        <div className="mt-4 h-2 overflow-hidden rounded-full bg-[var(--app-surface-muted)]">
-          <div
-            className="h-full rounded-full bg-[var(--brand-primary)] transition-all duration-500"
-            style={{ width: `${completionPercent}%` }}
-          />
-        </div>
       </div>
 
       <div className="space-y-5">
@@ -628,23 +1174,9 @@ export function DiscoveryExperience() {
           const questionNumber = start + index + 1;
 
           return (
-            <article
-              key={String(question.id)}
-              className="app-panel p-5 sm:p-6"
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full bg-[var(--app-chip)] px-3 py-1 text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--brand-primary)]">
-                  {question.pillar}
-                </span>
-                <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--app-muted)]">
-                  {question.type === "sjt" ? "Situacional" : "Autoinforme"}
-                </span>
-              </div>
-
-              <h4 className="mt-5 text-xl font-black leading-snug text-[var(--app-ink)] md:text-2xl">
-                <span className="mr-2 text-[var(--brand-primary)]">
-                  {questionNumber}.
-                </span>
+            <article key={String(question.id)} className="app-panel p-5 sm:p-6">
+              <h4 className="text-xl font-black leading-snug text-[var(--app-ink)] md:text-2xl">
+                <span className="mr-2 text-[var(--brand-primary)]">{questionNumber}.</span>
                 {question.text}
               </h4>
 
@@ -661,8 +1193,8 @@ export function DiscoveryExperience() {
                         className={clsx(
                           "min-h-28 rounded-[18px] border px-3 py-4 text-center text-[11px] font-extrabold leading-tight transition md:text-sm",
                           selected
-                            ? "border-[var(--brand-primary)] bg-[var(--brand-primary)] text-white shadow-[0_16px_32px_rgba(55,32,80,0.16)]"
-                            : "border-[var(--app-border)] bg-white/80 text-[var(--app-ink)] hover:bg-[var(--app-surface-muted)]",
+                            ? "border-[var(--brand-primary)] bg-[var(--brand-primary)] text-white"
+                            : "border-[var(--app-border)] bg-white/80 text-[var(--app-ink)]",
                         )}
                       >
                         <span className="block text-lg md:text-xl">{value}</span>
@@ -683,8 +1215,8 @@ export function DiscoveryExperience() {
                         className={clsx(
                           "flex w-full items-start gap-4 rounded-[20px] border px-5 py-5 text-left text-sm font-semibold leading-relaxed transition md:text-base",
                           selected
-                            ? "border-[var(--brand-primary)] bg-[var(--app-surface-muted)] text-[var(--app-ink)] shadow-[0_16px_32px_rgba(55,32,80,0.08)]"
-                            : "border-[var(--app-border)] bg-white/82 text-[var(--app-muted)] hover:bg-[var(--app-surface-muted)]",
+                            ? "border-[var(--brand-primary)] bg-[var(--app-surface-muted)] text-[var(--app-ink)]"
+                            : "border-[var(--app-border)] bg-white/82 text-[var(--app-muted)]",
                         )}
                       >
                         <span
@@ -711,7 +1243,7 @@ export function DiscoveryExperience() {
           type="button"
           onClick={handlePrevPage}
           disabled={start === 0}
-          className="inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-5 py-3 text-sm font-semibold text-[var(--app-ink)] transition hover:bg-[var(--app-surface-muted)] disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-5 py-3 text-sm font-semibold text-[var(--app-ink)] disabled:opacity-40"
         >
           <ChevronLeft size={16} />
           Anterior
@@ -720,7 +1252,7 @@ export function DiscoveryExperience() {
         <button
           type="button"
           onClick={() => void handleNextPage()}
-          className="inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-5 py-3 text-sm font-extrabold text-white transition hover:opacity-92"
+          className="inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-5 py-3 text-sm font-extrabold text-white"
         >
           {end >= DB.length ? "Ver resultados" : "Continuar"}
           <ChevronRight size={16} />
