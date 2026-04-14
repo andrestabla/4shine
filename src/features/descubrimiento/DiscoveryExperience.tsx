@@ -169,6 +169,7 @@ export function DiscoveryExperience() {
   const lastSnapshotRef = React.useRef("");
 
   const [managerTab, setManagerTab] = React.useState<ManagerTab>("preview");
+  const [managerPreviewIdx, setManagerPreviewIdx] = React.useState(0);
   const [overview, setOverview] = React.useState<DiscoveryOverviewPayload | null>(null);
   const [settings, setSettings] = React.useState<DiscoveryFeedbackSettingsRecord | null>(null);
   const [selectedUserId, setSelectedUserId] = React.useState<string>("");
@@ -195,6 +196,13 @@ export function DiscoveryExperience() {
     yearsExperienceMin: "",
     yearsExperienceMax: "",
   });
+
+  const managerPreviewStart = managerPreviewIdx;
+  const managerPreviewEnd = Math.min(
+    managerPreviewStart + DISCOVERY_ITEMS_PER_PAGE,
+    DB.length,
+  );
+  const managerPreviewItems = DB.slice(managerPreviewStart, managerPreviewEnd);
 
   const applySession = React.useCallback((next: DiscoverySessionRecord) => {
     setSession(next);
@@ -756,7 +764,7 @@ export function DiscoveryExperience() {
           </div>
         </div>
 
-        {(managerTab === "preview" || managerTab === "mailing") && (
+        {managerTab === "mailing" && (
           <div className="app-panel p-5">
             <p className="app-section-kicker">Participante</p>
             <label className="mt-2 block text-sm text-[var(--app-muted)]">Selecciona usuario</label>
@@ -784,22 +792,114 @@ export function DiscoveryExperience() {
         )}
 
         {managerTab === "preview" && (
-          <div>
-            {session ? (
-              <ResultsView
-                state={{
-                  ...state,
-                  name: `${session.firstName} ${session.lastName}`.trim() || session.nameSnapshot,
-                }}
-                publicId={session.publicId}
-                embedded={true}
-                isPublic={false}
-              />
-            ) : (
-              <div className="app-panel p-6 text-sm text-[var(--app-muted)]">
-                Selecciona un participante para previsualizar su diagnostico.
+          <div className="space-y-4">
+            <div className="app-panel p-5">
+              <p className="app-section-kicker">Vista estructural</p>
+              <h3 className="mt-2 text-2xl font-black text-[var(--app-ink)]">
+                Navegacion completa del cuestionario
+              </h3>
+              <p className="mt-2 text-sm text-[var(--app-muted)]">
+                Esta vista no esta asociada a ningun usuario. Solo permite
+                revisar todas las preguntas que componen la prueba.
+              </p>
+
+              <div className="mt-4 rounded-[14px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-3 text-sm text-[var(--app-ink)]">
+                <p>
+                  Bloque {Math.floor(managerPreviewStart / DISCOVERY_ITEMS_PER_PAGE) + 1} de{" "}
+                  {Math.ceil(DB.length / DISCOVERY_ITEMS_PER_PAGE)}
+                </p>
+                <p>
+                  Preguntas {managerPreviewStart + 1} a {managerPreviewEnd} de {DB.length}
+                </p>
               </div>
-            )}
+            </div>
+
+            <div className="space-y-4">
+              {managerPreviewItems.map((question, index) => {
+                const questionNumber = managerPreviewStart + index + 1;
+
+                return (
+                  <article key={String(question.id)} className="app-panel p-5 sm:p-6">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full bg-[var(--app-chip)] px-3 py-1 text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--brand-primary)]">
+                        {question.pillar}
+                      </span>
+                      <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--app-muted)]">
+                        {question.type === "sjt" ? "Situacional" : "Autoinforme"}
+                      </span>
+                    </div>
+
+                    <h4 className="mt-4 text-xl font-black leading-snug text-[var(--app-ink)] md:text-2xl">
+                      <span className="mr-2 text-[var(--brand-primary)]">
+                        {questionNumber}.
+                      </span>
+                      {question.text}
+                    </h4>
+
+                    {question.type === "likert" ? (
+                      <div className="mt-5 grid grid-cols-5 gap-2">
+                        {[1, 2, 3, 4, 5].map((value) => {
+                          const label = SCALES[question.scale ?? "freq"][value - 1];
+                          return (
+                            <div
+                              key={value}
+                              className="min-h-24 rounded-[14px] border border-[var(--app-border)] bg-white/70 px-2 py-3 text-center text-[11px] font-semibold text-[var(--app-ink)]"
+                            >
+                              <span className="block text-base font-black">{value}</span>
+                              <span className="mt-1 block">{label}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="mt-5 space-y-2">
+                        {question.options?.map((option) => (
+                          <div
+                            key={option.id}
+                            className="rounded-[14px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm text-[var(--app-ink)]"
+                          >
+                            {option.id}. {option.text}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() =>
+                  setManagerPreviewIdx((current) =>
+                    Math.max(0, current - DISCOVERY_ITEMS_PER_PAGE),
+                  )
+                }
+                disabled={managerPreviewStart === 0}
+                className="inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-5 py-3 text-sm font-semibold text-[var(--app-ink)] disabled:opacity-40"
+              >
+                <ChevronLeft size={16} />
+                Anterior
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setManagerPreviewIdx((current) =>
+                    Math.min(
+                      Math.max(0, DB.length - DISCOVERY_ITEMS_PER_PAGE),
+                      current + DISCOVERY_ITEMS_PER_PAGE,
+                    ),
+                  )
+                }
+                disabled={managerPreviewEnd >= DB.length}
+                className="inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-5 py-3 text-sm font-extrabold text-white disabled:opacity-50"
+              >
+                Siguiente
+                <ChevronRight size={16} />
+              </button>
+            </div>
           </div>
         )}
 
