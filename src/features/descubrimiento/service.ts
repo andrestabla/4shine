@@ -14,6 +14,7 @@ import {
 import type {
   DiscoveryAnswers,
   DiscoveryContextDocument,
+  DiscoveryExperienceSurvey,
   DiscoveryFeedbackSettingsRecord,
   DiscoveryInvitationAccessPayload,
   DiscoveryInvitationBatchResult,
@@ -50,6 +51,7 @@ interface DiscoverySessionRow {
   job_role: DiscoveryJobRole | null;
   age: number | null;
   years_experience: number | null;
+  feedback_survey?: unknown;
   created_at: string;
   updated_at: string;
 }
@@ -226,6 +228,7 @@ function mapDiscoverySessionRow(row: DiscoverySessionRow): DiscoverySessionRecor
     age: profile.age,
     yearsExperience: profile.yearsExperience,
     profileCompleted: isProfileCompleted(profile),
+    experienceSurvey: parseExperienceSurvey(row.feedback_survey),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -243,6 +246,34 @@ function mapInvitationRow(row: DiscoveryInvitationRow): DiscoveryInvitationRecor
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+function parseExperienceSurvey(input: unknown): DiscoveryExperienceSurvey | null {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return null;
+  const payload = input as Record<string, unknown>;
+  const answersRaw = payload.answers;
+  if (!answersRaw || typeof answersRaw !== "object" || Array.isArray(answersRaw)) return null;
+  const answers: Record<string, number> = {};
+  for (const [key, value] of Object.entries(answersRaw as Record<string, unknown>)) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) continue;
+    answers[key] = Math.max(1, Math.min(5, Math.round(numeric)));
+  }
+  if (Object.keys(answers).length === 0) return null;
+  const submittedAt =
+    typeof payload.submittedAt === "string" && payload.submittedAt.trim()
+      ? payload.submittedAt
+      : new Date().toISOString();
+  const average =
+    typeof payload.average === "number" && Number.isFinite(payload.average)
+      ? Number(payload.average.toFixed(2))
+      : Number(
+          (
+            Object.values(answers).reduce((acc, value) => acc + value, 0) /
+            Math.max(1, Object.keys(answers).length)
+          ).toFixed(2),
+        );
+  return { answers, submittedAt, average };
 }
 
 function parseInvitationExternalProgress(meta: unknown): DiscoveryUserState | null {
@@ -275,6 +306,12 @@ function parseInvitationExternalProgress(meta: unknown): DiscoveryUserState | nu
     profile,
     profileCompleted: isProfileCompleted(profile),
   };
+}
+
+function parseInvitationExternalSurvey(meta: unknown): DiscoveryExperienceSurvey | null {
+  if (!meta || typeof meta !== "object" || Array.isArray(meta)) return null;
+  const record = meta as Record<string, unknown>;
+  return parseExperienceSurvey(record.external_survey);
 }
 
 function normalizeContextDocuments(input: unknown): DiscoveryContextDocument[] {
@@ -604,6 +641,7 @@ async function createDiscoverySession(
         job_role,
         age,
         years_experience,
+        feedback_survey,
         created_at::text,
         updated_at::text
     `,
@@ -686,6 +724,10 @@ function buildNextState(
 
   const shouldMarkCompleted =
     input.markCompleted === true || (nextStatus === "results" && completionPercent >= 100);
+  const nextSurvey =
+    input.experienceSurvey === undefined
+      ? current.experienceSurvey
+      : parseExperienceSurvey(input.experienceSurvey);
 
   return {
     nameSnapshot: actor.name,
@@ -697,6 +739,7 @@ function buildNextState(
     shouldMarkCompleted,
     profile: nextProfile,
     profileCompleted,
+    experienceSurvey: nextSurvey,
   };
 }
 
@@ -733,6 +776,7 @@ async function ensureSessionShared(
         job_role,
         age,
         years_experience,
+        feedback_survey,
         created_at::text,
         updated_at::text
     `,
@@ -780,6 +824,7 @@ async function finalizeSessionForSharing(
         job_role,
         age,
         years_experience,
+        feedback_survey,
         created_at::text,
         updated_at::text
     `,
@@ -1189,6 +1234,7 @@ export async function getOrCreateDiscoverySession(
           job_role,
           age,
           years_experience,
+          feedback_survey,
           created_at::text,
           updated_at::text
       `,
@@ -1229,6 +1275,7 @@ export async function updateDiscoverySession(
           job_role = $11,
           age = $12,
           years_experience = $13,
+          feedback_survey = $14::jsonb,
           updated_at = now()
       WHERE session_id = $1::uuid
       RETURNING
@@ -1250,6 +1297,7 @@ export async function updateDiscoverySession(
         job_role,
         age,
         years_experience,
+        feedback_survey,
         created_at::text,
         updated_at::text
     `,
@@ -1267,6 +1315,7 @@ export async function updateDiscoverySession(
       next.profile.jobRole || null,
       next.profile.age,
       next.profile.yearsExperience,
+      next.experienceSurvey ? JSON.stringify(next.experienceSurvey) : null,
     ],
   );
 
@@ -1328,6 +1377,7 @@ export async function resetDiscoverySession(
           job_role = NULL,
           age = NULL,
           years_experience = NULL,
+          feedback_survey = NULL,
           updated_at = now()
       WHERE session_id = $1::uuid
       RETURNING
@@ -1349,6 +1399,7 @@ export async function resetDiscoverySession(
         job_role,
         age,
         years_experience,
+        feedback_survey,
         created_at::text,
         updated_at::text
     `,
@@ -1759,6 +1810,7 @@ export async function verifyDiscoveryInvitationAccess(
 
   const session = row.session_payload ? mapDiscoverySessionRow(row.session_payload) : null;
   const externalProgress = parseInvitationExternalProgress(row.meta);
+  const externalSurvey = parseInvitationExternalSurvey(row.meta);
   const alreadyCompleted =
     externalProgress?.status === "results" &&
     calculateDiscoveryCompletionPercent(externalProgress.answers) >= 100;
@@ -1774,6 +1826,7 @@ export async function verifyDiscoveryInvitationAccess(
     session,
     externalProgress,
     alreadyCompleted,
+    externalSurvey,
   };
 }
 
@@ -1783,6 +1836,7 @@ export async function saveDiscoveryInvitationProgress(
     inviteToken: string;
     accessCode: string;
     state: DiscoveryUserState;
+    survey?: DiscoveryExperienceSurvey | null;
   },
 ): Promise<DiscoveryInvitationAccessPayload> {
   const verified = await verifyDiscoveryInvitationAccess(
@@ -1823,14 +1877,20 @@ export async function saveDiscoveryInvitationProgress(
       ? new Date().toISOString()
       : null;
 
+  const surveyPayload = input.survey ? parseExperienceSurvey(input.survey) : null;
   await client.query(
     `
       UPDATE app_assessment.discovery_invitations
       SET
         meta = jsonb_set(
-          COALESCE(meta, '{}'::jsonb),
-          '{external_progress}',
-          $2::jsonb,
+          jsonb_set(
+            COALESCE(meta, '{}'::jsonb),
+            '{external_progress}',
+            $2::jsonb,
+            true
+          ),
+          '{external_survey}',
+          COALESCE($3::jsonb, (COALESCE(meta, '{}'::jsonb)->'external_survey'), 'null'::jsonb),
           true
         ),
         updated_at = now()
@@ -1844,6 +1904,7 @@ export async function saveDiscoveryInvitationProgress(
         globalIndex,
         completedAt: completionDate,
       }),
+      surveyPayload ? JSON.stringify(surveyPayload) : null,
     ],
   );
 
@@ -1851,6 +1912,7 @@ export async function saveDiscoveryInvitationProgress(
     ...verified,
     externalProgress: normalizedState,
     alreadyCompleted: Boolean(completionDate),
+    externalSurvey: surveyPayload ?? verified.externalSurvey,
   };
 }
 
@@ -1915,6 +1977,8 @@ export async function getDiscoveryOverview(
     years_experience: number | null;
     completion_percent: number;
     global_index: number | null;
+    answers: DiscoveryAnswers | null;
+    feedback_survey?: unknown;
     updated_at: string;
   }
 
@@ -1938,6 +2002,8 @@ export async function getDiscoveryOverview(
         ds.years_experience,
         ds.completion_percent,
         ta.overall_score AS global_index,
+        ds.answers,
+        ds.feedback_survey,
         ds.updated_at::text
       FROM app_assessment.discovery_sessions ds
       JOIN app_core.users u ON u.user_id = ds.user_id
@@ -1949,21 +2015,31 @@ export async function getDiscoveryOverview(
     params,
   );
 
-  const platformRows: DiscoveryOverviewRow[] = rowsResult.rows.map((row) => ({
-    sessionId: row.session_id,
-    diagnosticIdentifier: row.diagnostic_identifier,
-    userId: row.user_id,
-    participantName: row.participant_name || "Sin nombre",
-    sourceType: "platform" as const,
-    invitedEmail: "",
-    country: row.country ?? "",
-    jobRole: row.job_role ?? "",
-    age: row.age,
-    yearsExperience: row.years_experience,
-    completionPercent: Number(row.completion_percent ?? 0),
-    globalIndex: row.global_index !== null ? Number(row.global_index) : null,
-    updatedAt: row.updated_at,
-  }));
+  const analyticsScores: Array<ReturnType<typeof scoreDiscoveryAnswers>> = [];
+  const analyticsSurveys: DiscoveryExperienceSurvey[] = [];
+
+  const platformRows: DiscoveryOverviewRow[] = rowsResult.rows.map((row) => {
+    const normalizedAnswers = normalizeAnswers(row.answers);
+    analyticsScores.push(scoreDiscoveryAnswers(normalizedAnswers));
+    const survey = parseExperienceSurvey(row.feedback_survey);
+    if (survey) analyticsSurveys.push(survey);
+
+    return {
+      sessionId: row.session_id,
+      diagnosticIdentifier: row.diagnostic_identifier,
+      userId: row.user_id,
+      participantName: row.participant_name || "Sin nombre",
+      sourceType: "platform" as const,
+      invitedEmail: "",
+      country: row.country ?? "",
+      jobRole: row.job_role ?? "",
+      age: row.age,
+      yearsExperience: row.years_experience,
+      completionPercent: Number(row.completion_percent ?? 0),
+      globalIndex: row.global_index !== null ? Number(row.global_index) : null,
+      updatedAt: row.updated_at,
+    };
+  });
   const invitationResult = await client.query<DiscoveryInvitationOverviewRow>(
     `
       SELECT
@@ -1984,6 +2060,9 @@ export async function getDiscoveryOverview(
       const answers = externalProgress?.answers ?? {};
       const completionPercent = calculateDiscoveryCompletionPercent(answers);
       const score = scoreDiscoveryAnswers(answers);
+      analyticsScores.push(score);
+      const externalSurvey = parseInvitationExternalSurvey(invitation.meta);
+      if (externalSurvey) analyticsSurveys.push(externalSurvey);
       const profile = externalProgress?.profile;
       const participantName =
         externalProgress?.name ||
@@ -2087,6 +2166,72 @@ export async function getDiscoveryOverview(
     .map((row) => row.jobRole.trim())
     .filter(Boolean);
 
+  const pillarLabels: Record<"within" | "out" | "up" | "beyond", string> = {
+    within: "Shine Within",
+    out: "Shine Out",
+    up: "Shine Up",
+    beyond: "Shine Beyond",
+  };
+
+  const analyticsPillars = (["within", "out", "up", "beyond"] as const).map((pillar) => {
+    const values = analyticsScores.map((score) => score.pillarMetrics[pillar].total);
+    const average =
+      values.length > 0
+        ? Math.round(values.reduce((acc, value) => acc + value, 0) / values.length)
+        : 0;
+    return {
+      pillar,
+      label: pillarLabels[pillar],
+      average,
+    };
+  });
+
+  const componentMap = new Map<string, number[]>();
+  for (const score of analyticsScores) {
+    for (const component of score.compList) {
+      const list = componentMap.get(component.name) ?? [];
+      list.push(Math.round(((component.score - 1) / 4) * 100));
+      componentMap.set(component.name, list);
+    }
+  }
+  const analyticsComponents = Array.from(componentMap.entries())
+    .map(([component, values]) => ({
+      component,
+      average:
+        values.length > 0
+          ? Math.round(values.reduce((acc, value) => acc + value, 0) / values.length)
+          : 0,
+      count: values.length,
+    }))
+    .sort((a, b) => b.average - a.average)
+    .slice(0, 12);
+
+  const surveyQuestions = [
+    "¿Te resultó fácil responder el diagnóstico?",
+    "¿Entendiste bien las preguntas del diagnóstico?",
+    "¿Sentiste que el diagnóstico reflejó tu realidad?",
+    "¿Te gustó la experiencia de hacer el diagnóstico?",
+    "¿El diagnóstico te ayudó a conocerte mejor como líder?",
+  ] as const;
+  const surveyQuestionStats = surveyQuestions.map((question) => {
+    const values = analyticsSurveys
+      .map((survey) => survey.answers[question])
+      .filter((value): value is number => Number.isFinite(value));
+    return {
+      question,
+      average:
+        values.length > 0
+          ? Number((values.reduce((acc, value) => acc + value, 0) / values.length).toFixed(2))
+          : 0,
+      count: values.length,
+    };
+  });
+  const surveyValues = analyticsSurveys.map((survey) => survey.average).filter(Number.isFinite);
+  const surveyAverage =
+    surveyValues.length > 0
+      ? Number((surveyValues.reduce((acc, value) => acc + value, 0) / surveyValues.length).toFixed(2))
+      : 0;
+
   return {
     stats: {
       totalDiagnostics: rows.length,
@@ -2094,6 +2239,19 @@ export async function getDiscoveryOverview(
       averageGlobalIndex,
     },
     rows,
+    analytics: {
+      general: [
+        { label: "Completados", value: completedRows.length },
+        { label: "En progreso", value: Math.max(0, rows.length - completedRows.length) },
+      ],
+      pillars: analyticsPillars,
+      components: analyticsComponents,
+      satisfaction: {
+        responses: analyticsSurveys.length,
+        average: surveyAverage,
+        questions: surveyQuestionStats,
+      },
+    },
     availableFilters: {
       users: usersResult.rows.map((row) => ({ userId: row.user_id, name: row.name })),
       countries: Array.from(

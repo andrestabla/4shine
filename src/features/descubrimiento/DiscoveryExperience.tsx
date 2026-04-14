@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   Upload,
 } from "lucide-react";
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { AccessOfferPanel } from "@/components/access/AccessOfferPanel";
 import { PageTitle } from "@/components/dashboard/PageTitle";
 import { StatGrid } from "@/components/dashboard/StatGrid";
@@ -514,6 +515,15 @@ export function DiscoveryExperience() {
         tone: "error",
       });
     }
+  };
+
+  const handleSurveySubmit = async (
+    survey: NonNullable<DiscoverySessionRecord["experienceSurvey"]>,
+  ) => {
+    const nextSession = await updateDiscoverySessionRequest({
+      experienceSurvey: survey,
+    });
+    applySession(nextSession);
   };
 
   const handleImportFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -1389,6 +1399,78 @@ export function DiscoveryExperience() {
               ]}
             />
 
+            <div className="grid gap-4 xl:grid-cols-2">
+              <div className="app-panel p-4">
+                <p className="app-section-kicker">Resultados generales</p>
+                <div className="mt-3 h-60 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={overview?.analytics.general ?? []}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(108,88,134,0.2)" />
+                      <XAxis dataKey="label" tick={{ fontSize: 12 }} />
+                      <YAxis allowDecimals={false} />
+                      <Tooltip />
+                      <Bar dataKey="value" fill="var(--brand-primary)" radius={[8, 8, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              <div className="app-panel p-4">
+                <p className="app-section-kicker">Promedio por pilar</p>
+                <div className="mt-3 h-60 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={overview?.analytics.pillars ?? []}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(108,88,134,0.2)" />
+                      <XAxis dataKey="label" tick={{ fontSize: 12 }} />
+                      <YAxis domain={[0, 100]} />
+                      <Tooltip />
+                      <Bar dataKey="average" fill="#7c3aed" radius={[8, 8, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              <div className="app-panel p-4">
+                <p className="app-section-kicker">Componentes (Top 12)</p>
+                <div className="mt-3 h-64 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={overview?.analytics.components ?? []} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(108,88,134,0.2)" />
+                      <XAxis type="number" domain={[0, 100]} />
+                      <YAxis type="category" dataKey="component" width={140} tick={{ fontSize: 11 }} />
+                      <Tooltip />
+                      <Bar dataKey="average" fill="#0ea5e9" radius={[0, 8, 8, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              <div className="app-panel p-4">
+                <p className="app-section-kicker">Satisfaccion de experiencia</p>
+                <p className="mt-1 text-sm text-[var(--app-muted)]">
+                  Respuestas: {overview?.analytics.satisfaction.responses ?? 0} · Promedio: {overview?.analytics.satisfaction.average ?? 0}/5
+                </p>
+                <div className="mt-3 h-64 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={overview?.analytics.satisfaction.questions ?? []}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(108,88,134,0.2)" />
+                      <XAxis dataKey="question" hide />
+                      <YAxis domain={[0, 5]} />
+                      <Tooltip />
+                      <Bar dataKey="average" fill="#f59e0b" radius={[8, 8, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <ul className="mt-3 space-y-1 text-xs text-[var(--app-muted)]">
+                  {(overview?.analytics.satisfaction.questions ?? []).map((item) => (
+                    <li key={item.question}>
+                      {item.question}: <strong>{item.average}/5</strong> ({item.count} resp.)
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
             <div className="app-panel overflow-auto p-4">
               <table className="min-w-full text-left text-sm">
                 <thead>
@@ -1436,7 +1518,13 @@ export function DiscoveryExperience() {
           title="Descubrimiento"
           subtitle="Tu lectura ejecutiva 4Shine integra autopercepcion y criterio situacional en un mapa accionable."
         />
-        <ResultsView state={state} publicId={session?.publicId} onReset={handleReset} />
+        <ResultsView
+          state={state}
+          publicId={session?.publicId}
+          onReset={handleReset}
+          initialSurvey={session?.experienceSurvey ?? null}
+          onSurveySubmit={handleSurveySubmit}
+        />
       </div>
     );
   }

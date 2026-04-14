@@ -25,6 +25,12 @@ export interface DiscoveryParticipantProfile {
   yearsExperience: number | null;
 }
 
+export interface DiscoveryExperienceSurvey {
+  answers: Record<string, number>;
+  submittedAt: string;
+  average: number;
+}
+
 export interface DiscoveryUserState {
   name: string;
   answers: DiscoveryAnswers;
@@ -32,6 +38,7 @@ export interface DiscoveryUserState {
   status: DiscoveryStep;
   profile: DiscoveryParticipantProfile;
   profileCompleted: boolean;
+  experienceSurvey?: DiscoveryExperienceSurvey | null;
 }
 
 export interface DiscoveryCompetencyScore {
@@ -72,6 +79,7 @@ export interface DiscoverySessionRecord {
   age: number | null;
   yearsExperience: number | null;
   profileCompleted: boolean;
+  experienceSurvey: DiscoveryExperienceSurvey | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -145,6 +153,16 @@ export interface DiscoveryOverviewStats {
 export interface DiscoveryOverviewPayload {
   stats: DiscoveryOverviewStats;
   rows: DiscoveryOverviewRow[];
+  analytics: {
+    general: Array<{ label: string; value: number }>;
+    pillars: Array<{ pillar: DiscoveryPillarKey; label: string; average: number }>;
+    components: Array<{ component: string; average: number; count: number }>;
+    satisfaction: {
+      responses: number;
+      average: number;
+      questions: Array<{ question: string; average: number; count: number }>;
+    };
+  };
   availableFilters: {
     users: Array<{ userId: string; name: string }>;
     countries: string[];
@@ -177,6 +195,7 @@ export interface DiscoveryInvitationAccessPayload {
   accessMode: "results" | "diagnostic";
   externalProgress: DiscoveryUserState | null;
   alreadyCompleted: boolean;
+  externalSurvey: DiscoveryExperienceSurvey | null;
 }
 
 export interface UpdateDiscoverySessionInput {
@@ -186,6 +205,7 @@ export interface UpdateDiscoverySessionInput {
   completionPercent?: number;
   markCompleted?: boolean;
   profile?: Partial<DiscoveryParticipantProfile>;
+  experienceSurvey?: DiscoveryExperienceSurvey | null;
 }
 
 export interface DiscoveryScoreRow {

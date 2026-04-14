@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { withClient } from "@/server/db/pool";
 import { saveDiscoveryInvitationProgress } from "@/features/descubrimiento/service";
-import type { DiscoveryUserState } from "@/features/descubrimiento/types";
+import type { DiscoveryExperienceSurvey, DiscoveryUserState } from "@/features/descubrimiento/types";
 
 interface SaveProgressBody {
   inviteToken?: string;
   accessCode?: string;
   state?: DiscoveryUserState;
+  survey?: DiscoveryExperienceSurvey | null;
 }
 
 export async function PATCH(request: Request) {
@@ -37,6 +38,7 @@ export async function PATCH(request: Request) {
         inviteToken,
         accessCode,
         state,
+        survey: body?.survey ?? null,
       }),
     );
     return NextResponse.json({ ok: true, data }, { status: 200 });

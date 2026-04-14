@@ -158,6 +158,7 @@ export async function saveInvitationProgress(input: {
   inviteToken: string;
   accessCode: string;
   state: DiscoveryUserState;
+  survey?: DiscoveryUserState["experienceSurvey"];
 }): Promise<DiscoveryInvitationAccessPayload> {
   return requestApi<DiscoveryInvitationAccessPayload>(
     "/api/v1/public/descubrimiento/invitaciones/progress",

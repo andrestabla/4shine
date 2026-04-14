@@ -35,6 +35,7 @@ import {
 } from "./reporting";
 import { PdfReportData } from "./PdfReportData";
 import type {
+  DiscoveryExperienceSurvey,
   DiscoveryPillarKey,
   DiscoveryReportFilter,
   DiscoverySessionRecord,
@@ -48,6 +49,8 @@ interface ResultsViewProps {
   embedded?: boolean;
   onShare?: () => Promise<DiscoverySessionRecord>;
   onReset?: () => Promise<void> | void;
+  initialSurvey?: DiscoveryExperienceSurvey | null;
+  onSurveySubmit?: (survey: DiscoveryExperienceSurvey) => Promise<void> | void;
 }
 
 const SURVEY_QUESTIONS = [
@@ -91,6 +94,8 @@ export function ResultsView({
   embedded = true,
   onShare,
   onReset,
+  initialSurvey = null,
+  onSurveySubmit,
 }: ResultsViewProps) {
   const { alert } = useAppDialog();
   const scoring = React.useMemo(
@@ -110,7 +115,7 @@ export function ResultsView({
   const [isTourOpen, setIsTourOpen] = React.useState(false);
   const [isSurveyOpen, setIsSurveyOpen] = React.useState(false);
   const [pendingDownloadAfterSurvey, setPendingDownloadAfterSurvey] = React.useState(false);
-  const [surveyAnswers, setSurveyAnswers] = React.useState<Record<string, number>>({});
+  const [surveyAnswers, setSurveyAnswers] = React.useState<Record<string, number>>(initialSurvey?.answers ?? {});
   const hiddenPdfRef = React.useRef<HTMLDivElement>(null);
   const stickyClass = embedded ? "top-[5rem] md:top-[5.5rem]" : "top-0";
   const surveyStorageKey = React.useMemo(
@@ -123,6 +128,10 @@ export function ResultsView({
   }, [publicId]);
 
   React.useEffect(() => {
+    setSurveyAnswers(initialSurvey?.answers ?? {});
+  }, [initialSurvey]);
+
+  React.useEffect(() => {
     if (typeof window === "undefined") return;
     const seenTour = window.localStorage.getItem("discovery-results-tour-seen") === "1";
     if (!seenTour) {
@@ -132,6 +141,7 @@ export function ResultsView({
 
   React.useEffect(() => {
     if (typeof window === "undefined") return;
+    if (initialSurvey) return;
     if (window.localStorage.getItem(surveyStorageKey)) return;
 
     const timer = window.setTimeout(() => {
@@ -139,7 +149,7 @@ export function ResultsView({
     }, 120000);
 
     return () => window.clearTimeout(timer);
-  }, [surveyStorageKey]);
+  }, [initialSurvey, surveyStorageKey]);
 
   const radarData = React.useMemo(
     () => [
@@ -335,7 +345,10 @@ export function ResultsView({
   };
 
   const handleDownloadPdf = async () => {
-    if (typeof window !== "undefined" && !window.localStorage.getItem(surveyStorageKey)) {
+    const hasSurvey =
+      Object.keys(surveyAnswers).length >= SURVEY_QUESTIONS.length ||
+      (typeof window !== "undefined" && Boolean(window.localStorage.getItem(surveyStorageKey)));
+    if (!hasSurvey) {
       setPendingDownloadAfterSurvey(true);
       setIsSurveyOpen(true);
       return;
@@ -353,10 +366,34 @@ export function ResultsView({
       return;
     }
 
+    const surveyPayload: DiscoveryExperienceSurvey = {
+      answers: surveyAnswers,
+      submittedAt: new Date().toISOString(),
+      average: Number(
+        (
+          Object.values(surveyAnswers).reduce((acc, value) => acc + value, 0) /
+          SURVEY_QUESTIONS.length
+        ).toFixed(2),
+      ),
+    };
+
+    if (onSurveySubmit) {
+      try {
+        await onSurveySubmit(surveyPayload);
+      } catch (error) {
+        await alert({
+          title: "No se pudo guardar la encuesta",
+          message: error instanceof Error ? error.message : "Intenta nuevamente.",
+          tone: "error",
+        });
+        return;
+      }
+    }
+
     if (typeof window !== "undefined") {
       window.localStorage.setItem(
         surveyStorageKey,
-        JSON.stringify({ answeredAt: new Date().toISOString(), answers: surveyAnswers }),
+        JSON.stringify({ answeredAt: surveyPayload.submittedAt, answers: surveyAnswers }),
       );
     }
 
@@ -376,12 +413,20 @@ export function ResultsView({
 
       {!embedded && (
         <div className="mx-auto max-w-6xl px-4 pt-8 md:px-6">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-white/90 px-4 py-2 text-sm font-semibold text-[var(--app-ink)] transition hover:bg-white"
-          >
-            Volver a 4Shine
-          </Link>
+          <div className="mb-4 flex items-center justify-between rounded-[14px] border border-[var(--app-border)] bg-white px-4 py-3">
+            <div className="flex items-center gap-2">
+              <img src="/workbooks-v2/diamond.svg" alt="4Shine Platform" className="h-7 w-7 object-contain" />
+              <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-[var(--app-ink)]">
+                4Shine Platform
+              </p>
+            </div>
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-white/90 px-4 py-2 text-sm font-semibold text-[var(--app-ink)] transition hover:bg-white"
+            >
+              Volver a 4Shine
+            </Link>
+          </div>
         </div>
       )}
 

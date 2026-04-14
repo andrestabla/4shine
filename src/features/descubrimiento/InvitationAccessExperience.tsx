@@ -66,6 +66,13 @@ export function InvitationAccessExperience({
   );
   const [showCompletedNotice, setShowCompletedNotice] = React.useState(false);
   const [isPersisting, setIsPersisting] = React.useState(false);
+  const [publicBranding, setPublicBranding] = React.useState<{
+    platformName: string;
+    logoUrl: string | null;
+  }>({
+    platformName: "4Shine Platform",
+    logoUrl: "/workbooks-v2/diamond.svg",
+  });
 
   React.useEffect(() => {
     let active = true;
@@ -91,6 +98,62 @@ export function InvitationAccessExperience({
       active = false;
     };
   }, [inviteToken]);
+
+  React.useEffect(() => {
+    let active = true;
+    const loadBranding = async () => {
+      try {
+        const response = await fetch("/api/v1/public/branding", { cache: "no-store" });
+        const payload = (await response.json()) as {
+          ok?: boolean;
+          data?: { settings?: { platformName?: string; logoUrl?: string | null } };
+        };
+        if (!active || !payload?.ok) return;
+        setPublicBranding({
+          platformName: payload.data?.settings?.platformName?.trim() || "4Shine Platform",
+          logoUrl: payload.data?.settings?.logoUrl?.trim() || "/workbooks-v2/diamond.svg",
+        });
+      } catch {
+        // fallback branding
+      }
+    };
+    void loadBranding();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const renderPublicHeader = () => (
+    <header className="sticky top-0 z-20 border-b border-[var(--app-border)] bg-white/95 backdrop-blur">
+      <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3 md:px-6">
+        {publicBranding.logoUrl ? (
+          <img src={publicBranding.logoUrl} alt={publicBranding.platformName} className="h-8 w-8 object-contain" />
+        ) : null}
+        <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-[var(--app-ink)]">
+          {publicBranding.platformName}
+        </p>
+      </div>
+    </header>
+  );
+
+  const handleExternalSurveySubmit = async (
+    survey: NonNullable<DiscoveryUserState["experienceSurvey"]>,
+  ) => {
+    if (!verifiedCode) return;
+    const response = await saveInvitationProgress({
+      inviteToken,
+      accessCode: verifiedCode,
+      state: {
+        ...externalState,
+        experienceSurvey: survey,
+      },
+      survey,
+    });
+    setExternalState((current) => ({
+      ...(response.externalProgress ?? current),
+      experienceSurvey: survey,
+    }));
+  };
 
   React.useEffect(() => {
     if (accessMode !== "diagnostic") return;
@@ -132,7 +195,10 @@ export function InvitationAccessExperience({
 
       if (response.accessMode === "diagnostic") {
         if (response.externalProgress) {
-          setExternalState(response.externalProgress);
+          setExternalState({
+            ...response.externalProgress,
+            experienceSurvey: response.externalSurvey,
+          });
         }
         setShowCompletedNotice(response.alreadyCompleted);
       }
@@ -149,8 +215,10 @@ export function InvitationAccessExperience({
 
   if (accessMode === "results" && session) {
     return (
-      <main className="mx-auto min-h-screen w-full max-w-6xl px-4 pb-16 pt-8 md:px-6">
-        <ResultsView
+      <div className="min-h-screen bg-[var(--app-bg)]">
+        {renderPublicHeader()}
+        <main className="mx-auto w-full max-w-6xl px-4 pb-16 pt-8 md:px-6">
+          <ResultsView
           state={{
             name: `${session.firstName} ${session.lastName}`.trim(),
             answers: session.answers,
@@ -168,9 +236,11 @@ export function InvitationAccessExperience({
           }}
           publicId={session.publicId}
           isPublic={true}
-          embedded={false}
+          embedded={true}
+          initialSurvey={session.experienceSurvey}
         />
-      </main>
+        </main>
+      </div>
     );
   }
 
@@ -180,8 +250,10 @@ export function InvitationAccessExperience({
 
     if (showCompletedNotice) {
       return (
-        <main className="mx-auto min-h-screen w-full max-w-4xl px-4 pb-16 pt-8 md:px-6">
-          <section className="app-panel p-6 md:p-8">
+        <div className="min-h-screen bg-[var(--app-bg)]">
+          {renderPublicHeader()}
+          <main className="mx-auto w-full max-w-4xl px-4 pb-16 pt-8 md:px-6">
+            <section className="app-panel p-6 md:p-8">
             <p className="app-section-kicker">Diagnostico 4Shine</p>
             <h2 className="mt-2 text-2xl font-black text-[var(--app-ink)]">
               Tu ya realizaste este diagnostico
@@ -211,23 +283,35 @@ export function InvitationAccessExperience({
                 Continuar navegando
               </button>
             </div>
-          </section>
-        </main>
+            </section>
+          </main>
+        </div>
       );
     }
 
     if (externalState.status === "results") {
       return (
-        <main className="mx-auto min-h-screen w-full max-w-6xl px-4 pb-16 pt-8 md:px-6">
-          <ResultsView state={externalState} isPublic={true} embedded={false} />
-        </main>
+        <div className="min-h-screen bg-[var(--app-bg)]">
+          {renderPublicHeader()}
+          <main className="mx-auto w-full max-w-6xl px-4 pb-16 pt-8 md:px-6">
+            <ResultsView
+              state={externalState}
+              isPublic={true}
+              embedded={true}
+              initialSurvey={externalState.experienceSurvey ?? null}
+              onSurveySubmit={handleExternalSurveySubmit}
+            />
+          </main>
+        </div>
       );
     }
 
     if (externalState.status === "intro") {
       return (
-        <main className="mx-auto min-h-screen w-full max-w-4xl px-4 pb-16 pt-8 md:px-6">
-          <section className="app-panel p-6 md:p-8">
+        <div className="min-h-screen bg-[var(--app-bg)]">
+          {renderPublicHeader()}
+          <main className="mx-auto w-full max-w-4xl px-4 pb-16 pt-8 md:px-6">
+            <section className="app-panel p-6 md:p-8">
             <p className="app-section-kicker">Diagnostico 4Shine</p>
             <h1 className="mt-2 text-3xl font-black text-[var(--app-ink)]">
               Completa tu perfil para iniciar
@@ -347,8 +431,9 @@ export function InvitationAccessExperience({
               Empezar diagnostico
               <ChevronRight size={16} />
             </button>
-          </section>
-        </main>
+            </section>
+          </main>
+        </div>
       );
     }
 
@@ -384,8 +469,10 @@ export function InvitationAccessExperience({
       ];
 
       return (
-        <main className="mx-auto min-h-screen w-full max-w-5xl px-4 pb-16 pt-8 md:px-6">
-          <section className="app-panel p-6 md:p-8">
+        <div className="min-h-screen bg-[var(--app-bg)]">
+          {renderPublicHeader()}
+          <main className="mx-auto w-full max-w-5xl px-4 pb-16 pt-8 md:px-6">
+            <section className="app-panel p-6 md:p-8">
             <h2 className="text-3xl font-black text-[var(--app-ink)]">Instrucciones</h2>
             <p className="mt-3 text-sm text-[var(--app-muted)]">
               Tiempo estimado: <strong>20-25 minutos</strong>. El objetivo de este diagnostico es
@@ -416,8 +503,9 @@ export function InvitationAccessExperience({
               Ir al cuestionario
               <ChevronRight size={16} />
             </button>
-          </section>
-        </main>
+            </section>
+          </main>
+        </div>
       );
     }
 
@@ -426,8 +514,10 @@ export function InvitationAccessExperience({
     const pageItems = DB.slice(start, end);
 
     return (
-      <main className="mx-auto min-h-screen w-full max-w-5xl px-4 pb-16 pt-8 md:px-6">
-        <section className="space-y-4">
+      <div className="min-h-screen bg-[var(--app-bg)]">
+        {renderPublicHeader()}
+        <main className="mx-auto w-full max-w-5xl px-4 pb-16 pt-8 md:px-6">
+          <section className="space-y-4">
           <div className="rounded-[18px] border border-[var(--app-border)] bg-white p-4">
             <div className="flex items-center justify-between gap-3">
               <p className="text-sm font-semibold text-[var(--app-ink)]">
@@ -552,14 +642,17 @@ export function InvitationAccessExperience({
               <ChevronRight size={16} />
             </button>
           </div>
-        </section>
-      </main>
+          </section>
+        </main>
+      </div>
     );
   }
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-3xl items-center px-4 py-10 md:px-6">
-      <section className="w-full rounded-[24px] border border-[var(--app-border)] bg-white p-6 shadow-[0_20px_40px_rgba(20,17,33,0.08)] md:p-8">
+    <div className="min-h-screen bg-[var(--app-bg)]">
+      {renderPublicHeader()}
+      <main className="mx-auto flex w-full max-w-3xl items-center px-4 py-10 md:px-6">
+        <section className="w-full rounded-[24px] border border-[var(--app-border)] bg-white p-6 shadow-[0_20px_40px_rgba(20,17,33,0.08)] md:p-8">
         <p className="text-xs font-black uppercase tracking-[0.24em] text-[var(--app-muted)]">
           Diagnostico 4Shine
         </p>
@@ -614,7 +707,8 @@ export function InvitationAccessExperience({
             </button>
           </form>
         )}
-      </section>
-    </main>
+        </section>
+      </main>
+    </div>
   );
 }
