@@ -12,6 +12,18 @@ const VALID_UPLOAD_ACTIONS = new Set<PermissionAction>(['create', 'update', 'man
 
 export const runtime = 'nodejs';
 
+const DISCOVERY_CONTEXT_MIN_MAX_SIZE_MB = 200;
+const DISCOVERY_CONTEXT_EXTRA_MIME_TYPES = [
+  'application/pdf',
+  'text/plain',
+  'text/markdown',
+  'text/csv',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+];
+
 function asString(value: FormDataEntryValue | null): string {
   return typeof value === 'string' ? value.trim() : '';
 }
@@ -40,6 +52,10 @@ export async function POST(request: Request) {
   const entityTableInput = asString(formData.get('entityTable'));
   const entityTable = entityTableInput.length > 0 ? entityTableInput : 'r2.object_upload';
   const fieldName = asString(formData.get('fieldName')) || undefined;
+  const isDiscoveryContextUpload =
+    moduleCodeInput === 'descubrimiento' &&
+    (fieldName === 'context_documents' ||
+      (pathPrefix?.startsWith('descubrimiento/context') ?? false));
 
   if (!VALID_MODULE_CODES.has(moduleCodeInput)) {
     return NextResponse.json(
@@ -70,6 +86,21 @@ export async function POST(request: Request) {
         await requireModulePermission(client, moduleCode, action);
 
         const config = await getR2StorageConfig(client, identity.userId);
+        if (isDiscoveryContextUpload) {
+          const expandedBytes = Math.max(
+            config.maxFileSizeBytes,
+            DISCOVERY_CONTEXT_MIN_MAX_SIZE_MB * 1024 * 1024,
+          );
+          const mergedMimeTypes = Array.from(
+            new Set([
+              ...config.allowedMimeTypes,
+              ...DISCOVERY_CONTEXT_EXTRA_MIME_TYPES,
+            ]),
+          );
+          config.maxFileSizeBytes = expandedBytes;
+          config.allowedMimeTypes = mergedMimeTypes;
+        }
+
         if (fileEntry.size > config.maxFileSizeBytes) {
           const maxMb = Math.round(config.maxFileSizeBytes / (1024 * 1024));
           throw new Error(`File too large. Max allowed: ${maxMb}MB`);
