@@ -1373,6 +1373,15 @@ export async function getDiscoverySessionForActor(
   actor: AuthUser,
   userId?: string,
 ): Promise<DiscoverySessionRecord> {
+  if (isAllowedManager(actor)) {
+    if (!userId) {
+      throw new Error("Admin/Gestor debe seleccionar un participante para previsualizar.");
+    }
+    if (userId === actor.userId) {
+      throw new Error("Admin/Gestor no puede consultar su propio diagnostico.");
+    }
+  }
+
   if (userId && userId !== actor.userId && !canReadOtherDiscoverySession(actor)) {
     throw new Error("You cannot read this discovery session");
   }
@@ -1438,6 +1447,21 @@ export async function createDiscoveryInvitations(
   }
 
   const targetSession = await getDiscoverySessionForActor(client, actor, input.userId);
+
+  const { rows: targetUserRows } = await client.query<{ primary_role: string }>(
+    `
+      SELECT primary_role
+      FROM app_core.users
+      WHERE user_id = $1::uuid
+      LIMIT 1
+    `,
+    [targetSession.userId],
+  );
+  const targetRole = targetUserRows[0]?.primary_role ?? "";
+  if (targetRole !== "lider") {
+    throw new Error("Solo se pueden enviar invitaciones a participantes lider.");
+  }
+
   if (!targetSession.profileCompleted) {
     throw new Error("Completa el perfil del participante antes de enviar invitaciones.");
   }
@@ -1731,8 +1755,9 @@ export async function getDiscoveryOverview(
         ta.overall_score AS global_index,
         ds.updated_at::text
       FROM app_assessment.discovery_sessions ds
+      JOIN app_core.users u ON u.user_id = ds.user_id
       LEFT JOIN app_assessment.test_attempts ta ON ta.attempt_id = ds.attempt_id
-      ${whereClause}
+      ${whereClause ? `${whereClause} AND u.primary_role = 'lider'` : "WHERE u.primary_role = 'lider'"}
       ORDER BY ds.updated_at DESC
       LIMIT 500
     `,
@@ -1768,6 +1793,8 @@ export async function getDiscoveryOverview(
         ds.user_id::text,
         trim(concat_ws(' ', ds.first_name, ds.last_name)) AS name
       FROM app_assessment.discovery_sessions ds
+      JOIN app_core.users u ON u.user_id = ds.user_id
+      WHERE u.primary_role = 'lider'
       ORDER BY name
     `,
   );
@@ -1776,8 +1803,10 @@ export async function getDiscoveryOverview(
     `
       SELECT DISTINCT ds.country
       FROM app_assessment.discovery_sessions ds
+      JOIN app_core.users u ON u.user_id = ds.user_id
       WHERE ds.country IS NOT NULL
         AND trim(ds.country) <> ''
+        AND u.primary_role = 'lider'
       ORDER BY ds.country
     `,
   );
@@ -1786,7 +1815,9 @@ export async function getDiscoveryOverview(
     `
       SELECT DISTINCT ds.job_role
       FROM app_assessment.discovery_sessions ds
+      JOIN app_core.users u ON u.user_id = ds.user_id
       WHERE ds.job_role IS NOT NULL
+        AND u.primary_role = 'lider'
       ORDER BY ds.job_role
     `,
   );

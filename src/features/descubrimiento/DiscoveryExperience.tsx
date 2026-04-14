@@ -9,7 +9,7 @@ import {
   Compass,
   Loader2,
   Mail,
-  RefreshCw,
+  Save,
   Send,
   ShieldCheck,
   Upload,
@@ -17,9 +17,9 @@ import {
 import { AccessOfferPanel } from "@/components/access/AccessOfferPanel";
 import { PageTitle } from "@/components/dashboard/PageTitle";
 import { StatGrid } from "@/components/dashboard/StatGrid";
-import { R2UploadButton } from "@/components/ui/R2UploadButton";
 import { useAppDialog } from "@/components/ui/AppDialogProvider";
 import { useUser } from "@/context/UserContext";
+import { uploadToR2 } from "@/lib/r2-upload-client";
 import { filterCommercialProducts } from "@/features/access/catalog";
 import { DB, SCALES } from "./DiagnosticsData";
 import {
@@ -41,6 +41,7 @@ import {
   DISCOVERY_JOB_ROLE_OPTIONS,
   type DiscoveryFeedbackSettingsRecord,
   type DiscoveryInvitationRecord,
+  type DiscoveryOverviewFilters,
   type DiscoveryOverviewPayload,
   type DiscoveryParticipantProfile,
   type DiscoverySessionRecord,
@@ -48,6 +49,7 @@ import {
 } from "./types";
 
 type SaveIndicator = "idle" | "saving" | "saved" | "error";
+type ManagerTab = "preview" | "mailing" | "rag" | "results";
 
 function defaultProfile(session: DiscoverySessionRecord): DiscoveryParticipantProfile {
   return {
@@ -94,10 +96,19 @@ function buildPersistPayload(state: DiscoveryUserState) {
 }
 
 function parseEmailsFromText(input: string): string[] {
-  return input
-    .split(/[\n,;\s]+/g)
-    .map((entry) => entry.trim().toLowerCase())
-    .filter((entry) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(entry));
+  const seen = new Set<string>();
+  const output: string[] = [];
+
+  for (const raw of input.split(/[\n,;\s]+/g)) {
+    const email = raw.trim().toLowerCase();
+    if (!email) continue;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) continue;
+    if (seen.has(email)) continue;
+    seen.add(email);
+    output.push(email);
+  }
+
+  return output;
 }
 
 async function parseEmailsFromSpreadsheet(file: File): Promise<string[]> {
@@ -108,23 +119,26 @@ async function parseEmailsFromSpreadsheet(file: File): Promise<string[]> {
 
   const rows = utils.sheet_to_json<Array<string | number | null>>(
     workbook.Sheets[firstSheetName],
-    {
-      header: 1,
-      defval: "",
-    },
+    { header: 1, defval: "" },
   );
 
-  const emails: string[] = [];
-  for (const row of rows) {
-    for (const cell of row) {
-      const value = String(cell ?? "").trim().toLowerCase();
-      if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
-        emails.push(value);
-      }
-    }
-  }
+  const flat = rows.flatMap((row) => row.map((cell) => String(cell ?? "")));
+  return parseEmailsFromText(flat.join("\n"));
+}
 
-  return emails;
+function parseNumber(value: string): number | undefined {
+  if (!value.trim()) return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function buildManagerTabs() {
+  return [
+    { key: "preview" as const, label: "Vista previa del diagnostico" },
+    { key: "mailing" as const, label: "Configuracion de mailing y envio" },
+    { key: "rag" as const, label: "Configuracion RAG" },
+    { key: "results" as const, label: "Resultados generales" },
+  ];
 }
 
 export function DiscoveryExperience() {
@@ -148,11 +162,13 @@ export function DiscoveryExperience() {
     },
     profileCompleted: false,
   });
+
   const [isLoading, setIsLoading] = React.useState(true);
   const [saveIndicator, setSaveIndicator] = React.useState<SaveIndicator>("idle");
   const hydratedRef = React.useRef(false);
   const lastSnapshotRef = React.useRef("");
 
+  const [managerTab, setManagerTab] = React.useState<ManagerTab>("preview");
   const [overview, setOverview] = React.useState<DiscoveryOverviewPayload | null>(null);
   const [settings, setSettings] = React.useState<DiscoveryFeedbackSettingsRecord | null>(null);
   const [selectedUserId, setSelectedUserId] = React.useState<string>("");
@@ -160,6 +176,25 @@ export function DiscoveryExperience() {
   const [invitations, setInvitations] = React.useState<DiscoveryInvitationRecord[]>([]);
   const [isSendingInvites, setIsSendingInvites] = React.useState(false);
   const [isSavingSettings, setIsSavingSettings] = React.useState(false);
+  const [isUploadingRagDocs, setIsUploadingRagDocs] = React.useState(false);
+
+  const [resultsFilters, setResultsFilters] = React.useState<{
+    userId: string;
+    country: string;
+    jobRole: string;
+    ageMin: string;
+    ageMax: string;
+    yearsExperienceMin: string;
+    yearsExperienceMax: string;
+  }>({
+    userId: "",
+    country: "",
+    jobRole: "",
+    ageMin: "",
+    ageMax: "",
+    yearsExperienceMin: "",
+    yearsExperienceMax: "",
+  });
 
   const applySession = React.useCallback((next: DiscoverySessionRecord) => {
     setSession(next);
@@ -169,26 +204,51 @@ export function DiscoveryExperience() {
     hydratedRef.current = true;
   }, []);
 
+  const managerUsers = React.useMemo(() => {
+    return (overview?.availableFilters.users ?? []).filter(
+      (user) => user.userId !== currentUser?.id,
+    );
+  }, [currentUser?.id, overview?.availableFilters.users]);
+
+  const loadManagerOverview = React.useCallback(
+    async (inputFilters?: DiscoveryOverviewFilters) => {
+      const payload = await getDiscoveryOverview(inputFilters);
+      setOverview(payload);
+      return payload;
+    },
+    [],
+  );
+
   const loadManagerData = React.useCallback(async () => {
     const [overviewPayload, settingsPayload] = await Promise.all([
-      getDiscoveryOverview(),
+      loadManagerOverview(),
       getDiscoveryFeedbackSettings(),
     ]);
 
-    setOverview(overviewPayload);
     setSettings(settingsPayload);
 
-    const defaultUserId =
-      selectedUserId || overviewPayload.availableFilters.users[0]?.userId || "";
+    const safeUsers = overviewPayload.availableFilters.users.filter(
+      (user) => user.userId !== currentUser?.id,
+    );
 
-    if (defaultUserId) {
-      const nextSession = await getDiscoverySession(defaultUserId);
-      applySession(nextSession);
-      setSelectedUserId(defaultUserId);
-      const invitationRows = await listDiscoveryInvitations(nextSession.sessionId);
-      setInvitations(invitationRows);
+    const nextDefaultUser =
+      (selectedUserId && selectedUserId !== currentUser?.id ? selectedUserId : "") ||
+      safeUsers[0]?.userId ||
+      "";
+
+    if (!nextDefaultUser) {
+      setSession(null);
+      setSelectedUserId("");
+      setInvitations([]);
+      return;
     }
-  }, [applySession, selectedUserId]);
+
+    const nextSession = await getDiscoverySession(nextDefaultUser);
+    applySession(nextSession);
+    setSelectedUserId(nextDefaultUser);
+    const invitationRows = await listDiscoveryInvitations(nextSession.sessionId);
+    setInvitations(invitationRows);
+  }, [applySession, currentUser?.id, loadManagerOverview, selectedUserId]);
 
   React.useEffect(() => {
     if (
@@ -201,7 +261,6 @@ export function DiscoveryExperience() {
     }
 
     let active = true;
-
     const load = async () => {
       try {
         if (isManager) {
@@ -223,14 +282,11 @@ export function DiscoveryExperience() {
           tone: "error",
         });
       } finally {
-        if (active) {
-          setIsLoading(false);
-        }
+        if (active) setIsLoading(false);
       }
     };
 
     void load();
-
     return () => {
       active = false;
     };
@@ -239,6 +295,7 @@ export function DiscoveryExperience() {
   React.useEffect(() => {
     if (isManager) return;
     if (!hydratedRef.current) return;
+
     const snapshot = JSON.stringify(buildPersistPayload(state));
     if (snapshot === lastSnapshotRef.current) return;
 
@@ -257,7 +314,7 @@ export function DiscoveryExperience() {
       } catch {
         setSaveIndicator("error");
       }
-    }, 600);
+    }, 550);
 
     return () => window.clearTimeout(timeoutId);
   }, [isManager, state]);
@@ -267,14 +324,11 @@ export function DiscoveryExperience() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [state.currentIdx, state.status]);
 
-  if (!currentUser && !isLoading) {
-    return null;
-  }
-
   const isLockedForViewer =
     currentRole === "lider" &&
     viewerAccess !== null &&
     !viewerAccess.canAccessDescubrimiento;
+
   const discoveryOffers = filterCommercialProducts(viewerAccess?.catalog, {
     groups: ["program", "discovery"],
   });
@@ -312,7 +366,6 @@ export function DiscoveryExperience() {
 
     setState((current) => ({
       ...current,
-      name: currentUser?.name ?? current.name,
       profileCompleted: true,
       status:
         current.status === "results"
@@ -337,7 +390,6 @@ export function DiscoveryExperience() {
     setState((current) => ({
       ...current,
       profileCompleted: true,
-      name: currentUser?.name ?? current.name,
       status: "quiz",
     }));
   };
@@ -432,9 +484,23 @@ export function DiscoveryExperience() {
   };
 
   const handleManagerUserChange = async (userId: string) => {
-    setSelectedUserId(userId);
-    if (!userId) return;
+    if (!userId) {
+      setSelectedUserId("");
+      setSession(null);
+      setInvitations([]);
+      return;
+    }
 
+    if (userId === currentUser?.id) {
+      await alert({
+        title: "Seleccion invalida",
+        message: "Admin/Gestor no puede previsualizar su propio diagnostico.",
+        tone: "warning",
+      });
+      return;
+    }
+
+    setSelectedUserId(userId);
     setIsLoading(true);
     try {
       const nextSession = await getDiscoverySession(userId);
@@ -449,50 +515,6 @@ export function DiscoveryExperience() {
       });
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleInviteFromText = async () => {
-    if (!session || !selectedUserId) return;
-
-    const emails = parseEmailsFromText(managerEmails);
-    if (emails.length === 0) {
-      await alert({
-        title: "Sin correos validos",
-        message: "Ingresa correos manuales o carga un archivo CSV/XLS con correos.",
-        tone: "warning",
-      });
-      return;
-    }
-
-    setIsSendingInvites(true);
-    try {
-      const result = await createDiscoveryInvitations({
-        userId: selectedUserId,
-        emails,
-        emailSubject: settings?.inviteEmailSubject,
-        emailHtml: settings?.inviteEmailHtml,
-        emailText: settings?.inviteEmailText,
-      });
-
-      setManagerEmails("");
-      applySession(result.session);
-      const invitationRows = await listDiscoveryInvitations(result.session.sessionId);
-      setInvitations(invitationRows);
-
-      await alert({
-        title: "Invitaciones enviadas",
-        message: `Se enviaron ${result.sentCount} invitaciones con codigo unico de acceso.`,
-        tone: "success",
-      });
-    } catch (error) {
-      await alert({
-        title: "No se pudieron enviar invitaciones",
-        message: error instanceof Error ? error.message : "Error desconocido.",
-        tone: "error",
-      });
-    } finally {
-      setIsSendingInvites(false);
     }
   };
 
@@ -525,7 +547,7 @@ export function DiscoveryExperience() {
     }
   };
 
-  const saveSettings = async (next: DiscoveryFeedbackSettingsRecord) => {
+  const saveSettings = async (next: DiscoveryFeedbackSettingsRecord, successMessage: string) => {
     setIsSavingSettings(true);
     try {
       const updated = await updateDiscoveryFeedbackSettings({
@@ -538,7 +560,7 @@ export function DiscoveryExperience() {
       setSettings(updated);
       await alert({
         title: "Configuracion guardada",
-        message: "Se actualizaron instrucciones IA y plantillas de invitacion.",
+        message: successMessage,
         tone: "success",
       });
     } catch (error) {
@@ -549,6 +571,124 @@ export function DiscoveryExperience() {
       });
     } finally {
       setIsSavingSettings(false);
+    }
+  };
+
+  const handleInviteFromText = async () => {
+    if (!session || !selectedUserId || !settings) return;
+
+    const emails = parseEmailsFromText(managerEmails);
+    if (emails.length === 0) {
+      await alert({
+        title: "Sin correos validos",
+        message: "Ingresa correos manuales o carga un archivo CSV/XLS con correos.",
+        tone: "warning",
+      });
+      return;
+    }
+
+    setIsSendingInvites(true);
+    try {
+      const result = await createDiscoveryInvitations({
+        userId: selectedUserId,
+        emails,
+        emailSubject: settings.inviteEmailSubject,
+        emailHtml: settings.inviteEmailHtml,
+        emailText: settings.inviteEmailText,
+      });
+
+      setManagerEmails("");
+      applySession(result.session);
+      const invitationRows = await listDiscoveryInvitations(result.session.sessionId);
+      setInvitations(invitationRows);
+
+      await alert({
+        title: "Invitaciones enviadas",
+        message: `Se enviaron ${result.sentCount} invitaciones con codigo unico de acceso.`,
+        tone: "success",
+      });
+    } catch (error) {
+      await alert({
+        title: "No se pudieron enviar invitaciones",
+        message: error instanceof Error ? error.message : "Error desconocido.",
+        tone: "error",
+      });
+    } finally {
+      setIsSendingInvites(false);
+    }
+  };
+
+  const handleRagFilesUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = "";
+    if (files.length === 0 || !settings) return;
+
+    setIsUploadingRagDocs(true);
+    try {
+      const uploadedDocs: DiscoveryFeedbackSettingsRecord["contextDocuments"] = [];
+
+      for (const file of files) {
+        const uploaded = await uploadToR2({
+          file,
+          moduleCode: "descubrimiento",
+          action: "update",
+          pathPrefix: "descubrimiento/context",
+          entityTable: "app_assessment.discovery_feedback_settings",
+          fieldName: "context_documents",
+        });
+
+        uploadedDocs.push({
+          id: (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${file.name}`),
+          name: uploaded.fileName,
+          url: uploaded.url,
+          uploadedAt: new Date().toISOString(),
+        });
+      }
+
+      setSettings((prev) =>
+        prev
+          ? {
+              ...prev,
+              contextDocuments: [...uploadedDocs, ...prev.contextDocuments],
+            }
+          : prev,
+      );
+
+      await alert({
+        title: "Archivos cargados",
+        message: `Se cargaron ${uploadedDocs.length} archivo(s) de contexto.`,
+        tone: "success",
+      });
+    } catch (error) {
+      await alert({
+        title: "No se pudieron cargar archivos",
+        message: error instanceof Error ? error.message : "Error desconocido.",
+        tone: "error",
+      });
+    } finally {
+      setIsUploadingRagDocs(false);
+    }
+  };
+
+  const handleResultsFilter = async (field: keyof typeof resultsFilters, value: string) => {
+    const next = { ...resultsFilters, [field]: value };
+    setResultsFilters(next);
+
+    const apiFilters: DiscoveryOverviewFilters = {
+      userId: next.userId || undefined,
+      country: next.country || undefined,
+      jobRole: next.jobRole || undefined,
+      ageMin: parseNumber(next.ageMin),
+      ageMax: parseNumber(next.ageMax),
+      yearsExperienceMin: parseNumber(next.yearsExperienceMin),
+      yearsExperienceMax: parseNumber(next.yearsExperienceMax),
+    };
+
+    setIsLoading(true);
+    try {
+      await loadManagerOverview(apiFilters);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -565,10 +705,7 @@ export function DiscoveryExperience() {
           title="Desbloquea tu diagnostico 4Shine."
           description="Esta experiencia se vincula a tu usuario y guarda un diagnostico unico por cuenta. Puedes activar solo Descubrimiento o entrar al programa completo 4Shine."
           products={discoveryOffers}
-          primaryAction={{
-            href: "/dashboard",
-            label: "Ver opciones disponibles",
-          }}
+          primaryAction={{ href: "/dashboard", label: "Ver opciones disponibles" }}
           note="Con Descubrimiento obtienes la prueba diagnostica y su lectura ejecutiva."
         />
       </div>
@@ -589,61 +726,158 @@ export function DiscoveryExperience() {
   }
 
   if (isManager) {
+    const tabs = buildManagerTabs();
     const currentSettings = settings;
 
     return (
       <div className="space-y-6">
         <PageTitle
           title="Descubrimiento · Gestion"
-          subtitle="Previsualiza diagnosticos completos, comparte por correo con codigo unico y administra instrucciones IA + contexto documental."
+          subtitle="Gestion ejecutiva del modulo por pestañas: vista previa, mailing, RAG y resultados generales."
         />
 
-        <div className="grid gap-6 xl:grid-cols-[minmax(320px,0.92fr)_minmax(0,1.08fr)]">
-          <section className="space-y-4">
-            <div className="app-panel p-5">
-              <p className="app-section-kicker">Participante</p>
-              <label className="mt-2 block text-sm text-[var(--app-muted)]">
-                Selecciona usuario
-              </label>
-              <select
-                value={selectedUserId}
-                onChange={(event) => void handleManagerUserChange(event.target.value)}
-                className="mt-2 h-11 w-full rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
+        <div className="app-panel p-3">
+          <div className="flex flex-wrap gap-2">
+            {tabs.map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setManagerTab(tab.key)}
+                className={clsx(
+                  "rounded-full px-4 py-2 text-xs font-extrabold uppercase tracking-[0.14em]",
+                  managerTab === tab.key
+                    ? "bg-[var(--brand-primary)] text-white"
+                    : "border border-[var(--app-border)] bg-white text-[var(--app-muted)]",
+                )}
               >
-                <option value="">Seleccionar...</option>
-                {overview?.availableFilters.users.map((user) => (
-                  <option key={user.userId} value={user.userId}>
-                    {user.name || user.userId}
-                  </option>
-                ))}
-              </select>
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
 
-              {session && (
-                <div className="mt-4 rounded-[14px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-3 text-sm text-[var(--app-ink)]">
-                  <p>
-                    <strong>ID diagnostico:</strong> {session.diagnosticIdentifier}
-                  </p>
-                  <p>
-                    <strong>Perfil:</strong> {session.firstName} {session.lastName} · {session.country}
-                  </p>
-                  <p>
-                    <strong>Cargo:</strong> {session.jobRole || "Sin definir"}
-                  </p>
-                </div>
-              )}
-            </div>
+        {(managerTab === "preview" || managerTab === "mailing") && (
+          <div className="app-panel p-5">
+            <p className="app-section-kicker">Participante</p>
+            <label className="mt-2 block text-sm text-[var(--app-muted)]">Selecciona usuario</label>
+            <select
+              value={selectedUserId}
+              onChange={(event) => void handleManagerUserChange(event.target.value)}
+              className="mt-2 h-11 w-full rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
+            >
+              <option value="">Seleccionar...</option>
+              {managerUsers.map((user) => (
+                <option key={user.userId} value={user.userId}>
+                  {user.name || user.userId}
+                </option>
+              ))}
+            </select>
 
-            <div className="app-panel p-5">
+            {session && (
+              <div className="mt-4 rounded-[14px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-3 text-sm text-[var(--app-ink)]">
+                <p><strong>ID diagnostico:</strong> {session.diagnosticIdentifier}</p>
+                <p><strong>Perfil:</strong> {session.firstName} {session.lastName} · {session.country}</p>
+                <p><strong>Cargo:</strong> {session.jobRole || "Sin definir"}</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {managerTab === "preview" && (
+          <div>
+            {session ? (
+              <ResultsView
+                state={{
+                  ...state,
+                  name: `${session.firstName} ${session.lastName}`.trim() || session.nameSnapshot,
+                }}
+                publicId={session.publicId}
+                embedded={true}
+                isPublic={false}
+              />
+            ) : (
+              <div className="app-panel p-6 text-sm text-[var(--app-muted)]">
+                Selecciona un participante para previsualizar su diagnostico.
+              </div>
+            )}
+          </div>
+        )}
+
+        {managerTab === "mailing" && currentSettings && (
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+            <section className="app-panel p-5 space-y-3">
+              <h3 className="text-lg font-black text-[var(--app-ink)]">Configuracion de mailing</h3>
+
+              <label className="block text-sm font-semibold text-[var(--app-ink)]">
+                Asunto
+                <input
+                  value={currentSettings.inviteEmailSubject}
+                  onChange={(event) =>
+                    setSettings((prev) =>
+                      prev ? { ...prev, inviteEmailSubject: event.target.value } : prev,
+                    )
+                  }
+                  className="mt-2 h-10 w-full rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
+                />
+              </label>
+
+              <label className="block text-sm font-semibold text-[var(--app-ink)]">
+                HTML (altamente editable)
+                <textarea
+                  value={currentSettings.inviteEmailHtml}
+                  onChange={(event) =>
+                    setSettings((prev) =>
+                      prev ? { ...prev, inviteEmailHtml: event.target.value } : prev,
+                    )
+                  }
+                  className="mt-2 min-h-56 w-full rounded-[12px] border border-[var(--app-border)] bg-white p-3 font-mono text-xs"
+                />
+              </label>
+
+              <label className="block text-sm font-semibold text-[var(--app-ink)]">
+                Texto plano
+                <textarea
+                  value={currentSettings.inviteEmailText}
+                  onChange={(event) =>
+                    setSettings((prev) =>
+                      prev ? { ...prev, inviteEmailText: event.target.value } : prev,
+                    )
+                  }
+                  className="mt-2 min-h-32 w-full rounded-[12px] border border-[var(--app-border)] bg-white p-3 text-sm"
+                />
+              </label>
+
+              <p className="text-xs text-[var(--app-muted)]">
+                Placeholders disponibles: <code>{"{{access_code}}"}</code>, <code>{"{{invite_url}}"}</code>, <code>{"{{recipient_email}}"}</code>, <code>{"{{diagnostic_id}}"}</code>, <code>{"{{participant_name}}"}</code>
+              </p>
+
+              <button
+                type="button"
+                disabled={isSavingSettings}
+                onClick={() =>
+                  void saveSettings(
+                    currentSettings,
+                    "Plantilla de mailing actualizada correctamente.",
+                  )
+                }
+                className="inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-4 py-2 text-xs font-extrabold uppercase tracking-[0.14em] text-white disabled:opacity-60"
+              >
+                {isSavingSettings ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+                Guardar mailing
+              </button>
+            </section>
+
+            <section className="app-panel p-5">
               <div className="flex items-center gap-2">
                 <Mail size={16} className="text-[var(--brand-primary)]" />
-                <h3 className="text-lg font-black text-[var(--app-ink)]">Invitar por correo</h3>
+                <h3 className="text-lg font-black text-[var(--app-ink)]">Envio masivo</h3>
               </div>
 
               <textarea
                 value={managerEmails}
                 onChange={(event) => setManagerEmails(event.target.value)}
                 placeholder="correo1@empresa.com\ncorreo2@empresa.com"
-                className="mt-3 min-h-28 w-full rounded-[12px] border border-[var(--app-border)] bg-white p-3 text-sm"
+                className="mt-3 min-h-32 w-full rounded-[12px] border border-[var(--app-border)] bg-white p-3 text-sm"
               />
 
               <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -674,7 +908,7 @@ export function DiscoveryExperience() {
                   Historial ({invitations.length})
                 </p>
                 <ul className="mt-2 space-y-2 text-sm">
-                  {invitations.slice(0, 8).map((invitation) => (
+                  {invitations.slice(0, 10).map((invitation) => (
                     <li key={invitation.invitationId} className="rounded-[10px] border border-[var(--app-border)] p-2">
                       <p className="font-semibold text-[var(--app-ink)]">{invitation.invitedEmail}</p>
                       <p className="text-xs text-[var(--app-muted)]">
@@ -684,187 +918,197 @@ export function DiscoveryExperience() {
                   ))}
                 </ul>
               </div>
-            </div>
+            </section>
+          </div>
+        )}
 
-            {currentSettings && (
-              <div className="app-panel p-5 space-y-3">
-                <h3 className="text-lg font-black text-[var(--app-ink)]">Feedback IA y Mailing</h3>
+        {managerTab === "rag" && currentSettings && (
+          <div className="app-panel p-5 space-y-4">
+            <h3 className="text-lg font-black text-[var(--app-ink)]">Configuracion RAG</h3>
 
-                <label className="block text-sm font-semibold text-[var(--app-ink)]">
-                  Instrucciones de feedback IA
-                  <textarea
-                    value={currentSettings.aiFeedbackInstructions}
-                    onChange={(event) =>
-                      setSettings((prev) =>
-                        prev
-                          ? { ...prev, aiFeedbackInstructions: event.target.value }
-                          : prev,
-                      )
-                    }
-                    className="mt-2 min-h-24 w-full rounded-[12px] border border-[var(--app-border)] bg-white p-3 text-sm"
-                  />
-                </label>
+            <label className="block text-sm font-semibold text-[var(--app-ink)]">
+              Instrucciones para el analisis (precargadas)
+              <textarea
+                value={currentSettings.aiFeedbackInstructions}
+                onChange={(event) =>
+                  setSettings((prev) =>
+                    prev ? { ...prev, aiFeedbackInstructions: event.target.value } : prev,
+                  )
+                }
+                className="mt-2 min-h-40 w-full rounded-[12px] border border-[var(--app-border)] bg-white p-3 text-sm"
+              />
+            </label>
 
-                <label className="block text-sm font-semibold text-[var(--app-ink)]">
-                  Asunto del correo
+            <div className="rounded-[12px] border border-[var(--app-border)] p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--app-muted)]">
+                  Archivos de contexto ({currentSettings.contextDocuments.length})
+                </p>
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-4 py-2 text-xs font-semibold text-[var(--app-ink)]">
+                  {isUploadingRagDocs ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}
+                  Adjuntar archivos
                   <input
-                    value={currentSettings.inviteEmailSubject}
-                    onChange={(event) =>
-                      setSettings((prev) =>
-                        prev ? { ...prev, inviteEmailSubject: event.target.value } : prev,
-                      )
-                    }
-                    className="mt-2 h-10 w-full rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
+                    type="file"
+                    multiple
+                    className="hidden"
+                    accept=".pdf,.doc,.docx,.txt,.md,.csv,.xls,.xlsx"
+                    onChange={(event) => void handleRagFilesUpload(event)}
                   />
                 </label>
+              </div>
 
-                <label className="block text-sm font-semibold text-[var(--app-ink)]">
-                  HTML del mailing
-                  <textarea
-                    value={currentSettings.inviteEmailHtml}
-                    onChange={(event) =>
-                      setSettings((prev) =>
-                        prev ? { ...prev, inviteEmailHtml: event.target.value } : prev,
-                      )
-                    }
-                    className="mt-2 min-h-40 w-full rounded-[12px] border border-[var(--app-border)] bg-white p-3 font-mono text-xs"
-                  />
-                </label>
-
-                <label className="block text-sm font-semibold text-[var(--app-ink)]">
-                  Texto plano del mailing
-                  <textarea
-                    value={currentSettings.inviteEmailText}
-                    onChange={(event) =>
-                      setSettings((prev) =>
-                        prev ? { ...prev, inviteEmailText: event.target.value } : prev,
-                      )
-                    }
-                    className="mt-2 min-h-24 w-full rounded-[12px] border border-[var(--app-border)] bg-white p-3 text-sm"
-                  />
-                </label>
-
-                <div className="rounded-[12px] border border-[var(--app-border)] p-3">
-                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--app-muted)]">
-                    Documentos de contexto ({currentSettings.contextDocuments.length})
-                  </p>
-                  <ul className="mt-2 space-y-1 text-sm">
-                    {currentSettings.contextDocuments.map((doc) => (
-                      <li key={doc.id} className="flex items-center justify-between gap-2">
-                        <a href={doc.url} target="_blank" rel="noreferrer" className="text-[var(--brand-primary)] underline">
-                          {doc.name}
-                        </a>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setSettings((prev) =>
-                              prev
-                                ? {
-                                    ...prev,
-                                    contextDocuments: prev.contextDocuments.filter(
-                                      (item) => item.id !== doc.id,
-                                    ),
-                                  }
-                                : prev,
-                            )
-                          }
-                          className="text-xs font-semibold text-rose-700"
-                        >
-                          Eliminar
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-
-                  <div className="mt-3">
-                    <R2UploadButton
-                      moduleCode="descubrimiento"
-                      action="update"
-                      pathPrefix="descubrimiento/context"
-                      entityTable="app_assessment.discovery_feedback_settings"
-                      fieldName="context_documents"
-                      accept=".pdf,.doc,.docx,.txt,.md"
-                      buttonLabel="Subir documento"
-                      onUploaded={async (url, payload) => {
+              <ul className="mt-3 space-y-2 text-sm">
+                {currentSettings.contextDocuments.map((doc) => (
+                  <li key={doc.id} className="flex items-center justify-between gap-2 rounded-[10px] border border-[var(--app-border)] p-2">
+                    <a href={doc.url} target="_blank" rel="noreferrer" className="truncate text-[var(--brand-primary)] underline">
+                      {doc.name}
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() =>
                         setSettings((prev) =>
                           prev
                             ? {
                                 ...prev,
-                                contextDocuments: [
-                                  {
-                                    id: crypto.randomUUID(),
-                                    name: payload.fileName,
-                                    url,
-                                    uploadedAt: new Date().toISOString(),
-                                  },
-                                  ...prev.contextDocuments,
-                                ],
+                                contextDocuments: prev.contextDocuments.filter((item) => item.id !== doc.id),
                               }
                             : prev,
-                        );
-                      }}
-                    />
-                  </div>
-                </div>
+                        )
+                      }
+                      className="text-xs font-semibold text-rose-700"
+                    >
+                      Eliminar
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
 
-                <button
-                  type="button"
-                  disabled={!settings || isSavingSettings}
-                  onClick={() => settings && void saveSettings(settings)}
-                  className="inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-4 py-2 text-xs font-extrabold uppercase tracking-[0.14em] text-white disabled:opacity-60"
+            <button
+              type="button"
+              disabled={isSavingSettings}
+              onClick={() =>
+                void saveSettings(
+                  currentSettings,
+                  "Configuracion RAG e instrucciones de analisis actualizadas.",
+                )
+              }
+              className="inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-4 py-2 text-xs font-extrabold uppercase tracking-[0.14em] text-white disabled:opacity-60"
+            >
+              {isSavingSettings ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+              Guardar RAG
+            </button>
+          </div>
+        )}
+
+        {managerTab === "results" && (
+          <div className="space-y-4">
+            <div className="app-panel p-4">
+              <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-7">
+                <select
+                  value={resultsFilters.userId}
+                  onChange={(event) => void handleResultsFilter("userId", event.target.value)}
+                  className="h-10 rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
                 >
-                  {isSavingSettings ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
-                  Guardar configuracion
-                </button>
-              </div>
-            )}
-          </section>
+                  <option value="">Usuario</option>
+                  {managerUsers.map((user) => (
+                    <option key={user.userId} value={user.userId}>{user.name || user.userId}</option>
+                  ))}
+                </select>
 
-          <section className="space-y-4">
-            {overview && (
-              <StatGrid
-                stats={[
-                  {
-                    label: "Diagnosticos",
-                    value: overview.stats.totalDiagnostics,
-                    hint: "Filtrados",
-                  },
-                  {
-                    label: "Completados",
-                    value: overview.stats.completedDiagnostics,
-                    hint: "Con indice global",
-                  },
-                  {
-                    label: "Indice promedio",
-                    value: `${overview.stats.averageGlobalIndex}%`,
-                    hint: "Global",
-                  },
-                  {
-                    label: "Usuarios",
-                    value: overview.availableFilters.users.length,
-                    hint: "Con sesion",
-                  },
-                ]}
-              />
-            )}
+                <select
+                  value={resultsFilters.country}
+                  onChange={(event) => void handleResultsFilter("country", event.target.value)}
+                  className="h-10 rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
+                >
+                  <option value="">Pais</option>
+                  {overview?.availableFilters.countries.map((country) => (
+                    <option key={country} value={country}>{country}</option>
+                  ))}
+                </select>
 
-            {session ? (
-              <ResultsView
-                state={{
-                  ...state,
-                  name: `${session.firstName} ${session.lastName}`.trim() || session.nameSnapshot,
-                }}
-                publicId={session.publicId}
-                embedded={true}
-                isPublic={false}
-              />
-            ) : (
-              <div className="app-panel p-6 text-sm text-[var(--app-muted)]">
-                Selecciona un participante para previsualizar su diagnostico.
+                <select
+                  value={resultsFilters.jobRole}
+                  onChange={(event) => void handleResultsFilter("jobRole", event.target.value)}
+                  className="h-10 rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
+                >
+                  <option value="">Cargo</option>
+                  {overview?.availableFilters.jobRoles.map((jobRole) => (
+                    <option key={jobRole} value={jobRole}>{jobRole}</option>
+                  ))}
+                </select>
+
+                <input
+                  value={resultsFilters.ageMin}
+                  onChange={(event) => void handleResultsFilter("ageMin", event.target.value)}
+                  placeholder="Edad min"
+                  className="h-10 rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
+                />
+
+                <input
+                  value={resultsFilters.ageMax}
+                  onChange={(event) => void handleResultsFilter("ageMax", event.target.value)}
+                  placeholder="Edad max"
+                  className="h-10 rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
+                />
+
+                <input
+                  value={resultsFilters.yearsExperienceMin}
+                  onChange={(event) => void handleResultsFilter("yearsExperienceMin", event.target.value)}
+                  placeholder="Exp min"
+                  className="h-10 rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
+                />
+
+                <input
+                  value={resultsFilters.yearsExperienceMax}
+                  onChange={(event) => void handleResultsFilter("yearsExperienceMax", event.target.value)}
+                  placeholder="Exp max"
+                  className="h-10 rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
+                />
               </div>
-            )}
-          </section>
-        </div>
+            </div>
+
+            <StatGrid
+              stats={[
+                { label: "Diagnosticos", value: overview?.stats.totalDiagnostics ?? 0, hint: "Filtrados" },
+                { label: "Completados", value: overview?.stats.completedDiagnostics ?? 0, hint: "Con indice" },
+                { label: "Indice promedio", value: `${overview?.stats.averageGlobalIndex ?? 0}%`, hint: "Global" },
+                { label: "Registros", value: overview?.rows.length ?? 0, hint: "Tabla" },
+              ]}
+            />
+
+            <div className="app-panel overflow-auto p-4">
+              <table className="min-w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-[var(--app-border)] text-[var(--app-muted)]">
+                    <th className="px-2 py-2">ID</th>
+                    <th className="px-2 py-2">Usuario</th>
+                    <th className="px-2 py-2">Pais</th>
+                    <th className="px-2 py-2">Cargo</th>
+                    <th className="px-2 py-2">Edad</th>
+                    <th className="px-2 py-2">Exp.</th>
+                    <th className="px-2 py-2">Avance</th>
+                    <th className="px-2 py-2">Indice</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {overview?.rows.map((row) => (
+                    <tr key={row.sessionId} className="border-b border-[var(--app-border)]">
+                      <td className="px-2 py-2 font-semibold">{row.diagnosticIdentifier}</td>
+                      <td className="px-2 py-2">{row.participantName}</td>
+                      <td className="px-2 py-2">{row.country || "-"}</td>
+                      <td className="px-2 py-2">{row.jobRole || "-"}</td>
+                      <td className="px-2 py-2">{row.age ?? "-"}</td>
+                      <td className="px-2 py-2">{row.yearsExperience ?? "-"}</td>
+                      <td className="px-2 py-2">{row.completionPercent}%</td>
+                      <td className="px-2 py-2">{row.globalIndex ?? "-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -876,11 +1120,7 @@ export function DiscoveryExperience() {
           title="Descubrimiento"
           subtitle="Tu lectura ejecutiva 4Shine integra autopercepcion y criterio situacional en un mapa accionable."
         />
-        <ResultsView
-          state={state}
-          publicId={session?.publicId}
-          onReset={handleReset}
-        />
+        <ResultsView state={state} publicId={session?.publicId} onReset={handleReset} />
       </div>
     );
   }
@@ -890,7 +1130,7 @@ export function DiscoveryExperience() {
       <div className="space-y-8">
         <PageTitle
           title="Descubrimiento"
-          subtitle="Antes de iniciar, completa tu ficha personal. Este perfil habilita filtros de analitica y lectura comparativa del diagnostico."
+          subtitle="Antes de iniciar, completa tu ficha personal."
         />
         <StatGrid stats={stats} />
 
@@ -902,9 +1142,7 @@ export function DiscoveryExperience() {
               </div>
               <div>
                 <p className="app-section-kicker">Perfil obligatorio</p>
-                <h3 className="mt-2 text-2xl font-black text-[var(--app-ink)]">
-                  Datos previos al diagnostico
-                </h3>
+                <h3 className="mt-2 text-2xl font-black text-[var(--app-ink)]">Datos previos al diagnostico</h3>
               </div>
             </div>
 
@@ -912,10 +1150,7 @@ export function DiscoveryExperience() {
               <input
                 value={state.profile.firstName}
                 onChange={(event) =>
-                  setState((current) => ({
-                    ...current,
-                    profile: { ...current.profile, firstName: event.target.value },
-                  }))
+                  setState((current) => ({ ...current, profile: { ...current.profile, firstName: event.target.value } }))
                 }
                 placeholder="Nombres"
                 className="h-11 rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
@@ -923,10 +1158,7 @@ export function DiscoveryExperience() {
               <input
                 value={state.profile.lastName}
                 onChange={(event) =>
-                  setState((current) => ({
-                    ...current,
-                    profile: { ...current.profile, lastName: event.target.value },
-                  }))
+                  setState((current) => ({ ...current, profile: { ...current.profile, lastName: event.target.value } }))
                 }
                 placeholder="Apellidos"
                 className="h-11 rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
@@ -934,10 +1166,7 @@ export function DiscoveryExperience() {
               <input
                 value={state.profile.country}
                 onChange={(event) =>
-                  setState((current) => ({
-                    ...current,
-                    profile: { ...current.profile, country: event.target.value },
-                  }))
+                  setState((current) => ({ ...current, profile: { ...current.profile, country: event.target.value } }))
                 }
                 placeholder="Pais"
                 className="h-11 rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
@@ -947,19 +1176,14 @@ export function DiscoveryExperience() {
                 onChange={(event) =>
                   setState((current) => ({
                     ...current,
-                    profile: {
-                      ...current.profile,
-                      jobRole: event.target.value as DiscoveryParticipantProfile["jobRole"],
-                    },
+                    profile: { ...current.profile, jobRole: event.target.value as DiscoveryParticipantProfile["jobRole"] },
                   }))
                 }
                 className="h-11 rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
               >
                 <option value="">Selecciona cargo</option>
                 {DISCOVERY_JOB_ROLE_OPTIONS.map((jobRole) => (
-                  <option key={jobRole} value={jobRole}>
-                    {jobRole}
-                  </option>
+                  <option key={jobRole} value={jobRole}>{jobRole}</option>
                 ))}
               </select>
               <input
@@ -967,10 +1191,7 @@ export function DiscoveryExperience() {
                 onChange={(event) =>
                   setState((current) => ({
                     ...current,
-                    profile: {
-                      ...current.profile,
-                      age: event.target.value ? Number(event.target.value) : null,
-                    },
+                    profile: { ...current.profile, age: event.target.value ? Number(event.target.value) : null },
                   }))
                 }
                 type="number"
@@ -986,9 +1207,7 @@ export function DiscoveryExperience() {
                     ...current,
                     profile: {
                       ...current.profile,
-                      yearsExperience: event.target.value
-                        ? Number(event.target.value)
-                        : null,
+                      yearsExperience: event.target.value ? Number(event.target.value) : null,
                     },
                   }))
                 }
@@ -1018,25 +1237,17 @@ export function DiscoveryExperience() {
               </div>
               <div>
                 <p className="app-section-kicker">Perfil vinculado</p>
-                <h4 className="mt-2 text-2xl font-black text-[var(--app-ink)]">
-                  {currentUser?.name ?? state.name}
-                </h4>
+                <h4 className="mt-2 text-2xl font-black text-[var(--app-ink)]">{currentUser?.name ?? state.name}</h4>
               </div>
             </div>
 
             <div className="mt-5 grid grid-cols-2 gap-3">
               <div className="rounded-[18px] border border-[var(--app-border)] bg-white/72 px-4 py-4">
-                <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[var(--app-muted)]">
-                  ID diagnostico
-                </p>
-                <p className="mt-2 text-sm font-semibold text-[var(--app-ink)]">
-                  {session?.diagnosticIdentifier || "Pendiente"}
-                </p>
+                <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[var(--app-muted)]">ID diagnostico</p>
+                <p className="mt-2 text-sm font-semibold text-[var(--app-ink)]">{session?.diagnosticIdentifier || "Pendiente"}</p>
               </div>
               <div className="rounded-[18px] border border-[var(--app-border)] bg-white/72 px-4 py-4">
-                <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[var(--app-muted)]">
-                  Avance
-                </p>
+                <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[var(--app-muted)]">Avance</p>
                 <p className="mt-2 text-sm font-semibold text-[var(--app-ink)]">{completionPercent}%</p>
               </div>
             </div>
@@ -1075,16 +1286,9 @@ export function DiscoveryExperience() {
         <section className="app-panel p-6 md:p-8">
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             {instructions.map((item) => (
-              <article
-                key={item.title}
-                className="rounded-[20px] border border-[var(--app-border)] bg-white/78 px-5 py-5"
-              >
-                <h4 className="text-lg font-black text-[var(--app-ink)]">
-                  {item.title}
-                </h4>
-                <p className="mt-2 text-sm leading-relaxed text-[var(--app-muted)]">
-                  {item.description}
-                </p>
+              <article key={item.title} className="rounded-[20px] border border-[var(--app-border)] bg-white/78 px-5 py-5">
+                <h4 className="text-lg font-black text-[var(--app-ink)]">{item.title}</h4>
+                <p className="mt-2 text-sm leading-relaxed text-[var(--app-muted)]">{item.description}</p>
               </article>
             ))}
           </div>
@@ -1092,12 +1296,7 @@ export function DiscoveryExperience() {
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <button
               type="button"
-              onClick={() =>
-                setState((current) => ({
-                  ...current,
-                  status: "intro",
-                }))
-              }
+              onClick={() => setState((current) => ({ ...current, status: "intro" }))}
               className="inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-5 py-3 text-sm font-semibold text-[var(--app-ink)]"
             >
               <ChevronLeft size={16} />
@@ -1131,12 +1330,8 @@ export function DiscoveryExperience() {
       <div className="sticky top-[5rem] z-10 rounded-[22px] border border-[var(--app-border)] bg-[rgba(255,255,255,0.88)] px-4 py-4 shadow-[0_20px_42px_rgba(55,32,80,0.08)] backdrop-blur-xl md:px-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h3 className="text-2xl font-black text-[var(--app-ink)] md:text-3xl">
-              Preguntas {start + 1} a {end}
-            </h3>
-            <p className="mt-2 text-sm text-[var(--app-muted)]">
-              {answeredCount} respuestas registradas de {DB.length}.
-            </p>
+            <h3 className="text-2xl font-black text-[var(--app-ink)] md:text-3xl">Preguntas {start + 1} a {end}</h3>
+            <p className="mt-2 text-sm text-[var(--app-muted)]">{answeredCount} respuestas registradas de {DB.length}.</p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -1146,14 +1341,10 @@ export function DiscoveryExperience() {
             <span
               className={clsx(
                 "rounded-full px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em]",
-                saveIndicator === "saving" &&
-                  "bg-[rgba(59,130,246,0.14)] text-sky-700",
-                saveIndicator === "saved" &&
-                  "bg-[rgba(16,185,129,0.14)] text-emerald-700",
-                saveIndicator === "error" &&
-                  "bg-[rgba(244,63,94,0.14)] text-rose-700",
-                saveIndicator === "idle" &&
-                  "bg-[var(--app-surface-muted)] text-[var(--app-muted)]",
+                saveIndicator === "saving" && "bg-[rgba(59,130,246,0.14)] text-sky-700",
+                saveIndicator === "saved" && "bg-[rgba(16,185,129,0.14)] text-emerald-700",
+                saveIndicator === "error" && "bg-[rgba(244,63,94,0.14)] text-rose-700",
+                saveIndicator === "idle" && "bg-[var(--app-surface-muted)] text-[var(--app-muted)]",
               )}
             >
               {saveIndicator === "saving"
