@@ -65,22 +65,24 @@ export async function uploadToR2(input: UploadToR2Input): Promise<R2UploadRespon
   }
 
   if (presignResponse.ok && presignPayload?.ok && presignPayload.data?.uploadUrl) {
-    const putResponse = await fetch(presignPayload.data.uploadUrl, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': input.file.type || 'application/octet-stream',
-      },
-      body: input.file,
-    });
+    try {
+      const putResponse = await fetch(presignPayload.data.uploadUrl, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': input.file.type || 'application/octet-stream',
+        },
+        body: input.file,
+      });
 
-    if (!putResponse.ok) {
-      throw new Error(`Failed to upload file directly to storage (${putResponse.status})`);
+      if (putResponse.ok) {
+        const { uploadUrl, expiresIn, ...result } = presignPayload.data;
+        void uploadUrl;
+        void expiresIn;
+        return result;
+      }
+    } catch {
+      // Falls back to server upload when browser direct upload is blocked (e.g. CORS/network).
     }
-
-    const { uploadUrl, expiresIn, ...result } = presignPayload.data;
-    void uploadUrl;
-    void expiresIn;
-    return result;
   }
 
   const formData = new FormData();

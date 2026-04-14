@@ -18,12 +18,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Cell,
-  PolarAngleAxis,
   PolarGrid,
-  PolarRadiusAxis,
-  Radar,
-  RadarChart,
   RadialBar,
   RadialBarChart,
   ResponsiveContainer,
@@ -286,9 +281,17 @@ export function DiscoveryExperience() {
   );
 
   const activeAnalytics = selectedOverviewRow?.analytics ?? overview?.analytics ?? {
+    completion: {
+      eligible: 0,
+      completed: 0,
+      rate: 0,
+    },
+    generalAverage: 0,
     general: [],
     pillars: [],
     components: [],
+    componentsTop: [],
+    componentsWeak: [],
     satisfaction: {
       responses: 0,
       average: 0,
@@ -1477,56 +1480,80 @@ export function DiscoveryExperience() {
 
             <div className="grid gap-4 xl:grid-cols-2">
               <div className="app-panel p-4">
-                <p className="app-section-kicker">Resultados generales</p>
+                <p className="app-section-kicker">Tasa de finalizacion</p>
                 <div className="mt-3 h-60 w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <RadialBarChart
-                      data={activeAnalytics.general}
-                      innerRadius="26%"
+                      data={[{ name: "Finalizacion", value: activeAnalytics.completion.rate }]}
+                      innerRadius="35%"
                       outerRadius="88%"
                       startAngle={90}
                       endAngle={-270}
                     >
                       <PolarGrid radialLines={false} />
                       <Tooltip />
-                      <RadialBar dataKey="value" background cornerRadius={10}>
-                        {activeAnalytics.general.map((entry, index) => (
-                          <Cell
-                            key={`${entry.label}-${index}`}
-                            fill={index % 2 === 0 ? "var(--brand-primary)" : "#7c3aed"}
-                          />
-                        ))}
-                      </RadialBar>
+                      <RadialBar dataKey="value" background cornerRadius={14} fill="var(--brand-primary)" />
                     </RadialBarChart>
                   </ResponsiveContainer>
                 </div>
+                <p className="text-sm text-[var(--app-muted)]">
+                  {activeAnalytics.completion.completed} de {activeAnalytics.completion.eligible} completados ({activeAnalytics.completion.rate}%)
+                </p>
               </div>
 
               <div className="app-panel p-4">
-                <p className="app-section-kicker">Promedio por pilar</p>
+                <p className="app-section-kicker">Resultados generales</p>
                 <div className="mt-3 h-60 w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <RadarChart data={activeAnalytics.pillars}>
-                      <PolarGrid stroke="rgba(108,88,134,0.22)" />
-                      <PolarAngleAxis dataKey="label" tick={{ fontSize: 12 }} />
-                      <PolarRadiusAxis domain={[0, 100]} tick={{ fontSize: 10 }} />
+                    <RadialBarChart
+                      data={[{ name: "Promedio", value: activeAnalytics.generalAverage }]}
+                      innerRadius="35%"
+                      outerRadius="88%"
+                      startAngle={90}
+                      endAngle={-270}
+                    >
+                      <PolarGrid radialLines={false} />
                       <Tooltip />
-                      <Radar
-                        dataKey="average"
-                        stroke="var(--brand-primary)"
-                        fill="var(--brand-primary)"
-                        fillOpacity={0.42}
-                      />
-                    </RadarChart>
+                      <RadialBar dataKey="value" background cornerRadius={14} fill="#7c3aed" />
+                    </RadialBarChart>
                   </ResponsiveContainer>
                 </div>
+                <p className="text-sm text-[var(--app-muted)]">
+                  Promedio de los 4 pilares: {activeAnalytics.generalAverage}%
+                </p>
               </div>
+            </div>
 
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              {activeAnalytics.pillars.map((pillar) => (
+                <div key={pillar.pillar} className="app-panel p-4">
+                  <p className="app-section-kicker">{pillar.label}</p>
+                  <div className="mt-3 h-52 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RadialBarChart
+                        data={[{ name: pillar.label, value: pillar.average }]}
+                        innerRadius="35%"
+                        outerRadius="88%"
+                        startAngle={90}
+                        endAngle={-270}
+                      >
+                        <PolarGrid radialLines={false} />
+                        <Tooltip />
+                        <RadialBar dataKey="value" background cornerRadius={14} fill="var(--brand-primary)" />
+                      </RadialBarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <p className="text-sm text-[var(--app-muted)]">Promedio: {pillar.average}%</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="grid gap-4 xl:grid-cols-2">
               <div className="app-panel p-4">
-                <p className="app-section-kicker">Componentes (Top 12)</p>
+                <p className="app-section-kicker">5 componentes top</p>
                 <div className="mt-3 h-64 w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={activeAnalytics.components ?? []} layout="vertical">
+                    <BarChart data={activeAnalytics.componentsTop ?? []} layout="vertical">
                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(108,88,134,0.2)" />
                       <XAxis type="number" domain={[0, 100]} />
                       <YAxis type="category" dataKey="component" width={140} tick={{ fontSize: 11 }} />
@@ -1538,6 +1565,21 @@ export function DiscoveryExperience() {
               </div>
 
               <div className="app-panel p-4">
+                <p className="app-section-kicker">5 componentes mas debiles</p>
+                <div className="mt-3 h-64 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={activeAnalytics.componentsWeak ?? []} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(108,88,134,0.2)" />
+                      <XAxis type="number" domain={[0, 100]} />
+                      <YAxis type="category" dataKey="component" width={140} tick={{ fontSize: 11 }} />
+                      <Tooltip />
+                      <Bar dataKey="average" fill="#f97316" radius={[0, 8, 8, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              <div className="app-panel p-4 xl:col-span-2">
                 <p className="app-section-kicker">Satisfaccion de experiencia</p>
                 <p className="mt-1 text-sm text-[var(--app-muted)]">
                   Respuestas: {activeAnalytics.satisfaction.responses ?? 0} · Promedio: {activeAnalytics.satisfaction.average ?? 0}/5

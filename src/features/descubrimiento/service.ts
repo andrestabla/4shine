@@ -2082,6 +2082,10 @@ export async function getDiscoveryOverview(
       }))
       .sort((a, b) => b.average - a.average)
       .slice(0, 12);
+    const componentsTop = components.slice(0, 5);
+    const componentsWeak = [...components]
+      .sort((a, b) => a.average - b.average)
+      .slice(0, 5);
 
     const surveyEntries = entries
       .map((entry) => entry.survey)
@@ -2104,14 +2108,33 @@ export async function getDiscoveryOverview(
       surveyValues.length > 0
         ? Number((surveyValues.reduce((acc, value) => acc + value, 0) / surveyValues.length).toFixed(2))
         : 0;
+    const pillarAverages = pillars.map((pillar) => pillar.average);
+    const generalAverage =
+      pillarAverages.length > 0
+        ? Math.round(
+            pillarAverages.reduce((acc, value) => acc + value, 0) / pillarAverages.length,
+          )
+        : 0;
+    const completionRate =
+      totalRows > 0
+        ? Number(((completedCount / totalRows) * 100).toFixed(1))
+        : 0;
 
     return {
+      completion: {
+        eligible: totalRows,
+        completed: completedCount,
+        rate: completionRate,
+      },
+      generalAverage,
       general: [
         { label: "Completados", value: completedCount },
         { label: "En progreso", value: inProgressCount },
       ],
       pillars,
       components,
+      componentsTop,
+      componentsWeak,
       satisfaction: {
         responses: surveyEntries.length,
         average: surveyAverage,

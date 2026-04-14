@@ -143,9 +143,17 @@ export interface DiscoveryOverviewRow {
   globalIndex: number | null;
   updatedAt: string;
   analytics: {
+    completion: {
+      eligible: number;
+      completed: number;
+      rate: number;
+    };
+    generalAverage: number;
     general: Array<{ label: string; value: number }>;
     pillars: Array<{ pillar: DiscoveryPillarKey; label: string; average: number }>;
     components: Array<{ component: string; average: number; count: number }>;
+    componentsTop: Array<{ component: string; average: number; count: number }>;
+    componentsWeak: Array<{ component: string; average: number; count: number }>;
     satisfaction: {
       responses: number;
       average: number;
@@ -164,9 +172,17 @@ export interface DiscoveryOverviewPayload {
   stats: DiscoveryOverviewStats;
   rows: DiscoveryOverviewRow[];
   analytics: {
+    completion: {
+      eligible: number;
+      completed: number;
+      rate: number;
+    };
+    generalAverage: number;
     general: Array<{ label: string; value: number }>;
     pillars: Array<{ pillar: DiscoveryPillarKey; label: string; average: number }>;
     components: Array<{ component: string; average: number; count: number }>;
+    componentsTop: Array<{ component: string; average: number; count: number }>;
+    componentsWeak: Array<{ component: string; average: number; count: number }>;
     satisfaction: {
       responses: number;
       average: number;
