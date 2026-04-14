@@ -51,6 +51,26 @@ import {
 type SaveIndicator = "idle" | "saving" | "saved" | "error";
 type ManagerTab = "preview" | "mailing" | "rag" | "results";
 
+interface MailingBuilderState {
+  headerTitle: string;
+  preheader: string;
+  introText: string;
+  bodyBlocks: string[];
+  buttonLabel: string;
+  footerText: string;
+  colors: {
+    pageBg: string;
+    cardBg: string;
+    headerBg: string;
+    headerText: string;
+    bodyText: string;
+    buttonBg: string;
+    buttonText: string;
+    footerBg: string;
+    footerText: string;
+  };
+}
+
 function defaultProfile(session: DiscoverySessionRecord): DiscoveryParticipantProfile {
   return {
     firstName: session.firstName ?? "",
@@ -172,12 +192,34 @@ export function DiscoveryExperience() {
   const [managerPreviewIdx, setManagerPreviewIdx] = React.useState(0);
   const [overview, setOverview] = React.useState<DiscoveryOverviewPayload | null>(null);
   const [settings, setSettings] = React.useState<DiscoveryFeedbackSettingsRecord | null>(null);
-  const [selectedUserId, setSelectedUserId] = React.useState<string>("");
   const [managerEmails, setManagerEmails] = React.useState("");
   const [invitations, setInvitations] = React.useState<DiscoveryInvitationRecord[]>([]);
   const [isSendingInvites, setIsSendingInvites] = React.useState(false);
   const [isSavingSettings, setIsSavingSettings] = React.useState(false);
   const [isUploadingRagDocs, setIsUploadingRagDocs] = React.useState(false);
+  const [mailingBuilder, setMailingBuilder] = React.useState<MailingBuilderState>({
+    headerTitle: "Diagnostico 4Shine",
+    preheader: "Acceso personalizado a tu lectura ejecutiva",
+    introText:
+      "Ya puedes ingresar al modulo de Descubrimiento. Usa tu codigo unico y el boton de acceso.",
+    bodyBlocks: [
+      "Este acceso esta vinculado exclusivamente a tu correo de invitacion.",
+      "Cuando ingreses, podras completar el diagnostico de liderazgo.",
+    ],
+    buttonLabel: "Abrir diagnostico",
+    footerText: "4Shine Platform",
+    colors: {
+      pageBg: "#f8fafc",
+      cardBg: "#ffffff",
+      headerBg: "#311f44",
+      headerText: "#ffffff",
+      bodyText: "#0f172a",
+      buttonBg: "#311f44",
+      buttonText: "#ffffff",
+      footerBg: "#f1f5f9",
+      footerText: "#475569",
+    },
+  });
 
   const [resultsFilters, setResultsFilters] = React.useState<{
     userId: string;
@@ -228,35 +270,16 @@ export function DiscoveryExperience() {
   );
 
   const loadManagerData = React.useCallback(async () => {
-    const [overviewPayload, settingsPayload] = await Promise.all([
+    const [overviewPayload, settingsPayload, invitationRows] = await Promise.all([
       loadManagerOverview(),
       getDiscoveryFeedbackSettings(),
+      listDiscoveryInvitations(),
     ]);
 
     setSettings(settingsPayload);
-
-    const safeUsers = overviewPayload.availableFilters.users.filter(
-      (user) => user.userId !== currentUser?.id,
-    );
-
-    const nextDefaultUser =
-      (selectedUserId && selectedUserId !== currentUser?.id ? selectedUserId : "") ||
-      safeUsers[0]?.userId ||
-      "";
-
-    if (!nextDefaultUser) {
-      setSession(null);
-      setSelectedUserId("");
-      setInvitations([]);
-      return;
-    }
-
-    const nextSession = await getDiscoverySession(nextDefaultUser);
-    applySession(nextSession);
-    setSelectedUserId(nextDefaultUser);
-    const invitationRows = await listDiscoveryInvitations(nextSession.sessionId);
     setInvitations(invitationRows);
-  }, [applySession, currentUser?.id, loadManagerOverview, selectedUserId]);
+    void overviewPayload;
+  }, [loadManagerOverview]);
 
   React.useEffect(() => {
     if (
@@ -491,41 +514,6 @@ export function DiscoveryExperience() {
     }
   };
 
-  const handleManagerUserChange = async (userId: string) => {
-    if (!userId) {
-      setSelectedUserId("");
-      setSession(null);
-      setInvitations([]);
-      return;
-    }
-
-    if (userId === currentUser?.id) {
-      await alert({
-        title: "Seleccion invalida",
-        message: "Admin/Gestor no puede previsualizar su propio diagnostico.",
-        tone: "warning",
-      });
-      return;
-    }
-
-    setSelectedUserId(userId);
-    setIsLoading(true);
-    try {
-      const nextSession = await getDiscoverySession(userId);
-      applySession(nextSession);
-      const invitationRows = await listDiscoveryInvitations(nextSession.sessionId);
-      setInvitations(invitationRows);
-    } catch (error) {
-      await alert({
-        title: "No se pudo cargar la previsualizacion",
-        message: error instanceof Error ? error.message : "Error desconocido.",
-        tone: "error",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleImportFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -582,8 +570,86 @@ export function DiscoveryExperience() {
     }
   };
 
+  const buildMailingFromBuilder = React.useCallback(() => {
+    const builder = mailingBuilder;
+    const blocksHtml = builder.bodyBlocks
+      .filter((block) => block.trim().length > 0)
+      .map(
+        (block) =>
+          `<p style="margin:0 0 12px 0;color:${builder.colors.bodyText};line-height:1.6;">${block}</p>`,
+      )
+      .join("");
+
+    const html = [
+      `<div style="font-family:Inter,Segoe UI,Arial,sans-serif;background:${builder.colors.pageBg};padding:28px;color:${builder.colors.bodyText};">`,
+      `<div style="max-width:620px;margin:0 auto;background:${builder.colors.cardBg};border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;">`,
+      `<div style="background:${builder.colors.headerBg};padding:20px 24px;color:${builder.colors.headerText};">`,
+      `<h1 style="margin:0;font-size:22px;line-height:1.2;">${builder.headerTitle}</h1>`,
+      `<p style="margin:8px 0 0 0;opacity:.9;">${builder.preheader}</p>`,
+      `</div>`,
+      `<div style="padding:24px;">`,
+      `<p style="margin:0 0 14px 0;color:${builder.colors.bodyText};line-height:1.6;">${builder.introText}</p>`,
+      blocksHtml,
+      `<div style="margin:20px 0;padding:16px;border:1px dashed ${builder.colors.buttonBg};border-radius:12px;background:#fff7ed;">`,
+      `<p style="margin:0 0 8px 0;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#64748b;">Codigo unico</p>`,
+      `<p style="margin:0;font-size:30px;font-weight:800;letter-spacing:.18em;color:${builder.colors.bodyText};">{{access_code}}</p>`,
+      `</div>`,
+      `<p style="margin:0 0 12px 0;color:${builder.colors.bodyText};">`,
+      `<a href="{{invite_url}}" style="display:inline-block;background:${builder.colors.buttonBg};color:${builder.colors.buttonText};text-decoration:none;padding:12px 18px;border-radius:999px;font-weight:700;">${builder.buttonLabel}</a>`,
+      `</p>`,
+      `<p style="margin:0;color:#64748b;font-size:13px;">Correo: {{recipient_email}}</p>`,
+      `<p style="margin:4px 0 0 0;color:#64748b;font-size:13px;">ID Diagnostico: {{diagnostic_id}}</p>`,
+      `</div>`,
+      `<div style="background:${builder.colors.footerBg};padding:14px 24px;color:${builder.colors.footerText};font-size:12px;">${builder.footerText}</div>`,
+      `</div>`,
+      `</div>`,
+    ].join("");
+
+    const textBlocks = builder.bodyBlocks
+      .filter((block) => block.trim().length > 0)
+      .map((block) => `- ${block}`)
+      .join("\\n");
+
+    const text = [
+      builder.headerTitle,
+      builder.preheader,
+      "",
+      builder.introText,
+      textBlocks,
+      "",
+      "Codigo unico:",
+      "{{access_code}}",
+      "",
+      `${builder.buttonLabel}:`,
+      "{{invite_url}}",
+      "",
+      "Correo:",
+      "{{recipient_email}}",
+      "",
+      "ID Diagnostico:",
+      "{{diagnostic_id}}",
+      "",
+      builder.footerText,
+    ].join("\\n");
+
+    return { html, text };
+  }, [mailingBuilder]);
+
+  const applyBuilderToMailing = React.useCallback(() => {
+    const generated = buildMailingFromBuilder();
+    setSettings((prev) =>
+      prev
+        ? {
+            ...prev,
+            inviteEmailHtml: generated.html,
+            inviteEmailText: generated.text,
+          }
+        : prev,
+    );
+  }, [buildMailingFromBuilder]);
+
   const handleInviteFromText = async () => {
-    if (!session || !selectedUserId || !settings) return;
+    if (!settings) return;
 
     const emails = parseEmailsFromText(managerEmails);
     if (emails.length === 0) {
@@ -598,7 +664,6 @@ export function DiscoveryExperience() {
     setIsSendingInvites(true);
     try {
       const result = await createDiscoveryInvitations({
-        userId: selectedUserId,
         emails,
         emailSubject: settings.inviteEmailSubject,
         emailHtml: settings.inviteEmailHtml,
@@ -606,8 +671,7 @@ export function DiscoveryExperience() {
       });
 
       setManagerEmails("");
-      applySession(result.session);
-      const invitationRows = await listDiscoveryInvitations(result.session.sessionId);
+      const invitationRows = await listDiscoveryInvitations();
       setInvitations(invitationRows);
 
       await alert({
@@ -766,28 +830,11 @@ export function DiscoveryExperience() {
 
         {managerTab === "mailing" && (
           <div className="app-panel p-5">
-            <p className="app-section-kicker">Participante</p>
-            <label className="mt-2 block text-sm text-[var(--app-muted)]">Selecciona usuario</label>
-            <select
-              value={selectedUserId}
-              onChange={(event) => void handleManagerUserChange(event.target.value)}
-              className="mt-2 h-11 w-full rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
-            >
-              <option value="">Seleccionar...</option>
-              {managerUsers.map((user) => (
-                <option key={user.userId} value={user.userId}>
-                  {user.name || user.userId}
-                </option>
-              ))}
-            </select>
-
-            {session && (
-              <div className="mt-4 rounded-[14px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-3 text-sm text-[var(--app-ink)]">
-                <p><strong>ID diagnostico:</strong> {session.diagnosticIdentifier}</p>
-                <p><strong>Perfil:</strong> {session.firstName} {session.lastName} · {session.country}</p>
-                <p><strong>Cargo:</strong> {session.jobRole || "Sin definir"}</p>
-              </div>
-            )}
+            <p className="app-section-kicker">Acceso externo al modulo</p>
+            <p className="mt-2 text-sm text-[var(--app-muted)]">
+              Las invitaciones son para correos externos, aunque no sean usuarios de la plataforma.
+              La llave de acceso es el enlace de invitacion + codigo unico.
+            </p>
           </div>
         )}
 
@@ -908,6 +955,139 @@ export function DiscoveryExperience() {
             <section className="app-panel p-5 space-y-3">
               <h3 className="text-lg font-black text-[var(--app-ink)]">Configuracion de mailing</h3>
 
+              <div className="rounded-[12px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4">
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--app-muted)]">
+                  Constructor visual (componentes, estilos y colores)
+                </p>
+
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  <input
+                    value={mailingBuilder.headerTitle}
+                    onChange={(event) =>
+                      setMailingBuilder((prev) => ({ ...prev, headerTitle: event.target.value }))
+                    }
+                    placeholder="Titulo del cabezote"
+                    className="h-10 rounded-[10px] border border-[var(--app-border)] bg-white px-3 text-sm"
+                  />
+                  <input
+                    value={mailingBuilder.preheader}
+                    onChange={(event) =>
+                      setMailingBuilder((prev) => ({ ...prev, preheader: event.target.value }))
+                    }
+                    placeholder="Subtitulo del cabezote"
+                    className="h-10 rounded-[10px] border border-[var(--app-border)] bg-white px-3 text-sm"
+                  />
+                  <input
+                    value={mailingBuilder.buttonLabel}
+                    onChange={(event) =>
+                      setMailingBuilder((prev) => ({ ...prev, buttonLabel: event.target.value }))
+                    }
+                    placeholder="Texto del boton"
+                    className="h-10 rounded-[10px] border border-[var(--app-border)] bg-white px-3 text-sm"
+                  />
+                  <input
+                    value={mailingBuilder.footerText}
+                    onChange={(event) =>
+                      setMailingBuilder((prev) => ({ ...prev, footerText: event.target.value }))
+                    }
+                    placeholder="Texto del footer"
+                    className="h-10 rounded-[10px] border border-[var(--app-border)] bg-white px-3 text-sm"
+                  />
+                </div>
+
+                <textarea
+                  value={mailingBuilder.introText}
+                  onChange={(event) =>
+                    setMailingBuilder((prev) => ({ ...prev, introText: event.target.value }))
+                  }
+                  placeholder="Texto introductorio"
+                  className="mt-3 min-h-20 w-full rounded-[10px] border border-[var(--app-border)] bg-white p-3 text-sm"
+                />
+
+                <div className="mt-3 space-y-2">
+                  {mailingBuilder.bodyBlocks.map((block, index) => (
+                    <div key={index} className="flex items-start gap-2">
+                      <textarea
+                        value={block}
+                        onChange={(event) =>
+                          setMailingBuilder((prev) => {
+                            const nextBlocks = [...prev.bodyBlocks];
+                            nextBlocks[index] = event.target.value;
+                            return { ...prev, bodyBlocks: nextBlocks };
+                          })
+                        }
+                        placeholder={`Bloque de contenido ${index + 1}`}
+                        className="min-h-16 w-full rounded-[10px] border border-[var(--app-border)] bg-white p-2 text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setMailingBuilder((prev) => ({
+                            ...prev,
+                            bodyBlocks: prev.bodyBlocks.filter((_, i) => i !== index),
+                          }))
+                        }
+                        className="rounded-full border border-[var(--app-border)] bg-white px-3 py-2 text-xs font-semibold text-rose-700"
+                      >
+                        Quitar
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setMailingBuilder((prev) => ({
+                        ...prev,
+                        bodyBlocks: [...prev.bodyBlocks, ""],
+                      }))
+                    }
+                    className="rounded-full border border-[var(--app-border)] bg-white px-3 py-2 text-xs font-semibold text-[var(--app-ink)]"
+                  >
+                    Agregar bloque
+                  </button>
+                </div>
+
+                <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-5">
+                  {[
+                    ["headerBg", "Header"],
+                    ["buttonBg", "Boton"],
+                    ["pageBg", "Fondo"],
+                    ["cardBg", "Tarjeta"],
+                    ["footerBg", "Footer"],
+                  ].map(([key, label]) => (
+                    <label key={key} className="flex items-center gap-2 rounded-[10px] border border-[var(--app-border)] bg-white px-2 py-2 text-xs">
+                      <input
+                        type="color"
+                        value={
+                          mailingBuilder.colors[key as keyof MailingBuilderState["colors"]]
+                        }
+                        onChange={(event) =>
+                          setMailingBuilder((prev) => ({
+                            ...prev,
+                            colors: {
+                              ...prev.colors,
+                              [key]: event.target.value,
+                            },
+                          }))
+                        }
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={applyBuilderToMailing}
+                  className="mt-3 inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-4 py-2 text-xs font-extrabold uppercase tracking-[0.14em] text-[var(--app-ink)]"
+                >
+                  Aplicar constructor a HTML/TXT
+                </button>
+              </div>
+
               <label className="block text-sm font-semibold text-[var(--app-ink)]">
                 Asunto
                 <input
@@ -994,7 +1174,7 @@ export function DiscoveryExperience() {
 
                 <button
                   type="button"
-                  disabled={!selectedUserId || isSendingInvites}
+                  disabled={isSendingInvites}
                   onClick={() => void handleInviteFromText()}
                   className="inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-4 py-2 text-xs font-extrabold uppercase tracking-[0.14em] text-white disabled:opacity-60"
                 >
@@ -1012,7 +1192,7 @@ export function DiscoveryExperience() {
                     <li key={invitation.invitationId} className="rounded-[10px] border border-[var(--app-border)] p-2">
                       <p className="font-semibold text-[var(--app-ink)]">{invitation.invitedEmail}</p>
                       <p className="text-xs text-[var(--app-muted)]">
-                        Codigo terminado en {invitation.accessCodeLast4} · enviado {new Date(invitation.accessCodeSentAt).toLocaleString("es-CO")}
+                        Codigo terminado en {invitation.accessCodeLast4} · enviado {new Date(invitation.accessCodeSentAt).toLocaleString("es-CO")} · {invitation.sessionId ? "Lectura de resultados" : "Acceso al modulo"}
                       </p>
                     </li>
                   ))}

@@ -19,12 +19,6 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const sessionId = url.searchParams.get("sessionId")?.trim();
-  if (!sessionId) {
-    return NextResponse.json(
-      { ok: false, error: "sessionId is required" },
-      { status: 400 },
-    );
-  }
 
   try {
     const data = await withClient((client) =>
@@ -38,7 +32,7 @@ export async function GET(request: Request) {
           moduleCode: "descubrimiento",
           action: "query_discovery_invitations",
           entityTable: "app_assessment.discovery_invitations",
-          entityId: sessionId,
+          entityId: sessionId ?? null,
           changeSummary: {
             count: result.length,
           },
@@ -73,7 +67,7 @@ export async function POST(request: Request) {
           moduleCode: "descubrimiento",
           action: "create_discovery_invitations",
           entityTable: "app_assessment.discovery_invitations",
-          entityId: result.session.sessionId,
+          entityId: result.session?.sessionId ?? null,
           changeSummary: {
             sentCount: result.sentCount,
           },

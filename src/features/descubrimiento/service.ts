@@ -55,7 +55,7 @@ interface DiscoverySessionRow {
 
 interface DiscoveryInvitationRow {
   invitation_id: string;
-  session_id: string;
+  session_id: string | null;
   invited_email: string;
   invite_token: string;
   access_code_hash: string;
@@ -1401,7 +1401,7 @@ export async function getDiscoverySessionForActor(
 export async function listDiscoveryInvitationsForSession(
   client: PoolClient,
   actor: AuthUser,
-  sessionId: string,
+  sessionId?: string | null,
 ): Promise<DiscoveryInvitationRecord[]> {
   await requireModulePermission(client, "descubrimiento", "view");
   if (!isAllowedManager(actor)) {
@@ -1422,10 +1422,11 @@ export async function listDiscoveryInvitationsForSession(
         created_at::text,
         updated_at::text
       FROM app_assessment.discovery_invitations
-      WHERE session_id = $1::uuid
+      WHERE ($1::uuid IS NULL OR session_id = $1::uuid)
       ORDER BY created_at DESC
+      LIMIT 500
     `,
-    [sessionId],
+    [sessionId ?? null],
   );
 
   return rows.map(mapInvitationRow);
@@ -1446,28 +1447,31 @@ export async function createDiscoveryInvitations(
     throw new Error("Debes indicar al menos un correo valido.");
   }
 
-  const targetSession = await getDiscoverySessionForActor(client, actor, input.userId);
+  let sharedSession: DiscoverySessionRecord | null = null;
+  if (input.userId) {
+    const targetSession = await getDiscoverySessionForActor(client, actor, input.userId);
 
-  const { rows: targetUserRows } = await client.query<{ primary_role: string }>(
-    `
-      SELECT primary_role
-      FROM app_core.users
-      WHERE user_id = $1::uuid
-      LIMIT 1
-    `,
-    [targetSession.userId],
-  );
-  const targetRole = targetUserRows[0]?.primary_role ?? "";
-  if (targetRole !== "lider") {
-    throw new Error("Solo se pueden enviar invitaciones a participantes lider.");
+    const { rows: targetUserRows } = await client.query<{ primary_role: string }>(
+      `
+        SELECT primary_role
+        FROM app_core.users
+        WHERE user_id = $1::uuid
+        LIMIT 1
+      `,
+      [targetSession.userId],
+    );
+    const targetRole = targetUserRows[0]?.primary_role ?? "";
+    if (targetRole !== "lider") {
+      throw new Error("Solo se pueden enviar invitaciones a participantes lider.");
+    }
+
+    if (!targetSession.profileCompleted) {
+      throw new Error("Completa el perfil del participante antes de enviar invitaciones.");
+    }
+
+    const finalizedSession = await finalizeSessionForSharing(client, targetSession);
+    sharedSession = await ensureSessionShared(client, finalizedSession.sessionId);
   }
-
-  if (!targetSession.profileCompleted) {
-    throw new Error("Completa el perfil del participante antes de enviar invitaciones.");
-  }
-
-  const finalizedSession = await finalizeSessionForSharing(client, targetSession);
-  const sharedSession = await ensureSessionShared(client, finalizedSession.sessionId);
   const organizationId = await resolveOrganizationIdForActor(client, actor.userId);
   const settings = await ensureFeedbackSettings(client, actor);
   const branding = await getBrandingForOrganization(client, organizationId);
@@ -1540,7 +1544,7 @@ export async function createDiscoveryInvitations(
           updated_at::text
       `,
       [
-        sharedSession.sessionId,
+        sharedSession?.sessionId ?? null,
         email,
         inviteToken,
         hashAccessCode(accessCode),
@@ -1562,8 +1566,10 @@ export async function createDiscoveryInvitations(
       recipient_email: email,
       access_code: accessCode,
       invite_url: inviteUrl,
-      diagnostic_id: sharedSession.diagnosticIdentifier,
-      participant_name: `${sharedSession.firstName} ${sharedSession.lastName}`.trim(),
+      diagnostic_id: sharedSession?.diagnosticIdentifier ?? "N/A",
+      participant_name: sharedSession
+        ? `${sharedSession.firstName} ${sharedSession.lastName}`.trim()
+        : "Participante invitado",
     };
 
     await sendOutboundEmail(outboundConfig, {
@@ -1620,7 +1626,7 @@ export async function verifyDiscoveryInvitationAccess(
 
   const { rows } = await client.query<
     DiscoveryInvitationRow & {
-      session_payload: DiscoverySessionRow;
+      session_payload: DiscoverySessionRow | null;
     }
   >(
     `
@@ -1637,7 +1643,7 @@ export async function verifyDiscoveryInvitationAccess(
         di.updated_at::text,
         row_to_json(ds)::jsonb AS session_payload
       FROM app_assessment.discovery_invitations di
-      JOIN app_assessment.discovery_sessions ds ON ds.session_id = di.session_id
+      LEFT JOIN app_assessment.discovery_sessions ds ON ds.session_id = di.session_id
       WHERE di.invite_token = $1
       LIMIT 1
     `,
@@ -1663,7 +1669,7 @@ export async function verifyDiscoveryInvitationAccess(
     [row.invitation_id],
   );
 
-  const session = mapDiscoverySessionRow(row.session_payload);
+  const session = row.session_payload ? mapDiscoverySessionRow(row.session_payload) : null;
 
   return {
     invitation: {
@@ -1672,6 +1678,7 @@ export async function verifyDiscoveryInvitationAccess(
       invitedEmailMasked: maskEmail(row.invited_email),
       openedAt: row.opened_at,
     },
+    accessMode: session ? "results" : "diagnostic",
     session,
   };
 }

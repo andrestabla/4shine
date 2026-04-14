@@ -96,10 +96,13 @@ export async function createDiscoveryInvitations(
 }
 
 export async function listDiscoveryInvitations(
-  sessionId: string,
+  sessionId?: string,
 ): Promise<DiscoveryInvitationRecord[]> {
+  const query = sessionId
+    ? `?sessionId=${encodeURIComponent(sessionId)}`
+    : "";
   return requestApi<DiscoveryInvitationRecord[]>(
-    `/api/v1/modules/descubrimiento/invitations?sessionId=${encodeURIComponent(sessionId)}`,
+    `/api/v1/modules/descubrimiento/invitations${query}`,
   );
 }
 

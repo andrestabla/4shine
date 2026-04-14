@@ -96,7 +96,7 @@ export interface DiscoveryFeedbackSettingsRecord {
 
 export interface DiscoveryInvitationRecord {
   invitationId: string;
-  sessionId: string;
+  sessionId: string | null;
   invitedEmail: string;
   inviteToken: string;
   accessCodeLast4: string;
@@ -151,7 +151,7 @@ export interface DiscoveryOverviewPayload {
 }
 
 export interface DiscoveryInvitationRequest {
-  userId: string;
+  userId?: string;
   emails: string[];
   emailSubject?: string;
   emailHtml?: string;
@@ -159,7 +159,7 @@ export interface DiscoveryInvitationRequest {
 }
 
 export interface DiscoveryInvitationBatchResult {
-  session: DiscoverySessionRecord;
+  session: DiscoverySessionRecord | null;
   invitations: DiscoveryInvitationWithCode[];
   sentCount: number;
 }
@@ -171,7 +171,8 @@ export interface DiscoveryInvitationAccessPayload {
     invitedEmailMasked: string;
     openedAt: string | null;
   };
-  session: DiscoverySessionRecord;
+  session: DiscoverySessionRecord | null;
+  accessMode: "results" | "diagnostic";
 }
 
 export interface UpdateDiscoverySessionInput {
