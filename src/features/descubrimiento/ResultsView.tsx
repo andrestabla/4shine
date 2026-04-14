@@ -117,7 +117,7 @@ export function ResultsView({
   const [pendingDownloadAfterSurvey, setPendingDownloadAfterSurvey] = React.useState(false);
   const [surveyAnswers, setSurveyAnswers] = React.useState<Record<string, number>>(initialSurvey?.answers ?? {});
   const hiddenPdfRef = React.useRef<HTMLDivElement>(null);
-  const stickyClass = embedded ? "top-[5rem] md:top-[5.5rem]" : "top-0";
+  const stickyClass = embedded ? "top-[4.5rem] sm:top-[5rem] md:top-[5.5rem]" : "top-0";
   const surveyStorageKey = React.useMemo(
     () => `discovery-survey:${state.name || "anon"}`,
     [state.name],
@@ -432,7 +432,7 @@ export function ResultsView({
 
       <div
         className={clsx(
-          "sticky z-10 rounded-[22px] border border-[var(--app-border)] bg-[rgba(255,255,255,0.88)] px-4 py-4 shadow-[0_20px_42px_rgba(55,32,80,0.08)] backdrop-blur-xl md:px-5",
+          "sticky z-30 rounded-[22px] border border-[var(--app-border)] bg-[rgba(255,255,255,0.93)] px-4 py-4 shadow-[0_20px_42px_rgba(55,32,80,0.08)] backdrop-blur-xl md:px-5",
           stickyClass,
         )}
       >
@@ -461,7 +461,7 @@ export function ResultsView({
                 type="button"
                 onClick={handleShare}
                 disabled={isSharing}
-                className="inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em] text-white transition hover:opacity-92 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[var(--brand-primary)] px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em] text-white transition hover:opacity-92 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
               >
                 {isSharing ? <Loader2 size={14} className="animate-spin" /> : <Share2 size={14} />}
                 Compartir enlace
@@ -471,7 +471,7 @@ export function ResultsView({
             <button
               type="button"
               onClick={() => setIsShareModalOpen(true)}
-              className="inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em] text-[var(--app-ink)] transition hover:bg-[var(--app-surface-muted)]"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em] text-[var(--app-ink)] transition hover:bg-[var(--app-surface-muted)] sm:w-auto"
             >
               <Mail size={14} />
               Compartir por correo
@@ -481,7 +481,7 @@ export function ResultsView({
               type="button"
               onClick={() => void handleDownloadPdf()}
               disabled={isExporting}
-              className="inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em] text-[var(--app-ink)] transition hover:bg-[var(--app-surface-muted)] disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em] text-[var(--app-ink)] transition hover:bg-[var(--app-surface-muted)] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               {isExporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
               Descargar PDF
@@ -491,7 +491,7 @@ export function ResultsView({
               <button
                 type="button"
                 onClick={() => void onReset()}
-                className="inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em] text-[var(--app-muted)] transition hover:bg-[var(--app-surface-muted)]"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em] text-[var(--app-muted)] transition hover:bg-[var(--app-surface-muted)] sm:w-auto"
               >
                 <RefreshCw size={14} />
                 Reiniciar
@@ -570,7 +570,7 @@ export function ResultsView({
 
           <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
             <div className="rounded-[22px] border border-[var(--app-border)] bg-white/80 px-5 py-5">
-              <div className="h-[320px] w-full">
+              <div className="h-[260px] w-full sm:h-[320px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <RadarChart
                     cx="50%"

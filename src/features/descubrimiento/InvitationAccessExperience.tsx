@@ -86,7 +86,7 @@ export function InvitationAccessExperience({
         setError(
           loadError instanceof Error
             ? loadError.message
-            : "No se pudo cargar la invitacion.",
+            : "No se pudo cargar la invitación.",
         );
       } finally {
         if (active) setIsLoading(false);
@@ -124,7 +124,7 @@ export function InvitationAccessExperience({
   }, []);
 
   const renderPublicHeader = () => (
-    <header className="sticky top-0 z-20 border-b border-[var(--app-border)] bg-white/95 backdrop-blur">
+    <header className="fixed inset-x-0 top-0 z-40 border-b border-[var(--app-border)] bg-white/95 backdrop-blur">
       <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3 md:px-6">
         {publicBranding.logoUrl ? (
           <img src={publicBranding.logoUrl} alt={publicBranding.platformName} className="h-8 w-8 object-contain" />
@@ -206,7 +206,7 @@ export function InvitationAccessExperience({
       setError(
         submitError instanceof Error
           ? submitError.message
-          : "Codigo invalido. Intenta nuevamente.",
+          : "Código inválido. Intenta nuevamente.",
       );
     } finally {
       setIsSubmitting(false);
@@ -217,7 +217,7 @@ export function InvitationAccessExperience({
     return (
       <div className="min-h-screen bg-[var(--app-bg)]">
         {renderPublicHeader()}
-        <main className="mx-auto w-full max-w-6xl px-4 pb-16 pt-8 md:px-6">
+        <main className="mx-auto w-full max-w-6xl px-4 pb-16 pt-24 md:px-6 md:pt-28">
           <ResultsView
           state={{
             name: `${session.firstName} ${session.lastName}`.trim(),
@@ -252,14 +252,14 @@ export function InvitationAccessExperience({
       return (
         <div className="min-h-screen bg-[var(--app-bg)]">
           {renderPublicHeader()}
-          <main className="mx-auto w-full max-w-4xl px-4 pb-16 pt-8 md:px-6">
+          <main className="mx-auto w-full max-w-4xl px-4 pb-16 pt-24 md:px-6 md:pt-28">
             <section className="app-panel p-6 md:p-8">
-            <p className="app-section-kicker">Diagnostico 4Shine</p>
+            <p className="app-section-kicker">Diagnóstico 4Shine</p>
             <h2 className="mt-2 text-2xl font-black text-[var(--app-ink)]">
-              Tu ya realizaste este diagnostico
+              Tú ya realizaste este diagnóstico
             </h2>
             <p className="mt-3 text-sm text-[var(--app-muted)]">
-              Puedes ingresar directamente a tus resultados con este mismo enlace y codigo.
+              Puedes ingresar directamente a tus resultados con este mismo enlace y código.
             </p>
 
             <div className="mt-6 flex flex-wrap gap-3">
@@ -293,7 +293,7 @@ export function InvitationAccessExperience({
       return (
         <div className="min-h-screen bg-[var(--app-bg)]">
           {renderPublicHeader()}
-          <main className="mx-auto w-full max-w-6xl px-4 pb-16 pt-8 md:px-6">
+          <main className="mx-auto w-full max-w-6xl px-4 pb-16 pt-24 md:px-6 md:pt-28">
             <ResultsView
               state={externalState}
               isPublic={true}
@@ -310,9 +310,9 @@ export function InvitationAccessExperience({
       return (
         <div className="min-h-screen bg-[var(--app-bg)]">
           {renderPublicHeader()}
-          <main className="mx-auto w-full max-w-4xl px-4 pb-16 pt-8 md:px-6">
+          <main className="mx-auto w-full max-w-4xl px-4 pb-16 pt-24 md:px-6 md:pt-28">
             <section className="app-panel p-6 md:p-8">
-            <p className="app-section-kicker">Diagnostico 4Shine</p>
+            <p className="app-section-kicker">Diagnóstico 4Shine</p>
             <h1 className="mt-2 text-3xl font-black text-[var(--app-ink)]">
               Completa tu perfil para iniciar
             </h1>
@@ -348,7 +348,7 @@ export function InvitationAccessExperience({
                     profile: { ...current.profile, country: event.target.value },
                   }))
                 }
-                placeholder="Pais"
+                placeholder="País"
                 className="h-11 rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
               />
               <select
@@ -403,7 +403,7 @@ export function InvitationAccessExperience({
                 step="0.5"
                 min={0}
                 max={80}
-                placeholder="Anos de experiencia"
+                placeholder="Años de experiencia"
                 className="h-11 rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
               />
             </div>
@@ -414,7 +414,7 @@ export function InvitationAccessExperience({
                 if (!isProfileComplete(externalState)) {
                   void alert({
                     title: "Perfil incompleto",
-                    message: "Completa todos los campos para iniciar el diagnostico.",
+                    message: "Completa todos los campos para iniciar el diagnóstico.",
                     tone: "warning",
                   });
                   return;
@@ -428,7 +428,7 @@ export function InvitationAccessExperience({
               }}
               className="mt-6 inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-5 py-3 text-sm font-extrabold text-white"
             >
-              Empezar diagnostico
+              Empezar diagnóstico
               <ChevronRight size={16} />
             </button>
             </section>
@@ -449,12 +449,12 @@ export function InvitationAccessExperience({
           number: "2",
           title: "Sin juicios",
           description:
-            "Este es un mapa de navegacion, no un examen. El objetivo es identificar palancas de crecimiento.",
+            "Este es un mapa de navegación, no un examen. El objetivo es identificar palancas de crecimiento.",
         },
         {
           number: "3",
           title: "Escala Likert",
-          description: "96 items para evaluar tu autopercepcion conductual.",
+          description: "96 ítems para evaluar tu autopercepción conductual.",
         },
         {
           number: "4",
@@ -463,19 +463,19 @@ export function InvitationAccessExperience({
         },
         {
           number: "5",
-          title: "Analisis 4 pilares",
-          description: "Within, Out, Up y Beyond para una vision 360 grados.",
+          title: "Análisis 4 pilares",
+          description: "Within, Out, Up y Beyond para una visión 360°.",
         },
       ];
 
       return (
         <div className="min-h-screen bg-[var(--app-bg)]">
           {renderPublicHeader()}
-          <main className="mx-auto w-full max-w-5xl px-4 pb-16 pt-8 md:px-6">
+          <main className="mx-auto w-full max-w-5xl px-4 pb-16 pt-24 md:px-6 md:pt-28">
             <section className="app-panel p-6 md:p-8">
             <h2 className="text-3xl font-black text-[var(--app-ink)]">Instrucciones</h2>
             <p className="mt-3 text-sm text-[var(--app-muted)]">
-              Tiempo estimado: <strong>20-25 minutos</strong>. El objetivo de este diagnostico es
+              Tiempo estimado: <strong>20-25 minutos</strong>. El objetivo de este diagnóstico es
               identificar tus brechas de liderazgo actuales y proporcionarte una hoja de ruta
               personalizada basada en el modelo 4Shine.
             </p>
@@ -516,7 +516,7 @@ export function InvitationAccessExperience({
     return (
       <div className="min-h-screen bg-[var(--app-bg)]">
         {renderPublicHeader()}
-        <main className="mx-auto w-full max-w-5xl px-4 pb-16 pt-8 md:px-6">
+        <main className="mx-auto w-full max-w-5xl px-4 pb-16 pt-24 md:px-6 md:pt-28">
           <section className="space-y-4">
           <div className="rounded-[18px] border border-[var(--app-border)] bg-white p-4">
             <div className="flex items-center justify-between gap-3">
@@ -547,7 +547,7 @@ export function InvitationAccessExperience({
                 </h4>
 
                 {question.type === "likert" ? (
-                  <div className="mt-6 grid grid-cols-5 gap-3">
+                  <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-5">
                     {[1, 2, 3, 4, 5].map((value) => {
                       const label = SCALES[question.scale ?? "freq"][value - 1];
                       const selected = answer === value;
@@ -565,7 +565,7 @@ export function InvitationAccessExperience({
                             }))
                           }
                           className={clsx(
-                            "min-h-24 rounded-[14px] border px-2 py-3 text-center text-[11px]",
+                            "min-h-20 rounded-[14px] border px-2 py-3 text-center text-[11px] sm:min-h-24",
                             selected
                               ? "border-[var(--brand-primary)] bg-[var(--brand-primary)] text-white"
                               : "border-[var(--app-border)] bg-white text-[var(--app-ink)]",
@@ -651,27 +651,27 @@ export function InvitationAccessExperience({
   return (
     <div className="min-h-screen bg-[var(--app-bg)]">
       {renderPublicHeader()}
-      <main className="mx-auto flex w-full max-w-3xl items-center px-4 py-10 md:px-6">
+      <main className="mx-auto flex w-full max-w-3xl items-center px-4 pb-10 pt-24 md:px-6 md:pt-28">
         <section className="w-full rounded-[24px] border border-[var(--app-border)] bg-white p-6 shadow-[0_20px_40px_rgba(20,17,33,0.08)] md:p-8">
         <p className="text-xs font-black uppercase tracking-[0.24em] text-[var(--app-muted)]">
-          Diagnostico 4Shine
+          Diagnóstico 4Shine
         </p>
         <h1 className="mt-3 text-3xl font-black text-[var(--app-ink)]">
-          Acceso con codigo unico
+          Acceso con código único
         </h1>
         <p className="mt-3 text-sm text-[var(--app-muted)]">
-          Ingresa el codigo recibido por correo para acceder a tu modulo de Descubrimiento.
+          Ingresa el código recibido por correo para acceder a tu módulo de Descubrimiento.
         </p>
 
         {isLoading ? (
           <div className="mt-8 flex items-center gap-2 text-sm text-[var(--app-muted)]">
             <Loader2 size={16} className="animate-spin" />
-            Cargando invitacion...
+            Cargando invitación...
           </div>
         ) : (
           <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
             <div className="rounded-[16px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-3">
-              <p className="text-xs font-semibold text-[var(--app-muted)]">Invitacion para</p>
+              <p className="text-xs font-semibold text-[var(--app-muted)]">Invitación para</p>
               <p className="mt-1 flex items-center gap-2 font-semibold text-[var(--app-ink)]">
                 <Mail size={14} />
                 {maskedEmail || "Correo protegido"}
@@ -680,7 +680,7 @@ export function InvitationAccessExperience({
 
             <label className="block">
               <span className="mb-2 block text-sm font-semibold text-[var(--app-ink)]">
-                Codigo de acceso
+                Código de acceso
               </span>
               <div className="relative">
                 <Lock
@@ -703,7 +703,7 @@ export function InvitationAccessExperience({
               disabled={isSubmitting || !accessCode.trim()}
               className="inline-flex h-11 items-center justify-center rounded-full bg-[var(--brand-primary)] px-6 text-sm font-extrabold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isSubmitting ? "Validando..." : "Ingresar al diagnostico"}
+              {isSubmitting ? "Validando..." : "Ingresar al diagnóstico"}
             </button>
           </form>
         )}

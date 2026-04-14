@@ -172,9 +172,9 @@ function parseNumber(value: string): number | undefined {
 
 function buildManagerTabs() {
   return [
-    { key: "preview" as const, label: "Vista previa del diagnostico" },
-    { key: "mailing" as const, label: "Configuracion de mailing y envio" },
-    { key: "rag" as const, label: "Configuracion RAG" },
+    { key: "preview" as const, label: "Vista previa del diagnóstico" },
+    { key: "mailing" as const, label: "Configuración de mailing y envío" },
+    { key: "rag" as const, label: "Configuración RAG" },
     { key: "results" as const, label: "Resultados generales" },
   ];
 }
@@ -217,15 +217,15 @@ export function DiscoveryExperience() {
   const [isUploadingRagDocs, setIsUploadingRagDocs] = React.useState(false);
   const [mailingBuilder, setMailingBuilder] = React.useState<MailingBuilderState>({
     headerLogoUrl: "{{platform_logo_url}}",
-    headerTitle: "Diagnostico 4Shine",
+    headerTitle: "Diagnóstico 4Shine",
     preheader: "Acceso personalizado a tu lectura ejecutiva",
     introText:
-      "Ya puedes ingresar al modulo de Descubrimiento. Usa tu codigo unico y el boton de acceso.",
+      "Ya puedes ingresar al módulo de Descubrimiento. Usa tu código único y el botón de acceso.",
     bodyBlocks: [
-      "Este acceso esta vinculado exclusivamente a tu correo de invitacion.",
-      "Cuando ingreses, podras completar el diagnostico de liderazgo.",
+      "Este acceso está vinculado exclusivamente a tu correo de invitación.",
+      "Cuando ingreses, podrás completar el diagnóstico de liderazgo.",
     ],
-    buttonLabel: "Abrir diagnostico",
+    buttonLabel: "Abrir diagnóstico",
     footerText: "4Shine Platform",
     colors: {
       pageBg: "#f8fafc",
@@ -411,10 +411,10 @@ export function DiscoveryExperience() {
   const answeredCount = Object.keys(state.answers).length;
   const completionPercent = calculateDiscoveryCompletionPercent(state.answers);
   const stats = [
-    { label: "Preguntas", value: DB.length, hint: "Diagnostico integral" },
+    { label: "Preguntas", value: DB.length, hint: "Diagnóstico integral" },
     { label: "Pilares", value: 4, hint: "Within, Out, Up y Beyond" },
     { label: "Situacionales", value: 29, hint: "Criterio aplicado" },
-    { label: "Duracion", value: "20-25m", hint: "Promedio estimado" },
+    { label: "Duración", value: "20-25m", hint: "Promedio estimado" },
   ];
   const canResume = answeredCount > 0;
 
@@ -433,7 +433,7 @@ export function DiscoveryExperience() {
       await alert({
         title: "Completa tu perfil",
         message:
-          "Antes de iniciar el diagnostico debes completar nombres, apellidos, pais, cargo, edad y anos de experiencia.",
+          "Antes de iniciar el diagnóstico debes completar nombres, apellidos, país, cargo, edad y años de experiencia.",
         tone: "warning",
       });
       return;
@@ -456,7 +456,7 @@ export function DiscoveryExperience() {
       await alert({
         title: "Completa tu perfil",
         message:
-          "Antes de iniciar el diagnostico debes completar nombres, apellidos, pais, cargo, edad y anos de experiencia.",
+          "Antes de iniciar el diagnóstico debes completar nombres, apellidos, país, cargo, edad y años de experiencia.",
         tone: "warning",
       });
       return;
@@ -513,7 +513,7 @@ export function DiscoveryExperience() {
         await persistImmediately(nextState, true);
       } catch (error) {
         await alert({
-          title: "No pudimos cerrar tu diagnostico",
+          title: "No pudimos cerrar tu diagnóstico",
           message:
             error instanceof Error
               ? error.message
@@ -532,9 +532,9 @@ export function DiscoveryExperience() {
 
   const handleReset = async () => {
     const approved = await confirm({
-      title: "Reiniciar diagnostico",
+      title: "Reiniciar diagnóstico",
       message:
-        "Se limpiaran tus respuestas y volveras al inicio del diagnostico.",
+        "Se limpiarán tus respuestas y volverás al inicio del diagnóstico.",
       tone: "warning",
       confirmText: "Reiniciar",
       cancelText: "Cancelar",
@@ -608,7 +608,7 @@ export function DiscoveryExperience() {
       });
       setSettings(updated);
       await alert({
-        title: "Configuracion guardada",
+        title: "Configuración guardada",
         message: successMessage,
         tone: "success",
       });
@@ -730,7 +730,7 @@ export function DiscoveryExperience() {
 
       await alert({
         title: "Invitaciones enviadas",
-        message: `Se enviaron ${result.sentCount} invitaciones con codigo unico de acceso.`,
+        message: `Se enviaron ${result.sentCount} invitaciones con código único de acceso.`,
         tone: "success",
       });
     } catch (error) {
@@ -887,16 +887,16 @@ export function DiscoveryExperience() {
       <div className="space-y-8">
         <PageTitle
           title="Descubrimiento"
-          subtitle="Activa el diagnostico individual o el programa completo para abrir esta lectura ejecutiva."
+          subtitle="Activa el diagnóstico individual o el programa completo para abrir esta lectura ejecutiva."
         />
         <StatGrid stats={stats} />
         <AccessOfferPanel
           badge="Compra requerida"
-          title="Desbloquea tu diagnostico 4Shine."
-          description="Esta experiencia se vincula a tu usuario y guarda un diagnostico unico por cuenta. Puedes activar solo Descubrimiento o entrar al programa completo 4Shine."
+          title="Desbloquea tu diagnóstico 4Shine."
+          description="Esta experiencia se vincula a tu usuario y guarda un diagnóstico único por cuenta. Puedes activar solo Descubrimiento o entrar al programa completo 4Shine."
           products={discoveryOffers}
           primaryAction={{ href: "/dashboard", label: "Ver opciones disponibles" }}
-          note="Con Descubrimiento obtienes la prueba diagnostica y su lectura ejecutiva."
+          note="Con Descubrimiento obtienes la prueba diagnóstica y su lectura ejecutiva."
         />
       </div>
     );
@@ -922,8 +922,8 @@ export function DiscoveryExperience() {
     return (
       <div className="space-y-6">
         <PageTitle
-          title="Descubrimiento · Gestion"
-          subtitle="Gestion ejecutiva del modulo por pestañas: vista previa, mailing, RAG y resultados generales."
+          title="Descubrimiento · Gestión"
+          subtitle="Gestión ejecutiva del módulo por pestañas: vista previa, mailing, RAG y resultados generales."
         />
 
         <div className="app-panel p-3">
@@ -948,10 +948,10 @@ export function DiscoveryExperience() {
 
         {managerTab === "mailing" && (
           <div className="app-panel p-5">
-            <p className="app-section-kicker">Acceso externo al modulo</p>
+            <p className="app-section-kicker">Acceso externo al módulo</p>
             <p className="mt-2 text-sm text-[var(--app-muted)]">
               Las invitaciones son para correos externos, aunque no sean usuarios de la plataforma.
-              La llave de acceso es el enlace de invitacion + codigo unico.
+              La llave de acceso es el enlace de invitación + código único.
             </p>
           </div>
         )}
@@ -961,10 +961,10 @@ export function DiscoveryExperience() {
             <div className="app-panel p-5">
               <p className="app-section-kicker">Vista estructural</p>
               <h3 className="mt-2 text-2xl font-black text-[var(--app-ink)]">
-                Navegacion completa del cuestionario
+                Navegación completa del cuestionario
               </h3>
               <p className="mt-2 text-sm text-[var(--app-muted)]">
-                Esta vista no esta asociada a ningun usuario. Solo permite
+                Esta vista no está asociada a ningún usuario. Solo permite
                 revisar todas las preguntas que componen la prueba.
               </p>
 
@@ -1071,7 +1071,7 @@ export function DiscoveryExperience() {
         {managerTab === "mailing" && currentSettings && (
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
             <section className="app-panel p-5 space-y-3">
-              <h3 className="text-lg font-black text-[var(--app-ink)]">Configuracion de mailing</h3>
+              <h3 className="text-lg font-black text-[var(--app-ink)]">Configuración de mailing</h3>
 
               <div className="rounded-[12px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4">
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--app-muted)]">
@@ -1318,7 +1318,7 @@ export function DiscoveryExperience() {
                     <li key={invitation.invitationId} className="rounded-[10px] border border-[var(--app-border)] p-2">
                       <p className="font-semibold text-[var(--app-ink)]">{invitation.invitedEmail}</p>
                       <p className="text-xs text-[var(--app-muted)]">
-                        Codigo terminado en {invitation.accessCodeLast4} · enviado {new Date(invitation.accessCodeSentAt).toLocaleString("es-CO")} · {invitation.sessionId ? "Lectura de resultados" : "Acceso al modulo"}
+                        Código terminado en {invitation.accessCodeLast4} · enviado {new Date(invitation.accessCodeSentAt).toLocaleString("es-CO")} · {invitation.sessionId ? "Lectura de resultados" : "Acceso al módulo"}
                       </p>
                     </li>
                   ))}
@@ -1330,10 +1330,10 @@ export function DiscoveryExperience() {
 
         {managerTab === "rag" && currentSettings && (
           <div className="app-panel p-5 space-y-4">
-            <h3 className="text-lg font-black text-[var(--app-ink)]">Configuracion RAG</h3>
+            <h3 className="text-lg font-black text-[var(--app-ink)]">Configuración RAG</h3>
 
             <label className="block text-sm font-semibold text-[var(--app-ink)]">
-              Instrucciones para el analisis (precargadas)
+              Instrucciones para el análisis (precargadas)
               <textarea
                 value={currentSettings.aiFeedbackInstructions}
                 onChange={(event) =>
@@ -1396,7 +1396,7 @@ export function DiscoveryExperience() {
               onClick={() =>
                 void saveSettings(
                   currentSettings,
-                  "Configuracion RAG e instrucciones de analisis actualizadas.",
+                  "Configuración RAG e instrucciones de análisis actualizadas.",
                 )
               }
               className="inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-4 py-2 text-xs font-extrabold uppercase tracking-[0.14em] text-white disabled:opacity-60"
@@ -1427,7 +1427,7 @@ export function DiscoveryExperience() {
                   onChange={(event) => void handleResultsFilter("country", event.target.value)}
                   className="h-10 rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
                 >
-                  <option value="">Pais</option>
+                  <option value="">País</option>
                   {overview?.availableFilters.countries.map((country) => (
                     <option key={country} value={country}>{country}</option>
                   ))}
@@ -1608,7 +1608,7 @@ export function DiscoveryExperience() {
               </div>
 
               <div className="app-panel p-4 xl:col-span-2">
-                <p className="app-section-kicker">Satisfaccion de experiencia</p>
+                <p className="app-section-kicker">Satisfacción de experiencia</p>
                 <p className="mt-1 text-sm text-[var(--app-muted)]">
                   Respuestas: {activeAnalytics.satisfaction.responses ?? 0} · Promedio: {activeAnalytics.satisfaction.average ?? 0}/5
                 </p>
@@ -1654,7 +1654,7 @@ export function DiscoveryExperience() {
                     <th className="px-2 py-2">Tipo</th>
                     <th className="px-2 py-2">Usuario</th>
                     <th className="px-2 py-2">Correo</th>
-                    <th className="px-2 py-2">Pais</th>
+                    <th className="px-2 py-2">País</th>
                     <th className="px-2 py-2">Cargo</th>
                     <th className="px-2 py-2">Edad</th>
                     <th className="px-2 py-2">Exp.</th>
@@ -1698,7 +1698,7 @@ export function DiscoveryExperience() {
       <div className="space-y-8">
         <PageTitle
           title="Descubrimiento"
-          subtitle="Tu lectura ejecutiva 4Shine integra autopercepcion y criterio situacional en un mapa accionable."
+          subtitle="Tu lectura ejecutiva 4Shine integra autopercepción y criterio situacional en un mapa accionable."
         />
         <ResultsView
           state={state}
@@ -1728,7 +1728,7 @@ export function DiscoveryExperience() {
               </div>
               <div>
                 <p className="app-section-kicker">Perfil obligatorio</p>
-                <h3 className="mt-2 text-2xl font-black text-[var(--app-ink)]">Datos previos al diagnostico</h3>
+                <h3 className="mt-2 text-2xl font-black text-[var(--app-ink)]">Datos previos al diagnóstico</h3>
               </div>
             </div>
 
@@ -1754,7 +1754,7 @@ export function DiscoveryExperience() {
                 onChange={(event) =>
                   setState((current) => ({ ...current, profile: { ...current.profile, country: event.target.value } }))
                 }
-                placeholder="Pais"
+                placeholder="País"
                 className="h-11 rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
               />
               <select
@@ -1801,7 +1801,7 @@ export function DiscoveryExperience() {
                 step="0.5"
                 min={0}
                 max={80}
-                placeholder="Anos de experiencia"
+                placeholder="Años de experiencia"
                 className="h-11 rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
               />
             </div>
@@ -1811,7 +1811,7 @@ export function DiscoveryExperience() {
               onClick={() => void handleIntroStart()}
               className="mt-6 inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-5 py-3 text-sm font-extrabold text-white"
             >
-              {canResume ? "Continuar diagnostico" : "Empezar diagnostico"}
+              {canResume ? "Continuar diagnóstico" : "Empezar diagnóstico"}
               <ChevronRight size={16} />
             </button>
           </section>
@@ -1829,7 +1829,7 @@ export function DiscoveryExperience() {
 
             <div className="mt-5 grid grid-cols-2 gap-3">
               <div className="rounded-[18px] border border-[var(--app-border)] bg-white/72 px-4 py-4">
-                <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[var(--app-muted)]">ID diagnostico</p>
+                <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[var(--app-muted)]">ID diagnóstico</p>
                 <p className="mt-2 text-sm font-semibold text-[var(--app-ink)]">{session?.diagnosticIdentifier || "Pendiente"}</p>
               </div>
               <div className="rounded-[18px] border border-[var(--app-border)] bg-white/72 px-4 py-4">
@@ -1855,13 +1855,13 @@ export function DiscoveryExperience() {
         id: "2",
         title: "Sin juicios",
         description:
-          "Este es un mapa de navegacion, no un examen. El objetivo es identificar palancas de crecimiento.",
+          "Este es un mapa de navegación, no un examen. El objetivo es identificar palancas de crecimiento.",
       },
       {
         id: "3",
         title: "Escala Likert",
         description:
-          "96 items para evaluar tu autopercepcion conductual.",
+          "96 ítems para evaluar tu autopercepción conductual.",
       },
       {
         id: "4",
@@ -1870,8 +1870,8 @@ export function DiscoveryExperience() {
       },
       {
         id: "5",
-        title: "Analisis 4 pilares",
-        description: "Within, Out, Up y Beyond para una vision 360 grados.",
+        title: "Análisis 4 pilares",
+        description: "Within, Out, Up y Beyond para una visión 360 grados.",
       },
     ];
 
@@ -1884,7 +1884,7 @@ export function DiscoveryExperience() {
 
         <section className="app-panel p-6 md:p-8">
           <p className="text-sm text-[var(--app-muted)]">
-            El objetivo de este diagnostico es identificar tus brechas de liderazgo actuales y proporcionarte una hoja de ruta personalizada basada en el modelo 4Shine.
+            El objetivo de este diagnóstico es identificar tus brechas de liderazgo actuales y proporcionarte una hoja de ruta personalizada basada en el modelo 4Shine.
           </p>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             {instructions.map((item) => (
@@ -1927,7 +1927,7 @@ export function DiscoveryExperience() {
     <div className="space-y-6">
       <PageTitle
         title="Descubrimiento"
-        subtitle="Avanza por bloques cortos. El sistema guarda tus respuestas automaticamente."
+        subtitle="Avanza por bloques cortos. El sistema guarda tus respuestas automáticamente."
       />
 
       <div className="sticky top-[5rem] z-10 rounded-[22px] border border-[var(--app-border)] bg-[rgba(255,255,255,0.88)] px-4 py-4 shadow-[0_20px_42px_rgba(55,32,80,0.08)] backdrop-blur-xl md:px-5">
