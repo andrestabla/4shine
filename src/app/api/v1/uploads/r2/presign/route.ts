@@ -8,6 +8,7 @@ import { ForbiddenError, requireModulePermission } from '@/server/auth/module-pe
 import { withClient, withRoleContext } from '@/server/db/pool';
 import {
   createR2S3Client,
+  ensureR2BucketCors,
   getR2StorageConfig,
   prepareR2Upload,
 } from '@/server/storage/r2-upload';
@@ -109,6 +110,13 @@ export async function POST(request: Request) {
           );
           config.maxFileSizeBytes = expandedBytes;
           config.allowedMimeTypes = mergedMimeTypes;
+        }
+
+        const requestOrigin = new URL(request.url).origin;
+        try {
+          await ensureR2BucketCors(config, [requestOrigin, 'https://www.4shine.co', 'https://4shine.co']);
+        } catch {
+          // Best effort: upload still can proceed when bucket policy already allows CORS.
         }
 
         const prepared = prepareR2Upload(config, {

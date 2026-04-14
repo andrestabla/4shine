@@ -151,9 +151,9 @@ export interface DiscoveryOverviewRow {
     generalAverage: number;
     general: Array<{ label: string; value: number }>;
     pillars: Array<{ pillar: DiscoveryPillarKey; label: string; average: number }>;
-    components: Array<{ component: string; average: number; count: number }>;
-    componentsTop: Array<{ component: string; average: number; count: number }>;
-    componentsWeak: Array<{ component: string; average: number; count: number }>;
+    components: Array<{ component: string; pillar: DiscoveryPillarKey; average: number; count: number }>;
+    componentsTop: Array<{ component: string; pillar: DiscoveryPillarKey; average: number; count: number }>;
+    componentsWeak: Array<{ component: string; pillar: DiscoveryPillarKey; average: number; count: number }>;
     satisfaction: {
       responses: number;
       average: number;
@@ -180,9 +180,9 @@ export interface DiscoveryOverviewPayload {
     generalAverage: number;
     general: Array<{ label: string; value: number }>;
     pillars: Array<{ pillar: DiscoveryPillarKey; label: string; average: number }>;
-    components: Array<{ component: string; average: number; count: number }>;
-    componentsTop: Array<{ component: string; average: number; count: number }>;
-    componentsWeak: Array<{ component: string; average: number; count: number }>;
+    components: Array<{ component: string; pillar: DiscoveryPillarKey; average: number; count: number }>;
+    componentsTop: Array<{ component: string; pillar: DiscoveryPillarKey; average: number; count: number }>;
+    componentsWeak: Array<{ component: string; pillar: DiscoveryPillarKey; average: number; count: number }>;
     satisfaction: {
       responses: number;
       average: number;

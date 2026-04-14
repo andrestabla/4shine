@@ -2063,27 +2063,34 @@ export async function getDiscoveryOverview(
       };
     });
 
-    const componentMap = new Map<string, number[]>();
+    const componentMap = new Map<string, { pillar: "within" | "out" | "up" | "beyond"; values: number[] }>();
     for (const entry of scoreEntries) {
       for (const component of entry.score!.compList) {
-        const values = componentMap.get(component.name) ?? [];
-        values.push(Math.round(((component.score - 1) / 4) * 100));
-        componentMap.set(component.name, values);
+        const record = componentMap.get(component.name) ?? {
+          pillar: component.pillar,
+          values: [],
+        };
+        record.values.push(Math.round(((component.score - 1) / 4) * 100));
+        componentMap.set(component.name, record);
       }
     }
     const components = Array.from(componentMap.entries())
-      .map(([component, values]) => ({
+      .map(([component, record]) => ({
         component,
+        pillar: record.pillar,
         average:
-          values.length > 0
-            ? Math.round(values.reduce((acc, value) => acc + value, 0) / values.length)
+          record.values.length > 0
+            ? Math.round(record.values.reduce((acc, value) => acc + value, 0) / record.values.length)
             : 0,
-        count: values.length,
+        count: record.values.length,
       }))
+      .sort((a, b) => b.average - a.average);
+    const componentsTop = components
+      .filter((item) => item.average >= 75)
       .sort((a, b) => b.average - a.average)
-      .slice(0, 12);
-    const componentsTop = components.slice(0, 5);
-    const componentsWeak = [...components]
+      .slice(0, 5);
+    const componentsWeak = components
+      .filter((item) => item.average <= 50)
       .sort((a, b) => a.average - b.average)
       .slice(0, 5);
 
@@ -2372,7 +2379,7 @@ export async function getDiscoveryOverview(
               },
               globalIndex: row.globalIndex ?? 0,
               compList: row.analytics.components.map((component) => ({
-                pillar: "within" as const,
+                pillar: component.pillar,
                 name: component.component,
                 score: (component.average / 100) * 4 + 1,
               })),

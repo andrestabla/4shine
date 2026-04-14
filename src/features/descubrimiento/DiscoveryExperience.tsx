@@ -18,9 +18,14 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  PolarAngleAxis,
   PolarGrid,
-  RadialBar,
-  RadialBarChart,
+  PolarRadiusAxis,
+  Radar,
+  RadarChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -1483,17 +1488,24 @@ export function DiscoveryExperience() {
                 <p className="app-section-kicker">Tasa de finalizacion</p>
                 <div className="mt-3 h-60 w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <RadialBarChart
-                      data={[{ name: "Finalizacion", value: activeAnalytics.completion.rate }]}
-                      innerRadius="35%"
-                      outerRadius="88%"
-                      startAngle={90}
-                      endAngle={-270}
-                    >
-                      <PolarGrid radialLines={false} />
+                    <PieChart>
+                      <Pie
+                        data={[
+                          { name: "Completado", value: activeAnalytics.completion.rate },
+                          { name: "Restante", value: Math.max(0, 100 - activeAnalytics.completion.rate) },
+                        ]}
+                        dataKey="value"
+                        innerRadius={68}
+                        outerRadius={96}
+                        startAngle={90}
+                        endAngle={-270}
+                        stroke="none"
+                      >
+                        <Cell fill="var(--brand-primary)" />
+                        <Cell fill="rgba(108,88,134,0.14)" />
+                      </Pie>
                       <Tooltip />
-                      <RadialBar dataKey="value" background cornerRadius={14} fill="var(--brand-primary)" />
-                    </RadialBarChart>
+                    </PieChart>
                   </ResponsiveContainer>
                 </div>
                 <p className="text-sm text-[var(--app-muted)]">
@@ -1505,17 +1517,24 @@ export function DiscoveryExperience() {
                 <p className="app-section-kicker">Resultados generales</p>
                 <div className="mt-3 h-60 w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <RadialBarChart
-                      data={[{ name: "Promedio", value: activeAnalytics.generalAverage }]}
-                      innerRadius="35%"
-                      outerRadius="88%"
-                      startAngle={90}
-                      endAngle={-270}
+                    <RadarChart
+                      data={activeAnalytics.pillars.map((pillar) => ({
+                        subject: pillar.label,
+                        value: pillar.average,
+                        fullMark: 100,
+                      }))}
                     >
-                      <PolarGrid radialLines={false} />
+                      <PolarGrid stroke="rgba(108,88,134,0.22)" />
+                      <PolarAngleAxis dataKey="subject" tick={{ fontSize: 12 }} />
+                      <PolarRadiusAxis domain={[0, 100]} tick={{ fontSize: 10 }} />
                       <Tooltip />
-                      <RadialBar dataKey="value" background cornerRadius={14} fill="#7c3aed" />
-                    </RadialBarChart>
+                      <Radar
+                        dataKey="value"
+                        stroke="#7c3aed"
+                        fill="#7c3aed"
+                        fillOpacity={0.34}
+                      />
+                    </RadarChart>
                   </ResponsiveContainer>
                 </div>
                 <p className="text-sm text-[var(--app-muted)]">
@@ -1530,17 +1549,26 @@ export function DiscoveryExperience() {
                   <p className="app-section-kicker">{pillar.label}</p>
                   <div className="mt-3 h-52 w-full">
                     <ResponsiveContainer width="100%" height="100%">
-                      <RadialBarChart
-                        data={[{ name: pillar.label, value: pillar.average }]}
-                        innerRadius="35%"
-                        outerRadius="88%"
-                        startAngle={90}
-                        endAngle={-270}
+                      <RadarChart
+                        data={(activeAnalytics.components ?? [])
+                          .filter((component) => component.pillar === pillar.pillar)
+                          .map((component) => ({
+                            subject: component.component,
+                            value: component.average,
+                            fullMark: 100,
+                          }))}
                       >
-                        <PolarGrid radialLines={false} />
+                        <PolarGrid stroke="rgba(108,88,134,0.22)" />
+                        <PolarAngleAxis dataKey="subject" tick={{ fontSize: 10 }} />
+                        <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
                         <Tooltip />
-                        <RadialBar dataKey="value" background cornerRadius={14} fill="var(--brand-primary)" />
-                      </RadialBarChart>
+                        <Radar
+                          dataKey="value"
+                          stroke="var(--brand-primary)"
+                          fill="var(--brand-primary)"
+                          fillOpacity={0.28}
+                        />
+                      </RadarChart>
                     </ResponsiveContainer>
                   </div>
                   <p className="text-sm text-[var(--app-muted)]">Promedio: {pillar.average}%</p>

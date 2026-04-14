@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { PutBucketCorsCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import type { PoolClient } from 'pg';
 
 interface OrganizationRow {
@@ -291,6 +291,38 @@ export function createR2S3Client(config: R2StorageConfig): S3Client {
       secretAccessKey: config.secretAccessKey,
     },
   });
+}
+
+export async function ensureR2BucketCors(
+  config: R2StorageConfig,
+  allowedOrigins: string[],
+): Promise<void> {
+  const origins = Array.from(
+    new Set(
+      allowedOrigins
+        .map((origin) => origin.trim())
+        .filter(Boolean),
+    ),
+  );
+  if (origins.length === 0) return;
+
+  const client = createR2S3Client(config);
+  await client.send(
+    new PutBucketCorsCommand({
+      Bucket: config.bucketName,
+      CORSConfiguration: {
+        CORSRules: [
+          {
+            AllowedOrigins: origins,
+            AllowedMethods: ['GET', 'HEAD', 'POST', 'PUT'],
+            AllowedHeaders: ['*'],
+            ExposeHeaders: ['ETag', 'x-amz-request-id', 'x-amz-id-2'],
+            MaxAgeSeconds: 86400,
+          },
+        ],
+      },
+    }),
+  );
 }
 
 export function prepareR2Upload(
