@@ -278,6 +278,7 @@ export function ResultsView({
   const currentScore =
     filter === "all" ? scoring.globalIndex : currentMetric?.total ?? 0;
   const currentStatus = getDiscoveryStatus(currentScore);
+  const isCurrentAnalysisLoading = analysisLoading[filter];
   const shareUrl = sharedPublicId ? buildShareUrl(sharedPublicId) : "";
   const hasSurveyResponses = React.useCallback(() => {
     if (Object.keys(surveyAnswers).length >= SURVEY_QUESTIONS.length) return true;
@@ -761,24 +762,36 @@ export function ResultsView({
           <h4 className="mt-2 text-2xl font-black text-[var(--app-ink)]">
             {filter === "all" ? "Visión general" : PILLAR_INFO[filter].title}
           </h4>
-          <div className="prose prose-slate mt-6 max-w-none text-sm leading-7">
-            {analysisLoading[filter] && (
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--app-muted)]">
-                <Loader2 size={13} className="animate-spin" />
-                Profundizando análisis con contexto…
+          <div className="relative mt-6">
+            {isCurrentAnalysisLoading && (
+              <div className="pointer-events-none absolute inset-0 z-20 rounded-[16px] border border-[var(--app-border)] bg-white/82 backdrop-blur-[1px]">
+                <div className="flex h-full min-h-[220px] flex-col items-center justify-center gap-3 p-4 text-center">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--app-muted)]">
+                    <Loader2 size={14} className="animate-spin text-[var(--brand-primary)]" />
+                    Analizando en profundidad…
+                  </div>
+                  <p className="max-w-sm text-xs leading-relaxed text-[var(--app-muted)]">
+                    La IA está cruzando resultados, brechas y contexto documental para entregar una lectura más específica.
+                  </p>
+                  <div className="h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-[var(--app-surface-muted)]">
+                    <div className="h-full w-1/3 animate-[pulse_1.2s_ease-in-out_infinite] rounded-full bg-[var(--brand-primary)]" />
+                  </div>
+                </div>
               </div>
             )}
-            <ReactMarkdown
-              components={{
-                h2: ({ children }) => (
-                  <h2 className="mt-6 rounded-[14px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-2 text-base font-black text-[var(--app-ink)] first:mt-0">
-                    {children}
-                  </h2>
-                ),
-              }}
-            >
-              {reports[filter]}
-            </ReactMarkdown>
+            <div className="prose prose-slate max-w-none text-sm leading-7">
+              <ReactMarkdown
+                components={{
+                  h2: ({ children }) => (
+                    <h2 className="mt-6 rounded-[14px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-2 text-base font-black text-[var(--app-ink)] first:mt-0">
+                      {children}
+                    </h2>
+                  ),
+                }}
+              >
+                {reports[filter]}
+              </ReactMarkdown>
+            </div>
           </div>
         </aside>
       </div>
