@@ -3169,13 +3169,21 @@ async function extractContextTextFromResponse(response: Response, sourceUrl: str
   return null;
 }
 
-async function fetchContextDocumentSnippet(url: string): Promise<string | null> {
+async function fetchContextDocumentSnippet(
+  url: string,
+  options?: { timeoutMs?: number },
+): Promise<string | null> {
+  const timeoutMs = Math.max(1200, options?.timeoutMs ?? 5500);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch(url, { cache: "no-store" });
+    const response = await fetch(url, { cache: "no-store", signal: controller.signal });
     if (!response.ok) return null;
     return extractContextTextFromResponse(response, url);
   } catch {
     return null;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -3675,6 +3683,7 @@ async function runContractStyleAnalysis(
 
   const compList = [...(input.scores.compList ?? [])];
   const pillar = input.pillar ?? "all";
+  const fastMode = Boolean(input.fastMode);
   const sourcePool = pillar === "all" ? compList : compList.filter((item) => item.pillar === pillar);
   const sorted = [...sourcePool].sort((a, b) => a.score - b.score);
 
@@ -3684,18 +3693,27 @@ async function runContractStyleAnalysis(
     .reverse()
     .map((item) => ({ name: item.name, score: item.score }));
   const targetGapNames = targetGaps.map((item) => item.name);
-  const docs = context.feedbackSettings.contextDocuments.slice(0, 6);
+  const docs = context.feedbackSettings.contextDocuments.slice(0, fastMode ? 2 : 6);
 
   const glossary = await resolveGlossaryTermsExact(targetGapNames);
   const resources = await resolveResourcesRuleBased(client, targetGapNames, pillar);
   const contextChunks: string[] = [];
   const unresolvedContextNames: string[] = [];
-  for (const doc of docs) {
-    const snippet = await fetchContextDocumentSnippet(doc.url);
-    if (snippet) {
-      contextChunks.push(`### Documento: ${doc.name}\n${snippet}`);
-    } else {
-      unresolvedContextNames.push(doc.name);
+  if (docs.length > 0) {
+    const fetched = await Promise.all(
+      docs.map(async (doc) => {
+        const snippet = await fetchContextDocumentSnippet(doc.url, {
+          timeoutMs: fastMode ? 2200 : 5500,
+        });
+        return { doc, snippet };
+      }),
+    );
+    for (const item of fetched) {
+      if (item.snippet) {
+        contextChunks.push(`### Documento: ${item.doc.name}\n${item.snippet}`);
+      } else {
+        unresolvedContextNames.push(item.doc.name);
+      }
     }
   }
   const contextEvidence = selectContextEvidence(
@@ -3727,7 +3745,6 @@ async function runContractStyleAnalysis(
     unresolvedContextNames,
   });
 
-  const fastMode = Boolean(input.fastMode);
   try {
     let report = await requestOpenAiReport(context, systemPrompt, userPrompt, {
       model: "gpt-4o",
@@ -3736,7 +3753,7 @@ async function runContractStyleAnalysis(
       maxTokens: fastMode ? (pillar === "all" ? 1000 : 800) : (pillar === "all" ? 1300 : 1000),
     });
     let attempts = 1;
-    while (!isDeepEnoughReport(report, pillar) && attempts < (fastMode ? 2 : 3)) {
+    while (!isDeepEnoughReport(report, pillar) && attempts < (fastMode ? 1 : 3)) {
       const refinementPrompt = [
         `Iteración de mejora ${attempts}. El borrador no cumple profundidad mínima.`,
         `Palabras actuales: ${countWords(report)}.`,
@@ -3861,7 +3878,32 @@ export async function generateDiscoveryInvitationAnalysisContract(
       fastMode: true,
     });
   } catch {
-    result = await runDiscoveryAnalysisWithContext(client, input, analysisContext);
+    try {
+      result = await runDiscoveryAnalysisWithContext(client, input, analysisContext);
+    } catch {
+      const compList = [...(input.scores.compList ?? [])];
+      const pool =
+        pillar === "all" ? compList : compList.filter((item) => item.pillar === pillar);
+      const sorted = [...pool].sort((a, b) => a.score - b.score);
+      const deterministic = buildDeterministicDeepReport({
+        username: input.username,
+        pillar,
+        scores: input.scores,
+        targetGaps: sorted.slice(0, 3).map((item) => ({ name: item.name, score: item.score })),
+        targetStrengths: [...sorted]
+          .slice(-3)
+          .reverse()
+          .map((item) => ({ name: item.name, score: item.score })),
+        contextEvidence: [],
+      });
+      result = {
+        report:
+          deterministic ||
+          input.fallbackReport?.trim() ||
+          `${input.username}, tu perfil de liderazgo muestra oportunidades de mejora concretas. Reintenta en unos segundos para regenerar el análisis detallado.`,
+        source: "fallback",
+      };
+    }
   }
 
   await client.query(

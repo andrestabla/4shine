@@ -155,7 +155,11 @@ export function ResultsView({
   const [surveyAnswers, setSurveyAnswers] = React.useState<Record<string, number>>(initialSurvey?.answers ?? {});
   const hiddenPdfRef = React.useRef<HTMLDivElement>(null);
   const shouldUseStickyHeader = !isPublic;
-  const stickyClass = embedded ? "top-[4.5rem] sm:top-[5rem] md:top-[5.5rem]" : "top-0";
+  const stickyClass = shouldUseStickyHeader
+    ? embedded
+      ? "top-[4.5rem] sm:top-[5rem] md:top-[5.5rem]"
+      : "top-0"
+    : "";
   const analysisCacheRef = React.useRef<Set<DiscoveryReportFilter>>(new Set());
   const analysisInFlightRef = React.useRef<Set<DiscoveryReportFilter>>(new Set());
   const invitationRetryAttemptsRef = React.useRef<Record<DiscoveryReportFilter, number>>({
