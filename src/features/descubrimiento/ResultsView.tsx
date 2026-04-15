@@ -154,6 +154,7 @@ export function ResultsView({
   >(null);
   const [surveyAnswers, setSurveyAnswers] = React.useState<Record<string, number>>(initialSurvey?.answers ?? {});
   const hiddenPdfRef = React.useRef<HTMLDivElement>(null);
+  const shouldUseStickyHeader = !isPublic;
   const stickyClass = embedded ? "top-[4.5rem] sm:top-[5rem] md:top-[5.5rem]" : "top-0";
   const analysisCacheRef = React.useRef<Set<DiscoveryReportFilter>>(new Set());
   const analysisInFlightRef = React.useRef<Set<DiscoveryReportFilter>>(new Set());
@@ -172,6 +173,7 @@ export function ResultsView({
     beyond: null,
   });
   const [analysisCompletedCount, setAnalysisCompletedCount] = React.useState(0);
+  const invitationBackgroundPrefetchStartedRef = React.useRef(false);
   const surveyStorageKey = React.useMemo(
     () =>
       `discovery-survey:${(publicId ?? invitationCredentials?.inviteToken ?? state.name) || "anon"}`,
@@ -189,6 +191,7 @@ export function ResultsView({
     });
     analysisCacheRef.current.clear();
     setAnalysisCompletedCount(0);
+    invitationBackgroundPrefetchStartedRef.current = false;
     invitationRetryAttemptsRef.current = {
       all: 0,
       within: 0,
@@ -318,19 +321,26 @@ export function ResultsView({
   }, [filter, generateAnalysisForFilter]);
 
   React.useEffect(() => {
-    if (isPublic && !invitationCredentials) return;
-    const targets: DiscoveryReportFilter[] = ["all", "within", "out", "up", "beyond"];
+    if (!isInvitationExperience) return;
+    if (!invitationCredentials) return;
+    if (invitationBackgroundPrefetchStartedRef.current) return;
+    invitationBackgroundPrefetchStartedRef.current = true;
+
     const timers: number[] = [];
-    for (const target of targets) {
-      const timer = window.setTimeout(() => {
-        void generateAnalysisForFilter(target);
-      }, target === "all" ? 0 : 220);
-      timers.push(timer);
-    }
+    void generateAnalysisForFilter("all").finally(() => {
+      const secondaryTargets: DiscoveryReportFilter[] = ["within", "out", "up", "beyond"];
+      secondaryTargets.forEach((target, index) => {
+        const timer = window.setTimeout(() => {
+          void generateAnalysisForFilter(target);
+        }, 300 + index * 450);
+        timers.push(timer);
+      });
+    });
+
     return () => {
       for (const timer of timers) window.clearTimeout(timer);
     };
-  }, [generateAnalysisForFilter, invitationCredentials, isPublic]);
+  }, [generateAnalysisForFilter, invitationCredentials, isInvitationExperience]);
 
   const radarData = React.useMemo(
     () => [
@@ -634,7 +644,8 @@ export function ResultsView({
 
       <div
         className={clsx(
-          "sticky z-30 rounded-[22px] border border-[var(--app-border)] bg-[rgba(255,255,255,0.93)] px-4 py-4 shadow-[0_20px_42px_rgba(55,32,80,0.08)] backdrop-blur-xl md:px-5",
+          shouldUseStickyHeader ? "sticky" : "relative",
+          "z-30 rounded-[22px] border border-[var(--app-border)] bg-[rgba(255,255,255,0.93)] px-4 py-4 shadow-[0_20px_42px_rgba(55,32,80,0.08)] backdrop-blur-xl md:px-5",
           stickyClass,
         )}
       >
@@ -884,9 +895,6 @@ export function ResultsView({
                     <Loader2 size={14} className="animate-spin text-[var(--brand-primary)]" />
                     Analizando en profundidad…
                   </div>
-                  <p className="max-w-sm text-xs leading-relaxed text-[var(--app-muted)]">
-                    La IA está cruzando resultados, brechas y contexto documental para entregar una lectura más específica.
-                  </p>
                   <div className="h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-[var(--app-surface-muted)]">
                     <div className="h-full w-1/3 animate-[pulse_1.2s_ease-in-out_infinite] rounded-full bg-[var(--brand-primary)]" />
                   </div>

@@ -2610,7 +2610,7 @@ async function requestOpenAiReport(
     body: JSON.stringify({
       model,
       temperature: options?.temperature ?? 0.55,
-      max_tokens: 3200,
+      max_tokens: 1800,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
@@ -3235,10 +3235,12 @@ async function runDiscoveryAnalysisWithContext(
     "- Fundamenta cada conclusión con resultados y contexto disponible.",
     "- Entrega texto accionable y priorizado.",
     "- Usa títulos markdown de nivel 2 (##) con los nombres exactos solicitados.",
+    `- La primera frase del informe debe iniciar exactamente con: "${input.username}, tu perfil de liderazgo".`,
   ].join("\n");
 
   const commonUserContext = [
     `Líder: ${input.username} (${input.role || "rol no especificado"})`,
+    `Tratamiento directo obligatorio: empieza el informe con "${input.username}, tu perfil de liderazgo".`,
     `Vista solicitada: ${toPillarDisplayName(pillar)}`,
     `Índice global: ${scores.globalIndex}%`,
     "Resultados por pilar (0-100):",
@@ -3345,7 +3347,7 @@ async function runDiscoveryAnalysisWithContext(
   try {
     let report = await requestOpenAiReport(context, systemPrompt, userPrompt, { temperature: 0.58 });
     let attempts = 1;
-    while (!isDeepEnoughReport(report, pillar) && attempts < 3) {
+    while (!isDeepEnoughReport(report, pillar) && attempts < 2) {
       const refinementPrompt = [
         `Iteración de mejora ${attempts}. El borrador sigue insuficiente en profundidad o especificidad.`,
         "Reescribe completo el informe con narrativa más concreta, causal y accionable.",
@@ -3451,6 +3453,7 @@ function buildContractPrompts(input: {
 
   const commonUserContext = [
     `Líder: ${username} (${role})`,
+    `Tratamiento directo obligatorio: empieza el informe con "${username}, tu perfil de liderazgo".`,
     `Vista solicitada: ${toPillarFriendlyLabel(pillar)}`,
     `Índice de madurez global: ${scores.globalIndex}%`,
     "Resultados por pilar (0-100):",
@@ -3486,6 +3489,7 @@ function buildContractPrompts(input: {
     "- Cada sección debe incluir competencias concretas y cifras del caso.",
     "- Debes explicar causa probable, consecuencia observable y acción sugerida.",
     "- No nombres autores ni títulos de recursos, solo ideas aplicables.",
+    `- La primera frase del informe debe iniciar exactamente con: "${username}, tu perfil de liderazgo".`,
   ].join("\n");
 
   if (pillar === "all") {
@@ -3630,7 +3634,7 @@ async function runContractStyleAnalysis(
       temperature: 0.56,
     });
     let attempts = 1;
-    while (!isDeepEnoughReport(report, pillar) && attempts < 4) {
+    while (!isDeepEnoughReport(report, pillar) && attempts < 3) {
       const refinementPrompt = [
         `Iteración de mejora ${attempts}. El borrador no cumple profundidad mínima.`,
         `Palabras actuales: ${countWords(report)}.`,
