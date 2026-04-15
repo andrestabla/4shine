@@ -2591,6 +2591,46 @@ interface DiscoveryAnalysisContext {
   feedbackSettings: DiscoveryFeedbackSettingsRecord;
 }
 
+async function requestOpenAiReport(
+  context: DiscoveryAnalysisContext,
+  systemPrompt: string,
+  userPrompt: string,
+): Promise<string> {
+  const endpoint = `${sanitizeOpenAiBaseUrl(context.openAiConfig.wizardData.baseUrl)}/chat/completions`;
+  const model = context.openAiConfig.wizardData.model?.trim() || "gpt-4.1";
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${context.openAiConfig.secretValue}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      temperature: 0.55,
+      max_tokens: 3200,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+    }),
+  });
+
+  const payload = (await response.json().catch(() => null)) as unknown;
+  if (!response.ok) {
+    const detail =
+      payload && typeof payload === "object" && "error" in payload
+        ? JSON.stringify((payload as { error?: unknown }).error)
+        : `status ${response.status}`;
+    throw new Error(`OpenAI request failed: ${detail}`);
+  }
+
+  const report = parseOpenAiContent(payload);
+  if (!report) {
+    throw new Error("OpenAI returned empty content.");
+  }
+  return report;
+}
+
 function sanitizeOpenAiBaseUrl(value: string | null | undefined): string {
   const candidate = (value ?? "").trim();
   if (!candidate) return "https://api.openai.com/v1";
@@ -2614,6 +2654,39 @@ function parseOpenAiContent(payload: unknown): string {
       .trim();
   }
   return "";
+}
+
+function countWords(input: string): number {
+  return input
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean).length;
+}
+
+function normalizeHeadingForMatch(input: string): string {
+  return input
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function includesRequiredSections(report: string): boolean {
+  const normalized = normalizeHeadingForMatch(report);
+  const required = [
+    "## tu perfil estrategico",
+    "## lo que hoy te impulsa",
+    "## plan de aceleracion de 30 dias",
+    "## lectura del pilar",
+    "## puntos criticos de atencion",
+    "## intervencion tactica",
+    "## senal de progreso",
+  ];
+  return required.every((section) => normalized.includes(section));
+}
+
+function isDeepEnoughReport(report: string, pillar: DiscoveryReportFilter): boolean {
+  const minWords = pillar === "all" ? 420 : 320;
+  return includesRequiredSections(report) && countWords(report) >= minWords;
 }
 
 function listInlineSpanish(items: string[]): string {
@@ -2999,37 +3072,17 @@ async function runDiscoveryAnalysisWithContext(
   ].join("\n");
 
   try {
-    const endpoint = `${sanitizeOpenAiBaseUrl(context.openAiConfig.wizardData.baseUrl)}/chat/completions`;
-    const model = context.openAiConfig.wizardData.model?.trim() || "gpt-4.1-mini";
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${context.openAiConfig.secretValue}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        temperature: 0.55,
-        max_tokens: 3200,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-      }),
-    });
-
-    const payload = (await response.json().catch(() => null)) as unknown;
-    if (!response.ok) {
-      const detail =
-        payload && typeof payload === "object" && "error" in payload
-          ? JSON.stringify((payload as { error?: unknown }).error)
-          : `status ${response.status}`;
-      throw new Error(`OpenAI request failed: ${detail}`);
-    }
-
-    const report = parseOpenAiContent(payload);
-    if (!report) {
-      throw new Error("OpenAI returned empty content.");
+    let report = await requestOpenAiReport(context, systemPrompt, userPrompt);
+    if (!isDeepEnoughReport(report, pillar)) {
+      const refinementPrompt = [
+        "El borrador actual no cumple profundidad esperada.",
+        "Reescribe y amplía el informe con mayor especificidad conductual, consecuencias sistémicas y tácticas semanales.",
+        "Mantén exactamente las secciones requeridas y mejora claridad narrativa.",
+        "",
+        "Borrador actual:",
+        report,
+      ].join("\n");
+      report = await requestOpenAiReport(context, systemPrompt, refinementPrompt);
     }
 
     return { report, source: "ai" };
