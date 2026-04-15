@@ -1,6 +1,8 @@
 import crypto from "node:crypto";
 import nodemailer from "nodemailer";
 import type { PoolClient } from "pg";
+import JSZip from "jszip";
+import * as XLSX from "xlsx";
 import { requireDiscoveryAccess } from "@/features/access/service";
 import { getIntegrationConfigForActor } from "@/server/integrations/config";
 import { requireModulePermission } from "@/server/auth/module-permissions";
@@ -2649,23 +2651,153 @@ function normalizeTextDocumentSnippet(input: string): string {
     .replace(/[ \t]+/g, " ")
     .replace(/\n{3,}/g, "\n\n")
     .trim()
-    .slice(0, 2200);
+    .slice(0, 4800);
+}
+
+function decodeXmlEntities(input: string): string {
+  return input
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#xA;/g, "\n");
+}
+
+function stripHtml(input: string): string {
+  return input
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<\/(p|div|h1|h2|h3|h4|h5|h6|li|tr|td|th)>/gi, "\n")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]+>/g, " ");
+}
+
+async function extractDocxText(input: Uint8Array): Promise<string | null> {
+  try {
+    const zip = await JSZip.loadAsync(input);
+    const documentXml = await zip.file("word/document.xml")?.async("text");
+    if (!documentXml) return null;
+
+    const withBreaks = documentXml
+      .replace(/<w:br\s*\/>/g, "\n")
+      .replace(/<\/w:p>/g, "\n");
+    const withoutTags = withBreaks.replace(/<[^>]+>/g, " ");
+    const decoded = decodeXmlEntities(withoutTags);
+    const normalized = normalizeTextDocumentSnippet(decoded);
+    return normalized.length > 0 ? normalized : null;
+  } catch {
+    return null;
+  }
+}
+
+function extractSpreadsheetText(input: Uint8Array): string | null {
+  try {
+    const workbook = XLSX.read(input, { type: "array", cellDates: false });
+    const chunks: string[] = [];
+    for (const sheetName of workbook.SheetNames.slice(0, 4)) {
+      const sheet = workbook.Sheets[sheetName];
+      if (!sheet) continue;
+      const rows = XLSX.utils.sheet_to_json<Array<string | number | boolean | null>>(sheet, {
+        header: 1,
+        raw: false,
+        blankrows: false,
+      });
+      const normalizedRows = rows
+        .slice(0, 120)
+        .map((row) =>
+          row
+            .map((cell) => (cell === null || cell === undefined ? "" : String(cell).trim()))
+            .filter(Boolean)
+            .join(" | "),
+        )
+        .filter(Boolean);
+      if (normalizedRows.length > 0) {
+        chunks.push(`Hoja: ${sheetName}\n${normalizedRows.join("\n")}`);
+      }
+    }
+
+    if (chunks.length === 0) return null;
+    const normalized = normalizeTextDocumentSnippet(chunks.join("\n\n"));
+    return normalized.length > 0 ? normalized : null;
+  } catch {
+    return null;
+  }
+}
+
+function parseContentType(value: string | null): string {
+  if (!value) return "";
+  return value.split(";")[0]?.trim().toLowerCase() || "";
+}
+
+function fileExtensionFromUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    const path = parsed.pathname.toLowerCase();
+    const dot = path.lastIndexOf(".");
+    if (dot < 0) return "";
+    return path.slice(dot + 1);
+  } catch {
+    return "";
+  }
+}
+
+async function extractContextTextFromResponse(response: Response, sourceUrl: string): Promise<string | null> {
+  const raw = new Uint8Array(await response.arrayBuffer());
+  if (raw.length === 0) return null;
+
+  const contentType = parseContentType(response.headers.get("content-type"));
+  const extension = fileExtensionFromUrl(sourceUrl);
+  const textDecoder = new TextDecoder("utf-8");
+
+  const textLikeByType =
+    contentType.startsWith("text/") ||
+    contentType.includes("json") ||
+    contentType.includes("xml") ||
+    contentType.includes("csv") ||
+    contentType.includes("html") ||
+    contentType.includes("markdown");
+  const textLikeByExt = ["txt", "md", "markdown", "csv", "json", "xml", "html", "htm"].includes(
+    extension,
+  );
+
+  if (
+    contentType.includes("wordprocessingml.document") ||
+    contentType.includes("application/msword") ||
+    extension === "docx" ||
+    extension === "doc"
+  ) {
+    return extractDocxText(raw);
+  }
+
+  if (
+    contentType.includes("spreadsheetml.sheet") ||
+    contentType.includes("application/vnd.ms-excel") ||
+    extension === "xls" ||
+    extension === "xlsx" ||
+    extension === "csv"
+  ) {
+    return extractSpreadsheetText(raw);
+  }
+
+  if (textLikeByType || textLikeByExt) {
+    const rawText = textDecoder.decode(raw);
+    const cleaned = contentType.includes("html") || extension === "html" || extension === "htm"
+      ? stripHtml(rawText)
+      : rawText;
+    const decoded = decodeXmlEntities(cleaned);
+    const snippet = normalizeTextDocumentSnippet(decoded);
+    return snippet.length > 0 ? snippet : null;
+  }
+
+  return null;
 }
 
 async function fetchContextDocumentSnippet(url: string): Promise<string | null> {
   try {
     const response = await fetch(url, { cache: "no-store" });
     if (!response.ok) return null;
-    const contentType = (response.headers.get("content-type") ?? "").toLowerCase();
-    const isTextLike =
-      contentType.includes("text/") ||
-      contentType.includes("json") ||
-      contentType.includes("xml") ||
-      contentType.includes("csv");
-    if (!isTextLike) return null;
-    const text = await response.text();
-    const snippet = normalizeTextDocumentSnippet(text);
-    return snippet.length > 0 ? snippet : null;
+    return extractContextTextFromResponse(response, url);
   } catch {
     return null;
   }
@@ -2763,32 +2895,33 @@ async function runDiscoveryAnalysisWithContext(
     }
   }
 
-  const systemPrompt = [
-    feedbackSettings.aiFeedbackInstructions.trim(),
-    "",
-    "Reglas de salida obligatorias:",
-    "- Escribe en español claro y profesional.",
-    "- No inventes datos que no estén en las entradas ni en el contexto.",
-    "- Prioriza precisión metodológica por encima de frases genéricas.",
-    "- Entrega secciones con títulos markdown de nivel 2 (##).",
-    "- Concluye con la sección '## Señal de progreso'.",
-    "",
+  const contextBlock = [
     "Contexto metodológico de competencias (base 4Shine):",
     glossaryLines.join("\n") || "- Sin glosario específico para estas brechas.",
     "",
-    "Recursos internos recomendados (usar conceptos, no citar títulos literalmente):",
+    "Conceptos de recursos internos recomendados (no citar nombres de recursos):",
     resourceLines.join("\n") || "- Sin recursos publicados específicos para estas brechas.",
     "",
-    "Fragmentos recuperados de documentos de contexto cargados por el administrador:",
+    "Fragmentos recuperados de documentos cargados por el administrador:",
     contextChunks.join("\n\n") || "- No se pudo extraer texto de los documentos en esta ejecución.",
     unresolvedContextNames.length
-      ? `Documentos sin extracción de texto (se consideran como referencia nominal): ${unresolvedContextNames.join(", ")}`
+      ? `Documentos sin extracción de texto: ${unresolvedContextNames.join(", ")}`
       : "",
   ]
     .filter(Boolean)
     .join("\n");
 
-  const userPrompt = [
+  const editorialBlock = [
+    "Instrucciones editoriales obligatorias:",
+    "- Escribe en español con cercanía profesional, en prosa natural y continua.",
+    "- Evita lenguaje robótico o frases de relleno.",
+    "- No inventes datos. Si no hay evidencia suficiente, dilo de forma directa.",
+    "- Fundamenta cada conclusión con resultados y contexto disponible.",
+    "- Entrega texto accionable y priorizado.",
+    "- Usa títulos markdown de nivel 2 (##) con los nombres exactos solicitados.",
+  ].join("\n");
+
+  const commonUserContext = [
     `Líder: ${input.username} (${input.role || "rol no especificado"})`,
     `Vista solicitada: ${toPillarDisplayName(pillar)}`,
     `Índice global: ${scores.globalIndex}%`,
@@ -2798,19 +2931,71 @@ async function runDiscoveryAnalysisWithContext(
     `- Up: ${scores.pillarMetrics.up.total}% (Likert ${scores.pillarMetrics.up.likert}%, SJT ${scores.pillarMetrics.up.sjt}%)`,
     `- Beyond: ${scores.pillarMetrics.beyond.total}% (Likert ${scores.pillarMetrics.beyond.likert}%, SJT ${scores.pillarMetrics.beyond.sjt}%)`,
     "",
-    `Fortalezas principales: ${listInlineSpanish((pillar === "all" ? globalStrengths : targetStrengths).map((item) => item.name))}`,
-    `Brechas principales: ${listInlineSpanish(targetGapNames)}`,
+    `Fortalezas observables: ${listInlineSpanish((pillar === "all" ? globalStrengths : targetStrengths).map((item) => item.name))}`,
+    `Brechas prioritarias: ${listInlineSpanish(targetGapNames)}`,
+  ].join("\n");
+
+  const globalPrompt = [
+    feedbackSettings.aiFeedbackInstructions.trim(),
     "",
-    "Estructura mínima requerida:",
-    "- ## Tu perfil estratégico",
-    "- ## Lo que hoy te impulsa",
-    "- ## Plan de aceleración de 30 días",
-    "- ## Lectura del pilar",
-    "- ## Puntos críticos de atención",
-    "- ## Intervención táctica",
-    "- ## Señal de progreso",
+    editorialBlock,
     "",
-    "Si la vista es global, integra los 4 pilares. Si es por pilar, profundiza solo en ese pilar con consecuencias sistémicas.",
+    "Objetivo:",
+    "Genera una lectura ejecutiva profunda y organizada para la vista global. Conecta fortalezas, brechas y tensiones reales del liderazgo. Mantén un tono cercano, respetuoso y retador.",
+    "",
+    "Estructura obligatoria:",
+    "## Tu perfil estratégico",
+    "Describe el equilibrio entre fortalezas y brechas, incluyendo el índice global y el nivel de madurez.",
+    "## Lo que hoy te impulsa",
+    "Explica los patrones de fortaleza que hoy sí generan tracción.",
+    "## Plan de aceleración de 30 días",
+    "Propón 3 acciones concretas, semanales y medibles.",
+    "## Lectura del pilar",
+    "Integra una lectura comparativa de los cuatro pilares y explica dónde apalancarte primero.",
+    "## Puntos críticos de atención",
+    "Explica riesgos de continuidad y costo de no intervenir.",
+    "## Intervención táctica",
+    "Define micro-hábitos y conversaciones concretas para el próximo ciclo.",
+    "## Señal de progreso",
+    "Cierra con indicadores observables para validar avance en 2 a 4 semanas.",
+    "",
+    contextBlock,
+  ].join("\n");
+
+  const pillarPrompt = [
+    feedbackSettings.aiFeedbackInstructions.trim(),
+    "",
+    editorialBlock,
+    "",
+    `Objetivo: generar un diagnóstico profundo del pilar ${toPillarDisplayName(pillar)} con consecuencias sistémicas y tácticas prácticas.`,
+    "",
+    "Estructura obligatoria:",
+    "## Tu perfil estratégico",
+    "Enfoca esta sección en cómo este pilar condiciona su liderazgo general.",
+    "## Lo que hoy te impulsa",
+    "Describe fortalezas del pilar y por qué hoy le funcionan.",
+    "## Plan de aceleración de 30 días",
+    "Presenta 2 o 3 rutinas de aplicación inmediata dentro del pilar.",
+    "## Lectura del pilar",
+    "Explica la brecha entre autopercepción y juicio situacional en este pilar y su efecto.",
+    "## Puntos críticos de atención",
+    "Detalla los 3 focos de mayor riesgo y su impacto en equipo/organización.",
+    "## Intervención táctica",
+    "Propón acciones semanales específicas, con foco en ejecución conductual.",
+    "## Señal de progreso",
+    "Define señales concretas de mejora para el siguiente mes.",
+    "",
+    contextBlock,
+  ].join("\n");
+
+  const systemPrompt = pillar === "all" ? globalPrompt : pillarPrompt;
+
+  const userPrompt = [
+    commonUserContext,
+    "",
+    pillar === "all"
+      ? "Solicito una lectura global profunda de liderazgo, en prosa clara y organizada."
+      : `Solicito un diagnóstico profundo del pilar ${toPillarDisplayName(pillar)} con foco práctico.`,
   ].join("\n");
 
   try {
@@ -2824,8 +3009,8 @@ async function runDiscoveryAnalysisWithContext(
       },
       body: JSON.stringify({
         model,
-        temperature: 0.45,
-        max_tokens: 2200,
+        temperature: 0.55,
+        max_tokens: 3200,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
