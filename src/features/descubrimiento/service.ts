@@ -2,9 +2,11 @@ import crypto from "node:crypto";
 import nodemailer from "nodemailer";
 import type { PoolClient } from "pg";
 import { requireDiscoveryAccess } from "@/features/access/service";
+import { getIntegrationConfigForActor } from "@/server/integrations/config";
 import { requireModulePermission } from "@/server/auth/module-permissions";
 import { resolveOrganizationIdForActor } from "@/server/integrations/config";
 import type { AuthUser } from "@/server/auth/types";
+import { COMP_DEFINITIONS } from "./DiagnosticsData";
 import {
   DISCOVERY_TOTAL_ITEMS,
   calculateDiscoveryCompletionPercent,
@@ -26,6 +28,8 @@ import type {
   DiscoveryOverviewPayload,
   DiscoveryOverviewRow,
   DiscoveryParticipantProfile,
+  DiscoveryReportFilter,
+  DiscoveryScoreResult,
   DiscoverySessionRecord,
   DiscoveryStep,
   DiscoveryUserState,
@@ -2442,4 +2446,303 @@ export async function getDiscoveryOverview(
       ).sort((a, b) => a.localeCompare(b, "es")),
     },
   };
+}
+
+interface DiscoveryRecommendedResource {
+  title: string;
+  contentType: string;
+  category: string;
+  competency: string | null;
+  pillar: string | null;
+}
+
+interface DiscoveryAnalysisInput {
+  username: string;
+  role: string;
+  scores: DiscoveryScoreResult;
+  pillar: DiscoveryReportFilter;
+  fallbackReport?: string;
+}
+
+function sanitizeOpenAiBaseUrl(value: string | null | undefined): string {
+  const candidate = (value ?? "").trim();
+  if (!candidate) return "https://api.openai.com/v1";
+  return candidate.replace(/\/+$/, "");
+}
+
+function parseOpenAiContent(payload: unknown): string {
+  if (!payload || typeof payload !== "object") return "";
+  const data = payload as { choices?: Array<{ message?: { content?: unknown } }> };
+  const content = data.choices?.[0]?.message?.content;
+  if (typeof content === "string") return content.trim();
+  if (Array.isArray(content)) {
+    return content
+      .map((item) => {
+        if (!item || typeof item !== "object") return "";
+        const row = item as { type?: string; text?: string };
+        if (row.type === "text" && typeof row.text === "string") return row.text;
+        return "";
+      })
+      .join("")
+      .trim();
+  }
+  return "";
+}
+
+function listInlineSpanish(items: string[]): string {
+  if (items.length === 0) return "sin datos suficientes";
+  if (items.length === 1) return items[0];
+  if (items.length === 2) return `${items[0]} y ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")} y ${items[items.length - 1]}`;
+}
+
+function toPillarDisplayName(pillar: DiscoveryReportFilter): string {
+  if (pillar === "all") return "visión general";
+  const map: Record<Exclude<DiscoveryReportFilter, "all">, string> = {
+    within: "Shine within (autoliderazgo)",
+    out: "Shine out (influencia y relaciones)",
+    up: "Shine up (estrategia y negocio)",
+    beyond: "Shine beyond (cultura y legado)",
+  };
+  return map[pillar];
+}
+
+function mapPillarMetadataVariants(pillar: DiscoveryReportFilter): string[] {
+  if (pillar === "all") return [];
+  const variants: Record<Exclude<DiscoveryReportFilter, "all">, string[]> = {
+    within: ["within", "shine_within", "shine within"],
+    out: ["out", "shine_out", "shine out"],
+    up: ["up", "shine_up", "shine up"],
+    beyond: ["beyond", "shine_beyond", "shine beyond"],
+  };
+  return variants[pillar];
+}
+
+function normalizeTextDocumentSnippet(input: string): string {
+  return input
+    .replace(/\r\n/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+    .slice(0, 2200);
+}
+
+async function fetchContextDocumentSnippet(url: string): Promise<string | null> {
+  try {
+    const response = await fetch(url, { cache: "no-store" });
+    if (!response.ok) return null;
+    const contentType = (response.headers.get("content-type") ?? "").toLowerCase();
+    const isTextLike =
+      contentType.includes("text/") ||
+      contentType.includes("json") ||
+      contentType.includes("xml") ||
+      contentType.includes("csv");
+    if (!isTextLike) return null;
+    const text = await response.text();
+    const snippet = normalizeTextDocumentSnippet(text);
+    return snippet.length > 0 ? snippet : null;
+  } catch {
+    return null;
+  }
+}
+
+async function resolveRecommendedResources(
+  client: PoolClient,
+  targetGapNames: string[],
+  pillar: DiscoveryReportFilter,
+): Promise<DiscoveryRecommendedResource[]> {
+  const normalizedGaps = targetGapNames.map((item) => item.trim().toLowerCase()).filter(Boolean);
+  const pillarVariants = mapPillarMetadataVariants(pillar);
+  const ilikePatterns = normalizedGaps.map((item) => `%${item}%`);
+
+  const { rows } = await client.query<{
+    title: string;
+    content_type: string;
+    category: string;
+    competency_metadata: Record<string, string> | null;
+  }>(
+    `
+      SELECT
+        ci.title,
+        ci.content_type,
+        ci.category,
+        ci.competency_metadata
+      FROM app_learning.content_items ci
+      WHERE ci.status = 'published'
+        AND (
+          cardinality($1::text[]) = 0
+          OR lower(COALESCE(ci.competency_metadata->>'competency', '')) = ANY($1::text[])
+          OR lower(COALESCE(ci.competency_metadata->>'component', '')) = ANY($1::text[])
+          OR lower(COALESCE(ci.title, '')) LIKE ANY($3::text[])
+          OR (
+            cardinality($2::text[]) > 0
+            AND lower(COALESCE(ci.competency_metadata->>'pillar', '')) = ANY($2::text[])
+          )
+        )
+      ORDER BY ci.is_recommended DESC, ci.published_at DESC NULLS LAST, ci.created_at DESC
+      LIMIT 6
+    `,
+    [normalizedGaps, pillarVariants, ilikePatterns],
+  );
+
+  return rows.map((row) => ({
+    title: row.title,
+    contentType: row.content_type,
+    category: row.category,
+    competency: row.competency_metadata?.competency ?? row.competency_metadata?.component ?? null,
+    pillar: row.competency_metadata?.pillar ?? null,
+  }));
+}
+
+export async function getDiscoveryFeedbackSettingsForAnalysis(
+  client: PoolClient,
+  actor: AuthUser,
+): Promise<DiscoveryFeedbackSettingsRecord> {
+  await requireModulePermission(client, "descubrimiento", "view");
+  await requireDiscoveryAccess(client, actor);
+  return ensureFeedbackSettings(client, actor);
+}
+
+export async function generateDiscoveryAnalysis(
+  client: PoolClient,
+  actor: AuthUser,
+  input: DiscoveryAnalysisInput,
+): Promise<{ report: string; source: "ai" | "fallback" }> {
+  await requireModulePermission(client, "descubrimiento", "view");
+  await requireDiscoveryAccess(client, actor);
+
+  const fallback = input.fallbackReport?.trim() || "";
+  const scores = input.scores;
+  if (!scores?.pillarMetrics) {
+    throw new Error("Invalid scores payload");
+  }
+
+  const openAiIntegration = await getIntegrationConfigForActor(client, actor.userId, "openai");
+  if (!openAiIntegration?.enabled || !openAiIntegration.secretValue) {
+    if (fallback) return { report: fallback, source: "fallback" };
+    throw new Error("OpenAI integration is not configured for this organization.");
+  }
+
+  const feedbackSettings = await getDiscoveryFeedbackSettingsForAnalysis(client, actor);
+  const allSorted = [...(scores.compList ?? [])].sort((a, b) => a.score - b.score);
+  const globalStrengths = [...allSorted].slice(-4).reverse();
+  const pillar = input.pillar ?? "all";
+  const targetPool =
+    pillar === "all" ? allSorted : allSorted.filter((item) => item.pillar === pillar);
+  const targetGaps = targetPool.slice(0, 4);
+  const targetStrengths = [...targetPool].slice(-4).reverse();
+  const targetGapNames = targetGaps.map((item) => item.name);
+
+  const glossaryLines = targetGapNames.map((name) => {
+    const definition = COMP_DEFINITIONS[name] ?? "Competencia clave del modelo 4Shine.";
+    return `- ${name}: ${definition}`;
+  });
+
+  const recommendations = await resolveRecommendedResources(client, targetGapNames, pillar);
+  const resourceLines = recommendations.map(
+    (item) =>
+      `- ${item.title} (${item.contentType}) | foco: ${item.competency ?? "general"} | pilar: ${item.pillar ?? "general"}`,
+  );
+
+  const docs = feedbackSettings.contextDocuments.slice(0, 5);
+  const contextChunks: string[] = [];
+  const unresolvedContextNames: string[] = [];
+  for (const doc of docs) {
+    const snippet = await fetchContextDocumentSnippet(doc.url);
+    if (snippet) {
+      contextChunks.push(`### Documento: ${doc.name}\n${snippet}`);
+    } else {
+      unresolvedContextNames.push(doc.name);
+    }
+  }
+
+  const systemPrompt = [
+    feedbackSettings.aiFeedbackInstructions.trim(),
+    "",
+    "Reglas de salida obligatorias:",
+    "- Escribe en español claro y profesional.",
+    "- No inventes datos que no estén en las entradas ni en el contexto.",
+    "- Prioriza precisión metodológica por encima de frases genéricas.",
+    "- Entrega secciones con títulos markdown de nivel 2 (##).",
+    "- Concluye con la sección '## Señal de progreso'.",
+    "",
+    "Contexto metodológico de competencias (base 4Shine):",
+    glossaryLines.join("\n") || "- Sin glosario específico para estas brechas.",
+    "",
+    "Recursos internos recomendados (usar conceptos, no citar títulos literalmente):",
+    resourceLines.join("\n") || "- Sin recursos publicados específicos para estas brechas.",
+    "",
+    "Fragmentos recuperados de documentos de contexto cargados por el administrador:",
+    contextChunks.join("\n\n") || "- No se pudo extraer texto de los documentos en esta ejecución.",
+    unresolvedContextNames.length
+      ? `Documentos sin extracción de texto (se consideran como referencia nominal): ${unresolvedContextNames.join(", ")}`
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const userPrompt = [
+    `Líder: ${input.username} (${input.role || "rol no especificado"})`,
+    `Vista solicitada: ${toPillarDisplayName(pillar)}`,
+    `Índice global: ${scores.globalIndex}%`,
+    "Resultados por pilar (0-100):",
+    `- Within: ${scores.pillarMetrics.within.total}% (Likert ${scores.pillarMetrics.within.likert}%, SJT ${scores.pillarMetrics.within.sjt}%)`,
+    `- Out: ${scores.pillarMetrics.out.total}% (Likert ${scores.pillarMetrics.out.likert}%, SJT ${scores.pillarMetrics.out.sjt}%)`,
+    `- Up: ${scores.pillarMetrics.up.total}% (Likert ${scores.pillarMetrics.up.likert}%, SJT ${scores.pillarMetrics.up.sjt}%)`,
+    `- Beyond: ${scores.pillarMetrics.beyond.total}% (Likert ${scores.pillarMetrics.beyond.likert}%, SJT ${scores.pillarMetrics.beyond.sjt}%)`,
+    "",
+    `Fortalezas principales: ${listInlineSpanish((pillar === "all" ? globalStrengths : targetStrengths).map((item) => item.name))}`,
+    `Brechas principales: ${listInlineSpanish(targetGapNames)}`,
+    "",
+    "Estructura mínima requerida:",
+    "- ## Tu perfil estratégico",
+    "- ## Lo que hoy te impulsa",
+    "- ## Plan de aceleración de 30 días",
+    "- ## Lectura del pilar",
+    "- ## Puntos críticos de atención",
+    "- ## Intervención táctica",
+    "- ## Señal de progreso",
+    "",
+    "Si la vista es global, integra los 4 pilares. Si es por pilar, profundiza solo en ese pilar con consecuencias sistémicas.",
+  ].join("\n");
+
+  try {
+    const endpoint = `${sanitizeOpenAiBaseUrl(openAiIntegration.wizardData.baseUrl)}/chat/completions`;
+    const model = openAiIntegration.wizardData.model?.trim() || "gpt-4.1-mini";
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${openAiIntegration.secretValue}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        temperature: 0.45,
+        max_tokens: 2200,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+      }),
+    });
+
+    const payload = (await response.json().catch(() => null)) as unknown;
+    if (!response.ok) {
+      const detail =
+        payload && typeof payload === "object" && "error" in payload
+          ? JSON.stringify((payload as { error?: unknown }).error)
+          : `status ${response.status}`;
+      throw new Error(`OpenAI request failed: ${detail}`);
+    }
+
+    const report = parseOpenAiContent(payload);
+    if (!report) {
+      throw new Error("OpenAI returned empty content.");
+    }
+
+    return { report, source: "ai" };
+  } catch {
+    if (fallback) return { report: fallback, source: "fallback" };
+    throw new Error("No se pudo generar el análisis con IA y no existe fallback.");
+  }
 }

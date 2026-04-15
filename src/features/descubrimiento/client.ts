@@ -7,6 +7,8 @@ import type {
   DiscoveryInvitationRequest,
   DiscoveryOverviewFilters,
   DiscoveryOverviewPayload,
+  DiscoveryReportFilter,
+  DiscoveryScoreResult,
   DiscoverySessionRecord,
   DiscoveryUserState,
   UpdateDiscoverySessionInput,
@@ -164,6 +166,22 @@ export async function saveInvitationProgress(input: {
     "/api/v1/public/descubrimiento/invitaciones/progress",
     {
       method: "PATCH",
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export async function analyzeDiscoveryReport(input: {
+  username: string;
+  role: string;
+  scores: DiscoveryScoreResult;
+  pillar: DiscoveryReportFilter;
+  fallbackReport?: string;
+}): Promise<{ report: string; source: "ai" | "fallback" }> {
+  return requestApi<{ report: string; source: "ai" | "fallback" }>(
+    "/api/v1/modules/descubrimiento/analyze",
+    {
+      method: "POST",
       body: JSON.stringify(input),
     },
   );

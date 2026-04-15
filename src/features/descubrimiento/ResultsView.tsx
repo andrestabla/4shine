@@ -28,11 +28,8 @@ import {
 } from "recharts";
 import { useAppDialog } from "@/components/ui/AppDialogProvider";
 import { PILLAR_INFO } from "./DiagnosticsData";
-import {
-  buildDiscoveryReports,
-  getDiscoveryStatus,
-  scoreDiscoveryAnswers,
-} from "./reporting";
+import { analyzeDiscoveryReport } from "./client";
+import { buildDiscoveryReports, getDiscoveryStatus, scoreDiscoveryAnswers } from "./reporting";
 import { PdfReportData } from "./PdfReportData";
 import type {
   DiscoveryExperienceSurvey,
@@ -102,10 +99,20 @@ export function ResultsView({
     () => scoreDiscoveryAnswers(state.answers),
     [state.answers],
   );
-  const reports = React.useMemo(
+  const fallbackReports = React.useMemo(
     () => buildDiscoveryReports(state, scoring),
     [state, scoring],
   );
+  const [reports, setReports] = React.useState(fallbackReports);
+  const [analysisLoading, setAnalysisLoading] = React.useState<
+    Record<DiscoveryReportFilter, boolean>
+  >({
+    all: false,
+    within: false,
+    out: false,
+    up: false,
+    beyond: false,
+  });
   const [filter, setFilter] = React.useState<DiscoveryReportFilter>("all");
   const [isExporting, setIsExporting] = React.useState(false);
   const [isSharing, setIsSharing] = React.useState(false);
@@ -120,10 +127,17 @@ export function ResultsView({
   const [surveyAnswers, setSurveyAnswers] = React.useState<Record<string, number>>(initialSurvey?.answers ?? {});
   const hiddenPdfRef = React.useRef<HTMLDivElement>(null);
   const stickyClass = embedded ? "top-[4.5rem] sm:top-[5rem] md:top-[5.5rem]" : "top-0";
+  const analysisCacheRef = React.useRef<Set<DiscoveryReportFilter>>(new Set());
+  const analysisInFlightRef = React.useRef<Set<DiscoveryReportFilter>>(new Set());
   const surveyStorageKey = React.useMemo(
     () => `discovery-survey:${state.name || "anon"}`,
     [state.name],
   );
+
+  React.useEffect(() => {
+    setReports(fallbackReports);
+    analysisCacheRef.current.clear();
+  }, [fallbackReports]);
 
   React.useEffect(() => {
     setSharedPublicId(publicId ?? null);
@@ -152,6 +166,60 @@ export function ResultsView({
 
     return () => window.clearTimeout(timer);
   }, [initialSurvey, surveyStorageKey]);
+
+  const generateAnalysisForFilter = React.useCallback(
+    async (target: DiscoveryReportFilter) => {
+      if (isPublic) return;
+      if (analysisCacheRef.current.has(target)) return;
+      if (analysisInFlightRef.current.has(target)) return;
+
+      analysisInFlightRef.current.add(target);
+      setAnalysisLoading((current) => ({ ...current, [target]: true }));
+      try {
+        const response = await analyzeDiscoveryReport({
+          username: state.name,
+          role: state.profile.jobRole || "Lider",
+          scores: scoring,
+          pillar: target,
+          fallbackReport: fallbackReports[target],
+        });
+
+        setReports((current) => ({
+          ...current,
+          [target]: response.report?.trim() || fallbackReports[target],
+        }));
+        analysisCacheRef.current.add(target);
+      } catch {
+        setReports((current) => ({
+          ...current,
+          [target]: fallbackReports[target],
+        }));
+      } finally {
+        analysisInFlightRef.current.delete(target);
+        setAnalysisLoading((current) => ({ ...current, [target]: false }));
+      }
+    },
+    [fallbackReports, isPublic, scoring, state.name, state.profile.jobRole],
+  );
+
+  React.useEffect(() => {
+    void generateAnalysisForFilter(filter);
+  }, [filter, generateAnalysisForFilter]);
+
+  React.useEffect(() => {
+    if (isPublic) return;
+    const targets: DiscoveryReportFilter[] = ["all", "within", "out", "up", "beyond"];
+    const timers: number[] = [];
+    for (const target of targets) {
+      const timer = window.setTimeout(() => {
+        void generateAnalysisForFilter(target);
+      }, target === "all" ? 0 : 220);
+      timers.push(timer);
+    }
+    return () => {
+      for (const timer of timers) window.clearTimeout(timer);
+    };
+  }, [generateAnalysisForFilter, isPublic]);
 
   const radarData = React.useMemo(
     () => [
@@ -681,6 +749,12 @@ export function ResultsView({
             {filter === "all" ? "Visión general" : PILLAR_INFO[filter].title}
           </h4>
           <div className="prose prose-slate mt-6 max-w-none text-sm leading-7">
+            {analysisLoading[filter] && (
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--app-muted)]">
+                <Loader2 size={13} className="animate-spin" />
+                Profundizando análisis con contexto…
+              </div>
+            )}
             <ReactMarkdown
               components={{
                 h2: ({ children }) => (
