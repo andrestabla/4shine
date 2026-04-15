@@ -31,6 +31,7 @@ import type {
   DiscoveryOverviewFilters,
   DiscoveryOverviewPayload,
   DiscoveryOverviewRow,
+  DiscoveryPillarKey,
   DiscoveryParticipantProfile,
   DiscoveryReportFilter,
   DiscoveryScoreResult,
@@ -2597,26 +2598,30 @@ async function requestOpenAiReport(
   context: DiscoveryAnalysisContext,
   systemPrompt: string,
   userPrompt: string,
-  options?: { temperature?: number; model?: string },
+  options?: { temperature?: number; model?: string; timeoutMs?: number; maxTokens?: number },
 ): Promise<string> {
   const endpoint = `${sanitizeOpenAiBaseUrl(context.openAiConfig.wizardData.baseUrl)}/chat/completions`;
   const model = options?.model?.trim() || context.openAiConfig.wizardData.model?.trim() || "gpt-4.1";
+  const controller = new AbortController();
+  const timeoutMs = options?.timeoutMs ?? 20000;
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   const response = await fetch(endpoint, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${context.openAiConfig.secretValue}`,
       "Content-Type": "application/json",
     },
+    signal: controller.signal,
     body: JSON.stringify({
       model,
       temperature: options?.temperature ?? 0.55,
-      max_tokens: 1800,
+      max_tokens: options?.maxTokens ?? 1800,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
     }),
-  });
+  }).finally(() => clearTimeout(timeout));
 
   const payload = (await response.json().catch(() => null)) as unknown;
   if (!response.ok) {
@@ -2632,6 +2637,76 @@ async function requestOpenAiReport(
     throw new Error("OpenAI returned empty content.");
   }
   return report;
+}
+
+function buildDeterministicDeepReport(input: {
+  username: string;
+  pillar: DiscoveryReportFilter;
+  scores: DiscoveryScoreResult;
+  targetGaps: Array<{ name: string; score: number }>;
+  targetStrengths: Array<{ name: string; score: number }>;
+  contextEvidence: string[];
+}): string {
+  const { username, pillar, scores, targetGaps, targetStrengths, contextEvidence } = input;
+  const fullName = username.trim() || "Líder";
+  const strongestPillar = (Object.entries(scores.pillarMetrics) as Array<[DiscoveryPillarKey, DiscoveryScoreResult["pillarMetrics"][DiscoveryPillarKey]]>)
+    .sort((a, b) => b[1].total - a[1].total)[0];
+  const weakestPillar = (Object.entries(scores.pillarMetrics) as Array<[DiscoveryPillarKey, DiscoveryScoreResult["pillarMetrics"][DiscoveryPillarKey]]>)
+    .sort((a, b) => a[1].total - b[1].total)[0];
+  const topStrengths = targetStrengths.slice(0, 3).map((item) => item.name);
+  const topGaps = targetGaps.slice(0, 3).map((item) => item.name);
+  const evidence = contextEvidence.slice(0, 4).map((line) => `- ${line}`).join("\n") || "- Sin evidencia adicional en esta ejecución.";
+
+  if (pillar === "all") {
+    return `
+## Tu perfil estratégico
+${fullName}, tu perfil de liderazgo hoy se ubica en ${scores.globalIndex}% de madurez global. Tu combinación de fortalezas (${listInlineSpanish(topStrengths)}) muestra capacidad real para sostener conversaciones de calidad y mover coordinación con intención, mientras que tus brechas más bajas (${listInlineSpanish(topGaps)}) explican por qué todavía hay fricción entre intención y ejecución. Tu pilar más sólido es ${toPillarDisplayName(strongestPillar[0])} (${strongestPillar[1].total}%) y tu pilar más sensible es ${toPillarDisplayName(weakestPillar[0])} (${weakestPillar[1].total}%). Este contraste es la palanca principal para tu siguiente ciclo.
+
+## Lo que hoy te impulsa
+Lo que hoy te impulsa está en las competencias con mejor puntaje del caso: ${listInlineSpanish(topStrengths)}. Ahí tienes señales de capacidad instalada para influir mejor, sostener foco y elevar conversaciones clave. Cuando esas fortalezas se activan de forma consciente, sube tu consistencia y se reduce el desgaste operativo. Con datos de pilar, hay una base clara para apalancarte en el corto plazo: Within ${scores.pillarMetrics.within.total}%, Out ${scores.pillarMetrics.out.total}%, Up ${scores.pillarMetrics.up.total}% y Beyond ${scores.pillarMetrics.beyond.total}%. El objetivo no es mover todo a la vez, sino usar tu frente más fuerte para acelerar el más débil.
+
+## Plan de aceleración de 30 días
+Semana 1 y 2: prioriza una rutina diaria de 10 a 15 minutos enfocada en la brecha más baja (${topGaps[0] ?? "brecha crítica"}) con un compromiso conductual observable al inicio del día y un cierre breve al final. Semana 3: agrega una conversación semanal de alineación con foco en promesas y pedidos para reducir ambigüedad operativa. Semana 4: consolida un tablero simple de avance con tres indicadores: calidad de decisiones, velocidad de coordinación y consistencia conductual. Si una acción no impacta uno de esos tres indicadores, se ajusta.
+
+## Lectura del pilar
+La lectura comparativa sugiere una arquitectura de mejora clara: apalancarte desde ${toPillarDisplayName(strongestPillar[0])} para cerrar brechas en ${toPillarDisplayName(weakestPillar[0])}. En términos de percepción vs realidad situacional, las diferencias entre Likert y SJT por pilar marcan dónde puede haber sobreestimación o subestimación de desempeño en contexto. Tu avance será más rápido cuando traduzcas autopercepción en prácticas semanales verificables y no solo en intención declarada. El criterio táctico es simple: menos amplitud, más profundidad en 2 o 3 conductas críticas.
+
+## Puntos críticos de atención
+Tus focos de mayor riesgo hoy son ${listInlineSpanish(topGaps)}. Si no se intervienen, tienden a amplificar tres costos: decisiones tardías, coordinación frágil y caída de energía del equipo en semanas de presión. La consecuencia no es solo de clima, también de ejecución: más retrabajo y menos tracción. En cambio, cuando estas brechas se trabajan con hábito semanal y evidencia concreta, se vuelve visible la mejora en ritmo y calidad de resultados. Este punto es clave para consolidar avance real, no solo percepción de avance.
+
+## Intervención táctica
+Intervención 1: define una micro-rutina diaria centrada en ${topGaps[0] ?? "la brecha más crítica"} con una pregunta gatillo al iniciar jornada y una evidencia escrita al cerrar. Intervención 2: instala una revisión semanal de 25 minutos para evaluar qué conversaciones y decisiones impactaron más en ejecución. Intervención 3: usa tus fortalezas (${listInlineSpanish(topStrengths.slice(0, 2))}) como soporte para sostener disciplina operativa en el frente más débil. La mejora esperada en 30 días es mayor coherencia entre intención, conducta y resultados.
+
+## Señal de progreso
+En las próximas 2 a 4 semanas, considera progreso real si observas tres señales: menor dispersión en prioridades semanales, mayor claridad en acuerdos con el equipo y reducción de retrabajo por ambigüedad. A nivel de indicadores, busca mover primero consistencia conductual y luego porcentaje de ejecución. Evidencia contextual usada:
+${evidence}
+`.trim();
+  }
+
+  const metric = scores.pillarMetrics[pillar as DiscoveryPillarKey];
+  return `
+## Tu perfil estratégico
+${fullName}, tu perfil de liderazgo en ${toPillarFriendlyLabel(pillar)} hoy marca ${metric.total}%, con una diferencia de ${metric.likert - metric.sjt} puntos entre autopercepción (${metric.likert}%) y juicio situacional (${metric.sjt}%). Tus fortalezas más útiles aquí son ${listInlineSpanish(topStrengths)}, y las brechas de mayor atención son ${listInlineSpanish(topGaps)}. Esta combinación explica por qué puedes mostrar tracción en algunos contextos y fricción en otros cuando aumenta la exigencia.
+
+## Lo que hoy te impulsa
+Tus fortalezas en este pilar están funcionando como motores de estabilidad y avance. Cuando activas ${listInlineSpanish(topStrengths.slice(0, 2))}, mejora la capacidad de coordinación y la calidad de tus decisiones en escenarios reales. El punto clave ahora es convertir esas fortalezas en disciplina de ejecución para que no dependan del estado del día. Si mantienes constancia semanal, este pilar puede mejorar de forma visible en un ciclo corto.
+
+## Plan de aceleración de 30 días
+Primer bloque (semanas 1 y 2): trabaja la brecha principal (${topGaps[0] ?? "brecha crítica"}) con un hábito diario pequeño y medible. Segundo bloque (semana 3): suma una revisión semanal con foco en decisiones y conversaciones del pilar. Tercer bloque (semana 4): mide avances con dos indicadores operativos y uno conductual para consolidar el cambio. La regla de oro es mantener ritmo, no perfección.
+
+## Lectura del pilar
+La diferencia entre autopercepción y juicio situacional en este pilar indica que el desarrollo necesita más práctica aplicada y menos reflexión abstracta. Si la brecha es amplia, el foco debe estar en entrenar respuestas conductuales en contexto real. Si la brecha es menor, el reto pasa por sostener consistencia. En ambos casos, el avance aparece cuando cada semana cierra con evidencia concreta de mejora.
+
+## Puntos críticos de atención
+Los puntos críticos hoy son ${listInlineSpanish(topGaps)}. Sin intervención, estos frentes tienden a producir decisiones parciales, menor calidad de coordinación y caída de efectividad en momentos de presión. Con intervención táctica semanal, el impacto esperado es mejor alineación entre intención y ejecución, y mayor claridad en el rol de liderazgo frente al equipo.
+
+## Intervención táctica
+Intervención 1: define una acción semanal explícita para la brecha principal con criterio de éxito observable. Intervención 2: agrega una conversación de retroalimentación aplicada a mitad de semana para ajustar rápido. Intervención 3: usa una fortaleza alta como palanca para sostener el frente débil sin perder ritmo. El objetivo del ciclo no es hacerlo perfecto, sino hacerlo repetible.
+
+## Señal de progreso
+En 2 a 4 semanas, espera ver mejor calidad de acuerdos, mayor previsibilidad en ejecución y menos variación en tu conducta bajo presión. Evidencia contextual usada:
+${evidence}
+`.trim();
 }
 
 function sanitizeOpenAiBaseUrl(value: string | null | undefined): string {
@@ -3632,6 +3707,8 @@ async function runContractStyleAnalysis(
     let report = await requestOpenAiReport(context, systemPrompt, userPrompt, {
       model: "gpt-4o",
       temperature: 0.56,
+      timeoutMs: pillar === "all" ? 14000 : 11000,
+      maxTokens: pillar === "all" ? 1300 : 1000,
     });
     let attempts = 1;
     while (!isDeepEnoughReport(report, pillar) && attempts < 3) {
@@ -3651,11 +3728,22 @@ async function runContractStyleAnalysis(
       report = await requestOpenAiReport(context, systemPrompt, refinementPrompt, {
         model: "gpt-4o",
         temperature: attempts === 1 ? 0.62 : 0.55,
+        timeoutMs: pillar === "all" ? 9000 : 8000,
+        maxTokens: pillar === "all" ? 1200 : 900,
       });
       attempts += 1;
     }
     return { report, source: "ai" };
   } catch {
+    const deterministic = buildDeterministicDeepReport({
+      username: input.username,
+      pillar,
+      scores: input.scores,
+      targetGaps,
+      targetStrengths,
+      contextEvidence,
+    });
+    if (deterministic) return { report: deterministic, source: "fallback" };
     if (fallback) return { report: fallback, source: "fallback" };
     throw new Error("No se pudo generar el análisis con IA y no existe fallback.");
   }

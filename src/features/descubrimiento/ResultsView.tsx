@@ -207,9 +207,10 @@ export function ResultsView({
   }, [initialReports, isInvitationExperience]);
 
   React.useEffect(() => {
+    const timersRef = invitationRetryTimersRef.current;
     return () => {
-      for (const key of Object.keys(invitationRetryTimersRef.current) as DiscoveryReportFilter[]) {
-        const timer = invitationRetryTimersRef.current[key];
+      for (const key of Object.keys(timersRef) as DiscoveryReportFilter[]) {
+        const timer = timersRef[key];
         if (timer) window.clearTimeout(timer);
       }
     };
