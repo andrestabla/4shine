@@ -71,6 +71,7 @@ const EMPTY_REPORTS: Record<DiscoveryReportFilter, string> = {
   up: "",
   beyond: "",
 };
+const INVITATION_MAX_RETRIES = 4;
 
 const FACE_SCALE = [
   { value: 1, icon: Frown, label: "Muy difícil" },
@@ -291,6 +292,21 @@ export function ResultsView({
         if (isInvitationExperience) {
           const nextAttempt = invitationRetryAttemptsRef.current[target] + 1;
           invitationRetryAttemptsRef.current[target] = nextAttempt;
+          if (nextAttempt >= INVITATION_MAX_RETRIES) {
+            const alreadyCompleted = analysisCacheRef.current.has(target);
+            setReports((current) => ({
+              ...current,
+              [target]: fallbackReports[target],
+            }));
+            analysisCacheRef.current.add(target);
+            const timer = invitationRetryTimersRef.current[target];
+            if (timer) window.clearTimeout(timer);
+            invitationRetryTimersRef.current[target] = null;
+            if (!alreadyCompleted) {
+              setAnalysisCompletedCount((current) => Math.min(5, current + 1));
+            }
+            return;
+          }
           const delayMs = Math.min(2500 * nextAttempt, 12000);
           const priorTimer = invitationRetryTimersRef.current[target];
           if (priorTimer) window.clearTimeout(priorTimer);
