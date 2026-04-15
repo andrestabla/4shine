@@ -217,7 +217,7 @@ export function InvitationAccessExperience({
     return (
       <div className="min-h-screen bg-[var(--app-bg)]">
         {renderPublicHeader()}
-        <main className="mx-auto w-full max-w-6xl px-4 pb-16 pt-24 md:px-6 md:pt-28">
+        <main className="mx-auto w-full max-w-6xl px-4 pb-16 pt-28 md:px-6 md:pt-32">
           <ResultsView
           state={{
             name: `${session.firstName} ${session.lastName}`.trim(),
@@ -257,7 +257,7 @@ export function InvitationAccessExperience({
       return (
         <div className="min-h-screen bg-[var(--app-bg)]">
           {renderPublicHeader()}
-          <main className="mx-auto w-full max-w-4xl px-4 pb-16 pt-24 md:px-6 md:pt-28">
+          <main className="mx-auto w-full max-w-4xl px-4 pb-16 pt-28 md:px-6 md:pt-32">
             <section className="app-panel p-6 md:p-8">
             <p className="app-section-kicker">Diagnóstico 4Shine</p>
             <h2 className="mt-2 text-2xl font-black text-[var(--app-ink)]">
@@ -298,7 +298,7 @@ export function InvitationAccessExperience({
       return (
         <div className="min-h-screen bg-[var(--app-bg)]">
           {renderPublicHeader()}
-          <main className="mx-auto w-full max-w-6xl px-4 pb-16 pt-24 md:px-6 md:pt-28">
+          <main className="mx-auto w-full max-w-6xl px-4 pb-16 pt-28 md:px-6 md:pt-32">
             <ResultsView
               state={externalState}
               isPublic={true}
@@ -320,7 +320,7 @@ export function InvitationAccessExperience({
       return (
         <div className="min-h-screen bg-[var(--app-bg)]">
           {renderPublicHeader()}
-          <main className="mx-auto w-full max-w-4xl px-4 pb-16 pt-24 md:px-6 md:pt-28">
+          <main className="mx-auto w-full max-w-4xl px-4 pb-16 pt-28 md:px-6 md:pt-32">
             <section className="app-panel p-6 md:p-8">
             <p className="app-section-kicker">Diagnóstico 4Shine</p>
             <h1 className="mt-2 text-3xl font-black text-[var(--app-ink)]">
@@ -481,7 +481,7 @@ export function InvitationAccessExperience({
       return (
         <div className="min-h-screen bg-[var(--app-bg)]">
           {renderPublicHeader()}
-          <main className="mx-auto w-full max-w-5xl px-4 pb-16 pt-24 md:px-6 md:pt-28">
+          <main className="mx-auto w-full max-w-5xl px-4 pb-16 pt-28 md:px-6 md:pt-32">
             <section className="app-panel p-6 md:p-8">
             <h2 className="text-3xl font-black text-[var(--app-ink)]">Instrucciones</h2>
             <p className="mt-3 text-sm text-[var(--app-muted)]">
@@ -554,7 +554,7 @@ export function InvitationAccessExperience({
     return (
       <div className="min-h-screen bg-[var(--app-bg)]">
         {renderPublicHeader()}
-        <main className="mx-auto w-full max-w-5xl px-4 pb-16 pt-24 md:px-6 md:pt-28">
+        <main className="mx-auto w-full max-w-5xl px-4 pb-16 pt-28 md:px-6 md:pt-32">
           <section className="space-y-4">
           <div className="rounded-[18px] border border-[var(--app-border)] bg-white p-4">
             <div className="flex items-center justify-between gap-3">
@@ -682,7 +682,7 @@ export function InvitationAccessExperience({
   return (
     <div className="min-h-screen bg-[var(--app-bg)]">
       {renderPublicHeader()}
-      <main className="mx-auto flex w-full max-w-3xl items-center px-4 pb-10 pt-24 md:px-6 md:pt-28">
+      <main className="mx-auto flex w-full max-w-3xl items-center px-4 pb-10 pt-28 md:px-6 md:pt-32">
         <section className="w-full rounded-[24px] border border-[var(--app-border)] bg-white p-6 shadow-[0_20px_40px_rgba(20,17,33,0.08)] md:p-8">
         <p className="text-xs font-black uppercase tracking-[0.24em] text-[var(--app-muted)]">
           Diagnóstico 4Shine

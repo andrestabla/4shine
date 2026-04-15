@@ -3451,6 +3451,30 @@ interface DiscoveryAnalyzeContractInput {
   scores: DiscoveryScoreResult;
   pillar: DiscoveryReportFilter;
   fallbackReport?: string;
+  fastMode?: boolean;
+}
+
+interface InvitationStoredReports {
+  all?: string;
+  within?: string;
+  out?: string;
+  up?: string;
+  beyond?: string;
+}
+
+function parseInvitationStoredReports(meta: unknown): InvitationStoredReports {
+  if (!meta || typeof meta !== "object" || Array.isArray(meta)) return {};
+  const record = meta as Record<string, unknown>;
+  const raw = record.ai_reports;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const data = raw as Record<string, unknown>;
+  return {
+    all: typeof data.all === "string" ? data.all : undefined,
+    within: typeof data.within === "string" ? data.within : undefined,
+    out: typeof data.out === "string" ? data.out : undefined,
+    up: typeof data.up === "string" ? data.up : undefined,
+    beyond: typeof data.beyond === "string" ? data.beyond : undefined,
+  };
 }
 
 function toPillarFriendlyLabel(pillar: DiscoveryReportFilter): string {
@@ -3703,15 +3727,16 @@ async function runContractStyleAnalysis(
     unresolvedContextNames,
   });
 
+  const fastMode = Boolean(input.fastMode);
   try {
     let report = await requestOpenAiReport(context, systemPrompt, userPrompt, {
       model: "gpt-4o",
       temperature: 0.56,
-      timeoutMs: pillar === "all" ? 14000 : 11000,
-      maxTokens: pillar === "all" ? 1300 : 1000,
+      timeoutMs: fastMode ? (pillar === "all" ? 9000 : 7000) : (pillar === "all" ? 14000 : 11000),
+      maxTokens: fastMode ? (pillar === "all" ? 1000 : 800) : (pillar === "all" ? 1300 : 1000),
     });
     let attempts = 1;
-    while (!isDeepEnoughReport(report, pillar) && attempts < 3) {
+    while (!isDeepEnoughReport(report, pillar) && attempts < (fastMode ? 2 : 3)) {
       const refinementPrompt = [
         `Iteración de mejora ${attempts}. El borrador no cumple profundidad mínima.`,
         `Palabras actuales: ${countWords(report)}.`,
@@ -3728,8 +3753,8 @@ async function runContractStyleAnalysis(
       report = await requestOpenAiReport(context, systemPrompt, refinementPrompt, {
         model: "gpt-4o",
         temperature: attempts === 1 ? 0.62 : 0.55,
-        timeoutMs: pillar === "all" ? 9000 : 8000,
-        maxTokens: pillar === "all" ? 1200 : 900,
+        timeoutMs: fastMode ? (pillar === "all" ? 6500 : 5500) : (pillar === "all" ? 9000 : 8000),
+        maxTokens: fastMode ? (pillar === "all" ? 900 : 700) : (pillar === "all" ? 1200 : 900),
       });
       attempts += 1;
     }
@@ -3789,6 +3814,21 @@ export async function generateDiscoveryInvitationAnalysisContract(
     throw new Error("La invitación ya está asociada a un usuario autenticado.");
   }
 
+  const invitationRowResult = await client.query<{ meta: unknown }>(
+    `
+      SELECT meta
+      FROM app_assessment.discovery_invitations
+      WHERE invitation_id = $1::uuid
+      LIMIT 1
+    `,
+    [verified.invitation.invitationId],
+  );
+  const storedReports = parseInvitationStoredReports(invitationRowResult.rows[0]?.meta);
+  const cached = storedReports[input.pillar ?? "all"];
+  if (cached && cached.trim().length > 0) {
+    return { report: cached.trim(), source: "ai" };
+  }
+
   const fallback = input.fallbackReport?.trim() || "";
   let organizationId: string | null = null;
   if (verified.session?.userId) {
@@ -3813,11 +3853,34 @@ export async function generateDiscoveryInvitationAnalysisContract(
     feedbackSettings,
   };
 
+  const pillar = input.pillar ?? "all";
+  let result: { report: string; source: "ai" | "fallback" };
   try {
-    return await runContractStyleAnalysis(client, analysisContext, input);
+    result = await runContractStyleAnalysis(client, analysisContext, {
+      ...input,
+      fastMode: true,
+    });
   } catch {
-    return runDiscoveryAnalysisWithContext(client, input, analysisContext);
+    result = await runDiscoveryAnalysisWithContext(client, input, analysisContext);
   }
+
+  await client.query(
+    `
+      UPDATE app_assessment.discovery_invitations
+      SET
+        meta = jsonb_set(
+          COALESCE(meta, '{}'::jsonb),
+          '{ai_reports}',
+          COALESCE(meta->'ai_reports', '{}'::jsonb) || jsonb_build_object($2::text, $3::text),
+          true
+        ),
+        updated_at = now()
+      WHERE invitation_id = $1::uuid
+    `,
+    [verified.invitation.invitationId, pillar, result.report],
+  );
+
+  return result;
 }
 
 export async function getDiscoveryFeedbackSettingsForAnalysis(
