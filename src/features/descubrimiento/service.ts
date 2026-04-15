@@ -3673,13 +3673,19 @@ export async function generateDiscoveryAnalysisContract(
   }
 
   const feedbackSettings = await getDiscoveryFeedbackSettingsForAnalysis(client, actor);
-  return runContractStyleAnalysis(client, {
+  const analysisContext: DiscoveryAnalysisContext = {
     openAiConfig: {
       secretValue: openAiIntegration.secretValue,
       wizardData: normalizeStringRecord(openAiIntegration.wizardData),
     },
     feedbackSettings,
-  }, input);
+  };
+
+  try {
+    return await runContractStyleAnalysis(client, analysisContext, input);
+  } catch {
+    return runDiscoveryAnalysisWithContext(client, input, analysisContext);
+  }
 }
 
 export async function generateDiscoveryInvitationAnalysisContract(
@@ -3707,17 +3713,19 @@ export async function generateDiscoveryInvitationAnalysisContract(
   }
 
   const feedbackSettings = await getFeedbackSettingsByOrganizationOrDefault(client, organizationId);
-  return runContractStyleAnalysis(
-    client,
-    {
-      openAiConfig: {
-        secretValue: openAiConfig.secretValue,
-        wizardData: openAiConfig.wizardData,
-      },
-      feedbackSettings,
+  const analysisContext: DiscoveryAnalysisContext = {
+    openAiConfig: {
+      secretValue: openAiConfig.secretValue,
+      wizardData: openAiConfig.wizardData,
     },
-    input,
-  );
+    feedbackSettings,
+  };
+
+  try {
+    return await runContractStyleAnalysis(client, analysisContext, input);
+  } catch {
+    return runDiscoveryAnalysisWithContext(client, input, analysisContext);
+  }
 }
 
 export async function getDiscoveryFeedbackSettingsForAnalysis(

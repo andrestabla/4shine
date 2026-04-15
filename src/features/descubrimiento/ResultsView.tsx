@@ -157,6 +157,21 @@ export function ResultsView({
   const stickyClass = embedded ? "top-[4.5rem] sm:top-[5rem] md:top-[5.5rem]" : "top-0";
   const analysisCacheRef = React.useRef<Set<DiscoveryReportFilter>>(new Set());
   const analysisInFlightRef = React.useRef<Set<DiscoveryReportFilter>>(new Set());
+  const invitationRetryAttemptsRef = React.useRef<Record<DiscoveryReportFilter, number>>({
+    all: 0,
+    within: 0,
+    out: 0,
+    up: 0,
+    beyond: 0,
+  });
+  const invitationRetryTimersRef = React.useRef<Record<DiscoveryReportFilter, number | null>>({
+    all: null,
+    within: null,
+    out: null,
+    up: null,
+    beyond: null,
+  });
+  const [analysisCompletedCount, setAnalysisCompletedCount] = React.useState(0);
   const surveyStorageKey = React.useMemo(
     () =>
       `discovery-survey:${(publicId ?? invitationCredentials?.inviteToken ?? state.name) || "anon"}`,
@@ -173,7 +188,29 @@ export function ResultsView({
       beyond: isInvitationExperience,
     });
     analysisCacheRef.current.clear();
+    setAnalysisCompletedCount(0);
+    invitationRetryAttemptsRef.current = {
+      all: 0,
+      within: 0,
+      out: 0,
+      up: 0,
+      beyond: 0,
+    };
+    for (const key of Object.keys(invitationRetryTimersRef.current) as DiscoveryReportFilter[]) {
+      const timer = invitationRetryTimersRef.current[key];
+      if (timer) window.clearTimeout(timer);
+      invitationRetryTimersRef.current[key] = null;
+    }
   }, [initialReports, isInvitationExperience]);
+
+  React.useEffect(() => {
+    return () => {
+      for (const key of Object.keys(invitationRetryTimersRef.current) as DiscoveryReportFilter[]) {
+        const timer = invitationRetryTimersRef.current[key];
+        if (timer) window.clearTimeout(timer);
+      }
+    };
+  }, []);
 
   React.useEffect(() => {
     setSharedPublicId(publicId ?? null);
@@ -229,21 +266,40 @@ export function ResultsView({
               fallbackReport: fallbackReports[target],
             });
 
+        const alreadyCompleted = analysisCacheRef.current.has(target);
         setReports((current) => ({
           ...current,
           [target]: response.report?.trim() || (isInvitationExperience ? "" : fallbackReports[target]),
         }));
         analysisCacheRef.current.add(target);
+        invitationRetryAttemptsRef.current[target] = 0;
+        const timer = invitationRetryTimersRef.current[target];
+        if (timer) window.clearTimeout(timer);
+        invitationRetryTimersRef.current[target] = null;
+        if (!alreadyCompleted) {
+          setAnalysisCompletedCount((current) => Math.min(5, current + 1));
+        }
       } catch {
-        setReports((current) => ({
-          ...current,
-          [target]: isInvitationExperience
-            ? "No se pudo generar el análisis en profundidad en este momento. Intenta de nuevo en unos segundos."
-            : fallbackReports[target],
-        }));
+        if (isInvitationExperience) {
+          const nextAttempt = invitationRetryAttemptsRef.current[target] + 1;
+          invitationRetryAttemptsRef.current[target] = nextAttempt;
+          const delayMs = Math.min(2500 * nextAttempt, 12000);
+          const priorTimer = invitationRetryTimersRef.current[target];
+          if (priorTimer) window.clearTimeout(priorTimer);
+          invitationRetryTimersRef.current[target] = window.setTimeout(() => {
+            invitationRetryTimersRef.current[target] = null;
+            void generateAnalysisForFilter(target);
+          }, delayMs);
+        } else {
+          setReports((current) => ({
+            ...current,
+            [target]: fallbackReports[target],
+          }));
+        }
       } finally {
         analysisInFlightRef.current.delete(target);
-        setAnalysisLoading((current) => ({ ...current, [target]: false }));
+        const keepLoading = isInvitationExperience && !analysisCacheRef.current.has(target);
+        setAnalysisLoading((current) => ({ ...current, [target]: keepLoading ? true : false }));
       }
     },
     [
@@ -321,6 +377,7 @@ export function ResultsView({
     filter === "all" ? scoring.globalIndex : currentMetric?.total ?? 0;
   const currentStatus = getDiscoveryStatus(currentScore);
   const isCurrentAnalysisLoading = analysisLoading[filter];
+  const invitationProgressPercent = Math.round((analysisCompletedCount / 5) * 100);
   const shareUrl = sharedPublicId ? buildShareUrl(sharedPublicId) : "";
   const hasSurveyResponses = React.useCallback(() => {
     if (Object.keys(surveyAnswers).length >= SURVEY_QUESTIONS.length) return true;
@@ -644,6 +701,21 @@ export function ResultsView({
             )}
           </div>
         </div>
+
+        {isInvitationExperience && analysisCompletedCount < 5 && (
+          <div className="mt-4 rounded-[14px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-3">
+            <div className="flex items-center justify-between gap-3 text-xs font-semibold text-[var(--app-muted)]">
+              <span>Generando análisis completo en profundidad…</span>
+              <span>{analysisCompletedCount}/5</span>
+            </div>
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-white">
+              <div
+                className="h-full rounded-full bg-[var(--brand-primary)] transition-all duration-500"
+                style={{ width: `${invitationProgressPercent}%` }}
+              />
+            </div>
+          </div>
+        )}
 
         {sharedPublicId && (
           <div className="mt-4 flex flex-col gap-3 rounded-[18px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-4 md:flex-row md:items-center md:justify-between">
