@@ -609,8 +609,7 @@ export function InvitationAccessExperience({
                               : "border-[var(--app-border)] bg-white text-[var(--app-ink)]",
                           )}
                         >
-                          <span className="block text-lg font-black">{value}</span>
-                          <span>{label}</span>
+                          <span className="block text-sm font-extrabold sm:text-base">{label}</span>
                         </button>
                       );
                     })}

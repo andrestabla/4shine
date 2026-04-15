@@ -3396,6 +3396,10 @@ function buildContractPrompts(input: {
   targetStrengths: Array<{ name: string; score: number }>;
   glossary: GlossaryItem[];
   resources: DiscoveryRecommendedResource[];
+  feedbackInstructions: string;
+  contextChunks: string[];
+  contextEvidence: string[];
+  unresolvedContextNames: string[];
 }): { systemPrompt: string; userPrompt: string } {
   const {
     username,
@@ -3406,6 +3410,10 @@ function buildContractPrompts(input: {
     targetStrengths,
     glossary,
     resources,
+    feedbackInstructions,
+    contextChunks,
+    contextEvidence,
+    unresolvedContextNames,
   } = input;
 
   const glossaryString = glossary.length
@@ -3421,63 +3429,95 @@ function buildContractPrompts(input: {
       .join("\n")
     : "- Sin recursos publicados específicos para estas brechas.";
 
+  const contextBlock = [
+    "Contexto metodológico recuperado para este caso:",
+    "### Glosario objetivo",
+    glossaryString,
+    "",
+    "### Recursos recomendados (usar ideas, no nombres)",
+    resourceString,
+    "",
+    "### Fragmentos de documentos cargados en configuración RAG",
+    contextChunks.join("\n\n") || "- No se pudo extraer texto de los documentos cargados en esta ejecución.",
+    "",
+    "### Evidencia priorizada para sostener inferencias",
+    contextEvidence.map((line) => `- ${line}`).join("\n") || "- Sin evidencia documental priorizada.",
+    unresolvedContextNames.length
+      ? `Documentos sin extracción de texto: ${unresolvedContextNames.join(", ")}`
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const commonUserContext = [
+    `Líder: ${username} (${role})`,
+    `Vista solicitada: ${toPillarFriendlyLabel(pillar)}`,
+    `Índice de madurez global: ${scores.globalIndex}%`,
+    "Resultados por pilar (0-100):",
+    `- Within: ${scores.pillarMetrics.within.total}% (Likert ${scores.pillarMetrics.within.likert}%, SJT ${scores.pillarMetrics.within.sjt}%)`,
+    `- Out: ${scores.pillarMetrics.out.total}% (Likert ${scores.pillarMetrics.out.likert}%, SJT ${scores.pillarMetrics.out.sjt}%)`,
+    `- Up: ${scores.pillarMetrics.up.total}% (Likert ${scores.pillarMetrics.up.likert}%, SJT ${scores.pillarMetrics.up.sjt}%)`,
+    `- Beyond: ${scores.pillarMetrics.beyond.total}% (Likert ${scores.pillarMetrics.beyond.likert}%, SJT ${scores.pillarMetrics.beyond.sjt}%)`,
+    "",
+    "Brechas críticas (escala 1-5):",
+    ...targetGaps.map((item, index) => {
+      const mapped = Math.round(((item.score - 1) / 4) * 100);
+      return `- Brecha ${index + 1}: ${item.name} (${item.score}/5, equivalente ${mapped}%)`;
+    }),
+    "",
+    "Fortalezas observables (escala 1-5):",
+    ...targetStrengths.map((item, index) => {
+      const mapped = Math.round(((item.score - 1) / 4) * 100);
+      return `- Fortaleza ${index + 1}: ${item.name} (${item.score}/5, equivalente ${mapped}%)`;
+    }),
+    "",
+    "Brecha de percepción por pilar (autopercepción - juicio situacional):",
+    `- Within: ${scores.pillarMetrics.within.likert - scores.pillarMetrics.within.sjt} puntos`,
+    `- Out: ${scores.pillarMetrics.out.likert - scores.pillarMetrics.out.sjt} puntos`,
+    `- Up: ${scores.pillarMetrics.up.likert - scores.pillarMetrics.up.sjt} puntos`,
+    `- Beyond: ${scores.pillarMetrics.beyond.likert - scores.pillarMetrics.beyond.sjt} puntos`,
+  ].join("\n");
+
+  const editorialRules = [
+    "Reglas anti-genérico obligatorias:",
+    "- Escribe en prosa natural, cercana y profesional.",
+    "- Evita frases de plantilla y definiciones sueltas.",
+    "- No inventes información; usa solo datos del caso y contexto recuperado.",
+    "- Cada sección debe incluir competencias concretas y cifras del caso.",
+    "- Debes explicar causa probable, consecuencia observable y acción sugerida.",
+    "- No nombres autores ni títulos de recursos, solo ideas aplicables.",
+  ].join("\n");
+
   if (pillar === "all") {
     const systemPrompt = `
-Eres un analista experto en la metodología 4Shine.
-Tu objetivo es analizar el perfil holístico de liderazgo del usuario, usando exclusivamente el conocimiento de la metodología 4Shine provisto en el contexto.
-Usa un tono directo, humano y profesional. Habla en segunda persona del singular (tú).
+${feedbackInstructions.trim()}
 
-REGLA ESTRICTA DE ESTILO:
-- Escribe en prosa continua y específica.
-- Evita frases plantillas o definiciones sueltas.
-- Cada sección debe incluir datos concretos del caso (porcentajes, brechas y fortalezas).
-- No inventes información que no esté en los datos de entrada o en el contexto recuperado.
+${editorialRules}
 
-REGLA DE RECURSOS Y AUTORES:
-Basa tus recomendaciones lógicas en las ideas de los "Recursos recomendados" listados abajo, pero NUNCA menciones específicamente el nombre de un activo (curso, libro, etc.) ni el nombre de un autor.
+Restricciones de profundidad:
+- Cada sección debe tener mínimo 90 palabras.
+- Usa mínimo 2 porcentajes y 2 competencias por sección.
+- El análisis debe verse escrito para este caso, no para cualquier persona.
 
-**CONTEXTO DE PLATAFORMA (Glosario):**
-${glossaryString}
-
-**RECURSOS RECOMENDADOS (Usa solo sus conceptos/ideas, oculta nombres y autores):**
-${resourceString}
-
-La metodología 4Shine tiene 4 pilares:
-1. Shine within (autoliderazgo)
-2. Shine out (influencia)
-3. Shine up (estrategia)
-4. Shine beyond (legado)
-
-Estructura del reporte esperado (usa markdown):
+Estructura obligatoria (usa markdown):
 ## Tu perfil estratégico
 ## Lo que hoy te impulsa
-## Puntos críticos de atención
 ## Plan de aceleración de 30 días
+## Lectura del pilar
+## Puntos críticos de atención
+## Intervención táctica
 ## Señal de progreso
+
+${contextBlock}
 `.trim();
 
     const userPrompt = `
-Líder: ${username} (${role})
-Vista solicitada: ${toPillarFriendlyLabel(pillar)}
-Índice de madurez global: ${scores.globalIndex}%
+${commonUserContext}
 
-Resultados por pilar (0-100):
-- Within: ${scores.pillarMetrics.within.total}% (Likert ${scores.pillarMetrics.within.likert}%, SJT ${scores.pillarMetrics.within.sjt}%)
-- Out: ${scores.pillarMetrics.out.total}% (Likert ${scores.pillarMetrics.out.likert}%, SJT ${scores.pillarMetrics.out.sjt}%)
-- Up: ${scores.pillarMetrics.up.total}% (Likert ${scores.pillarMetrics.up.likert}%, SJT ${scores.pillarMetrics.up.sjt}%)
-- Beyond: ${scores.pillarMetrics.beyond.total}% (Likert ${scores.pillarMetrics.beyond.likert}%, SJT ${scores.pillarMetrics.beyond.sjt}%)
-
-Fortalezas globales más altas (escala 1-5):
-${targetStrengths.map((item) => `- ${item.name}: ${item.score}`).join("\n")}
-
-Brechas globales más críticas (escala 1-5):
-${targetGaps.map((item) => `- ${item.name}: ${item.score}`).join("\n")}
-
-Instrucciones:
-- Evita lenguaje genérico.
-- Explica causas probables y consecuencias sistémicas.
-- Propón acciones semanales concretas.
-- Incluye en cada sección referencias numéricas explícitas al caso.
+Solicitud puntual:
+- Quiero un análisis profundo y organizado, con lenguaje cercano en prosa.
+- Prioriza las brechas más bajas y explícame su efecto real en liderazgo.
+- Propón acciones de 30 días con señales observables de avance.
 `.trim();
 
     return { systemPrompt, userPrompt };
@@ -3485,52 +3525,36 @@ Instrucciones:
 
   const metric = scores.pillarMetrics[pillar];
   const systemPrompt = `
-Eres un analista experto en el pilar "${toPillarFriendlyLabel(pillar)}" de la metodología 4Shine.
-Tu objetivo es analizar profundamente el perfil del usuario en este pilar específico, usando exclusivamente el contexto metodológico provisto.
-Usa un tono directo, humano y profesional. Habla en segunda persona del singular (tú).
+${feedbackInstructions.trim()}
 
-REGLA ESTRICTA DE ESTILO:
-- Escribe en prosa específica, sin texto genérico.
-- Debes inferir causas, riesgos y palancas en este pilar.
-- Cada sección debe conectar datos del caso y contexto recuperado.
-- No inventes información.
+${editorialRules}
 
-REGLA DE RECURSOS Y AUTORES:
-Basa tus tácticas en las ideas de los "Recursos recomendados" listados abajo, pero NUNCA sugieras ni menciones un activo literario, nombre de curso o autor.
+Restricciones de profundidad:
+- Cada sección debe tener mínimo 85 palabras.
+- Usa mínimo 2 porcentajes y 2 competencias por sección.
+- Conecta el pilar con impacto en equipo, coordinación y resultados.
 
-**CONTEXTO METODOLÓGICO (Glosario):**
-${glossaryString}
-
-**RECURSOS RECOMENDADOS (Transmite conceptos, omite títulos/autores):**
-${resourceString}
-
-Estructura del reporte esperado (usa markdown):
+Estructura obligatoria (usa markdown):
 ## Tu perfil estratégico
 ## Lo que hoy te impulsa
-## Puntos críticos de atención
+## Plan de aceleración de 30 días
 ## Lectura del pilar
+## Puntos críticos de atención
 ## Intervención táctica
 ## Señal de progreso
+
+${contextBlock}
 `.trim();
 
   const userPrompt = `
-Líder: ${username} (${role})
-Vista solicitada: ${toPillarFriendlyLabel(pillar)}
-Resultado del pilar: ${metric.total}%
-Desglose: autopercepción ${metric.likert}%, juicio situacional ${metric.sjt}%
-Diferencia percepción-realidad: ${metric.likert - metric.sjt} puntos
+${commonUserContext}
+Resultado del pilar solicitado: ${metric.total}%
+Desglose del pilar: autopercepción ${metric.likert}%, juicio situacional ${metric.sjt}%, brecha ${metric.likert - metric.sjt} puntos.
 
-Fortalezas del pilar (escala 1-5):
-${targetStrengths.map((item) => `- ${item.name}: ${item.score}`).join("\n")}
-
-Brechas críticas del pilar (escala 1-5):
-${targetGaps.map((item) => `- ${item.name}: ${item.score}`).join("\n")}
-
-Instrucciones:
-- Evita frases generales.
-- Prioriza consecuencias para equipo, coordinación y ejecución.
-- Define 2 a 3 rutinas semanales concretas.
-- Incluye porcentajes y competencias en cada sección.
+Solicitud puntual:
+- Diagnóstico profundo del pilar ${toPillarFriendlyLabel(pillar)}.
+- Causas probables, riesgos sistémicos e intervención táctica semanal.
+- Lenguaje humano, claro y específico para este caso.
 `.trim();
 
   return { systemPrompt, userPrompt };
@@ -3557,9 +3581,34 @@ async function runContractStyleAnalysis(
     .reverse()
     .map((item) => ({ name: item.name, score: item.score }));
   const targetGapNames = targetGaps.map((item) => item.name);
+  const docs = context.feedbackSettings.contextDocuments.slice(0, 6);
 
   const glossary = await resolveGlossaryTermsExact(targetGapNames);
   const resources = await resolveResourcesRuleBased(client, targetGapNames, pillar);
+  const contextChunks: string[] = [];
+  const unresolvedContextNames: string[] = [];
+  for (const doc of docs) {
+    const snippet = await fetchContextDocumentSnippet(doc.url);
+    if (snippet) {
+      contextChunks.push(`### Documento: ${doc.name}\n${snippet}`);
+    } else {
+      unresolvedContextNames.push(doc.name);
+    }
+  }
+  const contextEvidence = selectContextEvidence(
+    contextChunks,
+    [
+      ...targetGapNames,
+      ...targetStrengths.map((item) => item.name),
+      "liderazgo",
+      "equipo",
+      "conducta",
+      "cultura",
+      "estrategia",
+      toPillarDisplayName(pillar),
+    ],
+    12,
+  );
   const { systemPrompt, userPrompt } = buildContractPrompts({
     username: input.username,
     role: input.role,
@@ -3569,13 +3618,38 @@ async function runContractStyleAnalysis(
     targetStrengths,
     glossary,
     resources,
+    feedbackInstructions: context.feedbackSettings.aiFeedbackInstructions,
+    contextChunks,
+    contextEvidence,
+    unresolvedContextNames,
   });
 
   try {
-    const report = await requestOpenAiReport(context, systemPrompt, userPrompt, {
+    let report = await requestOpenAiReport(context, systemPrompt, userPrompt, {
       model: "gpt-4o",
-      temperature: 0.7,
+      temperature: 0.56,
     });
+    let attempts = 1;
+    while (!isDeepEnoughReport(report, pillar) && attempts < 4) {
+      const refinementPrompt = [
+        `Iteración de mejora ${attempts}. El borrador no cumple profundidad mínima.`,
+        `Palabras actuales: ${countWords(report)}.`,
+        `Menciones de porcentaje actuales: ${(report.match(/\b\d{1,3}(?:[.,]\d+)?%/g) ?? []).length}.`,
+        "",
+        "Reescribe TODO el informe con más profundidad y causalidad.",
+        "No uses frases comodín ni definiciones de diccionario.",
+        "Sustenta cada sección con datos numéricos, competencias concretas y acciones específicas.",
+        "Mantén exactamente los títulos y el orden solicitado.",
+        "",
+        "Borrador actual:",
+        report,
+      ].join("\n");
+      report = await requestOpenAiReport(context, systemPrompt, refinementPrompt, {
+        model: "gpt-4o",
+        temperature: attempts === 1 ? 0.62 : 0.55,
+      });
+      attempts += 1;
+    }
     return { report, source: "ai" };
   } catch {
     if (fallback) return { report: fallback, source: "fallback" };

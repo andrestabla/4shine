@@ -179,6 +179,41 @@ function buildManagerTabs() {
   ];
 }
 
+function buildSimulatedDiscoveryState(name: string): DiscoveryUserState {
+  const answers: Record<string, string | number> = {};
+  for (const item of DB) {
+    if (item.type === "likert") {
+      const skewed = Math.random();
+      const value =
+        skewed < 0.15 ? 1 : skewed < 0.35 ? 2 : skewed < 0.7 ? 3 : skewed < 0.9 ? 4 : 5;
+      answers[String(item.id)] = value;
+    } else {
+      const options = item.options ?? [];
+      if (options.length === 0) continue;
+      const idx = Math.floor(Math.random() * options.length);
+      answers[String(item.id)] = options[idx]?.id ?? options[0].id;
+    }
+  }
+
+  const safeName = name.trim() || "Usuario Simulado";
+  const [firstName, ...rest] = safeName.split(" ");
+  return {
+    name: safeName,
+    answers,
+    currentIdx: 0,
+    status: "results",
+    profile: {
+      firstName: firstName || "Usuario",
+      lastName: rest.join(" ") || "Simulado",
+      country: "Colombia",
+      jobRole: "Gerente/Mando medio",
+      age: 35,
+      yearsExperience: 10,
+    },
+    profileCompleted: true,
+  };
+}
+
 export function DiscoveryExperience() {
   const { currentRole, currentUser, viewerAccess } = useUser();
   const { alert, confirm } = useAppDialog();
@@ -258,6 +293,8 @@ export function DiscoveryExperience() {
     yearsExperienceMax: "",
   });
   const [selectedOverviewRowId, setSelectedOverviewRowId] = React.useState("");
+  const [simulatedState, setSimulatedState] = React.useState<DiscoveryUserState | null>(null);
+  const [simulationSeed, setSimulationSeed] = React.useState(0);
 
   const managerPreviewStart = managerPreviewIdx;
   const managerPreviewEnd = Math.min(
@@ -981,6 +1018,30 @@ export function DiscoveryExperience() {
                   Preguntas {managerPreviewStart + 1} a {managerPreviewEnd} de {DB.length}
                 </p>
               </div>
+
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSimulatedState(buildSimulatedDiscoveryState(currentUser?.name ?? "Admin Demo"));
+                    setSimulationSeed((current) => current + 1);
+                  }}
+                  className="inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-5 py-3 text-sm font-extrabold text-white"
+                >
+                  Simular resultados
+                </button>
+                {simulatedState && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSimulatedState(null);
+                    }}
+                    className="inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-5 py-3 text-sm font-semibold text-[var(--app-ink)]"
+                  >
+                    Limpiar simulación
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="space-y-4">
@@ -1014,8 +1075,7 @@ export function DiscoveryExperience() {
                               key={value}
                               className="min-h-24 rounded-[14px] border border-[var(--app-border)] bg-white/70 px-2 py-3 text-center text-[11px] font-semibold text-[var(--app-ink)]"
                             >
-                              <span className="block text-base font-black">{value}</span>
-                              <span className="mt-1 block">{label}</span>
+                              <span className="mt-2 block text-sm font-extrabold">{label}</span>
                             </div>
                           );
                         })}
@@ -1069,6 +1129,26 @@ export function DiscoveryExperience() {
                 <ChevronRight size={16} />
               </button>
             </div>
+
+            {simulatedState && (
+              <section className="app-panel p-5 sm:p-6">
+                <p className="app-section-kicker">Simulación de análisis IA</p>
+                <h3 className="mt-2 text-xl font-black text-[var(--app-ink)]">
+                  Validación de profundidad de informe y productos generados
+                </h3>
+                <p className="mt-2 text-sm text-[var(--app-muted)]">
+                  Esta simulación no persiste datos en base de datos. Se usa para pruebas de comportamiento del análisis.
+                </p>
+
+                <div className="mt-5">
+                  <ResultsView
+                    key={`sim-${simulationSeed}`}
+                    state={simulatedState}
+                    embedded={true}
+                  />
+                </div>
+              </section>
+            )}
           </div>
         )}
 
@@ -2001,8 +2081,7 @@ export function DiscoveryExperience() {
                             : "border-[var(--app-border)] bg-white/80 text-[var(--app-ink)]",
                         )}
                       >
-                        <span className="block text-lg md:text-xl">{value}</span>
-                        <span className="mt-2 block">{label}</span>
+                        <span className="mt-1 block text-sm md:text-base">{label}</span>
                       </button>
                     );
                   })}
