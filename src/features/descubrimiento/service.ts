@@ -3914,7 +3914,7 @@ export async function generateDiscoveryInvitationAnalysisContract(
   try {
     result = await runContractStyleAnalysis(client, analysisContext, {
       ...input,
-      fastMode: true,
+      fastMode: false,
     });
   } catch {
     try {
@@ -4024,7 +4024,7 @@ export async function generateDiscoveryGuestSessionAnalysisContract(
   try {
     result = await runContractStyleAnalysis(client, analysisContext, {
       ...input,
-      fastMode: true,
+      fastMode: false,
     });
   } catch {
     try {
