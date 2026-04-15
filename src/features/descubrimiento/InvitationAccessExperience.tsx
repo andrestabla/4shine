@@ -512,6 +512,34 @@ export function InvitationAccessExperience({
     const start = externalState.currentIdx;
     const end = Math.min(start + DISCOVERY_ITEMS_PER_PAGE, DB.length);
     const pageItems = DB.slice(start, end);
+    const handleExternalNextPage = async () => {
+      const missingIndex = pageItems.findIndex(
+        (item) => externalState.answers[String(item.id)] === undefined,
+      );
+
+      if (missingIndex >= 0) {
+        const questionNumber = start + missingIndex + 1;
+        await alert({
+          title: "Faltan respuestas",
+          message: `La pregunta ${questionNumber} no ha sido respondida. Completa la respuesta antes de continuar.`,
+          tone: "warning",
+        });
+        return;
+      }
+
+      if (end >= DB.length) {
+        setExternalState((current) => ({ ...current, status: "results" }));
+        if (typeof window !== "undefined") {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+        return;
+      }
+
+      setExternalState((current) => ({ ...current, currentIdx: end }));
+      if (typeof window !== "undefined") {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    };
 
     return (
       <div className="min-h-screen bg-[var(--app-bg)]">
@@ -629,13 +657,7 @@ export function InvitationAccessExperience({
 
             <button
               type="button"
-              onClick={() => {
-                if (end >= DB.length) {
-                  setExternalState((current) => ({ ...current, status: "results" }));
-                  return;
-                }
-                setExternalState((current) => ({ ...current, currentIdx: end }));
-              }}
+              onClick={() => void handleExternalNextPage()}
               className="inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-5 py-3 text-sm font-extrabold text-white"
             >
               {end >= DB.length ? "Ver resultados" : "Continuar"}

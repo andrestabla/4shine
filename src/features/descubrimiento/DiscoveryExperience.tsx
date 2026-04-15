@@ -490,14 +490,15 @@ export function DiscoveryExperience() {
     const start = state.currentIdx;
     const end = Math.min(start + DISCOVERY_ITEMS_PER_PAGE, DB.length);
     const pageItems = DB.slice(start, end);
-    const missing = pageItems.find(
+    const missingIndex = pageItems.findIndex(
       (item) => state.answers[String(item.id)] === undefined,
     );
 
-    if (missing) {
+    if (missingIndex >= 0) {
+      const questionNumber = start + missingIndex + 1;
       await alert({
         title: "Faltan respuestas",
-        message: "Responde todas las preguntas visibles antes de continuar.",
+        message: `La pregunta ${questionNumber} no ha sido respondida. Completa la respuesta antes de continuar.`,
         tone: "warning",
       });
       return;
@@ -528,6 +529,9 @@ export function DiscoveryExperience() {
       ...current,
       currentIdx: end,
     }));
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   };
 
   const handleReset = async () => {

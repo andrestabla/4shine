@@ -114,7 +114,9 @@ export function ResultsView({
   const [emailRecipients, setEmailRecipients] = React.useState("");
   const [isTourOpen, setIsTourOpen] = React.useState(false);
   const [isSurveyOpen, setIsSurveyOpen] = React.useState(false);
-  const [pendingDownloadAfterSurvey, setPendingDownloadAfterSurvey] = React.useState(false);
+  const [pendingSurveyAction, setPendingSurveyAction] = React.useState<
+    "download" | "shareLink" | "shareEmail" | null
+  >(null);
   const [surveyAnswers, setSurveyAnswers] = React.useState<Record<string, number>>(initialSurvey?.answers ?? {});
   const hiddenPdfRef = React.useRef<HTMLDivElement>(null);
   const stickyClass = embedded ? "top-[4.5rem] sm:top-[5rem] md:top-[5.5rem]" : "top-0";
@@ -196,9 +198,25 @@ export function ResultsView({
     filter === "all" ? scoring.globalIndex : currentMetric?.total ?? 0;
   const currentStatus = getDiscoveryStatus(currentScore);
   const shareUrl = sharedPublicId ? buildShareUrl(sharedPublicId) : "";
+  const hasSurveyResponses = React.useCallback(() => {
+    if (Object.keys(surveyAnswers).length >= SURVEY_QUESTIONS.length) return true;
+    if (typeof window === "undefined") return false;
+    return Boolean(window.localStorage.getItem(surveyStorageKey));
+  }, [surveyAnswers, surveyStorageKey]);
+
+  const ensureSurveyBeforeAction = React.useCallback(
+    (action: "download" | "shareLink" | "shareEmail") => {
+      if (hasSurveyResponses()) return true;
+      setPendingSurveyAction(action);
+      setIsSurveyOpen(true);
+      return false;
+    },
+    [hasSurveyResponses],
+  );
 
   const handleShare = async () => {
     if (!onShare || isPublic) return;
+    if (!ensureSurveyBeforeAction("shareLink")) return;
     setIsSharing(true);
     try {
       const nextSession = await onShare();
@@ -245,6 +263,7 @@ export function ResultsView({
       });
       return;
     }
+    if (!ensureSurveyBeforeAction("shareEmail")) return;
 
     try {
       const link = await ensureSharableUrl();
@@ -345,14 +364,7 @@ export function ResultsView({
   };
 
   const handleDownloadPdf = async () => {
-    const hasSurvey =
-      Object.keys(surveyAnswers).length >= SURVEY_QUESTIONS.length ||
-      (typeof window !== "undefined" && Boolean(window.localStorage.getItem(surveyStorageKey)));
-    if (!hasSurvey) {
-      setPendingDownloadAfterSurvey(true);
-      setIsSurveyOpen(true);
-      return;
-    }
+    if (!ensureSurveyBeforeAction("download")) return;
     await runDownloadPdf();
   };
 
@@ -398,10 +410,19 @@ export function ResultsView({
     }
 
     setIsSurveyOpen(false);
+    const pendingAction = pendingSurveyAction;
+    setPendingSurveyAction(null);
 
-    if (pendingDownloadAfterSurvey) {
-      setPendingDownloadAfterSurvey(false);
+    if (pendingAction === "download") {
       await runDownloadPdf();
+      return;
+    }
+    if (pendingAction === "shareLink") {
+      await handleShare();
+      return;
+    }
+    if (pendingAction === "shareEmail") {
+      await handleShareByEmail();
     }
   };
 
@@ -660,7 +681,17 @@ export function ResultsView({
             {filter === "all" ? "Visión general" : PILLAR_INFO[filter].title}
           </h4>
           <div className="prose prose-slate mt-6 max-w-none text-sm leading-7">
-            <ReactMarkdown>{reports[filter]}</ReactMarkdown>
+            <ReactMarkdown
+              components={{
+                h2: ({ children }) => (
+                  <h2 className="mt-6 rounded-[14px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-2 text-base font-black text-[var(--app-ink)] first:mt-0">
+                    {children}
+                  </h2>
+                ),
+              }}
+            >
+              {reports[filter]}
+            </ReactMarkdown>
           </div>
         </aside>
       </div>
@@ -771,7 +802,7 @@ export function ResultsView({
               <button
                 type="button"
                 onClick={() => {
-                  setPendingDownloadAfterSurvey(false);
+                  setPendingSurveyAction(null);
                   setIsSurveyOpen(false);
                 }}
                 className="rounded-full border border-[var(--app-border)] bg-white px-4 py-2 text-sm font-semibold text-[var(--app-ink)]"
