@@ -196,11 +196,18 @@ export async function analyzeInvitationDiscoveryReport(input: {
   pillar: DiscoveryReportFilter;
   fallbackReport?: string;
 }): Promise<{ report: string; source: "ai" | "fallback" }> {
+  const { username, role, scores, pillar, fallbackReport } = input;
   return requestApi<{ report: string; source: "ai" | "fallback" }>(
     "/api/diagnostics/analyze",
     {
       method: "POST",
-      body: JSON.stringify(input),
+      body: JSON.stringify({
+        username,
+        role,
+        scores,
+        pillar,
+        fallbackReport,
+      }),
     },
   );
 }

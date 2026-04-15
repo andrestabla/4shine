@@ -10,6 +10,21 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
   }
 
+  if (identity.guestScope === 'descubrimiento') {
+    return NextResponse.json(
+      {
+        ok: true,
+        user: {
+          id: identity.userId,
+          email: identity.email,
+          name: identity.name,
+          role: identity.role,
+        },
+      },
+      { status: 200 },
+    );
+  }
+
   const result = await withClient((client) =>
     withRoleContext(client, identity.userId, identity.role, async () => {
       const { rows } = await client.query<{

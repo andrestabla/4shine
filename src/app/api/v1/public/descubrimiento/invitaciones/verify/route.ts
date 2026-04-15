@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { withClient } from "@/server/db/pool";
 import { verifyDiscoveryInvitationAccess } from "@/features/descubrimiento/service";
+import { setGuestAccessCookie } from "@/server/auth/cookies";
+import { signGuestAccessToken } from "@/server/auth/tokens";
 
 interface VerifyBody {
   inviteToken?: string;
@@ -32,7 +34,15 @@ export async function POST(request: Request) {
     const data = await withClient((client) =>
       verifyDiscoveryInvitationAccess(client, inviteToken, accessCode),
     );
-    return NextResponse.json({ ok: true, data }, { status: 200 });
+    const response = NextResponse.json({ ok: true, data }, { status: 200 });
+    const guestToken = await signGuestAccessToken({
+      inviteToken: data.invitation.inviteToken,
+      email: `invitado+${data.invitation.inviteToken.slice(0, 12)}@4shine.local`,
+      name: data.externalProgress?.name?.trim() || "Invitado 4Shine",
+      role: "gestor",
+    });
+    setGuestAccessCookie(response, guestToken);
+    return response;
   } catch (error) {
     const detail = error instanceof Error ? error.message : "Unknown error";
     const status = detail.includes("invalido") || detail.includes("no encontrada") ? 401 : 500;

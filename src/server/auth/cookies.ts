@@ -3,6 +3,7 @@ import { authConfig } from './config';
 
 export const ACCESS_COOKIE = 'auth_access_token';
 export const REFRESH_COOKIE = 'auth_refresh_token';
+export const GUEST_ACCESS_COOKIE = 'guest_access_token';
 
 function cookieOptions(maxAge: number) {
   return {
@@ -17,11 +18,19 @@ function cookieOptions(maxAge: number) {
 export function setAuthCookies(response: NextResponse, accessToken: string, refreshToken: string): void {
   response.cookies.set(ACCESS_COOKIE, accessToken, cookieOptions(authConfig.accessTtlSeconds));
   response.cookies.set(REFRESH_COOKIE, refreshToken, cookieOptions(authConfig.refreshTtlSeconds));
+  response.cookies.set(GUEST_ACCESS_COOKIE, '', { ...cookieOptions(0), maxAge: 0 });
+}
+
+export function setGuestAccessCookie(response: NextResponse, guestAccessToken: string): void {
+  response.cookies.set(GUEST_ACCESS_COOKIE, guestAccessToken, cookieOptions(authConfig.accessTtlSeconds));
+  response.cookies.set(ACCESS_COOKIE, '', { ...cookieOptions(0), maxAge: 0 });
+  response.cookies.set(REFRESH_COOKIE, '', { ...cookieOptions(0), maxAge: 0 });
 }
 
 export function clearAuthCookies(response: NextResponse): void {
   response.cookies.set(ACCESS_COOKIE, '', { ...cookieOptions(0), maxAge: 0 });
   response.cookies.set(REFRESH_COOKIE, '', { ...cookieOptions(0), maxAge: 0 });
+  response.cookies.set(GUEST_ACCESS_COOKIE, '', { ...cookieOptions(0), maxAge: 0 });
 }
 
 export function parseCookieValue(request: Request, cookieName: string): string | null {

@@ -5,6 +5,8 @@ export interface AuthUser {
   email: string;
   name: string;
   role: Role;
+  guestScope?: 'descubrimiento';
+  inviteToken?: string;
 }
 
 export interface AccessTokenClaims {
@@ -13,6 +15,18 @@ export interface AccessTokenClaims {
   name: string;
   role: Role;
   tokenType: 'access';
+  guestScope?: 'descubrimiento';
+  inviteToken?: string;
+}
+
+export interface GuestAccessTokenClaims {
+  sub: string;
+  email: string;
+  name: string;
+  role: Role;
+  tokenType: 'guest_access';
+  guestScope: 'descubrimiento';
+  inviteToken: string;
 }
 
 export interface RefreshTokenClaims {

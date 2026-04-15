@@ -1991,6 +1991,45 @@ export async function verifyDiscoveryInvitationAccess(
   };
 }
 
+async function resolveDiscoveryInvitationByToken(
+  client: PoolClient,
+  inviteToken: string,
+): Promise<DiscoveryInvitationRow & { session_payload: DiscoverySessionRow | null }> {
+  const normalizedToken = inviteToken.trim().toLowerCase();
+  const { rows } = await client.query<
+    DiscoveryInvitationRow & {
+      session_payload: DiscoverySessionRow | null;
+    }
+  >(
+    `
+      SELECT
+        di.invitation_id::text,
+        di.session_id::text,
+        di.invited_email,
+        di.invite_token,
+        di.access_code_hash,
+        di.access_code_last4,
+        di.access_code_sent_at::text,
+        di.opened_at::text,
+        di.meta,
+        di.created_at::text,
+        di.updated_at::text,
+        row_to_json(ds)::jsonb AS session_payload
+      FROM app_assessment.discovery_invitations di
+      LEFT JOIN app_assessment.discovery_sessions ds ON ds.session_id = di.session_id
+      WHERE di.invite_token = $1
+      LIMIT 1
+    `,
+    [normalizedToken],
+  );
+
+  const row = rows[0];
+  if (!row) {
+    throw new Error("Invitacion no encontrada.");
+  }
+  return row;
+}
+
 export async function saveDiscoveryInvitationProgress(
   client: PoolClient,
   input: {
@@ -3920,6 +3959,101 @@ export async function generateDiscoveryInvitationAnalysisContract(
       WHERE invitation_id = $1::uuid
     `,
     [verified.invitation.invitationId, pillar, result.report],
+  );
+
+  return result;
+}
+
+export async function generateDiscoveryGuestSessionAnalysisContract(
+  client: PoolClient,
+  input: DiscoveryAnalyzeContractInput & { inviteToken: string },
+): Promise<{ report: string; source: "ai" | "fallback" }> {
+  const row = await resolveDiscoveryInvitationByToken(client, input.inviteToken);
+  const session = row.session_payload ? mapDiscoverySessionRow(row.session_payload) : null;
+  if (session) {
+    throw new Error("La invitación ya está asociada a un usuario autenticado.");
+  }
+
+  const invitationRowResult = await client.query<{ meta: unknown }>(
+    `
+      SELECT meta
+      FROM app_assessment.discovery_invitations
+      WHERE invitation_id = $1::uuid
+      LIMIT 1
+    `,
+    [row.invitation_id],
+  );
+  const storedReports = parseInvitationStoredReports(invitationRowResult.rows[0]?.meta);
+  const pillar = input.pillar ?? "all";
+  const cached = storedReports[pillar];
+  if (cached && cached.trim().length > 0) {
+    return { report: cached.trim(), source: "ai" };
+  }
+
+  let organizationId: string | null = null;
+  if (row.session_id) {
+    const { rows } = await client.query<{ user_id: string }>(
+      `SELECT user_id::text FROM app_assessment.discovery_sessions WHERE session_id = $1::uuid LIMIT 1`,
+      [row.session_id],
+    );
+    if (rows[0]?.user_id) {
+      organizationId = await resolveOrganizationIdFromSessionUser(client, rows[0].user_id);
+    }
+  }
+  if (!organizationId) {
+    organizationId = await resolveFallbackOrganizationId(client);
+  }
+
+  const openAiConfig = await resolveOpenAiConfigByOrganization(client, organizationId);
+  if (!openAiConfig?.enabled || !openAiConfig.secretValue) {
+    const fallback = input.fallbackReport?.trim() || "";
+    if (fallback) return { report: fallback, source: "fallback" };
+    throw new Error("OpenAI integration is not configured for this organization.");
+  }
+
+  const feedbackSettings = await getFeedbackSettingsByOrganizationOrDefault(client, organizationId);
+  const analysisContext: DiscoveryAnalysisContext = {
+    openAiConfig: {
+      secretValue: openAiConfig.secretValue,
+      wizardData: openAiConfig.wizardData,
+    },
+    feedbackSettings,
+  };
+
+  let result: { report: string; source: "ai" | "fallback" };
+  try {
+    result = await runContractStyleAnalysis(client, analysisContext, {
+      ...input,
+      fastMode: true,
+    });
+  } catch {
+    try {
+      result = await runDiscoveryAnalysisWithContext(client, input, analysisContext);
+    } catch {
+      const fallback = input.fallbackReport?.trim() || "";
+      result = {
+        report:
+          fallback ||
+          `${input.username}, tu perfil de liderazgo requiere análisis adicional. Vuelve a intentar en unos segundos.`,
+        source: "fallback",
+      };
+    }
+  }
+
+  await client.query(
+    `
+      UPDATE app_assessment.discovery_invitations
+      SET
+        meta = jsonb_set(
+          COALESCE(meta, '{}'::jsonb),
+          '{ai_reports}',
+          COALESCE(meta->'ai_reports', '{}'::jsonb) || jsonb_build_object($2::text, $3::text),
+          true
+        ),
+        updated_at = now()
+      WHERE invitation_id = $1::uuid
+    `,
+    [row.invitation_id, pillar, result.report],
   );
 
   return result;

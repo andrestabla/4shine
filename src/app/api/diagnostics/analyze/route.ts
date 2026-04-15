@@ -3,6 +3,7 @@ import { authenticateRequest } from "@/server/auth/request-auth";
 import { withClient, withRoleContext } from "@/server/db/pool";
 import {
   generateDiscoveryAnalysisContract,
+  generateDiscoveryGuestSessionAnalysisContract,
   generateDiscoveryInvitationAnalysisContract,
 } from "@/features/descubrimiento/service";
 import type {
@@ -59,6 +60,19 @@ export async function POST(request: Request) {
       const identity = await authenticateRequest(request);
       if (!identity) {
         throw new Error("Unauthorized");
+      }
+      if (identity.guestScope === "descubrimiento") {
+        if (!identity.inviteToken) {
+          throw new Error("Invitation access denied");
+        }
+        return generateDiscoveryGuestSessionAnalysisContract(client, {
+          inviteToken: identity.inviteToken,
+          username,
+          role: body?.role ?? "Invitado",
+          scores,
+          pillar: body?.pillar ?? "all",
+          fallbackReport: body?.fallbackReport,
+        });
       }
       return withRoleContext(client, identity.userId, identity.role, async () =>
         generateDiscoveryAnalysisContract(client, identity, {

@@ -16,6 +16,15 @@ export async function hasModulePermission(
   moduleCode: ModuleCode,
   action: PermissionAction,
 ): Promise<boolean> {
+  const invitedContext = await client.query<{ user_id: string | null }>(
+    `SELECT current_setting('app.current_user_id', true) AS user_id`,
+  );
+  const contextUserId = invitedContext.rows[0]?.user_id ?? '';
+  if (contextUserId.startsWith('invited:')) {
+    if (moduleCode !== 'descubrimiento') return false;
+    return action === 'view' || action === 'create' || action === 'update';
+  }
+
   const { rows } = await client.query<{ allowed: boolean }>(
     `SELECT app_auth.has_permission($1, $2) AS allowed`,
     [moduleCode, action],

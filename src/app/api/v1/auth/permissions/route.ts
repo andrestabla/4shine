@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { authenticateRequest } from '@/server/auth/request-auth';
 import { withClient } from '@/server/db/pool';
-import type { ModulePermissions } from '@/lib/permissions';
+import { MODULE_CODES, type ModulePermissions } from '@/lib/permissions';
 import { buildRequestSummary, recordAuditEvent } from '@/server/audit/service';
 
 interface PermissionRow {
@@ -22,6 +22,32 @@ export async function GET(request: Request) {
 
   if (!identity) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
+  }
+
+  if (identity.guestScope === 'descubrimiento') {
+    const permissions: ModulePermissions[] = MODULE_CODES.map((moduleCode) => {
+      const allowDiscovery = moduleCode === 'descubrimiento';
+      return {
+        moduleCode,
+        moduleName: moduleCode,
+        canView: allowDiscovery,
+        canCreate: allowDiscovery,
+        canUpdate: allowDiscovery,
+        canDelete: false,
+        canApprove: false,
+        canModerate: false,
+        canManage: false,
+      };
+    });
+    return NextResponse.json(
+      {
+        ok: true,
+        role: identity.role,
+        guestScope: identity.guestScope,
+        permissions,
+      },
+      { status: 200 },
+    );
   }
 
   try {

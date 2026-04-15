@@ -1,5 +1,5 @@
-import { ACCESS_COOKIE, parseCookieValue } from './cookies';
-import { verifyAccessToken } from './tokens';
+import { ACCESS_COOKIE, GUEST_ACCESS_COOKIE, parseCookieValue } from './cookies';
+import { verifyAccessToken, verifyGuestAccessToken } from './tokens';
 import type { AuthUser } from './types';
 
 function readBearerToken(request: Request): string | null {
@@ -13,18 +13,33 @@ function readBearerToken(request: Request): string | null {
 export async function authenticateRequest(request: Request): Promise<AuthUser | null> {
   const bearer = readBearerToken(request);
   const cookieToken = parseCookieValue(request, ACCESS_COOKIE);
-  const token = bearer ?? cookieToken;
+  const guestCookieToken = parseCookieValue(request, GUEST_ACCESS_COOKIE);
+  const token = bearer ?? cookieToken ?? guestCookieToken;
 
   if (!token) return null;
 
   try {
-    const claims = await verifyAccessToken(token);
-    return {
-      userId: claims.sub,
-      email: claims.email,
-      name: claims.name,
-      role: claims.role,
-    };
+    try {
+      const claims = await verifyAccessToken(token);
+      return {
+        userId: claims.sub,
+        email: claims.email,
+        name: claims.name,
+        role: claims.role,
+        guestScope: claims.guestScope,
+        inviteToken: claims.inviteToken,
+      };
+    } catch {
+      const guestClaims = await verifyGuestAccessToken(token);
+      return {
+        userId: guestClaims.sub,
+        email: guestClaims.email,
+        name: guestClaims.name,
+        role: guestClaims.role,
+        guestScope: guestClaims.guestScope,
+        inviteToken: guestClaims.inviteToken,
+      };
+    }
   } catch {
     return null;
   }
