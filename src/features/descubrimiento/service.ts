@@ -2595,6 +2595,7 @@ async function requestOpenAiReport(
   context: DiscoveryAnalysisContext,
   systemPrompt: string,
   userPrompt: string,
+  options?: { temperature?: number },
 ): Promise<string> {
   const endpoint = `${sanitizeOpenAiBaseUrl(context.openAiConfig.wizardData.baseUrl)}/chat/completions`;
   const model = context.openAiConfig.wizardData.model?.trim() || "gpt-4.1";
@@ -2606,7 +2607,7 @@ async function requestOpenAiReport(
     },
     body: JSON.stringify({
       model,
-      temperature: 0.55,
+      temperature: options?.temperature ?? 0.55,
       max_tokens: 3200,
       messages: [
         { role: "system", content: systemPrompt },
@@ -2686,7 +2687,35 @@ function includesRequiredSections(report: string): boolean {
 
 function isDeepEnoughReport(report: string, pillar: DiscoveryReportFilter): boolean {
   const minWords = pillar === "all" ? 420 : 320;
-  return includesRequiredSections(report) && countWords(report) >= minWords;
+  const percentMentions = (report.match(/\b\d{1,3}(?:[.,]\d+)?%/g) ?? []).length;
+  const minPercentMentions = pillar === "all" ? 6 : 4;
+  return (
+    includesRequiredSections(report) &&
+    countWords(report) >= minWords &&
+    percentMentions >= minPercentMentions &&
+    !looksGenericReport(report)
+  );
+}
+
+function looksGenericReport(report: string): boolean {
+  const normalized = normalizeHeadingForMatch(report);
+  const genericSignals = [
+    "capacidad real de avance",
+    "todavia con frentes que requieren metodo y consistencia",
+    "competencia clave del modelo 4shine",
+    "conexion profunda con el para que",
+    "uso preciso del lenguaje para coordinar acciones",
+  ];
+  const signalMatches = genericSignals.filter((signal) => normalized.includes(signal)).length;
+
+  const paragraphs = report
+    .split(/\n{2,}/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .filter((item) => !item.startsWith("## "));
+  const shortParagraphs = paragraphs.filter((item) => countWords(item) < 24).length;
+
+  return signalMatches >= 2 || (paragraphs.length > 0 && shortParagraphs / paragraphs.length > 0.5);
 }
 
 function listInlineSpanish(items: string[]): string {
@@ -2694,6 +2723,49 @@ function listInlineSpanish(items: string[]): string {
   if (items.length === 1) return items[0];
   if (items.length === 2) return `${items[0]} y ${items[1]}`;
   return `${items.slice(0, -1).join(", ")} y ${items[items.length - 1]}`;
+}
+
+function selectContextEvidence(
+  contextChunks: string[],
+  keywords: string[],
+  maxItems = 10,
+): string[] {
+  const normalizedKeywords = keywords
+    .map((item) => normalizeHeadingForMatch(item))
+    .filter((item) => item.length >= 3);
+
+  const lines: string[] = [];
+  for (const chunk of contextChunks) {
+    const parts = chunk
+      .split(/\n+/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+    lines.push(...parts);
+  }
+
+  const ranked = lines
+    .map((line) => {
+      const normalizedLine = normalizeHeadingForMatch(line);
+      const keywordHits = normalizedKeywords.reduce(
+        (acc, keyword) => (normalizedLine.includes(keyword) ? acc + 1 : acc),
+        0,
+      );
+      const lengthScore = line.length >= 45 && line.length <= 280 ? 1 : 0;
+      return { line, score: keywordHits * 3 + lengthScore };
+    })
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score);
+
+  const output: string[] = [];
+  const seen = new Set<string>();
+  for (const item of ranked) {
+    if (output.length >= maxItems) break;
+    const key = item.line.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    output.push(item.line);
+  }
+  return output;
 }
 
 function toPillarDisplayName(pillar: DiscoveryReportFilter): string {
@@ -2968,6 +3040,18 @@ async function runDiscoveryAnalysisWithContext(
     }
   }
 
+  const evidenceKeywords = [
+    ...targetGapNames,
+    ...(pillar === "all" ? globalStrengths : targetStrengths).map((item) => item.name),
+    toPillarDisplayName(pillar),
+    "liderazgo",
+    "comportamiento",
+    "equipo",
+    "cultura",
+    "estrategia",
+  ];
+  const contextEvidence = selectContextEvidence(contextChunks, evidenceKeywords, 12);
+
   const contextBlock = [
     "Contexto metodológico de competencias (base 4Shine):",
     glossaryLines.join("\n") || "- Sin glosario específico para estas brechas.",
@@ -2977,6 +3061,9 @@ async function runDiscoveryAnalysisWithContext(
     "",
     "Fragmentos recuperados de documentos cargados por el administrador:",
     contextChunks.join("\n\n") || "- No se pudo extraer texto de los documentos en esta ejecución.",
+    "",
+    "Evidencia contextual priorizada para sustentar inferencias:",
+    contextEvidence.map((line) => `- ${line}`).join("\n") || "- Sin evidencia contextual priorizada.",
     unresolvedContextNames.length
       ? `Documentos sin extracción de texto: ${unresolvedContextNames.join(", ")}`
       : "",
@@ -3006,12 +3093,34 @@ async function runDiscoveryAnalysisWithContext(
     "",
     `Fortalezas observables: ${listInlineSpanish((pillar === "all" ? globalStrengths : targetStrengths).map((item) => item.name))}`,
     `Brechas prioritarias: ${listInlineSpanish(targetGapNames)}`,
+    "",
+    "Evidencia numérica por competencias objetivo (escala 1 a 5):",
+    ...targetGaps.map((item, index) => {
+      const mapped = Math.round(((item.score - 1) / 4) * 100);
+      return `- Brecha ${index + 1}: ${item.name} (${item.score}/5, equivalente ${mapped}%)`;
+    }),
+    ...targetStrengths.slice(0, 3).map((item, index) => {
+      const mapped = Math.round(((item.score - 1) / 4) * 100);
+      return `- Fortaleza ${index + 1}: ${item.name} (${item.score}/5, equivalente ${mapped}%)`;
+    }),
+    "",
+    "Brecha de percepción por pilar (autopercepción - juicio situacional):",
+    `- Within: ${scores.pillarMetrics.within.likert - scores.pillarMetrics.within.sjt} puntos`,
+    `- Out: ${scores.pillarMetrics.out.likert - scores.pillarMetrics.out.sjt} puntos`,
+    `- Up: ${scores.pillarMetrics.up.likert - scores.pillarMetrics.up.sjt} puntos`,
+    `- Beyond: ${scores.pillarMetrics.beyond.likert - scores.pillarMetrics.beyond.sjt} puntos`,
   ].join("\n");
 
   const globalPrompt = [
     feedbackSettings.aiFeedbackInstructions.trim(),
     "",
     editorialBlock,
+    "",
+    "Reglas anti-genérico obligatorias:",
+    "- No escribas definiciones sueltas tipo 'Competencia: descripción corta'.",
+    "- Cada sección debe tener mínimo 90 palabras en prosa continua.",
+    "- Usa al menos 2 porcentajes y 2 competencias concretas por sección.",
+    "- Debes inferir causas y consecuencias específicas, no frases universales.",
     "",
     "Objetivo:",
     "Genera una lectura ejecutiva profunda y organizada para la vista global. Conecta fortalezas, brechas y tensiones reales del liderazgo. Mantén un tono cercano, respetuoso y retador.",
@@ -3039,6 +3148,12 @@ async function runDiscoveryAnalysisWithContext(
     feedbackSettings.aiFeedbackInstructions.trim(),
     "",
     editorialBlock,
+    "",
+    "Reglas anti-genérico obligatorias:",
+    "- No escribas definiciones sueltas tipo 'Competencia: descripción corta'.",
+    "- Cada sección debe tener mínimo 80 palabras en prosa continua.",
+    "- Usa al menos 2 porcentajes y 2 competencias concretas por sección.",
+    "- Debes inferir causas y consecuencias específicas para este pilar.",
     "",
     `Objetivo: generar un diagnóstico profundo del pilar ${toPillarDisplayName(pillar)} con consecuencias sistémicas y tácticas prácticas.`,
     "",
@@ -3072,17 +3187,22 @@ async function runDiscoveryAnalysisWithContext(
   ].join("\n");
 
   try {
-    let report = await requestOpenAiReport(context, systemPrompt, userPrompt);
-    if (!isDeepEnoughReport(report, pillar)) {
+    let report = await requestOpenAiReport(context, systemPrompt, userPrompt, { temperature: 0.58 });
+    let attempts = 1;
+    while (!isDeepEnoughReport(report, pillar) && attempts < 3) {
       const refinementPrompt = [
-        "El borrador actual no cumple profundidad esperada.",
-        "Reescribe y amplía el informe con mayor especificidad conductual, consecuencias sistémicas y tácticas semanales.",
-        "Mantén exactamente las secciones requeridas y mejora claridad narrativa.",
+        `Iteración de mejora ${attempts}. El borrador sigue insuficiente en profundidad o especificidad.`,
+        "Reescribe completo el informe con narrativa más concreta, causal y accionable.",
+        "Evita frases comodín. Sustenta cada sección con datos numéricos y competencias del caso.",
+        "No acortes. Mantén todas las secciones requeridas y su orden.",
         "",
-        "Borrador actual:",
+        "Borrador actual a superar:",
         report,
       ].join("\n");
-      report = await requestOpenAiReport(context, systemPrompt, refinementPrompt);
+      report = await requestOpenAiReport(context, systemPrompt, refinementPrompt, {
+        temperature: attempts === 1 ? 0.62 : 0.55,
+      });
+      attempts += 1;
     }
 
     return { report, source: "ai" };
