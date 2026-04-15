@@ -2808,7 +2808,9 @@ function normalizeLookupKey(input: string): string {
 }
 
 function resolveLikelyExportsDirectory(): string {
-  return path.join(process.cwd(), "exports");
+  const configured = process.env.DISCOVERY_EXPORTS_DIR?.trim();
+  if (configured) return configured;
+  return "/Users/andrestabla/Documents/4Shine/exports";
 }
 
 async function readExportsGlossaryMap(): Promise<Map<string, string>> {
