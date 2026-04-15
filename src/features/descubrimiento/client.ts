@@ -179,7 +179,7 @@ export async function analyzeDiscoveryReport(input: {
   fallbackReport?: string;
 }): Promise<{ report: string; source: "ai" | "fallback" }> {
   return requestApi<{ report: string; source: "ai" | "fallback" }>(
-    "/api/v1/modules/descubrimiento/analyze",
+    "/api/diagnostics/analyze",
     {
       method: "POST",
       body: JSON.stringify(input),
@@ -197,7 +197,7 @@ export async function analyzeInvitationDiscoveryReport(input: {
   fallbackReport?: string;
 }): Promise<{ report: string; source: "ai" | "fallback" }> {
   return requestApi<{ report: string; source: "ai" | "fallback" }>(
-    "/api/v1/public/descubrimiento/analyze",
+    "/api/diagnostics/analyze",
     {
       method: "POST",
       body: JSON.stringify(input),

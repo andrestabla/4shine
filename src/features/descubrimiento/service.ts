@@ -1,4 +1,6 @@
 import crypto from "node:crypto";
+import { promises as fs } from "node:fs";
+import path from "node:path";
 import nodemailer from "nodemailer";
 import type { PoolClient } from "pg";
 import JSZip from "jszip";
@@ -2595,10 +2597,10 @@ async function requestOpenAiReport(
   context: DiscoveryAnalysisContext,
   systemPrompt: string,
   userPrompt: string,
-  options?: { temperature?: number },
+  options?: { temperature?: number; model?: string },
 ): Promise<string> {
   const endpoint = `${sanitizeOpenAiBaseUrl(context.openAiConfig.wizardData.baseUrl)}/chat/completions`;
-  const model = context.openAiConfig.wizardData.model?.trim() || "gpt-4.1";
+  const model = options?.model?.trim() || context.openAiConfig.wizardData.model?.trim() || "gpt-4.1";
   const response = await fetch(endpoint, {
     method: "POST",
     headers: {
@@ -2788,6 +2790,158 @@ function mapPillarMetadataVariants(pillar: DiscoveryReportFilter): string[] {
     beyond: ["beyond", "shine_beyond", "shine beyond"],
   };
   return variants[pillar];
+}
+
+interface GlossaryItem {
+  term: string;
+  definition: string;
+}
+
+let exportsGlossaryCache: Map<string, string> | null = null;
+
+function normalizeLookupKey(input: string): string {
+  return input
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function resolveLikelyExportsDirectory(): string {
+  return path.join(process.cwd(), "exports");
+}
+
+async function readExportsGlossaryMap(): Promise<Map<string, string>> {
+  if (exportsGlossaryCache) return exportsGlossaryCache;
+
+  const glossary = new Map<string, string>();
+  for (const [term, definition] of Object.entries(COMP_DEFINITIONS)) {
+    glossary.set(normalizeLookupKey(term), definition);
+  }
+
+  const exportsDir = resolveLikelyExportsDirectory();
+  try {
+    const entries = await fs.readdir(exportsDir, { withFileTypes: true });
+    const files = entries
+      .filter((entry) => entry.isFile())
+      .map((entry) => entry.name)
+      .filter((name) => /\.(json|csv|txt|md)$/i.test(name));
+
+    for (const fileName of files) {
+      const absolutePath = path.join(exportsDir, fileName);
+      let content = "";
+      try {
+        content = await fs.readFile(absolutePath, "utf8");
+      } catch {
+        continue;
+      }
+      if (!content.trim()) continue;
+
+      if (/\.json$/i.test(fileName)) {
+        try {
+          const parsed = JSON.parse(content) as unknown;
+          const rows = Array.isArray(parsed) ? parsed : [];
+          for (const row of rows) {
+            if (!row || typeof row !== "object") continue;
+            const current = row as Record<string, unknown>;
+            const term = typeof current.term === "string" ? current.term : "";
+            const definition =
+              typeof current.definition === "string"
+                ? current.definition
+                : typeof current.meaning === "string"
+                  ? current.meaning
+                  : "";
+            if (!term.trim() || !definition.trim()) continue;
+            glossary.set(normalizeLookupKey(term), definition.trim());
+          }
+        } catch {
+          continue;
+        }
+      } else if (/\.csv$/i.test(fileName)) {
+        const lines = content.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+        for (const line of lines.slice(1)) {
+          const [rawTerm, ...rest] = line.split(",");
+          const term = (rawTerm ?? "").trim().replace(/^"|"$/g, "");
+          const definition = rest.join(",").trim().replace(/^"|"$/g, "");
+          if (!term || !definition) continue;
+          glossary.set(normalizeLookupKey(term), definition);
+        }
+      } else {
+        const lines = content.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+        for (const line of lines) {
+          const separator = line.includes(":") ? ":" : line.includes(" - ") ? " - " : "";
+          if (!separator) continue;
+          const [left, ...rest] = line.split(separator);
+          const term = left.trim();
+          const definition = rest.join(separator).trim();
+          if (!term || !definition) continue;
+          glossary.set(normalizeLookupKey(term), definition);
+        }
+      }
+    }
+  } catch {
+    // If exports folder does not exist, fallback to COMP_DEFINITIONS only.
+  }
+
+  exportsGlossaryCache = glossary;
+  return glossary;
+}
+
+async function resolveGlossaryTermsExact(
+  targetGapNames: string[],
+): Promise<GlossaryItem[]> {
+  const glossary = await readExportsGlossaryMap();
+  const resolved: GlossaryItem[] = [];
+  for (const term of targetGapNames) {
+    const definition = glossary.get(normalizeLookupKey(term));
+    if (!definition) continue;
+    resolved.push({ term, definition });
+  }
+  return resolved;
+}
+
+async function resolveResourcesRuleBased(
+  client: PoolClient,
+  targetGapNames: string[],
+  pillar: DiscoveryReportFilter,
+): Promise<DiscoveryRecommendedResource[]> {
+  const normalized = targetGapNames.map((item) => item.trim().toLowerCase()).filter(Boolean);
+  const pillarVariants = mapPillarMetadataVariants(pillar);
+
+  const { rows } = await client.query<{
+    title: string;
+    content_type: string;
+    category: string;
+    competency_metadata: Record<string, string> | null;
+  }>(
+    `
+      SELECT
+        ci.title,
+        ci.content_type,
+        ci.category,
+        ci.competency_metadata
+      FROM app_learning.content_items ci
+      WHERE ci.status = 'published'
+        AND (
+          lower(COALESCE(ci.competency_metadata->>'competency', '')) = ANY($1::text[])
+          OR (
+            cardinality($2::text[]) > 0
+            AND lower(COALESCE(ci.competency_metadata->>'pillar', '')) = ANY($2::text[])
+          )
+        )
+      ORDER BY ci.is_recommended DESC, ci.published_at DESC NULLS LAST, ci.created_at DESC
+      LIMIT 4
+    `,
+    [normalized, pillarVariants],
+  );
+
+  return rows.map((row) => ({
+    title: row.title,
+    contentType: row.content_type,
+    category: row.category,
+    competency: row.competency_metadata?.competency ?? row.competency_metadata?.component ?? null,
+    pillar: row.competency_metadata?.pillar ?? null,
+  }));
 }
 
 function normalizeTextDocumentSnippet(input: string): string {
@@ -3210,6 +3364,284 @@ async function runDiscoveryAnalysisWithContext(
     if (fallback) return { report: fallback, source: "fallback" };
     throw new Error("No se pudo generar el análisis con IA y no existe fallback.");
   }
+}
+
+interface DiscoveryAnalyzeContractInput {
+  username: string;
+  role: string;
+  scores: DiscoveryScoreResult;
+  pillar: DiscoveryReportFilter;
+  fallbackReport?: string;
+}
+
+function toPillarFriendlyLabel(pillar: DiscoveryReportFilter): string {
+  const mapping: Record<DiscoveryReportFilter, string> = {
+    all: "Visión general",
+    within: "Shine within (autoliderazgo)",
+    out: "Shine out (influencia y relaciones)",
+    up: "Shine up (estrategia y negocio)",
+    beyond: "Shine beyond (cultura y legado)",
+  };
+  return mapping[pillar];
+}
+
+function buildContractPrompts(input: {
+  username: string;
+  role: string;
+  pillar: DiscoveryReportFilter;
+  scores: DiscoveryScoreResult;
+  targetGaps: Array<{ name: string; score: number }>;
+  targetStrengths: Array<{ name: string; score: number }>;
+  glossary: GlossaryItem[];
+  resources: DiscoveryRecommendedResource[];
+}): { systemPrompt: string; userPrompt: string } {
+  const {
+    username,
+    role,
+    pillar,
+    scores,
+    targetGaps,
+    targetStrengths,
+    glossary,
+    resources,
+  } = input;
+
+  const glossaryString = glossary.length
+    ? glossary.map((item) => `- **${item.term}**: ${item.definition}`).join("\n")
+    : "- Sin coincidencias exactas en glosario para estas brechas.";
+
+  const resourceString = resources.length
+    ? resources
+      .map(
+        (item) =>
+          `- ${item.title} (${item.contentType}) [Enfocado en: ${item.competency ?? "General"} / Pilar: ${item.pillar ?? "General"}]`,
+      )
+      .join("\n")
+    : "- Sin recursos publicados específicos para estas brechas.";
+
+  if (pillar === "all") {
+    const systemPrompt = `
+Eres un analista experto en la metodología 4Shine.
+Tu objetivo es analizar el perfil holístico de liderazgo del usuario, usando exclusivamente el conocimiento de la metodología 4Shine provisto en el contexto.
+Usa un tono directo, humano y profesional. Habla en segunda persona del singular (tú).
+
+REGLA ESTRICTA DE ESTILO:
+- Escribe en prosa continua y específica.
+- Evita frases plantillas o definiciones sueltas.
+- Cada sección debe incluir datos concretos del caso (porcentajes, brechas y fortalezas).
+- No inventes información que no esté en los datos de entrada o en el contexto recuperado.
+
+REGLA DE RECURSOS Y AUTORES:
+Basa tus recomendaciones lógicas en las ideas de los "Recursos recomendados" listados abajo, pero NUNCA menciones específicamente el nombre de un activo (curso, libro, etc.) ni el nombre de un autor.
+
+**CONTEXTO DE PLATAFORMA (Glosario):**
+${glossaryString}
+
+**RECURSOS RECOMENDADOS (Usa solo sus conceptos/ideas, oculta nombres y autores):**
+${resourceString}
+
+La metodología 4Shine tiene 4 pilares:
+1. Shine within (autoliderazgo)
+2. Shine out (influencia)
+3. Shine up (estrategia)
+4. Shine beyond (legado)
+
+Estructura del reporte esperado (usa markdown):
+## Tu perfil estratégico
+## Lo que hoy te impulsa
+## Puntos críticos de atención
+## Plan de aceleración de 30 días
+## Señal de progreso
+`.trim();
+
+    const userPrompt = `
+Líder: ${username} (${role})
+Vista solicitada: ${toPillarFriendlyLabel(pillar)}
+Índice de madurez global: ${scores.globalIndex}%
+
+Resultados por pilar (0-100):
+- Within: ${scores.pillarMetrics.within.total}% (Likert ${scores.pillarMetrics.within.likert}%, SJT ${scores.pillarMetrics.within.sjt}%)
+- Out: ${scores.pillarMetrics.out.total}% (Likert ${scores.pillarMetrics.out.likert}%, SJT ${scores.pillarMetrics.out.sjt}%)
+- Up: ${scores.pillarMetrics.up.total}% (Likert ${scores.pillarMetrics.up.likert}%, SJT ${scores.pillarMetrics.up.sjt}%)
+- Beyond: ${scores.pillarMetrics.beyond.total}% (Likert ${scores.pillarMetrics.beyond.likert}%, SJT ${scores.pillarMetrics.beyond.sjt}%)
+
+Fortalezas globales más altas (escala 1-5):
+${targetStrengths.map((item) => `- ${item.name}: ${item.score}`).join("\n")}
+
+Brechas globales más críticas (escala 1-5):
+${targetGaps.map((item) => `- ${item.name}: ${item.score}`).join("\n")}
+
+Instrucciones:
+- Evita lenguaje genérico.
+- Explica causas probables y consecuencias sistémicas.
+- Propón acciones semanales concretas.
+- Incluye en cada sección referencias numéricas explícitas al caso.
+`.trim();
+
+    return { systemPrompt, userPrompt };
+  }
+
+  const metric = scores.pillarMetrics[pillar];
+  const systemPrompt = `
+Eres un analista experto en el pilar "${toPillarFriendlyLabel(pillar)}" de la metodología 4Shine.
+Tu objetivo es analizar profundamente el perfil del usuario en este pilar específico, usando exclusivamente el contexto metodológico provisto.
+Usa un tono directo, humano y profesional. Habla en segunda persona del singular (tú).
+
+REGLA ESTRICTA DE ESTILO:
+- Escribe en prosa específica, sin texto genérico.
+- Debes inferir causas, riesgos y palancas en este pilar.
+- Cada sección debe conectar datos del caso y contexto recuperado.
+- No inventes información.
+
+REGLA DE RECURSOS Y AUTORES:
+Basa tus tácticas en las ideas de los "Recursos recomendados" listados abajo, pero NUNCA sugieras ni menciones un activo literario, nombre de curso o autor.
+
+**CONTEXTO METODOLÓGICO (Glosario):**
+${glossaryString}
+
+**RECURSOS RECOMENDADOS (Transmite conceptos, omite títulos/autores):**
+${resourceString}
+
+Estructura del reporte esperado (usa markdown):
+## Tu perfil estratégico
+## Lo que hoy te impulsa
+## Puntos críticos de atención
+## Lectura del pilar
+## Intervención táctica
+## Señal de progreso
+`.trim();
+
+  const userPrompt = `
+Líder: ${username} (${role})
+Vista solicitada: ${toPillarFriendlyLabel(pillar)}
+Resultado del pilar: ${metric.total}%
+Desglose: autopercepción ${metric.likert}%, juicio situacional ${metric.sjt}%
+Diferencia percepción-realidad: ${metric.likert - metric.sjt} puntos
+
+Fortalezas del pilar (escala 1-5):
+${targetStrengths.map((item) => `- ${item.name}: ${item.score}`).join("\n")}
+
+Brechas críticas del pilar (escala 1-5):
+${targetGaps.map((item) => `- ${item.name}: ${item.score}`).join("\n")}
+
+Instrucciones:
+- Evita frases generales.
+- Prioriza consecuencias para equipo, coordinación y ejecución.
+- Define 2 a 3 rutinas semanales concretas.
+- Incluye porcentajes y competencias en cada sección.
+`.trim();
+
+  return { systemPrompt, userPrompt };
+}
+
+async function runContractStyleAnalysis(
+  client: PoolClient,
+  context: DiscoveryAnalysisContext,
+  input: DiscoveryAnalyzeContractInput,
+): Promise<{ report: string; source: "ai" | "fallback" }> {
+  const fallback = input.fallbackReport?.trim() || "";
+  if (!input.scores?.pillarMetrics) {
+    throw new Error("Invalid scores payload");
+  }
+
+  const compList = [...(input.scores.compList ?? [])];
+  const pillar = input.pillar ?? "all";
+  const sourcePool = pillar === "all" ? compList : compList.filter((item) => item.pillar === pillar);
+  const sorted = [...sourcePool].sort((a, b) => a.score - b.score);
+
+  const targetGaps = sorted.slice(0, 3).map((item) => ({ name: item.name, score: item.score }));
+  const targetStrengths = [...sorted]
+    .slice(-3)
+    .reverse()
+    .map((item) => ({ name: item.name, score: item.score }));
+  const targetGapNames = targetGaps.map((item) => item.name);
+
+  const glossary = await resolveGlossaryTermsExact(targetGapNames);
+  const resources = await resolveResourcesRuleBased(client, targetGapNames, pillar);
+  const { systemPrompt, userPrompt } = buildContractPrompts({
+    username: input.username,
+    role: input.role,
+    pillar,
+    scores: input.scores,
+    targetGaps,
+    targetStrengths,
+    glossary,
+    resources,
+  });
+
+  try {
+    const report = await requestOpenAiReport(context, systemPrompt, userPrompt, {
+      model: "gpt-4o",
+      temperature: 0.7,
+    });
+    return { report, source: "ai" };
+  } catch {
+    if (fallback) return { report: fallback, source: "fallback" };
+    throw new Error("No se pudo generar el análisis con IA y no existe fallback.");
+  }
+}
+
+export async function generateDiscoveryAnalysisContract(
+  client: PoolClient,
+  actor: AuthUser,
+  input: DiscoveryAnalyzeContractInput,
+): Promise<{ report: string; source: "ai" | "fallback" }> {
+  await requireModulePermission(client, "descubrimiento", "view");
+  await requireDiscoveryAccess(client, actor);
+
+  const fallback = input.fallbackReport?.trim() || "";
+  const openAiIntegration = await getIntegrationConfigForActor(client, actor.userId, "openai");
+  if (!openAiIntegration?.enabled || !openAiIntegration.secretValue) {
+    if (fallback) return { report: fallback, source: "fallback" };
+    throw new Error("OpenAI integration is not configured for this organization.");
+  }
+
+  const feedbackSettings = await getDiscoveryFeedbackSettingsForAnalysis(client, actor);
+  return runContractStyleAnalysis(client, {
+    openAiConfig: {
+      secretValue: openAiIntegration.secretValue,
+      wizardData: normalizeStringRecord(openAiIntegration.wizardData),
+    },
+    feedbackSettings,
+  }, input);
+}
+
+export async function generateDiscoveryInvitationAnalysisContract(
+  client: PoolClient,
+  input: DiscoveryAnalyzeContractInput & { inviteToken: string; accessCode: string },
+): Promise<{ report: string; source: "ai" | "fallback" }> {
+  const verified = await verifyDiscoveryInvitationAccess(client, input.inviteToken, input.accessCode);
+  if (verified.accessMode !== "diagnostic") {
+    throw new Error("La invitación ya está asociada a un usuario autenticado.");
+  }
+
+  const fallback = input.fallbackReport?.trim() || "";
+  let organizationId: string | null = null;
+  if (verified.session?.userId) {
+    organizationId = await resolveOrganizationIdFromSessionUser(client, verified.session.userId);
+  }
+  if (!organizationId) {
+    organizationId = await resolveFallbackOrganizationId(client);
+  }
+
+  const openAiConfig = await resolveOpenAiConfigByOrganization(client, organizationId);
+  if (!openAiConfig?.enabled || !openAiConfig.secretValue) {
+    if (fallback) return { report: fallback, source: "fallback" };
+    throw new Error("OpenAI integration is not configured for this organization.");
+  }
+
+  const feedbackSettings = await getFeedbackSettingsByOrganizationOrDefault(client, organizationId);
+  return runContractStyleAnalysis(
+    client,
+    {
+      openAiConfig: {
+        secretValue: openAiConfig.secretValue,
+        wizardData: openAiConfig.wizardData,
+      },
+      feedbackSettings,
+    },
+    input,
+  );
 }
 
 export async function getDiscoveryFeedbackSettingsForAnalysis(
