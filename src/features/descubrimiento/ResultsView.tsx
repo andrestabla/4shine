@@ -10,12 +10,16 @@ import {
   Copy,
   Download,
   ExternalLink,
+  Frown,
   Gauge,
+  Laugh,
   Loader2,
   Mail,
+  Meh,
   Radar as RadarIcon,
   RefreshCw,
   Share2,
+  Smile,
 } from "lucide-react";
 import {
   PolarAngleAxis,
@@ -58,6 +62,22 @@ const SURVEY_QUESTIONS = [
   "¿Sentiste que el diagnóstico reflejó tu realidad?",
   "¿Te gustó la experiencia de hacer el diagnóstico?",
   "¿El diagnóstico te ayudó a conocerte mejor como líder?",
+] as const;
+
+const EMPTY_REPORTS: Record<DiscoveryReportFilter, string> = {
+  all: "",
+  within: "",
+  out: "",
+  up: "",
+  beyond: "",
+};
+
+const FACE_SCALE = [
+  { value: 1, icon: Frown, label: "Muy difícil" },
+  { value: 2, icon: Meh, label: "Difícil" },
+  { value: 3, icon: Smile, label: "Neutral" },
+  { value: 4, icon: Smile, label: "Buena" },
+  { value: 5, icon: Laugh, label: "Excelente" },
 ] as const;
 
 function buildShareUrl(publicId: string): string {
@@ -106,15 +126,20 @@ export function ResultsView({
     () => buildDiscoveryReports(state, scoring),
     [state, scoring],
   );
-  const [reports, setReports] = React.useState(fallbackReports);
+  const isInvitationExperience = isPublic && Boolean(invitationCredentials);
+  const initialReports = React.useMemo(
+    () => (isInvitationExperience ? EMPTY_REPORTS : fallbackReports),
+    [isInvitationExperience, fallbackReports],
+  );
+  const [reports, setReports] = React.useState(initialReports);
   const [analysisLoading, setAnalysisLoading] = React.useState<
     Record<DiscoveryReportFilter, boolean>
   >({
-    all: false,
-    within: false,
-    out: false,
-    up: false,
-    beyond: false,
+    all: isInvitationExperience,
+    within: isInvitationExperience,
+    out: isInvitationExperience,
+    up: isInvitationExperience,
+    beyond: isInvitationExperience,
   });
   const [filter, setFilter] = React.useState<DiscoveryReportFilter>("all");
   const [isExporting, setIsExporting] = React.useState(false);
@@ -133,14 +158,22 @@ export function ResultsView({
   const analysisCacheRef = React.useRef<Set<DiscoveryReportFilter>>(new Set());
   const analysisInFlightRef = React.useRef<Set<DiscoveryReportFilter>>(new Set());
   const surveyStorageKey = React.useMemo(
-    () => `discovery-survey:${state.name || "anon"}`,
-    [state.name],
+    () =>
+      `discovery-survey:${(publicId ?? invitationCredentials?.inviteToken ?? state.name) || "anon"}`,
+    [invitationCredentials?.inviteToken, publicId, state.name],
   );
 
   React.useEffect(() => {
-    setReports(fallbackReports);
+    setReports(initialReports);
+    setAnalysisLoading({
+      all: isInvitationExperience,
+      within: isInvitationExperience,
+      out: isInvitationExperience,
+      up: isInvitationExperience,
+      beyond: isInvitationExperience,
+    });
     analysisCacheRef.current.clear();
-  }, [fallbackReports]);
+  }, [initialReports, isInvitationExperience]);
 
   React.useEffect(() => {
     setSharedPublicId(publicId ?? null);
@@ -187,7 +220,6 @@ export function ResultsView({
               role: state.profile.jobRole || "Invitado",
               scores: scoring,
               pillar: target,
-              fallbackReport: fallbackReports[target],
             })
           : await analyzeDiscoveryReport({
               username: state.name,
@@ -199,20 +231,30 @@ export function ResultsView({
 
         setReports((current) => ({
           ...current,
-          [target]: response.report?.trim() || fallbackReports[target],
+          [target]: response.report?.trim() || (isInvitationExperience ? "" : fallbackReports[target]),
         }));
         analysisCacheRef.current.add(target);
       } catch {
         setReports((current) => ({
           ...current,
-          [target]: fallbackReports[target],
+          [target]: isInvitationExperience
+            ? "No se pudo generar el análisis en profundidad en este momento. Intenta de nuevo en unos segundos."
+            : fallbackReports[target],
         }));
       } finally {
         analysisInFlightRef.current.delete(target);
         setAnalysisLoading((current) => ({ ...current, [target]: false }));
       }
     },
-    [fallbackReports, invitationCredentials, isPublic, scoring, state.name, state.profile.jobRole],
+    [
+      fallbackReports,
+      invitationCredentials,
+      isInvitationExperience,
+      isPublic,
+      scoring,
+      state.name,
+      state.profile.jobRole,
+    ],
   );
 
   React.useEffect(() => {
@@ -865,15 +907,15 @@ export function ResultsView({
             <p className="app-section-kicker">Encuesta breve</p>
             <h3 className="mt-2 text-2xl font-black text-[var(--app-ink)]">Califica tu experiencia</h3>
             <p className="mt-2 text-sm text-[var(--app-muted)]">
-              Califica tu experiencia en este proceso de descubrimiento (escala de caritas).
+              Califica tu experiencia en este proceso de descubrimiento.
             </p>
 
             <div className="mt-5 space-y-4">
               {SURVEY_QUESTIONS.map((question) => (
                 <div key={question} className="rounded-[14px] border border-[var(--app-border)] p-3">
                   <p className="text-sm font-semibold text-[var(--app-ink)]">{question}</p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {[1, 2, 3, 4, 5].map((value) => (
+                  <div className="mt-3 flex flex-wrap gap-2 sm:gap-3">
+                    {FACE_SCALE.map(({ value, icon: Icon, label }) => (
                       <button
                         key={value}
                         type="button"
@@ -884,13 +926,21 @@ export function ResultsView({
                           }))
                         }
                         className={clsx(
-                          "h-10 w-10 rounded-full border text-lg",
+                          "group inline-flex h-14 w-14 items-center justify-center rounded-2xl border transition sm:h-[60px] sm:w-[60px]",
                           surveyAnswers[question] === value
-                            ? "border-[var(--brand-primary)] bg-[var(--brand-primary)] text-white"
-                            : "border-[var(--app-border)] bg-white",
+                            ? "border-[var(--brand-primary)] bg-[var(--brand-primary)] text-white shadow-[0_10px_24px_rgba(60,20,125,0.28)]"
+                            : "border-[var(--app-border)] bg-white text-[var(--app-ink)] hover:border-[var(--brand-primary)]/40 hover:bg-[var(--app-surface-muted)]",
                         )}
+                        title={label}
+                        aria-label={`${label} (${value})`}
                       >
-                        {value === 1 ? "😞" : value === 2 ? "🙁" : value === 3 ? "😐" : value === 4 ? "🙂" : "😄"}
+                        <Icon
+                          size={26}
+                          className={clsx(
+                            "transition",
+                            surveyAnswers[question] === value ? "scale-105" : "opacity-85 group-hover:scale-105",
+                          )}
+                        />
                       </button>
                     ))}
                   </div>
