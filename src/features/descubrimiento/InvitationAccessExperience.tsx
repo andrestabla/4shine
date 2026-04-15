@@ -238,6 +238,11 @@ export function InvitationAccessExperience({
           isPublic={true}
           embedded={true}
           initialSurvey={session.experienceSurvey}
+          invitationCredentials={
+            verifiedCode
+              ? { inviteToken, accessCode: verifiedCode }
+              : null
+          }
         />
         </main>
       </div>
@@ -300,6 +305,11 @@ export function InvitationAccessExperience({
               embedded={true}
               initialSurvey={externalState.experienceSurvey ?? null}
               onSurveySubmit={handleExternalSurveySubmit}
+              invitationCredentials={
+                verifiedCode
+                  ? { inviteToken, accessCode: verifiedCode }
+                  : null
+              }
             />
           </main>
         </div>

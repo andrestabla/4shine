@@ -100,6 +100,12 @@ interface OutboundConfigRow {
   api_key: string;
 }
 
+interface OpenAiIntegrationRow {
+  enabled: boolean;
+  secret_value: string | null;
+  wizard_data: Record<string, unknown> | null;
+}
+
 interface BrandingRow {
   platform_name: string;
   primary_color: string;
@@ -372,6 +378,16 @@ function normalizeContextDocuments(input: unknown): DiscoveryContextDocument[] {
     output.push({ id, name: name.slice(0, 200), url: url.slice(0, 2000), uploadedAt });
   }
 
+  return output;
+}
+
+function normalizeStringRecord(input: unknown): Record<string, string> {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return {};
+  const output: Record<string, string> = {};
+  for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
+    if (value === null || value === undefined) continue;
+    output[key] = String(value).trim();
+  }
   return output;
 }
 
@@ -1076,6 +1092,107 @@ async function getBrandingForOrganization(
       logo_url: null,
     }
   );
+}
+
+async function resolveOrganizationIdFromSessionUser(
+  client: PoolClient,
+  sessionUserId: string,
+): Promise<string | null> {
+  const { rows } = await client.query<{ organization_id: string | null }>(
+    `
+      SELECT u.organization_id::text
+      FROM app_core.users u
+      WHERE u.user_id = $1::uuid
+      LIMIT 1
+    `,
+    [sessionUserId],
+  );
+  return rows[0]?.organization_id ?? null;
+}
+
+async function resolveFallbackOrganizationId(client: PoolClient): Promise<string> {
+  const { rows } = await client.query<{ organization_id: string }>(
+    `
+      SELECT organization_id::text
+      FROM app_core.organizations
+      ORDER BY created_at
+      LIMIT 1
+    `,
+  );
+  const organizationId = rows[0]?.organization_id;
+  if (!organizationId) {
+    throw new Error("No organization available for discovery analysis.");
+  }
+  return organizationId;
+}
+
+async function resolveOpenAiConfigByOrganization(
+  client: PoolClient,
+  organizationId: string,
+): Promise<{ enabled: boolean; secretValue: string; wizardData: Record<string, string> } | null> {
+  const { rows } = await client.query<OpenAiIntegrationRow>(
+    `
+      SELECT
+        enabled,
+        secret_value,
+        wizard_data
+      FROM app_admin.integration_configs
+      WHERE organization_id = $1::uuid
+        AND integration_key = 'openai'
+      LIMIT 1
+    `,
+    [organizationId],
+  );
+
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    enabled: row.enabled,
+    secretValue: row.secret_value?.trim() ?? "",
+    wizardData: normalizeStringRecord(row.wizard_data),
+  };
+}
+
+async function getFeedbackSettingsByOrganizationOrDefault(
+  client: PoolClient,
+  organizationId: string,
+): Promise<DiscoveryFeedbackSettingsRecord> {
+  const { rows } = await client.query<DiscoveryFeedbackSettingsRow>(
+    `
+      SELECT
+        settings_id::text,
+        organization_id::text,
+        ai_feedback_instructions,
+        context_documents,
+        invite_email_subject,
+        invite_email_html,
+        invite_email_text,
+        updated_at::text
+      FROM app_assessment.discovery_feedback_settings
+      WHERE organization_id = $1::uuid
+      LIMIT 1
+    `,
+    [organizationId],
+  );
+  if (rows[0]) {
+    return mapFeedbackSettingsRow(rows[0]);
+  }
+
+  const branding = await getBrandingForOrganization(client, organizationId);
+  return {
+    settingsId: null,
+    organizationId,
+    aiFeedbackInstructions: DEFAULT_AI_FEEDBACK_INSTRUCTIONS,
+    contextDocuments: [],
+    inviteEmailSubject: "Diagnostico 4Shine: acceso personalizado",
+    inviteEmailHtml: defaultInviteEmailHtml(
+      branding.platform_name,
+      branding.primary_color,
+      branding.accent_color,
+    ),
+    inviteEmailText: defaultInviteEmailText(branding.platform_name),
+    updatedAt: null,
+  };
 }
 
 async function ensureFeedbackSettings(
@@ -2464,6 +2581,14 @@ interface DiscoveryAnalysisInput {
   fallbackReport?: string;
 }
 
+interface DiscoveryAnalysisContext {
+  openAiConfig: {
+    secretValue: string;
+    wizardData: Record<string, string>;
+  };
+  feedbackSettings: DiscoveryFeedbackSettingsRecord;
+}
+
 function sanitizeOpenAiBaseUrl(value: string | null | undefined): string {
   const candidate = (value ?? "").trim();
   if (!candidate) return "https://api.openai.com/v1";
@@ -2594,36 +2719,18 @@ async function resolveRecommendedResources(
   }));
 }
 
-export async function getDiscoveryFeedbackSettingsForAnalysis(
+async function runDiscoveryAnalysisWithContext(
   client: PoolClient,
-  actor: AuthUser,
-): Promise<DiscoveryFeedbackSettingsRecord> {
-  await requireModulePermission(client, "descubrimiento", "view");
-  await requireDiscoveryAccess(client, actor);
-  return ensureFeedbackSettings(client, actor);
-}
-
-export async function generateDiscoveryAnalysis(
-  client: PoolClient,
-  actor: AuthUser,
   input: DiscoveryAnalysisInput,
+  context: DiscoveryAnalysisContext,
 ): Promise<{ report: string; source: "ai" | "fallback" }> {
-  await requireModulePermission(client, "descubrimiento", "view");
-  await requireDiscoveryAccess(client, actor);
-
   const fallback = input.fallbackReport?.trim() || "";
   const scores = input.scores;
   if (!scores?.pillarMetrics) {
     throw new Error("Invalid scores payload");
   }
 
-  const openAiIntegration = await getIntegrationConfigForActor(client, actor.userId, "openai");
-  if (!openAiIntegration?.enabled || !openAiIntegration.secretValue) {
-    if (fallback) return { report: fallback, source: "fallback" };
-    throw new Error("OpenAI integration is not configured for this organization.");
-  }
-
-  const feedbackSettings = await getDiscoveryFeedbackSettingsForAnalysis(client, actor);
+  const feedbackSettings = context.feedbackSettings;
   const allSorted = [...(scores.compList ?? [])].sort((a, b) => a.score - b.score);
   const globalStrengths = [...allSorted].slice(-4).reverse();
   const pillar = input.pillar ?? "all";
@@ -2707,12 +2814,12 @@ export async function generateDiscoveryAnalysis(
   ].join("\n");
 
   try {
-    const endpoint = `${sanitizeOpenAiBaseUrl(openAiIntegration.wizardData.baseUrl)}/chat/completions`;
-    const model = openAiIntegration.wizardData.model?.trim() || "gpt-4.1-mini";
+    const endpoint = `${sanitizeOpenAiBaseUrl(context.openAiConfig.wizardData.baseUrl)}/chat/completions`;
+    const model = context.openAiConfig.wizardData.model?.trim() || "gpt-4.1-mini";
     const response = await fetch(endpoint, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${openAiIntegration.secretValue}`,
+        Authorization: `Bearer ${context.openAiConfig.secretValue}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -2745,4 +2852,77 @@ export async function generateDiscoveryAnalysis(
     if (fallback) return { report: fallback, source: "fallback" };
     throw new Error("No se pudo generar el análisis con IA y no existe fallback.");
   }
+}
+
+export async function getDiscoveryFeedbackSettingsForAnalysis(
+  client: PoolClient,
+  actor: AuthUser,
+): Promise<DiscoveryFeedbackSettingsRecord> {
+  await requireModulePermission(client, "descubrimiento", "view");
+  await requireDiscoveryAccess(client, actor);
+  return ensureFeedbackSettings(client, actor);
+}
+
+export async function generateDiscoveryAnalysis(
+  client: PoolClient,
+  actor: AuthUser,
+  input: DiscoveryAnalysisInput,
+): Promise<{ report: string; source: "ai" | "fallback" }> {
+  await requireModulePermission(client, "descubrimiento", "view");
+  await requireDiscoveryAccess(client, actor);
+
+  const fallback = input.fallbackReport?.trim() || "";
+  const scores = input.scores;
+  if (!scores?.pillarMetrics) {
+    throw new Error("Invalid scores payload");
+  }
+
+  const openAiIntegration = await getIntegrationConfigForActor(client, actor.userId, "openai");
+  if (!openAiIntegration?.enabled || !openAiIntegration.secretValue) {
+    if (fallback) return { report: fallback, source: "fallback" };
+    throw new Error("OpenAI integration is not configured for this organization.");
+  }
+
+  const feedbackSettings = await getDiscoveryFeedbackSettingsForAnalysis(client, actor);
+  return runDiscoveryAnalysisWithContext(client, input, {
+    openAiConfig: {
+      secretValue: openAiIntegration.secretValue,
+      wizardData: openAiIntegration.wizardData,
+    },
+    feedbackSettings,
+  });
+}
+
+export async function generateDiscoveryInvitationAnalysis(
+  client: PoolClient,
+  input: DiscoveryAnalysisInput & { inviteToken: string; accessCode: string },
+): Promise<{ report: string; source: "ai" | "fallback" }> {
+  const verified = await verifyDiscoveryInvitationAccess(client, input.inviteToken, input.accessCode);
+  if (verified.accessMode !== "diagnostic") {
+    throw new Error("La invitación ya está asociada a un usuario autenticado.");
+  }
+
+  const fallback = input.fallbackReport?.trim() || "";
+  let organizationId: string | null = null;
+  if (verified.session?.userId) {
+    organizationId = await resolveOrganizationIdFromSessionUser(client, verified.session.userId);
+  }
+  if (!organizationId) {
+    organizationId = await resolveFallbackOrganizationId(client);
+  }
+
+  const openAiConfig = await resolveOpenAiConfigByOrganization(client, organizationId);
+  if (!openAiConfig?.enabled || !openAiConfig.secretValue) {
+    if (fallback) return { report: fallback, source: "fallback" };
+    throw new Error("OpenAI integration is not configured for this organization.");
+  }
+
+  const feedbackSettings = await getFeedbackSettingsByOrganizationOrDefault(client, organizationId);
+  return runDiscoveryAnalysisWithContext(client, input, {
+    openAiConfig: {
+      secretValue: openAiConfig.secretValue,
+      wizardData: openAiConfig.wizardData,
+    },
+    feedbackSettings,
+  });
 }

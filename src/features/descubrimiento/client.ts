@@ -186,3 +186,21 @@ export async function analyzeDiscoveryReport(input: {
     },
   );
 }
+
+export async function analyzeInvitationDiscoveryReport(input: {
+  inviteToken: string;
+  accessCode: string;
+  username: string;
+  role: string;
+  scores: DiscoveryScoreResult;
+  pillar: DiscoveryReportFilter;
+  fallbackReport?: string;
+}): Promise<{ report: string; source: "ai" | "fallback" }> {
+  return requestApi<{ report: string; source: "ai" | "fallback" }>(
+    "/api/v1/public/descubrimiento/analyze",
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+    },
+  );
+}

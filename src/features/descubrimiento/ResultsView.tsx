@@ -29,6 +29,7 @@ import {
 import { useAppDialog } from "@/components/ui/AppDialogProvider";
 import { PILLAR_INFO } from "./DiagnosticsData";
 import { analyzeDiscoveryReport } from "./client";
+import { analyzeInvitationDiscoveryReport } from "./client";
 import { buildDiscoveryReports, getDiscoveryStatus, scoreDiscoveryAnswers } from "./reporting";
 import { PdfReportData } from "./PdfReportData";
 import type {
@@ -48,6 +49,7 @@ interface ResultsViewProps {
   onReset?: () => Promise<void> | void;
   initialSurvey?: DiscoveryExperienceSurvey | null;
   onSurveySubmit?: (survey: DiscoveryExperienceSurvey) => Promise<void> | void;
+  invitationCredentials?: { inviteToken: string; accessCode: string } | null;
 }
 
 const SURVEY_QUESTIONS = [
@@ -93,6 +95,7 @@ export function ResultsView({
   onReset,
   initialSurvey = null,
   onSurveySubmit,
+  invitationCredentials = null,
 }: ResultsViewProps) {
   const { alert } = useAppDialog();
   const scoring = React.useMemo(
@@ -169,20 +172,30 @@ export function ResultsView({
 
   const generateAnalysisForFilter = React.useCallback(
     async (target: DiscoveryReportFilter) => {
-      if (isPublic) return;
+      if (isPublic && !invitationCredentials) return;
       if (analysisCacheRef.current.has(target)) return;
       if (analysisInFlightRef.current.has(target)) return;
 
       analysisInFlightRef.current.add(target);
       setAnalysisLoading((current) => ({ ...current, [target]: true }));
       try {
-        const response = await analyzeDiscoveryReport({
-          username: state.name,
-          role: state.profile.jobRole || "Lider",
-          scores: scoring,
-          pillar: target,
-          fallbackReport: fallbackReports[target],
-        });
+        const response = invitationCredentials
+          ? await analyzeInvitationDiscoveryReport({
+              inviteToken: invitationCredentials.inviteToken,
+              accessCode: invitationCredentials.accessCode,
+              username: state.name,
+              role: state.profile.jobRole || "Invitado",
+              scores: scoring,
+              pillar: target,
+              fallbackReport: fallbackReports[target],
+            })
+          : await analyzeDiscoveryReport({
+              username: state.name,
+              role: state.profile.jobRole || "Lider",
+              scores: scoring,
+              pillar: target,
+              fallbackReport: fallbackReports[target],
+            });
 
         setReports((current) => ({
           ...current,
@@ -199,7 +212,7 @@ export function ResultsView({
         setAnalysisLoading((current) => ({ ...current, [target]: false }));
       }
     },
-    [fallbackReports, isPublic, scoring, state.name, state.profile.jobRole],
+    [fallbackReports, invitationCredentials, isPublic, scoring, state.name, state.profile.jobRole],
   );
 
   React.useEffect(() => {
@@ -207,7 +220,7 @@ export function ResultsView({
   }, [filter, generateAnalysisForFilter]);
 
   React.useEffect(() => {
-    if (isPublic) return;
+    if (isPublic && !invitationCredentials) return;
     const targets: DiscoveryReportFilter[] = ["all", "within", "out", "up", "beyond"];
     const timers: number[] = [];
     for (const target of targets) {
@@ -219,7 +232,7 @@ export function ResultsView({
     return () => {
       for (const timer of timers) window.clearTimeout(timer);
     };
-  }, [generateAnalysisForFilter, isPublic]);
+  }, [generateAnalysisForFilter, invitationCredentials, isPublic]);
 
   const radarData = React.useMemo(
     () => [
