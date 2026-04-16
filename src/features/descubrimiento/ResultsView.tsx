@@ -30,7 +30,7 @@ import {
   Tooltip,
 } from "recharts";
 import { useAppDialog } from "@/components/ui/AppDialogProvider";
-import { PILLAR_INFO } from "./DiagnosticsData";
+import { PILLAR_INFO, COMP_DEFINITIONS } from "./DiagnosticsData";
 import { analyzeDiscoveryReport } from "./client";
 import { analyzeInvitationDiscoveryReport } from "./client";
 import { downloadDiscoveryPdfReport } from "./pdf-export";
@@ -86,6 +86,39 @@ const FACE_SCALE = [
   { value: 4, icon: Smile, label: "Buena" },
   { value: 5, icon: Laugh, label: "Excelente" },
 ] as const;
+
+const TOUR_STEPS = [
+  {
+    targetId: "results-header",
+    title: "¡Bienvenido a tus resultados!",
+    text: "Has completado tu diagnóstico 4Shine. Vamos a orientarte para que aproveches al máximo esta lectura estratégica.",
+  },
+  {
+    targetId: "action-buttons",
+    title: "Documentación y compartido",
+    text: "En la parte superior puedes compartir tu informe o descargarlo en PDF. Ambos documentos incluyen el desglose detallado de tu liderazgo.",
+  },
+  {
+    targetId: "pillar-tabs",
+    title: "Navegación por pilares",
+    text: "Tu liderazgo se analiza en 4 pilares: Within, Out, Up y Beyond. Cámbialos para profundizar en las brechas y fortalezas de cada área.",
+  },
+  {
+    targetId: "radar-container",
+    title: "Mapa de radar",
+    text: "Esta gráfica es tu huella dactilar de liderazgo. Los picos hacia afuera indican tus mayores talentos y los valles señalan tus oportunidades de mejora.",
+  },
+  {
+    targetId: "competencies-breakdown",
+    title: "Desglose de competencias",
+    text: "Para cada pilar, listamos las competencias específicas, su resultado porcentual y una descripción conceptual para tu reflexión.",
+  },
+  {
+    targetId: "executive-summary",
+    title: "Informe narrativo",
+    text: "Lee el análisis personalizado generado por IA. Encontrarás tu perfil de liderazgo, lo que hoy te impulsa y un plan de acción sugerido.",
+  },
+];
 
 function buildShareUrl(publicId: string): string {
   if (typeof window === "undefined") {
@@ -160,6 +193,7 @@ export function ResultsView({
   const [isShareModalOpen, setIsShareModalOpen] = React.useState(false);
   const [emailRecipients, setEmailRecipients] = React.useState("");
   const [isTourOpen, setIsTourOpen] = React.useState(false);
+  const [tourStepIdx, setTourStepIdx] = React.useState(0);
   const [isSurveyOpen, setIsSurveyOpen] = React.useState(false);
   const [pendingSurveyAction, setPendingSurveyAction] = React.useState<
     "download" | "shareLink" | "shareEmail" | null
@@ -214,6 +248,15 @@ export function ResultsView({
       setIsTourOpen(true);
     }
   }, []);
+
+  const handleNextTourStep = () => {
+    if (tourStepIdx < TOUR_STEPS.length - 1) {
+      setTourStepIdx((prev) => prev + 1);
+    } else {
+      setIsTourOpen(false);
+      window.localStorage.setItem("discovery-results-tour-seen", "1");
+    }
+  };
 
   const clearSurveyPromptTimer = React.useCallback(() => {
     if (surveyPromptTimerRef.current) {
@@ -691,16 +734,16 @@ export function ResultsView({
           stickyClass,
         )}
       >
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div id="results-header" className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="app-section-kicker">Lectura ejecutiva</p>
-            <h3 className="mt-2 text-2xl font-black text-[var(--app-ink)] md:text-3xl">
+            <p className="app-section-kicker">LECTURA EJECUTIVA</p>
+            <h1 className="mt-2 text-2xl font-black text-[var(--app-ink)] md:text-3xl">
               Resultados del diagnóstico
-            </h3>
+            </h1>
             <p className="mt-2 text-sm text-[var(--app-muted)]">{state.name}</p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div id="action-buttons" className="flex flex-wrap items-center gap-2">
             <span
               className="rounded-full px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em]"
               style={{
@@ -831,7 +874,7 @@ export function ResultsView({
             </div>
           </div>
 
-          <div className="mt-5 flex flex-wrap gap-2">
+          <div id="pillar-tabs" className="mt-5 flex flex-wrap gap-2">
             {(["all", "within", "out", "up", "beyond"] as const).map((item) => (
               <button
                 key={item}
@@ -850,7 +893,7 @@ export function ResultsView({
           </div>
 
           <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
-            <div className="rounded-[22px] border border-[var(--app-border)] bg-white/80 px-5 py-5">
+            <div id="radar-container" className="rounded-[22px] border border-[var(--app-border)] bg-white/80 px-5 py-5">
               <div className="h-[260px] w-full sm:h-[320px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <RadarChart
@@ -916,26 +959,42 @@ export function ResultsView({
                 </div>
               )}
 
-              <div className="rounded-[22px] border border-[var(--app-border)] bg-white/82 px-5 py-5">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-[16px] bg-[var(--app-chip)] p-3 text-[var(--brand-primary)]">
-                    <RadarIcon size={18} />
-                  </div>
-                  <div>
-                    <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[var(--app-muted)]">
-                      Lectura disponible
-                    </p>
-                    <p className="mt-1 text-sm leading-relaxed text-[var(--app-muted)]">
-                      Cambia entre la visión global y cada pilar para profundizar la lectura ejecutiva.
-                    </p>
+              {filter !== "all" && (
+                <div id="competencies-breakdown" className="rounded-[22px] border border-[var(--app-border)] bg-white/82 px-5 py-5">
+                  <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[var(--app-muted)]">
+                    Competencias y puntajes
+                  </p>
+                  <div className="mt-4 space-y-4 divide-y divide-[var(--app-border)]">
+                    {scoring.compList
+                      .filter((c) => c.pillar === filter)
+                      .map((c) => {
+                        const percent = Math.round(((c.score - 1) / 4) * 100);
+                        return (
+                          <div key={c.name} className="pt-4 first:pt-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-sm font-bold text-[var(--app-ink)]">{c.name}</p>
+                              <p className="text-sm font-black text-[var(--brand-primary)]">{percent}%</p>
+                            </div>
+                            <p className="mt-1 text-[11px] leading-relaxed text-[var(--app-muted)]">
+                              {COMP_DEFINITIONS[c.name] ?? "Capacidad estratégica vinculada al pilar."}
+                            </p>
+                            <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-[var(--app-surface-muted)]">
+                                <div 
+                                    className="h-full bg-[var(--brand-primary)] transition-all duration-700" 
+                                    style={{ width: `${percent}%` }}
+                                />
+                            </div>
+                          </div>
+                        );
+                      })}
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </section>
 
-        <aside className="app-panel p-5 sm:p-6">
+        <aside id="executive-summary" className="app-panel p-5 sm:p-6">
           <p className="app-section-kicker">Informe ejecutivo</p>
           <h4 className="mt-2 text-2xl font-black text-[var(--app-ink)]">
             {filter === "all" ? "Visión general" : PILLAR_INFO[filter].title}
@@ -1019,28 +1078,33 @@ export function ResultsView({
       )}
 
       {isTourOpen && (
-        <div className="fixed inset-0 z-[125] flex items-center justify-center bg-[rgba(15,23,42,0.48)] px-4">
-          <div className="w-full max-w-xl rounded-[22px] border border-[var(--app-border)] bg-white p-6 shadow-xl">
-            <p className="app-section-kicker">Tour de resultados</p>
-            <h3 className="mt-2 text-2xl font-black text-[var(--app-ink)]">Guía rápida de lectura</h3>
-            <ul className="mt-4 space-y-2 text-sm text-[var(--app-muted)]">
-              <li>1. Revisa el indicador de avance para ubicar tu nivel global.</li>
-              <li>2. Usa los tabs Global/Within/Out/Up/Beyond para ver brechas por pilar.</li>
-              <li>3. En la parte superior puedes compartir por correo y descargar PDF.</li>
-            </ul>
-
-            <div className="mt-5 flex justify-end gap-2">
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-[rgba(15,23,42,0.48)] px-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-[22px] border border-[var(--app-border)] bg-white p-6 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <p className="app-section-kicker">Tour 4Shine</p>
+              <p className="text-xs font-bold text-[var(--app-muted)]">Paso {tourStepIdx + 1} de {TOUR_STEPS.length}</p>
+            </div>
+            
+            <h3 className="mt-3 text-2xl font-black text-[var(--app-ink)]">{TOUR_STEPS[tourStepIdx].title}</h3>
+            <p className="mt-3 text-sm leading-relaxed text-[var(--app-muted)]">{TOUR_STEPS[tourStepIdx].text}</p>
+            
+            <div className="mt-6 flex items-center justify-between gap-3">
               <button
                 type="button"
                 onClick={() => {
                   setIsTourOpen(false);
-                  if (typeof window !== "undefined") {
-                    window.localStorage.setItem("discovery-results-tour-seen", "1");
-                  }
+                  window.localStorage.setItem("discovery-results-tour-seen", "1");
                 }}
-                className="rounded-full bg-[var(--brand-primary)] px-5 py-2 text-sm font-extrabold text-white"
+                className="text-xs font-semibold text-[var(--app-muted)] underline underline-offset-4"
               >
-                Entendido
+                Saltar tour
+              </button>
+              <button
+                type="button"
+                onClick={handleNextTourStep}
+                className="inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-6 py-2.5 text-xs font-extrabold uppercase tracking-[0.18em] text-white"
+              >
+                {tourStepIdx === TOUR_STEPS.length - 1 ? "Finalizar" : "Siguiente"}
               </button>
             </div>
           </div>
