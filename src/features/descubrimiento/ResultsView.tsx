@@ -649,9 +649,7 @@ export function ResultsView({
       await handleShare();
       return;
     }
-    if (pendingAction === "shareEmail") {
-      await handleShareByEmail();
-    }
+
   };
 
   const currentReport = reports[filter]?.trim() ?? "";

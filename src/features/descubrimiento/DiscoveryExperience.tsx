@@ -104,7 +104,7 @@ function defaultProfile(session: DiscoverySessionRecord): DiscoveryParticipantPr
     lastName: session.lastName ?? "",
     country: session.country ?? "",
     jobRole: session.jobRole ?? "",
-    gender: session.gender ?? "",
+    gender: (session.gender as any) ?? "",
     yearsExperience: session.yearsExperience,
   };
 }

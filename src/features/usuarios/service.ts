@@ -1276,7 +1276,7 @@ export async function createUser(
       input.location ?? null,
       normalizedCountry,
       normalizedJobRole,
-      normalizedAge,
+      normalizedGender,
       normalizedYearsExperience,
     ],
   );

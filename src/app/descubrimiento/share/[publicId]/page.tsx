@@ -31,7 +31,7 @@ export default async function DiscoverySharePage({ params }: PageParams) {
             lastName: session.lastName,
             country: session.country,
             jobRole: session.jobRole,
-            gender: session.gender,
+            gender: session.gender as any,
             yearsExperience: session.yearsExperience,
           },
           profileCompleted: session.profileCompleted,

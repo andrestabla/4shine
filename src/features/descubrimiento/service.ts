@@ -235,7 +235,7 @@ function normalizeProfile(
   const normalizedRole =
     incomingRole === "Gerente/Mand medio" ? "Gerente/Mando medio" : incomingRole;
 
-  const gender = typeof input?.gender === "string" ? input.gender.trim() : (fallback?.gender ?? "");
+  const gender = (typeof input?.gender === "string" ? input.gender.trim() : (fallback?.gender ?? "")) as any;
   const yearsValue = coerceNumeric(input?.yearsExperience ?? fallback?.yearsExperience ?? null);
 
   const yearsExperience = yearsValue !== null
@@ -243,9 +243,14 @@ function normalizeProfile(
     : null;
 
   return {
+    firstName,
+    lastName,
+    country,
+    jobRole: normalizedRole as any,
     gender: gender as DiscoveryParticipantProfile["gender"],
     yearsExperience,
   };
+
 }
 
 function isProfileCompleted(profile: DiscoveryParticipantProfile): boolean {
@@ -352,7 +357,7 @@ function mapDiscoverySessionRow(row: DiscoverySessionRow): DiscoverySessionRecor
     lastName: row.last_name ?? "",
     country: row.country ?? "",
     jobRole: row.job_role ?? "",
-    gender: row.gender ?? "",
+    gender: (row.gender as any) ?? "",
     yearsExperience: coerceNumeric(row.years_experience),
   });
 
@@ -933,7 +938,7 @@ function buildNextState(
     lastName: current.lastName,
     country: current.country,
     jobRole: current.jobRole,
-    gender: current.gender,
+    gender: current.gender as any,
     yearsExperience: current.yearsExperience,
   });
 
@@ -2196,7 +2201,7 @@ async function provisionInvitedUserAccount(
     {
       country: "No definido",
       jobRole: "Especialista sin personal a cargo",
-      gender: "No definido",
+      gender: "Prefiero no decirlo",
       yearsExperience: 0,
     },
   );
@@ -2956,6 +2961,19 @@ export async function getDiscoveryOverview(
     `,
   );
 
+  const gendersResult = await client.query<{ gender: string }>(
+    `
+      SELECT DISTINCT ds.gender
+      FROM app_assessment.discovery_sessions ds
+      JOIN app_core.users u ON u.user_id = ds.user_id
+      WHERE ds.gender IS NOT NULL
+        AND trim(ds.gender) <> ''
+        AND u.primary_role IN ('lider', 'invitado')
+      ORDER BY ds.gender
+    `,
+  );
+
+
   const invitedCountries = invitationResult.rows
     .map((invitation) => parseInvitationExternalProgress(invitation.meta)?.profile?.country?.trim() ?? "")
     .filter(Boolean);
@@ -3041,16 +3059,32 @@ export async function getDiscoveryOverview(
           ...invitedCountries,
           ...invitedCountriesFromRows,
         ]),
-      ).sort((a, b) => a.localeCompare(b, "es")),
+      )
+        .filter((v): v is string => typeof v === "string")
+        .sort((a, b) => a.localeCompare(b, "es")),
       jobRoles: Array.from(
         new Set([
           ...rolesResult.rows.map((row) => row.job_role),
           ...invitedRoles,
           ...invitedRolesFromRows,
         ]),
-      ).sort((a, b) => a.localeCompare(b, "es")),
+      )
+        .filter((v): v is string => typeof v === "string")
+        .sort((a, b) => a.localeCompare(b, "es")),
+      genders: Array.from(
+        new Set([
+          ...gendersResult.rows.map((row) => row.gender),
+          ...invitationResult.rows
+            .map((inv) => parseInvitationExternalProgress(inv.meta)?.profile?.gender)
+            .filter((g): g is NonNullable<typeof g> => typeof g === "string" && g.length > 0),
+          ...invitedRows.map((row) => row.gender).filter((g): g is NonNullable<typeof g> => typeof g === "string" && g.length > 0),
+        ]),
+      )
+        .filter((v): v is string => typeof v === "string")
+        .sort((a, b) => a.localeCompare(b, "es")),
     },
   };
+
 }
 
 export async function getDiscoveryOverviewDetail(
