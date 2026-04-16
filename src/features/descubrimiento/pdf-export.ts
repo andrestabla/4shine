@@ -362,7 +362,7 @@ export async function downloadDiscoveryPdfReport({
       const comps = scoring.compList.filter((c) => c.pillar === section.pillar);
       drawMetricBarChart(pdf, PAGE_MARGIN, competenciesY, CONTENT_WIDTH, "Competencias del pilar", comps.map((c) => ({
         label: c.name,
-        value: c.score,
+        value: Math.round(((c.score - 1) / 4) * 100),
         color: [124, 111, 163] as [number, number, number]
       })));
       
