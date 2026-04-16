@@ -10,6 +10,7 @@ import { DISCOVERY_ITEMS_PER_PAGE, calculateDiscoveryCompletionPercent } from ".
 import {
   getDiscoverySession,
   getInvitationPublicInfo,
+  saveInvitationProgress,
   updateDiscoverySessionRequest,
   verifyInvitationAccess,
 } from "./client";
