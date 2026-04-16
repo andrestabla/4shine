@@ -2045,15 +2045,29 @@ export function DiscoveryExperience() {
               </select>
               <input
                 value={state.profile.age ?? ""}
-                onChange={(event) =>
+                onChange={(event) => {
+                  const raw = event.target.value.replace(/[^0-9]/g, "");
                   setState((current) => ({
                     ...current,
-                    profile: { ...current.profile, age: event.target.value ? Number(event.target.value) : null },
-                  }))
-                }
-                type="number"
-                min={16}
-                max={100}
+                    profile: { ...current.profile, age: raw ? parseInt(raw, 10) : null },
+                  }));
+                }}
+                onBlur={() => {
+                  setState((current) => {
+                    const age = current.profile.age;
+                    if (age === null) return current;
+                    return {
+                      ...current,
+                      profile: {
+                        ...current.profile,
+                        age: Math.max(20, Math.min(70, age)),
+                      },
+                    };
+                  });
+                }}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 placeholder="Edad"
                 className="h-11 rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
               />

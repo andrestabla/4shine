@@ -5157,3 +5157,51 @@ export async function generateDiscoveryInvitationAnalysis(
     feedbackSettings,
   });
 }
+
+export async function sendDiscoveryResultsEmailViaAdmin(
+  client: PoolClient,
+  publicId: string,
+  emails: string[],
+): Promise<void> {
+  const session = await getDiscoverySessionByPublicId(client, publicId);
+  if (!session) {
+    throw new Error("No se pudo encontrar la sesión para enviar el correo.");
+  }
+
+  let organizationId: string | null = null;
+  if (session.userId) {
+    organizationId = await resolveOrganizationIdFromSessionUser(client, session.userId);
+  }
+  if (!organizationId) {
+    organizationId = await resolveFallbackOrganizationId(client);
+  }
+
+  const outboundConfig = await resolveOutboundConfig(client, organizationId);
+  if (!outboundConfig) {
+    throw new Error("No hay configuracion de correo saliente habilitada para enviar los resultados.");
+  }
+
+  const baseUrl = resolveAppBaseUrl();
+  const link = `${baseUrl}/descubrimiento/share/${publicId}`;
+
+  const subject = "Resultados diagnóstico 4Shine";
+  const html = `
+    <div style="font-family: sans-serif; color: #2e284c; max-width: 600px; margin: 0 auto;">
+      <p>Hola,</p>
+      <p>Te comparto mi lectura ejecutiva del diagnóstico 4Shine en el siguiente enlace:</p>
+      <p><a href="${link}" style="color: #6C55CC; font-weight: bold; text-decoration: none;">Ver resultados completos</a></p>
+      <br/>
+      <p>Saludos.</p>
+    </div>
+  `;
+  const text = `Hola,\n\nTe comparto mi lectura ejecutiva del diagnóstico 4Shine:\n${link}\n\nSaludos.`;
+
+  for (const to of emails) {
+    await sendViaSmtp(outboundConfig, {
+      to,
+      subject,
+      text,
+      html,
+    });
+  }
+}

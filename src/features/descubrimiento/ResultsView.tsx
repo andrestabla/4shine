@@ -523,16 +523,30 @@ export function ResultsView({
     if (!(await ensureFinalAnalysisReady("compartirla"))) return;
 
     try {
-      const link = await ensureSharableUrl();
-      if (!link) {
-        throw new Error("No se pudo generar el enlace para compartir.");
+      setIsSharing(true);
+      await ensureSharableUrl();
+      const currentPublicId = sharedPublicId || publicId;
+      if (!currentPublicId) {
+        throw new Error("No se pudo obtener el enlace para compartir.");
       }
 
-      const subject = encodeURIComponent("Resultados diagnóstico 4Shine");
-      const body = encodeURIComponent(
-        `Hola,\n\nTe comparto mi lectura ejecutiva del diagnóstico 4Shine:\n${link}\n\nSaludos.`,
-      );
-      window.location.href = `mailto:${emails.join(",")}?subject=${subject}&body=${body}`;
+      const resp = await fetch("/api/v1/public/descubrimiento/share/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ publicId: currentPublicId, emails }),
+      });
+
+      const payload = await resp.json();
+      if (!resp.ok || !payload?.ok) {
+        throw new Error(payload?.error || "Error al enviar el correo desde la plataforma.");
+      }
+
+      await alert({
+        title: "Correos enviados",
+        message: "Los resultados han sido compartidos exitosamente a los destinatarios.",
+        tone: "success",
+      });
+
       setIsShareModalOpen(false);
       setEmailRecipients("");
     } catch (error) {
@@ -541,6 +555,8 @@ export function ResultsView({
         message: error instanceof Error ? error.message : "Error inesperado.",
         tone: "error",
       });
+    } finally {
+      setIsSharing(false);
     }
   };
 
@@ -991,10 +1007,11 @@ export function ResultsView({
               </button>
               <button
                 type="button"
+                disabled={isSharing}
                 onClick={() => void handleShareByEmail()}
-                className="rounded-full bg-[var(--brand-primary)] px-4 py-2 text-sm font-extrabold text-white"
+                className="rounded-full bg-[var(--brand-primary)] px-4 py-2 text-sm font-extrabold text-white disabled:opacity-70 disabled:cursor-not-allowed"
               >
-                Compartir
+                {isSharing ? "Enviando..." : "Compartir"}
               </button>
             </div>
           </div>

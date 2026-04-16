@@ -357,7 +357,17 @@ export async function downloadDiscoveryPdfReport({
         { label: "Autopercepción", value: metric.likert, color: [220, 122, 44] },
         { label: "Juicio situacional", value: metric.sjt, color: [124, 111, 163] },
       ]);
-      writer.setY(sectionChartY + 52);
+      
+      const competenciesY = sectionChartY + 52;
+      const comps = scoring.compList.filter((c) => c.pillar === section.pillar);
+      drawMetricBarChart(pdf, PAGE_MARGIN, competenciesY, CONTENT_WIDTH, "Competencias del pilar", comps.map((c) => ({
+        label: c.name,
+        value: c.score,
+        color: [124, 111, 163] as [number, number, number]
+      })));
+      
+      const compHeight = Math.max(34, 16 + comps.length * 10);
+      writer.setY(competenciesY + compHeight + 6);
     } else {
       drawRoundedCard(pdf, PAGE_MARGIN, sectionChartY, CONTENT_WIDTH, 68, [255, 255, 255]);
       pdf.setFont("helvetica", "bold");

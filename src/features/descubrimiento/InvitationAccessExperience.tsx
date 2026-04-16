@@ -539,21 +539,32 @@ export function InvitationAccessExperience({
               </select>
               <input
                 value={externalState.profile.age ?? ""}
-                onChange={(event) =>
+                onChange={(event) => {
+                  const raw = event.target.value.replace(/[^0-9]/g, "");
                   setExternalState((current) => ({
                     ...current,
                     profile: {
                       ...current.profile,
-                      age: parseIntegerInput(event.target.value, 16, 100),
+                      age: raw ? parseInt(raw, 10) : null,
                     },
-                  }))
-                }
-                type="number"
+                  }));
+                }}
+                onBlur={() => {
+                  setExternalState((current) => {
+                    const age = current.profile.age;
+                    if (age === null) return current;
+                    return {
+                      ...current,
+                      profile: {
+                        ...current.profile,
+                        age: Math.max(20, Math.min(70, age)),
+                      },
+                    };
+                  });
+                }}
+                type="text"
                 inputMode="numeric"
                 pattern="[0-9]*"
-                min={16}
-                max={100}
-                step={1}
                 placeholder="Edad"
                 className="h-11 rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
               />
