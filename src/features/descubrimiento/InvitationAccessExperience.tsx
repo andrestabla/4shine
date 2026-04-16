@@ -244,6 +244,24 @@ export function InvitationAccessExperience({
   const handleExternalSurveySubmit = async (
     survey: NonNullable<DiscoveryUserState["experienceSurvey"]>,
   ) => {
+    if (verifiedAccessCode) {
+      const response = await saveInvitationProgress({
+        inviteToken,
+        accessCode: verifiedAccessCode,
+        state: externalState,
+        survey,
+      });
+      setSession(response.session);
+      if (response.externalProgress) {
+        setExternalState({
+          ...response.externalProgress,
+          experienceSurvey: response.externalSurvey,
+        });
+      }
+      hydratedRef.current = true;
+      return;
+    }
+
     const nextSession = await updateDiscoverySessionRequest({
       experienceSurvey: survey,
     });
@@ -266,9 +284,20 @@ export function InvitationAccessExperience({
       persistRequestCounterRef.current = requestId;
       try {
         setIsPersisting(true);
-        const nextSession = await updateDiscoverySessionRequest(payload);
-        if (requestId !== persistRequestCounterRef.current) return;
-        setSession(nextSession);
+        if (verifiedAccessCode) {
+          const response = await saveInvitationProgress({
+            inviteToken,
+            accessCode: verifiedAccessCode,
+            state: externalState,
+            survey: externalState.experienceSurvey,
+          });
+          if (requestId !== persistRequestCounterRef.current) return;
+          setSession(response.session);
+        } else {
+          const nextSession = await updateDiscoverySessionRequest(payload);
+          if (requestId !== persistRequestCounterRef.current) return;
+          setSession(nextSession);
+        }
         lastSnapshotRef.current = snapshot;
       } catch {
         // Silencioso: no bloqueamos la experiencia.

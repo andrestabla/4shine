@@ -15,6 +15,7 @@ import {
   Mail,
   Meh,
   LogOut,
+  Maximize2,
   Radar as RadarIcon,
   RefreshCw,
   Share2,
@@ -194,6 +195,7 @@ export function ResultsView({
   const [emailRecipients, setEmailRecipients] = React.useState("");
   const [isTourOpen, setIsTourOpen] = React.useState(false);
   const [tourStepIdx, setTourStepIdx] = React.useState(0);
+  const [maximizedChart, setMaximizedChart] = React.useState<"global" | "pillar" | null>(null);
   const [isSurveyOpen, setIsSurveyOpen] = React.useState(false);
   const [pendingSurveyAction, setPendingSurveyAction] = React.useState<
     "download" | "shareLink" | "shareEmail" | null
@@ -893,7 +895,15 @@ export function ResultsView({
           </div>
 
           <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
-            <div id="radar-container" className="rounded-[22px] border border-[var(--app-border)] bg-white/80 px-5 py-5">
+            <div id="radar-container" className="relative rounded-[22px] border border-[var(--app-border)] bg-white/80 px-5 py-5">
+              <button
+                type="button"
+                onClick={() => setMaximizedChart(filter === "all" ? "global" : "pillar")}
+                className="absolute right-4 top-4 z-10 rounded-full border border-[var(--app-border)] bg-white/90 p-2 text-[var(--app-muted)] transition hover:bg-white hover:text-[var(--brand-primary)]"
+                title="Maximizar gráfica"
+              >
+                <Maximize2 size={16} />
+              </button>
               <div className="h-[260px] w-full sm:h-[320px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <RadarChart
@@ -1111,20 +1121,89 @@ export function ResultsView({
         </div>
       )}
 
+      {maximizedChart && (
+        <div className="fixed inset-0 z-[150] flex flex-col items-center justify-center bg-white px-4 py-8 md:p-12">
+           <button
+            type="button"
+            onClick={() => setMaximizedChart(null)}
+            className="absolute right-6 top-6 rounded-full border border-[var(--app-border)] bg-white p-3 text-[var(--app-ink)] shadow-sm transition hover:bg-[var(--app-surface-muted)]"
+          >
+            <LogOut size={24} className="rotate-180" />
+            <span className="sr-only">Cerrar</span>
+          </button>
+
+          <div className="w-full max-w-4xl text-center">
+            <h3 className="text-3xl font-black text-[var(--app-ink)] md:text-4xl">
+              {maximizedChart === "global" ? "Vista integral" : PILLAR_INFO[filter as DiscoveryPillarKey].title}
+            </h3>
+            <p className="mt-4 text-[var(--app-muted)]">Gráfica detallada de {maximizedChart === "global" ? "liderazgo global" : "competencias del pilar"}</p>
+          </div>
+
+          <div className="mt-8 h-full min-h-0 w-full max-w-5xl overflow-hidden rounded-[32px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-6 md:p-10">
+            <ResponsiveContainer width="100%" height="100%">
+              <RadarChart
+                cx="50%"
+                cy="50%"
+                outerRadius="85%"
+                data={maximizedChart === "global" ? radarData : pillarRadarData}
+              >
+                <PolarGrid stroke="rgba(88,54,108,0.22)" />
+                <PolarAngleAxis
+                  dataKey="subject"
+                  tick={{ fill: "#372050", fontSize: 13, fontWeight: 800 }}
+                />
+                <PolarRadiusAxis tick={false} axisLine={false} domain={[0, 100]} />
+                <Tooltip
+                  formatter={(value) => [`${String(value ?? 0)}%`, "Score"]}
+                  labelFormatter={(label, payload) =>
+                    payload?.[0]?.payload?.fullName ?? String(label)
+                  }
+                  contentStyle={{
+                    borderRadius: "16px",
+                    border: "1px solid var(--app-border)",
+                    boxShadow: "0 12px 28px rgba(0,0,0,0.08)",
+                    padding: "10px 14px"
+                  }}
+                />
+                <Radar
+                  dataKey="value"
+                  stroke="var(--brand-primary)"
+                  fill="var(--brand-primary)"
+                  fillOpacity={0.2}
+                  strokeWidth={3}
+                />
+              </RadarChart>
+            </ResponsiveContainer>
+          </div>
+          
+          <div className="mt-8 flex items-center gap-6">
+             <div className="text-center">
+               <p className="text-xs font-black uppercase tracking-widest text-[var(--app-muted)]">Score actual</p>
+               <p className="mt-1 text-4xl font-black text-[var(--brand-primary)]">{currentScore}%</p>
+             </div>
+             <div className="h-10 w-px bg-[var(--app-border)]" />
+             <div className="text-center">
+               <p className="text-xs font-black uppercase tracking-widest text-[var(--app-muted)]">Nivel</p>
+               <p className="mt-1 text-4xl font-black text-[var(--app-ink)]">{currentStatus.label}</p>
+             </div>
+          </div>
+        </div>
+      )}
+
       {isSurveyOpen && (
         <div className="fixed inset-0 z-[140] flex items-center justify-center bg-[rgba(15,23,42,0.48)] px-4">
-          <div className="w-full max-w-2xl rounded-[22px] border border-[var(--app-border)] bg-white p-6 shadow-xl">
+          <div className="w-full max-w-lg rounded-[22px] border border-[var(--app-border)] bg-white p-6 shadow-xl">
             <p className="app-section-kicker">Encuesta breve</p>
             <h3 className="mt-2 text-2xl font-black text-[var(--app-ink)]">Califica tu experiencia</h3>
             <p className="mt-2 text-sm text-[var(--app-muted)]">
-              Califica tu experiencia en este proceso de descubrimiento.
+              Ayúdanos a mejorar el proceso de diagnóstico.
             </p>
 
-            <div className="mt-5 space-y-4">
+            <div className="mt-5 space-y-3">
               {SURVEY_QUESTIONS.map((question) => (
                 <div key={question} className="rounded-[14px] border border-[var(--app-border)] p-3">
                   <p className="text-sm font-semibold text-[var(--app-ink)]">{question}</p>
-                  <div className="mt-3 flex flex-wrap gap-2 sm:gap-3">
+                  <div className="mt-2.5 flex flex-wrap gap-2">
                     {FACE_SCALE.map(({ value, icon: Icon, label }) => (
                       <button
                         key={value}
@@ -1136,16 +1215,16 @@ export function ResultsView({
                           }))
                         }
                         className={clsx(
-                          "group inline-flex h-14 w-14 items-center justify-center rounded-2xl border transition sm:h-[60px] sm:w-[60px]",
+                          "group inline-flex h-11 w-11 items-center justify-center rounded-xl border transition",
                           surveyAnswers[question] === value
-                            ? "border-[var(--brand-primary)] bg-[var(--brand-primary)] text-white shadow-[0_10px_24px_rgba(60,20,125,0.28)]"
+                            ? "border-[var(--brand-primary)] bg-[var(--brand-primary)] text-white shadow-[0_6px_14px_rgba(60,20,125,0.22)]"
                             : "border-[var(--app-border)] bg-white text-[var(--app-ink)] hover:border-[var(--brand-primary)]/40 hover:bg-[var(--app-surface-muted)]",
                         )}
                         title={label}
                         aria-label={`${label} (${value})`}
                       >
                         <Icon
-                          size={26}
+                          size={18}
                           className={clsx(
                             "transition",
                             surveyAnswers[question] === value ? "scale-105" : "opacity-85 group-hover:scale-105",

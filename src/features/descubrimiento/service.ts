@@ -164,7 +164,7 @@ Cuando el analisis sea por pilar (within, out, up o beyond), profundiza en:
 - consecuencias sistemicas,
 - intervencion tactica.
 
-Genera feedback ejecutivo accionable, con tono claro, respetuoso y orientado a priorizar el siguiente paso de desarrollo en liderazgo.
+Genera feedback ejecutivo accionable, con tono claro, humano y profesional. Evita sonar como un asistente virtual; habla como un mentor experto en liderazgo 4Shine.
 `.trim();
 
 function normalizeAnswers(input: unknown): DiscoveryAnswers {
