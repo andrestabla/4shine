@@ -2195,7 +2195,7 @@ async function provisionInvitedUserAccount(
     },
     {
       country: "No definido",
-      jobRole: "Individual contributor",
+      jobRole: "Especialista sin personal a cargo",
       gender: "No definido",
       yearsExperience: 0,
     },
@@ -2337,7 +2337,7 @@ async function provisionInvitedUserAccount(
     [
       userId,
       normalizedProfile.country || "No definido",
-      normalizedProfile.jobRole || "Individual contributor",
+      normalizedProfile.jobRole || "Especialista sin personal a cargo",
       normalizedProfile.gender || "No definido",
       Number.isFinite(normalizedProfile.yearsExperience) ? normalizedProfile.yearsExperience : 0,
     ],

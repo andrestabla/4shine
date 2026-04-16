@@ -7,7 +7,7 @@ type JobRole =
   | 'Gerente/Mando medio'
   | 'Coordinador'
   | 'Lider de proyecto con equipo a cargo'
-  | 'Individual contributor';
+  | 'Especialista sin personal a cargo';
 
 export interface ProfileProjectRecord {
   projectId: string;
@@ -36,7 +36,7 @@ export interface MyProfileRecord {
   location: string | null;
   country: string | null;
   jobRole: JobRole | null;
-  age: number | null;
+  gender: string | null;
   yearsExperience: number | null;
   linkedinUrl: string | null;
   twitterUrl: string | null;
@@ -68,7 +68,7 @@ export interface UpdateMyProfileInput {
   location?: string | null;
   country?: string | null;
   jobRole?: JobRole | null;
-  age?: number | null;
+  gender?: string | null;
   yearsExperience?: number | null;
   linkedinUrl?: string | null;
   twitterUrl?: string | null;

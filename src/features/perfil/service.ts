@@ -9,7 +9,7 @@ type JobRole =
   | 'Gerente/Mando medio'
   | 'Coordinador'
   | 'Lider de proyecto con equipo a cargo'
-  | 'Individual contributor';
+  | 'Especialista sin personal a cargo';
 
 export interface ProfileProjectRecord {
   projectId: string;
@@ -38,7 +38,7 @@ export interface MyProfileRecord {
   location: string | null;
   country: string | null;
   jobRole: JobRole | null;
-  age: number | null;
+  gender: string | null;
   yearsExperience: number | null;
   linkedinUrl: string | null;
   twitterUrl: string | null;
@@ -70,7 +70,7 @@ export interface UpdateMyProfileInput {
   location?: string | null;
   country?: string | null;
   jobRole?: JobRole | null;
-  age?: number | null;
+  gender?: string | null;
   yearsExperience?: number | null;
   linkedinUrl?: string | null;
   twitterUrl?: string | null;
@@ -98,7 +98,7 @@ interface ProfileRow {
   location: string | null;
   country: string | null;
   job_role: JobRole | null;
-  age: number | null;
+  gender: string | null;
   years_experience: number | null;
   linkedin_url: string | null;
   twitter_url: string | null;
@@ -124,7 +124,7 @@ const JOB_ROLE_OPTIONS: readonly JobRole[] = [
   'Gerente/Mando medio',
   'Coordinador',
   'Lider de proyecto con equipo a cargo',
-  'Individual contributor',
+  'Especialista sin personal a cargo',
 ];
 const JOB_ROLE_SET = new Set<JobRole>(JOB_ROLE_OPTIONS);
 
@@ -147,10 +147,13 @@ function normalizeJobRole(value: JobRole | string | null | undefined): JobRole |
   return JOB_ROLE_SET.has(normalized as JobRole) ? (normalized as JobRole) : null;
 }
 
-function normalizeAge(value: number | null | undefined): number | null {
+function normalizeGender(value: string | null | undefined): string | null {
   if (value === undefined || value === null) return null;
-  if (!Number.isFinite(value)) return null;
-  return Math.max(16, Math.min(100, Math.floor(Number(value))));
+  const trimmed = value.trim();
+  if (trimmed === 'Hombre' || trimmed === 'Mujer' || trimmed === 'Prefiero no decirlo') {
+    return trimmed;
+  }
+  return null;
 }
 
 function normalizeYearsExperience(value: number | null | undefined): number | null {
@@ -162,7 +165,7 @@ function normalizeYearsExperience(value: number | null | undefined): number | nu
 function assertRequiredDemographics(input: {
   country: string | null;
   jobRole: JobRole | null;
-  age: number | null;
+  gender: string | null;
   yearsExperience: number | null;
 }) {
   if (!input.country || input.country.trim().length === 0) {
@@ -171,8 +174,8 @@ function assertRequiredDemographics(input: {
   if (!input.jobRole) {
     throw new Error('Cargo es obligatorio.');
   }
-  if (!Number.isFinite(input.age)) {
-    throw new Error('Edad es obligatoria.');
+  if (!input.gender) {
+    throw new Error('Género es obligatorio.');
   }
   if (!Number.isFinite(input.yearsExperience)) {
     throw new Error('Años de experiencia es obligatorio.');
@@ -249,7 +252,7 @@ function mapProfile(row: ProfileRow, interests: string[], projects: ProfileProje
     location: row.location,
     country: row.country,
     jobRole: row.job_role,
-    age: row.age,
+    gender: row.gender,
     yearsExperience: row.years_experience,
     linkedinUrl: row.linkedin_url,
     twitterUrl: row.twitter_url,
@@ -283,7 +286,7 @@ async function getProfileRow(client: PoolClient, userId: string): Promise<Profil
         up.location,
         up.country,
         up.job_role,
-        up.age,
+        up.gender,
         up.years_experience,
         up.linkedin_url,
         up.twitter_url,
@@ -454,7 +457,7 @@ export async function updateMyProfile(
     location: input.location === undefined ? current.location : normalizeText(input.location),
     country: input.country === undefined ? current.country : normalizeText(input.country),
     jobRole: input.jobRole === undefined ? current.jobRole : normalizeJobRole(input.jobRole),
-    age: input.age === undefined ? current.age : normalizeAge(input.age),
+    gender: input.gender === undefined ? current.gender : normalizeGender(input.gender),
     yearsExperience:
       input.yearsExperience === undefined
         ? current.yearsExperience
@@ -467,7 +470,7 @@ export async function updateMyProfile(
   assertRequiredDemographics({
     country: nextProfile.country,
     jobRole: nextProfile.jobRole,
-    age: nextProfile.age,
+    gender: nextProfile.gender,
     yearsExperience: nextProfile.yearsExperience,
   });
 
@@ -499,7 +502,7 @@ export async function updateMyProfile(
         location,
         country,
         job_role,
-        age,
+        gender,
         years_experience,
         linkedin_url,
         twitter_url,
@@ -516,7 +519,7 @@ export async function updateMyProfile(
         location = EXCLUDED.location,
         country = EXCLUDED.country,
         job_role = EXCLUDED.job_role,
-        age = EXCLUDED.age,
+        gender = EXCLUDED.gender,
         years_experience = EXCLUDED.years_experience,
         linkedin_url = EXCLUDED.linkedin_url,
         twitter_url = EXCLUDED.twitter_url,
@@ -533,7 +536,7 @@ export async function updateMyProfile(
       nextProfile.location,
       nextProfile.country,
       nextProfile.jobRole,
-      nextProfile.age,
+      nextProfile.gender,
       nextProfile.yearsExperience,
       nextProfile.linkedinUrl,
       nextProfile.twitterUrl,

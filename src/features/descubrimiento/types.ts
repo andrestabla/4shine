@@ -218,6 +218,7 @@ export interface DiscoveryOverviewPayload {
     users: Array<{ userId: string; name: string }>;
     countries: string[];
     jobRoles: string[];
+    genders: string[];
   };
 }
 

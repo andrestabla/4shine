@@ -32,7 +32,7 @@ export default function AnaliticaPage() {
     <div className="space-y-6">
       <PageTitle
         title="Analitica"
-        subtitle="Resultados globales del diagnostico con filtros por usuario, pais, cargo, edad y experiencia."
+        subtitle="Resultados globales del diagnostico con filtros por usuario, pais, cargo, género y experiencia."
       />
 
       <div className="flex flex-wrap gap-2">
@@ -124,31 +124,21 @@ export default function AnaliticaPage() {
                 ))}
               </select>
 
-              <input
-                type="number"
-                placeholder="Edad min"
-                value={filters.ageMin ?? ''}
+              <select
+                value={filters.gender ?? ''}
                 onChange={(event) =>
                   setFilters((current) => ({
                     ...current,
-                    ageMin: event.target.value ? Number(event.target.value) : undefined,
+                    gender: event.target.value || undefined,
                   }))
                 }
                 className="h-10 rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
-              />
-
-              <input
-                type="number"
-                placeholder="Edad max"
-                value={filters.ageMax ?? ''}
-                onChange={(event) =>
-                  setFilters((current) => ({
-                    ...current,
-                    ageMax: event.target.value ? Number(event.target.value) : undefined,
-                  }))
-                }
-                className="h-10 rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
-              />
+              >
+                <option value="">Género</option>
+                <option value="Hombre">Hombre</option>
+                <option value="Mujer">Mujer</option>
+                <option value="Prefiero no decirlo">Prefiero no decirlo</option>
+              </select>
 
               <input
                 type="number"
@@ -201,7 +191,7 @@ export default function AnaliticaPage() {
                     <th className="px-2 py-2">Usuario</th>
                     <th className="px-2 py-2">Pais</th>
                     <th className="px-2 py-2">Cargo</th>
-                    <th className="px-2 py-2">Edad</th>
+                    <th className="px-2 py-2">Género</th>
                     <th className="px-2 py-2">Exp.</th>
                     <th className="px-2 py-2">Avance</th>
                     <th className="px-2 py-2">Indice</th>
@@ -214,7 +204,7 @@ export default function AnaliticaPage() {
                       <td className="px-2 py-2">{row.participantName}</td>
                       <td className="px-2 py-2">{row.country || '-'}</td>
                       <td className="px-2 py-2">{row.jobRole || '-'}</td>
-                      <td className="px-2 py-2">{row.age ?? '-'}</td>
+                      <td className="px-2 py-2">{row.gender || '-'}</td>
                       <td className="px-2 py-2">{row.yearsExperience ?? '-'}</td>
                       <td className="px-2 py-2">{row.completionPercent}%</td>
                       <td className="px-2 py-2">{row.globalIndex ?? '-'}</td>

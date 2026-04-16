@@ -26,7 +26,7 @@ type JobRole =
   | 'Gerente/Mando medio'
   | 'Coordinador'
   | 'Lider de proyecto con equipo a cargo'
-  | 'Individual contributor';
+  | 'Especialista sin personal a cargo';
 
 interface ProjectFormItem {
   title: string;
@@ -44,7 +44,7 @@ interface ProfileFormState {
   location: string;
   country: string;
   jobRole: JobRole | '';
-  age: string;
+  gender: string;
   yearsExperience: string;
   bio: string;
   linkedinUrl: string;
@@ -61,7 +61,7 @@ const JOB_ROLE_OPTIONS: readonly JobRole[] = [
   'Gerente/Mando medio',
   'Coordinador',
   'Lider de proyecto con equipo a cargo',
-  'Individual contributor',
+  'Especialista sin personal a cargo',
 ];
 
 function planLabel(planType: PlanType | null): 'VIP' | 'Premium' | 'Empresa Élite' | 'Standard' {
@@ -88,7 +88,7 @@ function buildForm(profile: MyProfileRecord): ProfileFormState {
     location: profile.location ?? '',
     country: profile.country ?? '',
     jobRole: profile.jobRole ?? '',
-    age: profile.age === null ? '' : String(profile.age),
+    gender: profile.gender ?? '',
     yearsExperience: profile.yearsExperience === null ? '' : String(profile.yearsExperience),
     bio: profile.bio ?? '',
     linkedinUrl: profile.linkedinUrl ?? '',
@@ -202,24 +202,16 @@ export default function PerfilPage() {
       });
       return;
     }
-    const age = parseOptionalInteger(form.age);
     const yearsExperience = parseOptionalInteger(form.yearsExperience);
-    if (!form.country.trim() || !form.jobRole || age === null || yearsExperience === null) {
+    if (!form.country.trim() || !form.jobRole || !form.gender.trim() || yearsExperience === null) {
       await alert({
         title: 'Datos obligatorios',
-        message: 'País, cargo, edad y años de experiencia son obligatorios.',
+        message: 'País, cargo, género y años de experiencia son obligatorios.',
         tone: 'warning',
       });
       return;
     }
-    if (age < 16 || age > 100) {
-      await alert({
-        title: 'Edad inválida',
-        message: 'La edad debe estar entre 16 y 100.',
-        tone: 'warning',
-      });
-      return;
-    }
+
     if (yearsExperience < 0 || yearsExperience > 80) {
       await alert({
         title: 'Experiencia inválida',
@@ -243,7 +235,7 @@ export default function PerfilPage() {
         location: form.location,
         country: form.country.trim(),
         jobRole: form.jobRole,
-        age,
+        gender: form.gender,
         yearsExperience,
         bio: form.bio,
         linkedinUrl: form.linkedinUrl,
@@ -455,8 +447,8 @@ export default function PerfilPage() {
                     <p className="font-semibold text-[var(--app-ink)]">{profile.jobRole ?? 'No registrado'}</p>
                   </div>
                   <div className="app-panel-soft p-3">
-                    <p className="text-xs text-[var(--app-muted)]">Edad</p>
-                    <p className="font-semibold text-[var(--app-ink)]">{profile.age ?? 'No registrada'}</p>
+                    <p className="text-xs text-[var(--app-muted)]">Género</p>
+                    <p className="font-semibold text-[var(--app-ink)]">{profile.gender ?? 'No registrado'}</p>
                   </div>
                   <div className="app-panel-soft p-3">
                     <p className="text-xs text-[var(--app-muted)]">Años de Experiencia</p>
@@ -530,16 +522,18 @@ export default function PerfilPage() {
                   </select>
                 </label>
                 <label>
-                  <span className="app-field-label">Edad</span>
-                  <input
-                    type="number"
-                    min={16}
-                    max={100}
-                    className="app-input"
-                    value={form.age}
-                    onChange={(event) => setForm((prev) => (prev ? { ...prev, age: event.target.value } : prev))}
+                  <span className="app-field-label">Género</span>
+                  <select
+                    className="app-select"
+                    value={form.gender}
+                    onChange={(event) => setForm((prev) => (prev ? { ...prev, gender: event.target.value } : prev))}
                     required
-                  />
+                  >
+                    <option value="">Género</option>
+                    <option value="Hombre">Hombre</option>
+                    <option value="Mujer">Mujer</option>
+                    <option value="Prefiero no decirlo">Prefiero no decirlo</option>
+                  </select>
                 </label>
                 <label>
                   <span className="app-field-label">Años de experiencia</span>

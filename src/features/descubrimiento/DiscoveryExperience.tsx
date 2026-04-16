@@ -104,7 +104,7 @@ function defaultProfile(session: DiscoverySessionRecord): DiscoveryParticipantPr
     lastName: session.lastName ?? "",
     country: session.country ?? "",
     jobRole: session.jobRole ?? "",
-    age: session.age,
+    gender: session.gender ?? "",
     yearsExperience: session.yearsExperience,
   };
 }
@@ -127,7 +127,7 @@ function isProfileComplete(profile: DiscoveryParticipantProfile): boolean {
       profile.lastName &&
       profile.country &&
       profile.jobRole &&
-      Number.isFinite(profile.age) &&
+      profile.gender &&
       Number.isFinite(profile.yearsExperience),
   );
 }
@@ -216,7 +216,7 @@ function buildSimulatedDiscoveryState(name: string): DiscoveryUserState {
       lastName: rest.join(" ") || "Simulado",
       country: "Colombia",
       jobRole: "Gerente/Mando medio",
-      age: 35,
+      gender: "Hombre",
       yearsExperience: 10,
     },
     profileCompleted: true,
@@ -239,7 +239,7 @@ export function DiscoveryExperience() {
       lastName: "",
       country: "",
       jobRole: "",
-      age: null,
+      gender: "",
       yearsExperience: null,
     },
     profileCompleted: false,
@@ -288,16 +288,14 @@ export function DiscoveryExperience() {
     userId: string;
     country: string;
     jobRole: string;
-    ageMin: string;
-    ageMax: string;
+    gender: string;
     yearsExperienceMin: string;
     yearsExperienceMax: string;
   }>({
     userId: "",
     country: "",
     jobRole: "",
-    ageMin: "",
-    ageMax: "",
+    gender: "",
     yearsExperienceMin: "",
     yearsExperienceMax: "",
   });
@@ -379,8 +377,7 @@ export function DiscoveryExperience() {
       userId: resultsFilters.userId || undefined,
       country: resultsFilters.country || undefined,
       jobRole: resultsFilters.jobRole || undefined,
-      ageMin: parseNumber(resultsFilters.ageMin),
-      ageMax: parseNumber(resultsFilters.ageMax),
+      gender: resultsFilters.gender || undefined,
       yearsExperienceMin: parseNumber(resultsFilters.yearsExperienceMin),
       yearsExperienceMax: parseNumber(resultsFilters.yearsExperienceMax),
     }),
@@ -598,7 +595,7 @@ export function DiscoveryExperience() {
       await alert({
         title: "Completa tu perfil",
         message:
-          "Antes de iniciar el diagnóstico debes completar nombres, apellidos, país, cargo, edad y años de experiencia.",
+          "Antes de iniciar el diagnóstico debes completar nombres, apellidos, país, cargo, género y años de experiencia.",
         tone: "warning",
       });
       return;
@@ -621,7 +618,7 @@ export function DiscoveryExperience() {
       await alert({
         title: "Completa tu perfil",
         message:
-          "Antes de iniciar el diagnóstico debes completar nombres, apellidos, país, cargo, edad y años de experiencia.",
+          "Antes de iniciar el diagnóstico debes completar nombres, apellidos, país, cargo, género y años de experiencia.",
         tone: "warning",
       });
       return;
@@ -1005,8 +1002,7 @@ export function DiscoveryExperience() {
       userId: next.userId || undefined,
       country: next.country || undefined,
       jobRole: next.jobRole || undefined,
-      ageMin: parseNumber(next.ageMin),
-      ageMax: parseNumber(next.ageMax),
+      gender: next.gender || undefined,
       yearsExperienceMin: parseNumber(next.yearsExperienceMin),
       yearsExperienceMax: parseNumber(next.yearsExperienceMax),
     };
@@ -1643,19 +1639,16 @@ export function DiscoveryExperience() {
                   ))}
                 </select>
 
-                <input
-                  value={resultsFilters.ageMin}
-                  onChange={(event) => void handleResultsFilter("ageMin", event.target.value)}
-                  placeholder="Edad min"
+                <select
+                  value={resultsFilters.gender}
+                  onChange={(event) => void handleResultsFilter("gender", event.target.value)}
                   className="h-10 rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
-                />
-
-                <input
-                  value={resultsFilters.ageMax}
-                  onChange={(event) => void handleResultsFilter("ageMax", event.target.value)}
-                  placeholder="Edad max"
-                  className="h-10 rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
-                />
+                >
+                  <option value="">Género</option>
+                  {overview?.availableFilters.genders.map((gender) => (
+                    <option key={gender} value={gender}>{gender}</option>
+                  ))}
+                </select>
 
                 <input
                   value={resultsFilters.yearsExperienceMin}
@@ -1855,7 +1848,7 @@ export function DiscoveryExperience() {
                     <th className="px-2 py-2">Correo</th>
                     <th className="px-2 py-2">País</th>
                     <th className="px-2 py-2">Cargo</th>
-                    <th className="px-2 py-2">Edad</th>
+                    <th className="px-2 py-2">Género</th>
                     <th className="px-2 py-2">Exp.</th>
                     <th className="px-2 py-2">Avance</th>
                     <th className="px-2 py-2">Indice</th>
@@ -1879,7 +1872,7 @@ export function DiscoveryExperience() {
                       <td className="px-2 py-2">{row.invitedEmail || "-"}</td>
                       <td className="px-2 py-2">{row.country || "-"}</td>
                       <td className="px-2 py-2">{row.jobRole || "-"}</td>
-                      <td className="px-2 py-2">{row.age ?? "-"}</td>
+                      <td className="px-2 py-2">{row.gender || "-"}</td>
                       <td className="px-2 py-2">{row.yearsExperience ?? "-"}</td>
                       <td className="px-2 py-2">{row.completionPercent}%</td>
                       <td className="px-2 py-2">{row.globalIndex ?? "-"}</td>
@@ -2043,34 +2036,21 @@ export function DiscoveryExperience() {
                   <option key={jobRole} value={jobRole}>{jobRole}</option>
                 ))}
               </select>
-              <input
-                value={state.profile.age ?? ""}
-                onChange={(event) => {
-                  const raw = event.target.value.replace(/[^0-9]/g, "");
+              <select
+                value={state.profile.gender}
+                onChange={(event) =>
                   setState((current) => ({
                     ...current,
-                    profile: { ...current.profile, age: raw ? parseInt(raw, 10) : null },
-                  }));
-                }}
-                onBlur={() => {
-                  setState((current) => {
-                    const age = current.profile.age;
-                    if (age === null) return current;
-                    return {
-                      ...current,
-                      profile: {
-                        ...current.profile,
-                        age: Math.max(20, Math.min(70, age)),
-                      },
-                    };
-                  });
-                }}
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                placeholder="Edad"
+                    profile: { ...current.profile, gender: event.target.value as DiscoveryParticipantProfile["gender"] },
+                  }))
+                }
                 className="h-11 rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
-              />
+              >
+                <option value="">Género</option>
+                <option value="Hombre">Hombre</option>
+                <option value="Mujer">Mujer</option>
+                <option value="Prefiero no decirlo">Prefiero no decirlo</option>
+              </select>
               <input
                 value={state.profile.yearsExperience ?? ""}
                 onChange={(event) =>

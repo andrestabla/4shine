@@ -69,7 +69,7 @@ export function downloadDiscoveryRowResultsWorkbook(
     { Campo: "Correo", Valor: row.invitedEmail || "-" },
     { Campo: "País", Valor: row.country || "-" },
     { Campo: "Cargo", Valor: row.jobRole || "-" },
-    { Campo: "Edad", Valor: row.age ?? "-" },
+    { Campo: "Género", Valor: row.gender || "-" },
     { Campo: "Experiencia", Valor: row.yearsExperience ?? "-" },
     { Campo: "Avance", Valor: `${row.completionPercent}%` },
     { Campo: "Índice global", Valor: detail.scoring.globalIndex },

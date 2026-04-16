@@ -120,8 +120,7 @@ export async function getDiscoveryOverview(
   if (filters.userId) searchParams.set("userId", filters.userId);
   if (filters.country) searchParams.set("country", filters.country);
   if (filters.jobRole) searchParams.set("jobRole", filters.jobRole);
-  if (Number.isFinite(filters.ageMin)) searchParams.set("ageMin", String(filters.ageMin));
-  if (Number.isFinite(filters.ageMax)) searchParams.set("ageMax", String(filters.ageMax));
+  if (filters.gender) searchParams.set("gender", filters.gender);
   if (Number.isFinite(filters.yearsExperienceMin)) {
     searchParams.set("yearsExperienceMin", String(filters.yearsExperienceMin));
   }

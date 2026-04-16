@@ -24,8 +24,7 @@ export async function GET(request: Request) {
     userId: url.searchParams.get("userId")?.trim() || undefined,
     country: url.searchParams.get("country")?.trim() || undefined,
     jobRole: url.searchParams.get("jobRole")?.trim() || undefined,
-    ageMin: parseNumeric(url.searchParams.get("ageMin")),
-    ageMax: parseNumeric(url.searchParams.get("ageMax")),
+    gender: url.searchParams.get("gender")?.trim() || undefined,
     yearsExperienceMin: parseNumeric(url.searchParams.get("yearsExperienceMin")),
     yearsExperienceMax: parseNumeric(url.searchParams.get("yearsExperienceMax")),
   };

@@ -80,7 +80,7 @@ const JOB_ROLE_OPTIONS = [
   'Gerente/Mando medio',
   'Coordinador',
   'Lider de proyecto con equipo a cargo',
-  'Individual contributor',
+  'Especialista sin personal a cargo',
 ] as const;
 
 type JobRoleOption = (typeof JOB_ROLE_OPTIONS)[number];
@@ -88,7 +88,7 @@ type JobRoleOption = (typeof JOB_ROLE_OPTIONS)[number];
 interface DemographicsFormState {
   country: string;
   jobRole: JobRoleOption | '';
-  age: string;
+  gender: string;
   yearsExperience: string;
 }
 
@@ -96,7 +96,7 @@ function toDemographicsForm(detail: UserDetailRecord): DemographicsFormState {
   return {
     country: detail.country ?? '',
     jobRole: (detail.jobRole ?? '') as JobRoleOption | '',
-    age: detail.age === null ? '' : String(detail.age),
+    gender: detail.gender ?? '',
     yearsExperience: detail.yearsExperience === null ? '' : String(detail.yearsExperience),
   };
 }
@@ -121,7 +121,7 @@ export default function UsuarioDetallePage() {
   const [demographicsForm, setDemographicsForm] = React.useState<DemographicsFormState>({
     country: '',
     jobRole: '',
-    age: '',
+    gender: '',
     yearsExperience: '',
   });
   const [loading, setLoading] = React.useState(true);
@@ -314,25 +314,17 @@ export default function UsuarioDetallePage() {
   const onSaveDemographics = async () => {
     if (!detail) return;
 
-    const nextAge = parseOptionalInteger(demographicsForm.age);
     const nextYearsExperience = parseOptionalInteger(demographicsForm.yearsExperience);
-    if (!demographicsForm.country.trim() || !demographicsForm.jobRole || nextAge === null || nextYearsExperience === null) {
+    if (!demographicsForm.country.trim() || !demographicsForm.jobRole || !demographicsForm.gender.trim() || nextYearsExperience === null) {
       await alert({
         title: 'Datos obligatorios',
-        message: 'País, cargo, edad y años de experiencia son obligatorios.',
+        message: 'País, cargo, género y años de experiencia son obligatorios.',
         tone: 'warning',
       });
       return;
     }
 
-    if (nextAge !== null && (nextAge < 16 || nextAge > 100)) {
-      await alert({
-        title: 'Edad fuera de rango',
-        message: 'La edad debe estar entre 16 y 100.',
-        tone: 'warning',
-      });
-      return;
-    }
+
     if (nextYearsExperience !== null && (nextYearsExperience < 0 || nextYearsExperience > 80)) {
       await alert({
         title: 'Experiencia fuera de rango',
@@ -347,13 +339,13 @@ export default function UsuarioDetallePage() {
       await updateUser(detail.userId, {
         country: demographicsForm.country.trim(),
         jobRole: demographicsForm.jobRole,
-        age: nextAge,
+        gender: demographicsForm.gender,
         yearsExperience: nextYearsExperience,
       });
       await loadData();
       await alert({
         title: 'Datos actualizados',
-        message: 'País, cargo, edad y experiencia se guardaron correctamente.',
+        message: 'País, cargo, género y experiencia se guardaron correctamente.',
         tone: 'success',
       });
     } catch (error) {
@@ -386,7 +378,7 @@ export default function UsuarioDetallePage() {
   const hasDemographicsChanges =
     demographicsForm.country.trim() !== currentDemographics.country.trim() ||
     demographicsForm.jobRole !== currentDemographics.jobRole ||
-    demographicsForm.age.trim() !== currentDemographics.age.trim() ||
+    demographicsForm.gender.trim() !== currentDemographics.gender.trim() ||
     demographicsForm.yearsExperience.trim() !== currentDemographics.yearsExperience.trim();
 
   return (
@@ -488,7 +480,7 @@ export default function UsuarioDetallePage() {
               <p>Creado: {formatDateTime(detail.createdAt)}</p>
               <p>País: {detail.country || 'No registrado'}</p>
               <p>Cargo: {detail.jobRole || 'No registrado'}</p>
-              <p>Edad: {detail.age ?? 'No registrada'}</p>
+              <p>Género: {detail.gender ?? 'No registrado'}</p>
               <p>Años de experiencia: {detail.yearsExperience ?? 'No registrados'}</p>
             </div>
           </article>
@@ -530,19 +522,21 @@ export default function UsuarioDetallePage() {
               </label>
 
               <label>
-                <span className="app-field-label">Edad</span>
-                <input
-                  type="number"
-                  min={16}
-                  max={100}
-                  className="app-input"
-                  value={demographicsForm.age}
+                <span className="app-field-label">Género</span>
+                <select
+                  className="app-select"
+                  value={demographicsForm.gender}
                   onChange={(event) =>
-                    setDemographicsForm((prev) => ({ ...prev, age: event.target.value }))
+                    setDemographicsForm((prev) => ({ ...prev, gender: event.target.value }))
                   }
                   disabled={!canUpdate || processingAction !== null}
                   required
-                />
+                >
+                  <option value="">Género</option>
+                  <option value="Hombre">Hombre</option>
+                  <option value="Mujer">Mujer</option>
+                  <option value="Prefiero no decirlo">Prefiero no decirlo</option>
+                </select>
               </label>
 
               <label>

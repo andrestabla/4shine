@@ -8,7 +8,7 @@ type JobRole =
   | 'Gerente/Mando medio'
   | 'Coordinador'
   | 'Lider de proyecto con equipo a cargo'
-  | 'Individual contributor';
+  | 'Especialista sin personal a cargo';
 type PolicyStatus = 'accepted' | 'pending';
 
 export interface UserRecord {
@@ -31,7 +31,7 @@ export interface UserRecord {
   location: string | null;
   country: string | null;
   jobRole: JobRole | null;
-  age: number | null;
+  gender: string | null;
   yearsExperience: number | null;
   policyStatus: PolicyStatus;
   policyCode: string | null;
@@ -116,7 +116,7 @@ export interface CreateUserInput {
   location?: string | null;
   country?: string | null;
   jobRole?: JobRole | null;
-  age?: number | null;
+  gender?: string | null;
   yearsExperience?: number | null;
 }
 
@@ -138,7 +138,7 @@ export interface UpdateUserInput {
   location?: string | null;
   country?: string | null;
   jobRole?: JobRole | null;
-  age?: number | null;
+  gender?: string | null;
   yearsExperience?: number | null;
 }
 

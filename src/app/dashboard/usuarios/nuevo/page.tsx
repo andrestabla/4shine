@@ -19,7 +19,7 @@ type JobRole =
   | 'Gerente/Mando medio'
   | 'Coordinador'
   | 'Lider de proyecto con equipo a cargo'
-  | 'Individual contributor';
+  | 'Especialista sin personal a cargo';
 
 interface FormState {
   firstName: string;
@@ -29,7 +29,7 @@ interface FormState {
   userType: UserTypeOption;
   country: string;
   jobRole: JobRole | '';
-  age: string;
+  gender: string;
   yearsExperience: string;
 }
 
@@ -38,7 +38,7 @@ const JOB_ROLE_OPTIONS: readonly JobRole[] = [
   'Gerente/Mando medio',
   'Coordinador',
   'Lider de proyecto con equipo a cargo',
-  'Individual contributor',
+  'Especialista sin personal a cargo',
 ];
 
 function parseOptionalInteger(value: string): number | null {
@@ -63,7 +63,7 @@ export default function NuevoUsuarioPage() {
     userType: 'leader_without_subscription',
     country: '',
     jobRole: '',
-    age: '',
+    gender: '',
     yearsExperience: '',
   });
 
@@ -83,24 +83,16 @@ export default function NuevoUsuarioPage() {
       });
       return;
     }
-    const age = parseOptionalInteger(form.age);
     const yearsExperience = parseOptionalInteger(form.yearsExperience);
-    if (!form.country.trim() || !form.jobRole || age === null || yearsExperience === null) {
+    if (!form.country.trim() || !form.jobRole || !form.gender.trim() || yearsExperience === null) {
       await alert({
         title: 'Campos requeridos',
-        message: 'País, cargo, edad y años de experiencia son obligatorios.',
+        message: 'País, cargo, género y años de experiencia son obligatorios.',
         tone: 'warning',
       });
       return;
     }
-    if (age < 16 || age > 100) {
-      await alert({
-        title: 'Edad inválida',
-        message: 'La edad debe estar entre 16 y 100.',
-        tone: 'warning',
-      });
-      return;
-    }
+
     if (yearsExperience < 0 || yearsExperience > 80) {
       await alert({
         title: 'Experiencia inválida',
@@ -123,7 +115,7 @@ export default function NuevoUsuarioPage() {
         planType: userTypeSelection.planType,
         country: form.country.trim(),
         jobRole: form.jobRole,
-        age,
+        gender: form.gender,
         yearsExperience,
       });
 
@@ -244,17 +236,18 @@ export default function NuevoUsuarioPage() {
           </label>
 
           <label>
-            <span className="app-field-label">Edad</span>
-            <input
-              type="number"
-              min={16}
-              max={100}
-              className="app-input"
-              placeholder="Ej: 38"
-              value={form.age}
-              onChange={(event) => setForm((prev) => ({ ...prev, age: event.target.value }))}
+            <span className="app-field-label">Género</span>
+            <select
+              className="app-select"
+              value={form.gender}
+              onChange={(event) => setForm((prev) => ({ ...prev, gender: event.target.value }))}
               required
-            />
+            >
+              <option value="">Género</option>
+              <option value="Hombre">Hombre</option>
+              <option value="Mujer">Mujer</option>
+              <option value="Prefiero no decirlo">Prefiero no decirlo</option>
+            </select>
           </label>
 
           <label>
