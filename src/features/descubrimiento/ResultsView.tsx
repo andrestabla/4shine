@@ -986,6 +986,9 @@ export function ResultsView({
                     <h2 className="mt-6 rounded-[14px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-2 text-base font-black text-[var(--app-ink)] first:mt-0">
                       {children}
                     </h2>
+                  ),
+                }}
+              >
                 {currentReport}
               </ReactMarkdown>
             </div>
