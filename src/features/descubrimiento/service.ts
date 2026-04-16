@@ -61,7 +61,7 @@ interface DiscoverySessionRow {
   last_name: string | null;
   country: string | null;
   job_role: DiscoveryJobRole | null;
-  age: number | null;
+  gender: string | null;
   years_experience: number | string | null;
   feedback_survey?: unknown;
   ai_reports?: unknown;
@@ -235,23 +235,15 @@ function normalizeProfile(
   const normalizedRole =
     incomingRole === "Gerente/Mand medio" ? "Gerente/Mando medio" : incomingRole;
 
-  const ageValue = coerceNumeric(input?.age ?? fallback?.age ?? null);
+  const gender = typeof input?.gender === "string" ? input.gender.trim() : (fallback?.gender ?? "");
   const yearsValue = coerceNumeric(input?.yearsExperience ?? fallback?.yearsExperience ?? null);
-
-  const age = ageValue !== null
-    ? Math.max(16, Math.min(100, Math.floor(Number(ageValue))))
-    : null;
 
   const yearsExperience = yearsValue !== null
     ? Math.max(0, Math.min(80, Math.floor(Number(yearsValue))))
     : null;
 
   return {
-    firstName,
-    lastName,
-    country,
-    jobRole: normalizedRole as DiscoveryJobRole | "",
-    age,
+    gender: gender as DiscoveryParticipantProfile["gender"],
     yearsExperience,
   };
 }
@@ -262,7 +254,7 @@ function isProfileCompleted(profile: DiscoveryParticipantProfile): boolean {
       profile.lastName &&
       profile.country &&
       profile.jobRole &&
-      Number.isFinite(profile.age) &&
+      profile.gender &&
       Number.isFinite(profile.yearsExperience),
   );
 }
@@ -281,7 +273,7 @@ async function syncDiscoveryProfileToUserProfile(
   const displayName = `${firstName} ${lastName}`.trim();
   const country = profile.country.trim();
   const normalizedJobRole = profile.jobRole;
-  const age = Number.isFinite(profile.age) ? Math.max(16, Math.min(100, Math.floor(Number(profile.age)))) : null;
+  const gender = profile.gender;
   const yearsExperience = Number.isFinite(profile.yearsExperience)
     ? Math.max(0, Math.min(80, Math.floor(Number(profile.yearsExperience))))
     : null;
@@ -289,7 +281,7 @@ async function syncDiscoveryProfileToUserProfile(
   const hasNameData = firstName.length > 0 && lastName.length > 0;
   const hasCountryData = country.length > 0;
   const hasJobRoleData = Boolean(normalizedJobRole);
-  const hasAgeData = age !== null;
+  const hasGenderData = Boolean(gender);
   const hasYearsExperienceData = yearsExperience !== null;
 
   if (hasNameData) {
@@ -308,13 +300,13 @@ async function syncDiscoveryProfileToUserProfile(
     );
   }
 
-  if (!hasCountryData || !hasJobRoleData || !hasAgeData || !hasYearsExperienceData) {
+  if (!hasCountryData || !hasJobRoleData || !hasGenderData || !hasYearsExperienceData) {
     return;
   }
 
   await client.query(
     `
-      INSERT INTO app_core.user_profiles (user_id, country, job_role, age, years_experience)
+      INSERT INTO app_core.user_profiles (user_id, country, job_role, gender, years_experience)
       VALUES ($1::uuid, $2, $3, $4, $5)
       ON CONFLICT (user_id) DO UPDATE
       SET
@@ -326,9 +318,9 @@ async function syncDiscoveryProfileToUserProfile(
           WHEN $7::boolean THEN EXCLUDED.job_role
           ELSE app_core.user_profiles.job_role
         END,
-        age = CASE
-          WHEN $8::boolean THEN EXCLUDED.age
-          ELSE app_core.user_profiles.age
+        gender = CASE
+          WHEN $8::boolean THEN EXCLUDED.gender
+          ELSE app_core.user_profiles.gender
         END,
         years_experience = CASE
           WHEN $9::boolean THEN EXCLUDED.years_experience
@@ -340,11 +332,11 @@ async function syncDiscoveryProfileToUserProfile(
       userId,
       hasCountryData ? country : null,
       hasJobRoleData ? normalizedJobRole : null,
-      age,
+      hasGenderData ? gender : null,
       yearsExperience,
       hasCountryData,
       hasJobRoleData,
-      hasAgeData,
+      hasGenderData,
       hasYearsExperienceData,
     ],
   );
@@ -360,7 +352,7 @@ function mapDiscoverySessionRow(row: DiscoverySessionRow): DiscoverySessionRecor
     lastName: row.last_name ?? "",
     country: row.country ?? "",
     jobRole: row.job_role ?? "",
-    age: coerceNumeric(row.age),
+    gender: row.gender ?? "",
     yearsExperience: coerceNumeric(row.years_experience),
   });
 
@@ -381,7 +373,7 @@ function mapDiscoverySessionRow(row: DiscoverySessionRow): DiscoverySessionRecor
     lastName: profile.lastName,
     country: profile.country,
     jobRole: profile.jobRole,
-    age: profile.age,
+    gender: profile.gender,
     yearsExperience: profile.yearsExperience,
     profileCompleted: isProfileCompleted(profile),
     experienceSurvey: parseExperienceSurvey(row.feedback_survey),
@@ -499,7 +491,7 @@ function buildUserStateFromSession(
       lastName: session.lastName,
       country: session.country,
       jobRole: session.jobRole,
-      age: session.age,
+      gender: session.gender as DiscoveryParticipantProfile["gender"],
       yearsExperience: session.yearsExperience,
     },
     profileCompleted: session.profileCompleted,
@@ -515,7 +507,7 @@ function buildFallbackInvitationState(
     lastName: "",
     country: "",
     jobRole: "",
-    age: null,
+    gender: "",
     yearsExperience: null,
   });
 
@@ -773,7 +765,7 @@ async function readDiscoverySession(
         ds.last_name,
         ds.country,
         ds.job_role,
-        ds.age,
+        ds.gender,
         ds.years_experience,
         ds.feedback_survey,
         ds.ai_reports,
@@ -830,7 +822,7 @@ async function createDiscoverySession(
         last_name,
         country,
         job_role,
-        age,
+        gender,
         years_experience
       )
       VALUES (
@@ -866,7 +858,7 @@ async function createDiscoverySession(
         last_name,
         country,
         job_role,
-        age,
+        gender,
         years_experience,
         feedback_survey,
         ai_reports,
@@ -941,7 +933,7 @@ function buildNextState(
     lastName: current.lastName,
     country: current.country,
     jobRole: current.jobRole,
-    age: current.age,
+    gender: current.gender,
     yearsExperience: current.yearsExperience,
   });
 
@@ -1002,7 +994,7 @@ async function ensureSessionShared(
         last_name,
         country,
         job_role,
-        age,
+        gender,
         years_experience,
         feedback_survey,
         ai_reports,
@@ -1051,7 +1043,7 @@ async function finalizeSessionForSharing(
         last_name,
         country,
         job_role,
-        age,
+        gender,
         years_experience,
         feedback_survey,
         ai_reports,
@@ -1563,7 +1555,7 @@ export async function getOrCreateDiscoverySession(
           last_name,
           country,
           job_role,
-          age,
+          gender,
           years_experience,
           feedback_survey,
           ai_reports,
@@ -1605,7 +1597,7 @@ export async function updateDiscoverySession(
           last_name = $9,
           country = $10,
           job_role = $11,
-          age = $12,
+          gender = $12,
           years_experience = $13,
           feedback_survey = $14::jsonb,
           updated_at = now()
@@ -1627,7 +1619,7 @@ export async function updateDiscoverySession(
         last_name,
         country,
         job_role,
-        age,
+        gender,
         years_experience,
         feedback_survey,
         ai_reports,
@@ -1646,7 +1638,7 @@ export async function updateDiscoverySession(
       next.profile.lastName,
       next.profile.country,
       next.profile.jobRole || null,
-      next.profile.age,
+      next.profile.gender,
       next.profile.yearsExperience,
       next.experienceSurvey ? JSON.stringify(next.experienceSurvey) : null,
     ],
@@ -1710,7 +1702,7 @@ export async function resetDiscoverySession(
           last_name = $4,
           country = '',
           job_role = NULL,
-          age = NULL,
+          gender = NULL,
           years_experience = NULL,
           feedback_survey = NULL,
           ai_reports = NULL,
@@ -1733,7 +1725,7 @@ export async function resetDiscoverySession(
         last_name,
         country,
         job_role,
-        age,
+        gender,
         years_experience,
         feedback_survey,
         ai_reports,
@@ -1804,7 +1796,7 @@ export async function getDiscoverySessionByPublicId(
         ds.last_name,
         ds.country,
         ds.job_role,
-        ds.age,
+        ds.gender,
         ds.years_experience,
         ds.feedback_survey,
         ds.ai_reports,
@@ -2198,13 +2190,13 @@ async function provisionInvitedUserAccount(
     {
       country: externalProfile?.country ?? "",
       jobRole: externalProfile?.jobRole ?? "",
-      age: externalProfile?.age ?? null,
+      gender: externalProfile?.gender ?? "",
       yearsExperience: externalProfile?.yearsExperience ?? null,
     },
     {
       country: "No definido",
       jobRole: "Individual contributor",
-      age: 30,
+      gender: "No definido",
       yearsExperience: 0,
     },
   );
@@ -2330,7 +2322,7 @@ async function provisionInvitedUserAccount(
         user_id,
         country,
         job_role,
-        age,
+        gender,
         years_experience
       )
       VALUES ($1::uuid, $2, $3, $4, $5)
@@ -2338,7 +2330,7 @@ async function provisionInvitedUserAccount(
       SET
         country = COALESCE(NULLIF(BTRIM(app_core.user_profiles.country), ''), EXCLUDED.country),
         job_role = COALESCE(app_core.user_profiles.job_role, EXCLUDED.job_role),
-        age = COALESCE(app_core.user_profiles.age, EXCLUDED.age),
+        gender = COALESCE(app_core.user_profiles.gender, EXCLUDED.gender),
         years_experience = COALESCE(app_core.user_profiles.years_experience, EXCLUDED.years_experience),
         updated_at = now()
     `,
@@ -2346,7 +2338,7 @@ async function provisionInvitedUserAccount(
       userId,
       normalizedProfile.country || "No definido",
       normalizedProfile.jobRole || "Individual contributor",
-      Number.isFinite(normalizedProfile.age) ? normalizedProfile.age : 30,
+      normalizedProfile.gender || "No definido",
       Number.isFinite(normalizedProfile.yearsExperience) ? normalizedProfile.yearsExperience : 0,
     ],
   );
@@ -2602,14 +2594,10 @@ export async function getDiscoveryOverview(
     where.push(`ds.job_role = $${params.length}`);
   }
 
-  if (Number.isFinite(filters.ageMin)) {
-    params.push(Number(filters.ageMin));
-    where.push(`ds.age >= $${params.length}`);
-  }
-
-  if (Number.isFinite(filters.ageMax)) {
-    params.push(Number(filters.ageMax));
-    where.push(`ds.age <= $${params.length}`);
+  const gender = filters.gender?.trim();
+  if (gender) {
+    where.push(`ds.gender = $${params.length + 1}`);
+    params.push(gender);
   }
 
   if (Number.isFinite(filters.yearsExperienceMin)) {
@@ -2633,7 +2621,7 @@ export async function getDiscoveryOverview(
     user_email: string;
     country: string | null;
     job_role: string | null;
-    age: number | null;
+    gender: string | null;
     years_experience: number | null;
     completion_percent: number;
     global_index: number | null;
@@ -2781,7 +2769,7 @@ export async function getDiscoveryOverview(
         u.email::text AS user_email,
         ds.country,
         ds.job_role,
-        ds.age,
+        ds.gender,
         ds.years_experience,
         ds.completion_percent,
         ta.overall_score AS global_index,
@@ -2824,7 +2812,7 @@ export async function getDiscoveryOverview(
       invitedEmail: row.primary_role === "invitado" ? row.user_email : "",
       country: row.country ?? "",
       jobRole: row.job_role ?? "",
-      age: coerceNumeric(row.age),
+      gender: row.gender ?? "",
       yearsExperience: coerceNumeric(row.years_experience),
       completionPercent: Number(row.completion_percent ?? 0),
       globalIndex: row.global_index !== null ? Number(row.global_index) : null,
@@ -2882,7 +2870,7 @@ export async function getDiscoveryOverview(
         invitedEmail: invitation.invited_email,
         country: profile?.country ?? "",
         jobRole: profile?.jobRole ?? "",
-        age: profile?.age ?? null,
+        gender: profile?.gender ?? "",
         yearsExperience: profile?.yearsExperience ?? null,
         completionPercent,
         globalIndex:
@@ -2904,8 +2892,7 @@ export async function getDiscoveryOverview(
         return false;
       }
       if (filters.jobRole && row.jobRole !== filters.jobRole.trim()) return false;
-      if (Number.isFinite(filters.ageMin) && (row.age ?? -1) < Number(filters.ageMin)) return false;
-      if (Number.isFinite(filters.ageMax) && (row.age ?? 999) > Number(filters.ageMax)) return false;
+      if (gender && row.gender !== gender) return false;
       if (
         Number.isFinite(filters.yearsExperienceMin) &&
         (row.yearsExperience ?? -1) < Number(filters.yearsExperienceMin)
@@ -3144,7 +3131,7 @@ export async function getDiscoveryOverviewDetail(
         ds.last_name,
         ds.country,
         ds.job_role,
-        ds.age,
+        ds.gender,
         ds.years_experience,
         ds.feedback_survey,
         ds.ai_reports,
@@ -3228,7 +3215,7 @@ export async function resetDiscoveryOverviewAttemptByManager(
         ds.last_name,
         ds.country,
         ds.job_role,
-        ds.age,
+        ds.gender,
         ds.years_experience,
         ds.feedback_survey,
         ds.created_at::text,
@@ -3263,7 +3250,7 @@ export async function resetDiscoveryOverviewAttemptByManager(
           last_name = $4,
           country = '',
           job_role = NULL,
-          age = NULL,
+          gender = NULL,
           years_experience = NULL,
           feedback_survey = NULL,
           ai_reports = NULL,

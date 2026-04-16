@@ -12,7 +12,7 @@ export const DISCOVERY_JOB_ROLE_OPTIONS = [
   "Gerente/Mando medio",
   "Coordinador",
   "Lider de proyecto con equipo a cargo",
-  "Individual contributor",
+  "Especialista sin personal a cargo",
 ] as const;
 
 export const DISCOVERY_COUNTRY_OPTIONS = [
@@ -46,7 +46,7 @@ export interface DiscoveryParticipantProfile {
   lastName: string;
   country: string;
   jobRole: DiscoveryJobRole | "";
-  age: number | null;
+  gender: "Hombre" | "Mujer" | "Prefiero no decirlo" | "";
   yearsExperience: number | null;
 }
 
@@ -101,7 +101,7 @@ export interface DiscoverySessionRecord {
   lastName: string;
   country: string;
   jobRole: DiscoveryJobRole | "";
-  age: number | null;
+  gender: string | null;
   yearsExperience: number | null;
   profileCompleted: boolean;
   experienceSurvey: DiscoveryExperienceSurvey | null;
@@ -148,8 +148,7 @@ export interface DiscoveryOverviewFilters {
   userId?: string;
   country?: string;
   jobRole?: string;
-  ageMin?: number;
-  ageMax?: number;
+  gender?: string;
   yearsExperienceMin?: number;
   yearsExperienceMax?: number;
 }
@@ -163,7 +162,7 @@ export interface DiscoveryOverviewRow {
   invitedEmail?: string;
   country: string;
   jobRole: string;
-  age: number | null;
+  gender: string | null;
   yearsExperience: number | null;
   completionPercent: number;
   globalIndex: number | null;

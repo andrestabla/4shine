@@ -191,14 +191,12 @@ export function ResultsView({
   const [isExporting, setIsExporting] = React.useState(false);
   const [isSharing, setIsSharing] = React.useState(false);
   const [sharedPublicId, setSharedPublicId] = React.useState(publicId ?? null);
-  const [isShareModalOpen, setIsShareModalOpen] = React.useState(false);
-  const [emailRecipients, setEmailRecipients] = React.useState("");
   const [isTourOpen, setIsTourOpen] = React.useState(false);
   const [tourStepIdx, setTourStepIdx] = React.useState(0);
   const [maximizedChart, setMaximizedChart] = React.useState<"global" | "pillar" | null>(null);
   const [isSurveyOpen, setIsSurveyOpen] = React.useState(false);
   const [pendingSurveyAction, setPendingSurveyAction] = React.useState<
-    "download" | "shareLink" | "shareEmail" | null
+    "download" | "shareLink" | null
   >(null);
   const [surveyAnswers, setSurveyAnswers] = React.useState<Record<string, number>>(initialSurvey?.answers ?? {});
   const shouldUseStickyHeader = !isPublic;
@@ -486,7 +484,7 @@ export function ResultsView({
   const shareUrl = sharedPublicId ? buildShareUrl(sharedPublicId) : "";
 
   const ensureSurveyBeforeAction = React.useCallback(
-    (action: "download" | "shareLink" | "shareEmail") => {
+    (action: "download" | "shareLink") => {
       if (hasSurveyResponses()) return true;
       clearSurveyPromptTimer();
       setPendingSurveyAction(action);
@@ -554,56 +552,7 @@ export function ResultsView({
     return "";
   };
 
-  const handleShareByEmail = async () => {
-    const emails = parseEmailList(emailRecipients);
-    if (emails.length === 0) {
-      await alert({
-        title: "Correos inválidos",
-        message: "Agrega uno o más correos válidos para compartir.",
-        tone: "warning",
-      });
-      return;
-    }
-    if (!ensureSurveyBeforeAction("shareEmail")) return;
-    if (!(await ensureFinalAnalysisReady("compartirla"))) return;
 
-    try {
-      setIsSharing(true);
-      await ensureSharableUrl();
-      const currentPublicId = sharedPublicId || publicId;
-      if (!currentPublicId) {
-        throw new Error("No se pudo obtener el enlace para compartir.");
-      }
-
-      const resp = await fetch("/api/v1/public/descubrimiento/share/email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ publicId: currentPublicId, emails }),
-      });
-
-      const payload = await resp.json();
-      if (!resp.ok || !payload?.ok) {
-        throw new Error(payload?.error || "Error al enviar el correo desde la plataforma.");
-      }
-
-      await alert({
-        title: "Correos enviados",
-        message: "Los resultados han sido compartidos exitosamente a los destinatarios.",
-        tone: "success",
-      });
-
-      setIsShareModalOpen(false);
-      setEmailRecipients("");
-    } catch (error) {
-      await alert({
-        title: "No se pudo compartir",
-        message: error instanceof Error ? error.message : "Error inesperado.",
-        tone: "error",
-      });
-    } finally {
-      setIsSharing(false);
-    }
-  };
 
   const copyToClipboard = async () => {
     if (!shareUrl) return;
@@ -761,21 +710,16 @@ export function ResultsView({
                 type="button"
                 onClick={handleShare}
                 disabled={isSharing}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[var(--brand-primary)] px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em] text-white transition hover:opacity-92 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                className="inline-flex h-11 items-center gap-2.5 rounded-full border border-[var(--app-border)] bg-white px-5 text-sm font-black text-[var(--app-ink)] transition hover:border-[var(--brand-primary)] hover:bg-[var(--app-surface-muted)] hover:text-[var(--brand-primary)] disabled:opacity-40"
               >
-                {isSharing ? <Loader2 size={14} className="animate-spin" /> : <Share2 size={14} />}
-                Compartir enlace
+                {isSharing ? (
+                  <Loader2 size={18} className="animate-spin" />
+                ) : (
+                  <Share2 size={18} />
+                )}
+                {sharedPublicId ? "Copiar enlace" : "Compartir link"}
               </button>
             )}
-
-            <button
-              type="button"
-              onClick={() => setIsShareModalOpen(true)}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em] text-[var(--app-ink)] transition hover:bg-[var(--app-surface-muted)] sm:w-auto"
-            >
-              <Mail size={14} />
-              Compartir por correo
-            </button>
 
             <button
               type="button"
@@ -1042,50 +986,12 @@ export function ResultsView({
                     <h2 className="mt-6 rounded-[14px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-2 text-base font-black text-[var(--app-ink)] first:mt-0">
                       {children}
                     </h2>
-                  ),
-                }}
-              >
                 {currentReport}
               </ReactMarkdown>
             </div>
           </div>
         </aside>
       </div>
-
-      {isShareModalOpen && (
-        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-[rgba(15,23,42,0.48)] px-4">
-          <div className="w-full max-w-lg rounded-[20px] border border-[var(--app-border)] bg-white p-5 shadow-xl">
-            <h3 className="text-xl font-black text-[var(--app-ink)]">Compartir por correo</h3>
-            <p className="mt-2 text-sm text-[var(--app-muted)]">
-              Agrega uno o varios correos (separados por coma o salto de línea).
-            </p>
-            <textarea
-              value={emailRecipients}
-              onChange={(event) => setEmailRecipients(event.target.value)}
-              placeholder="correo1@empresa.com\ncorreo2@empresa.com"
-              className="mt-4 min-h-28 w-full rounded-[12px] border border-[var(--app-border)] bg-white p-3 text-sm"
-            />
-
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setIsShareModalOpen(false)}
-                className="rounded-full border border-[var(--app-border)] bg-white px-4 py-2 text-sm font-semibold text-[var(--app-ink)]"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                disabled={isSharing}
-                onClick={() => void handleShareByEmail()}
-                className="rounded-full bg-[var(--brand-primary)] px-4 py-2 text-sm font-extrabold text-white disabled:opacity-70 disabled:cursor-not-allowed"
-              >
-                {isSharing ? "Enviando..." : "Compartir"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {isTourOpen && (
         <div className="fixed inset-0 z-[130] flex items-center justify-center bg-[rgba(15,23,42,0.48)] px-4 backdrop-blur-sm">

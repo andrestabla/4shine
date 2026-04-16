@@ -206,12 +206,12 @@ function drawGlobalRadarChart(
   }
 
   pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(8.5);
+  pdf.setFontSize(8);
   pdf.setTextColor(87, 74, 123);
-  pdf.text("Within", centerX - 8, y + 8);
-  pdf.text("Out", x + size - 10, centerY + 1);
-  pdf.text("Up", centerX - 4, y + size - 2);
-  pdf.text("Beyond", x + 3, centerY + 1);
+  pdf.text("SHINE WITHIN", centerX, centerY - radius - 3.5, { align: "center" });
+  pdf.text("SHINE OUT", centerX + radius + 2.5, centerY + 1);
+  pdf.text("SHINE UP", centerX, centerY + radius + 5.5, { align: "center" });
+  pdf.text("SHINE BEYOND", centerX - radius - 2.5, centerY + 1, { align: "right" });
 }
 
 function drawMetricBarChart(
@@ -231,19 +231,23 @@ function drawMetricBarChart(
 
   values.forEach((entry, index) => {
     const rowY = y + 13 + index * 10;
+    const barX = x + 54;
+    const barWidth = width - 68;
+    const scoreX = x + width - 5;
+
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(8.5);
     pdf.setTextColor(98, 90, 125);
     pdf.text(entry.label, x + 4, rowY);
 
     pdf.setFillColor(239, 236, 247);
-    pdf.roundedRect(x + 28, rowY - 3.5, width - 40, 4.5, 2, 2, "F");
+    pdf.roundedRect(barX, rowY - 3.5, barWidth, 4.5, 2, 2, "F");
     pdf.setFillColor(...entry.color);
-    pdf.roundedRect(x + 28, rowY - 3.5, ((width - 40) * Math.max(0, Math.min(100, entry.value))) / 100, 4.5, 2, 2, "F");
+    pdf.roundedRect(barX, rowY - 3.5, (barWidth * Math.max(0, Math.min(100, entry.value))) / 100, 4.5, 2, 2, "F");
 
     pdf.setFont("helvetica", "bold");
     pdf.setTextColor(44, 38, 74);
-    pdf.text(`${entry.value}%`, x + width - 8, rowY, { align: "right" });
+    pdf.text(`${entry.value}%`, scoreX, rowY, { align: "right" });
   });
 }
 

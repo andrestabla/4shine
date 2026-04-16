@@ -36,12 +36,16 @@ function buildEmptyExternalState(): DiscoveryUserState {
       lastName: "",
       country: "",
       jobRole: "",
-      age: null,
+      gender: "",
       yearsExperience: null,
     },
     profileCompleted: false,
   };
 }
+
+const DATA_PROTECTION_POLICY = `La información suministrada en esta prueba diagnóstica será tratada de manera confidencial y utilizada exclusivamente con fines de evaluación, retroalimentación, acompañamiento y desarrollo dentro del programa 4Shine. Las respuestas recolectadas permitirán construir una línea base sobre fortalezas, brechas y prioridades de evolución del liderazgo, a partir de la cual se generarán reportes y orientaciones de trabajo personal y de mentoría.
+Los datos personales y los resultados obtenidos serán administrados bajo criterios de reserva, acceso restringido y uso responsable. Su tratamiento estará orientado únicamente a la operación metodológica del programa, al análisis del diagnóstico y al seguimiento del proceso formativo. La información no será divulgada a terceros ajenos al programa sin autorización previa del participante, salvo en los casos exigidos por la ley.
+Al continuar con esta prueba, el participante declara conocer y aceptar el tratamiento de sus datos para los fines aquí descritos, así como el uso de sus respuestas para la elaboración de reportes individuales, análisis agregados y decisiones de acompañamiento dentro del sistema 4Shine. El diagnóstico está diseñado con propósito de desarrollo y confidencialidad para favorecer respuestas honestas y una lectura rigurosa del perfil de liderazgo.`;
 
 function isProfileComplete(state: DiscoveryUserState): boolean {
   return Boolean(
@@ -49,7 +53,7 @@ function isProfileComplete(state: DiscoveryUserState): boolean {
       state.profile.lastName &&
       state.profile.country &&
       state.profile.jobRole &&
-      Number.isFinite(state.profile.age) &&
+      state.profile.gender &&
       Number.isFinite(state.profile.yearsExperience),
   );
 }
@@ -81,8 +85,7 @@ function toUserState(session: DiscoverySessionRecord): DiscoveryUserState {
       firstName: session.firstName ?? "",
       lastName: session.lastName ?? "",
       country: session.country ?? "",
-      jobRole: session.jobRole ?? "",
-      age: session.age,
+      gender: session.gender ?? "",
       yearsExperience: session.yearsExperience,
     },
     profileCompleted: session.profileCompleted,
@@ -151,6 +154,8 @@ export function InvitationAccessExperience({
   );
   const [showCompletedNotice, setShowCompletedNotice] = React.useState(false);
   const [isPersisting, setIsPersisting] = React.useState(false);
+  const [policyAccepted, setPolicyAccepted] = React.useState(false);
+  const [showPolicy, setShowPolicy] = React.useState(false);
   const [publicBranding, setPublicBranding] = React.useState<{
     platformName: string;
     logoUrl: string | null;
@@ -397,7 +402,7 @@ export function InvitationAccessExperience({
                 lastName: session.lastName,
                 country: session.country,
                 jobRole: session.jobRole,
-                age: session.age,
+                gender: session.gender,
                 yearsExperience: session.yearsExperience,
               },
               profileCompleted: session.profileCompleted,
@@ -567,37 +572,21 @@ export function InvitationAccessExperience({
                   </option>
                 ))}
               </select>
-              <input
-                value={externalState.profile.age ?? ""}
-                onChange={(event) => {
-                  const raw = event.target.value.replace(/[^0-9]/g, "");
+              <select
+                value={externalState.profile.gender}
+                onChange={(event) =>
                   setExternalState((current) => ({
                     ...current,
-                    profile: {
-                      ...current.profile,
-                      age: raw ? parseInt(raw, 10) : null,
-                    },
-                  }));
-                }}
-                onBlur={() => {
-                  setExternalState((current) => {
-                    const age = current.profile.age;
-                    if (age === null) return current;
-                    return {
-                      ...current,
-                      profile: {
-                        ...current.profile,
-                        age: Math.max(20, Math.min(70, age)),
-                      },
-                    };
-                  });
-                }}
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                placeholder="Edad"
+                    profile: { ...current.profile, gender: event.target.value as any },
+                  }))
+                }
                 className="h-11 rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
-              />
+              >
+                <option value="">Selecciona género</option>
+                <option value="Hombre">Hombre</option>
+                <option value="Mujer">Mujer</option>
+                <option value="Prefiero no decirlo">Prefiero no decirlo</option>
+              </select>
               <select
                 value={getYearsExperienceBucket(externalState.profile.yearsExperience)}
                 onChange={(event) =>
@@ -611,7 +600,7 @@ export function InvitationAccessExperience({
                 }
                 className="h-11 rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
               >
-                <option value="">Años de experiencia</option>
+                <option value="">Años de experiencia laboral</option>
                 {YEARS_EXPERIENCE_OPTIONS.map((option) => (
                   <option key={option.key} value={option.key}>
                     {option.label}
@@ -620,31 +609,66 @@ export function InvitationAccessExperience({
               </select>
             </div>
 
+            <div className="mt-6 flex items-start gap-3 rounded-[16px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4">
+              <input
+                id="policy-check"
+                type="checkbox"
+                checked={policyAccepted}
+                onChange={(e) => setPolicyAccepted(e.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-[var(--app-border)] text-[var(--brand-primary)] focus:ring-[var(--brand-primary)]"
+              />
+              <label htmlFor="policy-check" className="text-xs leading-relaxed text-[var(--app-muted)]">
+                Conozco y acepto la{" "}
+                <button
+                  type="button"
+                  onClick={() => setShowPolicy(true)}
+                  className="font-bold text-[var(--brand-primary)] underline"
+                >
+                  Política de protección de datos
+                </button>{" "}
+                del diagnóstico 4Shine.
+              </label>
+            </div>
+
             <button
               type="button"
+              disabled={!isProfileComplete(externalState) || !policyAccepted}
               onClick={() => {
-                if (!isProfileComplete(externalState)) {
-                  void alert({
-                    title: "Perfil incompleto",
-                    message: "Completa todos los campos para iniciar el diagnóstico.",
-                    tone: "warning",
-                  });
-                  return;
-                }
                 setExternalState((current) => ({
                   ...current,
                   name: `${current.profile.firstName} ${current.profile.lastName}`.trim(),
                   profileCompleted: true,
                   status: "instructions",
                 }));
+                window.scrollTo(0, 0);
               }}
-              className="mt-6 inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-5 py-3 text-sm font-extrabold text-white"
+              className="mt-6 inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-5 py-3 text-sm font-extrabold text-white transition disabled:opacity-40"
             >
               Empezar diagnóstico
               <ChevronRight size={16} />
             </button>
             </section>
           </main>
+
+          {showPolicy && (
+            <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 px-4">
+              <div className="w-full max-w-2xl rounded-[24px] bg-white p-6 shadow-2xl md:p-8">
+                <h3 className="text-xl font-black text-[var(--app-ink)]">Política de Tratamiento de Datos</h3>
+                <div className="mt-4 max-h-[60vh] overflow-y-auto pr-2 text-sm leading-relaxed text-[var(--app-muted)]">
+                  {DATA_PROTECTION_POLICY.split('\n').map((para, i) => (
+                    <p key={i} className="mb-3">{para}</p>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowPolicy(false)}
+                  className="mt-6 w-full rounded-full bg-[var(--app-ink)] py-3 text-sm font-bold text-white transition hover:bg-black"
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       );
     }
