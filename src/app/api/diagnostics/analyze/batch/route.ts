@@ -2,32 +2,27 @@ import { NextResponse } from "next/server";
 import { authenticateRequest } from "@/server/auth/request-auth";
 import { withClient, withRoleContext } from "@/server/db/pool";
 import {
-  generateDiscoveryAnalysisContract,
-  generateDiscoveryGuestSessionAnalysisContract,
-  generateDiscoveryInvitationAnalysisContract,
+  generateDiscoveryAnalysisBundleContract,
+  generateDiscoveryGuestSessionAnalysisBundleContract,
+  generateDiscoveryInvitationAnalysisBundleContract,
 } from "@/features/descubrimiento/service";
-import type {
-  DiscoveryReportFilter,
-  DiscoveryScoreResult,
-} from "@/features/descubrimiento/types";
+import type { DiscoveryScoreResult } from "@/features/descubrimiento/types";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-interface DiagnosticsAnalyzeBody {
+interface DiagnosticsAnalyzeBatchBody {
   inviteToken?: string;
   accessCode?: string;
   username?: string;
   role?: string;
   scores?: DiscoveryScoreResult;
-  pillar?: DiscoveryReportFilter;
-  fallbackReport?: string;
 }
 
 export async function POST(request: Request) {
-  let body: DiagnosticsAnalyzeBody | null = null;
+  let body: DiagnosticsAnalyzeBatchBody | null = null;
   try {
-    body = (await request.json()) as DiagnosticsAnalyzeBody;
+    body = (await request.json()) as DiagnosticsAnalyzeBatchBody;
   } catch {
     return NextResponse.json({ ok: false, error: "Invalid JSON body" }, { status: 400 });
   }
@@ -51,49 +46,43 @@ export async function POST(request: Request) {
         if (!identity.inviteToken) {
           throw new Error("Invitation access denied");
         }
-        return generateDiscoveryGuestSessionAnalysisContract(client, {
+        return generateDiscoveryGuestSessionAnalysisBundleContract(client, {
           inviteToken: identity.inviteToken,
           username,
           role: body?.role ?? "Invitado",
           scores,
-          pillar: body?.pillar ?? "all",
-          fallbackReport: body?.fallbackReport,
         });
       }
+
       if (identity?.role === "invitado") {
         return withRoleContext(client, identity.userId, identity.role, async () =>
-          generateDiscoveryAnalysisContract(client, identity, {
+          generateDiscoveryAnalysisBundleContract(client, identity, {
             username,
             role: body?.role ?? "Invitado",
             scores,
-            pillar: body?.pillar ?? "all",
-            fallbackReport: body?.fallbackReport,
           }),
         );
       }
 
       if (inviteToken && accessCode) {
-        return generateDiscoveryInvitationAnalysisContract(client, {
+        return generateDiscoveryInvitationAnalysisBundleContract(client, {
           inviteToken,
           accessCode,
           username,
           role: body?.role ?? "Invitado",
           scores,
-          pillar: body?.pillar ?? "all",
-          fallbackReport: body?.fallbackReport,
         });
       }
 
       if (!identity) {
         throw new Error("Unauthorized");
       }
+
       return withRoleContext(client, identity.userId, identity.role, async () =>
-        generateDiscoveryAnalysisContract(client, identity, {
+        generateDiscoveryAnalysisBundleContract(client, identity, {
           username,
           role: body?.role ?? "Lider",
           scores,
-          pillar: body?.pillar ?? "all",
-          fallbackReport: body?.fallbackReport,
         }),
       );
     });
@@ -111,7 +100,7 @@ export async function POST(request: Request) {
       );
     }
     return NextResponse.json(
-      { ok: false, error: "Failed to analyze diagnostics", detail },
+      { ok: false, error: "Failed to analyze diagnostics bundle", detail },
       { status: 500 },
     );
   }

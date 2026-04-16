@@ -5,6 +5,7 @@ import type {
   DiscoveryInvitationBatchResult,
   DiscoveryInvitationRecord,
   DiscoveryInvitationRequest,
+  DiscoveryOverviewDetailPayload,
   DiscoveryOverviewFilters,
   DiscoveryOverviewPayload,
   DiscoveryReportFilter,
@@ -20,6 +21,7 @@ export type {
   DiscoveryInvitationBatchResult,
   DiscoveryInvitationRecord,
   DiscoveryInvitationRequest,
+  DiscoveryOverviewDetailPayload,
   DiscoveryOverviewFilters,
   DiscoveryOverviewPayload,
   DiscoverySessionRecord,
@@ -133,6 +135,27 @@ export async function getDiscoveryOverview(
   );
 }
 
+export async function getDiscoveryOverviewDetail(
+  sessionId: string,
+): Promise<DiscoveryOverviewDetailPayload> {
+  const query = new URLSearchParams({ sessionId }).toString();
+  return requestApi<DiscoveryOverviewDetailPayload>(
+    `/api/v1/modules/descubrimiento/overview/detail?${query}`,
+  );
+}
+
+export async function resetDiscoveryOverviewAttempt(
+  sessionId: string,
+): Promise<{ sessionId: string }> {
+  return requestApi<{ sessionId: string }>(
+    "/api/v1/modules/descubrimiento/overview/reset",
+    {
+      method: "POST",
+      body: JSON.stringify({ sessionId }),
+    },
+  );
+}
+
 export async function verifyInvitationAccess(input: {
   inviteToken: string;
   accessCode: string;
@@ -187,6 +210,20 @@ export async function analyzeDiscoveryReport(input: {
   );
 }
 
+export async function analyzeDiscoveryReportBatch(input: {
+  username: string;
+  role: string;
+  scores: DiscoveryScoreResult;
+}): Promise<{ reports: Partial<Record<DiscoveryReportFilter, string>> }> {
+  return requestApi<{ reports: Partial<Record<DiscoveryReportFilter, string>> }>(
+    "/api/diagnostics/analyze/batch",
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+    },
+  );
+}
+
 export async function analyzeInvitationDiscoveryReport(input: {
   inviteToken: string;
   accessCode: string;
@@ -209,6 +246,29 @@ export async function analyzeInvitationDiscoveryReport(input: {
         scores,
         pillar,
         fallbackReport,
+      }),
+    },
+  );
+}
+
+export async function analyzeInvitationDiscoveryReportBatch(input: {
+  inviteToken: string;
+  accessCode: string;
+  username: string;
+  role: string;
+  scores: DiscoveryScoreResult;
+}): Promise<{ reports: Partial<Record<DiscoveryReportFilter, string>> }> {
+  const { inviteToken, accessCode, username, role, scores } = input;
+  return requestApi<{ reports: Partial<Record<DiscoveryReportFilter, string>> }>(
+    "/api/diagnostics/analyze/batch",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        inviteToken,
+        accessCode,
+        username,
+        role,
+        scores,
       }),
     },
   );

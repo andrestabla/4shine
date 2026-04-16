@@ -4,8 +4,6 @@ import React from "react";
 import Link from "next/link";
 import clsx from "clsx";
 import ReactMarkdown from "react-markdown";
-import * as htmlToImage from "html-to-image";
-import { jsPDF } from "jspdf";
 import {
   Copy,
   Download,
@@ -34,9 +32,10 @@ import { useAppDialog } from "@/components/ui/AppDialogProvider";
 import { PILLAR_INFO } from "./DiagnosticsData";
 import { analyzeDiscoveryReport } from "./client";
 import { analyzeInvitationDiscoveryReport } from "./client";
+import { downloadDiscoveryPdfReport } from "./pdf-export";
 import { buildDiscoveryReports, getDiscoveryStatus, scoreDiscoveryAnswers } from "./reporting";
-import { PdfReportData } from "./PdfReportData";
 import type {
+  DiscoveryAiReports,
   DiscoveryExperienceSurvey,
   DiscoveryPillarKey,
   DiscoveryReportFilter,
@@ -49,10 +48,12 @@ interface ResultsViewProps {
   publicId?: string | null;
   isPublic?: boolean;
   embedded?: boolean;
+  enablePublicAnalysis?: boolean;
   onShare?: () => Promise<DiscoverySessionRecord>;
   onReset?: () => Promise<void> | void;
   initialSurvey?: DiscoveryExperienceSurvey | null;
   onSurveySubmit?: (survey: DiscoveryExperienceSurvey) => Promise<void> | void;
+  initialAiReports?: DiscoveryAiReports | null;
   invitationCredentials?: { inviteToken: string; accessCode: string } | null;
 }
 
@@ -71,7 +72,10 @@ const EMPTY_REPORTS: Record<DiscoveryReportFilter, string> = {
   up: "",
   beyond: "",
 };
-const INVITATION_MAX_RETRIES = 4;
+const ANALYSIS_MAX_RETRIES = 5;
+const ALL_REPORT_FILTERS: DiscoveryReportFilter[] = ["all", "within", "out", "up", "beyond"];
+const PILLAR_REPORT_FILTERS: DiscoveryReportFilter[] = ["within", "out", "up", "beyond"];
+const ANALYSIS_CONCURRENCY = 4;
 
 const FACE_SCALE = [
   { value: 1, icon: Frown, label: "Muy difícil" },
@@ -112,10 +116,12 @@ export function ResultsView({
   publicId,
   isPublic = false,
   embedded = true,
+  enablePublicAnalysis = false,
   onShare,
   onReset,
   initialSurvey = null,
   onSurveySubmit,
+  initialAiReports = null,
   invitationCredentials = null,
 }: ResultsViewProps) {
   const { alert } = useAppDialog();
@@ -127,21 +133,23 @@ export function ResultsView({
     () => buildDiscoveryReports(state, scoring),
     [state, scoring],
   );
-  const isInvitationExperience = isPublic && Boolean(invitationCredentials);
+  const isInvitationExperience =
+    isPublic && (Boolean(invitationCredentials) || enablePublicAnalysis);
   const initialReports = React.useMemo(
-    () => (isInvitationExperience ? EMPTY_REPORTS : fallbackReports),
-    [isInvitationExperience, fallbackReports],
+    () => ({
+      ...EMPTY_REPORTS,
+      ...(initialAiReports ?? {}),
+    }),
+    [initialAiReports],
+  );
+  const initiallyCachedFilters = React.useMemo(
+    () =>
+      (Object.entries(initialAiReports ?? {}) as Array<[DiscoveryReportFilter, string]>)
+        .filter(([, report]) => report.trim().length > 0)
+        .map(([filterName]) => filterName),
+    [initialAiReports],
   );
   const [reports, setReports] = React.useState(initialReports);
-  const [analysisLoading, setAnalysisLoading] = React.useState<
-    Record<DiscoveryReportFilter, boolean>
-  >({
-    all: isInvitationExperience,
-    within: isInvitationExperience,
-    out: isInvitationExperience,
-    up: isInvitationExperience,
-    beyond: isInvitationExperience,
-  });
   const [filter, setFilter] = React.useState<DiscoveryReportFilter>("all");
   const [isExporting, setIsExporting] = React.useState(false);
   const [isSharing, setIsSharing] = React.useState(false);
@@ -154,7 +162,6 @@ export function ResultsView({
     "download" | "shareLink" | "shareEmail" | null
   >(null);
   const [surveyAnswers, setSurveyAnswers] = React.useState<Record<string, number>>(initialSurvey?.answers ?? {});
-  const hiddenPdfRef = React.useRef<HTMLDivElement>(null);
   const shouldUseStickyHeader = !isPublic;
   const stickyClass = shouldUseStickyHeader
     ? embedded
@@ -163,60 +170,28 @@ export function ResultsView({
     : "";
   const analysisCacheRef = React.useRef<Set<DiscoveryReportFilter>>(new Set());
   const analysisInFlightRef = React.useRef<Set<DiscoveryReportFilter>>(new Set());
-  const invitationRetryAttemptsRef = React.useRef<Record<DiscoveryReportFilter, number>>({
-    all: 0,
-    within: 0,
-    out: 0,
-    up: 0,
-    beyond: 0,
-  });
-  const invitationRetryTimersRef = React.useRef<Record<DiscoveryReportFilter, number | null>>({
-    all: null,
-    within: null,
-    out: null,
-    up: null,
-    beyond: null,
-  });
+  const analysisBatchStartedRef = React.useRef(false);
   const [analysisCompletedCount, setAnalysisCompletedCount] = React.useState(0);
-  const invitationBackgroundPrefetchStartedRef = React.useRef(false);
-  const surveyStorageKey = React.useMemo(
-    () =>
-      `discovery-survey:${(publicId ?? invitationCredentials?.inviteToken ?? state.name) || "anon"}`,
-    [invitationCredentials?.inviteToken, publicId, state.name],
-  );
+  const [analysisBatchPending, setAnalysisBatchPending] = React.useState(false);
+  const [analysisActiveCount, setAnalysisActiveCount] = React.useState(0);
+  const surveyPromptTimerRef = React.useRef<number | null>(null);
 
   React.useEffect(() => {
     setReports(initialReports);
-    setAnalysisLoading({
-      all: isInvitationExperience,
-      within: isInvitationExperience,
-      out: isInvitationExperience,
-      up: isInvitationExperience,
-      beyond: isInvitationExperience,
-    });
     analysisCacheRef.current.clear();
-    setAnalysisCompletedCount(0);
-    invitationBackgroundPrefetchStartedRef.current = false;
-    invitationRetryAttemptsRef.current = {
-      all: 0,
-      within: 0,
-      out: 0,
-      up: 0,
-      beyond: 0,
-    };
-    for (const key of Object.keys(invitationRetryTimersRef.current) as DiscoveryReportFilter[]) {
-      const timer = invitationRetryTimersRef.current[key];
-      if (timer) window.clearTimeout(timer);
-      invitationRetryTimersRef.current[key] = null;
+    for (const filterName of initiallyCachedFilters) {
+      analysisCacheRef.current.add(filterName);
     }
-  }, [initialReports, isInvitationExperience]);
+    setAnalysisCompletedCount(initiallyCachedFilters.length);
+    setAnalysisActiveCount(0);
+    setAnalysisBatchPending(false);
+    analysisBatchStartedRef.current = false;
+  }, [initialReports, initiallyCachedFilters, isInvitationExperience]);
 
   React.useEffect(() => {
-    const timersRef = invitationRetryTimersRef.current;
     return () => {
-      for (const key of Object.keys(timersRef) as DiscoveryReportFilter[]) {
-        const timer = timersRef[key];
-        if (timer) window.clearTimeout(timer);
+      if (surveyPromptTimerRef.current) {
+        window.clearTimeout(surveyPromptTimerRef.current);
       }
     };
   }, []);
@@ -237,131 +212,174 @@ export function ResultsView({
     }
   }, []);
 
+  const clearSurveyPromptTimer = React.useCallback(() => {
+    if (surveyPromptTimerRef.current) {
+      window.clearTimeout(surveyPromptTimerRef.current);
+      surveyPromptTimerRef.current = null;
+    }
+  }, []);
+
+  const hasSurveyResponses = React.useCallback(() => {
+    if (initialSurvey) return true;
+    return Object.keys(surveyAnswers).length >= SURVEY_QUESTIONS.length;
+  }, [initialSurvey, surveyAnswers]);
+
+  const scheduleSurveyPrompt = React.useCallback(
+    (delayMs: number) => {
+      if (typeof window === "undefined") return;
+      if (hasSurveyResponses()) return;
+      clearSurveyPromptTimer();
+      surveyPromptTimerRef.current = window.setTimeout(() => {
+        setPendingSurveyAction(null);
+        setIsSurveyOpen(true);
+      }, delayMs);
+    },
+    [clearSurveyPromptTimer, hasSurveyResponses],
+  );
+
   React.useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (initialSurvey) return;
-    if (window.localStorage.getItem(surveyStorageKey)) return;
+    if (hasSurveyResponses()) {
+      clearSurveyPromptTimer();
+      return;
+    }
 
-    const timer = window.setTimeout(() => {
-      setIsSurveyOpen(true);
-    }, 120000);
+    scheduleSurveyPrompt(60000);
+    return clearSurveyPromptTimer;
+  }, [clearSurveyPromptTimer, hasSurveyResponses, scheduleSurveyPrompt]);
 
-    return () => window.clearTimeout(timer);
-  }, [initialSurvey, surveyStorageKey]);
+  const syncReports = React.useCallback((nextReports: Partial<Record<DiscoveryReportFilter, string>>) => {
+    const trimmedEntries = (Object.entries(nextReports) as Array<[DiscoveryReportFilter, string | undefined]>)
+      .map(([target, report]) => [target, report?.trim() ?? ""] as const)
+      .filter(([, report]) => report.length > 0);
+
+    if (trimmedEntries.length === 0) return;
+
+    setReports((current) => {
+      const merged = { ...current };
+      for (const [target, report] of trimmedEntries) {
+        merged[target] = report;
+      }
+      return merged;
+    });
+
+    const known = new Set(analysisCacheRef.current);
+    for (const [target] of trimmedEntries) {
+      known.add(target);
+    }
+    analysisCacheRef.current = known;
+    setAnalysisCompletedCount(known.size);
+  }, []);
 
   const generateAnalysisForFilter = React.useCallback(
     async (target: DiscoveryReportFilter) => {
-      if (isPublic && !invitationCredentials) return;
+      if (isPublic && !invitationCredentials && !enablePublicAnalysis) return;
       if (analysisCacheRef.current.has(target)) return;
       if (analysisInFlightRef.current.has(target)) return;
 
       analysisInFlightRef.current.add(target);
-      setAnalysisLoading((current) => ({ ...current, [target]: true }));
+      setAnalysisActiveCount((current) => current + 1);
       try {
-        const response = invitationCredentials
-          ? await analyzeInvitationDiscoveryReport({
-              inviteToken: invitationCredentials.inviteToken,
-              accessCode: invitationCredentials.accessCode,
-              username: state.name,
-              role: state.profile.jobRole || "Invitado",
-              scores: scoring,
-              pillar: target,
-            })
-          : await analyzeDiscoveryReport({
-              username: state.name,
-              role: state.profile.jobRole || "Lider",
-              scores: scoring,
-              pillar: target,
-              fallbackReport: fallbackReports[target],
-            });
+        for (let attempt = 1; attempt <= ANALYSIS_MAX_RETRIES; attempt += 1) {
+          try {
+            const response = invitationCredentials
+              ? await analyzeInvitationDiscoveryReport({
+                  inviteToken: invitationCredentials.inviteToken,
+                  accessCode: invitationCredentials.accessCode,
+                  username: state.name,
+                  role: state.profile.jobRole || "Invitado",
+                  scores: scoring,
+                  pillar: target,
+                  fallbackReport: fallbackReports[target],
+                })
+              : await analyzeDiscoveryReport({
+                  username: state.name,
+                  role: state.profile.jobRole || "Lider",
+                  scores: scoring,
+                  pillar: target,
+                  fallbackReport: fallbackReports[target],
+                });
 
-        const alreadyCompleted = analysisCacheRef.current.has(target);
-        setReports((current) => ({
-          ...current,
-          [target]: response.report?.trim() || (isInvitationExperience ? "" : fallbackReports[target]),
-        }));
-        analysisCacheRef.current.add(target);
-        invitationRetryAttemptsRef.current[target] = 0;
-        const timer = invitationRetryTimersRef.current[target];
-        if (timer) window.clearTimeout(timer);
-        invitationRetryTimersRef.current[target] = null;
-        if (!alreadyCompleted) {
-          setAnalysisCompletedCount((current) => Math.min(5, current + 1));
-        }
-      } catch {
-        if (isInvitationExperience) {
-          const nextAttempt = invitationRetryAttemptsRef.current[target] + 1;
-          invitationRetryAttemptsRef.current[target] = nextAttempt;
-          if (nextAttempt >= INVITATION_MAX_RETRIES) {
-            const alreadyCompleted = analysisCacheRef.current.has(target);
-            setReports((current) => ({
-              ...current,
-              [target]: fallbackReports[target],
-            }));
-            analysisCacheRef.current.add(target);
-            const timer = invitationRetryTimersRef.current[target];
-            if (timer) window.clearTimeout(timer);
-            invitationRetryTimersRef.current[target] = null;
-            if (!alreadyCompleted) {
-              setAnalysisCompletedCount((current) => Math.min(5, current + 1));
+            if (response.report?.trim()) {
+              syncReports({ [target]: response.report.trim() });
+              return;
             }
-            return;
+          } catch (error) {
+            const message =
+              error instanceof Error ? error.message.toLowerCase() : "";
+            const isRetryable =
+              message.includes("ai_final_analysis_pending") ||
+              message.includes("openai request failed") ||
+              message.includes("failed to analyze diagnostics");
+            if (!isRetryable || attempt >= ANALYSIS_MAX_RETRIES) {
+              return;
+            }
           }
-          const delayMs = Math.min(2500 * nextAttempt, 12000);
-          const priorTimer = invitationRetryTimersRef.current[target];
-          if (priorTimer) window.clearTimeout(priorTimer);
-          invitationRetryTimersRef.current[target] = window.setTimeout(() => {
-            invitationRetryTimersRef.current[target] = null;
-            void generateAnalysisForFilter(target);
-          }, delayMs);
-        } else {
-          setReports((current) => ({
-            ...current,
-            [target]: fallbackReports[target],
-          }));
+
+          if (attempt < ANALYSIS_MAX_RETRIES) {
+            await new Promise((resolve) =>
+              window.setTimeout(resolve, Math.min(1200 * attempt, 3200)),
+            );
+          }
         }
+        return;
       } finally {
         analysisInFlightRef.current.delete(target);
-        const keepLoading = isInvitationExperience && !analysisCacheRef.current.has(target);
-        setAnalysisLoading((current) => ({ ...current, [target]: keepLoading ? true : false }));
+        setAnalysisActiveCount((current) => Math.max(0, current - 1));
       }
     },
     [
+      enablePublicAnalysis,
       fallbackReports,
       invitationCredentials,
-      isInvitationExperience,
       isPublic,
       scoring,
       state.name,
       state.profile.jobRole,
+      syncReports,
     ],
   );
 
   React.useEffect(() => {
-    void generateAnalysisForFilter(filter);
-  }, [filter, generateAnalysisForFilter]);
+    if (analysisBatchStartedRef.current) return;
+    if (isPublic && !invitationCredentials && !enablePublicAnalysis) return;
+    if (ALL_REPORT_FILTERS.every((target) => analysisCacheRef.current.has(target))) return;
+    analysisBatchStartedRef.current = true;
+    let cancelled = false;
+    setAnalysisBatchPending(true);
+    void (async () => {
+      try {
+        if (!analysisCacheRef.current.has("all")) {
+          await generateAnalysisForFilter("all");
+        }
 
-  React.useEffect(() => {
-    if (!isInvitationExperience) return;
-    if (!invitationCredentials) return;
-    if (invitationBackgroundPrefetchStartedRef.current) return;
-    invitationBackgroundPrefetchStartedRef.current = true;
+        if (cancelled) return;
 
-    const timers: number[] = [];
-    void generateAnalysisForFilter("all").finally(() => {
-      const secondaryTargets: DiscoveryReportFilter[] = ["within", "out", "up", "beyond"];
-      secondaryTargets.forEach((target, index) => {
-        const timer = window.setTimeout(() => {
-          void generateAnalysisForFilter(target);
-        }, 300 + index * 450);
-        timers.push(timer);
-      });
-    });
+        const pendingPillars = PILLAR_REPORT_FILTERS.filter(
+          (target) => !analysisCacheRef.current.has(target),
+        );
+        if (pendingPillars.length === 0) return;
+
+        for (let index = 0; index < pendingPillars.length; index += ANALYSIS_CONCURRENCY) {
+          if (cancelled) return;
+          const chunk = pendingPillars.slice(index, index + ANALYSIS_CONCURRENCY);
+          await Promise.allSettled(chunk.map((target) => generateAnalysisForFilter(target)));
+        }
+      } finally {
+        if (!cancelled) {
+          setAnalysisBatchPending(false);
+        }
+      }
+    })();
 
     return () => {
-      for (const timer of timers) window.clearTimeout(timer);
+      cancelled = true;
     };
-  }, [generateAnalysisForFilter, invitationCredentials, isInvitationExperience]);
+  }, [
+    enablePublicAnalysis,
+    generateAnalysisForFilter,
+    invitationCredentials,
+    isPublic,
+  ]);
 
   const radarData = React.useMemo(
     () => [
@@ -407,28 +425,51 @@ export function ResultsView({
   const currentScore =
     filter === "all" ? scoring.globalIndex : currentMetric?.total ?? 0;
   const currentStatus = getDiscoveryStatus(currentScore);
-  const isCurrentAnalysisLoading = analysisLoading[filter];
-  const invitationProgressPercent = Math.round((analysisCompletedCount / 5) * 100);
+  const invitationProgressPercent = Math.round(
+    (analysisCompletedCount / ALL_REPORT_FILTERS.length) * 100,
+  );
+  const displayedProgressPercent =
+    analysisCompletedCount >= ALL_REPORT_FILTERS.length
+      ? 100
+      : Math.min(
+          96,
+          invitationProgressPercent + (analysisBatchPending && analysisActiveCount > 0 ? 8 : 0),
+        );
   const shareUrl = sharedPublicId ? buildShareUrl(sharedPublicId) : "";
-  const hasSurveyResponses = React.useCallback(() => {
-    if (Object.keys(surveyAnswers).length >= SURVEY_QUESTIONS.length) return true;
-    if (typeof window === "undefined") return false;
-    return Boolean(window.localStorage.getItem(surveyStorageKey));
-  }, [surveyAnswers, surveyStorageKey]);
 
   const ensureSurveyBeforeAction = React.useCallback(
     (action: "download" | "shareLink" | "shareEmail") => {
       if (hasSurveyResponses()) return true;
+      clearSurveyPromptTimer();
       setPendingSurveyAction(action);
       setIsSurveyOpen(true);
       return false;
     },
-    [hasSurveyResponses],
+    [clearSurveyPromptTimer, hasSurveyResponses],
+  );
+
+  const areAllReportsReady = React.useMemo(
+    () => ALL_REPORT_FILTERS.every((target) => reports[target]?.trim().length > 0),
+    [reports],
+  );
+
+  const ensureFinalAnalysisReady = React.useCallback(
+    async (actionLabel: string) => {
+      if (areAllReportsReady) return true;
+      await alert({
+        title: "Tu lectura final aún se está cerrando",
+        message: `Estamos terminando el análisis definitivo. Cuando termine podrás ${actionLabel}.`,
+        tone: "warning",
+      });
+      return false;
+    },
+    [alert, areAllReportsReady],
   );
 
   const handleShare = async () => {
     if (!onShare || isPublic) return;
     if (!ensureSurveyBeforeAction("shareLink")) return;
+    if (!(await ensureFinalAnalysisReady("compartirla"))) return;
     setIsSharing(true);
     try {
       const nextSession = await onShare();
@@ -476,6 +517,7 @@ export function ResultsView({
       return;
     }
     if (!ensureSurveyBeforeAction("shareEmail")) return;
+    if (!(await ensureFinalAnalysisReady("compartirla"))) return;
 
     try {
       const link = await ensureSharableUrl();
@@ -518,49 +560,16 @@ export function ResultsView({
   };
 
   const runDownloadPdf = async () => {
-    if (!hiddenPdfRef.current) return;
+    if (!(await ensureFinalAnalysisReady("descargar el informe"))) return;
 
     setIsExporting(true);
     try {
-      await new Promise((resolve) => window.setTimeout(resolve, 450));
-      const imageData = await htmlToImage.toPng(hiddenPdfRef.current, {
-        pixelRatio: 2,
-        backgroundColor: "#ffffff",
+      await downloadDiscoveryPdfReport({
+        participantName: state.name,
+        state,
+        scoring,
+        reports,
       });
-
-      const pdf = new jsPDF({
-        orientation: "p",
-        unit: "mm",
-        format: "a4",
-        compress: true,
-      });
-
-      const imageProps = pdf.getImageProperties(imageData);
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (imageProps.height * pdfWidth) / imageProps.width;
-      const pageHeight = pdf.internal.pageSize.getHeight();
-
-      let remainingHeight = pdfHeight;
-      let offsetY = 0;
-
-      pdf.addImage(imageData, "PNG", 0, 0, pdfWidth, pdfHeight);
-      remainingHeight -= pageHeight;
-
-      while (remainingHeight > 0) {
-        offsetY -= pageHeight;
-        pdf.addPage();
-        pdf.addImage(imageData, "PNG", 0, offsetY, pdfWidth, pdfHeight);
-        remainingHeight -= pageHeight;
-      }
-
-      const safeName = state.name
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .replace(/[^a-zA-Z0-9\s]/g, "")
-        .trim()
-        .replace(/\s+/g, "_");
-
-      pdf.save(`Descubrimiento_4Shine_${safeName || "usuario"}.pdf`);
     } catch (error) {
       await alert({
         title: "No se pudo generar el PDF",
@@ -614,13 +623,7 @@ export function ResultsView({
       }
     }
 
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(
-        surveyStorageKey,
-        JSON.stringify({ answeredAt: surveyPayload.submittedAt, answers: surveyAnswers }),
-      );
-    }
-
+    clearSurveyPromptTimer();
     setIsSurveyOpen(false);
     const pendingAction = pendingSurveyAction;
     setPendingSurveyAction(null);
@@ -638,12 +641,11 @@ export function ResultsView({
     }
   };
 
+  const currentReport = reports[filter]?.trim() ?? "";
+  const shouldMaskAnalysis = currentReport.length === 0;
+
   return (
     <div className="space-y-6">
-      <div className="pointer-events-none absolute left-[-9999px] top-[-9999px] w-[210mm]">
-        <PdfReportData ref={hiddenPdfRef} state={state} scoring={scoring} />
-      </div>
-
       {!embedded && (
         <div className="mx-auto max-w-6xl px-4 pt-8 md:px-6">
           <div className="mb-4 flex items-center justify-between rounded-[14px] border border-[var(--app-border)] bg-white px-4 py-3">
@@ -737,13 +739,13 @@ export function ResultsView({
         {isInvitationExperience && analysisCompletedCount < 5 && (
           <div className="mt-4 rounded-[14px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-3">
             <div className="flex items-center justify-between gap-3 text-xs font-semibold text-[var(--app-muted)]">
-              <span>Generando análisis completo en profundidad…</span>
+              <span>Generando análisis</span>
               <span>{analysisCompletedCount}/5</span>
             </div>
             <div className="mt-2 h-2 overflow-hidden rounded-full bg-white">
               <div
                 className="h-full rounded-full bg-[var(--brand-primary)] transition-all duration-500"
-                style={{ width: `${invitationProgressPercent}%` }}
+                style={{ width: `${displayedProgressPercent}%` }}
               />
             </div>
           </div>
@@ -909,15 +911,27 @@ export function ResultsView({
             {filter === "all" ? "Visión general" : PILLAR_INFO[filter].title}
           </h4>
           <div className="relative mt-6">
-            {isCurrentAnalysisLoading && (
+            {shouldMaskAnalysis && (
               <div className="pointer-events-none absolute inset-0 z-20 rounded-[16px] border border-[var(--app-border)] bg-white/82 backdrop-blur-[1px]">
                 <div className="flex h-full min-h-[220px] flex-col items-center justify-center gap-3 p-4 text-center">
-                  <div className="inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--app-muted)]">
-                    <Loader2 size={14} className="animate-spin text-[var(--brand-primary)]" />
-                    Analizando en profundidad…
+                    <div className="inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--app-muted)]">
+                      <Loader2 size={14} className="animate-spin text-[var(--brand-primary)]" />
+                      Generando análisis
+                    </div>
+                  <div className="w-full max-w-xs">
+                    <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--app-muted)]">
+                      <span>Progreso</span>
+                      <span>{displayedProgressPercent}%</span>
+                    </div>
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-[var(--app-surface-muted)]">
+                      <div
+                        className="h-full rounded-full bg-[var(--brand-primary)] transition-all duration-500"
+                        style={{ width: `${Math.max(displayedProgressPercent, 8)}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-[var(--app-surface-muted)]">
-                    <div className="h-full w-1/3 animate-[pulse_1.2s_ease-in-out_infinite] rounded-full bg-[var(--brand-primary)]" />
+                  <div className="text-xs font-semibold text-[var(--app-muted)]">
+                    {analysisCompletedCount} de {ALL_REPORT_FILTERS.length} vistas cerradas
                   </div>
                 </div>
               </div>
@@ -932,7 +946,7 @@ export function ResultsView({
                   ),
                 }}
               >
-                {reports[filter]}
+                {currentReport}
               </ReactMarkdown>
             </div>
           </div>
@@ -1055,10 +1069,11 @@ export function ResultsView({
                 onClick={() => {
                   setPendingSurveyAction(null);
                   setIsSurveyOpen(false);
+                  scheduleSurveyPrompt(300000);
                 }}
                 className="rounded-full border border-[var(--app-border)] bg-white px-4 py-2 text-sm font-semibold text-[var(--app-ink)]"
               >
-                Responder luego
+                Responder en otro momento
               </button>
               <button
                 type="button"

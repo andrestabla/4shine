@@ -14,27 +14,39 @@ import {
   type UserTypeOption,
 } from '@/features/usuarios/user-types';
 
+type JobRole =
+  | 'Director/C-Level'
+  | 'Gerente/Mando medio'
+  | 'Coordinador'
+  | 'Lider de proyecto con equipo a cargo'
+  | 'Individual contributor';
+
 interface FormState {
-  fullName: string;
+  firstName: string;
+  lastName: string;
   email: string;
   password: string;
   userType: UserTypeOption;
+  country: string;
+  jobRole: JobRole | '';
+  age: string;
+  yearsExperience: string;
 }
 
-function splitName(fullName: string): { firstName: string; lastName: string } {
-  const clean = fullName.trim().replace(/\s+/g, ' ');
-  const pieces = clean.split(' ').filter(Boolean);
-  if (pieces.length <= 1) {
-    return {
-      firstName: pieces[0] ?? '',
-      lastName: pieces[0] ?? '',
-    };
-  }
+const JOB_ROLE_OPTIONS: readonly JobRole[] = [
+  'Director/C-Level',
+  'Gerente/Mando medio',
+  'Coordinador',
+  'Lider de proyecto con equipo a cargo',
+  'Individual contributor',
+];
 
-  return {
-    firstName: pieces.slice(0, -1).join(' '),
-    lastName: pieces.slice(-1).join(' '),
-  };
+function parseOptionalInteger(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed)) return null;
+  return Math.floor(parsed);
 }
 
 export default function NuevoUsuarioPage() {
@@ -44,10 +56,15 @@ export default function NuevoUsuarioPage() {
 
   const [submitting, setSubmitting] = React.useState(false);
   const [form, setForm] = React.useState<FormState>({
-    fullName: '',
+    firstName: '',
+    lastName: '',
     email: '',
     password: '',
     userType: 'leader_without_subscription',
+    country: '',
+    jobRole: '',
+    age: '',
+    yearsExperience: '',
   });
 
   const canCreate = can('usuarios', 'create');
@@ -56,11 +73,38 @@ export default function NuevoUsuarioPage() {
     event.preventDefault();
     if (!canCreate || submitting) return;
 
-    const { firstName, lastName } = splitName(form.fullName);
+    const firstName = form.firstName.trim();
+    const lastName = form.lastName.trim();
     if (!firstName || !lastName || !form.email.trim() || !form.password.trim()) {
       await alert({
         title: 'Campos requeridos',
-        message: 'Nombre completo, correo y contraseña son obligatorios.',
+        message: 'Nombres, apellidos, correo y contraseña son obligatorios.',
+        tone: 'warning',
+      });
+      return;
+    }
+    const age = parseOptionalInteger(form.age);
+    const yearsExperience = parseOptionalInteger(form.yearsExperience);
+    if (!form.country.trim() || !form.jobRole || age === null || yearsExperience === null) {
+      await alert({
+        title: 'Campos requeridos',
+        message: 'País, cargo, edad y años de experiencia son obligatorios.',
+        tone: 'warning',
+      });
+      return;
+    }
+    if (age < 16 || age > 100) {
+      await alert({
+        title: 'Edad inválida',
+        message: 'La edad debe estar entre 16 y 100.',
+        tone: 'warning',
+      });
+      return;
+    }
+    if (yearsExperience < 0 || yearsExperience > 80) {
+      await alert({
+        title: 'Experiencia inválida',
+        message: 'Los años de experiencia deben estar entre 0 y 80.',
         tone: 'warning',
       });
       return;
@@ -73,10 +117,14 @@ export default function NuevoUsuarioPage() {
         email: form.email.trim(),
         firstName,
         lastName,
-        displayName: form.fullName.trim(),
+        displayName: `${firstName} ${lastName}`.trim(),
         primaryRole: userTypeSelection.primaryRole,
         password: form.password,
         planType: userTypeSelection.planType,
+        country: form.country.trim(),
+        jobRole: form.jobRole,
+        age,
+        yearsExperience,
       });
 
       await refreshBootstrap();
@@ -122,13 +170,24 @@ export default function NuevoUsuarioPage() {
 
       <form onSubmit={onSubmit} className="app-panel-strong p-6 md:p-10">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <label className="md:col-span-2">
-            <span className="app-field-label">Nombre Completo *</span>
+          <label>
+            <span className="app-field-label">Nombres *</span>
             <input
               className="app-input"
-              placeholder="Ej: Juan Pérez"
-              value={form.fullName}
-              onChange={(event) => setForm((prev) => ({ ...prev, fullName: event.target.value }))}
+              placeholder="Ej: Juan"
+              value={form.firstName}
+              onChange={(event) => setForm((prev) => ({ ...prev, firstName: event.target.value }))}
+              required
+            />
+          </label>
+
+          <label>
+            <span className="app-field-label">Apellidos *</span>
+            <input
+              className="app-input"
+              placeholder="Ej: Pérez"
+              value={form.lastName}
+              onChange={(event) => setForm((prev) => ({ ...prev, lastName: event.target.value }))}
               required
             />
           </label>
@@ -152,6 +211,62 @@ export default function NuevoUsuarioPage() {
               className="app-input"
               value={form.password}
               onChange={(event) => setForm((prev) => ({ ...prev, password: event.target.value }))}
+              required
+            />
+          </label>
+
+          <label>
+            <span className="app-field-label">País</span>
+            <input
+              className="app-input"
+              placeholder="Ej: Colombia"
+              value={form.country}
+              onChange={(event) => setForm((prev) => ({ ...prev, country: event.target.value }))}
+              required
+            />
+          </label>
+
+          <label>
+            <span className="app-field-label">Cargo</span>
+            <select
+              className="app-select"
+              value={form.jobRole}
+              onChange={(event) => setForm((prev) => ({ ...prev, jobRole: event.target.value as FormState['jobRole'] }))}
+              required
+            >
+              <option value="">Sin definir</option>
+              {JOB_ROLE_OPTIONS.map((jobRole) => (
+                <option key={jobRole} value={jobRole}>
+                  {jobRole}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            <span className="app-field-label">Edad</span>
+            <input
+              type="number"
+              min={16}
+              max={100}
+              className="app-input"
+              placeholder="Ej: 38"
+              value={form.age}
+              onChange={(event) => setForm((prev) => ({ ...prev, age: event.target.value }))}
+              required
+            />
+          </label>
+
+          <label>
+            <span className="app-field-label">Años de Experiencia</span>
+            <input
+              type="number"
+              min={0}
+              max={80}
+              className="app-input"
+              placeholder="Ej: 12"
+              value={form.yearsExperience}
+              onChange={(event) => setForm((prev) => ({ ...prev, yearsExperience: event.target.value }))}
               required
             />
           </label>

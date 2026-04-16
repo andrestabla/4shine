@@ -1,6 +1,6 @@
 import type { ViewerAccessState } from '@/features/access/types';
 
-export type Role = 'lider' | 'mentor' | 'gestor' | 'admin';
+export type Role = 'lider' | 'mentor' | 'gestor' | 'admin' | 'invitado';
 
 export interface UserStats {
   progress?: number;

@@ -105,6 +105,28 @@ export default function DashboardHomePage() {
       },
       { label: "Noticias", value: newsUpdates.length, hint: "Publicadas" },
     ],
+    invitado: [
+      {
+        label: "Acceso",
+        value: "Temporal",
+        hint: "Invitación",
+      },
+      {
+        label: "Módulo",
+        value: "Descubrimiento",
+        hint: "Habilitado",
+      },
+      {
+        label: "Progreso",
+        value: `${currentUser.stats.progress ?? 0}%`,
+        hint: "Diagnóstico",
+      },
+      {
+        label: "Estado",
+        value: "Activo",
+        hint: "Sesión vigente",
+      },
+    ],
   }[currentRole];
 
   const quickActions = [

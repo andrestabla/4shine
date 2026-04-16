@@ -4,6 +4,12 @@ import { requireModulePermission } from '@/server/auth/module-permissions';
 
 type PlanType = 'standard' | 'premium' | 'vip' | 'empresa_elite';
 type SeniorityLevel = 'senior' | 'c_level' | 'director' | 'manager' | 'vp';
+type JobRole =
+  | 'Director/C-Level'
+  | 'Gerente/Mando medio'
+  | 'Coordinador'
+  | 'Lider de proyecto con equipo a cargo'
+  | 'Individual contributor';
 
 export interface ProfileProjectRecord {
   projectId: string;
@@ -30,6 +36,10 @@ export interface MyProfileRecord {
   seniorityLevel: SeniorityLevel | null;
   bio: string | null;
   location: string | null;
+  country: string | null;
+  jobRole: JobRole | null;
+  age: number | null;
+  yearsExperience: number | null;
   linkedinUrl: string | null;
   twitterUrl: string | null;
   websiteUrl: string | null;
@@ -58,6 +68,10 @@ export interface UpdateMyProfileInput {
   seniorityLevel?: SeniorityLevel | null;
   bio?: string | null;
   location?: string | null;
+  country?: string | null;
+  jobRole?: JobRole | null;
+  age?: number | null;
+  yearsExperience?: number | null;
   linkedinUrl?: string | null;
   twitterUrl?: string | null;
   websiteUrl?: string | null;
@@ -82,6 +96,10 @@ interface ProfileRow {
   seniority_level: SeniorityLevel | null;
   bio: string | null;
   location: string | null;
+  country: string | null;
+  job_role: JobRole | null;
+  age: number | null;
+  years_experience: number | null;
   linkedin_url: string | null;
   twitter_url: string | null;
   website_url: string | null;
@@ -101,6 +119,15 @@ interface ProjectRow {
   image_url: string | null;
 }
 
+const JOB_ROLE_OPTIONS: readonly JobRole[] = [
+  'Director/C-Level',
+  'Gerente/Mando medio',
+  'Coordinador',
+  'Lider de proyecto con equipo a cargo',
+  'Individual contributor',
+];
+const JOB_ROLE_SET = new Set<JobRole>(JOB_ROLE_OPTIONS);
+
 function normalizeText(value: string | null | undefined): string | null {
   if (value === undefined) return null;
   if (value === null) return null;
@@ -112,6 +139,44 @@ function normalizeRequiredText(value: string, fallback: string): string {
   const trimmed = value.trim();
   if (trimmed.length > 0) return trimmed;
   return fallback;
+}
+
+function normalizeJobRole(value: JobRole | string | null | undefined): JobRole | null {
+  if (value === undefined || value === null) return null;
+  const normalized = value.trim() === 'Gerente/Mand medio' ? 'Gerente/Mando medio' : value.trim();
+  return JOB_ROLE_SET.has(normalized as JobRole) ? (normalized as JobRole) : null;
+}
+
+function normalizeAge(value: number | null | undefined): number | null {
+  if (value === undefined || value === null) return null;
+  if (!Number.isFinite(value)) return null;
+  return Math.max(16, Math.min(100, Math.floor(Number(value))));
+}
+
+function normalizeYearsExperience(value: number | null | undefined): number | null {
+  if (value === undefined || value === null) return null;
+  if (!Number.isFinite(value)) return null;
+  return Math.max(0, Math.min(80, Math.floor(Number(value))));
+}
+
+function assertRequiredDemographics(input: {
+  country: string | null;
+  jobRole: JobRole | null;
+  age: number | null;
+  yearsExperience: number | null;
+}) {
+  if (!input.country || input.country.trim().length === 0) {
+    throw new Error('País es obligatorio.');
+  }
+  if (!input.jobRole) {
+    throw new Error('Cargo es obligatorio.');
+  }
+  if (!Number.isFinite(input.age)) {
+    throw new Error('Edad es obligatoria.');
+  }
+  if (!Number.isFinite(input.yearsExperience)) {
+    throw new Error('Años de experiencia es obligatorio.');
+  }
 }
 
 function splitDisplayName(displayName: string, fallbackFirstName: string, fallbackLastName: string): {
@@ -182,6 +247,10 @@ function mapProfile(row: ProfileRow, interests: string[], projects: ProfileProje
     seniorityLevel: row.seniority_level,
     bio: row.bio,
     location: row.location,
+    country: row.country,
+    jobRole: row.job_role,
+    age: row.age,
+    yearsExperience: row.years_experience,
     linkedinUrl: row.linkedin_url,
     twitterUrl: row.twitter_url,
     websiteUrl: row.website_url,
@@ -212,6 +281,10 @@ async function getProfileRow(client: PoolClient, userId: string): Promise<Profil
         up.seniority_level,
         up.bio,
         up.location,
+        up.country,
+        up.job_role,
+        up.age,
+        up.years_experience,
         up.linkedin_url,
         up.twitter_url,
         up.website_url,
@@ -379,10 +452,24 @@ export async function updateMyProfile(
     seniorityLevel: input.seniorityLevel === undefined ? current.seniorityLevel : input.seniorityLevel,
     bio: input.bio === undefined ? current.bio : normalizeText(input.bio),
     location: input.location === undefined ? current.location : normalizeText(input.location),
+    country: input.country === undefined ? current.country : normalizeText(input.country),
+    jobRole: input.jobRole === undefined ? current.jobRole : normalizeJobRole(input.jobRole),
+    age: input.age === undefined ? current.age : normalizeAge(input.age),
+    yearsExperience:
+      input.yearsExperience === undefined
+        ? current.yearsExperience
+        : normalizeYearsExperience(input.yearsExperience),
     linkedinUrl: input.linkedinUrl === undefined ? current.linkedinUrl : normalizeText(input.linkedinUrl),
     twitterUrl: input.twitterUrl === undefined ? current.twitterUrl : normalizeText(input.twitterUrl),
     websiteUrl: input.websiteUrl === undefined ? current.websiteUrl : normalizeText(input.websiteUrl),
   };
+
+  assertRequiredDemographics({
+    country: nextProfile.country,
+    jobRole: nextProfile.jobRole,
+    age: nextProfile.age,
+    yearsExperience: nextProfile.yearsExperience,
+  });
 
   await client.query(
     `
@@ -410,11 +497,15 @@ export async function updateMyProfile(
         seniority_level,
         bio,
         location,
+        country,
+        job_role,
+        age,
+        years_experience,
         linkedin_url,
         twitter_url,
         website_url
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       ON CONFLICT (user_id) DO UPDATE
       SET
         profession = EXCLUDED.profession,
@@ -423,6 +514,10 @@ export async function updateMyProfile(
         seniority_level = EXCLUDED.seniority_level,
         bio = EXCLUDED.bio,
         location = EXCLUDED.location,
+        country = EXCLUDED.country,
+        job_role = EXCLUDED.job_role,
+        age = EXCLUDED.age,
+        years_experience = EXCLUDED.years_experience,
         linkedin_url = EXCLUDED.linkedin_url,
         twitter_url = EXCLUDED.twitter_url,
         website_url = EXCLUDED.website_url,
@@ -436,6 +531,10 @@ export async function updateMyProfile(
       nextProfile.seniorityLevel,
       nextProfile.bio,
       nextProfile.location,
+      nextProfile.country,
+      nextProfile.jobRole,
+      nextProfile.age,
+      nextProfile.yearsExperience,
       nextProfile.linkedinUrl,
       nextProfile.twitterUrl,
       nextProfile.websiteUrl,

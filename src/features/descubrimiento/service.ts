@@ -6,8 +6,10 @@ import type { PoolClient } from "pg";
 import JSZip from "jszip";
 import * as XLSX from "xlsx";
 import { requireDiscoveryAccess } from "@/features/access/service";
+import { withRoleContext } from "@/server/db/pool";
 import { getIntegrationConfigForActor } from "@/server/integrations/config";
 import { requireModulePermission } from "@/server/auth/module-permissions";
+import { hashPassword } from "@/server/auth/password";
 import { resolveOrganizationIdForActor } from "@/server/integrations/config";
 import type { AuthUser } from "@/server/auth/types";
 import { COMP_DEFINITIONS } from "./DiagnosticsData";
@@ -18,6 +20,7 @@ import {
   toDiscoveryScoreRows,
 } from "./reporting";
 import type {
+  DiscoveryAiReports,
   DiscoveryAnswers,
   DiscoveryContextDocument,
   DiscoveryExperienceSurvey,
@@ -28,10 +31,10 @@ import type {
   DiscoveryInvitationRequest,
   DiscoveryInvitationWithCode,
   DiscoveryJobRole,
+  DiscoveryOverviewDetailPayload,
   DiscoveryOverviewFilters,
   DiscoveryOverviewPayload,
   DiscoveryOverviewRow,
-  DiscoveryPillarKey,
   DiscoveryParticipantProfile,
   DiscoveryReportFilter,
   DiscoveryScoreResult,
@@ -59,8 +62,9 @@ interface DiscoverySessionRow {
   country: string | null;
   job_role: DiscoveryJobRole | null;
   age: number | null;
-  years_experience: number | null;
+  years_experience: number | string | null;
   feedback_survey?: unknown;
+  ai_reports?: unknown;
   created_at: string;
   updated_at: string;
 }
@@ -89,6 +93,11 @@ interface DiscoveryFeedbackSettingsRow {
   invite_email_text: string;
   updated_at: string;
 }
+
+const INVITATION_PROVISION_SYSTEM_USER_ID =
+  process.env.INVITATION_PROVISION_SYSTEM_USER_ID || "00000000-0000-0000-0000-000000000001";
+const CURRENT_DISCOVERY_AI_REPORT_VERSION = 5;
+const DISCOVERY_ANALYSIS_BATCH_CONCURRENCY = 4;
 
 interface OutboundConfigRow {
   organization_id: string;
@@ -190,6 +199,20 @@ function normalizeNameParts(fullName: string): { firstName: string; lastName: st
   };
 }
 
+function coerceNumeric(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+  if (typeof value === "string") {
+    const normalized = value.trim().replace(",", ".");
+    if (!normalized) return null;
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
 function normalizeProfile(
   input: Partial<DiscoveryParticipantProfile> | null | undefined,
   fallback?: Partial<DiscoveryParticipantProfile>,
@@ -212,15 +235,15 @@ function normalizeProfile(
   const normalizedRole =
     incomingRole === "Gerente/Mand medio" ? "Gerente/Mando medio" : incomingRole;
 
-  const ageValue = input?.age ?? fallback?.age ?? null;
-  const yearsValue = input?.yearsExperience ?? fallback?.yearsExperience ?? null;
+  const ageValue = coerceNumeric(input?.age ?? fallback?.age ?? null);
+  const yearsValue = coerceNumeric(input?.yearsExperience ?? fallback?.yearsExperience ?? null);
 
-  const age = Number.isFinite(ageValue)
+  const age = ageValue !== null
     ? Math.max(16, Math.min(100, Math.floor(Number(ageValue))))
     : null;
 
-  const yearsExperience = Number.isFinite(yearsValue)
-    ? Math.max(0, Math.min(80, Number(Number(yearsValue).toFixed(1))))
+  const yearsExperience = yearsValue !== null
+    ? Math.max(0, Math.min(80, Math.floor(Number(yearsValue))))
     : null;
 
   return {
@@ -244,6 +267,89 @@ function isProfileCompleted(profile: DiscoveryParticipantProfile): boolean {
   );
 }
 
+async function syncDiscoveryProfileToUserProfile(
+  client: PoolClient,
+  userId: string,
+  profile: DiscoveryParticipantProfile,
+): Promise<void> {
+  if (!isProfileCompleted(profile)) {
+    return;
+  }
+
+  const firstName = profile.firstName.trim();
+  const lastName = profile.lastName.trim();
+  const displayName = `${firstName} ${lastName}`.trim();
+  const country = profile.country.trim();
+  const normalizedJobRole = profile.jobRole;
+  const age = Number.isFinite(profile.age) ? Math.max(16, Math.min(100, Math.floor(Number(profile.age)))) : null;
+  const yearsExperience = Number.isFinite(profile.yearsExperience)
+    ? Math.max(0, Math.min(80, Math.floor(Number(profile.yearsExperience))))
+    : null;
+
+  const hasNameData = firstName.length > 0 && lastName.length > 0;
+  const hasCountryData = country.length > 0;
+  const hasJobRoleData = Boolean(normalizedJobRole);
+  const hasAgeData = age !== null;
+  const hasYearsExperienceData = yearsExperience !== null;
+
+  if (hasNameData) {
+    await client.query(
+      `
+        UPDATE app_core.users
+        SET
+          first_name = $2,
+          last_name = $3,
+          display_name = $4,
+          avatar_initial = UPPER(LEFT($4, 1)),
+          updated_at = now()
+        WHERE user_id = $1::uuid
+      `,
+      [userId, firstName, lastName, displayName],
+    );
+  }
+
+  if (!hasCountryData || !hasJobRoleData || !hasAgeData || !hasYearsExperienceData) {
+    return;
+  }
+
+  await client.query(
+    `
+      INSERT INTO app_core.user_profiles (user_id, country, job_role, age, years_experience)
+      VALUES ($1::uuid, $2, $3, $4, $5)
+      ON CONFLICT (user_id) DO UPDATE
+      SET
+        country = CASE
+          WHEN $6::boolean THEN EXCLUDED.country
+          ELSE app_core.user_profiles.country
+        END,
+        job_role = CASE
+          WHEN $7::boolean THEN EXCLUDED.job_role
+          ELSE app_core.user_profiles.job_role
+        END,
+        age = CASE
+          WHEN $8::boolean THEN EXCLUDED.age
+          ELSE app_core.user_profiles.age
+        END,
+        years_experience = CASE
+          WHEN $9::boolean THEN EXCLUDED.years_experience
+          ELSE app_core.user_profiles.years_experience
+        END,
+        updated_at = now()
+    `,
+    [
+      userId,
+      hasCountryData ? country : null,
+      hasJobRoleData ? normalizedJobRole : null,
+      age,
+      yearsExperience,
+      hasCountryData,
+      hasJobRoleData,
+      hasAgeData,
+      hasYearsExperienceData,
+    ],
+  );
+}
+
 function buildDiagnosticIdentifier(sessionId: string): string {
   return `DX-${sessionId.replace(/-/g, "").slice(0, 12).toUpperCase()}`;
 }
@@ -254,8 +360,8 @@ function mapDiscoverySessionRow(row: DiscoverySessionRow): DiscoverySessionRecor
     lastName: row.last_name ?? "",
     country: row.country ?? "",
     jobRole: row.job_role ?? "",
-    age: row.age,
-    yearsExperience: row.years_experience,
+    age: coerceNumeric(row.age),
+    yearsExperience: coerceNumeric(row.years_experience),
   });
 
   return {
@@ -279,8 +385,24 @@ function mapDiscoverySessionRow(row: DiscoverySessionRow): DiscoverySessionRecor
     yearsExperience: profile.yearsExperience,
     profileCompleted: isProfileCompleted(profile),
     experienceSurvey: parseExperienceSurvey(row.feedback_survey),
+    aiReports: parseDiscoveryAiReports(row.ai_reports),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+function parseDiscoveryAiReports(input: unknown): DiscoveryAiReports {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return {};
+  const record = input as Record<string, unknown>;
+  if (Number(record._version ?? 0) !== CURRENT_DISCOVERY_AI_REPORT_VERSION) {
+    return {};
+  }
+  return {
+    all: typeof record.all === "string" ? record.all : undefined,
+    within: typeof record.within === "string" ? record.within : undefined,
+    out: typeof record.out === "string" ? record.out : undefined,
+    up: typeof record.up === "string" ? record.up : undefined,
+    beyond: typeof record.beyond === "string" ? record.beyond : undefined,
   };
 }
 
@@ -362,6 +484,49 @@ function parseInvitationExternalSurvey(meta: unknown): DiscoveryExperienceSurvey
   if (!meta || typeof meta !== "object" || Array.isArray(meta)) return null;
   const record = meta as Record<string, unknown>;
   return parseExperienceSurvey(record.external_survey);
+}
+
+function buildUserStateFromSession(
+  session: DiscoverySessionRecord,
+): DiscoveryUserState {
+  return {
+    name: session.nameSnapshot,
+    answers: session.answers,
+    currentIdx: session.currentIdx,
+    status: session.status,
+    profile: {
+      firstName: session.firstName,
+      lastName: session.lastName,
+      country: session.country,
+      jobRole: session.jobRole,
+      age: session.age,
+      yearsExperience: session.yearsExperience,
+    },
+    profileCompleted: session.profileCompleted,
+    experienceSurvey: session.experienceSurvey,
+  };
+}
+
+function buildFallbackInvitationState(
+  invitationEmail: string,
+): DiscoveryUserState {
+  const profile = normalizeProfile({
+    firstName: "",
+    lastName: "",
+    country: "",
+    jobRole: "",
+    age: null,
+    yearsExperience: null,
+  });
+
+  return {
+    name: invitationEmail,
+    answers: {},
+    currentIdx: 0,
+    status: "intro",
+    profile,
+    profileCompleted: false,
+  };
 }
 
 function normalizeContextDocuments(input: unknown): DiscoveryContextDocument[] {
@@ -610,6 +775,8 @@ async function readDiscoverySession(
         ds.job_role,
         ds.age,
         ds.years_experience,
+        ds.feedback_survey,
+        ds.ai_reports,
         ds.created_at::text,
         ds.updated_at::text
       FROM app_assessment.discovery_sessions ds
@@ -702,6 +869,7 @@ async function createDiscoverySession(
         age,
         years_experience,
         feedback_survey,
+        ai_reports,
         created_at::text,
         updated_at::text
     `,
@@ -837,6 +1005,7 @@ async function ensureSessionShared(
         age,
         years_experience,
         feedback_survey,
+        ai_reports,
         created_at::text,
         updated_at::text
     `,
@@ -885,6 +1054,7 @@ async function finalizeSessionForSharing(
         age,
         years_experience,
         feedback_survey,
+        ai_reports,
         created_at::text,
         updated_at::text
     `,
@@ -1396,6 +1566,7 @@ export async function getOrCreateDiscoverySession(
           age,
           years_experience,
           feedback_survey,
+          ai_reports,
           created_at::text,
           updated_at::text
       `,
@@ -1459,6 +1630,7 @@ export async function updateDiscoverySession(
         age,
         years_experience,
         feedback_survey,
+        ai_reports,
         created_at::text,
         updated_at::text
     `,
@@ -1485,6 +1657,8 @@ export async function updateDiscoverySession(
   }
 
   const session = mapDiscoverySessionRow(rows[0]);
+
+  await syncDiscoveryProfileToUserProfile(client, actor.userId, next.profile);
 
   if (next.shouldMarkCompleted) {
     await syncCompletedScores(client, session);
@@ -1539,6 +1713,7 @@ export async function resetDiscoverySession(
           age = NULL,
           years_experience = NULL,
           feedback_survey = NULL,
+          ai_reports = NULL,
           updated_at = now()
       WHERE session_id = $1::uuid
       RETURNING
@@ -1561,6 +1736,7 @@ export async function resetDiscoverySession(
         age,
         years_experience,
         feedback_survey,
+        ai_reports,
         created_at::text,
         updated_at::text
     `,
@@ -1630,6 +1806,8 @@ export async function getDiscoverySessionByPublicId(
         ds.job_role,
         ds.age,
         ds.years_experience,
+        ds.feedback_survey,
+        ds.ai_reports,
         ds.created_at::text,
         ds.updated_at::text
       FROM app_assessment.discovery_sessions ds
@@ -1920,40 +2098,8 @@ export async function verifyDiscoveryInvitationAccess(
   inviteToken: string,
   accessCode: string,
 ): Promise<DiscoveryInvitationAccessPayload> {
-  const normalizedToken = inviteToken.trim().toLowerCase();
   const normalizedCode = accessCode.trim().toUpperCase();
-
-  const { rows } = await client.query<
-    DiscoveryInvitationRow & {
-      session_payload: DiscoverySessionRow | null;
-    }
-  >(
-    `
-      SELECT
-        di.invitation_id::text,
-        di.session_id::text,
-        di.invited_email,
-        di.invite_token,
-        di.access_code_hash,
-        di.access_code_last4,
-        di.access_code_sent_at::text,
-        di.opened_at::text,
-        di.meta,
-        di.created_at::text,
-        di.updated_at::text,
-        row_to_json(ds)::jsonb AS session_payload
-      FROM app_assessment.discovery_invitations di
-      LEFT JOIN app_assessment.discovery_sessions ds ON ds.session_id = di.session_id
-      WHERE di.invite_token = $1
-      LIMIT 1
-    `,
-    [normalizedToken],
-  );
-
-  const row = rows[0];
-  if (!row) {
-    throw new Error("Invitacion no encontrada.");
-  }
+  const row = await resolveDiscoveryInvitationByToken(client, inviteToken);
 
   if (!compareAccessCode(normalizedCode, row.access_code_hash)) {
     throw new Error("Codigo de acceso invalido.");
@@ -1989,6 +2135,313 @@ export async function verifyDiscoveryInvitationAccess(
     alreadyCompleted,
     externalSurvey,
   };
+}
+
+function normalizeInvitationEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+function titleCaseWord(word: string): string {
+  if (!word) return word;
+  return `${word[0].toUpperCase()}${word.slice(1).toLowerCase()}`;
+}
+
+function deriveNameFromEmail(email: string): { firstName: string; lastName: string; displayName: string } {
+  const local = email.split("@")[0] ?? "invitado";
+  const cleaned = local.replace(/[._-]+/g, " ").replace(/\d+/g, " ").trim();
+  const parts = cleaned
+    .split(/\s+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 3)
+    .map(titleCaseWord);
+
+  const firstName = parts[0] ?? "Invitado";
+  const lastName = parts.slice(1).join(" ") || "4Shine";
+  const displayName = `${firstName} ${lastName}`.trim();
+  return { firstName, lastName, displayName };
+}
+
+async function resolveInvitationOrganizationId(
+  client: PoolClient,
+  invitation: DiscoveryInvitationRow & { session_payload: DiscoverySessionRow | null },
+): Promise<string | null> {
+  if (invitation.session_payload?.user_id) {
+    const { rows } = await client.query<{ organization_id: string | null }>(
+      `
+        SELECT organization_id::text
+        FROM app_core.users
+        WHERE user_id = $1::uuid
+        LIMIT 1
+      `,
+      [invitation.session_payload.user_id],
+    );
+    if (rows[0]?.organization_id) return rows[0].organization_id;
+  }
+  return resolveFallbackOrganizationId(client);
+}
+
+async function provisionInvitedUserAccount(
+  client: PoolClient,
+  invitation: DiscoveryInvitationRow & { session_payload: DiscoverySessionRow | null },
+  verified: DiscoveryInvitationAccessPayload,
+  plainAccessCode: string,
+): Promise<AuthUser> {
+  const email = normalizeInvitationEmail(invitation.invited_email);
+  const passwordHash = await hashPassword(plainAccessCode.trim().toUpperCase());
+  const externalProfile = verified.externalProgress?.profile;
+  const fallbackName = deriveNameFromEmail(email);
+  const firstName = (externalProfile?.firstName?.trim() || fallbackName.firstName).slice(0, 120);
+  const lastName = (externalProfile?.lastName?.trim() || fallbackName.lastName).slice(0, 120);
+  const displayName = `${firstName} ${lastName}`.trim().slice(0, 160) || "Invitado 4Shine";
+  const normalizedProfile = normalizeProfile(
+    {
+      country: externalProfile?.country ?? "",
+      jobRole: externalProfile?.jobRole ?? "",
+      age: externalProfile?.age ?? null,
+      yearsExperience: externalProfile?.yearsExperience ?? null,
+    },
+    {
+      country: "No definido",
+      jobRole: "Individual contributor",
+      age: 30,
+      yearsExperience: 0,
+    },
+  );
+  const organizationId = await resolveInvitationOrganizationId(client, invitation);
+
+  const { rows: existingRows } = await client.query<{
+    user_id: string;
+    primary_role: string;
+    display_name: string;
+    is_active: boolean;
+  }>(
+    `
+      SELECT user_id::text, primary_role, display_name, is_active
+      FROM app_core.users
+      WHERE email = $1::citext
+      LIMIT 1
+    `,
+    [email],
+  );
+
+  let userId: string;
+  let userName = displayName;
+  const existing = existingRows[0];
+  if (existing) {
+    if (existing.primary_role !== "invitado") {
+      return {
+        userId: existing.user_id,
+        email,
+        name: existing.display_name || displayName,
+        role: existing.primary_role as AuthUser["role"],
+      };
+    }
+    userId = existing.user_id;
+    userName = existing.display_name || displayName;
+    await client.query(
+      `
+        UPDATE app_core.users
+        SET
+          first_name = $2,
+          last_name = $3,
+          display_name = $4,
+          primary_role = 'invitado',
+          is_active = true,
+          organization_id = COALESCE($5::uuid, organization_id),
+          updated_at = now()
+        WHERE user_id = $1::uuid
+      `,
+      [userId, firstName, lastName, displayName, organizationId],
+    );
+  } else {
+    const { rows: insertedRows } = await client.query<{ user_id: string }>(
+      `
+        INSERT INTO app_core.users (
+          email,
+          first_name,
+          last_name,
+          display_name,
+          avatar_initial,
+          timezone,
+          primary_role,
+          is_active,
+          organization_id
+        )
+        VALUES (
+          $1::citext,
+          $2,
+          $3,
+          $4,
+          UPPER(LEFT($4, 1)),
+          'America/Bogota',
+          'invitado',
+          true,
+          $5::uuid
+        )
+        RETURNING user_id::text
+      `,
+      [email, firstName, lastName, displayName, organizationId],
+    );
+    userId = insertedRows[0]?.user_id;
+    if (!userId) {
+      throw new Error("No se pudo crear la cuenta invitada.");
+    }
+  }
+
+  await client.query(
+    `
+      UPDATE app_auth.user_roles
+      SET is_default = false
+      WHERE user_id = $1::uuid
+        AND role_code <> 'invitado'
+    `,
+    [userId],
+  );
+
+  await client.query(
+    `
+      INSERT INTO app_auth.user_roles (user_id, role_code, is_default, assigned_by)
+      VALUES ($1::uuid, 'invitado', true, NULL)
+      ON CONFLICT (user_id, role_code) DO UPDATE
+      SET is_default = true, assigned_by = NULL, assigned_at = now()
+    `,
+    [userId],
+  );
+
+  await client.query(
+    `
+      INSERT INTO app_auth.user_credentials (user_id, password_hash, failed_attempts, locked_until)
+      VALUES ($1::uuid, $2, 0, NULL)
+      ON CONFLICT (user_id) DO UPDATE
+      SET
+        password_hash = EXCLUDED.password_hash,
+        failed_attempts = 0,
+        locked_until = NULL,
+        password_updated_at = now(),
+        updated_at = now()
+    `,
+    [userId, passwordHash],
+  );
+
+  await client.query(
+    `
+      INSERT INTO app_core.user_profiles (
+        user_id,
+        country,
+        job_role,
+        age,
+        years_experience
+      )
+      VALUES ($1::uuid, $2, $3, $4, $5)
+      ON CONFLICT (user_id) DO UPDATE
+      SET
+        country = COALESCE(NULLIF(BTRIM(app_core.user_profiles.country), ''), EXCLUDED.country),
+        job_role = COALESCE(app_core.user_profiles.job_role, EXCLUDED.job_role),
+        age = COALESCE(app_core.user_profiles.age, EXCLUDED.age),
+        years_experience = COALESCE(app_core.user_profiles.years_experience, EXCLUDED.years_experience),
+        updated_at = now()
+    `,
+    [
+      userId,
+      normalizedProfile.country || "No definido",
+      normalizedProfile.jobRole || "Individual contributor",
+      Number.isFinite(normalizedProfile.age) ? normalizedProfile.age : 30,
+      Number.isFinite(normalizedProfile.yearsExperience) ? normalizedProfile.yearsExperience : 0,
+    ],
+  );
+
+  return {
+    userId,
+    email,
+    name: userName,
+    role: "invitado",
+  };
+}
+
+export async function verifyDiscoveryInvitationAccessAndProvisionInvitedUser(
+  client: PoolClient,
+  inviteToken: string,
+  accessCode: string,
+): Promise<{ access: DiscoveryInvitationAccessPayload; authUser: AuthUser }> {
+  const access = await verifyDiscoveryInvitationAccess(client, inviteToken, accessCode);
+  const invitation = await resolveDiscoveryInvitationByToken(client, inviteToken);
+  if (access.accessMode !== "diagnostic") {
+    const candidateUserId = access.session?.userId ?? invitation.session_payload?.user_id ?? null;
+    const normalizedEmail = normalizeInvitationEmail(invitation.invited_email);
+    const existingAuthUser = await withRoleContext(
+      client,
+      INVITATION_PROVISION_SYSTEM_USER_ID,
+      "admin",
+      async (): Promise<AuthUser | null> => {
+        if (candidateUserId) {
+          const { rows } = await client.query<{
+            user_id: string;
+            email: string;
+            display_name: string;
+            primary_role: string;
+            is_active: boolean;
+          }>(
+            `
+              SELECT user_id::text, email::text, display_name, primary_role, is_active
+              FROM app_core.users
+              WHERE user_id = $1::uuid
+              LIMIT 1
+            `,
+            [candidateUserId],
+          );
+          const existing = rows[0];
+          if (existing?.is_active) {
+            return {
+              userId: existing.user_id,
+              email: existing.email,
+              name: existing.display_name || access.session?.nameSnapshot || "Invitado 4Shine",
+              role: existing.primary_role as AuthUser["role"],
+            };
+          }
+        }
+
+        const { rows } = await client.query<{
+          user_id: string;
+          email: string;
+          display_name: string;
+          primary_role: string;
+          is_active: boolean;
+        }>(
+          `
+            SELECT user_id::text, email::text, display_name, primary_role, is_active
+            FROM app_core.users
+            WHERE email = $1::citext
+            LIMIT 1
+          `,
+          [normalizedEmail],
+        );
+        const existing = rows[0];
+        if (existing?.is_active) {
+          return {
+            userId: existing.user_id,
+            email: existing.email,
+            name: existing.display_name || access.session?.nameSnapshot || "Invitado 4Shine",
+            role: existing.primary_role as AuthUser["role"],
+          };
+        }
+
+        return null;
+      },
+    );
+    if (existingAuthUser) {
+      return { access, authUser: existingAuthUser };
+    }
+
+    throw new Error("La invitación ya está asociada a una cuenta existente.");
+  }
+  const authUser = await withRoleContext(
+    client,
+    INVITATION_PROVISION_SYSTEM_USER_ID,
+    "admin",
+    async () => provisionInvitedUserAccount(client, invitation, access, accessCode),
+  );
+  return { access, authUser };
 }
 
 async function resolveDiscoveryInvitationByToken(
@@ -2176,6 +2629,8 @@ export async function getDiscoveryOverview(
     diagnostic_identifier: string;
     user_id: string;
     participant_name: string;
+    primary_role: string;
+    user_email: string;
     country: string | null;
     job_role: string | null;
     age: number | null;
@@ -2322,6 +2777,8 @@ export async function getDiscoveryOverview(
         ds.diagnostic_identifier,
         ds.user_id::text,
         trim(concat_ws(' ', ds.first_name, ds.last_name)) AS participant_name,
+        u.primary_role,
+        u.email::text AS user_email,
         ds.country,
         ds.job_role,
         ds.age,
@@ -2334,7 +2791,7 @@ export async function getDiscoveryOverview(
       FROM app_assessment.discovery_sessions ds
       JOIN app_core.users u ON u.user_id = ds.user_id
       LEFT JOIN app_assessment.test_attempts ta ON ta.attempt_id = ds.attempt_id
-      ${whereClause ? `${whereClause} AND u.primary_role = 'lider'` : "WHERE u.primary_role = 'lider'"}
+      ${whereClause ? `${whereClause} AND u.primary_role IN ('lider', 'invitado')` : "WHERE u.primary_role IN ('lider', 'invitado')"}
       ORDER BY ds.updated_at DESC
       LIMIT 500
     `,
@@ -2363,12 +2820,12 @@ export async function getDiscoveryOverview(
       diagnosticIdentifier: row.diagnostic_identifier,
       userId: row.user_id,
       participantName: row.participant_name || "Sin nombre",
-      sourceType: "platform" as const,
-      invitedEmail: "",
+      sourceType: row.primary_role === "invitado" ? ("invited" as const) : ("platform" as const),
+      invitedEmail: row.primary_role === "invitado" ? row.user_email : "",
       country: row.country ?? "",
       jobRole: row.job_role ?? "",
-      age: row.age,
-      yearsExperience: row.years_experience,
+      age: coerceNumeric(row.age),
+      yearsExperience: coerceNumeric(row.years_experience),
       completionPercent: Number(row.completion_percent ?? 0),
       globalIndex: row.global_index !== null ? Number(row.global_index) : null,
       updatedAt: row.updated_at,
@@ -2484,7 +2941,7 @@ export async function getDiscoveryOverview(
         trim(concat_ws(' ', ds.first_name, ds.last_name)) AS name
       FROM app_assessment.discovery_sessions ds
       JOIN app_core.users u ON u.user_id = ds.user_id
-      WHERE u.primary_role = 'lider'
+      WHERE u.primary_role IN ('lider', 'invitado')
       ORDER BY name
     `,
   );
@@ -2496,7 +2953,7 @@ export async function getDiscoveryOverview(
       JOIN app_core.users u ON u.user_id = ds.user_id
       WHERE ds.country IS NOT NULL
         AND trim(ds.country) <> ''
-        AND u.primary_role = 'lider'
+        AND u.primary_role IN ('lider', 'invitado')
       ORDER BY ds.country
     `,
   );
@@ -2507,7 +2964,7 @@ export async function getDiscoveryOverview(
       FROM app_assessment.discovery_sessions ds
       JOIN app_core.users u ON u.user_id = ds.user_id
       WHERE ds.job_role IS NOT NULL
-        AND u.primary_role = 'lider'
+        AND u.primary_role IN ('lider', 'invitado')
       ORDER BY ds.job_role
     `,
   );
@@ -2609,6 +3066,247 @@ export async function getDiscoveryOverview(
   };
 }
 
+export async function getDiscoveryOverviewDetail(
+  client: PoolClient,
+  actor: AuthUser,
+  sessionId: string,
+): Promise<DiscoveryOverviewDetailPayload> {
+  await requireModulePermission(client, "descubrimiento", "view");
+  if (!isAllowedManager(actor)) {
+    throw new Error("Solo admin y gestor pueden ver detalle de resultados en Descubrimiento.");
+  }
+
+  const normalizedSessionId = sessionId.trim();
+  if (!normalizedSessionId) {
+    throw new Error("sessionId es requerido.");
+  }
+
+  if (normalizedSessionId.startsWith("inv-")) {
+    const invitationId = normalizedSessionId.slice(4);
+    const { rows } = await client.query<DiscoveryInvitationRow>(
+      `
+        SELECT
+          invitation_id::text,
+          session_id::text,
+          invited_email,
+          invite_token,
+          access_code_hash,
+          access_code_last4,
+          access_code_sent_at::text,
+          opened_at::text,
+          meta,
+          created_at::text,
+          updated_at::text
+        FROM app_assessment.discovery_invitations
+        WHERE invitation_id = $1::uuid
+        LIMIT 1
+      `,
+      [invitationId],
+    );
+
+    const invitation = rows[0];
+    if (!invitation) {
+      throw new Error("Resultado invitado no encontrado.");
+    }
+
+    const state =
+      parseInvitationExternalProgress(invitation.meta) ??
+      buildFallbackInvitationState(invitation.invited_email);
+    const experienceSurvey = parseInvitationExternalSurvey(invitation.meta);
+
+    return {
+      state: {
+        ...state,
+        experienceSurvey,
+      },
+      scoring: scoreDiscoveryAnswers(state.answers),
+      experienceSurvey,
+      aiReports: parseInvitationStoredReports(invitation.meta),
+    };
+  }
+
+  const { rows } = await client.query<DiscoverySessionRow>(
+    `
+      SELECT
+        ds.session_id::text,
+        ds.attempt_id::text,
+        ds.user_id::text,
+        ds.name_snapshot,
+        ds.status,
+        ds.answers,
+        ds.current_idx,
+        ds.completion_percent,
+        ds.public_id,
+        ds.shared_at::text,
+        ds.completed_at::text,
+        ds.diagnostic_identifier,
+        ds.first_name,
+        ds.last_name,
+        ds.country,
+        ds.job_role,
+        ds.age,
+        ds.years_experience,
+        ds.feedback_survey,
+        ds.ai_reports,
+        ds.created_at::text,
+        ds.updated_at::text
+      FROM app_assessment.discovery_sessions ds
+      JOIN app_core.users u ON u.user_id = ds.user_id
+      WHERE ds.session_id = $1::uuid
+        AND u.primary_role IN ('lider', 'invitado')
+      LIMIT 1
+    `,
+    [normalizedSessionId],
+  );
+
+  const row = rows[0];
+  if (!row) {
+    throw new Error("Detalle del diagnostico no encontrado.");
+  }
+
+  const session = mapDiscoverySessionRow(row);
+  return {
+    state: buildUserStateFromSession(session),
+    scoring: scoreDiscoveryAnswers(session.answers),
+    experienceSurvey: session.experienceSurvey,
+    aiReports: session.aiReports,
+  };
+}
+
+export async function resetDiscoveryOverviewAttemptByManager(
+  client: PoolClient,
+  actor: AuthUser,
+  sessionId: string,
+): Promise<{ sessionId: string }> {
+  await requireModulePermission(client, "descubrimiento", "update");
+  if (!isAllowedManager(actor)) {
+    throw new Error("Solo admin y gestor pueden reiniciar resultados en Descubrimiento.");
+  }
+
+  const normalizedSessionId = sessionId.trim();
+  if (!normalizedSessionId) {
+    throw new Error("sessionId es requerido.");
+  }
+
+  if (normalizedSessionId.startsWith("inv-")) {
+    const invitationId = normalizedSessionId.slice(4);
+    const result = await client.query<{ invitation_id: string }>(
+      `
+        UPDATE app_assessment.discovery_invitations
+        SET
+          meta = (COALESCE(meta, '{}'::jsonb) - 'external_progress' - 'external_survey' - 'ai_reports'),
+          updated_at = now()
+        WHERE invitation_id = $1::uuid
+        RETURNING invitation_id::text
+      `,
+      [invitationId],
+    );
+
+    if (!result.rows[0]) {
+      throw new Error("No se encontró la invitación a reiniciar.");
+    }
+
+    return { sessionId: normalizedSessionId };
+  }
+
+  const currentResult = await client.query<DiscoverySessionRow>(
+    `
+      SELECT
+        ds.session_id::text,
+        ds.attempt_id::text,
+        ds.user_id::text,
+        ds.name_snapshot,
+        ds.status,
+        ds.answers,
+        ds.current_idx,
+        ds.completion_percent,
+        ds.public_id,
+        ds.shared_at::text,
+        ds.completed_at::text,
+        ds.diagnostic_identifier,
+        ds.first_name,
+        ds.last_name,
+        ds.country,
+        ds.job_role,
+        ds.age,
+        ds.years_experience,
+        ds.feedback_survey,
+        ds.created_at::text,
+        ds.updated_at::text
+      FROM app_assessment.discovery_sessions ds
+      JOIN app_core.users u ON u.user_id = ds.user_id
+      WHERE ds.session_id = $1::uuid
+        AND u.primary_role IN ('lider', 'invitado')
+      LIMIT 1
+    `,
+    [normalizedSessionId],
+  );
+
+  const current = currentResult.rows[0];
+  if (!current) {
+    throw new Error("Diagnóstico no encontrado para reinicio.");
+  }
+
+  const nameParts = normalizeNameParts(current.name_snapshot);
+  const updatedResult = await client.query<DiscoverySessionRow>(
+    `
+      UPDATE app_assessment.discovery_sessions
+      SET name_snapshot = $2,
+          status = 'intro',
+          answers = '{}'::jsonb,
+          current_idx = 0,
+          completion_percent = 0,
+          public_id = NULL,
+          shared_at = NULL,
+          completed_at = NULL,
+          first_name = $3,
+          last_name = $4,
+          country = '',
+          job_role = NULL,
+          age = NULL,
+          years_experience = NULL,
+          feedback_survey = NULL,
+          ai_reports = NULL,
+          updated_at = now()
+      WHERE session_id = $1::uuid
+      RETURNING session_id::text
+    `,
+    [normalizedSessionId, current.name_snapshot, nameParts.firstName, nameParts.lastName],
+  );
+
+  if (!updatedResult.rows[0]) {
+    throw new Error("No se pudo reiniciar el diagnóstico.");
+  }
+
+  await client.query(
+    `
+      UPDATE app_assessment.test_attempts
+      SET status = 'in_progress',
+          started_at = now(),
+          completed_at = NULL,
+          overall_score = NULL
+      WHERE attempt_id = $1::uuid
+    `,
+    [current.attempt_id],
+  );
+  await client.query(
+    `
+      DELETE FROM app_assessment.test_attempt_scores
+      WHERE attempt_id = $1::uuid
+    `,
+    [current.attempt_id],
+  );
+  await client.query(
+    `
+      DELETE FROM app_assessment.discovery_invitations
+      WHERE session_id = $1::uuid
+    `,
+    [normalizedSessionId],
+  );
+
+  return { sessionId: normalizedSessionId };
+}
+
 interface DiscoveryRecommendedResource {
   title: string;
   contentType: string;
@@ -2678,74 +3376,8 @@ async function requestOpenAiReport(
   return report;
 }
 
-function buildDeterministicDeepReport(input: {
-  username: string;
-  pillar: DiscoveryReportFilter;
-  scores: DiscoveryScoreResult;
-  targetGaps: Array<{ name: string; score: number }>;
-  targetStrengths: Array<{ name: string; score: number }>;
-  contextEvidence: string[];
-}): string {
-  const { username, pillar, scores, targetGaps, targetStrengths, contextEvidence } = input;
-  const fullName = username.trim() || "Líder";
-  const strongestPillar = (Object.entries(scores.pillarMetrics) as Array<[DiscoveryPillarKey, DiscoveryScoreResult["pillarMetrics"][DiscoveryPillarKey]]>)
-    .sort((a, b) => b[1].total - a[1].total)[0];
-  const weakestPillar = (Object.entries(scores.pillarMetrics) as Array<[DiscoveryPillarKey, DiscoveryScoreResult["pillarMetrics"][DiscoveryPillarKey]]>)
-    .sort((a, b) => a[1].total - b[1].total)[0];
-  const topStrengths = targetStrengths.slice(0, 3).map((item) => item.name);
-  const topGaps = targetGaps.slice(0, 3).map((item) => item.name);
-  const evidence = contextEvidence.slice(0, 4).map((line) => `- ${line}`).join("\n") || "- Sin evidencia adicional en esta ejecución.";
-
-  if (pillar === "all") {
-    return `
-## Tu perfil estratégico
-${fullName}, tu perfil de liderazgo hoy se ubica en ${scores.globalIndex}% de madurez global. Tu combinación de fortalezas (${listInlineSpanish(topStrengths)}) muestra capacidad real para sostener conversaciones de calidad y mover coordinación con intención, mientras que tus brechas más bajas (${listInlineSpanish(topGaps)}) explican por qué todavía hay fricción entre intención y ejecución. Tu pilar más sólido es ${toPillarDisplayName(strongestPillar[0])} (${strongestPillar[1].total}%) y tu pilar más sensible es ${toPillarDisplayName(weakestPillar[0])} (${weakestPillar[1].total}%). Este contraste es la palanca principal para tu siguiente ciclo.
-
-## Lo que hoy te impulsa
-Lo que hoy te impulsa está en las competencias con mejor puntaje del caso: ${listInlineSpanish(topStrengths)}. Ahí tienes señales de capacidad instalada para influir mejor, sostener foco y elevar conversaciones clave. Cuando esas fortalezas se activan de forma consciente, sube tu consistencia y se reduce el desgaste operativo. Con datos de pilar, hay una base clara para apalancarte en el corto plazo: Within ${scores.pillarMetrics.within.total}%, Out ${scores.pillarMetrics.out.total}%, Up ${scores.pillarMetrics.up.total}% y Beyond ${scores.pillarMetrics.beyond.total}%. El objetivo no es mover todo a la vez, sino usar tu frente más fuerte para acelerar el más débil.
-
-## Plan de aceleración de 30 días
-Semana 1 y 2: prioriza una rutina diaria de 10 a 15 minutos enfocada en la brecha más baja (${topGaps[0] ?? "brecha crítica"}) con un compromiso conductual observable al inicio del día y un cierre breve al final. Semana 3: agrega una conversación semanal de alineación con foco en promesas y pedidos para reducir ambigüedad operativa. Semana 4: consolida un tablero simple de avance con tres indicadores: calidad de decisiones, velocidad de coordinación y consistencia conductual. Si una acción no impacta uno de esos tres indicadores, se ajusta.
-
-## Lectura del pilar
-La lectura comparativa sugiere una arquitectura de mejora clara: apalancarte desde ${toPillarDisplayName(strongestPillar[0])} para cerrar brechas en ${toPillarDisplayName(weakestPillar[0])}. En términos de percepción vs realidad situacional, las diferencias entre Likert y SJT por pilar marcan dónde puede haber sobreestimación o subestimación de desempeño en contexto. Tu avance será más rápido cuando traduzcas autopercepción en prácticas semanales verificables y no solo en intención declarada. El criterio táctico es simple: menos amplitud, más profundidad en 2 o 3 conductas críticas.
-
-## Puntos críticos de atención
-Tus focos de mayor riesgo hoy son ${listInlineSpanish(topGaps)}. Si no se intervienen, tienden a amplificar tres costos: decisiones tardías, coordinación frágil y caída de energía del equipo en semanas de presión. La consecuencia no es solo de clima, también de ejecución: más retrabajo y menos tracción. En cambio, cuando estas brechas se trabajan con hábito semanal y evidencia concreta, se vuelve visible la mejora en ritmo y calidad de resultados. Este punto es clave para consolidar avance real, no solo percepción de avance.
-
-## Intervención táctica
-Intervención 1: define una micro-rutina diaria centrada en ${topGaps[0] ?? "la brecha más crítica"} con una pregunta gatillo al iniciar jornada y una evidencia escrita al cerrar. Intervención 2: instala una revisión semanal de 25 minutos para evaluar qué conversaciones y decisiones impactaron más en ejecución. Intervención 3: usa tus fortalezas (${listInlineSpanish(topStrengths.slice(0, 2))}) como soporte para sostener disciplina operativa en el frente más débil. La mejora esperada en 30 días es mayor coherencia entre intención, conducta y resultados.
-
-## Señal de progreso
-En las próximas 2 a 4 semanas, considera progreso real si observas tres señales: menor dispersión en prioridades semanales, mayor claridad en acuerdos con el equipo y reducción de retrabajo por ambigüedad. A nivel de indicadores, busca mover primero consistencia conductual y luego porcentaje de ejecución. Evidencia contextual usada:
-${evidence}
-`.trim();
-  }
-
-  const metric = scores.pillarMetrics[pillar as DiscoveryPillarKey];
-  return `
-## Tu perfil estratégico
-${fullName}, tu perfil de liderazgo en ${toPillarFriendlyLabel(pillar)} hoy marca ${metric.total}%, con una diferencia de ${metric.likert - metric.sjt} puntos entre autopercepción (${metric.likert}%) y juicio situacional (${metric.sjt}%). Tus fortalezas más útiles aquí son ${listInlineSpanish(topStrengths)}, y las brechas de mayor atención son ${listInlineSpanish(topGaps)}. Esta combinación explica por qué puedes mostrar tracción en algunos contextos y fricción en otros cuando aumenta la exigencia.
-
-## Lo que hoy te impulsa
-Tus fortalezas en este pilar están funcionando como motores de estabilidad y avance. Cuando activas ${listInlineSpanish(topStrengths.slice(0, 2))}, mejora la capacidad de coordinación y la calidad de tus decisiones en escenarios reales. El punto clave ahora es convertir esas fortalezas en disciplina de ejecución para que no dependan del estado del día. Si mantienes constancia semanal, este pilar puede mejorar de forma visible en un ciclo corto.
-
-## Plan de aceleración de 30 días
-Primer bloque (semanas 1 y 2): trabaja la brecha principal (${topGaps[0] ?? "brecha crítica"}) con un hábito diario pequeño y medible. Segundo bloque (semana 3): suma una revisión semanal con foco en decisiones y conversaciones del pilar. Tercer bloque (semana 4): mide avances con dos indicadores operativos y uno conductual para consolidar el cambio. La regla de oro es mantener ritmo, no perfección.
-
-## Lectura del pilar
-La diferencia entre autopercepción y juicio situacional en este pilar indica que el desarrollo necesita más práctica aplicada y menos reflexión abstracta. Si la brecha es amplia, el foco debe estar en entrenar respuestas conductuales en contexto real. Si la brecha es menor, el reto pasa por sostener consistencia. En ambos casos, el avance aparece cuando cada semana cierra con evidencia concreta de mejora.
-
-## Puntos críticos de atención
-Los puntos críticos hoy son ${listInlineSpanish(topGaps)}. Sin intervención, estos frentes tienden a producir decisiones parciales, menor calidad de coordinación y caída de efectividad en momentos de presión. Con intervención táctica semanal, el impacto esperado es mejor alineación entre intención y ejecución, y mayor claridad en el rol de liderazgo frente al equipo.
-
-## Intervención táctica
-Intervención 1: define una acción semanal explícita para la brecha principal con criterio de éxito observable. Intervención 2: agrega una conversación de retroalimentación aplicada a mitad de semana para ajustar rápido. Intervención 3: usa una fortaleza alta como palanca para sostener el frente débil sin perder ritmo. El objetivo del ciclo no es hacerlo perfecto, sino hacerlo repetible.
-
-## Señal de progreso
-En 2 a 4 semanas, espera ver mejor calidad de acuerdos, mayor previsibilidad en ejecución y menos variación en tu conducta bajo presión. Evidencia contextual usada:
-${evidence}
-`.trim();
+function createPendingFinalAnalysisError(): Error {
+  return new Error("AI_FINAL_ANALYSIS_PENDING");
 }
 
 function sanitizeOpenAiBaseUrl(value: string | null | undefined): string {
@@ -2802,15 +3434,19 @@ function includesRequiredSections(report: string): boolean {
 }
 
 function isDeepEnoughReport(report: string, pillar: DiscoveryReportFilter): boolean {
-  const minWords = pillar === "all" ? 420 : 320;
+  const minWords = pillar === "all" ? 420 : 150;
   const percentMentions = (report.match(/\b\d{1,3}(?:[.,]\d+)?%/g) ?? []).length;
-  const minPercentMentions = pillar === "all" ? 6 : 4;
+  const minPercentMentions = pillar === "all" ? 6 : 1;
   return (
     includesRequiredSections(report) &&
     countWords(report) >= minWords &&
     percentMentions >= minPercentMentions &&
     !looksGenericReport(report)
   );
+}
+
+function isUsablePillarReport(report: string): boolean {
+  return countWords(report) >= 100 && !looksGenericReport(report);
 }
 
 function looksGenericReport(report: string): boolean {
@@ -2821,6 +3457,42 @@ function looksGenericReport(report: string): boolean {
     "competencia clave del modelo 4shine",
     "conexion profunda con el para que",
     "uso preciso del lenguaje para coordinar acciones",
+    "esta combinacion explica por que",
+    "motores de estabilidad y avance",
+    "el punto clave ahora es",
+    "si mantienes constancia semanal",
+    "la regla de oro es",
+    "en ambos casos",
+    "capacidad instalada",
+    "friccion entre intencion y ejecucion",
+    "sostener conversaciones de calidad",
+    "mover coordinacion con intencion",
+    "traccion en algunos contextos y friccion en otros",
+    "puede mejorar de forma visible en un ciclo corto",
+    "no es mover todo a la vez",
+    "no es hacerlo perfecto, sino hacerlo repetible",
+    "el dato no deja mucho margen",
+    "esa distancia es la foto del caso",
+    "no partes de cero",
+    "el mensaje es simple",
+    "si no lo corriges",
+    "el error seria",
+    "la senal buena no es",
+    "primer bloque (semanas 1 y 2)",
+    "segundo bloque (semana 3)",
+    "tercer bloque (semana 4)",
+    "la regla de oro es mantener ritmo, no perfeccion",
+    "mas practica aplicada y menos reflexion abstracta",
+    "si la brecha es amplia, el foco debe estar",
+    "si la brecha es menor, el reto pasa por sostener consistencia",
+    "sin intervencion, estos frentes tienden a producir decisiones parciales",
+    "con intervencion tactica semanal, el impacto esperado es",
+    "define una accion semanal explicita para la brecha principal",
+    "agrega una conversacion de retroalimentacion aplicada a mitad de semana",
+    "usa una fortaleza alta como palanca para sostener el frente debil",
+    "el objetivo del ciclo no es hacerlo perfecto, sino hacerlo repetible",
+    "en 2 a 4 semanas, espera ver",
+    "evidencia contextual usada",
   ];
   const signalMatches = genericSignals.filter((signal) => normalized.includes(signal)).length;
 
@@ -3467,7 +4139,11 @@ async function runDiscoveryAnalysisWithContext(
   ].join("\n");
 
   try {
-    let report = await requestOpenAiReport(context, systemPrompt, userPrompt, { temperature: 0.58 });
+    let report = await requestOpenAiReport(context, systemPrompt, userPrompt, {
+      temperature: 0.58,
+      timeoutMs: pillar === "all" ? 9000 : 7000,
+      maxTokens: pillar === "all" ? 1300 : 1000,
+    });
     let attempts = 1;
     while (!isDeepEnoughReport(report, pillar) && attempts < 2) {
       const refinementPrompt = [
@@ -3481,6 +4157,8 @@ async function runDiscoveryAnalysisWithContext(
       ].join("\n");
       report = await requestOpenAiReport(context, systemPrompt, refinementPrompt, {
         temperature: attempts === 1 ? 0.62 : 0.55,
+        timeoutMs: pillar === "all" ? 6000 : 4500,
+        maxTokens: pillar === "all" ? 1200 : 900,
       });
       attempts += 1;
     }
@@ -3501,6 +4179,85 @@ interface DiscoveryAnalyzeContractInput {
   fastMode?: boolean;
 }
 
+const DISCOVERY_REPORT_BATCH_FILTERS: DiscoveryReportFilter[] = [
+  "all",
+  "within",
+  "out",
+  "up",
+  "beyond",
+];
+
+async function withDiscoveryAdvisoryLock<T>(
+  client: PoolClient,
+  scope: "session" | "invitation",
+  entityId: string,
+  task: () => Promise<T>,
+): Promise<T> {
+  await client.query(
+    `SELECT pg_advisory_lock(hashtext($1), hashtext($2))`,
+    [`discovery-ai-${scope}`, entityId],
+  );
+  try {
+    return await task();
+  } finally {
+    await client.query(
+      `SELECT pg_advisory_unlock(hashtext($1), hashtext($2))`,
+      [`discovery-ai-${scope}`, entityId],
+    );
+  }
+}
+
+async function persistDiscoverySessionAiReport(
+  client: PoolClient,
+  sessionId: string,
+  pillar: DiscoveryReportFilter,
+  report: string,
+): Promise<void> {
+  await client.query(
+    `
+      UPDATE app_assessment.discovery_sessions
+      SET
+        ai_reports = (
+          CASE
+            WHEN COALESCE(ai_reports->>'_version', '0') = $2::text THEN COALESCE(ai_reports, '{}'::jsonb)
+            ELSE '{}'::jsonb
+          END
+        ) || jsonb_build_object('_version', $2::int, $3::text, $4::text),
+        updated_at = now()
+      WHERE session_id = $1::uuid
+    `,
+    [sessionId, CURRENT_DISCOVERY_AI_REPORT_VERSION, pillar, report],
+  );
+}
+
+async function persistDiscoveryInvitationAiReport(
+  client: PoolClient,
+  invitationId: string,
+  pillar: DiscoveryReportFilter,
+  report: string,
+): Promise<void> {
+  await client.query(
+    `
+      UPDATE app_assessment.discovery_invitations
+      SET
+        meta = jsonb_set(
+          COALESCE(meta, '{}'::jsonb),
+          '{ai_reports}',
+          (
+            CASE
+              WHEN COALESCE(meta->'ai_reports'->>'_version', '0') = $2::text THEN COALESCE(meta->'ai_reports', '{}'::jsonb)
+              ELSE '{}'::jsonb
+            END
+          ) || jsonb_build_object('_version', $2::int, $3::text, $4::text),
+          true
+        ),
+        updated_at = now()
+      WHERE invitation_id = $1::uuid
+    `,
+    [invitationId, CURRENT_DISCOVERY_AI_REPORT_VERSION, pillar, report],
+  );
+}
+
 interface InvitationStoredReports {
   all?: string;
   within?: string;
@@ -3515,6 +4272,9 @@ function parseInvitationStoredReports(meta: unknown): InvitationStoredReports {
   const raw = record.ai_reports;
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
   const data = raw as Record<string, unknown>;
+  if (Number(data._version ?? 0) !== CURRENT_DISCOVERY_AI_REPORT_VERSION) {
+    return {};
+  }
   return {
     all: typeof data.all === "string" ? data.all : undefined,
     within: typeof data.within === "string" ? data.within : undefined,
@@ -3577,7 +4337,7 @@ function buildContractPrompts(input: {
       .join("\n")
     : "- Sin recursos publicados específicos para estas brechas.";
 
-  const contextBlock = [
+  const globalContextBlock = [
     "Contexto metodológico recuperado para este caso:",
     "### Glosario objetivo",
     glossaryString,
@@ -3597,10 +4357,23 @@ function buildContractPrompts(input: {
     .filter(Boolean)
     .join("\n");
 
-  const commonUserContext = [
+  const pillarContextBlock = [
+    "Contexto metodológico recuperado para este caso:",
+    "### Glosario objetivo",
+    glossaryString,
+    "",
+    "### Evidencia priorizada para sostener inferencias",
+    contextEvidence.map((line) => `- ${line}`).join("\n") || "- Sin evidencia documental priorizada.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+  const metric = pillar === "all" ? null : scores.pillarMetrics[pillar];
+
+  const globalUserContext = [
     `Líder: ${username} (${role})`,
     `Tratamiento directo obligatorio: empieza el informe con "${username}, tu perfil de liderazgo".`,
     `Vista solicitada: ${toPillarFriendlyLabel(pillar)}`,
+    `Firma única del caso: G${scores.globalIndex}-W${scores.pillarMetrics.within.total}-O${scores.pillarMetrics.out.total}-U${scores.pillarMetrics.up.total}-B${scores.pillarMetrics.beyond.total} | Brechas ${targetGaps.map((item) => item.name).join(" / ")} | Fortalezas ${targetStrengths.map((item) => item.name).join(" / ")}`,
     `Índice de madurez global: ${scores.globalIndex}%`,
     "Resultados por pilar (0-100):",
     `- Within: ${scores.pillarMetrics.within.total}% (Likert ${scores.pillarMetrics.within.likert}%, SJT ${scores.pillarMetrics.within.sjt}%)`,
@@ -3627,14 +4400,41 @@ function buildContractPrompts(input: {
     `- Beyond: ${scores.pillarMetrics.beyond.likert - scores.pillarMetrics.beyond.sjt} puntos`,
   ].join("\n");
 
+  const pillarUserContext = [
+    `Líder: ${username} (${role})`,
+    `Tratamiento directo obligatorio: empieza el informe con "${username}, tu perfil de liderazgo".`,
+    `Vista solicitada: ${toPillarFriendlyLabel(pillar)}`,
+    `Firma única del caso: G${scores.globalIndex}-W${scores.pillarMetrics.within.total}-O${scores.pillarMetrics.out.total}-U${scores.pillarMetrics.up.total}-B${scores.pillarMetrics.beyond.total} | Brechas ${targetGaps.map((item) => item.name).join(" / ")} | Fortalezas ${targetStrengths.map((item) => item.name).join(" / ")}`,
+    `Panorama global: Within ${scores.pillarMetrics.within.total}%, Out ${scores.pillarMetrics.out.total}%, Up ${scores.pillarMetrics.up.total}%, Beyond ${scores.pillarMetrics.beyond.total}%, índice global ${scores.globalIndex}%.`,
+    `Resultado del pilar solicitado: ${metric?.total ?? 0}%`,
+    `Desglose del pilar: autopercepción ${metric?.likert ?? 0}%, juicio situacional ${metric?.sjt ?? 0}%, brecha ${(metric?.likert ?? 0) - (metric?.sjt ?? 0)} puntos.`,
+    "Fortalezas dominantes del pilar:",
+    ...targetStrengths.map((item, index) => `- Fortaleza ${index + 1}: ${item.name} (${item.score}/5)`),
+    "Brechas dominantes del pilar:",
+    ...targetGaps.map((item, index) => `- Brecha ${index + 1}: ${item.name} (${item.score}/5)`),
+  ].join("\n");
+
   const editorialRules = [
     "Reglas anti-genérico obligatorias:",
-    "- Escribe en prosa natural, cercana y profesional.",
-    "- Evita frases de plantilla y definiciones sueltas.",
+    "- Escribe en prosa natural, cercana y formal.",
+    "- Mantén un tono propositivo, positivo, útil y con tacto.",
+    "- Formula el mensaje desde lo que la persona puede activar, consolidar y convertir en hábito.",
+    "- Evita negaciones repetidas y evita construir el párrafo desde el contraste 'tienes algo bueno, pero...'.",
+    "- Evita frases de plantilla, frases hechas, mensajes de cajón y definiciones sueltas.",
+    "- No uses lenguaje técnico innecesario ni tono académico.",
+    "- Sé claro, concreto y profundo sin sonar agresivo.",
     "- No inventes información; usa solo datos del caso y contexto recuperado.",
     "- Cada sección debe incluir competencias concretas y cifras del caso.",
     "- Debes explicar causa probable, consecuencia observable y acción sugerida.",
     "- No nombres autores ni títulos de recursos, solo ideas aplicables.",
+    "- Si una frase podría servirle igual a otro usuario, reescríbela hasta que quede específica para esta combinación de datos.",
+    "- Evita expresiones vacías como 'apalancar', 'potencial por desbloquear', 'liderazgo en evolución', 'sostener conversaciones de calidad' o equivalentes.",
+    "- También están prohibidas fórmulas como 'esta combinación explica por qué', 'el punto clave ahora es', 'motores de estabilidad y avance', 'la regla de oro es', 'en ambos casos' y cualquier otra frase que suene a plantilla.",
+    "- También están prohibidas fórmulas como 'el dato no deja mucho margen', 'esa distancia es la foto del caso', 'no partes de cero', 'el mensaje es simple', 'si no lo corriges', 'el error sería' y equivalentes.",
+    "- También están prohibidas fórmulas como 'primer bloque', 'segundo bloque', 'tercer bloque', 'más práctica aplicada y menos reflexión abstracta', 'si la brecha es amplia', 'si la brecha es menor' y cualquier secuencia didáctica repetible.",
+    "- Evita marcas morfosintácticas típicas de texto IA: paralelismos rígidos, cierre sentencioso repetido y estructuras demasiado simétricas entre secciones.",
+    "- Habla como si le estuvieras diciendo la verdad útil a la persona, no como si redactaras un informe corporativo genérico.",
+    "- No incluyas bloques de evidencia, listados de fuentes, anexos metodológicos ni texto tipo 'Evidencia contextual usada'.",
     `- La primera frase del informe debe iniciar exactamente con: "${username}, tu perfil de liderazgo".`,
   ].join("\n");
 
@@ -3658,31 +4458,37 @@ Estructura obligatoria (usa markdown):
 ## Intervención táctica
 ## Señal de progreso
 
-${contextBlock}
+${globalContextBlock}
 `.trim();
 
     const userPrompt = `
-${commonUserContext}
+${globalUserContext}
 
-Solicitud puntual:
-- Quiero un análisis profundo y organizado, con lenguaje cercano en prosa.
-- Prioriza las brechas más bajas y explícame su efecto real en liderazgo.
-- Propón acciones de 30 días con señales observables de avance.
-`.trim();
+	Solicitud puntual:
+	- Quiero un análisis profundo y organizado, con lenguaje cercano, directo y sin adornos.
+	- Prioriza las brechas más bajas y explícame su efecto real en liderazgo.
+	- Propón acciones de 30 días con señales observables de avance.
+	- No uses frases hechas ni formulaciones que podrían repetirse en otro caso.
+	- Quiero sentir que esto fue escrito para esta persona exacta y no para un perfil genérico.
+	- Mantén un tono formal y cercano, muy propositivo y positivo, con tacto para dar feedback.
+	- Evita redactar desde la negación; formula oportunidades, palancas y próximos pasos.
+	`.trim();
 
     return { systemPrompt, userPrompt };
   }
 
-  const metric = scores.pillarMetrics[pillar];
   const systemPrompt = `
 ${feedbackInstructions.trim()}
 
 ${editorialRules}
 
 Restricciones de profundidad:
-- Cada sección debe tener mínimo 85 palabras.
-- Usa mínimo 2 porcentajes y 2 competencias por sección.
+ - Cada sección debe tener mínimo 55 palabras.
+ - Distribuye mínimo 3 porcentajes en total a lo largo del informe.
+- Usa mínimo 2 competencias concretas por sección.
 - Conecta el pilar con impacto en equipo, coordinación y resultados.
+- Usa el nombre exacto de las brechas y fortalezas del caso, no categorías abstractas.
+- Cada sección debe sonar escrita para este pilar específico y no para un pilar cualquiera.
 
 Estructura obligatoria (usa markdown):
 ## Tu perfil estratégico
@@ -3693,19 +4499,24 @@ Estructura obligatoria (usa markdown):
 ## Intervención táctica
 ## Señal de progreso
 
-${contextBlock}
+${pillarContextBlock}
 `.trim();
 
   const userPrompt = `
-${commonUserContext}
-Resultado del pilar solicitado: ${metric.total}%
-Desglose del pilar: autopercepción ${metric.likert}%, juicio situacional ${metric.sjt}%, brecha ${metric.likert - metric.sjt} puntos.
+${pillarUserContext}
 
-Solicitud puntual:
-- Diagnóstico profundo del pilar ${toPillarFriendlyLabel(pillar)}.
-- Causas probables, riesgos sistémicos e intervención táctica semanal.
-- Lenguaje humano, claro y específico para este caso.
-`.trim();
+	Solicitud puntual:
+	- Diagnóstico profundo del pilar ${toPillarFriendlyLabel(pillar)}.
+	- Causas probables, riesgos sistémicos e intervención táctica semanal.
+	- Lenguaje humano, claro, directo y específico para este caso.
+	- No uses frases hechas ni lenguaje corporativo genérico.
+	- Quiero sentir que este texto no podría reutilizarse para otro usuario.
+	- Mantén un tono formal y cercano, muy propositivo y positivo, con tacto para dar feedback.
+	- Evita redactar desde la negación; formula oportunidades, palancas y próximos pasos.
+	- No escribas un plan por bloques repetidos; quiero acciones concretas ligadas a este caso.
+	- No cierres con anexos, evidencia contextual ni listas metodológicas.
+	- Explica cómo estas fortalezas concretas pueden ayudar a mover estas brechas concretas en situaciones reales.
+	`.trim();
 
   return { systemPrompt, userPrompt };
 }
@@ -3715,7 +4526,6 @@ async function runContractStyleAnalysis(
   context: DiscoveryAnalysisContext,
   input: DiscoveryAnalyzeContractInput,
 ): Promise<{ report: string; source: "ai" | "fallback" }> {
-  const fallback = input.fallbackReport?.trim() || "";
   if (!input.scores?.pillarMetrics) {
     throw new Error("Invalid scores payload");
   }
@@ -3732,10 +4542,12 @@ async function runContractStyleAnalysis(
     .reverse()
     .map((item) => ({ name: item.name, score: item.score }));
   const targetGapNames = targetGaps.map((item) => item.name);
-  const docs = context.feedbackSettings.contextDocuments.slice(0, fastMode ? 2 : 6);
+  const docs = context.feedbackSettings.contextDocuments.slice(0, fastMode ? 0 : 6);
 
   const glossary = await resolveGlossaryTermsExact(targetGapNames);
-  const resources = await resolveResourcesRuleBased(client, targetGapNames, pillar);
+  const resources = fastMode
+    ? []
+    : await resolveResourcesRuleBased(client, targetGapNames, pillar);
   const contextChunks: string[] = [];
   const unresolvedContextNames: string[] = [];
   if (docs.length > 0) {
@@ -3785,48 +4597,51 @@ async function runContractStyleAnalysis(
   });
 
   try {
+    const isGlobal = pillar === "all";
+    const primaryModel = isGlobal ? "gpt-4.1" : "gpt-4.1-mini";
+    const refinementModel = "gpt-4.1";
+    const maxAttempts = isGlobal ? 2 : 1;
+
     let report = await requestOpenAiReport(context, systemPrompt, userPrompt, {
-      model: "gpt-4o",
-      temperature: 0.56,
-      timeoutMs: fastMode ? (pillar === "all" ? 9000 : 7000) : (pillar === "all" ? 14000 : 11000),
-      maxTokens: fastMode ? (pillar === "all" ? 1000 : 800) : (pillar === "all" ? 1300 : 1000),
+      model: primaryModel,
+      temperature: isGlobal ? 0.64 : 0.62,
+      timeoutMs: isGlobal ? 50000 : 40000,
+      maxTokens: isGlobal ? 1800 : 950,
     });
     let attempts = 1;
-    while (!isDeepEnoughReport(report, pillar) && attempts < (fastMode ? 1 : 3)) {
+    while (!isDeepEnoughReport(report, pillar) && attempts < maxAttempts) {
       const refinementPrompt = [
         `Iteración de mejora ${attempts}. El borrador no cumple profundidad mínima.`,
         `Palabras actuales: ${countWords(report)}.`,
         `Menciones de porcentaje actuales: ${(report.match(/\b\d{1,3}(?:[.,]\d+)?%/g) ?? []).length}.`,
         "",
         "Reescribe TODO el informe con más profundidad y causalidad.",
-        "No uses frases comodín ni definiciones de diccionario.",
+        "Mantén tono propositivo, cercano y útil.",
+        "Evita negaciones repetidas, frases comodín, cierres sentenciosos y definiciones de diccionario.",
         "Sustenta cada sección con datos numéricos, competencias concretas y acciones específicas.",
+        "Haz que el feedback suene humano, formal y con tacto.",
         "Mantén exactamente los títulos y el orden solicitado.",
         "",
         "Borrador actual:",
         report,
       ].join("\n");
       report = await requestOpenAiReport(context, systemPrompt, refinementPrompt, {
-        model: "gpt-4o",
-        temperature: attempts === 1 ? 0.62 : 0.55,
-        timeoutMs: fastMode ? (pillar === "all" ? 6500 : 5500) : (pillar === "all" ? 9000 : 8000),
-        maxTokens: fastMode ? (pillar === "all" ? 900 : 700) : (pillar === "all" ? 1200 : 900),
+        model: refinementModel,
+        temperature: attempts === 1 ? (isGlobal ? 0.7 : 0.64) : 0.6,
+        timeoutMs: isGlobal ? 40000 : 35000,
+        maxTokens: isGlobal ? 1700 : 1050,
       });
       attempts += 1;
     }
+    if (!isDeepEnoughReport(report, pillar)) {
+      if (!isGlobal && isUsablePillarReport(report)) {
+        return { report, source: "ai" };
+      }
+      throw createPendingFinalAnalysisError();
+    }
     return { report, source: "ai" };
-  } catch {
-    const deterministic = buildDeterministicDeepReport({
-      username: input.username,
-      pillar,
-      scores: input.scores,
-      targetGaps,
-      targetStrengths,
-      contextEvidence,
-    });
-    if (deterministic) return { report: deterministic, source: "fallback" };
-    if (fallback) return { report: fallback, source: "fallback" };
-    throw new Error("No se pudo generar el análisis con IA y no existe fallback.");
+  } catch (error) {
+    throw error instanceof Error ? error : createPendingFinalAnalysisError();
   }
 }
 
@@ -3839,6 +4654,12 @@ export async function generateDiscoveryAnalysisContract(
   await requireDiscoveryAccess(client, actor);
 
   const fallback = input.fallbackReport?.trim() || "";
+  const session = await readDiscoverySession(client, actor.userId);
+  const pillar = input.pillar ?? "all";
+  const cached = session?.aiReports?.[pillar];
+  if (cached && cached.trim().length > 0) {
+    return { report: cached.trim(), source: "ai" };
+  }
   const openAiIntegration = await getIntegrationConfigForActor(client, actor.userId, "openai");
   if (!openAiIntegration?.enabled || !openAiIntegration.secretValue) {
     if (fallback) return { report: fallback, source: "fallback" };
@@ -3854,11 +4675,86 @@ export async function generateDiscoveryAnalysisContract(
     feedbackSettings,
   };
 
-  try {
-    return await runContractStyleAnalysis(client, analysisContext, input);
-  } catch {
-    return runDiscoveryAnalysisWithContext(client, input, analysisContext);
+  const result = await runContractStyleAnalysis(client, analysisContext, {
+    ...input,
+    fastMode: pillar !== "all",
+  });
+
+  if (session?.sessionId && result.report.trim().length > 0) {
+    await persistDiscoverySessionAiReport(client, session.sessionId, pillar, result.report.trim());
   }
+
+  return result;
+}
+
+export async function generateDiscoveryAnalysisBundleContract(
+  client: PoolClient,
+  actor: AuthUser,
+  input: Omit<DiscoveryAnalyzeContractInput, "pillar" | "fallbackReport">,
+): Promise<{ reports: DiscoveryAiReports }> {
+  await requireModulePermission(client, "descubrimiento", "view");
+  await requireDiscoveryAccess(client, actor);
+
+  const session = await readDiscoverySession(client, actor.userId);
+  const reports: DiscoveryAiReports = {
+    ...(session?.aiReports ?? {}),
+  };
+  const missingFilters = DISCOVERY_REPORT_BATCH_FILTERS.filter((pillar) => !reports[pillar]?.trim());
+  if (missingFilters.length === 0 || !session?.sessionId) {
+    return { reports };
+  }
+
+  return withDiscoveryAdvisoryLock(client, "session", session.sessionId, async () => {
+    const refreshed = await readDiscoverySession(client, actor.userId);
+    const nextReports: DiscoveryAiReports = {
+      ...(refreshed?.aiReports ?? reports),
+    };
+    const stillMissing = DISCOVERY_REPORT_BATCH_FILTERS.filter((pillar) => !nextReports[pillar]?.trim());
+    if (stillMissing.length === 0) {
+      return { reports: nextReports };
+    }
+
+    const orderedFilters = ([
+      "all",
+      "within",
+      "out",
+      "up",
+      "beyond",
+    ] as const).filter((pillar) => stillMissing.includes(pillar));
+
+    if (orderedFilters.includes("all")) {
+      const result = await generateDiscoveryAnalysisContract(client, actor, {
+        ...input,
+        pillar: "all",
+      });
+      const report = result.report.trim();
+      if (report) {
+        nextReports.all = report;
+        await persistDiscoverySessionAiReport(client, session.sessionId, "all", report);
+      }
+    }
+
+    const pillarFilters = orderedFilters.filter((pillar) => pillar !== "all");
+    for (let index = 0; index < pillarFilters.length; index += DISCOVERY_ANALYSIS_BATCH_CONCURRENCY) {
+      const chunk = pillarFilters.slice(index, index + DISCOVERY_ANALYSIS_BATCH_CONCURRENCY);
+      const chunkResults = await Promise.all(
+        chunk.map(async (pillar) => {
+          const result = await generateDiscoveryAnalysisContract(client, actor, {
+            ...input,
+            pillar,
+          });
+          return { pillar, report: result.report.trim() };
+        }),
+      );
+      for (const { pillar, report } of chunkResults) {
+        if (!report) continue;
+        nextReports[pillar] = report;
+        await persistDiscoverySessionAiReport(client, session.sessionId, pillar, report);
+      }
+    }
+
+    return { reports: nextReports };
+  });
 }
 
 export async function generateDiscoveryInvitationAnalysisContract(
@@ -3866,9 +4762,6 @@ export async function generateDiscoveryInvitationAnalysisContract(
   input: DiscoveryAnalyzeContractInput & { inviteToken: string; accessCode: string },
 ): Promise<{ report: string; source: "ai" | "fallback" }> {
   const verified = await verifyDiscoveryInvitationAccess(client, input.inviteToken, input.accessCode);
-  if (verified.accessMode !== "diagnostic") {
-    throw new Error("La invitación ya está asociada a un usuario autenticado.");
-  }
 
   const invitationRowResult = await client.query<{ meta: unknown }>(
     `
@@ -3910,58 +4803,129 @@ export async function generateDiscoveryInvitationAnalysisContract(
   };
 
   const pillar = input.pillar ?? "all";
-  let result: { report: string; source: "ai" | "fallback" };
-  try {
-    result = await runContractStyleAnalysis(client, analysisContext, {
-      ...input,
-      fastMode: false,
-    });
-  } catch {
-    try {
-      result = await runDiscoveryAnalysisWithContext(client, input, analysisContext);
-    } catch {
-      const compList = [...(input.scores.compList ?? [])];
-      const pool =
-        pillar === "all" ? compList : compList.filter((item) => item.pillar === pillar);
-      const sorted = [...pool].sort((a, b) => a.score - b.score);
-      const deterministic = buildDeterministicDeepReport({
-        username: input.username,
-        pillar,
-        scores: input.scores,
-        targetGaps: sorted.slice(0, 3).map((item) => ({ name: item.name, score: item.score })),
-        targetStrengths: [...sorted]
-          .slice(-3)
-          .reverse()
-          .map((item) => ({ name: item.name, score: item.score })),
-        contextEvidence: [],
-      });
-      result = {
-        report:
-          deterministic ||
-          input.fallbackReport?.trim() ||
-          `${input.username}, tu perfil de liderazgo muestra oportunidades de mejora concretas. Reintenta en unos segundos para regenerar el análisis detallado.`,
-        source: "fallback",
-      };
-    }
+  const result = await runContractStyleAnalysis(client, analysisContext, {
+    ...input,
+    fastMode: pillar !== "all",
+  });
+
+  if (result.report.trim().length > 0) {
+    await persistDiscoveryInvitationAiReport(
+      client,
+      verified.invitation.invitationId,
+      pillar,
+      result.report.trim(),
+    );
   }
 
-  await client.query(
-    `
-      UPDATE app_assessment.discovery_invitations
-      SET
-        meta = jsonb_set(
-          COALESCE(meta, '{}'::jsonb),
-          '{ai_reports}',
-          COALESCE(meta->'ai_reports', '{}'::jsonb) || jsonb_build_object($2::text, $3::text),
-          true
-        ),
-        updated_at = now()
-      WHERE invitation_id = $1::uuid
-    `,
-    [verified.invitation.invitationId, pillar, result.report],
-  );
-
   return result;
+}
+
+export async function generateDiscoveryInvitationAnalysisBundleContract(
+  client: PoolClient,
+  input: Omit<
+    DiscoveryAnalyzeContractInput & { inviteToken: string; accessCode: string },
+    "pillar" | "fallbackReport"
+  >,
+): Promise<{ reports: DiscoveryAiReports }> {
+  const verified = await verifyDiscoveryInvitationAccess(client, input.inviteToken, input.accessCode);
+  const invitationRowResult = await client.query<{ meta: unknown }>(
+    `
+      SELECT meta
+      FROM app_assessment.discovery_invitations
+      WHERE invitation_id = $1::uuid
+      LIMIT 1
+    `,
+    [verified.invitation.invitationId],
+  );
+  const reports: DiscoveryAiReports = {
+    ...parseInvitationStoredReports(invitationRowResult.rows[0]?.meta),
+  };
+  const missingFilters = DISCOVERY_REPORT_BATCH_FILTERS.filter((pillar) => !reports[pillar]?.trim());
+  if (missingFilters.length === 0) {
+    return { reports };
+  }
+
+  return withDiscoveryAdvisoryLock(
+    client,
+    "invitation",
+    verified.invitation.invitationId,
+    async () => {
+      const refreshedMetaResult = await client.query<{ meta: unknown }>(
+        `
+          SELECT meta
+          FROM app_assessment.discovery_invitations
+          WHERE invitation_id = $1::uuid
+          LIMIT 1
+        `,
+        [verified.invitation.invitationId],
+      );
+      const nextReports: DiscoveryAiReports = {
+        ...parseInvitationStoredReports(refreshedMetaResult.rows[0]?.meta),
+      };
+      const stillMissing = DISCOVERY_REPORT_BATCH_FILTERS.filter((pillar) => !nextReports[pillar]?.trim());
+      if (stillMissing.length === 0) {
+        return { reports: nextReports };
+      }
+
+      let organizationId: string | null = null;
+      if (verified.session?.userId) {
+        organizationId = await resolveOrganizationIdFromSessionUser(client, verified.session.userId);
+      }
+      if (!organizationId) {
+        organizationId = await resolveFallbackOrganizationId(client);
+      }
+      const orderedFilters = ([
+        "all",
+        "within",
+        "out",
+        "up",
+        "beyond",
+      ] as const).filter((pillar) => stillMissing.includes(pillar));
+
+      if (orderedFilters.includes("all")) {
+        const result = await generateDiscoveryInvitationAnalysisContract(client, {
+          ...input,
+          pillar: "all",
+        });
+        const report = result.report.trim();
+        if (report) {
+          nextReports.all = report;
+          await persistDiscoveryInvitationAiReport(
+            client,
+            verified.invitation.invitationId,
+            "all",
+            report,
+          );
+        }
+      }
+
+      const pillarFilters = orderedFilters.filter((pillar) => pillar !== "all");
+      for (let index = 0; index < pillarFilters.length; index += DISCOVERY_ANALYSIS_BATCH_CONCURRENCY) {
+        const chunk = pillarFilters.slice(index, index + DISCOVERY_ANALYSIS_BATCH_CONCURRENCY);
+        const chunkResults = await Promise.all(
+          chunk.map(async (pillar) => {
+            const result = await generateDiscoveryInvitationAnalysisContract(client, {
+              ...input,
+              pillar,
+            });
+            return { pillar, report: result.report.trim() };
+          }),
+        );
+        for (const { pillar, report } of chunkResults) {
+          if (!report) continue;
+          nextReports[pillar] = report;
+          await persistDiscoveryInvitationAiReport(
+            client,
+            verified.invitation.invitationId,
+            pillar,
+            report,
+          );
+        }
+      }
+
+      return { reports: nextReports };
+    },
+  );
 }
 
 export async function generateDiscoveryGuestSessionAnalysisContract(
@@ -3969,10 +4933,6 @@ export async function generateDiscoveryGuestSessionAnalysisContract(
   input: DiscoveryAnalyzeContractInput & { inviteToken: string },
 ): Promise<{ report: string; source: "ai" | "fallback" }> {
   const row = await resolveDiscoveryInvitationByToken(client, input.inviteToken);
-  const session = row.session_payload ? mapDiscoverySessionRow(row.session_payload) : null;
-  if (session) {
-    throw new Error("La invitación ya está asociada a un usuario autenticado.");
-  }
 
   const invitationRowResult = await client.query<{ meta: unknown }>(
     `
@@ -4020,43 +4980,112 @@ export async function generateDiscoveryGuestSessionAnalysisContract(
     feedbackSettings,
   };
 
-  let result: { report: string; source: "ai" | "fallback" };
-  try {
-    result = await runContractStyleAnalysis(client, analysisContext, {
-      ...input,
-      fastMode: false,
-    });
-  } catch {
-    try {
-      result = await runDiscoveryAnalysisWithContext(client, input, analysisContext);
-    } catch {
-      const fallback = input.fallbackReport?.trim() || "";
-      result = {
-        report:
-          fallback ||
-          `${input.username}, tu perfil de liderazgo requiere análisis adicional. Vuelve a intentar en unos segundos.`,
-        source: "fallback",
-      };
-    }
+  const result = await runContractStyleAnalysis(client, analysisContext, {
+    ...input,
+    fastMode: pillar !== "all",
+  });
+
+  if (result.report.trim().length > 0) {
+    await persistDiscoveryInvitationAiReport(client, row.invitation_id, pillar, result.report.trim());
   }
 
-  await client.query(
-    `
-      UPDATE app_assessment.discovery_invitations
-      SET
-        meta = jsonb_set(
-          COALESCE(meta, '{}'::jsonb),
-          '{ai_reports}',
-          COALESCE(meta->'ai_reports', '{}'::jsonb) || jsonb_build_object($2::text, $3::text),
-          true
-        ),
-        updated_at = now()
-      WHERE invitation_id = $1::uuid
-    `,
-    [row.invitation_id, pillar, result.report],
-  );
-
   return result;
+}
+
+export async function generateDiscoveryGuestSessionAnalysisBundleContract(
+  client: PoolClient,
+  input: Omit<DiscoveryAnalyzeContractInput & { inviteToken: string }, "pillar" | "fallbackReport">,
+): Promise<{ reports: DiscoveryAiReports }> {
+  const row = await resolveDiscoveryInvitationByToken(client, input.inviteToken);
+  const invitationRowResult = await client.query<{ meta: unknown }>(
+    `
+      SELECT meta
+      FROM app_assessment.discovery_invitations
+      WHERE invitation_id = $1::uuid
+      LIMIT 1
+    `,
+    [row.invitation_id],
+  );
+  const reports: DiscoveryAiReports = {
+    ...parseInvitationStoredReports(invitationRowResult.rows[0]?.meta),
+  };
+  const missingFilters = DISCOVERY_REPORT_BATCH_FILTERS.filter((pillar) => !reports[pillar]?.trim());
+  if (missingFilters.length === 0) {
+    return { reports };
+  }
+
+  return withDiscoveryAdvisoryLock(client, "invitation", row.invitation_id, async () => {
+    const refreshedMetaResult = await client.query<{ meta: unknown }>(
+      `
+        SELECT meta
+        FROM app_assessment.discovery_invitations
+        WHERE invitation_id = $1::uuid
+        LIMIT 1
+      `,
+      [row.invitation_id],
+    );
+    const nextReports: DiscoveryAiReports = {
+      ...parseInvitationStoredReports(refreshedMetaResult.rows[0]?.meta),
+    };
+    const stillMissing = DISCOVERY_REPORT_BATCH_FILTERS.filter((pillar) => !nextReports[pillar]?.trim());
+    if (stillMissing.length === 0) {
+      return { reports: nextReports };
+    }
+
+    let organizationId: string | null = null;
+    if (row.session_id) {
+      const { rows } = await client.query<{ user_id: string }>(
+        `SELECT user_id::text FROM app_assessment.discovery_sessions WHERE session_id = $1::uuid LIMIT 1`,
+        [row.session_id],
+      );
+      if (rows[0]?.user_id) {
+        organizationId = await resolveOrganizationIdFromSessionUser(client, rows[0].user_id);
+      }
+    }
+    if (!organizationId) {
+      organizationId = await resolveFallbackOrganizationId(client);
+    }
+    const orderedFilters = ([
+      "all",
+      "within",
+      "out",
+      "up",
+      "beyond",
+    ] as const).filter((pillar) => stillMissing.includes(pillar));
+
+    if (orderedFilters.includes("all")) {
+      const result = await generateDiscoveryGuestSessionAnalysisContract(client, {
+        ...input,
+        pillar: "all",
+      });
+      const report = result.report.trim();
+      if (report) {
+        nextReports.all = report;
+        await persistDiscoveryInvitationAiReport(client, row.invitation_id, "all", report);
+      }
+    }
+
+    const pillarFilters = orderedFilters.filter((pillar) => pillar !== "all");
+    for (let index = 0; index < pillarFilters.length; index += DISCOVERY_ANALYSIS_BATCH_CONCURRENCY) {
+      const chunk = pillarFilters.slice(index, index + DISCOVERY_ANALYSIS_BATCH_CONCURRENCY);
+      const chunkResults = await Promise.all(
+        chunk.map(async (pillar) => {
+          const result = await generateDiscoveryGuestSessionAnalysisContract(client, {
+            ...input,
+            pillar,
+          });
+          return { pillar, report: result.report.trim() };
+        }),
+      );
+      for (const { pillar, report } of chunkResults) {
+        if (!report) continue;
+        nextReports[pillar] = report;
+        await persistDiscoveryInvitationAiReport(client, row.invitation_id, pillar, report);
+      }
+    }
+
+    return { reports: nextReports };
+  });
 }
 
 export async function getDiscoveryFeedbackSettingsForAnalysis(
@@ -4103,9 +5132,6 @@ export async function generateDiscoveryInvitationAnalysis(
   input: DiscoveryAnalysisInput & { inviteToken: string; accessCode: string },
 ): Promise<{ report: string; source: "ai" | "fallback" }> {
   const verified = await verifyDiscoveryInvitationAccess(client, input.inviteToken, input.accessCode);
-  if (verified.accessMode !== "diagnostic") {
-    throw new Error("La invitación ya está asociada a un usuario autenticado.");
-  }
 
   const fallback = input.fallbackReport?.trim() || "";
   let organizationId: string | null = null;

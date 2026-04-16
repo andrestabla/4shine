@@ -119,6 +119,26 @@ export async function getViewerAccessState(
   const catalogPromise = includeCatalog ? listCatalog(client) : Promise.resolve([]);
 
   if (actor.role !== "lider") {
+    if (actor.role === "invitado") {
+      return {
+        viewerTier: "staff",
+        planTypeCode: null,
+        hasProgramSubscription: false,
+        hasAnyPurchase: false,
+        hasDiscoveryPurchase: true,
+        mentorshipSessionCredits: 0,
+        canAccessTrayectoria: false,
+        canAccessDescubrimiento: true,
+        canAccessLearningLibrary: false,
+        canAccessProgramWorkbooks: false,
+        canAccessProgramMentorships: false,
+        canAccessCommunityModules: false,
+        freeLearningOnly: true,
+        purchasedProductCodes: [],
+        catalog: await catalogPromise,
+      };
+    }
+
     return {
       viewerTier: "staff",
       planTypeCode: null,

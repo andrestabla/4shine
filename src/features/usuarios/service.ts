@@ -9,6 +9,12 @@ import type { AuthUser } from '@/server/auth/types';
 
 type PlanType = 'standard' | 'premium' | 'vip' | 'empresa_elite';
 type SeniorityLevel = 'senior' | 'c_level' | 'director' | 'manager' | 'vp';
+type JobRole =
+  | 'Director/C-Level'
+  | 'Gerente/Mando medio'
+  | 'Coordinador'
+  | 'Lider de proyecto con equipo a cargo'
+  | 'Individual contributor';
 type PolicyStatus = 'accepted' | 'pending';
 type OutboundProvider = 'smtp' | 'sendgrid' | 'resend' | 'ses';
 
@@ -30,6 +36,10 @@ export interface UserRecord {
   seniorityLevel: SeniorityLevel | null;
   bio: string | null;
   location: string | null;
+  country: string | null;
+  jobRole: JobRole | null;
+  age: number | null;
+  yearsExperience: number | null;
   policyStatus: PolicyStatus;
   policyCode: string | null;
   policyVersion: string | null;
@@ -111,6 +121,10 @@ export interface CreateUserInput {
   seniorityLevel?: SeniorityLevel | null;
   bio?: string | null;
   location?: string | null;
+  country?: string | null;
+  jobRole?: JobRole | null;
+  age?: number | null;
+  yearsExperience?: number | null;
 }
 
 export interface UpdateUserInput {
@@ -129,6 +143,10 @@ export interface UpdateUserInput {
   seniorityLevel?: SeniorityLevel | null;
   bio?: string | null;
   location?: string | null;
+  country?: string | null;
+  jobRole?: JobRole | null;
+  age?: number | null;
+  yearsExperience?: number | null;
 }
 
 export interface ResetUserPasswordResult {
@@ -161,6 +179,10 @@ interface UserRow {
   seniority_level: SeniorityLevel | null;
   bio: string | null;
   location: string | null;
+  country: string | null;
+  job_role: JobRole | null;
+  age: number | null;
+  years_experience: number | null;
   policy_code: string | null;
   policy_version: string | null;
   policy_accepted_at: string | null;
@@ -187,6 +209,21 @@ const SUBSCRIBED_LEADER_PLAN_TYPES = new Set<PlanType>([
   'vip',
   'empresa_elite',
 ]);
+
+const JOB_ROLE_OPTIONS: readonly JobRole[] = [
+  'Director/C-Level',
+  'Gerente/Mando medio',
+  'Coordinador',
+  'Lider de proyecto con equipo a cargo',
+  'Individual contributor',
+];
+const JOB_ROLE_SET = new Set<JobRole>(JOB_ROLE_OPTIONS);
+const USER_PROFILE_DEFAULTS = {
+  country: 'No definido',
+  jobRole: 'Individual contributor' as JobRole,
+  age: 30,
+  yearsExperience: 0,
+};
 
 function resolvePlanTypeForCreate(input: CreateUserInput): PlanType | null {
   if (input.primaryRole !== 'lider') {
@@ -401,6 +438,10 @@ const BASE_SELECT = `
     p.seniority_level,
     p.bio,
     p.location,
+    p.country,
+    p.job_role,
+    p.age,
+    p.years_experience,
     lp.policy_code,
     lp.policy_version,
     lp.accepted_at::text AS policy_accepted_at,
@@ -440,6 +481,10 @@ function mapUser(row: UserRow): UserRecord {
     seniorityLevel: row.seniority_level,
     bio: row.bio,
     location: row.location,
+    country: row.country,
+    jobRole: row.job_role,
+    age: row.age,
+    yearsExperience: row.years_experience,
     policyStatus: row.policy_accepted_at ? 'accepted' : 'pending',
     policyCode: row.policy_code,
     policyVersion: row.policy_version,
@@ -510,6 +555,50 @@ function normalizeSearch(value: string | undefined): string | null {
   const trimmed = value.trim();
   if (!trimmed) return null;
   return `%${trimmed}%`;
+}
+
+function normalizeOptionalText(value: string | null | undefined): string | null {
+  if (value === undefined || value === null) return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function normalizeJobRole(value: JobRole | string | null | undefined): JobRole | null {
+  if (value === undefined || value === null) return null;
+  const normalized = value.trim() === 'Gerente/Mand medio' ? 'Gerente/Mando medio' : value.trim();
+  return JOB_ROLE_SET.has(normalized as JobRole) ? (normalized as JobRole) : null;
+}
+
+function normalizeAge(value: number | null | undefined): number | null {
+  if (value === undefined || value === null) return null;
+  if (!Number.isFinite(value)) return null;
+  return Math.max(16, Math.min(100, Math.floor(Number(value))));
+}
+
+function normalizeYearsExperience(value: number | null | undefined): number | null {
+  if (value === undefined || value === null) return null;
+  if (!Number.isFinite(value)) return null;
+  return Math.max(0, Math.min(80, Math.floor(Number(value))));
+}
+
+function assertRequiredDemographics(input: {
+  country: string | null;
+  jobRole: JobRole | null;
+  age: number | null;
+  yearsExperience: number | null;
+}) {
+  if (!input.country || input.country.trim().length === 0) {
+    throw new Error('País es obligatorio.');
+  }
+  if (!input.jobRole) {
+    throw new Error('Cargo es obligatorio.');
+  }
+  if (!Number.isFinite(input.age)) {
+    throw new Error('Edad es obligatoria.');
+  }
+  if (!Number.isFinite(input.yearsExperience)) {
+    throw new Error('Años de experiencia es obligatorio.');
+  }
 }
 
 function hasUsableEmail(value: string | undefined | null): boolean {
@@ -1050,6 +1139,16 @@ export async function createUser(
   const passwordHash = await hashPassword(input.password);
   const displayName = input.displayName ?? `${input.firstName} ${input.lastName}`.trim();
   const resolvedPlanType = resolvePlanTypeForCreate(input);
+  const normalizedCountry = normalizeOptionalText(input.country ?? null);
+  const normalizedJobRole = normalizeJobRole(input.jobRole ?? null);
+  const normalizedAge = normalizeAge(input.age ?? null);
+  const normalizedYearsExperience = normalizeYearsExperience(input.yearsExperience ?? null);
+  assertRequiredDemographics({
+    country: normalizedCountry,
+    jobRole: normalizedJobRole,
+    age: normalizedAge,
+    yearsExperience: normalizedYearsExperience,
+  });
   let organizationId = input.organizationId ?? null;
 
   if (!organizationId) {
@@ -1144,9 +1243,13 @@ export async function createUser(
         plan_type,
         seniority_level,
         bio,
-        location
+        location,
+        country,
+        job_role,
+        age,
+        years_experience
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       ON CONFLICT (user_id) DO UPDATE
       SET profession = EXCLUDED.profession,
           industry = EXCLUDED.industry,
@@ -1154,6 +1257,10 @@ export async function createUser(
           seniority_level = EXCLUDED.seniority_level,
           bio = EXCLUDED.bio,
           location = EXCLUDED.location,
+          country = EXCLUDED.country,
+          job_role = EXCLUDED.job_role,
+          age = EXCLUDED.age,
+          years_experience = EXCLUDED.years_experience,
           updated_at = now()
     `,
     [
@@ -1164,6 +1271,10 @@ export async function createUser(
       input.seniorityLevel ?? null,
       input.bio ?? null,
       input.location ?? null,
+      normalizedCountry,
+      normalizedJobRole,
+      normalizedAge,
+      normalizedYearsExperience,
     ],
   );
 
@@ -1186,6 +1297,26 @@ export async function updateUser(
   const resolvedPlanType = resolvePlanTypeForUpdate(currentUserState, input);
   const nextRole = input.primaryRole ?? currentUserState.primaryRole;
   const shouldUpdatePlanType = resolvedPlanType !== undefined;
+  const shouldPersistProfile =
+    shouldUpdatePlanType ||
+    input.profession !== undefined ||
+    input.industry !== undefined ||
+    input.seniorityLevel !== undefined ||
+    input.bio !== undefined ||
+    input.location !== undefined ||
+    input.country !== undefined ||
+    input.jobRole !== undefined ||
+    input.age !== undefined ||
+    input.yearsExperience !== undefined;
+  const normalizedCountry = input.country === undefined ? null : normalizeOptionalText(input.country);
+  const normalizedJobRole = input.jobRole === undefined ? null : normalizeJobRole(input.jobRole);
+  const normalizedAge = input.age === undefined ? null : normalizeAge(input.age);
+  const normalizedYearsExperience =
+    input.yearsExperience === undefined ? null : normalizeYearsExperience(input.yearsExperience);
+  const shouldUpdateCountry = input.country !== undefined;
+  const shouldUpdateJobRole = input.jobRole !== undefined;
+  const shouldUpdateAge = input.age !== undefined;
+  const shouldUpdateYearsExperience = input.yearsExperience !== undefined;
 
   await client.query(
     `
@@ -1256,42 +1387,111 @@ export async function updateUser(
     );
   }
 
-  await client.query(
-    `
-      INSERT INTO app_core.user_profiles (
-        user_id,
-        profession,
-        industry,
-        plan_type,
-        seniority_level,
-        bio,
-        location
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-      ON CONFLICT (user_id) DO UPDATE
-      SET
-        profession = COALESCE($2, app_core.user_profiles.profession),
-        industry = COALESCE($3, app_core.user_profiles.industry),
-        plan_type = CASE
-          WHEN $8::boolean THEN $4
-          ELSE app_core.user_profiles.plan_type
-        END,
-        seniority_level = COALESCE($5, app_core.user_profiles.seniority_level),
-        bio = COALESCE($6, app_core.user_profiles.bio),
-        location = COALESCE($7, app_core.user_profiles.location),
-        updated_at = now()
-    `,
-    [
-      userId,
-      input.profession ?? null,
-      input.industry ?? null,
-      resolvedPlanType,
-      input.seniorityLevel ?? null,
-      input.bio ?? null,
-      input.location ?? null,
-      shouldUpdatePlanType,
-    ],
-  );
+  if (shouldPersistProfile) {
+    const { rows: existingRows } = await client.query<{
+      country: string | null;
+      job_role: JobRole | null;
+      age: number | null;
+      years_experience: number | null;
+    }>(
+      `
+        SELECT
+          country,
+          job_role,
+          age,
+          years_experience
+        FROM app_core.user_profiles
+        WHERE user_id = $1::uuid
+        LIMIT 1
+      `,
+      [userId],
+    );
+    const existing = existingRows[0];
+
+    const existingCountry = normalizeOptionalText(existing?.country ?? null);
+    const existingJobRole = normalizeJobRole(existing?.job_role ?? null);
+    const existingAge = normalizeAge(existing?.age ?? null);
+    const existingYearsExperience = normalizeYearsExperience(existing?.years_experience ?? null);
+
+    const effectiveCountry = (shouldUpdateCountry ? normalizedCountry : existingCountry) ?? USER_PROFILE_DEFAULTS.country;
+    const effectiveJobRole = (shouldUpdateJobRole ? normalizedJobRole : existingJobRole) ?? USER_PROFILE_DEFAULTS.jobRole;
+    const effectiveAge = (shouldUpdateAge ? normalizedAge : existingAge) ?? USER_PROFILE_DEFAULTS.age;
+    const effectiveYearsExperience = shouldUpdateYearsExperience
+      ? normalizedYearsExperience
+      : existingYearsExperience ?? USER_PROFILE_DEFAULTS.yearsExperience;
+
+    assertRequiredDemographics({
+      country: effectiveCountry,
+      jobRole: effectiveJobRole,
+      age: effectiveAge,
+      yearsExperience: effectiveYearsExperience,
+    });
+
+    await client.query(
+      `
+        INSERT INTO app_core.user_profiles (
+          user_id,
+          profession,
+          industry,
+          plan_type,
+          seniority_level,
+          bio,
+          location,
+          country,
+          job_role,
+          age,
+          years_experience
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $9, $10, $11, $12)
+        ON CONFLICT (user_id) DO UPDATE
+        SET
+          profession = COALESCE($2, app_core.user_profiles.profession),
+          industry = COALESCE($3, app_core.user_profiles.industry),
+          plan_type = CASE
+            WHEN $8::boolean THEN $4
+            ELSE app_core.user_profiles.plan_type
+          END,
+          seniority_level = COALESCE($5, app_core.user_profiles.seniority_level),
+          bio = COALESCE($6, app_core.user_profiles.bio),
+          location = COALESCE($7, app_core.user_profiles.location),
+          country = CASE
+            WHEN $13::boolean THEN $9
+            ELSE COALESCE(NULLIF(BTRIM(app_core.user_profiles.country), ''), $9)
+          END,
+          job_role = CASE
+            WHEN $14::boolean THEN $10
+            ELSE COALESCE(app_core.user_profiles.job_role, $10)
+          END,
+          age = CASE
+            WHEN $15::boolean THEN $11
+            ELSE COALESCE(app_core.user_profiles.age, $11)
+          END,
+          years_experience = CASE
+            WHEN $16::boolean THEN $12
+            ELSE COALESCE(app_core.user_profiles.years_experience, $12)
+          END,
+          updated_at = now()
+      `,
+      [
+        userId,
+        input.profession ?? null,
+        input.industry ?? null,
+        resolvedPlanType,
+        input.seniorityLevel ?? null,
+        input.bio ?? null,
+        input.location ?? null,
+        shouldUpdatePlanType,
+        effectiveCountry,
+        effectiveJobRole,
+        effectiveAge,
+        effectiveYearsExperience,
+        shouldUpdateCountry,
+        shouldUpdateJobRole,
+        shouldUpdateAge,
+        shouldUpdateYearsExperience,
+      ],
+    );
+  }
 
   await ensureLeaderProgramPurchase(client, userId, {
     role: nextRole,

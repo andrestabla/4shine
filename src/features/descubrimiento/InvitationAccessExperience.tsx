@@ -8,11 +8,17 @@ import { ResultsView } from "./ResultsView";
 import { DB, SCALES } from "./DiagnosticsData";
 import { DISCOVERY_ITEMS_PER_PAGE, calculateDiscoveryCompletionPercent } from "./reporting";
 import {
+  getDiscoverySession,
   getInvitationPublicInfo,
-  saveInvitationProgress,
+  updateDiscoverySessionRequest,
   verifyInvitationAccess,
 } from "./client";
-import { DISCOVERY_JOB_ROLE_OPTIONS, type DiscoveryUserState } from "./types";
+import {
+  DISCOVERY_COUNTRY_OPTIONS,
+  DISCOVERY_JOB_ROLE_OPTIONS,
+  type DiscoverySessionRecord,
+  type DiscoveryUserState,
+} from "./types";
 
 interface InvitationAccessExperienceProps {
   inviteToken: string;
@@ -47,6 +53,83 @@ function isProfileComplete(state: DiscoveryUserState): boolean {
   );
 }
 
+function parseIntegerInput(rawValue: string, min: number, max: number): number | null {
+  const normalized = rawValue.trim().replace(",", ".");
+  if (!normalized) return null;
+  const parsed = Number(normalized);
+  if (!Number.isFinite(parsed)) return null;
+  const clamped = Math.max(min, Math.min(max, Math.floor(parsed)));
+  return clamped;
+}
+
+const YEARS_EXPERIENCE_OPTIONS = [
+  { key: "1-5", label: "Entre 1 y 5 años", storedValue: 3, min: 1, max: 5 },
+  { key: "6-10", label: "Entre 6 y 10 años", storedValue: 8, min: 6, max: 10 },
+  { key: "11-15", label: "Entre 11 y 15 años", storedValue: 13, min: 11, max: 15 },
+  { key: "16-20", label: "Entre 16 y 20 años", storedValue: 18, min: 16, max: 20 },
+  { key: "20+", label: "Más de 20 años", storedValue: 21, min: 21, max: Number.POSITIVE_INFINITY },
+] as const;
+
+function toUserState(session: DiscoverySessionRecord): DiscoveryUserState {
+  return {
+    name: session.nameSnapshot,
+    answers: session.answers,
+    currentIdx: session.currentIdx,
+    status: session.status,
+    profile: {
+      firstName: session.firstName ?? "",
+      lastName: session.lastName ?? "",
+      country: session.country ?? "",
+      jobRole: session.jobRole ?? "",
+      age: session.age,
+      yearsExperience: session.yearsExperience,
+    },
+    profileCompleted: session.profileCompleted,
+    experienceSurvey: session.experienceSurvey,
+  };
+}
+
+function sanitizeInvitationIntroState(state: DiscoveryUserState): DiscoveryUserState {
+  if (state.status !== "intro") return state;
+  if (Object.keys(state.answers).length > 0) return state;
+  return {
+    ...state,
+    name: "Invitado",
+    profile: {
+      firstName: "",
+      lastName: "",
+      country: "",
+      jobRole: "",
+      age: null,
+      yearsExperience: null,
+    },
+    profileCompleted: false,
+  };
+}
+
+function getYearsExperienceBucket(value: number | null): string {
+  if (!Number.isFinite(value)) return "";
+  const normalized = Number(value);
+  return (
+    YEARS_EXPERIENCE_OPTIONS.find((option) => normalized >= option.min && normalized <= option.max)?.key ?? ""
+  );
+}
+
+function getYearsExperienceStoredValue(bucket: string): number | null {
+  return YEARS_EXPERIENCE_OPTIONS.find((option) => option.key === bucket)?.storedValue ?? null;
+}
+
+function buildPersistPayload(state: DiscoveryUserState) {
+  return {
+    status: state.status,
+    answers: state.answers,
+    currentIdx: state.currentIdx,
+    completionPercent: calculateDiscoveryCompletionPercent(state.answers),
+    profile: state.profile,
+    experienceSurvey: state.experienceSurvey,
+  };
+}
+
 export function InvitationAccessExperience({
   inviteToken,
 }: InvitationAccessExperienceProps) {
@@ -54,12 +137,12 @@ export function InvitationAccessExperience({
   const [isLoading, setIsLoading] = React.useState(true);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [accessCode, setAccessCode] = React.useState("");
-  const [verifiedCode, setVerifiedCode] = React.useState<string | null>(null);
   const [maskedEmail, setMaskedEmail] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
   const [session, setSession] = React.useState<Awaited<
     ReturnType<typeof verifyInvitationAccess>
   >["session"] | null>(null);
+  const [verifiedAccessCode, setVerifiedAccessCode] = React.useState<string | null>(null);
   const [accessMode, setAccessMode] = React.useState<"results" | "diagnostic" | null>(null);
   const [externalState, setExternalState] = React.useState<DiscoveryUserState>(
     buildEmptyExternalState(),
@@ -73,6 +156,9 @@ export function InvitationAccessExperience({
     platformName: "4Shine Platform",
     logoUrl: "/workbooks-v2/diamond.svg",
   });
+  const hydratedRef = React.useRef(false);
+  const lastSnapshotRef = React.useRef("");
+  const persistRequestCounterRef = React.useRef(0);
 
   React.useEffect(() => {
     let active = true;
@@ -139,43 +225,43 @@ export function InvitationAccessExperience({
   const handleExternalSurveySubmit = async (
     survey: NonNullable<DiscoveryUserState["experienceSurvey"]>,
   ) => {
-    if (!verifiedCode) return;
-    const response = await saveInvitationProgress({
-      inviteToken,
-      accessCode: verifiedCode,
-      state: {
-        ...externalState,
-        experienceSurvey: survey,
-      },
-      survey,
-    });
-    setExternalState((current) => ({
-      ...(response.externalProgress ?? current),
+    const nextSession = await updateDiscoverySessionRequest({
       experienceSurvey: survey,
-    }));
+    });
+    const nextState = toUserState(nextSession);
+    setSession(nextSession);
+    setExternalState(nextState);
+    lastSnapshotRef.current = JSON.stringify(buildPersistPayload(nextState));
+    hydratedRef.current = true;
   };
 
   React.useEffect(() => {
     if (accessMode !== "diagnostic") return;
-    if (!verifiedCode) return;
+    if (!hydratedRef.current) return;
+    const payload = buildPersistPayload(externalState);
+    const snapshot = JSON.stringify(payload);
+    if (snapshot === lastSnapshotRef.current) return;
 
     const timer = window.setTimeout(async () => {
+      const requestId = persistRequestCounterRef.current + 1;
+      persistRequestCounterRef.current = requestId;
       try {
         setIsPersisting(true);
-        await saveInvitationProgress({
-          inviteToken,
-          accessCode: verifiedCode,
-          state: externalState,
-        });
+        const nextSession = await updateDiscoverySessionRequest(payload);
+        if (requestId !== persistRequestCounterRef.current) return;
+        setSession(nextSession);
+        lastSnapshotRef.current = snapshot;
       } catch {
         // Silencioso: no bloqueamos la experiencia.
       } finally {
-        setIsPersisting(false);
+        if (requestId === persistRequestCounterRef.current) {
+          setIsPersisting(false);
+        }
       }
     }, 650);
 
     return () => window.clearTimeout(timer);
-  }, [accessMode, externalState, inviteToken, verifiedCode]);
+  }, [accessMode, externalState]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -189,18 +275,30 @@ export function InvitationAccessExperience({
         inviteToken,
         accessCode: normalizedCode,
       });
-      setVerifiedCode(normalizedCode);
-      setSession(response.session);
-      setAccessMode(response.accessMode);
-
-      if (response.accessMode === "diagnostic") {
-        if (response.externalProgress) {
-          setExternalState({
+      setVerifiedAccessCode(normalizedCode);
+      try {
+        const accountSession = await getDiscoverySession();
+        const nextState = sanitizeInvitationIntroState(toUserState(accountSession));
+        setSession(accountSession);
+        setExternalState(nextState);
+        setAccessMode("diagnostic");
+        setShowCompletedNotice(
+          nextState.status === "results" || calculateDiscoveryCompletionPercent(nextState.answers) >= 100,
+        );
+        hydratedRef.current = true;
+        lastSnapshotRef.current = JSON.stringify(buildPersistPayload(nextState));
+      } catch {
+        setSession(response.session);
+        setAccessMode(response.accessMode);
+        if (response.accessMode === "diagnostic" && response.externalProgress) {
+          const nextState = sanitizeInvitationIntroState({
             ...response.externalProgress,
             experienceSurvey: response.externalSurvey,
           });
+          setExternalState(nextState);
+          setShowCompletedNotice(response.alreadyCompleted);
+          lastSnapshotRef.current = JSON.stringify(buildPersistPayload(nextState));
         }
-        setShowCompletedNotice(response.alreadyCompleted);
       }
     } catch (submitError) {
       setError(
@@ -219,31 +317,36 @@ export function InvitationAccessExperience({
         {renderPublicHeader()}
         <main className="mx-auto w-full max-w-6xl px-4 pb-16 pt-28 md:px-6 md:pt-32">
           <ResultsView
-          state={{
-            name: `${session.firstName} ${session.lastName}`.trim(),
-            answers: session.answers,
-            currentIdx: session.currentIdx,
-            status: "results",
-            profile: {
-              firstName: session.firstName,
-              lastName: session.lastName,
-              country: session.country,
-              jobRole: session.jobRole,
-              age: session.age,
-              yearsExperience: session.yearsExperience,
-            },
-            profileCompleted: session.profileCompleted,
-          }}
-          publicId={session.publicId}
-          isPublic={true}
-          embedded={true}
-          initialSurvey={session.experienceSurvey}
-          invitationCredentials={
-            verifiedCode
-              ? { inviteToken, accessCode: verifiedCode }
-              : null
-          }
-        />
+            state={{
+              name: `${session.firstName} ${session.lastName}`.trim(),
+              answers: session.answers,
+              currentIdx: session.currentIdx,
+              status: "results",
+              profile: {
+                firstName: session.firstName,
+                lastName: session.lastName,
+                country: session.country,
+                jobRole: session.jobRole,
+                age: session.age,
+                yearsExperience: session.yearsExperience,
+              },
+              profileCompleted: session.profileCompleted,
+            }}
+            publicId={session.publicId}
+            isPublic={true}
+            embedded={true}
+            initialSurvey={session.experienceSurvey}
+            initialAiReports={session.aiReports ?? null}
+            enablePublicAnalysis
+            invitationCredentials={
+              verifiedAccessCode
+                ? {
+                    inviteToken,
+                    accessCode: verifiedAccessCode,
+                  }
+                : null
+            }
+          />
         </main>
       </div>
     );
@@ -304,10 +407,15 @@ export function InvitationAccessExperience({
               isPublic={true}
               embedded={true}
               initialSurvey={externalState.experienceSurvey ?? null}
+              initialAiReports={session?.aiReports ?? null}
               onSurveySubmit={handleExternalSurveySubmit}
+              enablePublicAnalysis
               invitationCredentials={
-                verifiedCode
-                  ? { inviteToken, accessCode: verifiedCode }
+                verifiedAccessCode
+                  ? {
+                      inviteToken,
+                      accessCode: verifiedAccessCode,
+                    }
                   : null
               }
             />
@@ -350,7 +458,7 @@ export function InvitationAccessExperience({
                 placeholder="Apellidos"
                 className="h-11 rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
               />
-              <input
+              <select
                 value={externalState.profile.country}
                 onChange={(event) =>
                   setExternalState((current) => ({
@@ -358,9 +466,15 @@ export function InvitationAccessExperience({
                     profile: { ...current.profile, country: event.target.value },
                   }))
                 }
-                placeholder="País"
                 className="h-11 rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
-              />
+              >
+                <option value="">Selecciona país</option>
+                {DISCOVERY_COUNTRY_OPTIONS.map((country) => (
+                  <option key={country} value={country}>
+                    {country}
+                  </option>
+                ))}
+              </select>
               <select
                 value={externalState.profile.jobRole}
                 onChange={(event) =>
@@ -388,34 +502,39 @@ export function InvitationAccessExperience({
                     ...current,
                     profile: {
                       ...current.profile,
-                      age: event.target.value ? Number(event.target.value) : null,
+                      age: parseIntegerInput(event.target.value, 16, 100),
                     },
                   }))
                 }
                 type="number"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 min={16}
                 max={100}
+                step={1}
                 placeholder="Edad"
                 className="h-11 rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
               />
-              <input
-                value={externalState.profile.yearsExperience ?? ""}
+              <select
+                value={getYearsExperienceBucket(externalState.profile.yearsExperience)}
                 onChange={(event) =>
                   setExternalState((current) => ({
                     ...current,
                     profile: {
                       ...current.profile,
-                      yearsExperience: event.target.value ? Number(event.target.value) : null,
+                      yearsExperience: getYearsExperienceStoredValue(event.target.value),
                     },
                   }))
                 }
-                type="number"
-                step="0.5"
-                min={0}
-                max={80}
-                placeholder="Años de experiencia"
                 className="h-11 rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
-              />
+              >
+                <option value="">Años de experiencia</option>
+                {YEARS_EXPERIENCE_OPTIONS.map((option) => (
+                  <option key={option.key} value={option.key}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <button
@@ -538,7 +657,24 @@ export function InvitationAccessExperience({
       }
 
       if (end >= DB.length) {
-        setExternalState((current) => ({ ...current, status: "results" }));
+        const nextState: DiscoveryUserState = { ...externalState, status: "results" };
+        setExternalState(nextState);
+        try {
+          setIsPersisting(true);
+          const nextSession = await updateDiscoverySessionRequest({
+            ...buildPersistPayload(nextState),
+            markCompleted: true,
+          });
+          const syncedState = toUserState(nextSession);
+          setSession(nextSession);
+          setExternalState(syncedState);
+          lastSnapshotRef.current = JSON.stringify(buildPersistPayload(syncedState));
+          hydratedRef.current = true;
+        } catch {
+          // Silencioso: no bloqueamos la experiencia.
+        } finally {
+          setIsPersisting(false);
+        }
         if (typeof window !== "undefined") {
           window.scrollTo({ top: 0, behavior: "smooth" });
         }

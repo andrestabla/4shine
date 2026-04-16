@@ -24,7 +24,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
   }
 
-  if (identity.guestScope === 'descubrimiento') {
+  if (identity.guestScope === 'descubrimiento' || identity.role === 'invitado') {
     const permissions: ModulePermissions[] = MODULE_CODES.map((moduleCode) => {
       const allowDiscovery = moduleCode === 'descubrimiento';
       return {

@@ -1,8 +1,14 @@
 import { requestApi } from '@/lib/api-client';
 
-export type AppRole = 'lider' | 'mentor' | 'gestor' | 'admin';
+export type AppRole = 'lider' | 'mentor' | 'gestor' | 'admin' | 'invitado';
 type PlanType = 'standard' | 'premium' | 'vip' | 'empresa_elite';
 type SeniorityLevel = 'senior' | 'c_level' | 'director' | 'manager' | 'vp';
+type JobRole =
+  | 'Director/C-Level'
+  | 'Gerente/Mando medio'
+  | 'Coordinador'
+  | 'Lider de proyecto con equipo a cargo'
+  | 'Individual contributor';
 type PolicyStatus = 'accepted' | 'pending';
 
 export interface UserRecord {
@@ -23,6 +29,10 @@ export interface UserRecord {
   seniorityLevel: SeniorityLevel | null;
   bio: string | null;
   location: string | null;
+  country: string | null;
+  jobRole: JobRole | null;
+  age: number | null;
+  yearsExperience: number | null;
   policyStatus: PolicyStatus;
   policyCode: string | null;
   policyVersion: string | null;
@@ -104,6 +114,10 @@ export interface CreateUserInput {
   seniorityLevel?: SeniorityLevel | null;
   bio?: string | null;
   location?: string | null;
+  country?: string | null;
+  jobRole?: JobRole | null;
+  age?: number | null;
+  yearsExperience?: number | null;
 }
 
 export interface UpdateUserInput {
@@ -122,6 +136,10 @@ export interface UpdateUserInput {
   seniorityLevel?: SeniorityLevel | null;
   bio?: string | null;
   location?: string | null;
+  country?: string | null;
+  jobRole?: JobRole | null;
+  age?: number | null;
+  yearsExperience?: number | null;
 }
 
 function buildQuery(input: Record<string, string | number | undefined | null>): string {

@@ -7,8 +7,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Compass,
+  Download,
+  FileSpreadsheet,
   Loader2,
   Mail,
+  RotateCcw,
   Save,
   Send,
   ShieldCheck,
@@ -38,7 +41,9 @@ import { useAppDialog } from "@/components/ui/AppDialogProvider";
 import { useUser } from "@/context/UserContext";
 import { uploadToR2 } from "@/lib/r2-upload-client";
 import { filterCommercialProducts } from "@/features/access/catalog";
+import { downloadDiscoveryRowResultsWorkbook } from "./admin-results-export";
 import { DB, SCALES } from "./DiagnosticsData";
+import { downloadDiscoveryPdfReport } from "./pdf-export";
 import {
   DISCOVERY_ITEMS_PER_PAGE,
   calculateDiscoveryCompletionPercent,
@@ -47,8 +52,10 @@ import {
   createDiscoveryInvitations,
   getDiscoveryFeedbackSettings,
   getDiscoveryOverview,
+  getDiscoveryOverviewDetail,
   getDiscoverySession,
   listDiscoveryInvitations,
+  resetDiscoveryOverviewAttempt,
   resetDiscoverySessionRequest,
   updateDiscoveryFeedbackSettings,
   updateDiscoverySessionRequest,
@@ -58,8 +65,10 @@ import {
   DISCOVERY_JOB_ROLE_OPTIONS,
   type DiscoveryFeedbackSettingsRecord,
   type DiscoveryInvitationRecord,
+  type DiscoveryOverviewDetailPayload,
   type DiscoveryOverviewFilters,
   type DiscoveryOverviewPayload,
+  type DiscoveryOverviewRow,
   type DiscoveryParticipantProfile,
   type DiscoverySessionRecord,
   type DiscoveryUserState,
@@ -295,6 +304,9 @@ export function DiscoveryExperience() {
   const [selectedOverviewRowId, setSelectedOverviewRowId] = React.useState("");
   const [simulatedState, setSimulatedState] = React.useState<DiscoveryUserState | null>(null);
   const [simulationSeed, setSimulationSeed] = React.useState(0);
+  const overviewDetailCacheRef = React.useRef<Map<string, DiscoveryOverviewDetailPayload>>(new Map());
+  const [rowActionLoadingKey, setRowActionLoadingKey] = React.useState<string | null>(null);
+  const firstQuestionCardRef = React.useRef<HTMLElement | null>(null);
 
   const managerPreviewStart = managerPreviewIdx;
   const managerPreviewEnd = Math.min(
@@ -361,6 +373,122 @@ export function DiscoveryExperience() {
     setInvitations(invitationRows);
     void overviewPayload;
   }, [loadManagerOverview]);
+
+  const buildCurrentOverviewFilters = React.useCallback(
+    (): DiscoveryOverviewFilters => ({
+      userId: resultsFilters.userId || undefined,
+      country: resultsFilters.country || undefined,
+      jobRole: resultsFilters.jobRole || undefined,
+      ageMin: parseNumber(resultsFilters.ageMin),
+      ageMax: parseNumber(resultsFilters.ageMax),
+      yearsExperienceMin: parseNumber(resultsFilters.yearsExperienceMin),
+      yearsExperienceMax: parseNumber(resultsFilters.yearsExperienceMax),
+    }),
+    [resultsFilters],
+  );
+
+  const ensureOverviewDetail = React.useCallback(
+    async (sessionId: string): Promise<DiscoveryOverviewDetailPayload> => {
+      const cached = overviewDetailCacheRef.current.get(sessionId);
+      if (cached) return cached;
+      const detail = await getDiscoveryOverviewDetail(sessionId);
+      overviewDetailCacheRef.current.set(sessionId, detail);
+      return detail;
+    },
+    [],
+  );
+
+  const handleResetOverviewRow = React.useCallback(
+    async (row: DiscoveryOverviewRow) => {
+      const approved = await confirm({
+        title: "Reiniciar intento",
+        message: `Se reiniciará el diagnóstico de ${row.participantName}. Esta acción borra respuestas, satisfacción e informes generados para este intento.`,
+        tone: "warning",
+        confirmText: "Reiniciar",
+        cancelText: "Cancelar",
+      });
+      if (!approved) return;
+
+      const loadingKey = `${row.sessionId}:reset`;
+      setRowActionLoadingKey(loadingKey);
+      try {
+        await resetDiscoveryOverviewAttempt(row.sessionId);
+        overviewDetailCacheRef.current.delete(row.sessionId);
+        if (selectedOverviewRowId === row.sessionId) {
+          setSelectedOverviewRowId("");
+        }
+        await loadManagerOverview(buildCurrentOverviewFilters());
+        await alert({
+          title: "Intento reiniciado",
+          message: `${row.participantName} puede volver a iniciar el diagnóstico desde cero.`,
+          tone: "success",
+        });
+      } catch (error) {
+        await alert({
+          title: "No se pudo reiniciar",
+          message: error instanceof Error ? error.message : "Error inesperado.",
+          tone: "error",
+        });
+      } finally {
+        setRowActionLoadingKey((current) => (current === loadingKey ? null : current));
+      }
+    },
+    [alert, buildCurrentOverviewFilters, confirm, loadManagerOverview, selectedOverviewRowId],
+  );
+
+  const handleDownloadOverviewReport = React.useCallback(
+    async (row: DiscoveryOverviewRow) => {
+      if (row.globalIndex === null) {
+        await alert({
+          title: "Informe no disponible",
+          message: "El informe PDF solo está disponible para diagnósticos completados.",
+          tone: "warning",
+        });
+        return;
+      }
+
+      const loadingKey = `${row.sessionId}:pdf`;
+      setRowActionLoadingKey(loadingKey);
+      try {
+        const detail = await ensureOverviewDetail(row.sessionId);
+        await downloadDiscoveryPdfReport({
+          participantName: row.participantName,
+          state: detail.state,
+          scoring: detail.scoring,
+          reports: detail.aiReports,
+        });
+      } catch (error) {
+        await alert({
+          title: "No se pudo descargar el informe",
+          message: error instanceof Error ? error.message : "Error inesperado.",
+          tone: "error",
+        });
+      } finally {
+        setRowActionLoadingKey((current) => (current === loadingKey ? null : current));
+      }
+    },
+    [alert, ensureOverviewDetail],
+  );
+
+  const handleDownloadOverviewResults = React.useCallback(
+    async (row: DiscoveryOverviewRow) => {
+      const loadingKey = `${row.sessionId}:xls`;
+      setRowActionLoadingKey(loadingKey);
+      try {
+        const detail = await ensureOverviewDetail(row.sessionId);
+        downloadDiscoveryRowResultsWorkbook(row, detail);
+      } catch (error) {
+        await alert({
+          title: "No se pudo descargar el archivo Excel",
+          message: error instanceof Error ? error.message : "Error inesperado.",
+          tone: "error",
+        });
+      } finally {
+        setRowActionLoadingKey((current) => (current === loadingKey ? null : current));
+      }
+    },
+    [alert, ensureOverviewDetail],
+  );
 
   React.useEffect(() => {
     if (
@@ -433,7 +561,7 @@ export function DiscoveryExperience() {
 
   React.useEffect(() => {
     if (state.status !== "quiz") return;
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    firstQuestionCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [state.currentIdx, state.status]);
 
   const isLockedForViewer =
@@ -566,9 +694,6 @@ export function DiscoveryExperience() {
       ...current,
       currentIdx: end,
     }));
-    if (typeof window !== "undefined") {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
   };
 
   const handleReset = async () => {
@@ -899,21 +1024,11 @@ export function DiscoveryExperience() {
     if (managerTab !== "results") return;
 
     const intervalId = window.setInterval(() => {
-      const apiFilters: DiscoveryOverviewFilters = {
-        userId: resultsFilters.userId || undefined,
-        country: resultsFilters.country || undefined,
-        jobRole: resultsFilters.jobRole || undefined,
-        ageMin: parseNumber(resultsFilters.ageMin),
-        ageMax: parseNumber(resultsFilters.ageMax),
-        yearsExperienceMin: parseNumber(resultsFilters.yearsExperienceMin),
-        yearsExperienceMax: parseNumber(resultsFilters.yearsExperienceMax),
-      };
-
-      void loadManagerOverview(apiFilters);
+      void loadManagerOverview(buildCurrentOverviewFilters());
     }, 10000);
 
     return () => window.clearInterval(intervalId);
-  }, [isManager, loadManagerOverview, managerTab, resultsFilters]);
+  }, [buildCurrentOverviewFilters, isManager, loadManagerOverview, managerTab]);
 
   React.useEffect(() => {
     if (!selectedOverviewRowId) return;
@@ -1744,6 +1859,8 @@ export function DiscoveryExperience() {
                     <th className="px-2 py-2">Exp.</th>
                     <th className="px-2 py-2">Avance</th>
                     <th className="px-2 py-2">Indice</th>
+                    <th className="px-2 py-2">Satisfacción</th>
+                    <th className="px-2 py-2">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1766,6 +1883,75 @@ export function DiscoveryExperience() {
                       <td className="px-2 py-2">{row.yearsExperience ?? "-"}</td>
                       <td className="px-2 py-2">{row.completionPercent}%</td>
                       <td className="px-2 py-2">{row.globalIndex ?? "-"}</td>
+                      <td className="px-2 py-2">
+                        {row.analytics.satisfaction.responses > 0 ? (
+                          <div className="leading-tight">
+                            <div className="font-semibold">
+                              {row.analytics.satisfaction.average}/5
+                            </div>
+                            <div className="text-xs text-[var(--app-muted)]">
+                              {row.analytics.satisfaction.responses} resp.
+                            </div>
+                          </div>
+                        ) : (
+                          "-"
+                        )}
+                      </td>
+                      <td className="px-2 py-2">
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void handleResetOverviewRow(row);
+                            }}
+                            disabled={rowActionLoadingKey === `${row.sessionId}:reset`}
+                            className="inline-flex items-center gap-1 rounded-full border border-[var(--app-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--app-ink)] transition hover:bg-[var(--app-surface-muted)] disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {rowActionLoadingKey === `${row.sessionId}:reset` ? (
+                              <Loader2 size={12} className="animate-spin" />
+                            ) : (
+                              <RotateCcw size={12} />
+                            )}
+                            Reiniciar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void handleDownloadOverviewReport(row);
+                            }}
+                            disabled={
+                              row.globalIndex === null ||
+                              rowActionLoadingKey === `${row.sessionId}:pdf`
+                            }
+                            className="inline-flex items-center gap-1 rounded-full border border-[var(--app-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--app-ink)] transition hover:bg-[var(--app-surface-muted)] disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {rowActionLoadingKey === `${row.sessionId}:pdf` ? (
+                              <Loader2 size={12} className="animate-spin" />
+                            ) : (
+                              <Download size={12} />
+                            )}
+                            Informe
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void handleDownloadOverviewResults(row);
+                            }}
+                            disabled={rowActionLoadingKey === `${row.sessionId}:xls`}
+                            className="inline-flex items-center gap-1 rounded-full border border-[var(--app-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--app-ink)] transition hover:bg-[var(--app-surface-muted)] disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {rowActionLoadingKey === `${row.sessionId}:xls` ? (
+                              <Loader2 size={12} className="animate-spin" />
+                            ) : (
+                              <FileSpreadsheet size={12} />
+                            )}
+                            Excel
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -1787,9 +1973,10 @@ export function DiscoveryExperience() {
         <ResultsView
           state={state}
           publicId={session?.publicId}
-          onReset={handleReset}
+          onReset={isManager ? handleReset : undefined}
           initialSurvey={session?.experienceSurvey ?? null}
           onSurveySubmit={handleSurveySubmit}
+          initialAiReports={session?.aiReports ?? null}
         />
       </div>
     );
@@ -2058,7 +2245,11 @@ export function DiscoveryExperience() {
           const questionNumber = start + index + 1;
 
           return (
-            <article key={String(question.id)} className="app-panel p-5 sm:p-6">
+            <article
+              key={String(question.id)}
+              ref={index === 0 ? firstQuestionCardRef : null}
+              className="app-panel scroll-mt-28 p-5 sm:p-6"
+            >
               <h4 className="text-xl font-black leading-snug text-[var(--app-ink)] md:text-2xl">
                 <span className="mr-2 text-[var(--brand-primary)]">{questionNumber}.</span>
                 {question.text}

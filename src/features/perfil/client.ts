@@ -2,6 +2,12 @@ import { requestApi } from '@/lib/api-client';
 
 type PlanType = 'standard' | 'premium' | 'vip' | 'empresa_elite';
 type SeniorityLevel = 'senior' | 'c_level' | 'director' | 'manager' | 'vp';
+type JobRole =
+  | 'Director/C-Level'
+  | 'Gerente/Mando medio'
+  | 'Coordinador'
+  | 'Lider de proyecto con equipo a cargo'
+  | 'Individual contributor';
 
 export interface ProfileProjectRecord {
   projectId: string;
@@ -28,6 +34,10 @@ export interface MyProfileRecord {
   seniorityLevel: SeniorityLevel | null;
   bio: string | null;
   location: string | null;
+  country: string | null;
+  jobRole: JobRole | null;
+  age: number | null;
+  yearsExperience: number | null;
   linkedinUrl: string | null;
   twitterUrl: string | null;
   websiteUrl: string | null;
@@ -56,6 +66,10 @@ export interface UpdateMyProfileInput {
   seniorityLevel?: SeniorityLevel | null;
   bio?: string | null;
   location?: string | null;
+  country?: string | null;
+  jobRole?: JobRole | null;
+  age?: number | null;
+  yearsExperience?: number | null;
   linkedinUrl?: string | null;
   twitterUrl?: string | null;
   websiteUrl?: string | null;

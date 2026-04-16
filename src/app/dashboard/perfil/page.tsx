@@ -21,6 +21,12 @@ import { optimizeAvatarForUpload } from '@/lib/image-processing';
 
 type PlanType = 'standard' | 'premium' | 'vip' | 'empresa_elite';
 type SeniorityLevel = 'senior' | 'c_level' | 'director' | 'manager' | 'vp';
+type JobRole =
+  | 'Director/C-Level'
+  | 'Gerente/Mando medio'
+  | 'Coordinador'
+  | 'Lider de proyecto con equipo a cargo'
+  | 'Individual contributor';
 
 interface ProjectFormItem {
   title: string;
@@ -36,6 +42,10 @@ interface ProfileFormState {
   profession: string;
   industry: string;
   location: string;
+  country: string;
+  jobRole: JobRole | '';
+  age: string;
+  yearsExperience: string;
   bio: string;
   linkedinUrl: string;
   twitterUrl: string;
@@ -45,6 +55,14 @@ interface ProfileFormState {
   interestsText: string;
   projects: ProjectFormItem[];
 }
+
+const JOB_ROLE_OPTIONS: readonly JobRole[] = [
+  'Director/C-Level',
+  'Gerente/Mando medio',
+  'Coordinador',
+  'Lider de proyecto con equipo a cargo',
+  'Individual contributor',
+];
 
 function planLabel(planType: PlanType | null): 'VIP' | 'Premium' | 'Empresa Élite' | 'Standard' {
   switch (planType) {
@@ -68,6 +86,10 @@ function buildForm(profile: MyProfileRecord): ProfileFormState {
     profession: profile.profession ?? '',
     industry: profile.industry ?? '',
     location: profile.location ?? '',
+    country: profile.country ?? '',
+    jobRole: profile.jobRole ?? '',
+    age: profile.age === null ? '' : String(profile.age),
+    yearsExperience: profile.yearsExperience === null ? '' : String(profile.yearsExperience),
     bio: profile.bio ?? '',
     linkedinUrl: profile.linkedinUrl ?? '',
     twitterUrl: profile.twitterUrl ?? '',
@@ -121,6 +143,14 @@ function compactProject(item: ProjectFormItem): ProjectFormItem {
   };
 }
 
+function parseOptionalInteger(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed)) return null;
+  return Math.floor(parsed);
+}
+
 export default function PerfilPage() {
   const { can, refreshBootstrap, updateUser: updateContextUser, currentUser } = useUser();
   const { alert } = useAppDialog();
@@ -172,6 +202,32 @@ export default function PerfilPage() {
       });
       return;
     }
+    const age = parseOptionalInteger(form.age);
+    const yearsExperience = parseOptionalInteger(form.yearsExperience);
+    if (!form.country.trim() || !form.jobRole || age === null || yearsExperience === null) {
+      await alert({
+        title: 'Datos obligatorios',
+        message: 'País, cargo, edad y años de experiencia son obligatorios.',
+        tone: 'warning',
+      });
+      return;
+    }
+    if (age < 16 || age > 100) {
+      await alert({
+        title: 'Edad inválida',
+        message: 'La edad debe estar entre 16 y 100.',
+        tone: 'warning',
+      });
+      return;
+    }
+    if (yearsExperience < 0 || yearsExperience > 80) {
+      await alert({
+        title: 'Experiencia inválida',
+        message: 'Los años de experiencia deben estar entre 0 y 80.',
+        tone: 'warning',
+      });
+      return;
+    }
 
     setIsSaving(true);
     try {
@@ -185,6 +241,10 @@ export default function PerfilPage() {
         profession: form.profession,
         industry: form.industry,
         location: form.location,
+        country: form.country.trim(),
+        jobRole: form.jobRole,
+        age,
+        yearsExperience,
         bio: form.bio,
         linkedinUrl: form.linkedinUrl,
         twitterUrl: form.twitterUrl,
@@ -387,6 +447,22 @@ export default function PerfilPage() {
                     <p className="font-semibold text-[var(--app-ink)]">{profile.location ?? 'No registrada'}</p>
                   </div>
                   <div className="app-panel-soft p-3">
+                    <p className="text-xs text-[var(--app-muted)]">País</p>
+                    <p className="font-semibold text-[var(--app-ink)]">{profile.country ?? 'No registrado'}</p>
+                  </div>
+                  <div className="app-panel-soft p-3">
+                    <p className="text-xs text-[var(--app-muted)]">Cargo</p>
+                    <p className="font-semibold text-[var(--app-ink)]">{profile.jobRole ?? 'No registrado'}</p>
+                  </div>
+                  <div className="app-panel-soft p-3">
+                    <p className="text-xs text-[var(--app-muted)]">Edad</p>
+                    <p className="font-semibold text-[var(--app-ink)]">{profile.age ?? 'No registrada'}</p>
+                  </div>
+                  <div className="app-panel-soft p-3">
+                    <p className="text-xs text-[var(--app-muted)]">Años de Experiencia</p>
+                    <p className="font-semibold text-[var(--app-ink)]">{profile.yearsExperience ?? 'No registrados'}</p>
+                  </div>
+                  <div className="app-panel-soft p-3">
                     <p className="text-xs text-[var(--app-muted)]">Zona horaria</p>
                     <p className="font-semibold text-[var(--app-ink)]">{profile.timezone}</p>
                   </div>
@@ -424,6 +500,59 @@ export default function PerfilPage() {
                     className="app-input"
                     value={form.location}
                     onChange={(event) => setForm((prev) => (prev ? { ...prev, location: event.target.value } : prev))}
+                  />
+                </label>
+                <label>
+                  <span className="app-field-label">País</span>
+                  <input
+                    className="app-input"
+                    value={form.country}
+                    onChange={(event) => setForm((prev) => (prev ? { ...prev, country: event.target.value } : prev))}
+                    required
+                  />
+                </label>
+                <label>
+                  <span className="app-field-label">Cargo</span>
+                  <select
+                    className="app-select"
+                    value={form.jobRole}
+                    onChange={(event) =>
+                      setForm((prev) => (prev ? { ...prev, jobRole: event.target.value as JobRole | '' } : prev))
+                    }
+                    required
+                  >
+                    <option value="">Sin definir</option>
+                    {JOB_ROLE_OPTIONS.map((jobRole) => (
+                      <option key={jobRole} value={jobRole}>
+                        {jobRole}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span className="app-field-label">Edad</span>
+                  <input
+                    type="number"
+                    min={16}
+                    max={100}
+                    className="app-input"
+                    value={form.age}
+                    onChange={(event) => setForm((prev) => (prev ? { ...prev, age: event.target.value } : prev))}
+                    required
+                  />
+                </label>
+                <label>
+                  <span className="app-field-label">Años de experiencia</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={80}
+                    className="app-input"
+                    value={form.yearsExperience}
+                    onChange={(event) =>
+                      setForm((prev) => (prev ? { ...prev, yearsExperience: event.target.value } : prev))
+                    }
+                    required
                   />
                 </label>
                 <label>

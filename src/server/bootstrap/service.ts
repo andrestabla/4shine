@@ -47,6 +47,7 @@ const ROLE_LABEL: Record<Role, string> = {
   mentor: 'Mentor',
   gestor: 'Gestor del Programa',
   admin: 'Administrador',
+  invitado: 'Invitado',
 };
 
 const ROLE_COLOR: Record<Role, string> = {
@@ -54,6 +55,7 @@ const ROLE_COLOR: Record<Role, string> = {
   mentor: 'bg-blue-600',
   gestor: 'bg-teal-600',
   admin: 'bg-slate-700',
+  invitado: 'bg-violet-600',
 };
 
 const PLAN_LABEL: Record<string, 'VIP' | 'Premium' | 'Empresa Élite' | 'Standard'> = {
@@ -449,6 +451,7 @@ async function fetchUsers(client: PoolClient): Promise<Record<Role, User>> {
     mentor: roleUsers.get('mentor') ?? fallbackUser('mentor'),
     gestor: roleUsers.get('gestor') ?? fallbackUser('gestor'),
     admin: roleUsers.get('admin') ?? fallbackUser('admin'),
+    invitado: roleUsers.get('invitado') ?? fallbackUser('invitado'),
   };
 }
 

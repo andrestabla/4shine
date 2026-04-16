@@ -7,7 +7,8 @@ export type UserTypeOption =
   | 'leader_with_subscription'
   | 'mentor'
   | 'gestor'
-  | 'admin';
+  | 'admin'
+  | 'invited';
 
 export const USER_TYPE_OPTIONS: UserTypeOption[] = [
   'leader_without_subscription',
@@ -15,6 +16,7 @@ export const USER_TYPE_OPTIONS: UserTypeOption[] = [
   'mentor',
   'gestor',
   'admin',
+  'invited',
 ];
 
 function isSubscribedLeaderPlan(planType: PlanType): boolean {
@@ -33,6 +35,8 @@ export function userTypeLabel(option: UserTypeOption): string {
       return 'Gestor';
     case 'admin':
       return 'Administrador';
+    case 'invited':
+      return 'Invitado (solo descubrimiento)';
     default:
       return 'Líder sin suscripción';
   }
@@ -53,6 +57,8 @@ export function resolveUserTypeSelection(option: UserTypeOption): {
       return { primaryRole: 'gestor', planType: null };
     case 'admin':
       return { primaryRole: 'admin', planType: null };
+    case 'invited':
+      return { primaryRole: 'invitado', planType: null };
     default:
       return { primaryRole: 'lider', planType: 'standard' };
   }
@@ -71,6 +77,10 @@ export function deriveUserTypeSelection(user: Pick<UserRecord, 'primaryRole' | '
 
   if (user.primaryRole === 'gestor') {
     return 'gestor';
+  }
+
+  if (user.primaryRole === 'invitado') {
+    return 'invited';
   }
 
   return 'admin';

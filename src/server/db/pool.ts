@@ -51,7 +51,7 @@ function createPool(): Pool {
 
   return new Pool({
     connectionString,
-    max: 20,
+    max: 100,
     idleTimeoutMillis: 30_000,
     statement_timeout: 15_000,
     ssl: {

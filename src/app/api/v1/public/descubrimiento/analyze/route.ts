@@ -3,6 +3,8 @@ import { withClient } from "@/server/db/pool";
 import { generateDiscoveryInvitationAnalysis } from "@/features/descubrimiento/service";
 import type { DiscoveryReportFilter, DiscoveryScoreResult } from "@/features/descubrimiento/types";
 
+export const maxDuration = 60;
+
 interface PublicAnalyzeBody {
   inviteToken?: string;
   accessCode?: string;

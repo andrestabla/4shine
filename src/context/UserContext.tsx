@@ -67,6 +67,7 @@ const ROLE_LABEL: Record<Role, string> = {
   mentor: 'Mentor',
   gestor: 'Gestor del Programa',
   admin: 'Administrador',
+  invitado: 'Invitado',
 };
 
 const ROLE_COLOR: Record<Role, string> = {
@@ -74,6 +75,7 @@ const ROLE_COLOR: Record<Role, string> = {
   mentor: 'bg-blue-600',
   gestor: 'bg-teal-600',
   admin: 'bg-slate-700',
+  invitado: 'bg-violet-600',
 };
 
 function fallbackUser(sessionUser: SessionUser): User {

@@ -5,6 +5,7 @@ export type DiscoveryAnswers = Record<string, DiscoveryAnswerValue>;
 
 export type DiscoveryPillarKey = "within" | "out" | "up" | "beyond";
 export type DiscoveryReportFilter = "all" | DiscoveryPillarKey;
+export type DiscoveryAiReports = Partial<Record<DiscoveryReportFilter, string>>;
 
 export const DISCOVERY_JOB_ROLE_OPTIONS = [
   "Director/C-Level",
@@ -12,6 +13,30 @@ export const DISCOVERY_JOB_ROLE_OPTIONS = [
   "Coordinador",
   "Lider de proyecto con equipo a cargo",
   "Individual contributor",
+] as const;
+
+export const DISCOVERY_COUNTRY_OPTIONS = [
+  "Argentina",
+  "Bolivia",
+  "Brasil",
+  "Canadá",
+  "Chile",
+  "Colombia",
+  "Costa Rica",
+  "Ecuador",
+  "El Salvador",
+  "España",
+  "Estados Unidos",
+  "Guatemala",
+  "Honduras",
+  "México",
+  "Nicaragua",
+  "Panamá",
+  "Paraguay",
+  "Perú",
+  "República Dominicana",
+  "Uruguay",
+  "Venezuela",
 ] as const;
 
 export type DiscoveryJobRole = (typeof DISCOVERY_JOB_ROLE_OPTIONS)[number];
@@ -80,6 +105,7 @@ export interface DiscoverySessionRecord {
   yearsExperience: number | null;
   profileCompleted: boolean;
   experienceSurvey: DiscoveryExperienceSurvey | null;
+  aiReports: DiscoveryAiReports;
   createdAt: string;
   updatedAt: string;
 }
@@ -194,6 +220,13 @@ export interface DiscoveryOverviewPayload {
     countries: string[];
     jobRoles: string[];
   };
+}
+
+export interface DiscoveryOverviewDetailPayload {
+  state: DiscoveryUserState;
+  scoring: DiscoveryScoreResult;
+  experienceSurvey: DiscoveryExperienceSurvey | null;
+  aiReports: DiscoveryAiReports;
 }
 
 export interface DiscoveryInvitationRequest {

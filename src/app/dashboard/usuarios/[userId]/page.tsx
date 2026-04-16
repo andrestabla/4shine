@@ -10,6 +10,7 @@ import {
   Mail,
   PauseCircle,
   PlayCircle,
+  Save,
   Shield,
   Trash2,
 } from 'lucide-react';
@@ -57,6 +58,8 @@ function roleLabel(role: AppRole): string {
       return 'GESTOR';
     case 'mentor':
       return 'iShine';
+    case 'invitado':
+      return 'INVITADO';
     case 'lider':
     default:
       return 'LÍDER';
@@ -72,6 +75,40 @@ function summarizeLogPayload(payload: Record<string, unknown>): string {
   }
 }
 
+const JOB_ROLE_OPTIONS = [
+  'Director/C-Level',
+  'Gerente/Mando medio',
+  'Coordinador',
+  'Lider de proyecto con equipo a cargo',
+  'Individual contributor',
+] as const;
+
+type JobRoleOption = (typeof JOB_ROLE_OPTIONS)[number];
+
+interface DemographicsFormState {
+  country: string;
+  jobRole: JobRoleOption | '';
+  age: string;
+  yearsExperience: string;
+}
+
+function toDemographicsForm(detail: UserDetailRecord): DemographicsFormState {
+  return {
+    country: detail.country ?? '',
+    jobRole: (detail.jobRole ?? '') as JobRoleOption | '',
+    age: detail.age === null ? '' : String(detail.age),
+    yearsExperience: detail.yearsExperience === null ? '' : String(detail.yearsExperience),
+  };
+}
+
+function parseOptionalInteger(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed)) return null;
+  return Math.floor(parsed);
+}
+
 export default function UsuarioDetallePage() {
   const params = useParams();
   const router = useRouter();
@@ -81,6 +118,12 @@ export default function UsuarioDetallePage() {
   const userId = asUserId(params?.userId);
   const [detail, setDetail] = React.useState<UserDetailRecord | null>(null);
   const [logs, setLogs] = React.useState<AuditLogRecord[]>([]);
+  const [demographicsForm, setDemographicsForm] = React.useState<DemographicsFormState>({
+    country: '',
+    jobRole: '',
+    age: '',
+    yearsExperience: '',
+  });
   const [loading, setLoading] = React.useState(true);
   const [processingAction, setProcessingAction] = React.useState<string | null>(null);
 
@@ -90,6 +133,7 @@ export default function UsuarioDetallePage() {
     try {
       const [detailData, logData] = await Promise.all([getUserDetail(userId), listUserAuditLogs(userId, 300)]);
       setDetail(detailData);
+      setDemographicsForm(toDemographicsForm(detailData));
       setLogs(logData);
     } catch (error) {
       await alert({
@@ -267,6 +311,62 @@ export default function UsuarioDetallePage() {
     }
   };
 
+  const onSaveDemographics = async () => {
+    if (!detail) return;
+
+    const nextAge = parseOptionalInteger(demographicsForm.age);
+    const nextYearsExperience = parseOptionalInteger(demographicsForm.yearsExperience);
+    if (!demographicsForm.country.trim() || !demographicsForm.jobRole || nextAge === null || nextYearsExperience === null) {
+      await alert({
+        title: 'Datos obligatorios',
+        message: 'País, cargo, edad y años de experiencia son obligatorios.',
+        tone: 'warning',
+      });
+      return;
+    }
+
+    if (nextAge !== null && (nextAge < 16 || nextAge > 100)) {
+      await alert({
+        title: 'Edad fuera de rango',
+        message: 'La edad debe estar entre 16 y 100.',
+        tone: 'warning',
+      });
+      return;
+    }
+    if (nextYearsExperience !== null && (nextYearsExperience < 0 || nextYearsExperience > 80)) {
+      await alert({
+        title: 'Experiencia fuera de rango',
+        message: 'Los años de experiencia deben estar entre 0 y 80.',
+        tone: 'warning',
+      });
+      return;
+    }
+
+    setProcessingAction('save-demographics');
+    try {
+      await updateUser(detail.userId, {
+        country: demographicsForm.country.trim(),
+        jobRole: demographicsForm.jobRole,
+        age: nextAge,
+        yearsExperience: nextYearsExperience,
+      });
+      await loadData();
+      await alert({
+        title: 'Datos actualizados',
+        message: 'País, cargo, edad y experiencia se guardaron correctamente.',
+        tone: 'success',
+      });
+    } catch (error) {
+      await alert({
+        title: 'Error al guardar datos',
+        message: error instanceof Error ? error.message : 'No se pudo actualizar los datos demográficos.',
+        tone: 'error',
+      });
+    } finally {
+      setProcessingAction(null);
+    }
+  };
+
   if (!userId) {
     return <EmptyState message="Usuario inválido." />;
   }
@@ -282,6 +382,12 @@ export default function UsuarioDetallePage() {
   const canUpdate = can('usuarios', 'update');
   const canDelete = can('usuarios', 'delete');
   const currentUserType = deriveUserTypeSelection(detail);
+  const currentDemographics = toDemographicsForm(detail);
+  const hasDemographicsChanges =
+    demographicsForm.country.trim() !== currentDemographics.country.trim() ||
+    demographicsForm.jobRole !== currentDemographics.jobRole ||
+    demographicsForm.age.trim() !== currentDemographics.age.trim() ||
+    demographicsForm.yearsExperience.trim() !== currentDemographics.yearsExperience.trim();
 
   return (
     <div className="space-y-5">
@@ -380,7 +486,93 @@ export default function UsuarioDetallePage() {
               <p>Último cambio de contraseña: {formatDateTime(detail.passwordUpdatedAt)}</p>
               <p>Última sesión: {formatDateTime(detail.lastSessionAt)}</p>
               <p>Creado: {formatDateTime(detail.createdAt)}</p>
+              <p>País: {detail.country || 'No registrado'}</p>
+              <p>Cargo: {detail.jobRole || 'No registrado'}</p>
+              <p>Edad: {detail.age ?? 'No registrada'}</p>
+              <p>Años de experiencia: {detail.yearsExperience ?? 'No registrados'}</p>
             </div>
+          </article>
+
+          <article className="app-panel p-5">
+            <h2 className="mb-4 text-xl font-bold text-[var(--app-ink)]">Datos Demográficos</h2>
+            <div className="grid grid-cols-1 gap-3">
+              <label>
+                <span className="app-field-label">País</span>
+                <input
+                  className="app-input"
+                  value={demographicsForm.country}
+                  onChange={(event) =>
+                    setDemographicsForm((prev) => ({ ...prev, country: event.target.value }))
+                  }
+                  disabled={!canUpdate || processingAction !== null}
+                  required
+                />
+              </label>
+
+              <label>
+                <span className="app-field-label">Cargo</span>
+                <select
+                  className="app-select"
+                  value={demographicsForm.jobRole}
+                  onChange={(event) =>
+                    setDemographicsForm((prev) => ({ ...prev, jobRole: event.target.value as JobRoleOption | '' }))
+                  }
+                  disabled={!canUpdate || processingAction !== null}
+                  required
+                >
+                  <option value="">Sin definir</option>
+                  {JOB_ROLE_OPTIONS.map((jobRole) => (
+                    <option key={jobRole} value={jobRole}>
+                      {jobRole}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label>
+                <span className="app-field-label">Edad</span>
+                <input
+                  type="number"
+                  min={16}
+                  max={100}
+                  className="app-input"
+                  value={demographicsForm.age}
+                  onChange={(event) =>
+                    setDemographicsForm((prev) => ({ ...prev, age: event.target.value }))
+                  }
+                  disabled={!canUpdate || processingAction !== null}
+                  required
+                />
+              </label>
+
+              <label>
+                <span className="app-field-label">Años de experiencia</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={80}
+                  className="app-input"
+                  value={demographicsForm.yearsExperience}
+                  onChange={(event) =>
+                    setDemographicsForm((prev) => ({ ...prev, yearsExperience: event.target.value }))
+                  }
+                  disabled={!canUpdate || processingAction !== null}
+                  required
+                />
+              </label>
+            </div>
+
+            {canUpdate && (
+              <button
+                type="button"
+                onClick={() => void onSaveDemographics()}
+                disabled={processingAction !== null || !hasDemographicsChanges}
+                className="app-button-primary mt-4 w-full disabled:opacity-60"
+              >
+                <Save size={16} />
+                Guardar datos
+              </button>
+            )}
           </article>
 
           <article className="app-panel p-5">
