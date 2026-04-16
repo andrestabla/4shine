@@ -133,12 +133,13 @@ function buildPersistPayload(state: DiscoveryUserState) {
 export function InvitationAccessExperience({
   inviteToken,
 }: InvitationAccessExperienceProps) {
-  const { alert } = useAppDialog();
+  const { alert, confirm } = useAppDialog();
   const [isLoading, setIsLoading] = React.useState(true);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [accessCode, setAccessCode] = React.useState("");
   const [maskedEmail, setMaskedEmail] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
+  const [isFinished, setIsFinished] = React.useState(false);
   const [session, setSession] = React.useState<Awaited<
     ReturnType<typeof verifyInvitationAccess>
   >["session"] | null>(null);
@@ -221,6 +222,24 @@ export function InvitationAccessExperience({
       </div>
     </header>
   );
+
+  const handleFinish = async () => {
+    const ok = await confirm({
+      title: "Finalizar diagnóstico",
+      message: "¿Estás seguro que deseas finalizar tu visita? Se cerrará tu sesión actual.",
+      confirmText: "Finalizar y salir",
+      cancelText: "Volver",
+      tone: "warning"
+    });
+    if (!ok) return;
+
+    try {
+      await fetch('/api/v1/auth/logout', { method: 'POST', credentials: 'include' });
+    } catch {
+      // Ignorar fallback errors
+    }
+    setIsFinished(true);
+  };
 
   const handleExternalSurveySubmit = async (
     survey: NonNullable<DiscoveryUserState["experienceSurvey"]>,
@@ -311,6 +330,27 @@ export function InvitationAccessExperience({
     }
   };
 
+  if (isFinished) {
+    return (
+      <div className="min-h-screen bg-[var(--app-bg)]">
+        {renderPublicHeader()}
+        <main className="mx-auto flex w-full max-w-4xl flex-col items-center justify-center px-4 pb-16 pt-32 md:px-6 md:pt-40 text-center">
+          <section className="app-panel w-full p-8 md:p-12 border border-[var(--brand-primary)]/20 shadow-[0_20px_42px_rgba(55,32,80,0.06)]">
+            <h2 className="text-3xl font-black text-[var(--app-ink)]">
+              ¡Has finalizado tu revisión!
+            </h2>
+            <p className="mx-auto mt-4 max-w-2xl text-base text-[var(--app-ink)]/80 leading-relaxed">
+              Esperamos que este reporte sea de utilidad y contribuya en tu proceso de transformación como líder.
+            </p>
+            <p className="mx-auto mt-4 max-w-2xl text-sm font-semibold text-[var(--app-muted)]">
+              Si quieres ver nuevamente los resultados, ingresa desde el correo de invitación con el código único de acceso asignado. ¡Nos vemos pronto!
+            </p>
+          </section>
+        </main>
+      </div>
+    );
+  }
+
   if (accessMode === "results" && session) {
     return (
       <div className="min-h-screen bg-[var(--app-bg)]">
@@ -346,6 +386,7 @@ export function InvitationAccessExperience({
                   }
                 : null
             }
+            onFinish={handleFinish}
           />
         </main>
       </div>
@@ -418,6 +459,7 @@ export function InvitationAccessExperience({
                     }
                   : null
               }
+              onFinish={handleFinish}
             />
           </main>
         </div>

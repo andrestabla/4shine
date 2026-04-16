@@ -9,7 +9,7 @@ import {
 import type { DiscoveryScoreResult } from "@/features/descubrimiento/types";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 200;
 
 interface DiagnosticsAnalyzeBatchBody {
   inviteToken?: string;

@@ -14,6 +14,7 @@ import {
   Loader2,
   Mail,
   Meh,
+  LogOut,
   Radar as RadarIcon,
   RefreshCw,
   Share2,
@@ -55,6 +56,7 @@ interface ResultsViewProps {
   onSurveySubmit?: (survey: DiscoveryExperienceSurvey) => Promise<void> | void;
   initialAiReports?: DiscoveryAiReports | null;
   invitationCredentials?: { inviteToken: string; accessCode: string } | null;
+  onFinish?: () => void;
 }
 
 const SURVEY_QUESTIONS = [
@@ -123,6 +125,7 @@ export function ResultsView({
   onSurveySubmit,
   initialAiReports = null,
   invitationCredentials = null,
+  onFinish,
 }: ResultsViewProps) {
   const { alert } = useAppDialog();
   const scoring = React.useMemo(
@@ -731,6 +734,17 @@ export function ResultsView({
               >
                 <RefreshCw size={14} />
                 Reiniciar
+              </button>
+            )}
+
+            {isInvitationExperience && onFinish && (
+              <button
+                type="button"
+                onClick={onFinish}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#dc2626] px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em] text-white transition hover:opacity-92 sm:w-auto"
+              >
+                <LogOut size={14} />
+                Finalizar
               </button>
             )}
           </div>

@@ -4605,8 +4605,8 @@ async function runContractStyleAnalysis(
     let report = await requestOpenAiReport(context, systemPrompt, userPrompt, {
       model: primaryModel,
       temperature: isGlobal ? 0.64 : 0.62,
-      timeoutMs: isGlobal ? 50000 : 40000,
-      maxTokens: isGlobal ? 1800 : 950,
+      timeoutMs: isGlobal ? 90000 : 70000,
+      maxTokens: isGlobal ? 4000 : 2500,
     });
     let attempts = 1;
     while (!isDeepEnoughReport(report, pillar) && attempts < maxAttempts) {
@@ -4628,8 +4628,8 @@ async function runContractStyleAnalysis(
       report = await requestOpenAiReport(context, systemPrompt, refinementPrompt, {
         model: refinementModel,
         temperature: attempts === 1 ? (isGlobal ? 0.7 : 0.64) : 0.6,
-        timeoutMs: isGlobal ? 40000 : 35000,
-        maxTokens: isGlobal ? 1700 : 1050,
+        timeoutMs: isGlobal ? 80000 : 60000,
+        maxTokens: isGlobal ? 4000 : 2500,
       });
       attempts += 1;
     }
