@@ -10,6 +10,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import clsx from "clsx";
+import { SupportBubble } from "@/components/SupportBubble";
+
 
 interface RouteAccess {
   moduleCode: ModuleCode;
@@ -185,6 +187,8 @@ export default function DashboardLayout({
           {children}
         </div>
       </main>
+      <SupportBubble />
     </div>
   );
 }
+

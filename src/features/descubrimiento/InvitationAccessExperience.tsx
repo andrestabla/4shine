@@ -5,6 +5,8 @@ import clsx from "clsx";
 import { ChevronLeft, ChevronRight, Loader2, Lock, Mail } from "lucide-react";
 import { useAppDialog } from "@/components/ui/AppDialogProvider";
 import { ResultsView } from "./ResultsView";
+import { SupportBubble } from "@/components/SupportBubble";
+
 import { DB, SCALES } from "./DiagnosticsData";
 import { DISCOVERY_ITEMS_PER_PAGE, calculateDiscoveryCompletionPercent } from "./reporting";
 import {
@@ -167,6 +169,8 @@ export function InvitationAccessExperience({
   const hydratedRef = React.useRef(false);
   const lastSnapshotRef = React.useRef("");
   const persistRequestCounterRef = React.useRef(0);
+  const STORAGE_KEY = `discovery_access_${inviteToken}`;
+
 
   React.useEffect(() => {
     let active = true;
@@ -192,6 +196,57 @@ export function InvitationAccessExperience({
       active = false;
     };
   }, [inviteToken]);
+
+  React.useEffect(() => {
+    let active = true;
+    const autoVerify = async () => {
+      const stored = window.localStorage.getItem(STORAGE_KEY);
+      if (!stored) return;
+
+      try {
+        const normalizedCode = stored.trim().toUpperCase();
+        const response = await verifyInvitationAccess({
+          inviteToken,
+          accessCode: normalizedCode,
+        });
+        if (!active) return;
+        setVerifiedAccessCode(normalizedCode);
+        try {
+          const accountSession = await getDiscoverySession();
+          const nextState = sanitizeInvitationIntroState(toUserState(accountSession));
+          setSession(accountSession);
+          setExternalState(nextState);
+          setAccessMode("diagnostic");
+          setShowCompletedNotice(
+            nextState.status === "results" || calculateDiscoveryCompletionPercent(nextState.answers) >= 100,
+          );
+          hydratedRef.current = true;
+          lastSnapshotRef.current = JSON.stringify(buildPersistPayload(nextState));
+        } catch {
+          setSession(response.session);
+          setAccessMode(response.accessMode);
+          if (response.accessMode === "diagnostic" && response.externalProgress) {
+            const nextState = sanitizeInvitationIntroState({
+              ...response.externalProgress,
+              experienceSurvey: response.externalSurvey,
+            });
+            setExternalState(nextState);
+            setShowCompletedNotice(response.alreadyCompleted);
+            lastSnapshotRef.current = JSON.stringify(buildPersistPayload(nextState));
+          }
+        }
+      } catch {
+        // Falló el auto-verify, limpiar storage
+        window.localStorage.removeItem(STORAGE_KEY);
+      }
+    };
+
+    void autoVerify();
+    return () => {
+      active = false;
+    };
+  }, [inviteToken, STORAGE_KEY]);
+
 
   React.useEffect(() => {
     let active = true;
@@ -245,7 +300,9 @@ export function InvitationAccessExperience({
     } catch {
       // Ignorar fallback errors
     }
+    window.localStorage.removeItem(STORAGE_KEY);
     setIsFinished(true);
+
   };
 
   const handleExternalSurveySubmit = async (
@@ -331,6 +388,8 @@ export function InvitationAccessExperience({
         accessCode: normalizedCode,
       });
       setVerifiedAccessCode(normalizedCode);
+      window.localStorage.setItem(STORAGE_KEY, normalizedCode);
+
       try {
         const accountSession = await getDiscoverySession();
         const nextState = sanitizeInvitationIntroState(toUserState(accountSession));
@@ -984,6 +1043,8 @@ export function InvitationAccessExperience({
         )}
         </section>
       </main>
+      <SupportBubble />
     </div>
   );
 }
+
