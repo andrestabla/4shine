@@ -2561,6 +2561,49 @@ export async function saveDiscoveryInvitationProgress(
     [verified.invitation.invitationId, JSON.stringify(finalMeta)],
   );
 
+  // Sync the discovery_sessions record so the admin dashboard reflects real progress
+  const invRow = await resolveDiscoveryInvitationByToken(client, input.inviteToken);
+  if (invRow.session_id) {
+    const markCompleted = Boolean(completionDate);
+    await client.query(
+      `
+        UPDATE app_assessment.discovery_sessions
+        SET
+          name_snapshot    = $2,
+          status           = $3,
+          answers          = $4::jsonb,
+          current_idx      = $5,
+          completion_percent = $6,
+          completed_at     = $7::timestamptz,
+          first_name       = $8,
+          last_name        = $9,
+          country          = $10,
+          job_role         = $11,
+          gender           = $12,
+          years_experience = $13,
+          feedback_survey  = COALESCE($14::jsonb, feedback_survey),
+          updated_at       = now()
+        WHERE session_id = $1::uuid
+      `,
+      [
+        invRow.session_id,
+        normalizedState.name,
+        normalizedState.status,
+        JSON.stringify(normalizedState.answers),
+        normalizedState.currentIdx,
+        completionPercent,
+        markCompleted ? completionDate : null,
+        profile.firstName,
+        profile.lastName,
+        profile.country,
+        profile.jobRole || null,
+        profile.gender,
+        profile.yearsExperience,
+        surveyPayload ? JSON.stringify(surveyPayload) : null,
+      ],
+    );
+  }
+
   return {
     ...verified,
     externalProgress: normalizedState,
