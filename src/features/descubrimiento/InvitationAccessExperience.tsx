@@ -217,21 +217,12 @@ export function InvitationAccessExperience({
         });
         if (!active) return;
         setVerifiedAccessCode(normalizedCode);
-        try {
-          const accountSession = await getDiscoverySession();
-          const nextState = sanitizeInvitationIntroState(toUserState(accountSession));
-          setSession(accountSession);
-          setExternalState(nextState);
-          setAccessMode("diagnostic");
-          setShowCompletedNotice(
-            nextState.status === "results" || calculateDiscoveryCompletionPercent(nextState.answers) >= 100,
-          );
-          hydratedRef.current = true;
-          lastSnapshotRef.current = JSON.stringify(buildPersistPayload(nextState));
-        } catch {
-          setSession(response.session);
-          setAccessMode(response.accessMode);
-          if (response.accessMode === "diagnostic" && response.externalProgress) {
+        setSession(response.session);
+        setAccessMode(response.accessMode);
+
+        if (response.accessMode === "diagnostic") {
+          if (response.externalProgress && response.externalProgress.profileCompleted) {
+            // Invited user has prior progress — restore it
             const nextState = {
               ...response.externalProgress,
               experienceSurvey: response.externalSurvey ?? null,
@@ -239,13 +230,14 @@ export function InvitationAccessExperience({
             setExternalState(nextState);
             setShowCompletedNotice(response.alreadyCompleted);
             lastSnapshotRef.current = JSON.stringify(buildPersistPayload(nextState));
-          } else if (response.accessMode === "diagnostic") {
+          } else {
+            // No prior progress — start fresh
             setExternalState(buildEmptyExternalState());
           }
-          hydratedRef.current = true;
         }
+        hydratedRef.current = true;
       } catch {
-        // Falló el auto-verify, limpiar storage
+        // Auto-verify failed, clear storage
         window.localStorage.removeItem(STORAGE_KEY);
       }
     };
@@ -346,7 +338,8 @@ export function InvitationAccessExperience({
   };
 
   const persistProgress = React.useCallback(
-    async (state: DiscoveryUserState, extraPayload: Record<string, any> = {}) => {
+    async (state: DiscoveryUserState, extraPayload: Record<string, any> = {}, explicitAccessCode?: string) => {
+      const code = explicitAccessCode ?? verifiedAccessCode;
       const payload = { ...buildPersistPayload(state), ...extraPayload };
       const snapshot = JSON.stringify(payload);
       if (snapshot === lastSnapshotRef.current) return;
@@ -355,10 +348,10 @@ export function InvitationAccessExperience({
       persistRequestCounterRef.current = requestId;
       try {
         setIsPersisting(true);
-        if (verifiedAccessCode) {
+        if (code) {
           const response = await saveInvitationProgress({
             inviteToken,
-            accessCode: verifiedAccessCode,
+            accessCode: code,
             state,
             survey: state.experienceSurvey,
           });
@@ -406,22 +399,12 @@ export function InvitationAccessExperience({
       });
       setVerifiedAccessCode(normalizedCode);
       window.localStorage.setItem(STORAGE_KEY, normalizedCode);
+      setSession(response.session);
+      setAccessMode(response.accessMode);
 
-      try {
-        const accountSession = await getDiscoverySession();
-        const nextState = sanitizeInvitationIntroState(toUserState(accountSession));
-        setSession(accountSession);
-        setExternalState(nextState);
-        setAccessMode("diagnostic");
-        setShowCompletedNotice(
-          nextState.status === "results" || calculateDiscoveryCompletionPercent(nextState.answers) >= 100,
-        );
-        hydratedRef.current = true;
-        lastSnapshotRef.current = JSON.stringify(buildPersistPayload(nextState));
-      } catch {
-        setSession(response.session);
-        setAccessMode(response.accessMode);
-        if (response.accessMode === "diagnostic" && response.externalProgress) {
+      if (response.accessMode === "diagnostic") {
+        if (response.externalProgress && response.externalProgress.profileCompleted) {
+          // Invited user has prior progress — restore it
           const nextState = {
             ...response.externalProgress,
             experienceSurvey: response.externalSurvey ?? null,
@@ -429,12 +412,12 @@ export function InvitationAccessExperience({
           setExternalState(nextState);
           setShowCompletedNotice(response.alreadyCompleted);
           lastSnapshotRef.current = JSON.stringify(buildPersistPayload(nextState));
-        } else if (response.accessMode === "diagnostic") {
+        } else {
           // No prior progress — start fresh
           setExternalState(buildEmptyExternalState());
         }
-        hydratedRef.current = true;
       }
+      hydratedRef.current = true;
     } catch (submitError) {
       setError(
         submitError instanceof Error
@@ -724,7 +707,8 @@ export function InvitationAccessExperience({
                     status: "instructions",
                   };
                   setExternalState(nextState);
-                  await persistProgress(nextState);
+                  // Pass verifiedAccessCode explicitly since React state may not be updated yet
+                  await persistProgress(nextState, {}, verifiedAccessCode ?? undefined);
                   window.scrollTo(0, 0);
                 } finally {
                   setIsSavingProfile(false);
