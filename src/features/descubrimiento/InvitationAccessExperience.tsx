@@ -161,6 +161,7 @@ export function InvitationAccessExperience({
   const [policyAccepted, setPolicyAccepted] = React.useState(false);
   const [showPolicy, setShowPolicy] = React.useState(false);
   const [isSavingProfile, setIsSavingProfile] = React.useState(false);
+  const [hasPriorProgress, setHasPriorProgress] = React.useState(false);
   const [publicBranding, setPublicBranding] = React.useState<{
     platformName: string;
     logoUrl: string | null;
@@ -181,6 +182,9 @@ export function InvitationAccessExperience({
         const info = await getInvitationPublicInfo(inviteToken);
         if (!active) return;
         setMaskedEmail(info.invitedEmailMasked);
+        if (info.externalProgressStatus && info.externalProgressStatus !== "intro") {
+          setHasPriorProgress(true);
+        }
       } catch (loadError) {
         if (!active) return;
         setError(
@@ -228,13 +232,15 @@ export function InvitationAccessExperience({
           setSession(response.session);
           setAccessMode(response.accessMode);
           if (response.accessMode === "diagnostic" && response.externalProgress) {
-            const nextState = sanitizeInvitationIntroState({
+            const nextState = {
               ...response.externalProgress,
-              experienceSurvey: response.externalSurvey,
-            });
+              experienceSurvey: response.externalSurvey ?? null,
+            };
             setExternalState(nextState);
             setShowCompletedNotice(response.alreadyCompleted);
             lastSnapshotRef.current = JSON.stringify(buildPersistPayload(nextState));
+          } else if (response.accessMode === "diagnostic") {
+            setExternalState(buildEmptyExternalState());
           }
           hydratedRef.current = true;
         }
@@ -416,13 +422,16 @@ export function InvitationAccessExperience({
         setSession(response.session);
         setAccessMode(response.accessMode);
         if (response.accessMode === "diagnostic" && response.externalProgress) {
-          const nextState = sanitizeInvitationIntroState({
+          const nextState = {
             ...response.externalProgress,
-            experienceSurvey: response.externalSurvey,
-          });
+            experienceSurvey: response.externalSurvey ?? null,
+          };
           setExternalState(nextState);
           setShowCompletedNotice(response.alreadyCompleted);
           lastSnapshotRef.current = JSON.stringify(buildPersistPayload(nextState));
+        } else if (response.accessMode === "diagnostic") {
+          // No prior progress — start fresh
+          setExternalState(buildEmptyExternalState());
         }
         hydratedRef.current = true;
       }
@@ -1012,10 +1021,12 @@ export function InvitationAccessExperience({
           Diagnóstico 4Shine
         </p>
         <h1 className="mt-3 text-3xl font-black text-[var(--app-ink)]">
-          Acceso con código único
+          {hasPriorProgress ? "Continúa tu diagnóstico" : "Acceso con código único"}
         </h1>
         <p className="mt-3 text-sm text-[var(--app-muted)]">
-          Ingresa el código recibido por correo para acceder a tu módulo de Descubrimiento.
+          {hasPriorProgress
+            ? "Tienes un diagnóstico en progreso. Ingresa tu código de acceso para continuar donde lo dejaste."
+            : "Ingresa el código recibido por correo para acceder a tu módulo de Descubrimiento."}
         </p>
 
         {isLoading ? (

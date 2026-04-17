@@ -2064,15 +2064,16 @@ export async function createDiscoveryInvitations(
 export async function getDiscoveryInvitationPublicInfo(
   client: PoolClient,
   inviteToken: string,
-): Promise<{ inviteToken: string; invitedEmailMasked: string; openedAt: string | null } | null> {
+): Promise<{ inviteToken: string; invitedEmailMasked: string; openedAt: string | null; externalProgressStatus: string | null } | null> {
   const { rows } = await client.query<
-    Pick<DiscoveryInvitationRow, "invite_token" | "invited_email" | "opened_at">
+    Pick<DiscoveryInvitationRow, "invite_token" | "invited_email" | "opened_at"> & { progress_status: string | null }
   >(
     `
       SELECT
         invite_token,
         invited_email,
-        opened_at::text
+        opened_at::text,
+        meta->'external_progress'->>'status' AS progress_status
       FROM app_assessment.discovery_invitations
       WHERE invite_token = $1
       LIMIT 1
@@ -2087,6 +2088,7 @@ export async function getDiscoveryInvitationPublicInfo(
     inviteToken: row.invite_token,
     invitedEmailMasked: maskEmail(row.invited_email),
     openedAt: row.opened_at,
+    externalProgressStatus: row.progress_status,
   };
 }
 
