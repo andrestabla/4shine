@@ -2,7 +2,6 @@ import { requestApi } from '@/lib/api-client';
 
 export type AppRole = 'lider' | 'mentor' | 'gestor' | 'admin' | 'invitado';
 type PlanType = 'standard' | 'premium' | 'vip' | 'empresa_elite';
-type SeniorityLevel = 'senior' | 'c_level' | 'director' | 'manager' | 'vp';
 type JobRole =
   | 'Director/C-Level'
   | 'Gerente/Mando medio'
@@ -23,12 +22,7 @@ export interface UserRecord {
   isActive: boolean;
   organizationId: string | null;
   organizationName: string | null;
-  profession: string | null;
-  industry: string | null;
   planType: PlanType | null;
-  seniorityLevel: SeniorityLevel | null;
-  bio: string | null;
-  location: string | null;
   country: string | null;
   jobRole: JobRole | null;
   gender: string | null;
@@ -108,12 +102,7 @@ export interface CreateUserInput {
   primaryRole: AppRole;
   organizationId?: string | null;
   password: string;
-  profession?: string | null;
-  industry?: string | null;
   planType?: PlanType | null;
-  seniorityLevel?: SeniorityLevel | null;
-  bio?: string | null;
-  location?: string | null;
   country?: string | null;
   jobRole?: JobRole | null;
   gender?: string | null;
@@ -130,12 +119,7 @@ export interface UpdateUserInput {
   organizationId?: string | null;
   isActive?: boolean;
   password?: string;
-  profession?: string | null;
-  industry?: string | null;
   planType?: PlanType | null;
-  seniorityLevel?: SeniorityLevel | null;
-  bio?: string | null;
-  location?: string | null;
   country?: string | null;
   jobRole?: JobRole | null;
   gender?: string | null;

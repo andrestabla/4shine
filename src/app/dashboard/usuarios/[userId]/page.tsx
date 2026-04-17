@@ -478,10 +478,6 @@ export default function UsuarioDetallePage() {
               <p>Último cambio de contraseña: {formatDateTime(detail.passwordUpdatedAt)}</p>
               <p>Última sesión: {formatDateTime(detail.lastSessionAt)}</p>
               <p>Creado: {formatDateTime(detail.createdAt)}</p>
-              <p>País: {detail.country || 'No registrado'}</p>
-              <p>Cargo: {detail.jobRole || 'No registrado'}</p>
-              <p>Género: {detail.gender ?? 'No registrado'}</p>
-              <p>Años de experiencia: {detail.yearsExperience ?? 'No registrados'}</p>
             </div>
           </article>
 
