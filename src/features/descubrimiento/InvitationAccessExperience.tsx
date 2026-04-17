@@ -858,6 +858,8 @@ export function InvitationAccessExperience({
     const start = externalState.currentIdx;
     const end = Math.min(start + DISCOVERY_ITEMS_PER_PAGE, DB.length);
     const pageItems = DB.slice(start, end);
+    const [isSavingPage, setIsSavingPage] = React.useState(false);
+
     const handleExternalNextPage = async () => {
       const missingIndex = pageItems.findIndex(
         (item) => externalState.answers[String(item.id)] === undefined,
@@ -873,23 +875,28 @@ export function InvitationAccessExperience({
         return;
       }
 
-      if (end >= DB.length) {
-        const nextState: DiscoveryUserState = { ...externalState, status: "results" };
+      setIsSavingPage(true);
+      try {
+        if (end >= DB.length) {
+          const nextState: DiscoveryUserState = { ...externalState, status: "results" };
+          setExternalState(nextState);
+          await persistProgress(nextState, { markCompleted: true });
+
+          if (typeof window !== "undefined") {
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }
+          return;
+        }
+
+        const nextState: DiscoveryUserState = { ...externalState, currentIdx: end };
         setExternalState(nextState);
-        void persistProgress(nextState, { markCompleted: true });
+        await persistProgress(nextState);
 
         if (typeof window !== "undefined") {
           window.scrollTo({ top: 0, behavior: "smooth" });
         }
-        return;
-      }
-
-      const nextState: DiscoveryUserState = { ...externalState, currentIdx: end };
-      setExternalState(nextState);
-      void persistProgress(nextState);
-
-      if (typeof window !== "undefined") {
-        window.scrollTo({ top: 0, behavior: "smooth" });
+      } finally {
+        setIsSavingPage(false);
       }
     };
 
@@ -1009,10 +1016,20 @@ export function InvitationAccessExperience({
             <button
               type="button"
               onClick={() => void handleExternalNextPage()}
-              className="inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-5 py-3 text-sm font-extrabold text-white"
+              disabled={isSavingPage}
+              className="inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-5 py-3 text-sm font-extrabold text-white disabled:opacity-70"
             >
-              {end >= DB.length ? "Ver resultados" : "Continuar"}
-              <ChevronRight size={16} />
+              {isSavingPage ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Guardando...
+                </>
+              ) : (
+                <>
+                  {end >= DB.length ? "Ver resultados" : "Continuar"}
+                  <ChevronRight size={16} />
+                </>
+              )}
             </button>
           </div>
           </section>
