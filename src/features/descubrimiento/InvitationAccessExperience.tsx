@@ -42,6 +42,7 @@ function buildEmptyExternalState(): DiscoveryUserState {
       yearsExperience: null,
     },
     profileCompleted: false,
+    completionPercent: 0,
   };
 }
 
@@ -92,6 +93,7 @@ function toUserState(session: DiscoverySessionRecord): DiscoveryUserState {
       yearsExperience: session.yearsExperience,
     },
     profileCompleted: session.profileCompleted,
+    completionPercent: session.completionPercent,
     experienceSurvey: session.experienceSurvey,
   };
 }
@@ -112,6 +114,7 @@ function sanitizeInvitationIntroState(state: DiscoveryUserState): DiscoveryUserS
       yearsExperience: null,
     },
     profileCompleted: false,
+    completionPercent: state.completionPercent,
   };
 }
 
@@ -160,8 +163,9 @@ export function InvitationAccessExperience({
   const [isPersisting, setIsPersisting] = React.useState(false);
   const [policyAccepted, setPolicyAccepted] = React.useState(false);
   const [showPolicy, setShowPolicy] = React.useState(false);
-  const [isSavingProfile, setIsSavingProfile] = React.useState(false);
   const [isSavingPage, setIsSavingPage] = React.useState(false);
+  const [isSavingProfile, setIsSavingProfile] = React.useState(false);
+  const [isAutoVerifying, setIsAutoVerifying] = React.useState(true);
   const [hasPriorProgress, setHasPriorProgress] = React.useState(false);
   const [publicBranding, setPublicBranding] = React.useState<{
     platformName: string;
@@ -240,9 +244,7 @@ export function InvitationAccessExperience({
         setCookieCode(normalizedCode);
         window.localStorage.removeItem(`discovery_access_${inviteToken}`);
 
-        setVerifiedAccessCode(normalizedCode);
         setSession(response.session);
-        setAccessMode(response.accessMode);
 
         if (response.accessMode === "diagnostic") {
           if (response.externalProgress && response.externalProgress.profileCompleted) {
@@ -254,15 +256,24 @@ export function InvitationAccessExperience({
             setExternalState(nextState);
             setShowCompletedNotice(response.alreadyCompleted);
             lastSnapshotRef.current = JSON.stringify(buildPersistPayload(nextState));
+            if (nextState.status !== 'intro') {
+              hydratedRef.current = true;
+            }
           } else {
             // No prior progress — start fresh
             setExternalState(buildEmptyExternalState());
           }
         }
-        hydratedRef.current = true;
-      } catch {
+        
+        // setAccessMode should be the LAST thing we do after state is ready
+        setAccessMode(response.accessMode);
+        setVerifiedAccessCode(stored);
+      } catch (error) {
+        console.error("[Diagnostic] autoVerify failed:", error);
         // Auto-verify failed, clear stored code
         clearCookieCode();
+      } finally {
+        setIsAutoVerifying(false);
       }
     };
 
@@ -496,6 +507,7 @@ export function InvitationAccessExperience({
                 yearsExperience: session.yearsExperience,
               },
               profileCompleted: session.profileCompleted,
+              completionPercent: session.completionPercent,
             }}
             publicId={session.publicId}
             isPublic={true}
@@ -731,6 +743,7 @@ export function InvitationAccessExperience({
                     name: `${externalState.profile.firstName} ${externalState.profile.lastName}`.trim(),
                     profileCompleted: true,
                     status: "instructions",
+                    completionPercent: externalState.completionPercent,
                   };
                   setExternalState(nextState);
                   // Pass verifiedAccessCode explicitly since React state may not be updated yet
@@ -841,7 +854,11 @@ export function InvitationAccessExperience({
             <button
               type="button"
               onClick={() => {
-                const nextState: DiscoveryUserState = { ...externalState, status: "quiz" };
+                const nextState: DiscoveryUserState = {
+                  ...externalState,
+                  status: "quiz",
+                  completionPercent: externalState.completionPercent,
+                };
                 setExternalState(nextState);
                 void persistProgress(nextState);
               }}
@@ -878,7 +895,11 @@ export function InvitationAccessExperience({
       setIsSavingPage(true);
       try {
         if (end >= DB.length) {
-          const nextState: DiscoveryUserState = { ...externalState, status: "results" };
+          const nextState: DiscoveryUserState = {
+            ...externalState,
+            status: "results",
+            completionPercent: externalState.completionPercent,
+          };
           setExternalState(nextState);
           await persistProgress(nextState, { markCompleted: true });
 
@@ -888,7 +909,11 @@ export function InvitationAccessExperience({
           return;
         }
 
-        const nextState: DiscoveryUserState = { ...externalState, currentIdx: end };
+        const nextState: DiscoveryUserState = {
+          ...externalState,
+          currentIdx: end,
+          completionPercent: externalState.completionPercent,
+        };
         setExternalState(nextState);
         await persistProgress(nextState);
 
@@ -1034,6 +1059,17 @@ export function InvitationAccessExperience({
           </div>
           </section>
         </main>
+      </div>
+    );
+  }
+
+  if (isAutoVerifying) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[var(--app-bg)]">
+        <div className="text-center">
+          <Loader2 className="mx-auto h-12 w-12 animate-spin text-[var(--brand-primary)]" />
+          <p className="mt-4 text-sm font-semibold text-[var(--app-muted)]">Verificando acceso...</p>
+        </div>
       </div>
     );
   }

@@ -53,11 +53,13 @@ export async function POST(request: Request) {
         provisioned.authUser.role,
         async () => {
           let currentSession = await getOrCreateDiscoverySession(client, provisioned.authUser);
+          
+          // Force sync from meta if externalProgress exists (authority for invited users)
           if (
             provisioned.access.externalProgress &&
-            Object.keys(currentSession.answers).length === 0 &&
             provisioned.access.externalProgress.status !== "intro"
           ) {
+            console.log(`[Diagnostic-Verify] Syncing session ${currentSession.sessionId} from meta (status: ${provisioned.access.externalProgress.status})`);
             currentSession = await updateDiscoverySession(client, provisioned.authUser, {
               status: provisioned.access.externalProgress.status,
               answers: provisioned.access.externalProgress.answers,
@@ -90,6 +92,25 @@ export async function POST(request: Request) {
         request.headers.get("user-agent"),
         getIpAddress(request),
       );
+      // Final normalized progress for the client: prefer session data if it exists and is not empty
+      const finalExternalProgress = {
+        name: session.nameSnapshot,
+        answers: session.answers,
+        currentIdx: session.currentIdx,
+        status: session.status,
+        profile: {
+          firstName: session.firstName,
+          lastName: session.lastName,
+          country: session.country,
+          jobRole: session.jobRole,
+          gender: session.gender as any,
+          yearsExperience: session.yearsExperience,
+        },
+        profileCompleted: session.profileCompleted,
+        completionPercent: session.completionPercent,
+        experienceSurvey: session.experienceSurvey,
+      };
+
       return {
         data: {
           ...provisioned.access,
@@ -102,8 +123,8 @@ export async function POST(request: Request) {
             provisioned.access.alreadyCompleted ||
             session.status === "results" ||
             session.completionPercent >= 100,
-          externalProgress: provisioned.access.externalProgress,
-          externalSurvey: provisioned.access.externalSurvey ?? session.experienceSurvey,
+          externalProgress: finalExternalProgress,
+          externalSurvey: session.experienceSurvey || provisioned.access.externalSurvey,
         },
         tokens,
       };

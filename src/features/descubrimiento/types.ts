@@ -63,6 +63,7 @@ export interface DiscoveryUserState {
   status: DiscoveryStep;
   profile: DiscoveryParticipantProfile;
   profileCompleted: boolean;
+  completionPercent?: number;
   experienceSurvey?: DiscoveryExperienceSurvey | null;
 }
 

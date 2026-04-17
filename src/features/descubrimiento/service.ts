@@ -474,6 +474,7 @@ function parseInvitationExternalProgress(meta: unknown): DiscoveryUserState | nu
         : "intro",
     profile,
     profileCompleted: isProfileCompleted(profile),
+    completionPercent: 0,
   };
 }
 
@@ -500,6 +501,7 @@ function buildUserStateFromSession(
       yearsExperience: session.yearsExperience,
     },
     profileCompleted: session.profileCompleted,
+    completionPercent: session.completionPercent,
     experienceSurvey: session.experienceSurvey,
   };
 }
@@ -523,6 +525,7 @@ function buildFallbackInvitationState(
     status: "intro",
     profile,
     profileCompleted: false,
+    completionPercent: 0,
   };
 }
 
@@ -2483,6 +2486,24 @@ async function resolveDiscoveryInvitationByToken(
   return row;
 }
 
+export async function getDiscoverySession(
+  client: PoolClient,
+  sessionId: string,
+): Promise<DiscoverySessionRecord | null> {
+  const result = await client.query(
+    `
+      SELECT ds.*, u.name as participant_name, u.email as user_email
+      FROM app_assessment.discovery_sessions ds
+      LEFT JOIN app_public.users u ON ds.user_id = u.user_id
+      WHERE ds.session_id = $1::uuid
+    `,
+    [sessionId],
+  );
+
+  if (result.rowCount === 0) return null;
+  return mapDiscoverySessionRow(result.rows[0]);
+}
+
 export async function saveDiscoveryInvitationProgress(
   client: PoolClient,
   input: {
@@ -2523,6 +2544,7 @@ export async function saveDiscoveryInvitationProgress(
     status,
     profile,
     profileCompleted: isProfileCompleted(profile),
+    completionPercent,
   };
 
   const completionDate =
@@ -2604,8 +2626,13 @@ export async function saveDiscoveryInvitationProgress(
     );
   }
 
+  const updatedSession = invRow.session_id 
+    ? await getDiscoverySession(client, invRow.session_id)
+    : verified.session;
+
   return {
     ...verified,
+    session: updatedSession,
     externalProgress: normalizedState,
     alreadyCompleted: Boolean(completionDate),
     externalSurvey: surveyPayload ?? verified.externalSurvey,

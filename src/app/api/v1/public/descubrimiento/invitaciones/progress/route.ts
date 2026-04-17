@@ -41,6 +41,7 @@ export async function PATCH(request: Request) {
         survey: body?.survey ?? null,
       }),
     );
+    console.log(`[Diagnostic-Progress] Token: ${inviteToken.slice(0, 8)}..., Status: ${state.status}, Answers: ${Object.keys(state.answers || {}).length}, Completion: ${data.externalProgress?.completionPercent}%`);
     return NextResponse.json({ ok: true, data }, { status: 200 });
   } catch (error) {
     const detail = error instanceof Error ? error.message : "Unknown error";

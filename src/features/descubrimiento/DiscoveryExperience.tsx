@@ -119,6 +119,7 @@ function toUserState(session: DiscoverySessionRecord): DiscoveryUserState {
     status: session.status,
     profile,
     profileCompleted: session.profileCompleted,
+    completionPercent: session.completionPercent,
   };
 }
 
@@ -221,6 +222,7 @@ function buildSimulatedDiscoveryState(name: string): DiscoveryUserState {
       yearsExperience: 10,
     },
     profileCompleted: true,
+    completionPercent: calculateDiscoveryCompletionPercent(answers),
   };
 }
 
@@ -244,6 +246,7 @@ export function DiscoveryExperience() {
       yearsExperience: null,
     },
     profileCompleted: false,
+    completionPercent: 0,
   });
 
   const [isLoading, setIsLoading] = React.useState(true);
@@ -629,6 +632,7 @@ export function DiscoveryExperience() {
           : canResume
             ? "quiz"
             : "instructions",
+      completionPercent: current.completionPercent,
     }));
   };
 
@@ -647,6 +651,7 @@ export function DiscoveryExperience() {
       ...current,
       profileCompleted: true,
       status: "quiz",
+      completionPercent: current.completionPercent,
     }));
   };
 
@@ -689,6 +694,7 @@ export function DiscoveryExperience() {
       const nextState: DiscoveryUserState = {
         ...state,
         status: "results",
+        completionPercent: state.completionPercent,
       };
       setState(nextState);
       try {
