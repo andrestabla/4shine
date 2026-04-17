@@ -3,6 +3,8 @@ import "./globals.css";
 import { UserProvider } from "@/context/UserContext";
 import { AppDialogProvider } from "@/components/ui/AppDialogProvider";
 import { BrandingProvider } from "@/context/BrandingContext";
+import { SupportBubble } from "@/components/SupportBubble";
+
 
 const FALLBACK_APP_URL = "https://www.4shine.co";
 
@@ -40,9 +42,13 @@ export default function RootLayout({
       <body suppressHydrationWarning={true}>
         <BrandingProvider>
           <UserProvider>
-            <AppDialogProvider>{children}</AppDialogProvider>
+            <AppDialogProvider>
+              {children}
+              <SupportBubble />
+            </AppDialogProvider>
           </UserProvider>
         </BrandingProvider>
+
       </body>
     </html>
   );

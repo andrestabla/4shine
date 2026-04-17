@@ -5,7 +5,7 @@ import clsx from "clsx";
 import { ChevronLeft, ChevronRight, Loader2, Lock, Mail } from "lucide-react";
 import { useAppDialog } from "@/components/ui/AppDialogProvider";
 import { ResultsView } from "./ResultsView";
-import { SupportBubble } from "@/components/SupportBubble";
+
 
 import { DB, SCALES } from "./DiagnosticsData";
 import { DISCOVERY_ITEMS_PER_PAGE, calculateDiscoveryCompletionPercent } from "./reporting";
@@ -1043,8 +1043,8 @@ export function InvitationAccessExperience({
         )}
         </section>
       </main>
-      <SupportBubble />
     </div>
   );
 }
+
 

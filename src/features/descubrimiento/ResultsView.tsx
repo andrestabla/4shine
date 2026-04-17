@@ -977,19 +977,35 @@ export function ResultsView({
                 </div>
               </div>
             )}
-            <div className="prose prose-slate max-w-none text-sm leading-7">
+            <div className="prose prose-slate max-w-none text-[15px] leading-relaxed md:text-sm md:leading-7">
               <ReactMarkdown
                 components={{
                   h2: ({ children }) => (
-                    <h2 className="mt-6 rounded-[14px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-2 text-base font-black text-[var(--app-ink)] first:mt-0">
+                    <h2 className="mb-4 mt-8 rounded-[14px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-2 text-base font-black text-[var(--app-ink)] first:mt-0">
                       {children}
                     </h2>
+                  ),
+                  p: ({ children }) => (
+                    <p className="mb-4 text-[var(--app-muted)] last:mb-0">
+                      {children}
+                    </p>
+                  ),
+                  li: ({ children }) => (
+                    <li className="mb-2 text-[var(--app-muted)]">
+                      {children}
+                    </li>
+                  ),
+                  strong: ({ children }) => (
+                    <strong className="font-extrabold text-[var(--app-ink)]">
+                      {children}
+                    </strong>
                   ),
                 }}
               >
                 {currentReport}
               </ReactMarkdown>
             </div>
+
           </div>
         </aside>
       </div>
@@ -1098,53 +1114,57 @@ export function ResultsView({
       )}
 
       {isSurveyOpen && (
-        <div className="fixed inset-0 z-[140] flex items-center justify-center bg-[rgba(15,23,42,0.48)] px-4">
-          <div className="w-full max-w-lg rounded-[22px] border border-[var(--app-border)] bg-white p-6 shadow-xl">
-            <p className="app-section-kicker">Encuesta breve</p>
-            <h3 className="mt-2 text-2xl font-black text-[var(--app-ink)]">Califica tu experiencia</h3>
-            <p className="mt-2 text-sm text-[var(--app-muted)]">
-              Ayúdanos a mejorar el proceso de diagnóstico.
-            </p>
-
-            <div className="mt-5 space-y-3">
-              {SURVEY_QUESTIONS.map((question) => (
-                <div key={question} className="rounded-[14px] border border-[var(--app-border)] p-3">
-                  <p className="text-sm font-semibold text-[var(--app-ink)]">{question}</p>
-                  <div className="mt-2.5 flex flex-wrap gap-2">
-                    {FACE_SCALE.map(({ value, icon: Icon, label }) => (
-                      <button
-                        key={value}
-                        type="button"
-                        onClick={() =>
-                          setSurveyAnswers((current) => ({
-                            ...current,
-                            [question]: value,
-                          }))
-                        }
-                        className={clsx(
-                          "group inline-flex h-11 w-11 items-center justify-center rounded-xl border transition",
-                          surveyAnswers[question] === value
-                            ? "border-[var(--brand-primary)] bg-[var(--brand-primary)] text-white shadow-[0_6px_14px_rgba(60,20,125,0.22)]"
-                            : "border-[var(--app-border)] bg-white text-[var(--app-ink)] hover:border-[var(--brand-primary)]/40 hover:bg-[var(--app-surface-muted)]",
-                        )}
-                        title={label}
-                        aria-label={`${label} (${value})`}
-                      >
-                        <Icon
-                          size={18}
-                          className={clsx(
-                            "transition",
-                            surveyAnswers[question] === value ? "scale-105" : "opacity-85 group-hover:scale-105",
-                          )}
-                        />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
+        <div className="fixed inset-0 z-[140] flex items-center justify-center bg-[rgba(15,23,42,0.48)] px-4 py-8 backdrop-blur-sm">
+          <div className="flex max-h-full w-full max-w-lg flex-col overflow-hidden rounded-[22px] border border-[var(--app-border)] bg-white shadow-2xl">
+            <div className="border-b border-[var(--app-border)] p-6">
+              <p className="app-section-kicker">Encuesta breve</p>
+              <h3 className="mt-2 text-2xl font-black text-[var(--app-ink)]">Califica tu experiencia</h3>
+              <p className="mt-2 text-sm text-[var(--app-muted)]">
+                Ayúdanos a mejorar el proceso de diagnóstico.
+              </p>
             </div>
 
-            <div className="mt-5 flex justify-end gap-2">
+            <div className="flex-1 overflow-y-auto p-6 pt-2">
+              <div className="space-y-4">
+                {SURVEY_QUESTIONS.map((question) => (
+                  <div key={question} className="rounded-[18px] border border-[var(--app-border)] bg-[var(--app-surface-soft)] p-4">
+                    <p className="text-sm font-bold leading-snug text-[var(--app-ink)]">{question}</p>
+                    <div className="mt-3.5 flex flex-wrap gap-2.5">
+                      {FACE_SCALE.map(({ value, icon: Icon, label }) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() =>
+                            setSurveyAnswers((current) => ({
+                              ...current,
+                              [question]: value,
+                            }))
+                          }
+                          className={clsx(
+                            "group inline-flex h-11 w-11 items-center justify-center rounded-xl border transition-all duration-200",
+                            surveyAnswers[question] === value
+                              ? "border-[var(--brand-primary)] bg-[var(--brand-primary)] text-white shadow-[0_6px_14px_rgba(60,20,125,0.22)]"
+                              : "border-[var(--app-border)] bg-white text-[var(--app-ink)] hover:border-[var(--brand-primary)]/40 hover:bg-white hover:text-[var(--brand-primary)]",
+                          )}
+                          title={label}
+                          aria-label={`${label} (${value})`}
+                        >
+                          <Icon
+                            size={20}
+                            className={clsx(
+                              "transition",
+                              surveyAnswers[question] === value ? "scale-110" : "opacity-85 group-hover:scale-110",
+                            )}
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 border-t border-[var(--app-border)] p-6 sm:grid-cols-2">
               <button
                 type="button"
                 onClick={() => {
@@ -1152,14 +1172,14 @@ export function ResultsView({
                   setIsSurveyOpen(false);
                   scheduleSurveyPrompt(300000);
                 }}
-                className="rounded-full border border-[var(--app-border)] bg-white px-4 py-2 text-sm font-semibold text-[var(--app-ink)]"
+                className="order-2 rounded-full border border-[var(--app-border)] bg-white py-3 text-sm font-bold text-[var(--app-muted)] transition hover:bg-[var(--app-surface-muted)] sm:order-1"
               >
-                Responder en otro momento
+                Cerrar por ahora
               </button>
               <button
                 type="button"
                 onClick={() => void submitSurvey()}
-                className="rounded-full bg-[var(--brand-primary)] px-5 py-2 text-sm font-extrabold text-white"
+                className="order-1 rounded-full bg-[var(--brand-primary)] py-3 text-sm font-black text-white shadow-[0_10px_20px_-5px_rgba(60,20,125,0.25)] transition hover:brightness-110 sm:order-2"
               >
                 Enviar respuestas
               </button>
@@ -1167,6 +1187,7 @@ export function ResultsView({
           </div>
         </div>
       )}
+
     </div>
   );
 }

@@ -51,13 +51,15 @@ function createPool(): Pool {
 
   return new Pool({
     connectionString,
-    max: 100,
+    max: 20,
     idleTimeoutMillis: 30_000,
+    connectionTimeoutMillis: 2_000,
     statement_timeout: 15_000,
     ssl: {
       rejectUnauthorized: false,
     },
   });
+
 }
 
 export function getPool(): Pool {

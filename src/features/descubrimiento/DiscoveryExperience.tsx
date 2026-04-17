@@ -12,6 +12,7 @@ import {
   Loader2,
   Mail,
   RotateCcw,
+  RefreshCw,
   Save,
   Send,
   ShieldCheck,
@@ -304,6 +305,8 @@ export function DiscoveryExperience() {
   const [simulationSeed, setSimulationSeed] = React.useState(0);
   const overviewDetailCacheRef = React.useRef<Map<string, DiscoveryOverviewDetailPayload>>(new Map());
   const [rowActionLoadingKey, setRowActionLoadingKey] = React.useState<string | null>(null);
+  const [lastOverviewRefreshAt, setLastOverviewRefreshAt] = React.useState<Date | null>(null);
+  const [isRefreshingOverview, setIsRefreshingOverview] = React.useState(false);
   const firstQuestionCardRef = React.useRef<HTMLElement | null>(null);
 
   const managerPreviewStart = managerPreviewIdx;
@@ -352,10 +355,16 @@ export function DiscoveryExperience() {
   };
 
   const loadManagerOverview = React.useCallback(
-    async (inputFilters?: DiscoveryOverviewFilters) => {
-      const payload = await getDiscoveryOverview(inputFilters);
-      setOverview(payload);
-      return payload;
+    async (inputFilters?: DiscoveryOverviewFilters, isSilent = false) => {
+      if (!isSilent) setIsRefreshingOverview(true);
+      try {
+        const payload = await getDiscoveryOverview(inputFilters);
+        setOverview(payload);
+        setLastOverviewRefreshAt(new Date());
+        return payload;
+      } finally {
+        if (!isSilent) setIsRefreshingOverview(false);
+      }
     },
     [],
   );
@@ -528,6 +537,16 @@ export function DiscoveryExperience() {
       active = false;
     };
   }, [alert, applySession, currentRole, isManager, loadManagerData, viewerAccess]);
+
+  React.useEffect(() => {
+    if (!isManager || managerTab !== "results") return;
+
+    const interval = setInterval(() => {
+      void loadManagerOverview(buildCurrentOverviewFilters(), true);
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, [isManager, managerTab, loadManagerOverview, buildCurrentOverviewFilters]);
 
   React.useEffect(() => {
     if (isManager) return;
@@ -1604,6 +1623,29 @@ export function DiscoveryExperience() {
 
         {managerTab === "results" && (
           <div className="space-y-4">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <h4 className="text-lg font-black text-[var(--app-ink)]">Resultados Generales</h4>
+                {lastOverviewRefreshAt && (
+                   <span className="text-[10px] font-bold text-[var(--app-muted)] uppercase tracking-wider opacity-60">
+                     Ultima actualizacion: {lastOverviewRefreshAt.toLocaleTimeString()}
+                   </span>
+                )}
+              </div>
+              <button
+                onClick={() => void loadManagerOverview(buildCurrentOverviewFilters())}
+                disabled={isRefreshingOverview}
+                className="inline-flex h-9 items-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-4 text-xs font-extrabold uppercase tracking-widest text-[var(--app-ink)] transition hover:bg-[var(--app-surface-muted)] disabled:opacity-50"
+              >
+                {isRefreshingOverview ? (
+                  <Loader2 size={13} className="animate-spin" />
+                ) : (
+                  <RefreshCw size={13} />
+                )}
+                Actualizar
+              </button>
+            </div>
+
             <div className="app-panel p-4">
               <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-7">
                 <select
