@@ -236,6 +236,7 @@ export function InvitationAccessExperience({
             setShowCompletedNotice(response.alreadyCompleted);
             lastSnapshotRef.current = JSON.stringify(buildPersistPayload(nextState));
           }
+          hydratedRef.current = true;
         }
       } catch {
         // Falló el auto-verify, limpiar storage
@@ -423,6 +424,7 @@ export function InvitationAccessExperience({
           setShowCompletedNotice(response.alreadyCompleted);
           lastSnapshotRef.current = JSON.stringify(buildPersistPayload(nextState));
         }
+        hydratedRef.current = true;
       }
     } catch (submitError) {
       setError(
