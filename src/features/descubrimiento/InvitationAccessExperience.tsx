@@ -172,8 +172,26 @@ export function InvitationAccessExperience({
   const hydratedRef = React.useRef(false);
   const lastSnapshotRef = React.useRef("");
   const persistRequestCounterRef = React.useRef(0);
-  const STORAGE_KEY = `discovery_access_${inviteToken}`;
+  const COOKIE_KEY = `disc_ac_${inviteToken}`;
 
+  const getCookieCode = (): string | null => {
+    if (typeof document === "undefined") return null;
+    const match = document.cookie.split("; ").find((row) => row.startsWith(`${COOKIE_KEY}=`));
+    return match ? decodeURIComponent(match.split("=")[1] ?? "") : null;
+  };
+
+  const setCookieCode = (code: string) => {
+    if (typeof document === "undefined") return;
+    const expires = new Date();
+    expires.setDate(expires.getDate() + 30);
+    document.cookie = `${COOKIE_KEY}=${encodeURIComponent(code)}; expires=${expires.toUTCString()}; path=/; SameSite=Strict`;
+  };
+
+  const clearCookieCode = () => {
+    if (typeof document === "undefined") return;
+    document.cookie = `${COOKIE_KEY}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Strict`;
+    window.localStorage.removeItem(`discovery_access_${inviteToken}`);
+  };
 
   React.useEffect(() => {
     let active = true;
@@ -206,7 +224,8 @@ export function InvitationAccessExperience({
   React.useEffect(() => {
     let active = true;
     const autoVerify = async () => {
-      const stored = window.localStorage.getItem(STORAGE_KEY);
+      // Try cookie first, then fall back to localStorage for backward compatibility
+      const stored = getCookieCode() || window.localStorage.getItem(`discovery_access_${inviteToken}`);
       if (!stored) return;
 
       try {
@@ -216,6 +235,10 @@ export function InvitationAccessExperience({
           accessCode: normalizedCode,
         });
         if (!active) return;
+        // Upgrade from localStorage to cookie if needed
+        setCookieCode(normalizedCode);
+        window.localStorage.removeItem(`discovery_access_${inviteToken}`);
+
         setVerifiedAccessCode(normalizedCode);
         setSession(response.session);
         setAccessMode(response.accessMode);
@@ -237,8 +260,8 @@ export function InvitationAccessExperience({
         }
         hydratedRef.current = true;
       } catch {
-        // Auto-verify failed, clear storage
-        window.localStorage.removeItem(STORAGE_KEY);
+        // Auto-verify failed, clear stored code
+        clearCookieCode();
       }
     };
 
@@ -246,7 +269,8 @@ export function InvitationAccessExperience({
     return () => {
       active = false;
     };
-  }, [inviteToken, STORAGE_KEY]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inviteToken]);
 
 
   React.useEffect(() => {
@@ -301,7 +325,7 @@ export function InvitationAccessExperience({
     } catch {
       // Ignorar fallback errors
     }
-    window.localStorage.removeItem(STORAGE_KEY);
+    clearCookieCode();
     setIsFinished(true);
 
   };
@@ -398,7 +422,8 @@ export function InvitationAccessExperience({
         accessCode: normalizedCode,
       });
       setVerifiedAccessCode(normalizedCode);
-      window.localStorage.setItem(STORAGE_KEY, normalizedCode);
+      setCookieCode(normalizedCode);
+      window.localStorage.removeItem(`discovery_access_${inviteToken}`);
       setSession(response.session);
       setAccessMode(response.accessMode);
 
