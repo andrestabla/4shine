@@ -2132,7 +2132,10 @@ export async function verifyDiscoveryInvitationAccess(
       openedAt: row.opened_at,
       meta: row.meta,
     },
-    accessMode: session ? "results" : "diagnostic",
+    accessMode:
+      session?.status === "results" || (session?.completionPercent ?? 0) >= 100
+        ? "results"
+        : "diagnostic",
     session,
     externalProgress,
     alreadyCompleted,
