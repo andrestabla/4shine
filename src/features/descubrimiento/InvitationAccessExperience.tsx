@@ -231,7 +231,10 @@ export function InvitationAccessExperience({
     const autoVerify = async () => {
       // Try cookie first, then fall back to localStorage for backward compatibility
       const stored = getCookieCode() || window.localStorage.getItem(`discovery_access_${inviteToken}`);
-      if (!stored) return;
+      if (!stored) {
+        setIsAutoVerifying(false);
+        return;
+      }
 
       try {
         const normalizedCode = stored.trim().toUpperCase();
