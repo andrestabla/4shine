@@ -2535,6 +2535,12 @@ export async function saveDiscoveryInvitationProgress(
     completedAt: completionDate,
   };
 
+  const finalMeta = {
+    ...(verified.invitation.meta || {}),
+    external_progress: progressPayload,
+    external_survey: surveyPayload || verified.externalSurvey,
+  };
+
   console.log(`[Diagnostic] Saving progress for invitation ${verified.invitation.invitationId}:`, {
     status: normalizedState.status,
     percent: completionPercent,
@@ -2545,18 +2551,11 @@ export async function saveDiscoveryInvitationProgress(
     `
       UPDATE app_assessment.discovery_invitations
       SET
-        meta = COALESCE(meta, '{}'::jsonb) || jsonb_build_object(
-          'external_progress', $2::jsonb,
-          'external_survey', COALESCE($3::jsonb, meta->'external_survey', 'null'::jsonb)
-        ),
+        meta = $2::jsonb,
         updated_at = now()
       WHERE invitation_id = $1::uuid
     `,
-    [
-      verified.invitation.invitationId,
-      JSON.stringify(progressPayload),
-      surveyPayload ? JSON.stringify(surveyPayload) : null,
-    ],
+    [verified.invitation.invitationId, JSON.stringify(finalMeta)],
   );
 
   return {

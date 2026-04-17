@@ -364,8 +364,8 @@ export function InvitationAccessExperience({
           setSession(nextSession);
         }
         lastSnapshotRef.current = snapshot;
-      } catch {
-        // Silencioso
+      } catch (error) {
+        console.error("[Diagnostic] Persistence failed:", error);
       } finally {
         if (requestId === persistRequestCounterRef.current) {
           setIsPersisting(false);
