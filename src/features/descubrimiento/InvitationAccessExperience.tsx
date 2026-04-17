@@ -160,6 +160,7 @@ export function InvitationAccessExperience({
   const [isPersisting, setIsPersisting] = React.useState(false);
   const [policyAccepted, setPolicyAccepted] = React.useState(false);
   const [showPolicy, setShowPolicy] = React.useState(false);
+  const [isSavingProfile, setIsSavingProfile] = React.useState(false);
   const [publicBranding, setPublicBranding] = React.useState<{
     platformName: string;
     logoUrl: string | null;
@@ -338,8 +339,8 @@ export function InvitationAccessExperience({
   };
 
   const persistProgress = React.useCallback(
-    async (state: DiscoveryUserState) => {
-      const payload = buildPersistPayload(state);
+    async (state: DiscoveryUserState, extraPayload: Record<string, any> = {}) => {
+      const payload = { ...buildPersistPayload(state), ...extraPayload };
       const snapshot = JSON.stringify(payload);
       if (snapshot === lastSnapshotRef.current) return;
 
@@ -701,22 +702,36 @@ export function InvitationAccessExperience({
 
             <button
               type="button"
-              disabled={!isProfileComplete(externalState) || !policyAccepted}
-              onClick={() => {
-                const nextState: DiscoveryUserState = {
-                  ...externalState,
-                  name: `${externalState.profile.firstName} ${externalState.profile.lastName}`.trim(),
-                  profileCompleted: true,
-                  status: "instructions",
-                };
-                setExternalState(nextState);
-                void persistProgress(nextState);
-                window.scrollTo(0, 0);
+              disabled={!isProfileComplete(externalState) || !policyAccepted || isSavingProfile}
+              onClick={async () => {
+                try {
+                  setIsSavingProfile(true);
+                  const nextState: DiscoveryUserState = {
+                    ...externalState,
+                    name: `${externalState.profile.firstName} ${externalState.profile.lastName}`.trim(),
+                    profileCompleted: true,
+                    status: "instructions",
+                  };
+                  setExternalState(nextState);
+                  await persistProgress(nextState);
+                  window.scrollTo(0, 0);
+                } finally {
+                  setIsSavingProfile(false);
+                }
               }}
               className="mt-6 inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-5 py-3 text-sm font-extrabold text-white transition disabled:opacity-40"
             >
-              Empezar diagnóstico
-              <ChevronRight size={16} />
+              {isSavingProfile ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Guardando...
+                </>
+              ) : (
+                <>
+                  Empezar diagnóstico
+                  <ChevronRight size={16} />
+                </>
+              )}
             </button>
             </section>
           </main>
@@ -841,22 +856,8 @@ export function InvitationAccessExperience({
       if (end >= DB.length) {
         const nextState: DiscoveryUserState = { ...externalState, status: "results" };
         setExternalState(nextState);
-        try {
-          setIsPersisting(true);
-          const nextSession = await updateDiscoverySessionRequest({
-            ...buildPersistPayload(nextState),
-            markCompleted: true,
-          });
-          const syncedState = toUserState(nextSession);
-          setSession(nextSession);
-          setExternalState(syncedState);
-          lastSnapshotRef.current = JSON.stringify(buildPersistPayload(syncedState));
-          hydratedRef.current = true;
-        } catch {
-          // Silencioso: no bloqueamos la experiencia.
-        } finally {
-          setIsPersisting(false);
-        }
+        void persistProgress(nextState, { markCompleted: true });
+
         if (typeof window !== "undefined") {
           window.scrollTo({ top: 0, behavior: "smooth" });
         }
