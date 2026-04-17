@@ -336,14 +336,12 @@ export function InvitationAccessExperience({
     hydratedRef.current = true;
   };
 
-  React.useEffect(() => {
-    if (accessMode !== "diagnostic") return;
-    if (!hydratedRef.current) return;
-    const payload = buildPersistPayload(externalState);
-    const snapshot = JSON.stringify(payload);
-    if (snapshot === lastSnapshotRef.current) return;
+  const persistProgress = React.useCallback(
+    async (state: DiscoveryUserState) => {
+      const payload = buildPersistPayload(state);
+      const snapshot = JSON.stringify(payload);
+      if (snapshot === lastSnapshotRef.current) return;
 
-    const timer = window.setTimeout(async () => {
       const requestId = persistRequestCounterRef.current + 1;
       persistRequestCounterRef.current = requestId;
       try {
@@ -352,8 +350,8 @@ export function InvitationAccessExperience({
           const response = await saveInvitationProgress({
             inviteToken,
             accessCode: verifiedAccessCode,
-            state: externalState,
-            survey: externalState.experienceSurvey,
+            state,
+            survey: state.experienceSurvey,
           });
           if (requestId !== persistRequestCounterRef.current) return;
           setSession(response.session);
@@ -364,16 +362,26 @@ export function InvitationAccessExperience({
         }
         lastSnapshotRef.current = snapshot;
       } catch {
-        // Silencioso: no bloqueamos la experiencia.
+        // Silencioso
       } finally {
         if (requestId === persistRequestCounterRef.current) {
           setIsPersisting(false);
         }
       }
-    }, 650);
+    },
+    [inviteToken, verifiedAccessCode],
+  );
+
+  React.useEffect(() => {
+    if (accessMode !== "diagnostic") return;
+    if (!hydratedRef.current) return;
+
+    const timer = window.setTimeout(() => {
+      void persistProgress(externalState);
+    }, 1000);
 
     return () => window.clearTimeout(timer);
-  }, [accessMode, externalState]);
+  }, [accessMode, externalState, persistProgress]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -848,7 +856,10 @@ export function InvitationAccessExperience({
         return;
       }
 
-      setExternalState((current) => ({ ...current, currentIdx: end }));
+      const nextState: DiscoveryUserState = { ...externalState, currentIdx: end };
+      setExternalState(nextState);
+      void persistProgress(nextState);
+
       if (typeof window !== "undefined") {
         window.scrollTo({ top: 0, behavior: "smooth" });
       }
