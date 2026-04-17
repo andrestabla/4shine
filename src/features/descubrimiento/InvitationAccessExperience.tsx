@@ -161,6 +161,7 @@ export function InvitationAccessExperience({
   const [policyAccepted, setPolicyAccepted] = React.useState(false);
   const [showPolicy, setShowPolicy] = React.useState(false);
   const [isSavingProfile, setIsSavingProfile] = React.useState(false);
+  const [isSavingPage, setIsSavingPage] = React.useState(false);
   const [hasPriorProgress, setHasPriorProgress] = React.useState(false);
   const [publicBranding, setPublicBranding] = React.useState<{
     platformName: string;
@@ -858,7 +859,6 @@ export function InvitationAccessExperience({
     const start = externalState.currentIdx;
     const end = Math.min(start + DISCOVERY_ITEMS_PER_PAGE, DB.length);
     const pageItems = DB.slice(start, end);
-    const [isSavingPage, setIsSavingPage] = React.useState(false);
 
     const handleExternalNextPage = async () => {
       const missingIndex = pageItems.findIndex(
