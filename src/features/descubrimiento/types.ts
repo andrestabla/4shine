@@ -249,6 +249,7 @@ export interface DiscoveryInvitationAccessPayload {
     inviteToken: string;
     invitedEmailMasked: string;
     openedAt: string | null;
+    meta?: unknown;
   };
   session: DiscoverySessionRecord | null;
   accessMode: "results" | "diagnostic";

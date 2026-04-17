@@ -2125,6 +2125,7 @@ export async function verifyDiscoveryInvitationAccess(
       inviteToken: row.invite_token,
       invitedEmailMasked: maskEmail(row.invited_email),
       openedAt: row.opened_at,
+      meta: row.meta,
     },
     accessMode: session ? "results" : "diagnostic",
     session,
@@ -2536,7 +2537,7 @@ export async function saveDiscoveryInvitationProgress(
   };
 
   const finalMeta = {
-    ...(verified.invitation.meta || {}),
+    ...(verified.invitation.meta as Record<string, any> || {}),
     external_progress: progressPayload,
     external_survey: surveyPayload || verified.externalSurvey,
   };
