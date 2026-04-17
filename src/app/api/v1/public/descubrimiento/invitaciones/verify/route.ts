@@ -102,8 +102,8 @@ export async function POST(request: Request) {
             provisioned.access.alreadyCompleted ||
             session.status === "results" ||
             session.completionPercent >= 100,
-          externalProgress: null,
-          externalSurvey: session.experienceSurvey,
+          externalProgress: provisioned.access.externalProgress,
+          externalSurvey: provisioned.access.externalSurvey ?? session.experienceSurvey,
         },
         tokens,
       };
@@ -113,7 +113,7 @@ export async function POST(request: Request) {
     return response;
   } catch (error) {
     const detail = error instanceof Error ? error.message : "Unknown error";
-    const status = detail.includes("invalido") || detail.includes("no encontrada") ? 401 : 500;
+    const status = detail.includes("invalido") || detail.includes("no encontrada") ? 400 : 500;
     return NextResponse.json(
       {
         ok: false,

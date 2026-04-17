@@ -44,7 +44,7 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ ok: true, data }, { status: 200 });
   } catch (error) {
     const detail = error instanceof Error ? error.message : "Unknown error";
-    const status = detail.includes("invalido") || detail.includes("no encontrada") ? 401 : 500;
+    const status = detail.includes("invalido") || detail.includes("no encontrada") ? 400 : 500;
     return NextResponse.json(
       {
         ok: false,
