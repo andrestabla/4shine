@@ -97,6 +97,7 @@ function toUserState(session: DiscoverySessionRecord): DiscoveryUserState {
 }
 
 function sanitizeInvitationIntroState(state: DiscoveryUserState): DiscoveryUserState {
+  if (state.profileCompleted) return state;
   if (state.status !== "intro") return state;
   if (Object.keys(state.answers).length > 0) return state;
   return {
@@ -702,12 +703,14 @@ export function InvitationAccessExperience({
               type="button"
               disabled={!isProfileComplete(externalState) || !policyAccepted}
               onClick={() => {
-                setExternalState((current) => ({
-                  ...current,
-                  name: `${current.profile.firstName} ${current.profile.lastName}`.trim(),
+                const nextState: DiscoveryUserState = {
+                  ...externalState,
+                  name: `${externalState.profile.firstName} ${externalState.profile.lastName}`.trim(),
                   profileCompleted: true,
                   status: "instructions",
-                }));
+                };
+                setExternalState(nextState);
+                void persistProgress(nextState);
                 window.scrollTo(0, 0);
               }}
               className="mt-6 inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-5 py-3 text-sm font-extrabold text-white transition disabled:opacity-40"
@@ -801,7 +804,11 @@ export function InvitationAccessExperience({
 
             <button
               type="button"
-              onClick={() => setExternalState((current) => ({ ...current, status: "quiz" }))}
+              onClick={() => {
+                const nextState: DiscoveryUserState = { ...externalState, status: "quiz" };
+                setExternalState(nextState);
+                void persistProgress(nextState);
+              }}
               className="mt-7 inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-5 py-3 text-sm font-extrabold text-white"
             >
               Ir al cuestionario
