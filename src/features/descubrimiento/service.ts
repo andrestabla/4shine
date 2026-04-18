@@ -2967,7 +2967,12 @@ export async function getDiscoveryOverview(
     const hasAnswers = Object.keys(normalizedAnswers).length > 0;
     const score = hasAnswers ? scoreDiscoveryAnswers(normalizedAnswers) : null;
     const survey = parseExperienceSurvey(row.feedback_survey);
-    const isCompleted = row.global_index !== null;
+    // Use stored index; fall back to computed score when test_attempts hasn't been synced yet
+    const globalIndex =
+      row.global_index !== null
+        ? Number(row.global_index)
+        : (score?.globalIndex ?? null);
+    const isCompleted = globalIndex !== null;
     const analytics = buildAnalyticsBundle(
       [
         {
@@ -2991,7 +2996,7 @@ export async function getDiscoveryOverview(
       gender: row.gender ?? "",
       yearsExperience: coerceNumeric(row.years_experience),
       completionPercent: Number(row.completion_percent ?? 0),
-      globalIndex: row.global_index !== null ? Number(row.global_index) : null,
+      globalIndex,
       updatedAt: row.updated_at,
       analytics,
     };
