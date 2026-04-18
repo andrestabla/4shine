@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     const result = await withClient((client) =>
       saveDiscoveryInvitationSurvey(client, { inviteToken, accessCode, survey }),
     );
-    return NextResponse.json(result, { status: 200 });
+    return NextResponse.json({ ok: true, data: result }, { status: 200 });
   } catch (error) {
     const detail = error instanceof Error ? error.message : "Unknown error";
     const status = detail.includes("invalido") || detail.includes("no encontrada") ? 400 : 500;

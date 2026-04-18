@@ -5,6 +5,7 @@ import Link from "next/link";
 import clsx from "clsx";
 import ReactMarkdown from "react-markdown";
 import {
+  CheckCircle2,
   Copy,
   Download,
   ExternalLink,
@@ -195,6 +196,8 @@ export function ResultsView({
   const [tourStepIdx, setTourStepIdx] = React.useState(0);
   const [maximizedChart, setMaximizedChart] = React.useState<"global" | "pillar" | null>(null);
   const [isSurveyOpen, setIsSurveyOpen] = React.useState(false);
+  const [isSurveySubmitting, setIsSurveySubmitting] = React.useState(false);
+  const [surveySubmitted, setSurveySubmitted] = React.useState(!!initialSurvey);
   const [pendingSurveyAction, setPendingSurveyAction] = React.useState<
     "download" | "shareLink" | null
   >(null);
@@ -624,9 +627,11 @@ export function ResultsView({
     };
 
     if (onSurveySubmit) {
+      setIsSurveySubmitting(true);
       try {
         await onSurveySubmit(surveyPayload);
       } catch (error) {
+        setIsSurveySubmitting(false);
         await alert({
           title: "No se pudo guardar la encuesta",
           message: error instanceof Error ? error.message : "Intenta nuevamente.",
@@ -634,22 +639,28 @@ export function ResultsView({
         });
         return;
       }
+      setIsSurveySubmitting(false);
+      setSurveySubmitted(true);
     }
 
     clearSurveyPromptTimer();
-    setIsSurveyOpen(false);
     const pendingAction = pendingSurveyAction;
     setPendingSurveyAction(null);
 
     if (pendingAction === "download") {
+      setIsSurveyOpen(false);
       await runDownloadPdf();
       return;
     }
     if (pendingAction === "shareLink") {
+      setIsSurveyOpen(false);
       await handleShare();
       return;
     }
 
+    // Show thank-you for 2.5 s then close
+    await new Promise<void>((resolve) => setTimeout(resolve, 2500));
+    setIsSurveyOpen(false);
   };
 
   const currentReport = reports[filter]?.trim() ?? "";
@@ -1116,74 +1127,98 @@ export function ResultsView({
       {isSurveyOpen && (
         <div className="fixed inset-0 z-[140] flex items-center justify-center bg-[rgba(15,23,42,0.48)] px-4 py-8 backdrop-blur-sm">
           <div className="flex max-h-full w-full max-w-lg flex-col overflow-hidden rounded-[22px] border border-[var(--app-border)] bg-white shadow-2xl">
-            <div className="border-b border-[var(--app-border)] p-6">
-              <p className="app-section-kicker">Encuesta breve</p>
-              <h3 className="mt-2 text-2xl font-black text-[var(--app-ink)]">Califica tu experiencia</h3>
-              <p className="mt-2 text-sm text-[var(--app-muted)]">
-                Ayúdanos a mejorar el proceso de diagnóstico.
-              </p>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6 pt-2">
-              <div className="space-y-4">
-                {SURVEY_QUESTIONS.map((question) => (
-                  <div key={question} className="rounded-[18px] border border-[var(--app-border)] bg-[var(--app-surface-soft)] p-4">
-                    <p className="text-sm font-bold leading-snug text-[var(--app-ink)]">{question}</p>
-                    <div className="mt-3.5 flex flex-wrap gap-2.5">
-                      {FACE_SCALE.map(({ value, icon: Icon, label }) => (
-                        <button
-                          key={value}
-                          type="button"
-                          onClick={() =>
-                            setSurveyAnswers((current) => ({
-                              ...current,
-                              [question]: value,
-                            }))
-                          }
-                          className={clsx(
-                            "group inline-flex h-11 w-11 items-center justify-center rounded-xl border transition-all duration-200",
-                            surveyAnswers[question] === value
-                              ? "border-[var(--brand-primary)] bg-[var(--brand-primary)] text-white shadow-[0_6px_14px_rgba(60,20,125,0.22)]"
-                              : "border-[var(--app-border)] bg-white text-[var(--app-ink)] hover:border-[var(--brand-primary)]/40 hover:bg-white hover:text-[var(--brand-primary)]",
-                          )}
-                          title={label}
-                          aria-label={`${label} (${value})`}
-                        >
-                          <Icon
-                            size={20}
-                            className={clsx(
-                              "transition",
-                              surveyAnswers[question] === value ? "scale-110" : "opacity-85 group-hover:scale-110",
-                            )}
-                          />
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+            {surveySubmitted ? (
+              <div className="flex flex-col items-center gap-4 px-8 py-12 text-center">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--brand-primary)]/10">
+                  <CheckCircle2 size={36} className="text-[var(--brand-primary)]" />
+                </div>
+                <h3 className="text-2xl font-black text-[var(--app-ink)]">¡Gracias por tu calificación!</h3>
+                <p className="text-sm text-[var(--app-muted)]">
+                  Tu opinión nos ayuda a mejorar el diagnóstico para todos los líderes.
+                </p>
               </div>
-            </div>
+            ) : (
+              <>
+                <div className="border-b border-[var(--app-border)] p-6">
+                  <p className="app-section-kicker">Encuesta breve</p>
+                  <h3 className="mt-2 text-2xl font-black text-[var(--app-ink)]">Califica tu experiencia</h3>
+                  <p className="mt-2 text-sm text-[var(--app-muted)]">
+                    Ayúdanos a mejorar el proceso de diagnóstico.
+                  </p>
+                </div>
 
-            <div className="grid grid-cols-1 gap-3 border-t border-[var(--app-border)] p-6 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setPendingSurveyAction(null);
-                  setIsSurveyOpen(false);
-                  scheduleSurveyPrompt(300000);
-                }}
-                className="order-2 rounded-full border border-[var(--app-border)] bg-white py-3 text-sm font-bold text-[var(--app-muted)] transition hover:bg-[var(--app-surface-muted)] sm:order-1"
-              >
-                Cerrar por ahora
-              </button>
-              <button
-                type="button"
-                onClick={() => void submitSurvey()}
-                className="order-1 rounded-full bg-[var(--brand-primary)] py-3 text-sm font-black text-white shadow-[0_10px_20px_-5px_rgba(60,20,125,0.25)] transition hover:brightness-110 sm:order-2"
-              >
-                Enviar respuestas
-              </button>
-            </div>
+                <div className="flex-1 overflow-y-auto p-6 pt-2">
+                  <div className="space-y-4">
+                    {SURVEY_QUESTIONS.map((question) => (
+                      <div key={question} className="rounded-[18px] border border-[var(--app-border)] bg-[var(--app-surface-soft)] p-4">
+                        <p className="text-sm font-bold leading-snug text-[var(--app-ink)]">{question}</p>
+                        <div className="mt-3.5 flex flex-wrap gap-2.5">
+                          {FACE_SCALE.map(({ value, icon: Icon, label }) => (
+                            <button
+                              key={value}
+                              type="button"
+                              disabled={isSurveySubmitting}
+                              onClick={() =>
+                                setSurveyAnswers((current) => ({
+                                  ...current,
+                                  [question]: value,
+                                }))
+                              }
+                              className={clsx(
+                                "group inline-flex h-11 w-11 items-center justify-center rounded-xl border transition-all duration-200",
+                                surveyAnswers[question] === value
+                                  ? "border-[var(--brand-primary)] bg-[var(--brand-primary)] text-white shadow-[0_6px_14px_rgba(60,20,125,0.22)]"
+                                  : "border-[var(--app-border)] bg-white text-[var(--app-ink)] hover:border-[var(--brand-primary)]/40 hover:bg-white hover:text-[var(--brand-primary)]",
+                              )}
+                              title={label}
+                              aria-label={`${label} (${value})`}
+                            >
+                              <Icon
+                                size={20}
+                                className={clsx(
+                                  "transition",
+                                  surveyAnswers[question] === value ? "scale-110" : "opacity-85 group-hover:scale-110",
+                                )}
+                              />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 border-t border-[var(--app-border)] p-6 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    disabled={isSurveySubmitting}
+                    onClick={() => {
+                      setPendingSurveyAction(null);
+                      setIsSurveyOpen(false);
+                      scheduleSurveyPrompt(300000);
+                    }}
+                    className="order-2 rounded-full border border-[var(--app-border)] bg-white py-3 text-sm font-bold text-[var(--app-muted)] transition hover:bg-[var(--app-surface-muted)] disabled:opacity-50 sm:order-1"
+                  >
+                    Cerrar por ahora
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isSurveySubmitting}
+                    onClick={() => void submitSurvey()}
+                    className="order-1 inline-flex items-center justify-center gap-2 rounded-full bg-[var(--brand-primary)] py-3 text-sm font-black text-white shadow-[0_10px_20px_-5px_rgba(60,20,125,0.25)] transition hover:brightness-110 disabled:opacity-70 sm:order-2"
+                  >
+                    {isSurveySubmitting ? (
+                      <>
+                        <Loader2 size={15} className="animate-spin" />
+                        Guardando…
+                      </>
+                    ) : (
+                      "Enviar respuestas"
+                    )}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
