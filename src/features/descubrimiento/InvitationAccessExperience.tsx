@@ -13,6 +13,7 @@ import {
   getDiscoverySession,
   getInvitationPublicInfo,
   saveInvitationProgress,
+  saveInvitationSurvey,
   updateDiscoverySessionRequest,
   verifyInvitationAccess,
 } from "./client";
@@ -339,19 +340,12 @@ export function InvitationAccessExperience({
     survey: NonNullable<DiscoveryUserState["experienceSurvey"]>,
   ) => {
     if (verifiedAccessCode) {
-      const response = await saveInvitationProgress({
+      await saveInvitationSurvey({
         inviteToken,
         accessCode: verifiedAccessCode,
-        state: externalState,
         survey,
       });
-      setSession(response.session);
-      if (response.externalProgress) {
-        setExternalState({
-          ...response.externalProgress,
-          experienceSurvey: response.externalSurvey,
-        });
-      }
+      setExternalState((prev) => ({ ...prev, experienceSurvey: survey }));
       hydratedRef.current = true;
       return;
     }

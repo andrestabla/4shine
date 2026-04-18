@@ -2662,6 +2662,45 @@ export async function saveDiscoveryInvitationProgress(
   };
 }
 
+export async function saveDiscoveryInvitationSurvey(
+  client: PoolClient,
+  input: {
+    inviteToken: string;
+    accessCode: string;
+    survey: DiscoveryExperienceSurvey;
+  },
+): Promise<{ ok: true; survey: DiscoveryExperienceSurvey }> {
+  const row = await resolveDiscoveryInvitationByToken(client, input.inviteToken);
+  const normalizedCode = input.accessCode.trim().toUpperCase();
+  if (!compareAccessCode(normalizedCode, row.access_code_hash)) {
+    throw new Error("Codigo de acceso invalido.");
+  }
+
+  const surveyPayload = parseExperienceSurvey(input.survey);
+  if (!surveyPayload) {
+    throw new Error("Datos de encuesta invalidos o incompletos.");
+  }
+
+  const finalMeta = {
+    ...((row.meta as Record<string, unknown>) || {}),
+    external_survey: surveyPayload,
+  };
+
+  await client.query(
+    `UPDATE app_assessment.discovery_invitations SET meta = $2::jsonb, updated_at = now() WHERE invitation_id = $1::uuid`,
+    [row.invitation_id, JSON.stringify(finalMeta)],
+  );
+
+  if (row.session_id) {
+    await client.query(
+      `UPDATE app_assessment.discovery_sessions SET feedback_survey = $2::jsonb, updated_at = now() WHERE session_id = $1::uuid`,
+      [row.session_id, JSON.stringify(surveyPayload)],
+    );
+  }
+
+  return { ok: true, survey: surveyPayload };
+}
+
 export async function getDiscoveryOverview(
   client: PoolClient,
   actor: AuthUser,

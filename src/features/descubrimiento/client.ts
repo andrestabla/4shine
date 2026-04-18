@@ -1,5 +1,6 @@
 import { requestApi } from "@/lib/api-client";
 import type {
+  DiscoveryExperienceSurvey,
   DiscoveryFeedbackSettingsRecord,
   DiscoveryInvitationAccessPayload,
   DiscoveryInvitationBatchResult,
@@ -176,6 +177,20 @@ export async function getInvitationPublicInfo(inviteToken: string): Promise<{
 }> {
   return requestApi<{ inviteToken: string; invitedEmailMasked: string; openedAt: string | null; externalProgressStatus?: string | null }>(
     `/api/v1/public/descubrimiento/invitaciones/${encodeURIComponent(inviteToken)}`,
+  );
+}
+
+export async function saveInvitationSurvey(input: {
+  inviteToken: string;
+  accessCode: string;
+  survey: DiscoveryExperienceSurvey;
+}): Promise<{ ok: true; survey: DiscoveryExperienceSurvey }> {
+  return requestApi<{ ok: true; survey: DiscoveryExperienceSurvey }>(
+    "/api/v1/public/descubrimiento/invitaciones/survey",
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+    },
   );
 }
 
