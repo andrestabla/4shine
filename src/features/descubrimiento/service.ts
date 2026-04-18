@@ -2124,6 +2124,21 @@ export async function verifyDiscoveryInvitationAccess(
     externalProgress?.status === "results" &&
     calculateDiscoveryCompletionPercent(externalProgress.answers) >= 100;
 
+  // Heal missing global_index for already-completed sessions
+  if (
+    session &&
+    session.attemptId &&
+    (session.status === "results" || session.completionPercent >= 100)
+  ) {
+    const { rows: taRows } = await client.query<{ overall_score: number | null }>(
+      `SELECT overall_score FROM app_assessment.test_attempts WHERE attempt_id = $1::uuid`,
+      [session.attemptId],
+    );
+    if (taRows[0] && taRows[0].overall_score === null) {
+      await syncCompletedScores(client, session);
+    }
+  }
+
   return {
     invitation: {
       invitationId: row.invitation_id,
@@ -2647,9 +2662,15 @@ export async function saveDiscoveryInvitationProgress(
         surveyPayload ? JSON.stringify(surveyPayload) : null,
       ],
     );
+
+    // Sync global_index into test_attempts when diagnostic completes
+    if (markCompleted) {
+      const sessionForScoring = await getDiscoverySession(client, invRow.session_id);
+      if (sessionForScoring) await syncCompletedScores(client, sessionForScoring);
+    }
   }
 
-  const updatedSession = invRow.session_id 
+  const updatedSession = invRow.session_id
     ? await getDiscoverySession(client, invRow.session_id)
     : verified.session;
 
@@ -2696,6 +2717,21 @@ export async function saveDiscoveryInvitationSurvey(
       `UPDATE app_assessment.discovery_sessions SET feedback_survey = $2::jsonb, updated_at = now() WHERE session_id = $1::uuid`,
       [row.session_id, JSON.stringify(surveyPayload)],
     );
+
+    // Retroactively sync global_index if the session is complete but score is missing
+    const { rows: scoreCheck } = await client.query<{ overall_score: number | null }>(
+      `SELECT ta.overall_score
+       FROM app_assessment.discovery_sessions ds
+       LEFT JOIN app_assessment.test_attempts ta ON ta.attempt_id = ds.attempt_id
+       WHERE ds.session_id = $1::uuid`,
+      [row.session_id],
+    );
+    if (scoreCheck[0] && scoreCheck[0].overall_score === null) {
+      const sessionForScore = await getDiscoverySession(client, row.session_id);
+      if (sessionForScore?.attemptId) {
+        await syncCompletedScores(client, sessionForScore);
+      }
+    }
   }
 
   return { ok: true, survey: surveyPayload };
