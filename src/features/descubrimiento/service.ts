@@ -2522,7 +2522,27 @@ export async function saveDiscoveryInvitationProgress(
     input.accessCode,
   );
 
+  // Survey can be saved in results mode (diagnostic already complete)
   if (verified.accessMode !== "diagnostic") {
+    if (input.survey) {
+      const surveyPayload = parseExperienceSurvey(input.survey);
+      const finalMeta = {
+        ...(verified.invitation.meta as Record<string, unknown> || {}),
+        external_survey: surveyPayload,
+      };
+      await client.query(
+        `UPDATE app_assessment.discovery_invitations SET meta = $2::jsonb, updated_at = now() WHERE invitation_id = $1::uuid`,
+        [verified.invitation.invitationId, JSON.stringify(finalMeta)],
+      );
+      const invRow = await resolveDiscoveryInvitationByToken(client, input.inviteToken);
+      if (invRow.session_id) {
+        await client.query(
+          `UPDATE app_assessment.discovery_sessions SET feedback_survey = $2::jsonb, updated_at = now() WHERE session_id = $1::uuid`,
+          [invRow.session_id, JSON.stringify(surveyPayload)],
+        );
+      }
+      return { ...verified, externalSurvey: surveyPayload };
+    }
     return verified;
   }
 
