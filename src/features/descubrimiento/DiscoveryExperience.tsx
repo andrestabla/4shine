@@ -12,11 +12,13 @@ import {
   FileSpreadsheet,
   Loader2,
   Mail,
+  RefreshCcw,
   RotateCcw,
   RefreshCw,
   Save,
   Send,
   ShieldCheck,
+  Trash2,
   Upload,
 } from "lucide-react";
 import {
@@ -52,11 +54,13 @@ import {
 } from "./reporting";
 import {
   createDiscoveryInvitations,
+  deleteDiscoveryInvitationRequest,
   getDiscoveryFeedbackSettings,
   getDiscoveryOverview,
   getDiscoveryOverviewDetail,
   getDiscoverySession,
   listDiscoveryInvitations,
+  resendDiscoveryInvitationRequest,
   resetDiscoveryOverviewAttempt,
   resetDiscoverySessionRequest,
   updateDiscoveryFeedbackSettings,
@@ -436,6 +440,73 @@ export function DiscoveryExperience() {
       } catch (error) {
         await alert({
           title: "No se pudo reiniciar",
+          message: error instanceof Error ? error.message : "Error inesperado.",
+          tone: "error",
+        });
+      } finally {
+        setRowActionLoadingKey((current) => (current === loadingKey ? null : current));
+      }
+    },
+    [alert, buildCurrentOverviewFilters, confirm, loadManagerOverview, selectedOverviewRowId],
+  );
+
+  const handleResendInvitation = React.useCallback(
+    async (row: DiscoveryOverviewRow) => {
+      if (!row.invitationId) return;
+      const approved = await confirm({
+        title: "Reenviar invitación",
+        message: `Se generará un nuevo código de acceso y se enviará por correo a ${row.invitedEmail ?? row.participantName}. El código anterior quedará inválido.`,
+        tone: "warning",
+        confirmText: "Reenviar",
+        cancelText: "Cancelar",
+      });
+      if (!approved) return;
+
+      const loadingKey = `${row.sessionId}:resend`;
+      setRowActionLoadingKey(loadingKey);
+      try {
+        await resendDiscoveryInvitationRequest(row.invitationId);
+        await alert({
+          title: "Invitación reenviada",
+          message: `Se envió un nuevo código de acceso a ${row.invitedEmail ?? row.participantName}.`,
+          tone: "success",
+        });
+      } catch (error) {
+        await alert({
+          title: "No se pudo reenviar",
+          message: error instanceof Error ? error.message : "Error inesperado.",
+          tone: "error",
+        });
+      } finally {
+        setRowActionLoadingKey((current) => (current === loadingKey ? null : current));
+      }
+    },
+    [alert, confirm],
+  );
+
+  const handleDeleteInvitation = React.useCallback(
+    async (row: DiscoveryOverviewRow) => {
+      if (!row.invitationId) return;
+      const approved = await confirm({
+        title: "Eliminar invitación",
+        message: `Se eliminará el registro de ${row.invitedEmail ?? row.participantName}. Esta acción no se puede deshacer.`,
+        tone: "error",
+        confirmText: "Eliminar",
+        cancelText: "Cancelar",
+      });
+      if (!approved) return;
+
+      const loadingKey = `${row.sessionId}:delete`;
+      setRowActionLoadingKey(loadingKey);
+      try {
+        await deleteDiscoveryInvitationRequest(row.invitationId);
+        if (selectedOverviewRowId === row.sessionId) {
+          setSelectedOverviewRowId("");
+        }
+        await loadManagerOverview(buildCurrentOverviewFilters());
+      } catch (error) {
+        await alert({
+          title: "No se pudo eliminar",
           message: error instanceof Error ? error.message : "Error inesperado.",
           tone: "error",
         });
@@ -1992,6 +2063,42 @@ export function DiscoveryExperience() {
                             )}
                             Excel
                           </button>
+                          {row.sourceType === "invited" && row.invitationId && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  void handleResendInvitation(row);
+                                }}
+                                disabled={rowActionLoadingKey === `${row.sessionId}:resend`}
+                                className="inline-flex items-center gap-1 rounded-full border border-[var(--app-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--app-ink)] transition hover:bg-[var(--app-surface-muted)] disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                {rowActionLoadingKey === `${row.sessionId}:resend` ? (
+                                  <Loader2 size={12} className="animate-spin" />
+                                ) : (
+                                  <RefreshCcw size={12} />
+                                )}
+                                Reenviar
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  void handleDeleteInvitation(row);
+                                }}
+                                disabled={rowActionLoadingKey === `${row.sessionId}:delete`}
+                                className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                {rowActionLoadingKey === `${row.sessionId}:delete` ? (
+                                  <Loader2 size={12} className="animate-spin" />
+                                ) : (
+                                  <Trash2 size={12} />
+                                )}
+                                Eliminar
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>

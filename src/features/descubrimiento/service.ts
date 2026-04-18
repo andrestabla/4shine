@@ -2804,6 +2804,7 @@ export async function getDiscoveryOverview(
     answers: DiscoveryAnswers | null;
     feedback_survey?: unknown;
     updated_at: string;
+    invitation_id: string | null;
   }
 
   interface DiscoveryInvitationOverviewRow {
@@ -2951,10 +2952,12 @@ export async function getDiscoveryOverview(
         ta.overall_score AS global_index,
         ds.answers,
         ds.feedback_survey,
-        ds.updated_at::text
+        ds.updated_at::text,
+        di.invitation_id::text AS invitation_id
       FROM app_assessment.discovery_sessions ds
       JOIN app_core.users u ON u.user_id = ds.user_id
       LEFT JOIN app_assessment.test_attempts ta ON ta.attempt_id = ds.attempt_id
+      LEFT JOIN app_assessment.discovery_invitations di ON di.session_id = ds.session_id
       ${whereClause ? `${whereClause} AND u.primary_role IN ('lider', 'invitado')` : "WHERE u.primary_role IN ('lider', 'invitado')"}
       ORDER BY ds.updated_at DESC
       LIMIT 500
@@ -2988,6 +2991,7 @@ export async function getDiscoveryOverview(
       sessionId: row.session_id,
       diagnosticIdentifier: row.diagnostic_identifier,
       userId: row.user_id,
+      invitationId: row.invitation_id ?? null,
       participantName: row.participant_name || "Sin nombre",
       sourceType: row.primary_role === "invitado" ? ("invited" as const) : ("platform" as const),
       invitedEmail: row.primary_role === "invitado" ? row.user_email : "",
@@ -3046,6 +3050,7 @@ export async function getDiscoveryOverview(
         sessionId: `inv-${invitation.invitation_id}`,
         diagnosticIdentifier: `DX-INV-${invitation.invitation_id.replace(/-/g, "").slice(0, 8).toUpperCase()}`,
         userId: `${DISCOVERY_INVITED_FILTER_PREFIX}${invitation.invitation_id}`,
+        invitationId: invitation.invitation_id,
         participantName,
         sourceType: "invited" as const,
         invitedEmail: invitation.invited_email,
@@ -5401,4 +5406,139 @@ export async function sendDiscoveryResultsEmailViaAdmin(
       html,
     });
   }
+}
+
+export async function resendDiscoveryInvitation(
+  client: PoolClient,
+  actor: AuthUser,
+  invitationId: string,
+): Promise<DiscoveryInvitationWithCode> {
+  await requireModulePermission(client, "descubrimiento", "update");
+  if (!isAllowedManager(actor)) {
+    throw new Error("Solo admin y gestor pueden reenviar invitaciones.");
+  }
+
+  const { rows: invRows } = await client.query<
+    DiscoveryInvitationRow & { session_payload: DiscoverySessionRow | null }
+  >(
+    `
+      SELECT
+        di.invitation_id::text,
+        di.session_id::text,
+        di.invited_email,
+        di.invite_token,
+        di.access_code_hash,
+        di.access_code_last4,
+        di.access_code_sent_at::text,
+        di.opened_at::text,
+        di.meta,
+        di.created_at::text,
+        di.updated_at::text,
+        to_json(ds.*) AS session_payload
+      FROM app_assessment.discovery_invitations di
+      LEFT JOIN app_assessment.discovery_sessions ds ON ds.session_id = di.session_id
+      WHERE di.invitation_id = $1::uuid
+      LIMIT 1
+    `,
+    [invitationId],
+  );
+
+  const invRow = invRows[0];
+  if (!invRow) throw new Error("Invitación no encontrada.");
+
+  const organizationId = await resolveOrganizationIdForActor(client, actor.userId);
+  const settings = await ensureFeedbackSettings(client, actor);
+  const branding = await getBrandingForOrganization(client, organizationId);
+
+  const htmlTemplate =
+    sanitizeText(settings.inviteEmailHtml, "", 20000) ||
+    defaultInviteEmailHtml(branding.platform_name, branding.primary_color, branding.accent_color);
+  const htmlTemplateWithLogo = ensureInviteTemplateHasLogo(htmlTemplate);
+  const textTemplate =
+    sanitizeText(settings.inviteEmailText, "", 10000) ||
+    defaultInviteEmailText(branding.platform_name);
+  const subjectTemplate =
+    sanitizeText(settings.inviteEmailSubject, "", 240) ||
+    "Diagnostico 4Shine: acceso personalizado";
+
+  const outboundConfig = await resolveOutboundConfig(client, organizationId);
+  if (!outboundConfig) {
+    throw new Error("No hay configuracion de correo saliente habilitada para enviar invitaciones.");
+  }
+
+  const newAccessCode = createAccessCode();
+  const newInviteToken = createInviteToken();
+
+  const { rows: updRows } = await client.query<DiscoveryInvitationRow>(
+    `
+      UPDATE app_assessment.discovery_invitations
+      SET invite_token = $2,
+          access_code_hash = $3,
+          access_code_last4 = $4,
+          access_code_sent_at = now(),
+          updated_at = now()
+      WHERE invitation_id = $1::uuid
+      RETURNING
+        invitation_id::text,
+        session_id::text,
+        invited_email,
+        invite_token,
+        access_code_hash,
+        access_code_last4,
+        access_code_sent_at::text,
+        opened_at::text,
+        meta,
+        created_at::text,
+        updated_at::text
+    `,
+    [invitationId, newInviteToken, hashAccessCode(newAccessCode), newAccessCode.slice(-4)],
+  );
+
+  if (!updRows[0]) throw new Error("No se pudo actualizar la invitación.");
+
+  const session = invRow.session_payload ? mapDiscoverySessionRow(invRow.session_payload) : null;
+  const baseUrl = resolveAppBaseUrl();
+  const inviteUrl = `${baseUrl}/descubrimiento/invitacion/${newInviteToken}`;
+  const platformLogoUrl = branding.logo_url?.trim() || `${baseUrl}/workbooks-v2/diamond.svg`;
+
+  const params = {
+    recipient_email: invRow.invited_email,
+    access_code: newAccessCode,
+    invite_url: inviteUrl,
+    diagnostic_id: session?.diagnosticIdentifier ?? "N/A",
+    participant_name: session
+      ? `${session.firstName} ${session.lastName}`.trim()
+      : "Participante invitado",
+    platform_logo_url: platformLogoUrl,
+  };
+
+  await sendOutboundEmail(outboundConfig, {
+    to: invRow.invited_email,
+    subject: fillTemplate(subjectTemplate, params),
+    html: fillTemplate(htmlTemplateWithLogo, params),
+    text: fillTemplate(textTemplate, params),
+  });
+
+  return {
+    ...mapInvitationRow(updRows[0]),
+    accessCode: newAccessCode,
+  };
+}
+
+export async function deleteDiscoveryInvitation(
+  client: PoolClient,
+  actor: AuthUser,
+  invitationId: string,
+): Promise<void> {
+  await requireModulePermission(client, "descubrimiento", "update");
+  if (!isAllowedManager(actor)) {
+    throw new Error("Solo admin y gestor pueden eliminar invitaciones.");
+  }
+
+  const { rowCount } = await client.query(
+    `DELETE FROM app_assessment.discovery_invitations WHERE invitation_id = $1::uuid`,
+    [invitationId],
+  );
+
+  if (!rowCount) throw new Error("Invitación no encontrada.");
 }

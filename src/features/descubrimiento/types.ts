@@ -158,6 +158,7 @@ export interface DiscoveryOverviewRow {
   sessionId: string;
   diagnosticIdentifier: string;
   userId: string;
+  invitationId: string | null;
   participantName: string;
   sourceType: "platform" | "invited";
   invitedEmail?: string;

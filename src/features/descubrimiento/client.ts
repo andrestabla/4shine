@@ -6,6 +6,7 @@ import type {
   DiscoveryInvitationBatchResult,
   DiscoveryInvitationRecord,
   DiscoveryInvitationRequest,
+  DiscoveryInvitationWithCode,
   DiscoveryOverviewDetailPayload,
   DiscoveryOverviewFilters,
   DiscoveryOverviewPayload,
@@ -191,6 +192,24 @@ export async function saveInvitationSurvey(input: {
       method: "POST",
       body: JSON.stringify(input),
     },
+  );
+}
+
+export async function resendDiscoveryInvitationRequest(
+  invitationId: string,
+): Promise<DiscoveryInvitationWithCode> {
+  return requestApi<DiscoveryInvitationWithCode>(
+    `/api/v1/modules/descubrimiento/invitations/${encodeURIComponent(invitationId)}/resend`,
+    { method: "POST" },
+  );
+}
+
+export async function deleteDiscoveryInvitationRequest(
+  invitationId: string,
+): Promise<void> {
+  await requestApi<void>(
+    `/api/v1/modules/descubrimiento/invitations/${encodeURIComponent(invitationId)}`,
+    { method: "DELETE" },
   );
 }
 
