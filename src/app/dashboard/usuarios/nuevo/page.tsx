@@ -13,6 +13,7 @@ import {
   userTypeLabel,
   type UserTypeOption,
 } from '@/features/usuarios/user-types';
+import { YEARS_EXPERIENCE_OPTIONS, keyToStoredValue } from '@/lib/demographics';
 
 type JobRole =
   | 'Director/C-Level'
@@ -40,14 +41,6 @@ const JOB_ROLE_OPTIONS: readonly JobRole[] = [
   'Lider de proyecto con equipo a cargo',
   'Especialista sin personal a cargo',
 ];
-
-function parseOptionalInteger(value: string): number | null {
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  const parsed = Number(trimmed);
-  if (!Number.isFinite(parsed)) return null;
-  return Math.floor(parsed);
-}
 
 export default function NuevoUsuarioPage() {
   const router = useRouter();
@@ -83,20 +76,11 @@ export default function NuevoUsuarioPage() {
       });
       return;
     }
-    const yearsExperience = parseOptionalInteger(form.yearsExperience);
+    const yearsExperience = keyToStoredValue(form.yearsExperience);
     if (!form.country.trim() || !form.jobRole || !form.gender.trim() || yearsExperience === null) {
       await alert({
         title: 'Campos requeridos',
         message: 'País, cargo, género y años de experiencia son obligatorios.',
-        tone: 'warning',
-      });
-      return;
-    }
-
-    if (yearsExperience < 0 || yearsExperience > 80) {
-      await alert({
-        title: 'Experiencia inválida',
-        message: 'Los años de experiencia deben estar entre 0 y 80.',
         tone: 'warning',
       });
       return;
@@ -252,16 +236,17 @@ export default function NuevoUsuarioPage() {
 
           <label>
             <span className="app-field-label">Años de Experiencia</span>
-            <input
-              type="number"
-              min={0}
-              max={80}
-              className="app-input"
-              placeholder="Ej: 12"
+            <select
+              className="app-select"
               value={form.yearsExperience}
               onChange={(event) => setForm((prev) => ({ ...prev, yearsExperience: event.target.value }))}
               required
-            />
+            >
+              <option value="">Seleccionar rango</option>
+              {YEARS_EXPERIENCE_OPTIONS.map((opt) => (
+                <option key={opt.key} value={opt.key}>{opt.label}</option>
+              ))}
+            </select>
           </label>
 
           <label className="md:col-span-2">

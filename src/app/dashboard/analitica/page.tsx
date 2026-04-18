@@ -5,6 +5,7 @@ import { PageTitle } from '@/components/dashboard/PageTitle';
 import { StatGrid } from '@/components/dashboard/StatGrid';
 import { getDiscoveryOverview } from '@/features/descubrimiento/client';
 import type { DiscoveryOverviewFilters, DiscoveryOverviewPayload } from '@/features/descubrimiento/types';
+import { yearsToLabel, YEARS_EXPERIENCE_OPTIONS } from '@/lib/demographics';
 
 export default function AnaliticaPage() {
   const [loading, setLoading] = React.useState(true);
@@ -140,18 +141,23 @@ export default function AnaliticaPage() {
                 <option value="Prefiero no decirlo">Prefiero no decirlo</option>
               </select>
 
-              <input
-                type="number"
-                placeholder="Experiencia min"
-                value={filters.yearsExperienceMin ?? ''}
-                onChange={(event) =>
+              <select
+                value={YEARS_EXPERIENCE_OPTIONS.find((o) => o.min === filters.yearsExperienceMin)?.key ?? ''}
+                onChange={(event) => {
+                  const opt = YEARS_EXPERIENCE_OPTIONS.find((o) => o.key === event.target.value);
                   setFilters((current) => ({
                     ...current,
-                    yearsExperienceMin: event.target.value ? Number(event.target.value) : undefined,
-                  }))
-                }
+                    yearsExperienceMin: opt?.min,
+                    yearsExperienceMax: opt?.max === Number.POSITIVE_INFINITY ? undefined : opt?.max,
+                  }));
+                }}
                 className="h-10 rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
-              />
+              >
+                <option value="">Experiencia</option>
+                {YEARS_EXPERIENCE_OPTIONS.map((opt) => (
+                  <option key={opt.key} value={opt.key}>{opt.label}</option>
+                ))}
+              </select>
             </div>
           </div>
 
@@ -205,7 +211,7 @@ export default function AnaliticaPage() {
                       <td className="px-2 py-2">{row.country || '-'}</td>
                       <td className="px-2 py-2">{row.jobRole || '-'}</td>
                       <td className="px-2 py-2">{row.gender || '-'}</td>
-                      <td className="px-2 py-2">{row.yearsExperience ?? '-'}</td>
+                      <td className="px-2 py-2">{yearsToLabel(row.yearsExperience)}</td>
                       <td className="px-2 py-2">{row.completionPercent}%</td>
                       <td className="px-2 py-2">{row.globalIndex ?? '-'}</td>
                     </tr>

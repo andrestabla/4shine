@@ -36,6 +36,7 @@ import {
   userTypeLabel,
   type UserTypeOption,
 } from '@/features/usuarios/user-types';
+import { YEARS_EXPERIENCE_OPTIONS, yearsToKey, keyToStoredValue } from '@/lib/demographics';
 
 function asUserId(value: string | string[] | undefined): string | null {
   if (!value) return null;
@@ -97,16 +98,8 @@ function toDemographicsForm(detail: UserDetailRecord): DemographicsFormState {
     country: detail.country ?? '',
     jobRole: (detail.jobRole ?? '') as JobRoleOption | '',
     gender: detail.gender ?? '',
-    yearsExperience: detail.yearsExperience === null ? '' : String(detail.yearsExperience),
+    yearsExperience: yearsToKey(detail.yearsExperience),
   };
-}
-
-function parseOptionalInteger(value: string): number | null {
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  const parsed = Number(trimmed);
-  if (!Number.isFinite(parsed)) return null;
-  return Math.floor(parsed);
 }
 
 export default function UsuarioDetallePage() {
@@ -314,7 +307,7 @@ export default function UsuarioDetallePage() {
   const onSaveDemographics = async () => {
     if (!detail) return;
 
-    const nextYearsExperience = parseOptionalInteger(demographicsForm.yearsExperience);
+    const nextYearsExperience = keyToStoredValue(demographicsForm.yearsExperience);
     if (!demographicsForm.country.trim() || !demographicsForm.jobRole || !demographicsForm.gender.trim() || nextYearsExperience === null) {
       await alert({
         title: 'Datos obligatorios',
@@ -537,18 +530,20 @@ export default function UsuarioDetallePage() {
 
               <label>
                 <span className="app-field-label">Años de experiencia</span>
-                <input
-                  type="number"
-                  min={0}
-                  max={80}
-                  className="app-input"
+                <select
+                  className="app-select"
                   value={demographicsForm.yearsExperience}
                   onChange={(event) =>
                     setDemographicsForm((prev) => ({ ...prev, yearsExperience: event.target.value }))
                   }
                   disabled={!canUpdate || processingAction !== null}
                   required
-                />
+                >
+                  <option value="">Seleccionar rango</option>
+                  {YEARS_EXPERIENCE_OPTIONS.map((opt) => (
+                    <option key={opt.key} value={opt.key}>{opt.label}</option>
+                  ))}
+                </select>
               </label>
             </div>
 

@@ -22,6 +22,7 @@ import {
   type DiscoverySessionRecord,
   type DiscoveryUserState,
 } from "./types";
+import { YEARS_EXPERIENCE_OPTIONS, yearsToKey, keyToStoredValue } from "@/lib/demographics";
 
 interface InvitationAccessExperienceProps {
   inviteToken: string;
@@ -70,13 +71,6 @@ function parseIntegerInput(rawValue: string, min: number, max: number): number |
   return clamped;
 }
 
-const YEARS_EXPERIENCE_OPTIONS = [
-  { key: "1-5", label: "Entre 1 y 5 años", storedValue: 3, min: 1, max: 5 },
-  { key: "6-10", label: "Entre 6 y 10 años", storedValue: 8, min: 6, max: 10 },
-  { key: "11-15", label: "Entre 11 y 15 años", storedValue: 13, min: 11, max: 15 },
-  { key: "16-20", label: "Entre 16 y 20 años", storedValue: 18, min: 16, max: 20 },
-  { key: "20+", label: "Más de 20 años", storedValue: 21, min: 21, max: Number.POSITIVE_INFINITY },
-] as const;
 
 function toUserState(session: DiscoverySessionRecord): DiscoveryUserState {
   return {
@@ -119,15 +113,11 @@ function sanitizeInvitationIntroState(state: DiscoveryUserState): DiscoveryUserS
 }
 
 function getYearsExperienceBucket(value: number | null): string {
-  if (!Number.isFinite(value)) return "";
-  const normalized = Number(value);
-  return (
-    YEARS_EXPERIENCE_OPTIONS.find((option) => normalized >= option.min && normalized <= option.max)?.key ?? ""
-  );
+  return yearsToKey(value);
 }
 
 function getYearsExperienceStoredValue(bucket: string): number | null {
-  return YEARS_EXPERIENCE_OPTIONS.find((option) => option.key === bucket)?.storedValue ?? null;
+  return keyToStoredValue(bucket);
 }
 
 function buildPersistPayload(state: DiscoveryUserState) {

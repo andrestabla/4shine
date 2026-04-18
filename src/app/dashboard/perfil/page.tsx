@@ -18,6 +18,7 @@ import { R2UploadButton } from '@/components/ui/R2UploadButton';
 import { useUser } from '@/context/UserContext';
 import { getMyProfile, updateMyProfile, type MyProfileRecord } from '@/features/perfil/client';
 import { optimizeAvatarForUpload } from '@/lib/image-processing';
+import { YEARS_EXPERIENCE_OPTIONS, yearsToLabel, yearsToKey, keyToStoredValue } from '@/lib/demographics';
 
 type PlanType = 'standard' | 'premium' | 'vip' | 'empresa_elite';
 type SeniorityLevel = 'senior' | 'c_level' | 'director' | 'manager' | 'vp';
@@ -89,7 +90,7 @@ function buildForm(profile: MyProfileRecord): ProfileFormState {
     country: profile.country ?? '',
     jobRole: profile.jobRole ?? '',
     gender: profile.gender ?? '',
-    yearsExperience: profile.yearsExperience === null ? '' : String(profile.yearsExperience),
+    yearsExperience: yearsToKey(profile.yearsExperience),
     bio: profile.bio ?? '',
     linkedinUrl: profile.linkedinUrl ?? '',
     twitterUrl: profile.twitterUrl ?? '',
@@ -143,14 +144,6 @@ function compactProject(item: ProjectFormItem): ProjectFormItem {
   };
 }
 
-function parseOptionalInteger(value: string): number | null {
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  const parsed = Number(trimmed);
-  if (!Number.isFinite(parsed)) return null;
-  return Math.floor(parsed);
-}
-
 export default function PerfilPage() {
   const { can, refreshBootstrap, updateUser: updateContextUser, currentUser } = useUser();
   const { alert } = useAppDialog();
@@ -202,20 +195,11 @@ export default function PerfilPage() {
       });
       return;
     }
-    const yearsExperience = parseOptionalInteger(form.yearsExperience);
+    const yearsExperience = keyToStoredValue(form.yearsExperience);
     if (!form.country.trim() || !form.jobRole || !form.gender.trim() || yearsExperience === null) {
       await alert({
         title: 'Datos obligatorios',
         message: 'País, cargo, género y años de experiencia son obligatorios.',
-        tone: 'warning',
-      });
-      return;
-    }
-
-    if (yearsExperience < 0 || yearsExperience > 80) {
-      await alert({
-        title: 'Experiencia inválida',
-        message: 'Los años de experiencia deben estar entre 0 y 80.',
         tone: 'warning',
       });
       return;
@@ -452,7 +436,7 @@ export default function PerfilPage() {
                   </div>
                   <div className="app-panel-soft p-3">
                     <p className="text-xs text-[var(--app-muted)]">Años de Experiencia</p>
-                    <p className="font-semibold text-[var(--app-ink)]">{profile.yearsExperience ?? 'No registrados'}</p>
+                    <p className="font-semibold text-[var(--app-ink)]">{yearsToLabel(profile.yearsExperience)}</p>
                   </div>
                   <div className="app-panel-soft p-3">
                     <p className="text-xs text-[var(--app-muted)]">Zona horaria</p>
@@ -537,17 +521,19 @@ export default function PerfilPage() {
                 </label>
                 <label>
                   <span className="app-field-label">Años de experiencia</span>
-                  <input
-                    type="number"
-                    min={0}
-                    max={80}
-                    className="app-input"
+                  <select
+                    className="app-select"
                     value={form.yearsExperience}
                     onChange={(event) =>
                       setForm((prev) => (prev ? { ...prev, yearsExperience: event.target.value } : prev))
                     }
                     required
-                  />
+                  >
+                    <option value="">Seleccionar rango</option>
+                    {YEARS_EXPERIENCE_OPTIONS.map((opt) => (
+                      <option key={opt.key} value={opt.key}>{opt.label}</option>
+                    ))}
+                  </select>
                 </label>
                 <label>
                   <span className="app-field-label">Zona horaria</span>

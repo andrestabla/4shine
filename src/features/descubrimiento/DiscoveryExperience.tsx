@@ -2,6 +2,7 @@
 
 import React from "react";
 import clsx from "clsx";
+import { yearsToLabel, YEARS_EXPERIENCE_OPTIONS } from "@/lib/demographics";
 import { read, utils } from "xlsx";
 import {
   ChevronLeft,
@@ -1921,7 +1922,7 @@ export function DiscoveryExperience() {
                       <td className="px-2 py-2">{row.country || "-"}</td>
                       <td className="px-2 py-2">{row.jobRole || "-"}</td>
                       <td className="px-2 py-2">{row.gender || "-"}</td>
-                      <td className="px-2 py-2">{row.yearsExperience ?? "-"}</td>
+                      <td className="px-2 py-2">{yearsToLabel(row.yearsExperience)}</td>
                       <td className="px-2 py-2">{row.completionPercent}%</td>
                       <td className="px-2 py-2">{row.globalIndex ?? "-"}</td>
                       <td className="px-2 py-2">
@@ -2099,24 +2100,25 @@ export function DiscoveryExperience() {
                 <option value="Mujer">Mujer</option>
                 <option value="Prefiero no decirlo">Prefiero no decirlo</option>
               </select>
-              <input
-                value={state.profile.yearsExperience ?? ""}
-                onChange={(event) =>
+              <select
+                value={YEARS_EXPERIENCE_OPTIONS.find((o) => o.storedValue === state.profile.yearsExperience)?.key ?? ""}
+                onChange={(event) => {
+                  const opt = YEARS_EXPERIENCE_OPTIONS.find((o) => o.key === event.target.value);
                   setState((current) => ({
                     ...current,
                     profile: {
                       ...current.profile,
-                      yearsExperience: event.target.value ? Number(event.target.value) : null,
+                      yearsExperience: opt?.storedValue ?? null,
                     },
-                  }))
-                }
-                type="number"
-                step="0.5"
-                min={0}
-                max={80}
-                placeholder="Años de experiencia"
+                  }));
+                }}
                 className="h-11 rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
-              />
+              >
+                <option value="">Años de experiencia</option>
+                {YEARS_EXPERIENCE_OPTIONS.map((opt) => (
+                  <option key={opt.key} value={opt.key}>{opt.label}</option>
+                ))}
+              </select>
             </div>
 
             <button
