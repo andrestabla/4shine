@@ -125,6 +125,7 @@ function toUserState(session: DiscoverySessionRecord): DiscoveryUserState {
     profile,
     profileCompleted: session.profileCompleted,
     completionPercent: session.completionPercent,
+    experienceSurvey: session.experienceSurvey,
   };
 }
 
@@ -146,6 +147,7 @@ function buildPersistPayload(state: DiscoveryUserState) {
     currentIdx: state.currentIdx,
     completionPercent: calculateDiscoveryCompletionPercent(state.answers),
     profile: state.profile,
+    experienceSurvey: state.experienceSurvey,
   };
 }
 
