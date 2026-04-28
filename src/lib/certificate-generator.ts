@@ -28,7 +28,8 @@ function darken([r, g, b]: RGB, t: number): RGB {
 
 async function urlToDataUrl(url: string): Promise<string | null> {
   try {
-    const res = await fetch(url, { mode: 'cors' });
+    const proxyUrl = `/api/v1/image-proxy?url=${encodeURIComponent(url)}`;
+    const res = await fetch(proxyUrl);
     if (!res.ok) return null;
     const blob = await res.blob();
     return new Promise((resolve) => {

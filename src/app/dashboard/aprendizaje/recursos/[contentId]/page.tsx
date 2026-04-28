@@ -896,42 +896,47 @@ export default function LearningResourceDetailPage() {
                 </div>
               ) : activeResourceIndex === totalItems && hasCertificateScreen ? (
                 // ── CERTIFICATE SCREEN ───────────────────────────────────────
-                <div className="w-full max-w-2xl mx-auto">
+                <div className="w-full max-w-xl mx-auto">
                   {certificateLoading ? (
                     <div className="flex flex-col items-center justify-center gap-4 py-20 text-slate-400">
                       <Loader2 size={36} className="animate-spin" />
                       <p className="text-sm">Preparando tu certificado…</p>
                     </div>
                   ) : certificateData ? (
-                    <div className="overflow-hidden rounded-[24px] border border-slate-700 bg-[#0f172a] shadow-2xl">
-                      {/* Header */}
+                    <div className="overflow-hidden rounded-[20px] shadow-2xl">
+                      {/* Celebration header — accent gradient */}
                       <div
-                        className="p-8 text-center"
+                        className="px-8 py-7 text-center"
                         style={{
-                          background: `linear-gradient(135deg, ${certificateData.template.accentColor}ee, ${certificateData.template.accentColor}88)`,
+                          background: `linear-gradient(135deg, ${certificateData.template.accentColor}, ${certificateData.template.accentColor}bb)`,
                         }}
                       >
-                        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white/20">
-                          <Award size={32} className="text-white" />
+                        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm">
+                          <Award size={28} className="text-white" />
                         </div>
-                        <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/70">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-white/70">
                           ¡Felicitaciones!
                         </p>
-                        <h2 className="mt-2 text-2xl font-extrabold text-white">
+                        <h2 className="mt-1.5 text-xl font-extrabold leading-snug text-white">
                           Has completado el curso
                         </h2>
-                        <p className="mt-1 text-sm text-white/80">{certificateData.courseTitle}</p>
+                        <p className="mt-1 text-sm text-white/75">{certificateData.courseTitle}</p>
                       </div>
 
-                      {/* Certificate mini-preview */}
-                      <div className="p-6">
+                      {/* Certificate preview + download — white card */}
+                      <div className="bg-white px-6 pb-6 pt-5">
+                        <p className="mb-3 text-center text-[11px] font-semibold uppercase tracking-widest text-gray-400">
+                          Vista previa del certificado
+                        </p>
+
+                        {/* Mini certificate preview */}
                         <div
-                          className="w-full overflow-hidden rounded-[14px] shadow-lg"
+                          className="w-full overflow-hidden rounded-[10px] border border-gray-100 shadow-md"
                           style={{ aspectRatio: "1.414" }}
                         >
                           {/* Header band */}
                           <div
-                            className="flex h-[22%] items-center justify-between px-6"
+                            className="flex h-[22%] items-center justify-between px-5"
                             style={{
                               background: `linear-gradient(135deg, ${certificateData.template.accentColor}ee, ${certificateData.template.accentColor}99)`,
                             }}
@@ -940,44 +945,62 @@ export default function LearningResourceDetailPage() {
                               <img
                                 src={certificateData.template.logoUrl}
                                 alt="Logo"
-                                className="h-8 max-w-[100px] object-contain"
+                                className="h-7 max-w-[90px] object-contain"
                               />
                             ) : (
-                              <span className="rounded-[8px] bg-white/20 px-3 py-1.5 text-xs font-bold text-white">
+                              <span className="rounded-[6px] bg-white/20 px-2.5 py-1 text-[10px] font-bold text-white">
                                 {certificateData.template.organizationName}
                               </span>
                             )}
-                            <Award size={18} className="text-white/40" />
+                            <Award size={15} className="text-white/40" />
                           </div>
-                          {/* Body */}
+
+                          {/* Body — explicit white background */}
                           <div
-                            className="flex h-[56%] flex-col items-center justify-center px-10 text-center"
-                            style={{ background: `${certificateData.template.accentColor}08` }}
+                            className="flex h-[56%] flex-col items-center justify-center px-8 text-center"
+                            style={{ background: '#ffffff' }}
                           >
-                            <div className="mb-2 h-px w-10" style={{ background: `${certificateData.template.accentColor}50` }} />
-                            <p className="text-[10px] text-gray-500">{certificateData.template.headlineText}</p>
-                            <p className="my-1.5 text-[16px] font-bold leading-tight" style={{ color: certificateData.template.accentColor }}>
+                            <div className="mb-1.5 h-px w-8" style={{ background: `${certificateData.template.accentColor}40` }} />
+                            <p className="text-[9px] text-gray-400">{certificateData.template.headlineText}</p>
+                            <p
+                              className="my-1 text-[15px] font-bold leading-tight"
+                              style={{ color: certificateData.template.accentColor }}
+                            >
                               {certificateData.recipientName}
                             </p>
-                            <p className="text-[10px] text-gray-500">{certificateData.template.bodyText} &ldquo;{certificateData.courseTitle}&rdquo;</p>
-                            <div className="mt-2 h-px w-10" style={{ background: `${certificateData.template.accentColor}50` }} />
+                            <p className="text-[9px] text-gray-400 leading-snug max-w-[80%]">
+                              {certificateData.template.bodyText}{' '}
+                              <em>&ldquo;{certificateData.courseTitle}&rdquo;</em>
+                            </p>
+                            <div className="mt-1.5 h-px w-8" style={{ background: `${certificateData.template.accentColor}40` }} />
                           </div>
+
                           {/* Footer */}
-                          <div className="flex h-[22%] items-center justify-between px-6" style={{ background: "#f9f7fc" }}>
+                          <div
+                            className="flex h-[22%] items-center justify-between px-5"
+                            style={{ background: '#f8f6fc' }}
+                          >
                             <div>
                               {certificateData.template.signatureUrl && (
-                                <img src={certificateData.template.signatureUrl} alt="Firma" className="mb-0.5 h-5 max-w-[70px] object-contain" />
+                                <img
+                                  src={certificateData.template.signatureUrl}
+                                  alt="Firma"
+                                  className="mb-0.5 h-4 max-w-[60px] object-contain"
+                                />
                               )}
                               {certificateData.template.signatoryName && (
-                                <p className="text-[8px] font-bold text-gray-700">{certificateData.template.signatoryName}</p>
+                                <p className="text-[7px] font-bold text-gray-600">
+                                  {certificateData.template.signatoryName}
+                                </p>
                               )}
                             </div>
-                            <p className="max-w-[45%] text-right text-[8px] leading-tight text-gray-400">
+                            <p className="max-w-[45%] text-right text-[7px] leading-tight text-gray-400">
                               {certificateData.template.footerText}
                             </p>
                           </div>
                         </div>
 
+                        {/* Download button */}
                         <button
                           type="button"
                           disabled={certificateDownloading}
@@ -995,7 +1018,8 @@ export default function LearningResourceDetailPage() {
                               setCertificateDownloading(false);
                             }
                           }}
-                          className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-white py-3.5 text-sm font-bold text-slate-900 transition hover:bg-orange-500 hover:text-white disabled:opacity-60"
+                          className="mt-4 flex w-full items-center justify-center gap-2 rounded-full py-3.5 text-sm font-bold text-white transition hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
+                          style={{ background: certificateData.template.accentColor }}
                         >
                           {certificateDownloading ? (
                             <Loader2 size={16} className="animate-spin" />
@@ -1007,8 +1031,8 @@ export default function LearningResourceDetailPage() {
                       </div>
                     </div>
                   ) : (
-                    <div className="rounded-[24px] border border-slate-700 bg-[#0f172a] p-12 text-center text-slate-400">
-                      <Award size={40} className="mx-auto mb-4 text-slate-600" />
+                    <div className="rounded-[20px] bg-white/5 p-12 text-center text-slate-400 ring-1 ring-white/10">
+                      <Award size={40} className="mx-auto mb-4 text-slate-500" />
                       <p className="text-sm">No se pudo cargar el certificado. Intenta de nuevo.</p>
                     </div>
                   )}
