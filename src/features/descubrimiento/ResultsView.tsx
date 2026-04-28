@@ -955,6 +955,35 @@ export function ResultsView({
               )}
             </div>
           </div>
+
+          {filter === "all" && (
+            <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <article className="rounded-[20px] border border-[var(--app-border)] bg-white/60 p-5">
+                <h5 className="text-sm font-black text-[var(--app-ink)]">Shine Within — La esencia</h5>
+                <p className="mt-2 text-[11px] leading-relaxed text-[var(--app-muted)]">
+                  Evalúa el nivel de conexión del líder consigo mismo: sus creencias, emociones, valores, propósito e identidad. Refleja la base interna desde la cual toma decisiones, se regula y sostiene un liderazgo auténtico.
+                </p>
+              </article>
+              <article className="rounded-[20px] border border-[var(--app-border)] bg-white/60 p-5">
+                <h5 className="text-sm font-black text-[var(--app-ink)]">Shine Out — Presencia estratégica</h5>
+                <p className="mt-2 text-[11px] leading-relaxed text-[var(--app-muted)]">
+                  Evalúa la capacidad del líder para comunicar su valor, proyectar confianza y expresar su liderazgo con claridad, coherencia e impacto. Refleja cómo su presencia, narrativa y comunicación fortalecen su influencia profesional.
+                </p>
+              </article>
+              <article className="rounded-[20px] border border-[var(--app-border)] bg-white/60 p-5">
+                <h5 className="text-sm font-black text-[var(--app-ink)]">Shine Up — Ecosistema relacional</h5>
+                <p className="mt-2 text-[11px] leading-relaxed text-[var(--app-muted)]">
+                  Evalúa la capacidad del líder para construir relaciones estratégicas, generar confianza y activar redes de valor. Refleja cómo se vincula con otros, lee su entorno y crea oportunidades de colaboración e influencia.
+                </p>
+              </article>
+              <article className="rounded-[20px] border border-[var(--app-border)] bg-white/60 p-5">
+                <h5 className="text-sm font-black text-[var(--app-ink)]">Shine Beyond — Legado</h5>
+                <p className="mt-2 text-[11px] leading-relaxed text-[var(--app-muted)]">
+                  Evalúa la capacidad del líder para proyectar su liderazgo hacia el futuro, generar impacto sostenible y dejar una huella positiva en su organización y entorno. Refleja su visión, contribución y sentido de trascendencia.
+                </p>
+              </article>
+            </div>
+          )}
         </section>
 
         <aside id="executive-summary" className="app-panel p-5 sm:p-6">
