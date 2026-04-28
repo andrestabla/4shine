@@ -248,7 +248,10 @@ export function InvitationAccessExperience({
               experienceSurvey: response.externalSurvey ?? null,
             };
             setExternalState(nextState);
-            setShowCompletedNotice(response.alreadyCompleted);
+            setShowCompletedNotice(response.alreadyCompleted || response.externalProgress.completionPercent >= 100);
+            if (response.externalProgress.completionPercent >= 100 && nextState.status !== 'results') {
+              nextState.status = 'results';
+            }
             lastSnapshotRef.current = JSON.stringify(buildPersistPayload(nextState));
             if (nextState.status !== 'intro') {
               hydratedRef.current = true;
@@ -434,7 +437,10 @@ export function InvitationAccessExperience({
             experienceSurvey: response.externalSurvey ?? null,
           };
           setExternalState(nextState);
-          setShowCompletedNotice(response.alreadyCompleted);
+          setShowCompletedNotice(response.alreadyCompleted || response.externalProgress.completionPercent >= 100);
+          if (response.externalProgress.completionPercent >= 100 && nextState.status !== 'results') {
+            nextState.status = 'results';
+          }
           lastSnapshotRef.current = JSON.stringify(buildPersistPayload(nextState));
         } else {
           // No prior progress — start fresh

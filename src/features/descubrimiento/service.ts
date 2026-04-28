@@ -3629,7 +3629,7 @@ export async function bulkRegenerateDiscoveryReportsByManager(
         role,
         scores,
         pillar,
-        fastMode: pillar !== "all",
+        fastMode: false,
       });
       if (result.report.trim()) {
         reports[pillar] = result.report.trim();
@@ -3658,7 +3658,7 @@ export async function bulkRegenerateDiscoveryReportsByManager(
         role,
         scores,
         pillar,
-        fastMode: pillar !== "all",
+        fastMode: false,
       });
       if (result.report.trim()) {
         reports[pillar] = result.report.trim();
@@ -5280,6 +5280,7 @@ export async function generateDiscoveryAnalysisBundleContract(
           const result = await generateDiscoveryAnalysisContract(client, actor, {
             ...input,
             pillar,
+            fastMode: false,
           });
           return { pillar, report: result.report.trim() };
         }),
@@ -5329,7 +5330,6 @@ export async function generateDiscoveryInvitationAnalysisContract(
 
   const openAiConfig = await resolveOpenAiConfigByOrganization(client, organizationId);
   if (!openAiConfig?.enabled || !openAiConfig.secretValue) {
-    if (fallback) return { report: fallback, source: "fallback" };
     throw new Error("OpenAI integration is not configured for this organization.");
   }
 
@@ -5345,7 +5345,7 @@ export async function generateDiscoveryInvitationAnalysisContract(
   const pillar = input.pillar ?? "all";
   const result = await runContractStyleAnalysis(client, analysisContext, {
     ...input,
-    fastMode: pillar !== "all",
+    fastMode: false,
   });
 
   if (result.report.trim().length > 0) {

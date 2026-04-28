@@ -419,6 +419,16 @@ export function DiscoveryExperience() {
     [],
   );
 
+  React.useEffect(() => {
+    if (!isManager || managerTab !== "results") return;
+
+    const timer = window.setInterval(() => {
+      void loadManagerOverview(buildCurrentOverviewFilters(), true);
+    }, 45000);
+
+    return () => window.clearInterval(timer);
+  }, [isManager, managerTab, loadManagerOverview, buildCurrentOverviewFilters]);
+
   const handleResetOverviewRow = React.useCallback(
     async (row: DiscoveryOverviewRow) => {
       const approved = await confirm({

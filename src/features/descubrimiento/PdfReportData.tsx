@@ -127,10 +127,7 @@ function splitMarkdownIntoChunks(content: string, maxChars: number): string[] {
 
 export const PdfReportData = React.forwardRef<HTMLDivElement, PdfReportDataProps>(
   function PdfReportData({ state, scoring, reports }, ref) {
-    const resolvedReports = {
-      ...buildDiscoveryReports(state, scoring),
-      ...(reports ?? {}),
-    };
+    const resolvedReports = reports ?? {};
     const radarData = [
       { subject: "Within", value: scoring.pillarMetrics.within.total, fullMark: 100 },
       { subject: "Out", value: scoring.pillarMetrics.out.total, fullMark: 100 },

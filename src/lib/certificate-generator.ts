@@ -26,26 +26,36 @@ function darken([r, g, b]: RGB, t: number): RGB {
   return [Math.round(r * (1 - t)), Math.round(g * (1 - t)), Math.round(b * (1 - t))];
 }
 
-async function urlToDataUrl(url: string): Promise<string | null> {
+interface LoadedImage {
+  dataUrl: string;
+  w: number;
+  h: number;
+}
+
+async function loadImageViaProxy(url: string): Promise<LoadedImage | null> {
   try {
     const proxyUrl = `/api/v1/image-proxy?url=${encodeURIComponent(url)}`;
-    const res = await fetch(proxyUrl);
-    if (!res.ok) return null;
-    const blob = await res.blob();
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(blob);
+    return await new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth || 200;
+          canvas.height = img.naturalHeight || 100;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) { resolve(null); return; }
+          ctx.drawImage(img, 0, 0);
+          resolve({ dataUrl: canvas.toDataURL('image/png'), w: canvas.width, h: canvas.height });
+        } catch {
+          resolve(null);
+        }
+      };
+      img.onerror = () => resolve(null);
+      img.src = proxyUrl;
     });
   } catch {
     return null;
   }
-}
-
-function imgFormat(dataUrl: string): string {
-  if (dataUrl.startsWith('data:image/jpeg') || dataUrl.startsWith('data:image/jpg')) return 'JPEG';
-  return 'PNG';
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

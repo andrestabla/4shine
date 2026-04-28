@@ -202,6 +202,7 @@ export function ResultsView({
     "download" | "shareLink" | null
   >(null);
   const [surveyAnswers, setSurveyAnswers] = React.useState<Record<string, number>>(initialSurvey?.answers ?? {});
+  const [justSubmitted, setJustSubmitted] = React.useState(false);
   const shouldUseStickyHeader = !isPublic;
   const stickyClass = shouldUseStickyHeader
     ? embedded
@@ -235,6 +236,33 @@ export function ResultsView({
       }
     };
   }, []);
+
+  const scheduleSurveyPrompt = React.useCallback((ms: number) => {
+    if (surveyPromptTimerRef.current) {
+      window.clearTimeout(surveyPromptTimerRef.current);
+    }
+    surveyPromptTimerRef.current = window.setTimeout(() => {
+      setIsSurveyOpen(true);
+      // Reschedule for every 2 minutes if still not submitted
+      scheduleSurveyPrompt(120000);
+    }, ms);
+  }, []);
+
+  const clearSurveyPromptTimer = React.useCallback(() => {
+    if (surveyPromptTimerRef.current) {
+      window.clearTimeout(surveyPromptTimerRef.current);
+      surveyPromptTimerRef.current = null;
+    }
+  }, []);
+
+  React.useEffect(() => {
+    if (surveySubmitted || isSurveyOpen) {
+      clearSurveyPromptTimer();
+      return;
+    }
+    // Initial prompt after 20s, then every 2 minutes via scheduleSurveyPrompt
+    scheduleSurveyPrompt(20000);
+  }, [surveySubmitted, isSurveyOpen, scheduleSurveyPrompt, clearSurveyPromptTimer]);
 
   React.useEffect(() => {
     setSharedPublicId(publicId ?? null);
@@ -292,7 +320,7 @@ export function ResultsView({
       return;
     }
 
-    scheduleSurveyPrompt(60000);
+    scheduleSurveyPrompt(20000);
     return clearSurveyPromptTimer;
   }, [clearSurveyPromptTimer, hasSurveyResponses, scheduleSurveyPrompt]);
 
@@ -630,6 +658,8 @@ export function ResultsView({
       setIsSurveySubmitting(true);
       try {
         await onSurveySubmit(surveyPayload);
+        setJustSubmitted(true);
+        setSurveySubmitted(true);
       } catch (error) {
         setIsSurveySubmitting(false);
         await alert({
@@ -640,6 +670,8 @@ export function ResultsView({
         return;
       }
       setIsSurveySubmitting(false);
+    } else {
+      setJustSubmitted(true);
       setSurveySubmitted(true);
     }
 
@@ -658,9 +690,10 @@ export function ResultsView({
       return;
     }
 
-    // Show thank-you for 2.5 s then close
-    await new Promise<void>((resolve) => setTimeout(resolve, 2500));
+    // Show thank-you for 3 s then close
+    await new Promise<void>((resolve) => setTimeout(resolve, 3000));
     setIsSurveyOpen(false);
+    setJustSubmitted(false);
   };
 
   const currentReport = reports[filter]?.trim() ?? "";
@@ -1127,7 +1160,7 @@ export function ResultsView({
       {isSurveyOpen && (
         <div className="fixed inset-0 z-[140] flex items-center justify-center bg-[rgba(15,23,42,0.48)] px-4 py-8 backdrop-blur-sm">
           <div className="flex max-h-full w-full max-w-lg flex-col overflow-hidden rounded-[22px] border border-[var(--app-border)] bg-white shadow-2xl">
-            {surveySubmitted ? (
+            {justSubmitted ? (
               <div className="flex flex-col items-center gap-4 px-8 py-12 text-center">
                 <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--brand-primary)]/10">
                   <CheckCircle2 size={36} className="text-[var(--brand-primary)]" />
@@ -1195,7 +1228,7 @@ export function ResultsView({
                     onClick={() => {
                       setPendingSurveyAction(null);
                       setIsSurveyOpen(false);
-                      scheduleSurveyPrompt(300000);
+                      scheduleSurveyPrompt(120000);
                     }}
                     className="order-2 rounded-full border border-[var(--app-border)] bg-white py-3 text-sm font-bold text-[var(--app-muted)] transition hover:bg-[var(--app-surface-muted)] disabled:opacity-50 sm:order-1"
                   >

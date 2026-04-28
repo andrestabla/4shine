@@ -264,10 +264,7 @@ export async function downloadDiscoveryPdfReport({
     compress: true,
   });
   const writer = buildWriter(pdf);
-  const resolvedReports = {
-    ...buildDiscoveryReports(state, scoring),
-    ...(reports ?? {}),
-  };
+  const resolvedReports = reports ?? {};
   const globalStatus = getDiscoveryStatus(scoring.globalIndex);
   const pillars: DiscoveryPillarKey[] = ["within", "out", "up", "beyond"];
   const generatedAt = new Intl.DateTimeFormat("es-CO", {
