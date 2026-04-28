@@ -44,6 +44,49 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
   }
 
+  // ── Finalize mode: client already uploaded all files directly to R2 ──────
+  if ((request.headers.get('content-type') ?? '').includes('application/json')) {
+    let body: { prefix?: unknown; entryPoint?: unknown; fileCount?: unknown };
+    try {
+      body = (await request.json()) as typeof body;
+    } catch {
+      return NextResponse.json({ ok: false, error: 'Invalid JSON' }, { status: 400 });
+    }
+
+    const prefix = typeof body.prefix === 'string' ? body.prefix.trim() : '';
+    const entryPoint =
+      typeof body.entryPoint === 'string' && body.entryPoint.trim()
+        ? body.entryPoint.trim()
+        : 'index.html';
+    const fileCount = typeof body.fileCount === 'number' ? body.fileCount : 0;
+
+    if (!prefix) {
+      return NextResponse.json({ ok: false, error: 'prefix is required' }, { status: 400 });
+    }
+
+    try {
+      const config = await withClient((client) =>
+        withRoleContext(client, identity.userId, identity.role, async () => {
+          await requireModulePermission(client, 'aprendizaje', 'create');
+          return getR2StorageConfig(client, identity.userId);
+        }),
+      );
+      const publicBase = config.publicBaseUrl.replace(/\/+$/, '');
+      const entryUrl = `${publicBase}/${prefix}/${entryPoint}`;
+      return NextResponse.json({ ok: true, data: { entryUrl, entryPoint, prefix, fileCount } });
+    } catch (error) {
+      if (error instanceof ForbiddenError) {
+        return NextResponse.json({ ok: false, error: error.message }, { status: error.statusCode });
+      }
+      console.error('SCORM finalize error:', error);
+      return NextResponse.json(
+        { ok: false, error: 'Error al finalizar la carga SCORM.' },
+        { status: 500 },
+      );
+    }
+  }
+
+  // ── Legacy ZIP upload mode (FormData) ────────────────────────────────────
   let formData: FormData;
   try {
     formData = await request.formData();
