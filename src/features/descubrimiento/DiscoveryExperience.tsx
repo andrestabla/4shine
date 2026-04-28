@@ -614,6 +614,7 @@ export function DiscoveryExperience() {
             role: row.jobRole || "Líder",
             scores: detail.scoring,
             pillar,
+            force: true,
           });
         }
 

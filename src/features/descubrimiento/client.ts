@@ -259,6 +259,7 @@ export async function analyzeDiscoveryReport(input: {
   scores: DiscoveryScoreResult;
   pillar: DiscoveryReportFilter;
   fallbackReport?: string;
+  force?: boolean;
 }): Promise<{ report: string; source: "ai" | "fallback" }> {
   return requestApi<{ report: string; source: "ai" | "fallback" }>(
     "/api/diagnostics/analyze",

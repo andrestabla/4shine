@@ -23,6 +23,7 @@ interface DiagnosticsAnalyzeBody {
   scores?: DiscoveryScoreResult;
   pillar?: DiscoveryReportFilter;
   fallbackReport?: string;
+  force?: boolean;
 }
 
 export async function POST(request: Request) {
@@ -59,6 +60,7 @@ export async function POST(request: Request) {
           scores,
           pillar: body?.pillar ?? "all",
           fallbackReport: body?.fallbackReport,
+          force: body?.force,
         });
       }
       if (identity?.role === "invitado") {
@@ -70,6 +72,7 @@ export async function POST(request: Request) {
             scores,
             pillar: body?.pillar ?? "all",
             fallbackReport: body?.fallbackReport,
+            force: body?.force,
           }),
         );
       }
@@ -83,6 +86,7 @@ export async function POST(request: Request) {
           scores,
           pillar: body?.pillar ?? "all",
           fallbackReport: body?.fallbackReport,
+          force: body?.force,
         });
       }
 
@@ -97,6 +101,7 @@ export async function POST(request: Request) {
           scores,
           pillar: body?.pillar ?? "all",
           fallbackReport: body?.fallbackReport,
+          force: body?.force,
         }),
       );
     });

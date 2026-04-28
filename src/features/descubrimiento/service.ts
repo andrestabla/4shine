@@ -3667,6 +3667,7 @@ interface DiscoveryAnalysisInput {
   scores: DiscoveryScoreResult;
   pillar: DiscoveryReportFilter;
   fallbackReport?: string;
+  force?: boolean;
 }
 
 interface DiscoveryAnalysisContext {
@@ -3789,27 +3790,32 @@ function getReportRejectionReason(report: string, pillar: DiscoveryReportFilter)
   if (wordCount < minWords) return `Extensión insuficiente (${wordCount}/${minWords} palabras)`;
   if (percentMentions < minPercentMentions) return `Faltan menciones de porcentajes (${percentMentions}/${minPercentMentions})`;
   if (looksGenericReport(report)) return "El contenido parece genérico";
-
-  const lines = report.split("\n");
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    if (/^([-*•]|\d+[.)])\s+/.test(trimmed)) return "Contiene listas o viñetas prohibidas";
-  }
+  if (hasAnyLists(report)) return "Contiene listas o viñetas prohibidas";
 
   return null;
 }
 
+function hasAnyLists(report: string): boolean {
+  const lines = report.split("\n");
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    // Catch bullets and numbers at the start of a line
+    if (/^([-*••■□◦‣⁌⁍]|\d+[.)])\s+/.test(trimmed)) return true;
+  }
+  return false;
+}
+
 function isUsableGlobalReport(report: string): boolean {
-  return countWords(report) >= 400 && includesRequiredSections(report);
+  return countWords(report) >= 400 && includesRequiredSections(report) && !hasAnyLists(report);
+}
+
+function isUsablePillarReport(report: string): boolean {
+  return countWords(report) >= 100 && !looksGenericReport(report) && !hasAnyLists(report);
 }
 
 function isDeepEnoughReport(report: string, pillar: DiscoveryReportFilter): boolean {
   return getReportRejectionReason(report, pillar) === null;
-}
-
-function isUsablePillarReport(report: string): boolean {
-  return countWords(report) >= 100 && !looksGenericReport(report);
 }
 
 function looksGenericReport(report: string): boolean {
@@ -5065,7 +5071,10 @@ export async function generateDiscoveryAnalysisContract(
   }
 
   if (cached && cached.trim().length > 0) {
-    return { report: cached.trim(), source: "ai" };
+    const isRegeneration = Boolean(input.force || input.fallbackReport);
+    if (!isRegeneration) {
+      return { report: cached.trim(), source: "ai" };
+    }
   }
   const openAiIntegration = await getIntegrationConfigForActor(client, actor.userId, "openai");
   if (!openAiIntegration?.enabled || !openAiIntegration.secretValue) {
@@ -5185,7 +5194,9 @@ export async function generateDiscoveryInvitationAnalysisContract(
   );
   const storedReports = parseInvitationStoredReports(invitationRowResult.rows[0]?.meta);
   const cached = storedReports[input.pillar ?? "all"];
-  if (cached && cached.trim().length > 0) {
+  const isRegeneration = Boolean(input.fallbackReport);
+
+  if (!isRegeneration && cached && cached.trim().length > 0) {
     return { report: cached.trim(), source: "ai" };
   }
 
@@ -5358,7 +5369,10 @@ export async function generateDiscoveryGuestSessionAnalysisContract(
   const pillar = input.pillar ?? "all";
   const cached = storedReports[pillar];
   if (cached && cached.trim().length > 0) {
-    return { report: cached.trim(), source: "ai" };
+    const isRegeneration = Boolean(input.force || input.fallbackReport);
+    if (!isRegeneration) {
+      return { report: cached.trim(), source: "ai" };
+    }
   }
 
   let organizationId: string | null = null;
