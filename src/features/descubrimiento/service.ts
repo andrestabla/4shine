@@ -771,6 +771,44 @@ async function readDiscoverySession(
   return rows[0] ? mapDiscoverySessionRow(rows[0]) : null;
 }
 
+async function readDiscoverySessionBySessionId(
+  client: PoolClient,
+  sessionId: string,
+): Promise<DiscoverySessionRecord | null> {
+  const { rows } = await client.query<DiscoverySessionRow>(
+    `
+      SELECT
+        ds.session_id::text,
+        ds.attempt_id::text,
+        ds.user_id::text,
+        ds.name_snapshot,
+        ds.status,
+        ds.answers,
+        ds.current_idx,
+        ds.completion_percent,
+        ds.public_id,
+        ds.shared_at::text,
+        ds.completed_at::text,
+        ds.diagnostic_identifier,
+        ds.first_name,
+        ds.last_name,
+        ds.country,
+        ds.job_role,
+        ds.gender,
+        ds.years_experience,
+        ds.feedback_survey,
+        ds.ai_reports,
+        ds.created_at::text,
+        ds.updated_at::text
+      FROM app_assessment.discovery_sessions ds
+      WHERE ds.session_id = $1::uuid
+      LIMIT 1
+    `,
+    [sessionId],
+  );
+  return rows[0] ? mapDiscoverySessionRow(rows[0]) : null;
+}
+
 async function createDiscoverySession(
   client: PoolClient,
   actor: AuthUser,
@@ -3533,6 +3571,105 @@ export async function regenerateDiscoveryReportByManager(
   return { sessionId: normalizedSessionId };
 }
 
+export async function bulkRegenerateDiscoveryReportsByManager(
+  client: PoolClient,
+  actor: AuthUser,
+  sessionId: string,
+): Promise<{ reports: DiscoveryAiReports; sessionId: string }> {
+  await requireModulePermission(client, "descubrimiento", "update");
+  if (!isAllowedManager(actor)) {
+    throw new Error("Solo admin y gestor pueden regenerar informes en Descubrimiento.");
+  }
+
+  const normalizedSessionId = sessionId.trim();
+  if (!normalizedSessionId) throw new Error("sessionId es requerido.");
+
+  const openAiIntegration = await getIntegrationConfigForActor(client, actor.userId, "openai");
+  if (!openAiIntegration?.enabled || !openAiIntegration.secretValue) {
+    throw new Error("OpenAI integration is not configured for this organization.");
+  }
+
+  const feedbackSettings = await getDiscoveryFeedbackSettingsForAnalysis(client, actor);
+  const analysisContext: DiscoveryAnalysisContext = {
+    openAiConfig: {
+      secretValue: openAiIntegration.secretValue,
+      wizardData: normalizeStringRecord(openAiIntegration.wizardData),
+    },
+    feedbackSettings,
+  };
+
+  const isInvitation = normalizedSessionId.startsWith("inv-");
+  const reports: DiscoveryAiReports = {};
+
+  if (isInvitation) {
+    const invitationId = normalizedSessionId.slice(4);
+    await client.query(
+      `UPDATE app_assessment.discovery_invitations
+         SET meta = (COALESCE(meta, '{}'::jsonb) - 'ai_reports'), updated_at = now()
+         WHERE invitation_id = $1::uuid`,
+      [invitationId],
+    );
+    const { rows } = await client.query(
+      `SELECT meta FROM app_assessment.discovery_invitations WHERE invitation_id = $1::uuid`,
+      [invitationId],
+    );
+    const row = rows[0];
+    if (!row) throw new Error("Invitación no encontrada.");
+    const state = parseInvitationExternalProgress(row.meta) ?? buildFallbackInvitationState("");
+    const scores = scoreDiscoveryAnswers(state.answers);
+    const username =
+      ((row.meta as Record<string, unknown>)?.participant_name as string | undefined) ||
+      [state.profile?.firstName, state.profile?.lastName].filter(Boolean).join(" ") ||
+      "Líder";
+    const role = state.profile?.jobRole || "Líder";
+
+    for (const pillar of DISCOVERY_REPORT_BATCH_FILTERS) {
+      const result = await runContractStyleAnalysis(client, analysisContext, {
+        username,
+        role,
+        scores,
+        pillar,
+        fastMode: pillar !== "all",
+      });
+      if (result.report.trim()) {
+        reports[pillar] = result.report.trim();
+        await persistDiscoveryInvitationAiReport(client, invitationId, pillar, result.report.trim());
+      }
+    }
+  } else {
+    await client.query(
+      `UPDATE app_assessment.discovery_sessions
+         SET ai_reports = NULL, updated_at = now()
+         WHERE session_id = $1::uuid`,
+      [normalizedSessionId],
+    );
+    const session = await readDiscoverySessionBySessionId(client, normalizedSessionId);
+    if (!session) throw new Error("Sesión no encontrada.");
+    const username =
+      [session.firstName, session.lastName].filter(Boolean).join(" ").trim() ||
+      session.nameSnapshot ||
+      "Líder";
+    const role = session.jobRole || "Líder";
+    const scores = scoreDiscoveryAnswers(session.answers);
+
+    for (const pillar of DISCOVERY_REPORT_BATCH_FILTERS) {
+      const result = await runContractStyleAnalysis(client, analysisContext, {
+        username,
+        role,
+        scores,
+        pillar,
+        fastMode: pillar !== "all",
+      });
+      if (result.report.trim()) {
+        reports[pillar] = result.report.trim();
+        await persistDiscoverySessionAiReport(client, normalizedSessionId, pillar, result.report.trim());
+      }
+    }
+  }
+
+  return { reports, sessionId: normalizedSessionId };
+}
+
 export async function sendDiscoveryReportEmail(
   client: PoolClient,
   actor: AuthUser,
@@ -3775,17 +3912,21 @@ function getReportRejectionReason(report: string, pillar: DiscoveryReportFilter)
 function hasAnyLists(report: string): boolean {
   const lines = report.split("\n");
   for (const line of lines) {
-    // Strip ALL leading whitespace including non-breaking spaces
-    const trimmed = line.replace(/^[\s\u00a0\u2002-\u2009\u200b\ufeff]+/, "");
+    const trimmed = line.replace(/^[\s  - ​﻿]+/, "");
     if (!trimmed) continue;
-    // Match any bullet character or numbered list at start of line
+    // Bullet or numbered list at start of line
     if (/^([-*•‣◦■□–—●▪]|\d+[.):]|[a-z][.)]\s)/.test(trimmed)) return true;
-    // Also catch markdown bold-bullet pattern: **text**: ...
+    // Bold-bullet at start of line: **Text**: ...
     if (/^\*\*[A-ZÀ-ÿ]/.test(trimmed) && trimmed.includes("**:")) return true;
+    // Inline list: ≥2 bullet chars on the same line ("• item • item")
+    if ((line.match(/[•‣◦●▪]/g) ?? []).length >= 2) return true;
+    // Inline numbered list: ≥2 "N. " patterns on the same line
+    if ((line.match(/\d+\.\s/g) ?? []).length >= 2) return true;
+    // Inline bold-colon list: ≥2 "**label**:" on the same line
+    if ((trimmed.match(/\*\*[^*\n]+\*\*\s*:/g) ?? []).length >= 2) return true;
   }
   return false;
 }
-
 function isDeepEnoughReport(report: string, pillar: DiscoveryReportFilter): boolean {
   return getReportRejectionReason(report, pillar) === null;
 }
@@ -5035,8 +5176,14 @@ export async function generateDiscoveryAnalysisContract(
     );
     cached = (rows[0]?.meta as any)?.ai_reports?.[pillar];
     sessionRecordId = rows[0]?.session_id;
+  } else if (input.sessionId) {
+    // Admin-provided session UUID: look up by session_id, not by user_id
+    const session = await readDiscoverySessionBySessionId(client, targetSessionId);
+    cached = session?.aiReports?.[pillar];
+    sessionRecordId = session?.sessionId || null;
   } else {
-    const session = await readDiscoverySession(client, targetSessionId);
+    // Own session: look up by actor's user_id
+    const session = await readDiscoverySession(client, actor.userId);
     cached = session?.aiReports?.[pillar];
     sessionRecordId = session?.sessionId || null;
   }

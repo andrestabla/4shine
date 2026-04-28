@@ -53,7 +53,6 @@ import {
   calculateDiscoveryCompletionPercent,
 } from "./reporting";
 import {
-  analyzeDiscoveryReport,
   createDiscoveryInvitations,
   deleteDiscoveryInvitationRequest,
   getDiscoveryFeedbackSettings,
@@ -79,7 +78,6 @@ import {
   type DiscoveryOverviewPayload,
   type DiscoveryOverviewRow,
   type DiscoveryParticipantProfile,
-  DiscoveryReportFilter,
   type DiscoverySessionRecord,
   type DiscoveryUserState,
 } from "./types";
@@ -564,7 +562,7 @@ export function DiscoveryExperience() {
     async (row: DiscoveryOverviewRow) => {
       const approved = await confirm({
         title: "Regenerar informe",
-        message: `Se eliminarán los análisis de IA actuales para ${row.participantName} y se pondrán en cola para una nueva generación profunda. ¿Continuar?`,
+        message: `Se generarán nuevos análisis de IA para ${row.participantName} directamente desde los datos del diagnóstico. Este proceso tarda entre 2 y 4 minutos. ¿Continuar?`,
         tone: "warning",
         confirmText: "Regenerar",
         cancelText: "Cancelar",
@@ -575,53 +573,15 @@ export function DiscoveryExperience() {
       setRowActionLoadingKey(loadingKey);
       setRegenerationProgress((prev) => ({
         ...prev,
-        [row.sessionId]: { current: 0, total: 5, phase: "Limpiando..." },
+        [row.sessionId]: { current: 1, total: 5, phase: "Generando informes desde datos del diagnóstico..." },
       }));
 
       try {
         await regenerateDiscoveryReport(row.sessionId);
-        
-        // Fetch detail to get scores and username
-        setRegenerationProgress((prev) => ({
-          ...prev,
-          [row.sessionId]: { current: 1, total: 5, phase: "Obteniendo datos..." },
-        }));
-        const detail = await getDiscoveryOverviewDetail(row.sessionId);
-        
-        const pillars: DiscoveryReportFilter[] = ["all", "within", "out", "up", "beyond"];
-        const pillarNames: Record<string, string> = {
-          all: "Visión Global",
-          within: "Shine Within",
-          out: "Shine Out",
-          up: "Shine Up",
-          beyond: "Shine Beyond",
-        };
-
-        for (let i = 0; i < pillars.length; i++) {
-          const pillar = pillars[i];
-          setRegenerationProgress((prev) => ({
-            ...prev,
-            [row.sessionId]: { 
-              current: i + 1, 
-              total: 5, 
-              phase: `Generando ${pillarNames[pillar]}...` 
-            },
-          }));
-
-          await analyzeDiscoveryReport({
-            sessionId: row.sessionId,
-            username: row.participantName,
-            role: row.jobRole || "Líder",
-            scores: detail.scoring,
-            pillar,
-            force: true,
-          });
-        }
-
         overviewDetailCacheRef.current.delete(row.sessionId);
         await alert({
           title: "Generación completada",
-          message: `El informe de ${row.participantName} ha sido regenerado con éxito con máxima calidad narrativa.`,
+          message: `El informe de ${row.participantName} ha sido regenerado con éxito desde los datos del diagnóstico.`,
           tone: "success",
         });
       } catch (error) {
