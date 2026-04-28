@@ -22,6 +22,7 @@ import {
   Download,
 } from "lucide-react";
 
+import { CertificatePreviewCard } from "@/components/aprendizaje/CertificatePreviewCard";
 import { LearningResourceCard } from "@/components/aprendizaje/LearningResourceCard";
 import { EmptyState } from "@/components/dashboard/EmptyState";
 import { useAppDialog } from "@/components/ui/AppDialogProvider";
@@ -930,75 +931,10 @@ export default function LearningResourceDetailPage() {
                         </p>
 
                         {/* Mini certificate preview */}
-                        <div
-                          className="w-full overflow-hidden rounded-[10px] border border-gray-100 shadow-md"
-                          style={{ aspectRatio: "1.414" }}
-                        >
-                          {/* Header band */}
-                          <div
-                            className="flex h-[22%] items-center justify-between px-5"
-                            style={{
-                              background: `linear-gradient(135deg, ${certificateData.template.accentColor}ee, ${certificateData.template.accentColor}99)`,
-                            }}
-                          >
-                            {certificateData.template.logoUrl ? (
-                              <img
-                                src={certificateData.template.logoUrl}
-                                alt="Logo"
-                                className="h-7 max-w-[90px] object-contain"
-                              />
-                            ) : (
-                              <span className="rounded-[6px] bg-white/20 px-2.5 py-1 text-[10px] font-bold text-white">
-                                {certificateData.template.organizationName}
-                              </span>
-                            )}
-                            <Award size={15} className="text-white/40" />
-                          </div>
-
-                          {/* Body — explicit white background */}
-                          <div
-                            className="flex h-[56%] flex-col items-center justify-center px-8 text-center"
-                            style={{ background: '#ffffff' }}
-                          >
-                            <div className="mb-1.5 h-px w-8" style={{ background: `${certificateData.template.accentColor}40` }} />
-                            <p className="text-[9px] text-gray-400">{certificateData.template.headlineText}</p>
-                            <p
-                              className="my-1 text-[15px] font-bold leading-tight"
-                              style={{ color: certificateData.template.accentColor }}
-                            >
-                              {certificateData.recipientName}
-                            </p>
-                            <p className="text-[9px] text-gray-400 leading-snug max-w-[80%]">
-                              {certificateData.template.bodyText}{' '}
-                              <em>&ldquo;{certificateData.courseTitle}&rdquo;</em>
-                            </p>
-                            <div className="mt-1.5 h-px w-8" style={{ background: `${certificateData.template.accentColor}40` }} />
-                          </div>
-
-                          {/* Footer */}
-                          <div
-                            className="flex h-[22%] items-center justify-between px-5"
-                            style={{ background: '#f8f6fc' }}
-                          >
-                            <div>
-                              {certificateData.template.signatureUrl && (
-                                <img
-                                  src={certificateData.template.signatureUrl}
-                                  alt="Firma"
-                                  className="mb-0.5 h-4 max-w-[60px] object-contain"
-                                />
-                              )}
-                              {certificateData.template.signatoryName && (
-                                <p className="text-[7px] font-bold text-gray-600">
-                                  {certificateData.template.signatoryName}
-                                </p>
-                              )}
-                            </div>
-                            <p className="max-w-[45%] text-right text-[7px] leading-tight text-gray-400">
-                              {certificateData.template.footerText}
-                            </p>
-                          </div>
-                        </div>
+                        <CertificatePreviewCard
+                          template={certificateData.template}
+                          recipientName={certificateData.recipientName}
+                        />
 
                         {/* Download button */}
                         <button
