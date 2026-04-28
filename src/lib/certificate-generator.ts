@@ -2,530 +2,279 @@
 
 import type { CertificateTemplateRecord } from '@/features/aprendizaje/service';
 
-// ─── Color helpers ────────────────────────────────────────────────────────────
+// ─── Design constants ─────────────────────────────────────────────────────────
 
-type RGB = [number, number, number];
+const GOLD   = '#C9A84C';
+const GOLD_L = '#E8D090';
+const GOLD_D = '#A07830';
 
-function hexToRgb(hex: string): RGB {
-  const c = hex.replace('#', '');
-  const r = parseInt(c.slice(0, 2), 16);
-  const g = parseInt(c.slice(2, 4), 16);
-  const b = parseInt(c.slice(4, 6), 16);
-  return [isNaN(r) ? 95 : r, isNaN(g) ? 52 : g, isNaN(b) ? 113 : b];
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function esc(s: string | null | undefined): string {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function lighten([r, g, b]: RGB, t: number): RGB {
-  return [
-    Math.min(255, Math.round(r + (255 - r) * t)),
-    Math.min(255, Math.round(g + (255 - g) * t)),
-    Math.min(255, Math.round(b + (255 - b) * t)),
-  ];
+function px(url: string | null | undefined): string {
+  if (!url) return '';
+  return `/api/v1/image-proxy?url=${encodeURIComponent(url)}`;
 }
-
-function darken([r, g, b]: RGB, t: number): RGB {
-  return [Math.round(r * (1 - t)), Math.round(g * (1 - t)), Math.round(b * (1 - t))];
-}
-
-interface LoadedImage {
-  dataUrl: string;
-  w: number;
-  h: number;
-}
-
-async function loadImageViaProxy(url: string): Promise<LoadedImage | null> {
-  try {
-    const proxyUrl = `/api/v1/image-proxy?url=${encodeURIComponent(url)}`;
-    return await new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => {
-        try {
-          const canvas = document.createElement('canvas');
-          canvas.width = img.naturalWidth || 200;
-          canvas.height = img.naturalHeight || 100;
-          const ctx = canvas.getContext('2d');
-          if (!ctx) { resolve(null); return; }
-          ctx.drawImage(img, 0, 0);
-          resolve({ dataUrl: canvas.toDataURL('image/png'), w: canvas.width, h: canvas.height });
-        } catch {
-          resolve(null);
-        }
-      };
-      img.onerror = () => resolve(null);
-      img.src = proxyUrl;
-    });
-  } catch {
-    return null;
-  }
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Doc = any;
-
-function fill(doc: Doc, rgb: RGB) { doc.setFillColor(...rgb); }
-function stroke(doc: Doc, rgb: RGB) { doc.setDrawColor(...rgb); }
-function ink(doc: Doc, rgb: RGB) { doc.setTextColor(...rgb); }
-
-async function urlToDataUrl(url: string): Promise<string | null> {
-  const loaded = await loadImageViaProxy(url);
-  return loaded?.dataUrl ?? null;
-}
-
-function imgFormat(dataUrl: string): 'PNG' | 'JPEG' | 'WEBP' {
-  if (dataUrl.includes('image/png')) return 'PNG';
-  if (dataUrl.includes('image/webp')) return 'WEBP';
-  return 'JPEG';
-}
-
-// ─── Template 1 — Ejecutiva ───────────────────────────────────────────────────
-// Professional horizontal bands. Centered typography. Distinct header / body / footer zones.
-
-async function buildEjecutiva(
-  doc: Doc,
-  t: CertificateTemplateRecord,
-  name: string,
-  course: string,
-  completedAt: string,
-) {
-  const W = 297;
-  const accent: RGB = hexToRgb(t.accentColor);
-  const accentLight: RGB = lighten(accent, 0.90);
-  const accentMid: RGB = lighten(accent, 0.55);
-  const gray: RGB = [90, 90, 90];
-  const muted: RGB = [155, 155, 155];
-  const white: RGB = [255, 255, 255];
-
-  // ── 1. Header band ─────────────────────────────────────────────────────────
-  fill(doc, accent);
-  doc.rect(0, 0, W, 48, 'F');
-
-  // Thin accent-mid strip below header
-  fill(doc, accentMid);
-  doc.rect(0, 48, W, 3, 'F');
-
-  // ── 2. Body background ────────────────────────────────────────────────────
-  fill(doc, accentLight);
-  doc.rect(0, 51, W, 125, 'F');
-
-  // White inner card (body)
-  fill(doc, white);
-  doc.rect(22, 57, W - 44, 113, 'F');
-
-  // ── 3. Footer band ────────────────────────────────────────────────────────
-  fill(doc, accentLight);
-  doc.rect(0, 176, W, 34, 'F');
-  stroke(doc, accentMid);
-  doc.setLineWidth(0.4);
-  doc.line(0, 176, W, 176);
-
-  // ── 4. Header content ──────────────────────────────────────────────────────
-  // Logo (top-left)
-  const logoData = t.logoUrl ? await urlToDataUrl(t.logoUrl) : null;
-  if (logoData) {
-    try { doc.addImage(logoData, imgFormat(logoData), 18, 10, 0, 28); } catch { /* skip */ }
-  }
-
-  // Org name (top-right, white)
-  ink(doc, white);
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
-  doc.text(t.organizationName, W - 18, 26, { align: 'right' });
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
-  ink(doc, lighten(accent, 0.65));
-  doc.text('CERTIFICADO DE LOGRO', W - 18, 36, { align: 'right' });
-
-  // ── 5. Body content ───────────────────────────────────────────────────────
-  // Decorative lines with diamond centre
-  stroke(doc, accentMid);
-  doc.setLineWidth(0.7);
-  const cx = W / 2;
-  doc.line(cx - 50, 74, cx - 6, 74);
-  doc.line(cx + 6, 74, cx + 50, 74);
-  fill(doc, accent);
-  doc.ellipse(cx, 74, 3, 3, 'F');
-
-  // Headline
-  ink(doc, gray);
-  doc.setFontSize(12);
-  doc.setFont('helvetica', 'normal');
-  doc.text(t.headlineText, cx, 90, { align: 'center' });
-
-  // Recipient name
-  ink(doc, accent);
-  doc.setFontSize(38);
-  doc.setFont('helvetica', 'bold');
-  doc.text(name, cx, 114, { align: 'center' });
-
-  // Body text + course
-  ink(doc, gray);
-  doc.setFontSize(12);
-  doc.setFont('helvetica', 'normal');
-  const bodyLine = `${t.bodyText}`;
-  doc.text(bodyLine, cx, 128, { align: 'center' });
-  ink(doc, accentMid);
-  doc.setFont('helvetica', 'bolditalic');
-  doc.setFontSize(11);
-  doc.text(`"${course}"`, cx, 139, { align: 'center', maxWidth: 220 });
-
-  // Bottom decorative lines
-  doc.setFont('helvetica', 'normal');
-  stroke(doc, accentMid);
-  doc.setLineWidth(0.7);
-  doc.line(cx - 50, 151, cx - 6, 151);
-  doc.line(cx + 6, 151, cx + 50, 151);
-  fill(doc, accentMid);
-  doc.ellipse(cx, 151, 3, 3, 'F');
-
-  // Date
-  ink(doc, muted);
-  doc.setFontSize(9);
-  doc.text(formatDate(completedAt), cx, 162, { align: 'center' });
-
-  // ── 6. Footer content ─────────────────────────────────────────────────────
-  // Signature image
-  const sigData = t.signatureUrl ? await urlToDataUrl(t.signatureUrl) : null;
-  if (sigData) {
-    try { doc.addImage(sigData, imgFormat(sigData), 22, 178, 0, 12); } catch { /* skip */ }
-  }
-
-  if (t.signatoryName) {
-    ink(doc, [50, 50, 50]);
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
-    doc.text(t.signatoryName, 22, sigData ? 196 : 189);
-    if (t.signatoryTitle) {
-      ink(doc, muted);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8);
-      doc.text(t.signatoryTitle, 22, sigData ? 202 : 196);
-    }
-  }
-
-  ink(doc, muted);
-  doc.setFontSize(7);
-  doc.setFont('helvetica', 'normal');
-  doc.text(t.footerText, W - 18, 191, { align: 'right' });
-}
-
-// ─── Template 2 — Premium ─────────────────────────────────────────────────────
-// Full dark background. Accent border frame. Bold all-white typography.
-
-async function buildPremium(
-  doc: Doc,
-  t: CertificateTemplateRecord,
-  name: string,
-  course: string,
-  completedAt: string,
-) {
-  const W = 297;
-  const H = 210;
-  const accent: RGB = hexToRgb(t.accentColor);
-  const bgDark: RGB = darken(accent, 0.82);
-  const bgMid: RGB = darken(accent, 0.72);
-  const accentLight: RGB = lighten(accent, 0.55);
-  const white: RGB = [255, 255, 255];
-  const offWhite: RGB = [230, 225, 240];
-  const dimWhite: RGB = [175, 165, 195];
-
-  // ── 1. Dark full-page background ──────────────────────────────────────────
-  fill(doc, bgDark);
-  doc.rect(0, 0, W, H, 'F');
-
-  // ── 2. Accent border strips (top / bottom / left / right) ─────────────────
-  const bw = 7; // border width in mm
-  fill(doc, accent);
-  doc.rect(0, 0, W, bw, 'F');       // top
-  doc.rect(0, H - bw, W, bw, 'F'); // bottom
-  doc.rect(0, 0, bw, H, 'F');       // left
-  doc.rect(W - bw, 0, bw, H, 'F'); // right
-
-  // ── 3. Inner border line ──────────────────────────────────────────────────
-  stroke(doc, accentLight);
-  doc.setLineWidth(0.5);
-  doc.rect(14, 14, W - 28, H - 28, 'S');
-
-  // ── 4. Subtle mid panel (centre body) ────────────────────────────────────
-  fill(doc, bgMid);
-  doc.rect(22, 22, W - 44, H - 44, 'F');
-
-  // ── 5. Top label + decorative lines ──────────────────────────────────────
-  ink(doc, dimWhite);
-  doc.setFontSize(7);
-  doc.setFont('helvetica', 'bold');
-  doc.text('C E R T I F I C A D O  D E  E X C E L E N C I A', W / 2, 36, { align: 'center' });
-
-  // Two decorative lines flanking the label
-  stroke(doc, accentLight);
-  doc.setLineWidth(0.4);
-  doc.line(24, 36, W / 2 - 78, 36);
-  doc.line(W / 2 + 78, 36, W - 24, 36);
-
-  // ── 6. Org name ───────────────────────────────────────────────────────────
-  // Logo top-center or org name
-  const logoData = t.logoUrl ? await urlToDataUrl(t.logoUrl) : null;
-  if (logoData) {
-    try { doc.addImage(logoData, imgFormat(logoData), W / 2 - 20, 42, 0, 16); } catch { /* skip */ }
-  } else {
-    ink(doc, offWhite);
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    doc.text(t.organizationName, W / 2, 50, { align: 'center' });
-  }
-
-  // ── 7. Thin accent divider ────────────────────────────────────────────────
-  stroke(doc, accent);
-  doc.setLineWidth(0.8);
-  doc.line(W / 2 - 35, 60, W / 2 + 35, 60);
-
-  // ── 8. Headline text ──────────────────────────────────────────────────────
-  ink(doc, offWhite);
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'normal');
-  doc.text(t.headlineText, W / 2, 76, { align: 'center' });
-
-  // ── 9. Recipient name — very large, white ─────────────────────────────────
-  ink(doc, white);
-  doc.setFontSize(42);
-  doc.setFont('helvetica', 'bold');
-  doc.text(name, W / 2, 103, { align: 'center' });
-
-  // ── 10. Body text + course ────────────────────────────────────────────────
-  ink(doc, offWhite);
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'normal');
-  doc.text(t.bodyText, W / 2, 118, { align: 'center' });
-  ink(doc, accentLight);
-  doc.setFont('helvetica', 'bolditalic');
-  doc.setFontSize(11);
-  doc.text(`"${course}"`, W / 2, 129, { align: 'center', maxWidth: 220 });
-
-  // ── 11. Divider + date ────────────────────────────────────────────────────
-  stroke(doc, accent);
-  doc.setLineWidth(0.8);
-  doc.line(W / 2 - 35, 140, W / 2 + 35, 140);
-
-  ink(doc, dimWhite);
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
-  doc.text(formatDate(completedAt), W / 2, 151, { align: 'center' });
-
-  // ── 12. Footer zone (darker) ──────────────────────────────────────────────
-  fill(doc, darken(accent, 0.88));
-  doc.rect(bw, H - 48, W - bw * 2, 41, 'F');
-  stroke(doc, accentLight);
-  doc.setLineWidth(0.3);
-  doc.line(bw, H - 48, W - bw, H - 48);
-
-  // Signature image
-  const sigData = t.signatureUrl ? await urlToDataUrl(t.signatureUrl) : null;
-  if (sigData) {
-    try { doc.addImage(sigData, imgFormat(sigData), 22, H - 44, 0, 12); } catch { /* skip */ }
-  }
-
-  if (t.signatoryName) {
-    ink(doc, offWhite);
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
-    doc.text(t.signatoryName, 22, sigData ? H - 27 : H - 34);
-    if (t.signatoryTitle) {
-      ink(doc, dimWhite);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8);
-      doc.text(t.signatoryTitle, 22, sigData ? H - 20 : H - 26);
-    }
-  }
-
-  ink(doc, dimWhite);
-  doc.setFontSize(7);
-  doc.setFont('helvetica', 'normal');
-  doc.text(t.footerText, W - 22, H - 27, { align: 'right' });
-}
-
-// ─── Template 3 — Estándar ────────────────────────────────────────────────────
-// Two-column: accent sidebar (left) + white content (right). Left-aligned layout.
-
-async function buildEstandar(
-  doc: Doc,
-  t: CertificateTemplateRecord,
-  name: string,
-  course: string,
-  completedAt: string,
-) {
-  const W = 297;
-  const H = 210;
-  const accent: RGB = hexToRgb(t.accentColor);
-  const accentLight: RGB = lighten(accent, 0.88);
-  const accentMid: RGB = lighten(accent, 0.50);
-  const white: RGB = [255, 255, 255];
-  const dark: RGB = [40, 40, 50];
-  const gray: RGB = [90, 90, 100];
-  const muted: RGB = [155, 155, 165];
-
-  const SB = 58; // sidebar width (mm)
-  const CX = SB + 22; // content left edge
-
-  // ── 1. Sidebar ────────────────────────────────────────────────────────────
-  fill(doc, accent);
-  doc.rect(0, 0, SB, H, 'F');
-
-  // Thin lighter strip at right edge of sidebar
-  fill(doc, accentMid);
-  doc.rect(SB - 3, 0, 3, H, 'F');
-
-  // Sidebar decorative circle (top)
-  fill(doc, lighten(accent, 0.25));
-  doc.ellipse(SB / 2, 32, 16, 16, 'F');
-  fill(doc, white);
-  doc.ellipse(SB / 2, 32, 11, 11, 'F');
-  // Award icon approximation: small circle + lines
-  fill(doc, accent);
-  doc.ellipse(SB / 2, 29, 4.5, 4.5, 'F');
-  stroke(doc, accent);
-  doc.setLineWidth(1.2);
-  doc.line(SB / 2 - 3, 35, SB / 2, 38);
-  doc.line(SB / 2 + 3, 35, SB / 2, 38);
-
-  // Sidebar: org name (white, centered horizontally in sidebar)
-  ink(doc, white);
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'bold');
-  // Multi-line wrap in sidebar
-  const orgWords = t.organizationName.split(' ');
-  let orgLine1 = '';
-  let orgLine2 = '';
-  for (const word of orgWords) {
-    if ((orgLine1 + ' ' + word).trim().length <= 9) orgLine1 = (orgLine1 + ' ' + word).trim();
-    else orgLine2 = (orgLine2 + ' ' + word).trim();
-  }
-  if (orgLine2) {
-    doc.text(orgLine1, SB / 2, 104, { align: 'center' });
-    doc.text(orgLine2, SB / 2, 114, { align: 'center' });
-  } else {
-    doc.text(t.organizationName, SB / 2, 109, { align: 'center' });
-  }
-
-  // Sidebar: small dividers above/below org name
-  stroke(doc, lighten(accent, 0.45));
-  doc.setLineWidth(0.4);
-  const orgY = orgLine2 ? 97 : 100;
-  doc.line(12, orgY, SB - 12, orgY);
-  const orgY2 = orgLine2 ? 120 : 117;
-  doc.line(12, orgY2, SB - 12, orgY2);
-
-  // Sidebar: "CERTIFICADO" label (bottom, small rotated text using character approach)
-  ink(doc, lighten(accent, 0.4));
-  doc.setFontSize(6.5);
-  doc.setFont('helvetica', 'bold');
-  // Write sideways using angle
-  doc.text('C E R T I F I C A D O', SB / 2 + 1, 190, { align: 'center', angle: 0 });
-
-  // ── 2. Content area background ────────────────────────────────────────────
-  fill(doc, white);
-  doc.rect(SB, 0, W - SB, H, 'F');
-
-  // Top accent strip in content area
-  fill(doc, accentLight);
-  doc.rect(SB, 0, W - SB, 5, 'F');
-
-  // Bottom accent strip
-  fill(doc, accentLight);
-  doc.rect(SB, H - 5, W - SB, 5, 'F');
-
-  // ── 3. Logo (top-right of content area) ───────────────────────────────────
-  const logoData = t.logoUrl ? await urlToDataUrl(t.logoUrl) : null;
-  if (logoData) {
-    try { doc.addImage(logoData, imgFormat(logoData), W - 60, 10, 0, 18); } catch { /* skip */ }
-  }
-
-  // ── 4. Content (left-aligned from CX) ────────────────────────────────────
-  // Thin accent rule at top of content
-  stroke(doc, accent);
-  doc.setLineWidth(1.2);
-  doc.line(CX, 18, CX + 70, 18);
-
-  // Headline text
-  ink(doc, gray);
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'normal');
-  doc.text(t.headlineText, CX, 36);
-
-  // Recipient name (large, accent color, left-aligned)
-  ink(doc, accent);
-  doc.setFontSize(38);
-  doc.setFont('helvetica', 'bold');
-  doc.text(name, CX, 66);
-
-  // Underline beneath name
-  stroke(doc, accentMid);
-  doc.setLineWidth(0.8);
-  doc.line(CX, 72, W - 18, 72);
-
-  // Body text
-  ink(doc, dark);
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'normal');
-  doc.text(t.bodyText, CX, 90);
-
-  // Course name (accent, italic)
-  ink(doc, accentMid);
-  doc.setFont('helvetica', 'bolditalic');
-  doc.setFontSize(11);
-  doc.text(`"${course}"`, CX, 102, { maxWidth: W - CX - 18 });
-
-  // Date
-  ink(doc, muted);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.text(formatDate(completedAt), CX, 118);
-
-  // ── 5. Signature section ──────────────────────────────────────────────────
-  // Divider line before signatures
-  stroke(doc, [210, 210, 215]);
-  doc.setLineWidth(0.4);
-  doc.line(CX, 138, W - 18, 138);
-
-  const sigData = t.signatureUrl ? await urlToDataUrl(t.signatureUrl) : null;
-  if (sigData) {
-    try { doc.addImage(sigData, imgFormat(sigData), CX, 144, 0, 13); } catch { /* skip */ }
-  }
-
-  // Short signature line
-  stroke(doc, [200, 200, 210]);
-  doc.setLineWidth(0.4);
-  doc.line(CX, sigData ? 160 : 155, CX + 58, sigData ? 160 : 155);
-
-  if (t.signatoryName) {
-    ink(doc, dark);
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
-    doc.text(t.signatoryName, CX, sigData ? 167 : 163);
-    if (t.signatoryTitle) {
-      ink(doc, muted);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8);
-      doc.text(t.signatoryTitle, CX, sigData ? 174 : 171);
-    }
-  }
-
-  // Footer text (bottom-right of content area)
-  ink(doc, muted);
-  doc.setFontSize(7);
-  doc.setFont('helvetica', 'normal');
-  doc.text(t.footerText, W - 18, H - 10, { align: 'right' });
-}
-
-// ─── Date formatter ───────────────────────────────────────────────────────────
 
 function formatDate(iso: string): string {
   try {
-    return new Date(iso).toLocaleDateString('es-ES', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-  } catch {
-    return iso;
+    return new Date(iso).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' });
+  } catch { return iso; }
+}
+
+function imgTag(url: string | null | undefined, style: string): string {
+  if (!url) return '';
+  return `<img src="${px(url)}" crossorigin="anonymous" style="${style}" />`;
+}
+
+function goldSeal(size = 72): string {
+  const inner = size - 16;
+  return `
+<div style="width:${size}px;height:${size}px;border-radius:50%;background:radial-gradient(circle at 36% 36%,${GOLD_L},${GOLD_D});display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+  <div style="width:${inner}px;height:${inner}px;border-radius:50%;border:1.5px solid rgba(255,255,255,0.45);display:flex;align-items:center;justify-content:center;">
+    <span style="color:#fff;font-size:${Math.round(size * 0.32)}px;line-height:1;">&#9733;</span>
+  </div>
+</div>`;
+}
+
+function goldDivider(width = 320): string {
+  return `
+<div style="display:flex;align-items:center;gap:14px;width:${width}px;margin:0 auto;">
+  <div style="flex:1;height:1px;background:${GOLD}60;"></div>
+  <div style="width:7px;height:7px;background:${GOLD};transform:rotate(45deg);flex-shrink:0;"></div>
+  <div style="flex:1;height:1px;background:${GOLD}60;"></div>
+</div>`;
+}
+
+function goldStrip(): string {
+  return `<div style="height:5px;background:linear-gradient(to right,${GOLD_D},${GOLD_L},${GOLD},${GOLD_L},${GOLD_D});flex-shrink:0;"></div>`;
+}
+
+function sigBlock(t: CertificateTemplateRecord, nameColor = '#333', titleColor = '#888', lineColor = '#ccc'): string {
+  if (!t.signatoryName) return '<div style="min-width:160px;"></div>';
+  return `
+<div style="text-align:center;min-width:160px;">
+  ${imgTag(t.signatureUrl, 'height:38px;max-width:130px;object-fit:contain;display:block;margin:0 auto 6px;')}
+  <div style="width:150px;height:1px;background:${lineColor};margin:0 auto 6px;"></div>
+  <p style="font-family:Montserrat,Arial,sans-serif;font-size:10px;font-weight:700;color:${nameColor};margin:0;letter-spacing:0.04em;">${esc(t.signatoryName)}</p>
+  ${t.signatoryTitle ? `<p style="font-family:Montserrat,Arial,sans-serif;font-size:9px;color:${titleColor};margin:3px 0 0;">${esc(t.signatoryTitle)}</p>` : ''}
+</div>`;
+}
+
+// ─── Template 1 — Ejecutiva ───────────────────────────────────────────────────
+// Accent header band · gold separator · clean white body · corner ornaments
+
+function htmlEjecutiva(t: CertificateTemplateRecord, name: string, course: string, date: string): string {
+  const a = esc(t.accentColor);
+  return `
+<div style="width:1123px;height:794px;overflow:hidden;position:relative;background:#fff;font-family:Georgia,'Times New Roman',serif;">
+  <!-- Corner ornaments -->
+  <div style="position:absolute;top:0;right:0;width:120px;height:120px;border-top:2px solid ${GOLD}45;border-right:2px solid ${GOLD}45;z-index:10;pointer-events:none;"></div>
+  <div style="position:absolute;bottom:0;left:0;width:120px;height:120px;border-bottom:2px solid ${GOLD}45;border-left:2px solid ${GOLD}45;z-index:10;pointer-events:none;"></div>
+
+  <!-- HEADER BAND -->
+  <div style="background:${a};height:228px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 80px;text-align:center;position:relative;overflow:hidden;">
+    <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 50% -10%,rgba(255,255,255,0.13),transparent 65%);"></div>
+    <div style="position:absolute;top:-80px;right:-80px;width:260px;height:260px;border-radius:50%;border:1px solid rgba(255,255,255,0.06);"></div>
+    <div style="position:absolute;bottom:-60px;left:-60px;width:200px;height:200px;border-radius:50%;border:1px solid rgba(255,255,255,0.06);"></div>
+    <div style="position:relative;z-index:1;width:100%;display:flex;flex-direction:column;align-items:center;">
+      ${t.logoUrl
+        ? imgTag(t.logoUrl, 'height:38px;max-width:180px;object-fit:contain;display:block;margin:0 auto 12px;')
+        : `<p style="font-family:Montserrat,Arial,sans-serif;font-size:10px;letter-spacing:0.34em;text-transform:uppercase;color:rgba(255,255,255,0.55);margin:0 0 12px;">${esc(t.organizationName)}</p>`}
+      <div style="display:flex;align-items:center;gap:20px;margin-bottom:10px;">
+        <div style="height:1px;width:80px;background:${GOLD};"></div>
+        <p style="font-family:Montserrat,Arial,sans-serif;font-size:28px;letter-spacing:0.24em;text-transform:uppercase;color:#fff;font-weight:700;margin:0;">CERTIFICADO</p>
+        <div style="height:1px;width:80px;background:${GOLD};"></div>
+      </div>
+      <p style="font-family:Montserrat,Arial,sans-serif;font-size:11px;letter-spacing:0.24em;text-transform:uppercase;color:${GOLD_L};margin:0;">DE LOGRO</p>
+    </div>
+  </div>
+  ${goldStrip()}
+
+  <!-- BODY -->
+  <div style="padding:32px 120px 0;text-align:center;">
+    <p style="font-family:Montserrat,Arial,sans-serif;font-size:9.5px;letter-spacing:0.28em;text-transform:uppercase;color:#bbb;margin:0 0 16px;">SE CERTIFICA QUE</p>
+    <p style="font-size:52px;color:${a};margin:0 0 2px;font-style:italic;font-weight:400;line-height:1.05;">${esc(name)}</p>
+    <div style="margin:14px auto;">${goldDivider(320)}</div>
+    <p style="font-family:Montserrat,Arial,sans-serif;font-size:11.5px;color:#555;margin:0 0 5px;letter-spacing:0.02em;">${esc(t.headlineText)}</p>
+    <p style="font-family:Montserrat,Arial,sans-serif;font-size:10.5px;color:#777;margin:0 0 6px;">${esc(t.bodyText)}</p>
+    <p style="font-size:13px;color:${a};font-style:italic;margin:0 0 8px;">"${esc(course)}"</p>
+    <p style="font-family:Montserrat,Arial,sans-serif;font-size:9px;color:#ccc;letter-spacing:0.1em;margin:0;">${esc(date)}</p>
+  </div>
+
+  <!-- FOOTER -->
+  <div style="position:absolute;bottom:0;left:0;right:0;height:112px;background:#f9f7f1;border-top:1px solid ${GOLD}28;display:flex;align-items:center;justify-content:space-between;padding:0 120px;">
+    ${sigBlock(t)}
+    ${goldSeal(68)}
+    <div style="text-align:right;max-width:240px;">
+      <p style="font-family:Montserrat,Arial,sans-serif;font-size:8px;color:#bbb;margin:0;line-height:1.75;">${esc(t.footerText)}</p>
+    </div>
+  </div>
+</div>`;
+}
+
+// ─── Template 2 — Premium ─────────────────────────────────────────────────────
+// Light textured background · dark diagonal corner shapes · gold name
+
+function htmlPremium(t: CertificateTemplateRecord, name: string, course: string, date: string): string {
+  const a = esc(t.accentColor);
+  return `
+<div style="width:1123px;height:794px;overflow:hidden;position:relative;background:#f6f5f0;font-family:Georgia,'Times New Roman',serif;">
+  <!-- Diagonal stripe texture -->
+  <div style="position:absolute;inset:0;background:repeating-linear-gradient(-55deg,transparent,transparent 22px,rgba(0,0,0,0.018) 22px,rgba(0,0,0,0.018) 23px);pointer-events:none;"></div>
+
+  <!-- TOP-RIGHT dark triangle -->
+  <div style="position:absolute;top:0;right:0;width:420px;height:268px;background:${a};clip-path:polygon(100% 0,0 0,100% 100%);"></div>
+  <!-- Gold shimmer on top triangle -->
+  <div style="position:absolute;top:0;right:0;width:420px;height:268px;clip-path:polygon(100% 0,0 0,100% 100%);background:linear-gradient(135deg,${GOLD}55,transparent 55%);pointer-events:none;"></div>
+
+  <!-- BOTTOM-LEFT dark triangle -->
+  <div style="position:absolute;bottom:0;left:0;width:360px;height:238px;background:${a};clip-path:polygon(0 0,0 100%,100% 100%);"></div>
+  <!-- Gold shimmer on bottom triangle -->
+  <div style="position:absolute;bottom:0;left:0;width:360px;height:238px;clip-path:polygon(0 0,0 100%,100% 100%);background:linear-gradient(315deg,${GOLD}55,transparent 55%);pointer-events:none;"></div>
+
+  <!-- Outer frame line -->
+  <div style="position:absolute;inset:16px;border:1px solid ${GOLD}38;pointer-events:none;"></div>
+
+  <!-- Company badge (pentagon, top center) -->
+  <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:96px;height:80px;background:${a};clip-path:polygon(0 0,100% 0,100% 74%,50% 100%,0 74%);display:flex;align-items:center;justify-content:center;padding-bottom:18px;z-index:10;">
+    ${t.logoUrl
+      ? imgTag(t.logoUrl, 'height:46px;width:70px;object-fit:contain;')
+      : `<span style="color:rgba(255,255,255,0.85);font-size:28px;line-height:1;">&#9733;</span>`}
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 160px 100px;text-align:center;z-index:5;">
+    ${!t.logoUrl ? `<p style="font-family:Montserrat,Arial,sans-serif;font-size:9px;letter-spacing:0.3em;text-transform:uppercase;color:#999;margin:0 0 4px;">${esc(t.organizationName)}</p>` : ''}
+    <p style="font-family:Montserrat,Arial,sans-serif;font-size:26px;letter-spacing:0.22em;text-transform:uppercase;color:${a};font-weight:700;margin:0 0 2px;">CERTIFICADO</p>
+    <p style="font-family:Montserrat,Arial,sans-serif;font-size:12px;letter-spacing:0.24em;text-transform:uppercase;color:${GOLD_D};margin:0 0 18px;">DE EXCELENCIA</p>
+    <p style="font-family:Montserrat,Arial,sans-serif;font-size:11px;letter-spacing:0.1em;color:#666;margin:0 0 12px;">${esc(t.headlineText)}</p>
+    <p style="font-size:54px;color:${GOLD_D};margin:0 0 4px;font-style:italic;font-weight:400;line-height:1.05;">${esc(name)}</p>
+    <div style="margin:12px auto;">${goldDivider(300)}</div>
+    <p style="font-family:Montserrat,Arial,sans-serif;font-size:11px;color:#555;margin:0 0 5px;">${esc(t.bodyText)}</p>
+    <p style="font-size:13.5px;color:${a};font-style:italic;margin:0 0 5px;">"${esc(course)}"</p>
+    <p style="font-family:Montserrat,Arial,sans-serif;font-size:9.5px;color:#bbb;margin:0;">${esc(date)}</p>
+  </div>
+
+  <!-- BOTTOM FOOTER -->
+  <div style="position:absolute;bottom:0;left:0;right:0;height:108px;display:flex;align-items:center;justify-content:space-between;padding:0 150px;z-index:6;">
+    ${sigBlock(t)}
+    ${goldSeal(72)}
+    <div style="text-align:right;max-width:220px;">
+      <p style="font-family:Montserrat,Arial,sans-serif;font-size:8px;color:#bbb;margin:0;line-height:1.75;">${esc(t.footerText)}</p>
+    </div>
+  </div>
+</div>`;
+}
+
+// ─── Template 3 — Estándar ────────────────────────────────────────────────────
+// Accent sidebar with diagonal cut · gold strip · white content area
+
+function htmlEstandar(t: CertificateTemplateRecord, name: string, course: string, date: string): string {
+  const a = esc(t.accentColor);
+  return `
+<div style="width:1123px;height:794px;overflow:hidden;position:relative;font-family:Georgia,'Times New Roman',serif;background:#fff;">
+
+  <!-- SIDEBAR BACKGROUND SHAPE (diagonal right edge) -->
+  <div style="position:absolute;top:0;left:0;width:380px;height:794px;background:${a};clip-path:polygon(0 0,100% 0,84% 100%,0 100%);z-index:1;">
+    <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(255,255,255,0.1),transparent 65%);"></div>
+    <div style="position:absolute;top:-55px;left:-55px;width:190px;height:190px;border-radius:50%;border:1px solid rgba(255,255,255,0.07);"></div>
+    <div style="position:absolute;bottom:-35px;right:30px;width:140px;height:140px;border-radius:50%;border:1px solid rgba(255,255,255,0.06);"></div>
+  </div>
+
+  <!-- SIDEBAR CONTENT (separate layer, no clip) -->
+  <div style="position:absolute;top:0;left:0;width:320px;height:794px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 30px;text-align:center;z-index:2;">
+    ${goldSeal(90)}
+    <div style="height:20px;"></div>
+    ${t.logoUrl
+      ? imgTag(t.logoUrl, 'height:34px;max-width:140px;object-fit:contain;display:block;margin:0 auto 14px;')
+      : `<p style="font-family:Montserrat,Arial,sans-serif;font-size:10px;letter-spacing:0.26em;text-transform:uppercase;color:rgba(255,255,255,0.82);font-weight:700;margin:0 0 14px;">${esc(t.organizationName)}</p>`}
+    <div style="width:52px;height:1px;background:${GOLD};margin:0 auto 12px;"></div>
+    <p style="font-family:Montserrat,Arial,sans-serif;font-size:8px;letter-spacing:0.34em;text-transform:uppercase;color:${GOLD_L};margin:0;">CERTIFICADO</p>
+  </div>
+
+  <!-- RIGHT CONTENT AREA -->
+  <div style="position:absolute;top:0;left:348px;right:0;bottom:0;background:#fff;display:flex;flex-direction:column;z-index:1;">
+    ${goldStrip()}
+    <!-- Body -->
+    <div style="flex:1;padding:36px 62px 0 52px;display:flex;flex-direction:column;justify-content:center;">
+      <p style="font-family:Montserrat,Arial,sans-serif;font-size:9px;letter-spacing:0.3em;text-transform:uppercase;color:#bbb;margin:0 0 8px;">SE CERTIFICA QUE</p>
+      <p style="font-size:50px;color:${a};margin:0 0 4px;font-style:italic;font-weight:400;line-height:1.1;">${esc(name)}</p>
+      <div style="display:flex;align-items:center;gap:12px;margin:12px 0;">
+        <div style="width:40px;height:1px;background:${GOLD};flex-shrink:0;"></div>
+        <div style="width:6px;height:6px;background:${GOLD};transform:rotate(45deg);flex-shrink:0;"></div>
+        <div style="flex:1;height:1px;background:${GOLD}45;"></div>
+      </div>
+      <p style="font-family:Montserrat,Arial,sans-serif;font-size:12px;color:#555;margin:0 0 6px;">${esc(t.headlineText)}</p>
+      <p style="font-family:Montserrat,Arial,sans-serif;font-size:11px;color:#777;margin:0 0 6px;line-height:1.5;">${esc(t.bodyText)}</p>
+      <p style="font-size:13.5px;color:${a};font-style:italic;margin:0 0 8px;">"${esc(course)}"</p>
+      <p style="font-family:Montserrat,Arial,sans-serif;font-size:9.5px;color:#bbb;letter-spacing:0.06em;margin:0;">${esc(date)}</p>
+    </div>
+    <!-- Footer -->
+    <div style="height:114px;background:#f9f7f1;border-top:1px solid ${GOLD}28;display:flex;align-items:center;justify-content:space-between;padding:0 62px 0 52px;flex-shrink:0;">
+      ${sigBlock(t)}
+      <div style="text-align:right;max-width:240px;">
+        <p style="font-family:Montserrat,Arial,sans-serif;font-size:8px;color:#bbb;margin:0;line-height:1.75;">${esc(t.footerText)}</p>
+      </div>
+    </div>
+    ${goldStrip()}
+  </div>
+</div>`;
+}
+
+// ─── Font loading ──────────────────────────────────────────────────────────────
+
+async function ensureFontsLoaded(): Promise<void> {
+  if (!document.querySelector('link[data-cert-fonts]')) {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap';
+    link.setAttribute('data-cert-fonts', 'true');
+    document.head.appendChild(link);
   }
+  try {
+    await document.fonts.ready;
+    await new Promise<void>((r) => setTimeout(r, 350));
+  } catch { /* proceed with system fonts */ }
+}
+
+// ─── HTML → canvas ────────────────────────────────────────────────────────────
+
+async function htmlToCanvas(html: string): Promise<HTMLCanvasElement> {
+  const { default: html2canvas } = await import('html2canvas');
+
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:1123px;height:794px;overflow:hidden;';
+  wrap.innerHTML = html;
+  document.body.appendChild(wrap);
+
+  // Wait for all images
+  await Promise.all(
+    Array.from(wrap.querySelectorAll<HTMLImageElement>('img')).map(
+      (img) =>
+        new Promise<void>((res) => {
+          if (img.complete) { res(); return; }
+          img.onload = () => res();
+          img.onerror = () => res();
+        }),
+    ),
+  );
+
+  const canvas = await html2canvas(wrap, {
+    scale: 2,
+    useCORS: true,
+    allowTaint: false,
+    width: 1123,
+    height: 794,
+    logging: false,
+    backgroundColor: '#ffffff',
+  });
+
+  document.body.removeChild(wrap);
+  return canvas;
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -541,26 +290,34 @@ export async function downloadCourseCertificate({
   courseName: string;
   completedAt: string;
 }): Promise<void> {
-  const { jsPDF } = await import('jspdf');
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  await ensureFontsLoaded();
+
+  const date = formatDate(completedAt);
+  let html: string;
 
   switch (template.templateNumber) {
     case 2:
-      await buildPremium(doc, template, recipientName, courseName, completedAt);
+      html = htmlPremium(template, recipientName, courseName, date);
       break;
     case 3:
-      await buildEstandar(doc, template, recipientName, courseName, completedAt);
+      html = htmlEstandar(template, recipientName, courseName, date);
       break;
     default:
-      await buildEjecutiva(doc, template, recipientName, courseName, completedAt);
+      html = htmlEjecutiva(template, recipientName, courseName, date);
   }
 
-  const safeCourseName = courseName
+  const canvas = await htmlToCanvas(html);
+
+  const { jsPDF } = await import('jspdf');
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  doc.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 297, 210);
+
+  const safeName = courseName
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, '')
     .trim()
     .replace(/\s+/g, '-')
     .slice(0, 50);
 
-  doc.save(`certificado-${safeCourseName}.pdf`);
+  doc.save(`certificado-${safeName}.pdf`);
 }
