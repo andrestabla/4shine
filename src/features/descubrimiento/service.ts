@@ -3780,7 +3780,7 @@ function includesRequiredSections(report: string): boolean {
 }
 
 function isDeepEnoughReport(report: string, pillar: DiscoveryReportFilter): boolean {
-  const minWords = pillar === "all" ? 1000 : 650;
+  const minWords = pillar === "all" ? 900 : 550;
   const wordCount = countWords(report);
   const percentMentions = (report.match(/\b\d{1,3}(?:[.,]\d+)?%/g) ?? []).length;
   const minPercentMentions = pillar === "all" ? 6 : 4;
@@ -4832,9 +4832,9 @@ ${feedbackInstructions.trim()}
 ${editorialRules}
 
 Restricciones de profundidad (ESTRICTAS):
-- Cada sección debe tener mínimo 150 palabras de análisis denso.
+- Cada sección debe tener mínimo 130 palabras de análisis denso.
 - Usa mínimo 3 porcentajes y 3 competencias específicas por sección.
-- El informe total debe superar las 1000 palabras.
+- El informe total debe superar las 900 palabras.
 - PROHIBIDO USAR LISTAS O VIÑETAS. Usa solo párrafos.
 
 Estructura obligatoria (usa markdown):
@@ -4871,10 +4871,10 @@ ${feedbackInstructions.trim()}
 ${editorialRules}
 
 Restricciones de profundidad (ESTRICTAS):
- - Cada sección debe tener mínimo 95 palabras de análisis denso.
+ - Cada sección debe tener mínimo 85 palabras de análisis denso.
  - Distribuye mínimo 5 porcentajes en total a lo largo del informe.
 - Usa mínimo 2 competencias concretas por sección.
-- El informe total debe superar las 650 palabras.
+- El informe total debe superar las 550 palabras.
 - PROHIBIDO USAR LISTAS O VIÑETAS. Usa solo párrafos.
 
 Estructura obligatoria (usa markdown):
@@ -4985,35 +4985,34 @@ async function runContractStyleAnalysis(
 
   try {
     const isGlobal = pillar === "all";
-    const primaryModel = "gpt-4.1"; // Always use the best model for quality
+    const primaryModel = "gpt-4.1"; 
     const refinementModel = "gpt-4.1";
-    const maxAttempts = 5; // Allow one more attempt for extreme quality
+    const maxAttempts = 6; 
 
     let report = await requestOpenAiReport(context, systemPrompt, userPrompt, {
       model: primaryModel,
-      temperature: isGlobal ? 0.68 : 0.65, // Higher temp for more narrative flow
-      timeoutMs: isGlobal ? 100000 : 80000,
+      temperature: isGlobal ? 0.68 : 0.65, 
+      timeoutMs: isGlobal ? 110000 : 90000,
       maxTokens: isGlobal ? 4500 : 3000,
     });
     let attempts = 1;
     while (!isDeepEnoughReport(report, pillar) && attempts < maxAttempts) {
       const refinementPrompt = [
-        `Iteración de mejora ${attempts}. EL REPORTE ES DEMASIADO CORTO O USA LISTAS PROHIBIDAS.`,
-        `Palabras actuales: ${countWords(report)} (mínimo requerido: ${isGlobal ? 1000 : 650}).`,
+        `Iteración de mejora ${attempts}. EL REPORTE NO CUMPLE EL ESTÁNDAR DE CALIDAD (Faltan palabras o usa listas).`,
+        `Palabras actuales: ${countWords(report)} (mínimo requerido: ${isGlobal ? 900 : 550}).`,
         "",
-        "INSTRUCCIONES DE EMERGENCIA:",
-        "1. PROHIBIDO TOTALMENTE EL USO DE VIÑETAS (-), ASTERISCOS (*) O LISTAS NUMERADAS (1.).",
-        "2. TODO EL CONTENIDO DEBE SER PROSA NARRATIVA DENSA Y EJECUTIVA.",
-        "3. EXPANDE CADA SECCIÓN. Entra en el detalle de las competencias, los comportamientos y el impacto organizacional.",
-        "4. Usa más datos numéricos extraídos de los resultados.",
+        "INSTRUCCIONES DE REESCRITURA OBLIGATORIA:",
+        "1. ELIMINA CUALQUIER LISTA, VIÑETA O NUMERACIÓN. Usa exclusivamente párrafos narrativos.",
+        "2. EXPANDE EL ANÁLISIS: Describe con mucho más detalle las situaciones de liderazgo, el impacto en el equipo y las recomendaciones tácticas.",
+        "3. Sé mucho más prolijo y descriptivo. No resumas, analiza en profundidad cada punto.",
         "",
-        "Borrador insuficiente a mejorar radicalmente:",
+        "Borrador a mejorar radicalmente:",
         report,
       ].join("\n");
       report = await requestOpenAiReport(context, systemPrompt, refinementPrompt, {
         model: refinementModel,
-        temperature: 0.7 + (attempts * 0.04), // More temperature on each retry
-        timeoutMs: isGlobal ? 110000 : 90000,
+        temperature: 0.7 + (attempts * 0.03), 
+        timeoutMs: isGlobal ? 120000 : 100000,
         maxTokens: isGlobal ? 4500 : 3000,
       });
       attempts += 1;
