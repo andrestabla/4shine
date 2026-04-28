@@ -5751,3 +5751,4 @@ export async function deleteDiscoveryInvitation(
 
   if (!rowCount) throw new Error("Invitación no encontrada.");
 }
+// Deployment poke Mon Apr 27 22:05:23 -05 2026
