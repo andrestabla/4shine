@@ -53,6 +53,7 @@ import {
   calculateDiscoveryCompletionPercent,
 } from "./reporting";
 import {
+  analyzeDiscoveryReport,
   createDiscoveryInvitations,
   deleteDiscoveryInvitationRequest,
   getDiscoveryFeedbackSettings,
@@ -317,6 +318,9 @@ export function DiscoveryExperience() {
   const [simulationSeed, setSimulationSeed] = React.useState(0);
   const overviewDetailCacheRef = React.useRef<Map<string, DiscoveryOverviewDetailPayload>>(new Map());
   const [rowActionLoadingKey, setRowActionLoadingKey] = React.useState<string | null>(null);
+  const [regenerationProgress, setRegenerationProgress] = React.useState<
+    Record<string, { current: number; total: number; phase: string }>
+  >({});
   const [lastOverviewRefreshAt, setLastOverviewRefreshAt] = React.useState<Date | null>(null);
   const [isRefreshingOverview, setIsRefreshingOverview] = React.useState(false);
   const firstQuestionCardRef = React.useRef<HTMLElement | null>(null);
@@ -568,12 +572,53 @@ export function DiscoveryExperience() {
 
       const loadingKey = `${row.sessionId}:regen`;
       setRowActionLoadingKey(loadingKey);
+      setRegenerationProgress((prev) => ({
+        ...prev,
+        [row.sessionId]: { current: 0, total: 5, phase: "Limpiando..." },
+      }));
+
       try {
         await regenerateDiscoveryReport(row.sessionId);
+        
+        // Fetch detail to get scores and username
+        setRegenerationProgress((prev) => ({
+          ...prev,
+          [row.sessionId]: { current: 1, total: 5, phase: "Obteniendo datos..." },
+        }));
+        const detail = await getDiscoveryOverviewDetail(row.sessionId);
+        
+        const pillars: DiscoveryReportFilter[] = ["all", "within", "out", "up", "beyond"];
+        const pillarNames: Record<string, string> = {
+          all: "Visión Global",
+          within: "Shine Within",
+          out: "Shine Out",
+          up: "Shine Up",
+          beyond: "Shine Beyond",
+        };
+
+        for (let i = 0; i < pillars.length; i++) {
+          const pillar = pillars[i];
+          setRegenerationProgress((prev) => ({
+            ...prev,
+            [row.sessionId]: { 
+              current: i + 1, 
+              total: 5, 
+              phase: `Generando ${pillarNames[pillar]}...` 
+            },
+          }));
+
+          await analyzeDiscoveryReport({
+            username: row.participantName,
+            role: row.jobRole || "Líder",
+            scores: detail.scores,
+            pillar,
+          });
+        }
+
         overviewDetailCacheRef.current.delete(row.sessionId);
         await alert({
-          title: "Generación iniciada",
-          message: "Los informes se están regenerando. Podrás ver los resultados en unos segundos al actualizar la fila.",
+          title: "Generación completada",
+          message: `El informe de ${row.participantName} ha sido regenerado con éxito con máxima calidad narrativa.`,
           tone: "success",
         });
       } catch (error) {
@@ -584,6 +629,11 @@ export function DiscoveryExperience() {
         });
       } finally {
         setRowActionLoadingKey((current) => (current === loadingKey ? null : current));
+        setRegenerationProgress((prev) => {
+          const next = { ...prev };
+          delete next[row.sessionId];
+          return next;
+        });
       }
     },
     [alert, confirm],
@@ -2150,14 +2200,26 @@ export function DiscoveryExperience() {
                               void handleRegenerateOverviewReport(row);
                             }}
                             disabled={rowActionLoadingKey === `${row.sessionId}:regen`}
-                            className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-white px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="relative inline-flex items-center gap-1 overflow-hidden rounded-full border border-amber-200 bg-white px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-60"
                           >
-                            {rowActionLoadingKey === `${row.sessionId}:regen` ? (
-                              <Loader2 size={12} className="animate-spin" />
-                            ) : (
-                              <RefreshCw size={12} />
+                            {regenerationProgress[row.sessionId] && (
+                              <div 
+                                className="absolute inset-0 bg-amber-100/50 transition-all duration-500" 
+                                style={{ 
+                                  width: `${(regenerationProgress[row.sessionId].current / regenerationProgress[row.sessionId].total) * 100}%` 
+                                }} 
+                              />
                             )}
-                            Regenerar
+                            <span className="relative z-10 flex items-center gap-1">
+                              {rowActionLoadingKey === `${row.sessionId}:regen` ? (
+                                <Loader2 size={12} className="animate-spin" />
+                              ) : (
+                                <RefreshCw size={12} />
+                              )}
+                              {regenerationProgress[row.sessionId] 
+                                ? regenerationProgress[row.sessionId].phase 
+                                : "Regenerar"}
+                            </span>
                           </button>
                           <button
                             type="button"

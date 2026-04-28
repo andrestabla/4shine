@@ -3768,6 +3768,24 @@ function isUsablePillarReport(report: string): boolean {
 }
 
 function looksGenericReport(report: string): boolean {
+  const lowercase = report.toLowerCase();
+  const genericIndicators = [
+    "aquí hay algunas fortalezas",
+    "puedes mejorar en",
+    "es importante que",
+    "se recomienda",
+    "un líder debe",
+    "el liderazgo es",
+    "en conclusión",
+    "para finalizar",
+  ];
+
+  const foundIndicators = genericIndicators.filter((term) => lowercase.includes(term)).length;
+
+  // Rule: If it contains more than 3 bullet points in a row, it might be the static template or poor narrative
+  const bulletCount = (report.match(/^\s*[-*]\s+/gm) ?? []).length;
+  const isTooBullety = bulletCount > 8; // Global report shouldn't be mostly bullets
+
   const normalized = normalizeHeadingForMatch(report);
   const genericSignals = [
     "capacidad real de avance",
@@ -4388,9 +4406,10 @@ async function runDiscoveryAnalysisWithContext(
     "",
     "Reglas anti-genérico obligatorias:",
     "- No escribas definiciones sueltas tipo 'Competencia: descripción corta'.",
-    "- Cada sección debe tener mínimo 90 palabras en prosa continua.",
-    "- Prohibido usar viñetas (bullet points) en las secciones de Perfil, Impulso y Plan. Usa párrafos narrativos profundos.",
-    "- Usa al menos 2 porcentajes y 2 competencias concretas por sección.",
+    "- Cada sección debe tener mínimo 100 palabras en prosa continua.",
+    "- Prohibido usar viñetas (bullet points) o listas numeradas en las secciones de Perfil, Impulso y Plan. Usa exclusivamente párrafos narrativos de alta profundidad ejecutiva.",
+    "- Conecta cada fortaleza o brecha con un impacto real en el negocio o el equipo (causalidad).",
+    "- Usa al menos 3 porcentajes y 2 competencias concretas por sección.",
     "- Debes inferir causas y consecuencias específicas, no frases universales.",
     "",
     "Objetivo:",
@@ -4460,7 +4479,7 @@ async function runDiscoveryAnalysisWithContext(
   try {
     let report = await requestOpenAiReport(context, systemPrompt, userPrompt, {
       temperature: 0.58,
-      timeoutMs: pillar === "all" ? 9000 : 7000,
+      timeoutMs: pillar === "all" ? 45000 : 30000,
       maxTokens: pillar === "all" ? 1300 : 1000,
     });
     let attempts = 1;
@@ -4476,7 +4495,7 @@ async function runDiscoveryAnalysisWithContext(
       ].join("\n");
       report = await requestOpenAiReport(context, systemPrompt, refinementPrompt, {
         temperature: attempts === 1 ? 0.62 : 0.55,
-        timeoutMs: pillar === "all" ? 6000 : 4500,
+        timeoutMs: pillar === "all" ? 35000 : 25000,
         maxTokens: pillar === "all" ? 1200 : 900,
       });
       attempts += 1;
