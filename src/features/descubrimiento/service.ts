@@ -3569,11 +3569,12 @@ export async function sendDiscoveryReportEmail(
   let email = "";
   let name = "";
   let publicId = "";
+  let actualSessionId: string | null = null;
 
   if (normalizedSessionId.startsWith("inv-")) {
     const invitationId = normalizedSessionId.slice(4);
     const { rows } = await client.query(
-      `SELECT invited_email, meta FROM app_assessment.discovery_invitations WHERE invitation_id = $1::uuid`,
+      `SELECT invited_email, meta, session_id::text FROM app_assessment.discovery_invitations WHERE invitation_id = $1::uuid`,
       [invitationId],
     );
     const row = rows[0];
@@ -3581,25 +3582,25 @@ export async function sendDiscoveryReportEmail(
     email = row.invited_email;
     const meta = row.meta || {};
     name = (meta as any).participant_name || "Líder";
-    publicId = (meta as any).public_id || "";
+    actualSessionId = row.session_id;
   } else {
-    const { rows } = await client.query(
-      `
-      SELECT 
-        COALESCE(ds.first_name || ' ' || ds.last_name, ds.name_snapshot, u.first_name || ' ' || u.last_name) as name,
-        COALESCE(u.email, ds.user_id::text) as email,
-        ds.public_id
-      FROM app_assessment.discovery_sessions ds
-      LEFT JOIN app_core.users u ON ds.user_id = u.user_id
-      WHERE ds.session_id = $1::uuid
-      `,
-      [normalizedSessionId],
-    );
-    const row = rows[0];
-    if (!row) throw new Error("No se encontró la sesión.");
-    email = row.email;
-    name = row.name;
-    publicId = row.public_id;
+    actualSessionId = normalizedSessionId;
+  }
+
+  if (actualSessionId) {
+    const session = await ensureSessionShared(client, actualSessionId);
+    publicId = session.publicId || "";
+    if (!email) {
+      const userRow = await client.query(`SELECT email, first_name, last_name FROM app_core.users WHERE user_id = $1::uuid`, [session.userId]);
+      email = userRow.rows[0]?.email || "";
+      if (!name) {
+        name = userRow.rows[0]?.first_name ? `${userRow.rows[0].first_name} ${userRow.rows[0].last_name}` : (session.nameSnapshot || "Líder");
+      }
+    }
+  }
+
+  if (!publicId) {
+    throw new Error("No se pudo generar un identificador público para el informe.");
   }
 
   if (!email) {
