@@ -3597,20 +3597,10 @@ export async function sendDiscoveryReportEmail(
   }
 
   const organizationId = await resolveOrganizationIdForActor(client, actor.userId);
-  const outbound = await getOutboundEmailConfig(client, organizationId);
+  const outbound = await resolveOutboundConfig(client, organizationId);
   if (!outbound?.enabled) {
     throw new Error("El servicio de correo no está configurado para esta organización.");
   }
-
-  const transporter = nodemailer.createTransport({
-    host: outbound.smtp_host,
-    port: outbound.smtp_port,
-    secure: outbound.smtp_secure,
-    auth: {
-      user: outbound.smtp_user,
-      pass: outbound.smtp_password,
-    },
-  });
 
   const subject = `Tu informe de liderazgo 4Shine - ${name}`;
   const html = `
@@ -3625,13 +3615,11 @@ export async function sendDiscoveryReportEmail(
     </div>
   `;
 
-  await transporter.sendMail({
-    from: `"${outbound.from_name}" <${outbound.from_email}>`,
+  await sendOutboundEmail(outbound, {
     to: email,
     subject,
     html,
-    // Note: In a full implementation, we'd generate the PDF buffer here and attach it.
-    // Given the environment constraints, we focus on the orchestration logic.
+    text: `Hola ${name},\n\nAdjunto encontrarás tu informe ejecutivo de liderazgo de 4Shine.\n\nSaludos,\nEquipo 4Shine`,
   });
 
   return { ok: true };
