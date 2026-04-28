@@ -253,6 +253,7 @@ export async function saveInvitationProgress(input: {
 }
 
 export async function analyzeDiscoveryReport(input: {
+  sessionId?: string;
   username: string;
   role: string;
   scores: DiscoveryScoreResult;

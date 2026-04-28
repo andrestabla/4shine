@@ -15,6 +15,7 @@ export const runtime = "nodejs";
 export const maxDuration = 200;
 
 interface DiagnosticsAnalyzeBody {
+  sessionId?: string;
   inviteToken?: string;
   accessCode?: string;
   username?: string;
@@ -63,6 +64,7 @@ export async function POST(request: Request) {
       if (identity?.role === "invitado") {
         return withRoleContext(client, identity.userId, identity.role, async () =>
           generateDiscoveryAnalysisContract(client, identity, {
+            sessionId: body?.sessionId,
             username,
             role: body?.role ?? "Invitado",
             scores,
@@ -89,6 +91,7 @@ export async function POST(request: Request) {
       }
       return withRoleContext(client, identity.userId, identity.role, async () =>
         generateDiscoveryAnalysisContract(client, identity, {
+          sessionId: body?.sessionId,
           username,
           role: body?.role ?? "Lider",
           scores,

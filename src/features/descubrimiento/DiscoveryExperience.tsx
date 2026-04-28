@@ -609,6 +609,7 @@ export function DiscoveryExperience() {
           }));
 
           await analyzeDiscoveryReport({
+            sessionId: row.sessionId,
             username: row.participantName,
             role: row.jobRole || "Líder",
             scores: detail.scoring,

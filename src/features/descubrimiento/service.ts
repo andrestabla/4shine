@@ -4561,6 +4561,7 @@ async function runDiscoveryAnalysisWithContext(
 }
 
 interface DiscoveryAnalyzeContractInput {
+  sessionId?: string;
   username: string;
   role: string;
   scores: DiscoveryScoreResult;
@@ -5043,10 +5044,28 @@ export async function generateDiscoveryAnalysisContract(
   await requireModulePermission(client, "descubrimiento", "view");
   await requireDiscoveryAccess(client, actor);
 
-  const fallback = input.fallbackReport?.trim() || "";
-  const session = await readDiscoverySession(client, actor.userId);
   const pillar = input.pillar ?? "all";
-  const cached = session?.aiReports?.[pillar];
+  const targetSessionId = input.sessionId || actor.userId;
+  const isInvitationId = targetSessionId.startsWith("inv-");
+  
+  // If invitation, we need to read from invitations table or join
+  let cached: string | undefined;
+  let sessionRecordId: string | null = null;
+
+  if (isInvitationId) {
+    const invId = targetSessionId.slice(4);
+    const { rows } = await client.query(
+      `SELECT session_id::text, meta FROM app_assessment.discovery_invitations WHERE invitation_id = $1::uuid`,
+      [invId]
+    );
+    cached = (rows[0]?.meta as any)?.ai_reports?.[pillar];
+    sessionRecordId = rows[0]?.session_id;
+  } else {
+    const session = await readDiscoverySession(client, targetSessionId);
+    cached = session?.aiReports?.[pillar];
+    sessionRecordId = session?.sessionId || null;
+  }
+
   if (cached && cached.trim().length > 0) {
     return { report: cached.trim(), source: "ai" };
   }
@@ -5070,8 +5089,12 @@ export async function generateDiscoveryAnalysisContract(
     fastMode: pillar !== "all",
   });
 
-  if (session?.sessionId && result.report.trim().length > 0) {
-    await persistDiscoverySessionAiReport(client, session.sessionId, pillar, result.report.trim());
+  if (result.report.trim().length > 0) {
+    if (isInvitationId) {
+      await persistDiscoveryInvitationAiReport(client, targetSessionId.slice(4), pillar, result.report.trim());
+    } else if (sessionRecordId) {
+      await persistDiscoverySessionAiReport(client, sessionRecordId, pillar, result.report.trim());
+    }
   }
 
   return result;
