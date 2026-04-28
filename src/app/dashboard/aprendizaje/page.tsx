@@ -31,6 +31,7 @@ import { AccessOfferPanel } from "@/components/access/AccessOfferPanel";
 import { EmptyState } from "@/components/dashboard/EmptyState";
 import { useAppDialog } from "@/components/ui/AppDialogProvider";
 import { R2UploadButton } from "@/components/ui/R2UploadButton";
+import { ScormUploadButton } from "@/components/ui/ScormUploadButton";
 import { useUser } from "@/context/UserContext";
 import { filterCommercialProducts } from "@/features/access/catalog";
 import {
@@ -3614,23 +3615,37 @@ export default function AprendizajePage() {
                         </div>
 
                         <div className="flex items-end">
-                          <R2UploadButton
-                            moduleCode="aprendizaje"
-                            action={editingResourceId ? "update" : "create"}
-                            entityTable="app_learning.content_items"
-                            fieldName="url"
-                            pathPrefix={`aprendizaje/recursos/${resourceForm.contentType}`}
-                            accept={resourceTypeProfile.accept}
-                            buttonLabel={resourceTypeProfile.uploadLabel}
-                            className="app-button-secondary min-w-[14rem]"
-                            onUploaded={(url, payload) => {
-                              setUploadedResourceAsset(payload);
-                              setResourceForm((prev) => ({
-                                ...prev,
-                                url,
-                              }));
-                            }}
-                          />
+                          {resourceForm.contentType === "scorm" ? (
+                            <ScormUploadButton
+                              className="app-button-secondary min-w-[14rem]"
+                              onUploaded={({ entryUrl, fileCount }) => {
+                                setUploadedResourceAsset({
+                                  key: entryUrl,
+                                  url: entryUrl,
+                                  bucket: '',
+                                  size: 0,
+                                  contentType: 'application/zip',
+                                  fileName: `SCORM package (${fileCount} archivos)`,
+                                });
+                                setResourceForm((prev) => ({ ...prev, url: entryUrl }));
+                              }}
+                            />
+                          ) : (
+                            <R2UploadButton
+                              moduleCode="aprendizaje"
+                              action={editingResourceId ? "update" : "create"}
+                              entityTable="app_learning.content_items"
+                              fieldName="url"
+                              pathPrefix={`aprendizaje/recursos/${resourceForm.contentType}`}
+                              accept={resourceTypeProfile.accept}
+                              buttonLabel={resourceTypeProfile.uploadLabel}
+                              className="app-button-secondary min-w-[14rem]"
+                              onUploaded={(url, payload) => {
+                                setUploadedResourceAsset(payload);
+                                setResourceForm((prev) => ({ ...prev, url }));
+                              }}
+                            />
+                          )}
                         </div>
                       </div>
 
