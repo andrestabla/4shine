@@ -206,7 +206,32 @@ export const PdfReportData = React.forwardRef<HTMLDivElement, PdfReportDataProps
               </RadarChart>
             </div>
           </section>
-
+          <section className="mt-6 grid grid-cols-2 gap-4">
+            <div className="rounded-[16px] border border-slate-100 bg-slate-50/50 p-4">
+              <h3 className="text-[10px] font-black text-slate-900">Shine Within — La esencia</h3>
+              <p className="mt-1.5 text-[9px] leading-relaxed text-slate-500">
+                Evalúa el nivel de conexión del líder consigo mismo: sus creencias, emociones, valores, propósito e identidad. Refleja la base interna desde la cual toma decisiones, se regula y sostiene un liderazgo auténtico.
+              </p>
+            </div>
+            <div className="rounded-[16px] border border-slate-100 bg-slate-50/50 p-4">
+              <h3 className="text-[10px] font-black text-slate-900">Shine Out — Presencia estratégica</h3>
+              <p className="mt-1.5 text-[9px] leading-relaxed text-slate-500">
+                Evalúa la capacidad del líder para comunicar su valor, proyectar confianza y expresar su liderazgo con claridad, coherencia e impacto. Refleja cómo su presencia, narrativa y comunicación fortalecen su influencia profesional.
+              </p>
+            </div>
+            <div className="rounded-[16px] border border-slate-100 bg-slate-50/50 p-4">
+              <h3 className="text-[10px] font-black text-slate-900">Shine Up — Ecosistema relacional</h3>
+              <p className="mt-1.5 text-[9px] leading-relaxed text-slate-500">
+                Evalúa la capacidad del líder para construir relaciones estratégicas, generar confianza y activar redes de valor. Refleja cómo se vincula con otros, lee su entorno y crea oportunidades de colaboración e influencia.
+              </p>
+            </div>
+            <div className="rounded-[16px] border border-slate-100 bg-slate-50/50 p-4">
+              <h3 className="text-[10px] font-black text-slate-900">Shine Beyond — Legado</h3>
+              <p className="mt-1.5 text-[9px] leading-relaxed text-slate-500">
+                Evalúa la capacidad del líder para proyectar su liderazgo hacia el futuro, generar impacto sostenible y dejar una huella positiva en su organización y entorno. Refleja su visión, contribución y sentido de trascendencia.
+              </p>
+            </div>
+          </section>
         </PdfPage>
 
         {globalReportPages.map((chunk, pageIndex) => (

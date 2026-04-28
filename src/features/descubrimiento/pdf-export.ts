@@ -334,7 +334,33 @@ export async function downloadDiscoveryPdfReport({
               : ([185, 128, 75] as [number, number, number]),
       })),
   );
-  writer.setY(chartRowY + 76);
+  const descY = chartRowY + 74;
+  const descWidth = (CONTENT_WIDTH - 4) / 2;
+  const descs = [
+    { title: "Shine Within — La esencia", text: "Evalúa el nivel de conexión del líder consigo mismo: sus creencias, emociones, valores, propósito e identidad." },
+    { title: "Shine Out — Presencia estratégica", text: "Evalúa la capacidad del líder para comunicar su valor, proyectar confianza y expresar su liderazgo con claridad e impacto." },
+    { title: "Shine Up — Ecosistema relacional", text: "Evalúa la capacidad del líder para construir relaciones estratégicas, generar confianza y activar redes de valor." },
+    { title: "Shine Beyond — Legado", text: "Evalúa la capacidad del líder para proyectar su liderazgo hacia el futuro y dejar una huella positiva." }
+  ];
+
+  descs.forEach((d, i) => {
+    const col = i % 2;
+    const row = Math.floor(i / 2);
+    const x = PAGE_MARGIN + col * (descWidth + 4);
+    const y = descY + row * 22;
+    drawRoundedCard(pdf, x, y, descWidth, 18, [249, 248, 252]);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(8);
+    pdf.setTextColor(33, 24, 67);
+    pdf.text(d.title, x + 3, y + 5);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(7);
+    pdf.setTextColor(100, 89, 128);
+    const lines = pdf.splitTextToSize(d.text, descWidth - 6);
+    pdf.text(lines, x + 3, y + 9);
+  });
+
+  writer.setY(descY + 46);
 
   const reportSections: Array<{ key: keyof typeof resolvedReports; title: string; pillar?: DiscoveryPillarKey }> = [
     { key: "all", title: "Visión general" },
