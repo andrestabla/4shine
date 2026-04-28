@@ -11,6 +11,7 @@ import {
   BookOpen,
   CalendarClock,
   CheckCircle2,
+  Eye,
   FileUp,
   Layers3,
   Lightbulb,
@@ -812,6 +813,58 @@ function workbookVisualClasses(sequenceNo: number): string {
   return themes[(sequenceNo - 1) % themes.length];
 }
 
+function CertificatePreviewCard({ template }: { template: Partial<CertificateTemplateRecord> }) {
+  const accent = template.accentColor ?? "#5f3471";
+  return (
+    <div
+      className="w-full overflow-hidden rounded-[14px] border border-[var(--app-border)] shadow-md"
+      style={{ aspectRatio: "1.414" }}
+    >
+      <div
+        className="flex h-[22%] items-center justify-between px-6"
+        style={{ background: `linear-gradient(135deg, ${accent}ee, ${accent}99)` }}
+      >
+        {template.logoUrl ? (
+          <img src={template.logoUrl} alt="Logo" className="h-8 max-w-[100px] object-contain" />
+        ) : (
+          <div className="rounded-[8px] bg-white/20 px-3 py-1.5 text-xs font-semibold text-white">
+            {template.organizationName ?? "Organización"}
+          </div>
+        )}
+        <Award size={18} className="text-white/40" />
+      </div>
+      <div
+        className="flex h-[56%] flex-col items-center justify-center px-10 text-center"
+        style={{ background: `${accent}06` }}
+      >
+        <div className="mb-3 h-px w-12" style={{ background: `${accent}60` }} />
+        <p className="text-[11px] text-gray-500">{template.headlineText ?? "Este certificado acredita que"}</p>
+        <p className="my-2 text-[18px] font-bold leading-tight" style={{ color: accent }}>
+          Nombre del Participante
+        </p>
+        <p className="text-[11px] text-gray-500">{template.bodyText ?? "ha completado satisfactoriamente"}</p>
+        <div className="mt-3 h-px w-12" style={{ background: `${accent}60` }} />
+      </div>
+      <div className="flex h-[22%] items-center justify-between px-6" style={{ background: "#f9f7fc" }}>
+        <div>
+          {template.signatureUrl && (
+            <img src={template.signatureUrl} alt="Firma" className="mb-0.5 h-6 max-w-[80px] object-contain" />
+          )}
+          {template.signatoryName && (
+            <p className="text-[9px] font-semibold text-gray-700">{template.signatoryName}</p>
+          )}
+          {template.signatoryTitle && (
+            <p className="text-[9px] text-gray-500">{template.signatoryTitle}</p>
+          )}
+        </div>
+        <p className="max-w-[45%] text-right text-[9px] leading-tight text-gray-400">
+          {template.footerText}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function AprendizajePage() {
   const { currentRole, refreshBootstrap, viewerAccess } = useUser();
   const { alert, confirm } = useAppDialog();
@@ -864,6 +917,7 @@ export default function AprendizajePage() {
   const [certificateEditing, setCertificateEditing] = React.useState<string | null>(null);
   const [certificateDraft, setCertificateDraft] = React.useState<Partial<CertificateTemplateRecord>>({});
   const [certificateSaving, setCertificateSaving] = React.useState(false);
+  const [certPreviewId, setCertPreviewId] = React.useState<string | null>(null);
 
   const isResourceManager = currentRole === "gestor" || currentRole === "admin";
   const isOpenLeader =
@@ -2441,11 +2495,11 @@ export default function AprendizajePage() {
               </div>
 
               <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-                {certificateTemplates.map((template, idx) => {
+                {certificateTemplates.map((template) => {
                   const isEditing = certificateEditing === template.templateId;
-                  const draft = isEditing ? certificateDraft : template;
-                  const accentColors = ["#5f3471", "#3b2a70", "#1a3a5c"];
-                  const accentColor = accentColors[idx] ?? "#5f3471";
+                  const accentColor =
+                    ((isEditing ? (certificateDraft.accentColor as string | undefined) : null) ??
+                      template.accentColor) || "#5f3471";
 
                   return (
                     <div
@@ -2491,24 +2545,163 @@ export default function AprendizajePage() {
                                 { key: "signatoryName", label: "Firmante" },
                                 { key: "signatoryTitle", label: "Cargo del firmante" },
                                 { key: "footerText", label: "Pie del certificado" },
-                                { key: "logoUrl", label: "URL del logo" },
-                                { key: "signatureUrl", label: "URL de la firma" },
                               ] as Array<{ key: keyof CertificateTemplateRecord; label: string }>
                             ).map(({ key, label }) => (
                               <div key={key}>
                                 <label className="app-field-label">{label}</label>
                                 <input
                                   className="app-input"
-                                  value={(draft[key] as string) ?? ""}
+                                  value={(certificateDraft[key] as string) ?? ""}
                                   onChange={(e) =>
-                                    setCertificateDraft((prev) => ({
-                                      ...prev,
-                                      [key]: e.target.value,
-                                    }))
+                                    setCertificateDraft((prev) => ({ ...prev, [key]: e.target.value }))
                                   }
                                 />
                               </div>
                             ))}
+
+                            {/* Color de acento */}
+                            <div>
+                              <label className="app-field-label">Color de acento</label>
+                              <div className="flex items-center gap-3">
+                                <input
+                                  type="color"
+                                  className="h-9 w-12 cursor-pointer rounded-[8px] border border-[var(--app-border)] p-0.5"
+                                  value={(certificateDraft.accentColor as string | undefined) ?? template.accentColor}
+                                  onChange={(e) =>
+                                    setCertificateDraft((prev) => ({ ...prev, accentColor: e.target.value }))
+                                  }
+                                />
+                                <span className="font-mono text-xs text-[var(--app-muted)]">
+                                  {(certificateDraft.accentColor as string | undefined) ?? template.accentColor}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Logo */}
+                            <div>
+                              <label className="app-field-label">Logo de la organización</label>
+                              {(certificateDraft.logoUrl as string | null | undefined) && (
+                                <div className="mb-2">
+                                  <img
+                                    src={certificateDraft.logoUrl as string}
+                                    alt="Logo"
+                                    className="h-10 max-w-[140px] rounded-[8px] border border-[var(--app-border)] object-contain p-1"
+                                  />
+                                </div>
+                              )}
+                              <div className="flex items-center gap-2">
+                                <R2UploadButton
+                                  moduleCode="aprendizaje"
+                                  action="update"
+                                  pathPrefix={`certificates/${template.templateId}/logo`}
+                                  entityTable="app_learning.certificate_templates"
+                                  fieldName="logo_url"
+                                  accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                                  buttonLabel="Subir logo"
+                                  disabled={certificateSaving}
+                                  onUploaded={(url) =>
+                                    setCertificateDraft((prev) => ({ ...prev, logoUrl: url }))
+                                  }
+                                />
+                                {(certificateDraft.logoUrl as string | null | undefined) && (
+                                  <button
+                                    type="button"
+                                    className="text-xs text-red-500 hover:underline"
+                                    onClick={() =>
+                                      setCertificateDraft((prev) => ({ ...prev, logoUrl: null }))
+                                    }
+                                  >
+                                    Quitar
+                                  </button>
+                                )}
+                              </div>
+                              <input
+                                className="app-input mt-2"
+                                placeholder="O pegar URL del logo"
+                                value={(certificateDraft.logoUrl as string | null | undefined) ?? ""}
+                                onChange={(e) =>
+                                  setCertificateDraft((prev) => ({
+                                    ...prev,
+                                    logoUrl: e.target.value || null,
+                                  }))
+                                }
+                              />
+                            </div>
+
+                            {/* Firma */}
+                            <div>
+                              <label className="app-field-label">Imagen de firma</label>
+                              {(certificateDraft.signatureUrl as string | null | undefined) && (
+                                <div className="mb-2">
+                                  <img
+                                    src={certificateDraft.signatureUrl as string}
+                                    alt="Firma"
+                                    className="h-8 max-w-[120px] rounded-[8px] border border-[var(--app-border)] object-contain p-1"
+                                  />
+                                </div>
+                              )}
+                              <div className="flex items-center gap-2">
+                                <R2UploadButton
+                                  moduleCode="aprendizaje"
+                                  action="update"
+                                  pathPrefix={`certificates/${template.templateId}/signature`}
+                                  entityTable="app_learning.certificate_templates"
+                                  fieldName="signature_url"
+                                  accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                                  buttonLabel="Subir firma"
+                                  disabled={certificateSaving}
+                                  onUploaded={(url) =>
+                                    setCertificateDraft((prev) => ({ ...prev, signatureUrl: url }))
+                                  }
+                                />
+                                {(certificateDraft.signatureUrl as string | null | undefined) && (
+                                  <button
+                                    type="button"
+                                    className="text-xs text-red-500 hover:underline"
+                                    onClick={() =>
+                                      setCertificateDraft((prev) => ({ ...prev, signatureUrl: null }))
+                                    }
+                                  >
+                                    Quitar
+                                  </button>
+                                )}
+                              </div>
+                              <input
+                                className="app-input mt-2"
+                                placeholder="O pegar URL de la firma"
+                                value={(certificateDraft.signatureUrl as string | null | undefined) ?? ""}
+                                onChange={(e) =>
+                                  setCertificateDraft((prev) => ({
+                                    ...prev,
+                                    signatureUrl: e.target.value || null,
+                                  }))
+                                }
+                              />
+                            </div>
+
+                            {/* Vista previa toggle */}
+                            <button
+                              type="button"
+                              className="app-button-secondary w-full justify-center gap-2"
+                              onClick={() =>
+                                setCertPreviewId((p) =>
+                                  p === template.templateId ? null : template.templateId,
+                                )
+                              }
+                            >
+                              <Eye size={14} />
+                              {certPreviewId === template.templateId
+                                ? "Ocultar vista previa"
+                                : "Ver vista previa"}
+                            </button>
+
+                            {certPreviewId === template.templateId && (
+                              <CertificatePreviewCard
+                                template={{ ...template, ...certificateDraft }}
+                              />
+                            )}
+
+                            {/* Save / Cancel */}
                             <div className="flex gap-2 pt-2">
                               <button
                                 type="button"
@@ -2516,6 +2709,7 @@ export default function AprendizajePage() {
                                 onClick={() => {
                                   setCertificateEditing(null);
                                   setCertificateDraft({});
+                                  setCertPreviewId(null);
                                 }}
                               >
                                 Cancelar
@@ -2531,21 +2725,44 @@ export default function AprendizajePage() {
                                       template.templateId,
                                       {
                                         name: (certificateDraft.name as string) ?? template.name,
-                                        headlineText: (certificateDraft.headlineText as string) ?? template.headlineText,
-                                        bodyText: (certificateDraft.bodyText as string) ?? template.bodyText,
-                                        organizationName: (certificateDraft.organizationName as string) ?? template.organizationName,
-                                        signatoryName: (certificateDraft.signatoryName as string) ?? template.signatoryName,
-                                        signatoryTitle: (certificateDraft.signatoryTitle as string) ?? template.signatoryTitle,
-                                        logoUrl: (certificateDraft.logoUrl as string | null | undefined) ?? template.logoUrl,
-                                        signatureUrl: (certificateDraft.signatureUrl as string | null | undefined) ?? template.signatureUrl,
-                                        footerText: (certificateDraft.footerText as string) ?? template.footerText,
+                                        headlineText:
+                                          (certificateDraft.headlineText as string) ??
+                                          template.headlineText,
+                                        bodyText:
+                                          (certificateDraft.bodyText as string) ?? template.bodyText,
+                                        organizationName:
+                                          (certificateDraft.organizationName as string) ??
+                                          template.organizationName,
+                                        signatoryName:
+                                          (certificateDraft.signatoryName as string) ??
+                                          template.signatoryName,
+                                        signatoryTitle:
+                                          (certificateDraft.signatoryTitle as string) ??
+                                          template.signatoryTitle,
+                                        logoUrl:
+                                          (certificateDraft.logoUrl as string | null | undefined) ??
+                                          template.logoUrl,
+                                        signatureUrl:
+                                          (certificateDraft.signatureUrl as
+                                            | string
+                                            | null
+                                            | undefined) ?? template.signatureUrl,
+                                        footerText:
+                                          (certificateDraft.footerText as string) ??
+                                          template.footerText,
+                                        accentColor:
+                                          (certificateDraft.accentColor as string | undefined) ??
+                                          template.accentColor,
                                       },
                                     );
                                     setCertificateTemplates((prev) =>
-                                      prev.map((t) => (t.templateId === updated.templateId ? updated : t)),
+                                      prev.map((t) =>
+                                        t.templateId === updated.templateId ? updated : t,
+                                      ),
                                     );
                                     setCertificateEditing(null);
                                     setCertificateDraft({});
+                                    setCertPreviewId(null);
                                   } catch (error) {
                                     await showError("No se pudo guardar la plantilla", error);
                                   } finally {
@@ -2578,16 +2795,34 @@ export default function AprendizajePage() {
                               </p>
                               <p className="text-xs italic">{template.footerText}</p>
                             </div>
-                            <button
-                              type="button"
-                              className="app-button-secondary w-full justify-center"
-                              onClick={() => {
-                                setCertificateEditing(template.templateId);
-                                setCertificateDraft({ ...template });
-                              }}
-                            >
-                              Editar plantilla
-                            </button>
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                className="app-button-secondary flex-1 justify-center gap-2"
+                                onClick={() =>
+                                  setCertPreviewId((p) =>
+                                    p === template.templateId ? null : template.templateId,
+                                  )
+                                }
+                              >
+                                <Eye size={14} />
+                                {certPreviewId === template.templateId ? "Ocultar" : "Vista previa"}
+                              </button>
+                              <button
+                                type="button"
+                                className="app-button-secondary flex-1 justify-center"
+                                onClick={() => {
+                                  setCertificateEditing(template.templateId);
+                                  setCertificateDraft({ ...template });
+                                  setCertPreviewId(null);
+                                }}
+                              >
+                                Editar plantilla
+                              </button>
+                            </div>
+                            {certPreviewId === template.templateId && (
+                              <CertificatePreviewCard template={template} />
+                            )}
                           </div>
                         )}
                       </div>
