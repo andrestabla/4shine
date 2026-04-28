@@ -65,6 +65,17 @@ function fill(doc: Doc, rgb: RGB) { doc.setFillColor(...rgb); }
 function stroke(doc: Doc, rgb: RGB) { doc.setDrawColor(...rgb); }
 function ink(doc: Doc, rgb: RGB) { doc.setTextColor(...rgb); }
 
+async function urlToDataUrl(url: string): Promise<string | null> {
+  const loaded = await loadImageViaProxy(url);
+  return loaded?.dataUrl ?? null;
+}
+
+function imgFormat(dataUrl: string): 'PNG' | 'JPEG' | 'WEBP' {
+  if (dataUrl.includes('image/png')) return 'PNG';
+  if (dataUrl.includes('image/webp')) return 'WEBP';
+  return 'JPEG';
+}
+
 // ─── Template 1 — Ejecutiva ───────────────────────────────────────────────────
 // Professional horizontal bands. Centered typography. Distinct header / body / footer zones.
 
