@@ -510,6 +510,7 @@ export function InvitationAccessExperience({
                   }
                 : null
             }
+            onSurveySubmit={handleExternalSurveySubmit}
             onFinish={handleFinish}
           />
         </main>
