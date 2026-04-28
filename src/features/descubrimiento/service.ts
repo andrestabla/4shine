@@ -142,27 +142,9 @@ Eres un analista experto en la metodologia 4Shine.
 Tu objetivo es analizar el perfil de liderazgo del usuario usando el contexto metodologico cargado por el admin en RAG.
 Usa un tono directo, humano y profesional. Habla en segunda persona del singular.
 
-Reglas editoriales:
-- No uses lenguaje tipico de IA ni frases de relleno.
-- No uses mayusculas para enfatizar.
-- Usa markdown claro y accionable.
-- No menciones nombres de cursos, libros o autores, aunque existan como fuentes de contexto.
+Reglas editoriales: No uses lenguaje tipico de IA ni frases de relleno. No uses mayusculas para enfatizar. Usa markdown claro y accionable. No menciones nombres de cursos, libros o autores, aunque existan como fuentes de contexto.
 
-Estructura esperada:
-## 1. Tu perfil estrategico
-Integra fortalezas y brechas prioritarias con el indice global actual.
-
-## 2. Analisis de riesgos
-Explica 2 tensiones de liderazgo conectadas con el glosario/contexto.
-
-## 3. Plan de aceleracion
-Entrega 3 acciones tacticas concretas para los proximos 30 dias.
-
-Cuando el analisis sea por pilar (within, out, up o beyond), profundiza en:
-- fortalezas del pilar,
-- puntos criticos de atencion,
-- consecuencias sistemicas,
-- intervencion tactica.
+Cuando el analisis sea por pilar (within, out, up o beyond), profundiza en prosa narrativa sobre las fortalezas del pilar, los puntos criticos de atencion, las consecuencias sistemicas y la intervencion tactica concreta. Nunca uses listas ni viñetas; escribe siempre en parrafos narrativos densos.
 
 Genera feedback ejecutivo accionable, con tono claro, humano y profesional. Evita sonar como un asistente virtual; habla como un mentor experto en liderazgo 4Shine.
 `.trim();
@@ -3723,10 +3705,6 @@ async function requestOpenAiReport(
   return report;
 }
 
-function createPendingFinalAnalysisError(): Error {
-  return new Error("AI_FINAL_ANALYSIS_PENDING");
-}
-
 function sanitizeOpenAiBaseUrl(value: string | null | undefined): string {
   const candidate = (value ?? "").trim();
   if (!candidate) return "https://api.openai.com/v1";
@@ -3766,11 +3744,13 @@ function normalizeHeadingForMatch(input: string): string {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
-function includesRequiredSections(report: string): boolean {
-  const normalized = normalizeHeadingForMatch(report);
-  const required = ["perfil", "impuls", "plan", "atencion", "tactic"];
-  return required.every((section) => normalized.includes(section));
-}
+const REQUIRED_SECTION_GROUPS: Array<{ name: string; alts: string[] }> = [
+  { name: "perfil", alts: ["perfil"] },
+  { name: "impulso", alts: ["impuls", "motiva", "fortale"] },
+  { name: "plan", alts: ["plan", "aceler", "30 dia"] },
+  { name: "atencion", alts: ["atencion", "critico", "lectura", "riesgo"] },
+  { name: "tactica", alts: ["tactic", "interven", "accion concreta"] },
+];
 
 function getReportRejectionReason(report: string, pillar: DiscoveryReportFilter): string | null {
   const minWords = pillar === "all" ? 900 : 550;
@@ -3779,9 +3759,10 @@ function getReportRejectionReason(report: string, pillar: DiscoveryReportFilter)
   const minPercentMentions = pillar === "all" ? 6 : 4;
 
   const normalized = normalizeHeadingForMatch(report);
-  const required = ["perfil", "impuls", "plan", "atencion", "tactic"];
-  const missing = required.filter(s => !normalized.includes(s));
-  
+  const missing = REQUIRED_SECTION_GROUPS
+    .filter(({ alts }) => !alts.some((kw) => normalized.includes(kw)))
+    .map(({ name }) => name);
+
   if (missing.length > 0) return `Faltan secciones obligatorias: ${missing.join(", ")}`;
   if (wordCount < minWords) return `Extensión insuficiente (${wordCount}/${minWords} palabras)`;
   if (percentMentions < minPercentMentions) return `Faltan menciones de porcentajes (${percentMentions}/${minPercentMentions})`;
@@ -3805,37 +3786,11 @@ function hasAnyLists(report: string): boolean {
   return false;
 }
 
-function isUsableGlobalReport(report: string): boolean {
-  return countWords(report) >= 400 && includesRequiredSections(report) && !hasAnyLists(report);
-}
-
-function isUsablePillarReport(report: string): boolean {
-  return countWords(report) >= 100 && !looksGenericReport(report) && !hasAnyLists(report);
-}
-
 function isDeepEnoughReport(report: string, pillar: DiscoveryReportFilter): boolean {
   return getReportRejectionReason(report, pillar) === null;
 }
 
 function looksGenericReport(report: string): boolean {
-  const lowercase = report.toLowerCase();
-  const genericIndicators = [
-    "aquí hay algunas fortalezas",
-    "puedes mejorar en",
-    "es importante que",
-    "se recomienda",
-    "un líder debe",
-    "el liderazgo es",
-    "en conclusión",
-    "para finalizar",
-  ];
-
-  const foundIndicators = genericIndicators.filter((term) => lowercase.includes(term)).length;
-
-  // Rule: If it contains more than 3 bullet points in a row, it might be the static template or poor narrative
-  const bulletCount = (report.match(/^\s*[-*]\s+/gm) ?? []).length;
-  const isTooBullety = bulletCount > 8; // Global report shouldn't be mostly bullets
-
   const normalized = normalizeHeadingForMatch(report);
   const genericSignals = [
     "capacidad real de avance",
@@ -4847,9 +4802,9 @@ Restricciones de profundidad (ESTRICTAS):
 - Cada sección debe tener mínimo 130 palabras de análisis denso.
 - Usa mínimo 3 porcentajes y 3 competencias específicas por sección.
 - El informe total debe superar las 900 palabras.
-- PROHIBIDO USAR LISTAS O VIÑETAS. Usa solo párrafos.
+- PROHIBIDO USAR LISTAS O VIÑETAS. Usa solo párrafos narrativos continuos.
 
-Estructura obligatoria (usa markdown):
+TÍTULOS DE SECCIÓN EXACTOS — copia estos títulos exactamente, sin cambiar ni un carácter, ni mayúsculas, ni acentos:
 ## Tu perfil estratégico
 ## Lo que hoy te impulsa
 ## Plan de aceleración de 30 días
@@ -4883,13 +4838,13 @@ ${feedbackInstructions.trim()}
 ${editorialRules}
 
 Restricciones de profundidad (ESTRICTAS):
- - Cada sección debe tener mínimo 85 palabras de análisis denso.
- - Distribuye mínimo 5 porcentajes en total a lo largo del informe.
+- Cada sección debe tener mínimo 85 palabras de análisis denso.
+- Distribuye mínimo 5 porcentajes en total a lo largo del informe.
 - Usa mínimo 2 competencias concretas por sección.
 - El informe total debe superar las 550 palabras.
-- PROHIBIDO USAR LISTAS O VIÑETAS. Usa solo párrafos.
+- PROHIBIDO USAR LISTAS O VIÑETAS. Usa solo párrafos narrativos continuos.
 
-Estructura obligatoria (usa markdown):
+TÍTULOS DE SECCIÓN EXACTOS — copia estos títulos exactamente, sin cambiar ni un carácter, ni mayúsculas, ni acentos:
 ## Tu perfil estratégico
 ## Lo que hoy te impulsa
 ## Plan de aceleración de 30 días
@@ -5010,13 +4965,21 @@ async function runContractStyleAnalysis(
     let attempts = 1;
     while (!isDeepEnoughReport(report, pillar) && attempts < maxAttempts) {
       const refinementPrompt = [
-        `Iteración de mejora ${attempts}. EL REPORTE NO CUMPLE EL ESTÁNDAR DE CALIDAD (Faltan palabras o usa listas).`,
+        `Iteración de mejora ${attempts}. EL REPORTE NO CUMPLE EL ESTÁNDAR DE CALIDAD.`,
         `Palabras actuales: ${countWords(report)} (mínimo requerido: ${isGlobal ? 900 : 550}).`,
         "",
         "INSTRUCCIONES DE REESCRITURA OBLIGATORIA:",
-        "1. ELIMINA CUALQUIER LISTA, VIÑETA O NUMERACIÓN. Usa exclusivamente párrafos narrativos.",
-        "2. EXPANDE EL ANÁLISIS: Describe con mucho más detalle las situaciones de liderazgo, el impacto en el equipo y las recomendaciones tácticas.",
-        "3. Sé mucho más prolijo y descriptivo. No resumas, analiza en profundidad cada punto.",
+        "1. ELIMINA CUALQUIER LISTA, VIÑETA O NUMERACIÓN. Usa exclusivamente párrafos narrativos continuos.",
+        "2. EXPANDE EL ANÁLISIS: describe con mucho más detalle las situaciones de liderazgo, el impacto en el equipo y las recomendaciones tácticas.",
+        "3. Sé mucho más prolijo y descriptivo. No resumas; analiza en profundidad cada punto.",
+        "4. USA EXACTAMENTE ESTOS TÍTULOS DE SECCIÓN (cópialos sin modificar ni un carácter):",
+        "   ## Tu perfil estratégico",
+        "   ## Lo que hoy te impulsa",
+        "   ## Plan de aceleración de 30 días",
+        "   ## Lectura del pilar",
+        "   ## Puntos críticos de atención",
+        "   ## Intervención táctica",
+        "   ## Señal de progreso",
         "",
         "Borrador a mejorar radicalmente:",
         report,
@@ -5030,22 +4993,20 @@ async function runContractStyleAnalysis(
       attempts += 1;
     }
     if (!isDeepEnoughReport(report, pillar)) {
-      // No fallback - always try to get a quality report
       const reason = getReportRejectionReason(report, pillar);
       console.warn(`[Discovery] Report quality check failed after ${attempts} attempts: ${reason}`);
-      // If the only issue is word count and sections are present, accept it rather than fail
       const wordCount = countWords(report);
-      const hasSections = includesRequiredSections(report);
       const noBullets = !hasAnyLists(report);
-      if (hasSections && noBullets && wordCount >= 300) {
+      // Accept if prose-only and long enough — sections are best-effort after max attempts
+      if (noBullets && wordCount >= (isGlobal ? 500 : 300)) {
         return { report, source: "ai" };
       }
       throw new Error(`Calidad insuficiente: ${reason}`);
     }
     return { report, source: "ai" };
   } catch (error) {
-    if (error instanceof Error && error.message.includes("Calidad")) throw error;
-    throw error instanceof Error ? error : createPendingFinalAnalysisError();
+    if (error instanceof Error) throw error;
+    throw new Error(`Error de análisis IA: ${String(error)}`);
   }
 }
 
