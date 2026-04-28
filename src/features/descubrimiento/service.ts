@@ -5043,6 +5043,7 @@ export async function generateDiscoveryAnalysisContract(
 ): Promise<{ report: string; source: "ai" | "fallback" }> {
   await requireModulePermission(client, "descubrimiento", "view");
   await requireDiscoveryAccess(client, actor);
+  const fallback = input.fallbackReport?.trim() || "";
 
   const pillar = input.pillar ?? "all";
   const targetSessionId = input.sessionId || actor.userId;
