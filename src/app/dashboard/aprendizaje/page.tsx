@@ -7,6 +7,7 @@ import { createPortal } from "react-dom";
 import {
   ArrowLeft,
   ArrowRight,
+  Award,
   BookOpen,
   CalendarClock,
   CheckCircle2,
@@ -34,8 +35,11 @@ import { filterCommercialProducts } from "@/features/access/catalog";
 import {
   extractLearningMetadataWithAi,
   getLearningResourceDetail,
+  listCertificateTemplates,
   listLearningResources,
   listLearningWorkbooks,
+  updateCertificateTemplate,
+  type CertificateTemplateRecord,
   type LearningMetadataAssistantResult,
   type LearningResourceRecord,
   type WorkbookRecord,
@@ -83,12 +87,13 @@ const RESOURCE_STATUS_OPTIONS: ContentStatus[] = [
 ];
 const RESOURCE_PAGE_SIZE = 18;
 
-type LearningTabKey = "recursos" | "cursos" | "workbooks";
+type LearningTabKey = "recursos" | "cursos" | "workbooks" | "certificados";
 
 interface LearningTabItem {
   key: LearningTabKey;
   label: string;
   description: string;
+  adminOnly?: boolean;
 }
 
 const LEARNING_TABS: LearningTabItem[] = [
@@ -107,10 +112,16 @@ const LEARNING_TABS: LearningTabItem[] = [
     label: "Workbooks",
     description: "Cuadernos digitales del programa con avance sincronizado.",
   },
+  {
+    key: "certificados",
+    label: "Certificados",
+    description: "Plantillas editables que se adjuntan a cursos completados.",
+    adminOnly: true,
+  },
 ];
 
 function isLearningTabKey(value: string | null): value is LearningTabKey {
-  return value === "recursos" || value === "cursos" || value === "workbooks";
+  return value === "recursos" || value === "cursos" || value === "workbooks" || value === "certificados";
 }
 
 interface ResourceFormState {
@@ -130,6 +141,7 @@ interface ResourceFormState {
   thumbnailUrl: string;
   isRecommended: boolean;
   courseModules: CourseModule[];
+  certificateTemplateId: string | null;
 }
 
 const EMPTY_RESOURCE_FORM: ResourceFormState = {
@@ -149,6 +161,7 @@ const EMPTY_RESOURCE_FORM: ResourceFormState = {
   thumbnailUrl: "",
   isRecommended: false,
   courseModules: [],
+  certificateTemplateId: null,
 };
 
 function createInitialResourceForm(
@@ -847,6 +860,10 @@ export default function AprendizajePage() {
     "all" | string
   >("all");
   const [workbookSearch, setWorkbookSearch] = React.useState("");
+  const [certificateTemplates, setCertificateTemplates] = React.useState<CertificateTemplateRecord[]>([]);
+  const [certificateEditing, setCertificateEditing] = React.useState<string | null>(null);
+  const [certificateDraft, setCertificateDraft] = React.useState<Partial<CertificateTemplateRecord>>({});
+  const [certificateSaving, setCertificateSaving] = React.useState(false);
 
   const isResourceManager = currentRole === "gestor" || currentRole === "admin";
   const isOpenLeader =
@@ -863,6 +880,7 @@ export default function AprendizajePage() {
   const isResourcesTab = activeLearningTab === "recursos";
   const isCoursesTab = activeLearningTab === "cursos";
   const isWorkbooksTab = activeLearningTab === "workbooks";
+  const isCertificadosTab = activeLearningTab === "certificados";
 
   const showError = React.useCallback(
     async (fallbackMessage: string, cause: unknown) => {
@@ -910,7 +928,7 @@ export default function AprendizajePage() {
             ? "resource"
             : null;
       const resourceRequest =
-        activeLearningTab === "workbooks"
+        activeLearningTab === "workbooks" || activeLearningTab === "certificados"
           ? Promise.resolve({
               items: [] as LearningResourceRecord[],
               total: 0,
@@ -934,14 +952,16 @@ export default function AprendizajePage() {
               pageSize: RESOURCE_PAGE_SIZE,
             });
 
-      const [resourceData, workbookData] = await Promise.all([
+      const [resourceData, workbookData, certificateData] = await Promise.all([
         resourceRequest,
         listLearningWorkbooks(),
+        isResourceManager ? listCertificateTemplates() : Promise.resolve([] as CertificateTemplateRecord[]),
       ]);
       setResources(resourceData.items);
       setResourceTotal(resourceData.total);
       setResourceTotalPages(resourceData.totalPages);
       setWorkbooks(workbookData);
+      setCertificateTemplates(certificateData);
     } catch (error) {
       await showError("No se pudo cargar el módulo de aprendizaje", error);
     } finally {
@@ -950,6 +970,7 @@ export default function AprendizajePage() {
   }, [
     activeLearningTab,
     deferredResourceSearch,
+    isResourceManager,
     resourcePage,
     resourcePillarFilter,
     resourceStatusFilter,
@@ -1263,6 +1284,7 @@ export default function AprendizajePage() {
         courseModules: normalizeCourseModulesFromStructure(
           resource.structurePayload,
         ),
+        certificateTemplateId: resource.certificateTemplateId ?? null,
       });
       setResourceTagDraft("");
       setCustomCategoryDraft(
@@ -1350,6 +1372,7 @@ export default function AprendizajePage() {
           ? normalizeCourseModulesForSave(resourceForm.courseModules)
           : [],
     },
+    certificateTemplateId: editorKind === "course" ? resourceForm.certificateTemplateId : undefined,
   });
 
   const onSubmitResource = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -1894,9 +1917,11 @@ export default function AprendizajePage() {
                 ? isOpenLeader
                   ? "Revisa las rutas de aprendizaje disponibles y activa el programa para desbloquear la experiencia completa."
                   : "Accede a cursos estructurados con módulos y recursos internos, listos para navegar como experiencias completas."
-                : isOpenLeader
-                  ? "Los workbooks del programa se activan al comprar el plan 4Shine."
-                  : "Cada workbook vive en su propio espacio, con progreso real sincronizado por usuario y acceso según cronograma."}
+                : isCertificadosTab
+                  ? "Edita las plantillas de certificado y asígnalas a los cursos para que se entreguen automáticamente al completar el 100%."
+                  : isOpenLeader
+                    ? "Los workbooks del programa se activan al comprar el plan 4Shine."
+                    : "Cada workbook vive en su propio espacio, con progreso real sincronizado por usuario y acceso según cronograma."}
           </p>
         </div>
 
@@ -1906,6 +1931,11 @@ export default function AprendizajePage() {
               <CalendarClock size={13} />
               {workbooks.length} workbooks en catálogo
             </span>
+          ) : isCertificadosTab ? (
+            <span className="app-chip-soft">
+              <Award size={13} />
+              {certificateTemplates.length} plantillas
+            </span>
           ) : (
             <span className="app-chip-soft">
               {resourceTotal} {activeCollectionLabel} en esta vista
@@ -1914,7 +1944,7 @@ export default function AprendizajePage() {
           {isOpenLeader ? (
             <span className="app-chip-soft">Cuenta free</span>
           ) : null}
-          {isResourceManager && !isWorkbooksTab ? (
+          {isResourceManager && !isWorkbooksTab && !isCertificadosTab ? (
             <button
               type="button"
               className="app-button-primary"
@@ -1929,15 +1959,17 @@ export default function AprendizajePage() {
         </div>
       </section>
 
-      <nav className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        {LEARNING_TABS.map((tab) => {
+      <nav className={`grid grid-cols-1 gap-3 ${isResourceManager ? "md:grid-cols-4" : "md:grid-cols-3"}`}>
+        {LEARNING_TABS.filter((tab) => !tab.adminOnly || isResourceManager).map((tab) => {
           const isActive = tab.key === activeLearningTab;
           const Icon =
             tab.key === "recursos"
               ? BookOpen
               : tab.key === "cursos"
                 ? Layers3
-                : CalendarClock;
+                : tab.key === "certificados"
+                  ? Award
+                  : CalendarClock;
 
           return (
             <Link
@@ -2388,6 +2420,187 @@ export default function AprendizajePage() {
                   )}
                 </div>
               )}
+            </section>
+          )}
+
+          {isCertificadosTab && isResourceManager && (
+            <section className="space-y-6">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <p className="app-section-kicker">Certificados</p>
+                  <h3
+                    className="app-display-title mt-2 text-3xl font-semibold"
+                    data-display-font="true"
+                  >
+                    Plantillas de certificado
+                  </h3>
+                  <p className="mt-2 text-sm leading-relaxed text-[var(--app-muted)]">
+                    Edita las 3 plantillas disponibles y asígnalas a cualquier curso desde el editor de cursos.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+                {certificateTemplates.map((template, idx) => {
+                  const isEditing = certificateEditing === template.templateId;
+                  const draft = isEditing ? certificateDraft : template;
+                  const accentColors = ["#5f3471", "#3b2a70", "#1a3a5c"];
+                  const accentColor = accentColors[idx] ?? "#5f3471";
+
+                  return (
+                    <div
+                      key={template.templateId}
+                      className="overflow-hidden rounded-[24px] border border-[var(--app-border)] bg-white/90 shadow-[0_18px_38px_rgba(55,32,80,0.06)]"
+                    >
+                      <div
+                        className="p-5"
+                        style={{ background: `linear-gradient(135deg, ${accentColor}ee, ${accentColor}99)` }}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="rounded-[14px] bg-white/15 p-3">
+                            <Award size={20} className="text-white" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">
+                              Plantilla {template.templateNumber}
+                            </p>
+                            <p className="text-lg font-semibold text-white">
+                              {template.name}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="mt-4 rounded-[16px] border border-white/20 bg-white/10 p-4">
+                          <p className="text-sm text-white/80">
+                            {template.headlineText}{" "}
+                            <span className="font-semibold text-white">[Nombre]</span>{" "}
+                            {template.bodyText}
+                          </p>
+                          <p className="mt-2 text-xs text-white/60">{template.organizationName}</p>
+                        </div>
+                      </div>
+
+                      <div className="p-5">
+                        {isEditing ? (
+                          <div className="space-y-3">
+                            {(
+                              [
+                                { key: "name", label: "Nombre interno" },
+                                { key: "headlineText", label: "Encabezado (antes del nombre)" },
+                                { key: "bodyText", label: "Cuerpo (después del nombre)" },
+                                { key: "organizationName", label: "Organización" },
+                                { key: "signatoryName", label: "Firmante" },
+                                { key: "signatoryTitle", label: "Cargo del firmante" },
+                                { key: "footerText", label: "Pie del certificado" },
+                                { key: "logoUrl", label: "URL del logo" },
+                                { key: "signatureUrl", label: "URL de la firma" },
+                              ] as Array<{ key: keyof CertificateTemplateRecord; label: string }>
+                            ).map(({ key, label }) => (
+                              <div key={key}>
+                                <label className="app-field-label">{label}</label>
+                                <input
+                                  className="app-input"
+                                  value={(draft[key] as string) ?? ""}
+                                  onChange={(e) =>
+                                    setCertificateDraft((prev) => ({
+                                      ...prev,
+                                      [key]: e.target.value,
+                                    }))
+                                  }
+                                />
+                              </div>
+                            ))}
+                            <div className="flex gap-2 pt-2">
+                              <button
+                                type="button"
+                                className="app-button-secondary flex-1 justify-center"
+                                onClick={() => {
+                                  setCertificateEditing(null);
+                                  setCertificateDraft({});
+                                }}
+                              >
+                                Cancelar
+                              </button>
+                              <button
+                                type="button"
+                                className="app-button-primary flex-1 justify-center"
+                                disabled={certificateSaving}
+                                onClick={async () => {
+                                  setCertificateSaving(true);
+                                  try {
+                                    const updated = await updateCertificateTemplate(
+                                      template.templateId,
+                                      {
+                                        name: (certificateDraft.name as string) ?? template.name,
+                                        headlineText: (certificateDraft.headlineText as string) ?? template.headlineText,
+                                        bodyText: (certificateDraft.bodyText as string) ?? template.bodyText,
+                                        organizationName: (certificateDraft.organizationName as string) ?? template.organizationName,
+                                        signatoryName: (certificateDraft.signatoryName as string) ?? template.signatoryName,
+                                        signatoryTitle: (certificateDraft.signatoryTitle as string) ?? template.signatoryTitle,
+                                        logoUrl: (certificateDraft.logoUrl as string | null | undefined) ?? template.logoUrl,
+                                        signatureUrl: (certificateDraft.signatureUrl as string | null | undefined) ?? template.signatureUrl,
+                                        footerText: (certificateDraft.footerText as string) ?? template.footerText,
+                                      },
+                                    );
+                                    setCertificateTemplates((prev) =>
+                                      prev.map((t) => (t.templateId === updated.templateId ? updated : t)),
+                                    );
+                                    setCertificateEditing(null);
+                                    setCertificateDraft({});
+                                  } catch (error) {
+                                    await showError("No se pudo guardar la plantilla", error);
+                                  } finally {
+                                    setCertificateSaving(false);
+                                  }
+                                }}
+                              >
+                                {certificateSaving ? (
+                                  <Loader2 size={14} className="animate-spin" />
+                                ) : (
+                                  <Save size={14} />
+                                )}
+                                {certificateSaving ? "Guardando..." : "Guardar"}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <div className="space-y-2 text-sm text-[var(--app-muted)]">
+                              {template.signatoryName && (
+                                <p>
+                                  <span className="font-semibold text-[var(--app-ink)]">Firmante: </span>
+                                  {template.signatoryName}
+                                  {template.signatoryTitle ? `, ${template.signatoryTitle}` : ""}
+                                </p>
+                              )}
+                              <p>
+                                <span className="font-semibold text-[var(--app-ink)]">Org: </span>
+                                {template.organizationName}
+                              </p>
+                              <p className="text-xs italic">{template.footerText}</p>
+                            </div>
+                            <button
+                              type="button"
+                              className="app-button-secondary w-full justify-center"
+                              onClick={() => {
+                                setCertificateEditing(template.templateId);
+                                setCertificateDraft({ ...template });
+                              }}
+                            >
+                              Editar plantilla
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {certificateTemplates.length === 0 && (
+                  <div className="col-span-3 rounded-[22px] border border-dashed border-[var(--app-border)] bg-white/60 p-8 text-center text-sm text-[var(--app-muted)]">
+                    Cargando plantillas de certificado...
+                  </div>
+                )}
+              </div>
             </section>
           )}
         </>
@@ -3526,6 +3739,61 @@ export default function AprendizajePage() {
                       onAddTag={addTagToResourceForm}
                       onRemoveTag={removeTagFromResourceForm}
                     />
+
+                    {isCourseEditor && (
+                      <section className="rounded-[24px] border border-[var(--app-border)] bg-white/88 p-5 shadow-[0_18px_38px_rgba(55,32,80,0.05)]">
+                        <div className="flex items-center gap-3">
+                          <div className="rounded-[16px] bg-[var(--app-chip)] p-3 text-[#4f2360]">
+                            <Award size={18} />
+                          </div>
+                          <div>
+                            <h4 className="text-lg font-semibold text-[var(--app-ink)]">
+                              Certificado del curso
+                            </h4>
+                            <p className="text-sm text-[var(--app-muted)]">
+                              Selecciona la plantilla que se entregará al completar el 100% del curso.
+                            </p>
+                          </div>
+                        </div>
+                        <div className="mt-4">
+                          <label className="app-field-label">Plantilla de certificado</label>
+                          <select
+                            className="app-select"
+                            value={resourceForm.certificateTemplateId ?? ""}
+                            onChange={(e) =>
+                              setResourceForm((prev) => ({
+                                ...prev,
+                                certificateTemplateId: e.target.value || null,
+                              }))
+                            }
+                          >
+                            <option value="">Sin certificado</option>
+                            {certificateTemplates.map((t) => (
+                              <option key={t.templateId} value={t.templateId}>
+                                Plantilla {t.templateNumber} — {t.name}
+                              </option>
+                            ))}
+                          </select>
+                          {resourceForm.certificateTemplateId && (() => {
+                            const selected = certificateTemplates.find(
+                              (t) => t.templateId === resourceForm.certificateTemplateId,
+                            );
+                            return selected ? (
+                              <div className="mt-3 rounded-[16px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4 text-sm text-[var(--app-muted)]">
+                                <p className="font-semibold text-[var(--app-ink)]">{selected.name}</p>
+                                <p className="mt-1">
+                                  {selected.headlineText}{" "}
+                                  <span className="italic">[Nombre del participante]</span>{" "}
+                                  {selected.bodyText}
+                                </p>
+                                <p className="mt-1 text-xs">{selected.organizationName}</p>
+                              </div>
+                            ) : null;
+                          })()}
+                        </div>
+                      </section>
+                    )}
+
                         <div className="2xl:hidden">
                           <LearningEditorSupportRail
                             isCourseEditor={isCourseEditor}

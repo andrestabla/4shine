@@ -82,6 +82,7 @@ export interface UpdateContentInput {
   competencyMetadata?: ContentCompetencyMetadata;
   structurePayload?: ContentStructurePayload;
   tags?: string[];
+  certificateTemplateId?: string | null;
 }
 
 export async function listContent(scope?: ContentScope): Promise<ContentItemRecord[]> {

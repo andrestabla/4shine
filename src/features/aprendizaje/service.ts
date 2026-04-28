@@ -55,6 +55,7 @@ export interface LearningResourceRecord {
   comments: LearningCommentRecord[];
   structurePayload: ContentStructurePayload;
   completedResourceIds: string[];
+  certificateTemplateId: string | null;
 }
 
 
@@ -195,6 +196,7 @@ interface LearningResourceRow {
   comments: LearningCommentRow[] | null;
   structure_payload: ContentStructurePayload | null;
   completed_resource_ids: string[] | null;
+  certificate_template_id: string | null;
 }
 
 function getCourseResourceFallbackId(moduleId: string | null | undefined, moduleIndex: number, resourceId: string | null | undefined, resourceIndex: number): string {
@@ -326,6 +328,7 @@ function mapLearningResourceRow(row: LearningResourceRow): LearningResourceRecor
         modules: [],
       },
     completedResourceIds: validCompletedResourceIds,
+    certificateTemplateId: row.certificate_template_id ?? null,
     comments: mapLearningComments(row.comments),
   };
 }
@@ -726,6 +729,7 @@ export async function listLearningResources(
         ci.updated_at::text,
         ci.published_at::text,
         ci.thumbnail_url,
+        ci.certificate_template_id::text,
         ARRAY[]::json[] AS comments
       FROM app_learning.content_items ci
       LEFT JOIN (
@@ -859,6 +863,7 @@ export async function getLearningResourceDetail(
         ci.updated_at::text,
         ci.published_at::text,
         ci.thumbnail_url,
+        ci.certificate_template_id::text,
         COALESCE(comments.comments, ARRAY[]::json[]) AS comments
       FROM app_learning.content_items ci
       LEFT JOIN (
@@ -1416,3 +1421,151 @@ export async function deleteWorkbook(
 }
 
 export { DEFAULT_WORKBOOK_FIELDS };
+
+export interface CertificateTemplateRecord {
+  templateId: string;
+  templateNumber: number;
+  name: string;
+  headlineText: string;
+  bodyText: string;
+  organizationName: string;
+  signatoryName: string;
+  signatoryTitle: string;
+  logoUrl: string | null;
+  signatureUrl: string | null;
+  footerText: string;
+  accentColor: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpdateCertificateTemplateInput {
+  name?: string;
+  headlineText?: string;
+  bodyText?: string;
+  organizationName?: string;
+  signatoryName?: string;
+  signatoryTitle?: string;
+  logoUrl?: string | null;
+  signatureUrl?: string | null;
+  footerText?: string;
+  accentColor?: string;
+}
+
+interface CertificateTemplateRow {
+  template_id: string;
+  template_number: number;
+  name: string;
+  headline_text: string;
+  body_text: string;
+  organization_name: string;
+  signatory_name: string;
+  signatory_title: string;
+  logo_url: string | null;
+  signature_url: string | null;
+  footer_text: string;
+  accent_color: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+function mapCertificateTemplateRow(row: CertificateTemplateRow): CertificateTemplateRecord {
+  return {
+    templateId: row.template_id,
+    templateNumber: row.template_number,
+    name: row.name,
+    headlineText: row.headline_text,
+    bodyText: row.body_text,
+    organizationName: row.organization_name,
+    signatoryName: row.signatory_name,
+    signatoryTitle: row.signatory_title,
+    logoUrl: row.logo_url,
+    signatureUrl: row.signature_url,
+    footerText: row.footer_text,
+    accentColor: row.accent_color,
+    isActive: row.is_active,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export async function listCertificateTemplates(
+  client: PoolClient,
+  actor: AuthUser,
+): Promise<CertificateTemplateRecord[]> {
+  await requireModulePermission(client, 'aprendizaje', 'view');
+
+  const isManager = actor.role === 'gestor' || actor.role === 'admin';
+  if (!isManager) {
+    throw new ForbiddenError('Only gestores and admins can manage certificate templates');
+  }
+
+  const { rows } = await client.query<CertificateTemplateRow>(
+    `SELECT template_id::text, template_number, name, headline_text, body_text,
+            organization_name, signatory_name, signatory_title,
+            logo_url, signature_url, footer_text, accent_color, is_active,
+            created_at::text, updated_at::text
+     FROM app_learning.certificate_templates
+     ORDER BY template_number ASC`,
+  );
+
+  return rows.map(mapCertificateTemplateRow);
+}
+
+export async function updateCertificateTemplate(
+  client: PoolClient,
+  actor: AuthUser,
+  templateId: string,
+  input: UpdateCertificateTemplateInput,
+): Promise<CertificateTemplateRecord> {
+  await requireModulePermission(client, 'aprendizaje', 'update');
+
+  const isManager = actor.role === 'gestor' || actor.role === 'admin';
+  if (!isManager) {
+    throw new ForbiddenError('Only gestores and admins can update certificate templates');
+  }
+
+  const { rows } = await client.query<CertificateTemplateRow>(
+    `UPDATE app_learning.certificate_templates SET
+       name             = COALESCE($2, name),
+       headline_text    = COALESCE($3, headline_text),
+       body_text        = COALESCE($4, body_text),
+       organization_name = COALESCE($5, organization_name),
+       signatory_name   = COALESCE($6, signatory_name),
+       signatory_title  = COALESCE($7, signatory_title),
+       logo_url         = CASE WHEN $8::boolean THEN $9 ELSE logo_url END,
+       signature_url    = CASE WHEN $10::boolean THEN $11 ELSE signature_url END,
+       footer_text      = COALESCE($12, footer_text),
+       accent_color     = COALESCE($13, accent_color),
+       updated_at       = now()
+     WHERE template_id = $1::uuid
+     RETURNING template_id::text, template_number, name, headline_text, body_text,
+               organization_name, signatory_name, signatory_title,
+               logo_url, signature_url, footer_text, accent_color, is_active,
+               created_at::text, updated_at::text`,
+    [
+      templateId,
+      input.name ?? null,
+      input.headlineText ?? null,
+      input.bodyText ?? null,
+      input.organizationName ?? null,
+      input.signatoryName ?? null,
+      input.signatoryTitle ?? null,
+      'logoUrl' in input,
+      input.logoUrl ?? null,
+      'signatureUrl' in input,
+      input.signatureUrl ?? null,
+      input.footerText ?? null,
+      input.accentColor ?? null,
+    ],
+  );
+
+  const row = rows[0];
+  if (!row) {
+    throw new Error('Certificate template not found');
+  }
+
+  return mapCertificateTemplateRow(row);
+}

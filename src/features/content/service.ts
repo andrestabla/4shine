@@ -53,6 +53,7 @@ export interface ContentItemRecord {
   structurePayload: ContentStructurePayload;
   tags: string[];
   thumbnailUrl: string | null;
+  certificateTemplateId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -88,6 +89,7 @@ export interface UpdateContentInput {
   structurePayload?: ContentStructurePayload;
   tags?: string[];
   thumbnailUrl?: string | null;
+  certificateTemplateId?: string | null;
 }
 
 interface ContentRow {
@@ -111,6 +113,7 @@ interface ContentRow {
   competency_metadata: ContentCompetencyMetadata | null;
   structure_payload: ContentStructurePayload | null;
   thumbnail_url: string | null;
+  certificate_template_id: string | null;
   tags: string[] | null;
   created_at: string;
   updated_at: string;
@@ -145,6 +148,7 @@ const CONTENT_SELECT = `
     ci.competency_metadata,
     ci.structure_payload,
     ci.thumbnail_url,
+    ci.certificate_template_id::text,
     COALESCE(tags.tags, ARRAY[]::text[]) AS tags,
     ci.created_at::text,
     ci.updated_at::text
@@ -183,6 +187,7 @@ function mapRow(row: ContentRow): ContentItemRecord {
         modules: [],
       },
     thumbnailUrl: row.thumbnail_url,
+    certificateTemplateId: row.certificate_template_id,
     tags: row.tags ?? [],
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -549,7 +554,8 @@ export async function updateContent(
         competency_metadata = COALESCE($11::jsonb, competency_metadata),
         structure_payload = COALESCE($12::jsonb, structure_payload),
         thumbnail_url = COALESCE($13, thumbnail_url),
-        approved_by = CASE WHEN $9 = 'published' THEN $14 ELSE approved_by END,
+        certificate_template_id = CASE WHEN $15::boolean THEN $16::uuid ELSE certificate_template_id END,
+        approved_by = CASE WHEN $9 = 'published' THEN $14::uuid ELSE approved_by END,
         approved_at = CASE WHEN $9 = 'published' THEN now() ELSE approved_at END,
         published_at = CASE WHEN $9 = 'published' THEN COALESCE(published_at, now()) ELSE published_at END,
         updated_at = now()
@@ -571,6 +577,8 @@ export async function updateContent(
       structurePayload ? JSON.stringify(structurePayload) : null,
       input.thumbnailUrl ?? null,
       actor.userId,
+      'certificateTemplateId' in input,
+      input.certificateTemplateId ?? null,
     ],
   );
 

@@ -8,6 +8,7 @@ import type {
   LearningMetadataAssistantResult,
 } from './metadata-assistant';
 import type {
+  CertificateTemplateRecord,
   CreateLearningCommentInput,
   LearningCommentReactionToggleResult,
   LearningLikeToggleResult,
@@ -17,6 +18,7 @@ import type {
   LearningResourceRecord,
   LearningProgressUpdateInput,
   LearningProgressUpdateResult,
+  UpdateCertificateTemplateInput,
   UpdateWorkbookInput,
   WorkbookEditableFields,
   WorkbookRecord,
@@ -24,6 +26,7 @@ import type {
 } from './service';
 
 export type {
+  CertificateTemplateRecord,
   LearningCommentRecord,
   LearningCommentReactionSummary,
   LearningCommentReactionToggleResult,
@@ -36,6 +39,7 @@ export type {
   LearningResourceRecord,
   LearningProgressUpdateInput,
   LearningProgressUpdateResult,
+  UpdateCertificateTemplateInput,
   UpdateWorkbookInput,
   WorkbookEditableFields,
   WorkbookRecord,
@@ -142,4 +146,21 @@ export async function deleteLearningWorkbook(workbookId: string): Promise<{ work
   return requestApi<{ workbookId: string }>(`/api/v1/modules/aprendizaje/workbooks/${workbookId}`, {
     method: 'DELETE',
   });
+}
+
+export async function listCertificateTemplates(): Promise<CertificateTemplateRecord[]> {
+  return requestApi<CertificateTemplateRecord[]>('/api/v1/modules/aprendizaje/certificates');
+}
+
+export async function updateCertificateTemplate(
+  templateId: string,
+  input: UpdateCertificateTemplateInput,
+): Promise<CertificateTemplateRecord> {
+  return requestApi<CertificateTemplateRecord>(
+    `/api/v1/modules/aprendizaje/certificates/${encodeURIComponent(templateId)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    },
+  );
 }
