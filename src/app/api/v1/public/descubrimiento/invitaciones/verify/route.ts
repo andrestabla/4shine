@@ -68,7 +68,7 @@ export async function POST(request: Request) {
               experienceSurvey:
                 provisioned.access.externalSurvey ??
                 provisioned.access.externalProgress.experienceSurvey ??
-                null,
+                undefined,
               markCompleted:
                 provisioned.access.externalProgress.status === "results" ||
                 provisioned.access.alreadyCompleted,

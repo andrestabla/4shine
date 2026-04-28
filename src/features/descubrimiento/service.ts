@@ -2541,13 +2541,12 @@ export async function saveDiscoveryInvitationProgress(
   if (verified.accessMode !== "diagnostic") {
     if (input.survey) {
       const surveyPayload = parseExperienceSurvey(input.survey);
-      const finalMeta = {
-        ...(verified.invitation.meta as Record<string, unknown> || {}),
+      const metaUpdate = {
         external_survey: surveyPayload,
       };
       await client.query(
-        `UPDATE app_assessment.discovery_invitations SET meta = $2::jsonb, updated_at = now() WHERE invitation_id = $1::uuid`,
-        [verified.invitation.invitationId, JSON.stringify(finalMeta)],
+        `UPDATE app_assessment.discovery_invitations SET meta = COALESCE(meta, '{}'::jsonb) || $2::jsonb, updated_at = now() WHERE invitation_id = $1::uuid`,
+        [verified.invitation.invitationId, JSON.stringify(metaUpdate)],
       );
       const invRow = await resolveDiscoveryInvitationByToken(client, input.inviteToken);
       if (invRow.session_id) {
@@ -2598,11 +2597,12 @@ export async function saveDiscoveryInvitationProgress(
     completedAt: completionDate,
   };
 
-  const finalMeta = {
-    ...(verified.invitation.meta as Record<string, any> || {}),
+  const metaUpdate: Record<string, any> = {
     external_progress: progressPayload,
-    external_survey: surveyPayload || verified.externalSurvey,
   };
+  if (surveyPayload) {
+    metaUpdate.external_survey = surveyPayload;
+  }
 
   console.log(`[Diagnostic] Saving progress for invitation ${verified.invitation.invitationId}:`, {
     status: normalizedState.status,
@@ -2614,11 +2614,11 @@ export async function saveDiscoveryInvitationProgress(
     `
       UPDATE app_assessment.discovery_invitations
       SET
-        meta = $2::jsonb,
+        meta = COALESCE(meta, '{}'::jsonb) || $2::jsonb,
         updated_at = now()
       WHERE invitation_id = $1::uuid
     `,
-    [verified.invitation.invitationId, JSON.stringify(finalMeta)],
+    [verified.invitation.invitationId, JSON.stringify(metaUpdate)],
   );
 
   // Sync the discovery_sessions record so the admin dashboard reflects real progress
@@ -2702,14 +2702,13 @@ export async function saveDiscoveryInvitationSurvey(
     throw new Error("Datos de encuesta invalidos o incompletos.");
   }
 
-  const finalMeta = {
-    ...((row.meta as Record<string, unknown>) || {}),
+  const metaUpdate = {
     external_survey: surveyPayload,
   };
 
   await client.query(
-    `UPDATE app_assessment.discovery_invitations SET meta = $2::jsonb, updated_at = now() WHERE invitation_id = $1::uuid`,
-    [row.invitation_id, JSON.stringify(finalMeta)],
+    `UPDATE app_assessment.discovery_invitations SET meta = COALESCE(meta, '{}'::jsonb) || $2::jsonb, updated_at = now() WHERE invitation_id = $1::uuid`,
+    [row.invitation_id, JSON.stringify(metaUpdate)],
   );
 
   if (row.session_id) {
