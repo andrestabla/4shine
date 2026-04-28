@@ -138,7 +138,7 @@ export const PdfReportData = React.forwardRef<HTMLDivElement, PdfReportDataProps
     const globalStatus = getDiscoveryStatus(scoring.globalIndex);
     const competencyPages = chunkArray(scoring.compList, 16);
     const globalReportPages = splitMarkdownIntoChunks(
-      resolvedReports.all,
+      resolvedReports.all ?? "",
       GLOBAL_REPORT_CHARS_PER_PAGE,
     );
 
@@ -266,10 +266,10 @@ export const PdfReportData = React.forwardRef<HTMLDivElement, PdfReportDataProps
           const metric = scoring.pillarMetrics[pillar];
           const status = getDiscoveryStatus(metric.total);
           const [firstPillarChunk = ""] = splitMarkdownIntoChunks(
-            resolvedReports[pillar],
+            resolvedReports[pillar] ?? "",
             PILLAR_FIRST_PAGE_CHARS,
           );
-          const normalizedPillarReport = resolvedReports[pillar].trim();
+          const normalizedPillarReport = (resolvedReports[pillar] ?? "").trim();
           const usedContent = firstPillarChunk.trim();
           const remainingContent = usedContent
             ? normalizedPillarReport.startsWith(usedContent)
