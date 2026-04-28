@@ -4568,6 +4568,7 @@ interface DiscoveryAnalyzeContractInput {
   pillar: DiscoveryReportFilter;
   fallbackReport?: string;
   fastMode?: boolean;
+  force?: boolean;
 }
 
 const DISCOVERY_REPORT_BATCH_FILTERS: DiscoveryReportFilter[] = [
