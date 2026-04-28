@@ -611,7 +611,7 @@ export function DiscoveryExperience() {
           await analyzeDiscoveryReport({
             username: row.participantName,
             role: row.jobRole || "Líder",
-            scores: detail.scores,
+            scores: detail.scoring,
             pillar,
           });
         }
