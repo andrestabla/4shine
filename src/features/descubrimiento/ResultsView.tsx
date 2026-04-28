@@ -229,24 +229,10 @@ export function ResultsView({
     analysisBatchStartedRef.current = false;
   }, [initialReports, initiallyCachedFilters, isInvitationExperience]);
 
-  React.useEffect(() => {
-    return () => {
-      if (surveyPromptTimerRef.current) {
-        window.clearTimeout(surveyPromptTimerRef.current);
-      }
-    };
-  }, []);
-
-  const scheduleSurveyPrompt = React.useCallback((ms: number) => {
-    if (surveyPromptTimerRef.current) {
-      window.clearTimeout(surveyPromptTimerRef.current);
-    }
-    surveyPromptTimerRef.current = window.setTimeout(() => {
-      setIsSurveyOpen(true);
-      // Reschedule for every 2 minutes if still not submitted
-      scheduleSurveyPrompt(120000);
-    }, ms);
-  }, []);
+  const hasSurveyResponses = React.useCallback(() => {
+    if (initialSurvey || surveySubmitted) return true;
+    return Object.keys(surveyAnswers).length >= SURVEY_QUESTIONS.length;
+  }, [initialSurvey, surveySubmitted, surveyAnswers]);
 
   const clearSurveyPromptTimer = React.useCallback(() => {
     if (surveyPromptTimerRef.current) {
@@ -255,14 +241,30 @@ export function ResultsView({
     }
   }, []);
 
+  const scheduleSurveyPrompt = React.useCallback(
+    (delayMs: number) => {
+      if (typeof window === "undefined") return;
+      if (hasSurveyResponses()) return;
+
+      clearSurveyPromptTimer();
+      surveyPromptTimerRef.current = window.setTimeout(() => {
+        setIsSurveyOpen(true);
+        // Reschedule for every 2 minutes if still not submitted
+        scheduleSurveyPrompt(120000);
+      }, delayMs);
+    },
+    [clearSurveyPromptTimer, hasSurveyResponses],
+  );
+
   React.useEffect(() => {
-    if (surveySubmitted || isSurveyOpen) {
+    if (hasSurveyResponses() || isSurveyOpen) {
       clearSurveyPromptTimer();
       return;
     }
-    // Initial prompt after 20s, then every 2 minutes via scheduleSurveyPrompt
+    // Initial prompt after 20s, then recursive every 2 minutes via scheduleSurveyPrompt
     scheduleSurveyPrompt(20000);
-  }, [surveySubmitted, isSurveyOpen, scheduleSurveyPrompt, clearSurveyPromptTimer]);
+    return clearSurveyPromptTimer;
+  }, [hasSurveyResponses, isSurveyOpen, scheduleSurveyPrompt, clearSurveyPromptTimer]);
 
   React.useEffect(() => {
     setSharedPublicId(publicId ?? null);
@@ -288,41 +290,6 @@ export function ResultsView({
       window.localStorage.setItem("discovery-results-tour-seen", "1");
     }
   };
-
-  const clearSurveyPromptTimer = React.useCallback(() => {
-    if (surveyPromptTimerRef.current) {
-      window.clearTimeout(surveyPromptTimerRef.current);
-      surveyPromptTimerRef.current = null;
-    }
-  }, []);
-
-  const hasSurveyResponses = React.useCallback(() => {
-    if (initialSurvey) return true;
-    return Object.keys(surveyAnswers).length >= SURVEY_QUESTIONS.length;
-  }, [initialSurvey, surveyAnswers]);
-
-  const scheduleSurveyPrompt = React.useCallback(
-    (delayMs: number) => {
-      if (typeof window === "undefined") return;
-      if (hasSurveyResponses()) return;
-      clearSurveyPromptTimer();
-      surveyPromptTimerRef.current = window.setTimeout(() => {
-        setPendingSurveyAction(null);
-        setIsSurveyOpen(true);
-      }, delayMs);
-    },
-    [clearSurveyPromptTimer, hasSurveyResponses],
-  );
-
-  React.useEffect(() => {
-    if (hasSurveyResponses()) {
-      clearSurveyPromptTimer();
-      return;
-    }
-
-    scheduleSurveyPrompt(20000);
-    return clearSurveyPromptTimer;
-  }, [clearSurveyPromptTimer, hasSurveyResponses, scheduleSurveyPrompt]);
 
   const syncReports = React.useCallback((nextReports: Partial<Record<DiscoveryReportFilter, string>>) => {
     const trimmedEntries = (Object.entries(nextReports) as Array<[DiscoveryReportFilter, string | undefined]>)
