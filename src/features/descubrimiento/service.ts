@@ -3768,15 +3768,7 @@ function normalizeHeadingForMatch(input: string): string {
 
 function includesRequiredSections(report: string): boolean {
   const normalized = normalizeHeadingForMatch(report);
-  const required = [
-    "## tu perfil estrategico",
-    "## lo que hoy te impulsa",
-    "## plan de aceleracion de 30 dias",
-    "## lectura del pilar",
-    "## puntos criticos de atencion",
-    "## intervencion tactica",
-    "## senal de progreso",
-  ];
+  const required = ["perfil", "impulso", "plan", "atencion", "tactica"];
   return required.every((section) => normalized.includes(section));
 }
 
@@ -3786,7 +3778,11 @@ function getReportRejectionReason(report: string, pillar: DiscoveryReportFilter)
   const percentMentions = (report.match(/\b\d{1,3}(?:[.,]\d+)?%/g) ?? []).length;
   const minPercentMentions = pillar === "all" ? 6 : 4;
 
-  if (!includesRequiredSections(report)) return "Faltan secciones obligatorias";
+  const normalized = normalizeHeadingForMatch(report);
+  const required = ["perfil", "impulso", "plan", "atencion", "tactica"];
+  const missing = required.filter(s => !normalized.includes(s));
+  
+  if (missing.length > 0) return `Faltan secciones obligatorias: ${missing.join(", ")}`;
   if (wordCount < minWords) return `Extensión insuficiente (${wordCount}/${minWords} palabras)`;
   if (percentMentions < minPercentMentions) return `Faltan menciones de porcentajes (${percentMentions}/${minPercentMentions})`;
   if (looksGenericReport(report)) return "El contenido parece genérico";
