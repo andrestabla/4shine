@@ -9,6 +9,7 @@ import type {
 } from './metadata-assistant';
 import type {
   CertificateTemplateRecord,
+  CourseCertificateData,
   CreateLearningCommentInput,
   LearningCommentReactionToggleResult,
   LearningLikeToggleResult,
@@ -27,6 +28,7 @@ import type {
 
 export type {
   CertificateTemplateRecord,
+  CourseCertificateData,
   LearningCommentRecord,
   LearningCommentReactionSummary,
   LearningCommentReactionToggleResult,
@@ -163,4 +165,14 @@ export async function updateCertificateTemplate(
       body: JSON.stringify(input),
     },
   );
+}
+
+export async function getCourseCertificate(contentId: string): Promise<CourseCertificateData> {
+  return requestApi<CourseCertificateData>(
+    `/api/v1/modules/aprendizaje/resources/${encodeURIComponent(contentId)}/certificate`,
+  );
+}
+
+export async function listEarnedCertificates(): Promise<CourseCertificateData[]> {
+  return requestApi<CourseCertificateData[]>('/api/v1/modules/aprendizaje/earned-certificates');
 }

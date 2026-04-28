@@ -11,6 +11,7 @@ import {
   CalendarDays,
   CheckCircle2,
   Compass,
+  Download,
   Flag,
   Loader2,
   Lock,
@@ -33,9 +34,12 @@ import { StatGrid } from "@/components/dashboard/StatGrid";
 import { useUser } from "@/context/UserContext";
 import { filterCommercialProducts } from "@/features/access/catalog";
 import {
+  listEarnedCertificates,
   listLearningWorkbooks,
+  type CourseCertificateData,
   type WorkbookRecord,
 } from "@/features/aprendizaje/client";
+import { downloadCourseCertificate } from "@/lib/certificate-generator";
 import {
   getDiscoverySession,
   type DiscoverySessionRecord,
@@ -284,6 +288,8 @@ export default function TrayectoriaPage() {
   const [workbooks, setWorkbooks] = React.useState<WorkbookRecord[]>([]);
   const [discoverySession, setDiscoverySession] =
     React.useState<DiscoverySessionRecord | null>(null);
+  const [earnedCertificates, setEarnedCertificates] = React.useState<CourseCertificateData[]>([]);
+  const [downloadingCertId, setDownloadingCertId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (!currentRole || currentRole !== "lider") {
@@ -302,8 +308,8 @@ export default function TrayectoriaPage() {
     setIsLoading(true);
     setLoadError(null);
 
-    Promise.allSettled([listLearningWorkbooks(), getDiscoverySession()])
-      .then(([workbooksResult, discoveryResult]) => {
+    Promise.allSettled([listLearningWorkbooks(), getDiscoverySession(), listEarnedCertificates()])
+      .then(([workbooksResult, discoveryResult, certsResult]) => {
         if (!active) return;
 
         const nextErrors: string[] = [];
@@ -319,6 +325,12 @@ export default function TrayectoriaPage() {
           setDiscoverySession(discoveryResult.value);
         } else {
           setDiscoverySession(null);
+        }
+
+        if (certsResult.status === "fulfilled") {
+          setEarnedCertificates(certsResult.value);
+        } else {
+          setEarnedCertificates([]);
         }
 
         if (nextErrors.length > 0) {
@@ -1016,6 +1028,55 @@ export default function TrayectoriaPage() {
                   </article>
                 );
               })}
+
+              {/* Earned course certificates */}
+              {earnedCertificates.map((cert) => (
+                <article
+                  key={cert.contentId}
+                  className="rounded-[1.15rem] border border-violet-200 bg-violet-50 px-4 py-5 text-center"
+                >
+                  <div
+                    className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-white"
+                    style={{ color: cert.template.accentColor }}
+                  >
+                    <Award size={22} />
+                  </div>
+                  <p className="mt-4 font-black text-[var(--app-ink)] leading-snug line-clamp-2">
+                    {cert.courseTitle}
+                  </p>
+                  <p className="mt-1 text-xs text-[var(--app-muted)]">
+                    {cert.template.organizationName}
+                  </p>
+                  <span className="mt-3 inline-flex rounded-full bg-violet-100 px-3 py-1 text-xs font-extrabold uppercase tracking-[0.18em] text-violet-700">
+                    Certificado
+                  </span>
+                  <button
+                    type="button"
+                    disabled={downloadingCertId === cert.contentId}
+                    onClick={async () => {
+                      setDownloadingCertId(cert.contentId);
+                      try {
+                        await downloadCourseCertificate({
+                          template: cert.template,
+                          recipientName: cert.recipientName,
+                          courseName: cert.courseTitle,
+                          completedAt: cert.completedAt,
+                        });
+                      } finally {
+                        setDownloadingCertId(null);
+                      }
+                    }}
+                    className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-full border border-violet-200 bg-white px-3 py-1.5 text-xs font-bold text-violet-700 transition hover:bg-violet-100 disabled:opacity-60"
+                  >
+                    {downloadingCertId === cert.contentId ? (
+                      <Loader2 size={12} className="animate-spin" />
+                    ) : (
+                      <Download size={12} />
+                    )}
+                    {downloadingCertId === cert.contentId ? "Generando…" : "Descargar"}
+                  </button>
+                </article>
+              ))}
             </div>
           </section>
         </div>

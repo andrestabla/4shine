@@ -7,6 +7,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   ArrowRight,
+  Award,
   ExternalLink,
   Heart,
   Layers3,
@@ -27,13 +28,16 @@ import { useAppDialog } from "@/components/ui/AppDialogProvider";
 import { useUser } from "@/context/UserContext";
 import {
   createLearningComment,
+  getCourseCertificate,
   getLearningResourceDetail,
   listLearningResources,
   toggleLearningCommentReaction,
   toggleLearningLike,
   updateLearningProgress,
+  type CourseCertificateData,
   type LearningResourceRecord,
 } from "@/features/aprendizaje/client";
+import { downloadCourseCertificate } from "@/lib/certificate-generator";
 import type { LearningCommentReactionType } from "@/features/aprendizaje/comment-reactions";
 import { buildYouTubeEmbedUrl, isDirectAudioUrl, isDirectVideoUrl } from "@/features/aprendizaje/media";
 import {
@@ -173,6 +177,9 @@ export default function LearningResourceDetailPage() {
   const [suggestedResources, setSuggestedResources] = React.useState<LearningResourceRecord[]>([]);
   const [isMobile, setIsMobile] = React.useState(false);
   const latestProgressSyncKeyRef = React.useRef("");
+  const [certificateData, setCertificateData] = React.useState<CourseCertificateData | null>(null);
+  const [certificateLoading, setCertificateLoading] = React.useState(false);
+  const [certificateDownloading, setCertificateDownloading] = React.useState(false);
 
   React.useEffect(() => {
     const mql = window.matchMedia("(max-width: 768px)");
@@ -352,11 +359,27 @@ export default function LearningResourceDetailPage() {
     };
   }, [activeResourceIndex, currentItem, resource, totalItems, validCompletedResourceIds]);
 
+  const hasCertificateScreen =
+    Boolean(resource?.certificateTemplateId) && calculatedProgress >= 100;
+
   const handleNext = () => {
-    if (totalItems > 0 && activeResourceIndex < totalItems - 1) {
-      setActiveResourceIndex((prev) => Math.min(totalItems - 1, prev + 1));
+    const maxIndex = hasCertificateScreen ? totalItems : totalItems - 1;
+    if (totalItems > 0 && activeResourceIndex < maxIndex) {
+      setActiveResourceIndex((prev) => Math.min(maxIndex, prev + 1));
     }
   };
+
+  // Load certificate data when the user navigates to the certificate screen.
+  React.useEffect(() => {
+    if (activeResourceIndex !== totalItems || !hasCertificateScreen || !resource) return;
+    if (certificateData?.contentId === resource.contentId) return;
+    setCertificateData(null);
+    setCertificateLoading(true);
+    getCourseCertificate(resource.contentId)
+      .then((data) => setCertificateData(data))
+      .catch(() => setCertificateData(null))
+      .finally(() => setCertificateLoading(false));
+  }, [activeResourceIndex, totalItems, hasCertificateScreen, resource, certificateData]);
 
   const handlePrev = () => {
     if (activeResourceIndex > 0) {
@@ -678,6 +701,48 @@ export default function LearningResourceDetailPage() {
                       </div>
                     </div>
                   ))}
+
+                {/* Certificate entry — visible only when course is 100% complete */}
+                {hasCertificateScreen && (
+                  <div className="mt-6">
+                    <div className="px-3 mb-2 flex items-center gap-2">
+                      <div className="h-[1px] w-4 bg-slate-200" />
+                      <h4 className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">
+                        Certificado
+                      </h4>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setActiveResourceIndex(totalItems);
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-3 rounded-[12px] p-2.5 ml-1 text-left transition ${
+                        activeResourceIndex === totalItems
+                          ? "border border-[var(--brand-primary)] bg-[var(--brand-primary-soft)]"
+                          : "border border-transparent hover:bg-[var(--app-surface-muted)]"
+                      }`}
+                    >
+                      <div
+                        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
+                          activeResourceIndex === totalItems
+                            ? "bg-[var(--brand-primary)] text-white"
+                            : "bg-amber-100 text-amber-600"
+                        }`}
+                      >
+                        <Award size={12} />
+                      </div>
+                      <p
+                        className={`text-sm font-bold ${
+                          activeResourceIndex === totalItems
+                            ? "text-[#e85d24]"
+                            : "text-[var(--app-ink)]"
+                        }`}
+                      >
+                        Tu certificado
+                      </p>
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="flex h-full flex-col">
@@ -819,6 +884,125 @@ export default function LearningResourceDetailPage() {
                     </div>
                   </div>
                 </div>
+              ) : activeResourceIndex === totalItems && hasCertificateScreen ? (
+                // ── CERTIFICATE SCREEN ───────────────────────────────────────
+                <div className="w-full max-w-2xl mx-auto">
+                  {certificateLoading ? (
+                    <div className="flex flex-col items-center justify-center gap-4 py-20 text-slate-400">
+                      <Loader2 size={36} className="animate-spin" />
+                      <p className="text-sm">Preparando tu certificado…</p>
+                    </div>
+                  ) : certificateData ? (
+                    <div className="overflow-hidden rounded-[24px] border border-slate-700 bg-[#0f172a] shadow-2xl">
+                      {/* Header */}
+                      <div
+                        className="p-8 text-center"
+                        style={{
+                          background: `linear-gradient(135deg, ${certificateData.template.accentColor}ee, ${certificateData.template.accentColor}88)`,
+                        }}
+                      >
+                        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white/20">
+                          <Award size={32} className="text-white" />
+                        </div>
+                        <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/70">
+                          ¡Felicitaciones!
+                        </p>
+                        <h2 className="mt-2 text-2xl font-extrabold text-white">
+                          Has completado el curso
+                        </h2>
+                        <p className="mt-1 text-sm text-white/80">{certificateData.courseTitle}</p>
+                      </div>
+
+                      {/* Certificate mini-preview */}
+                      <div className="p-6">
+                        <div
+                          className="w-full overflow-hidden rounded-[14px] shadow-lg"
+                          style={{ aspectRatio: "1.414" }}
+                        >
+                          {/* Header band */}
+                          <div
+                            className="flex h-[22%] items-center justify-between px-6"
+                            style={{
+                              background: `linear-gradient(135deg, ${certificateData.template.accentColor}ee, ${certificateData.template.accentColor}99)`,
+                            }}
+                          >
+                            {certificateData.template.logoUrl ? (
+                              <img
+                                src={certificateData.template.logoUrl}
+                                alt="Logo"
+                                className="h-8 max-w-[100px] object-contain"
+                              />
+                            ) : (
+                              <span className="rounded-[8px] bg-white/20 px-3 py-1.5 text-xs font-bold text-white">
+                                {certificateData.template.organizationName}
+                              </span>
+                            )}
+                            <Award size={18} className="text-white/40" />
+                          </div>
+                          {/* Body */}
+                          <div
+                            className="flex h-[56%] flex-col items-center justify-center px-10 text-center"
+                            style={{ background: `${certificateData.template.accentColor}08` }}
+                          >
+                            <div className="mb-2 h-px w-10" style={{ background: `${certificateData.template.accentColor}50` }} />
+                            <p className="text-[10px] text-gray-500">{certificateData.template.headlineText}</p>
+                            <p className="my-1.5 text-[16px] font-bold leading-tight" style={{ color: certificateData.template.accentColor }}>
+                              {certificateData.recipientName}
+                            </p>
+                            <p className="text-[10px] text-gray-500">{certificateData.template.bodyText} &ldquo;{certificateData.courseTitle}&rdquo;</p>
+                            <div className="mt-2 h-px w-10" style={{ background: `${certificateData.template.accentColor}50` }} />
+                          </div>
+                          {/* Footer */}
+                          <div className="flex h-[22%] items-center justify-between px-6" style={{ background: "#f9f7fc" }}>
+                            <div>
+                              {certificateData.template.signatureUrl && (
+                                <img src={certificateData.template.signatureUrl} alt="Firma" className="mb-0.5 h-5 max-w-[70px] object-contain" />
+                              )}
+                              {certificateData.template.signatoryName && (
+                                <p className="text-[8px] font-bold text-gray-700">{certificateData.template.signatoryName}</p>
+                              )}
+                            </div>
+                            <p className="max-w-[45%] text-right text-[8px] leading-tight text-gray-400">
+                              {certificateData.template.footerText}
+                            </p>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          disabled={certificateDownloading}
+                          onClick={async () => {
+                            if (!certificateData) return;
+                            setCertificateDownloading(true);
+                            try {
+                              await downloadCourseCertificate({
+                                template: certificateData.template,
+                                recipientName: certificateData.recipientName,
+                                courseName: certificateData.courseTitle,
+                                completedAt: certificateData.completedAt,
+                              });
+                            } finally {
+                              setCertificateDownloading(false);
+                            }
+                          }}
+                          className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-white py-3.5 text-sm font-bold text-slate-900 transition hover:bg-orange-500 hover:text-white disabled:opacity-60"
+                        >
+                          {certificateDownloading ? (
+                            <Loader2 size={16} className="animate-spin" />
+                          ) : (
+                            <Download size={16} />
+                          )}
+                          {certificateDownloading ? "Generando PDF…" : "Descargar certificado"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-[24px] border border-slate-700 bg-[#0f172a] p-12 text-center text-slate-400">
+                      <Award size={40} className="mx-auto mb-4 text-slate-600" />
+                      <p className="text-sm">No se pudo cargar el certificado. Intenta de nuevo.</p>
+                    </div>
+                  )}
+                </div>
               ) : currentItem ? (
                 <div key={`${resource.contentId}-${activeResourceIndex}`} className="w-full">
                   {currentItem.contentType === "video" && isDirectVideoUrl(currentItem.url) ? (
@@ -917,15 +1101,20 @@ export default function LearningResourceDetailPage() {
                <ArrowLeft size={16} /> Anterior
              </button>
              <div className="text-sm font-semibold text-slate-400">
-               {activeResourceIndex === -1 
-                  ? "Introducción" 
-                  : totalItems > 0
-                    ? `Recurso ${activeResourceIndex + 1} de ${totalItems}`
-                    : "Curso sin recursos"}
+               {activeResourceIndex === -1
+                  ? "Introducción"
+                  : activeResourceIndex === totalItems && hasCertificateScreen
+                    ? "Certificado"
+                    : totalItems > 0
+                      ? `Recurso ${activeResourceIndex + 1} de ${totalItems}`
+                      : "Curso sin recursos"}
              </div>
              <button
                onClick={handleNext}
-               disabled={totalItems === 0 || activeResourceIndex >= totalItems - 1}
+               disabled={
+                 totalItems === 0 ||
+                 activeResourceIndex >= (hasCertificateScreen ? totalItems : totalItems - 1)
+               }
                className="flex h-10 items-center justify-center gap-2 rounded-[8px] bg-[#f97316] px-5 text-sm font-bold text-white transition hover:bg-[#ea580c] disabled:opacity-50"
              >
                Siguiente <ArrowRight size={16} />

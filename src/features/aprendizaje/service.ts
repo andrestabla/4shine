@@ -1569,3 +1569,93 @@ export async function updateCertificateTemplate(
 
   return mapCertificateTemplateRow(row);
 }
+
+// ─── Earned Certificates ──────────────────────────────────────────────────────
+
+export interface CourseCertificateData {
+  contentId: string;
+  courseTitle: string;
+  courseThumbnailUrl: string | null;
+  recipientName: string;
+  completedAt: string;
+  template: CertificateTemplateRecord;
+}
+
+function mapCourseCertificateRow(row: Record<string, unknown>): CourseCertificateData {
+  return {
+    contentId: row.content_id as string,
+    courseTitle: row.title as string,
+    courseThumbnailUrl: (row.thumbnail_url as string | null) ?? null,
+    recipientName: row.display_name as string,
+    completedAt: row.completed_at as string,
+    template: {
+      templateId: row.template_id as string,
+      templateNumber: row.template_number as number,
+      name: row.name as string,
+      headlineText: row.headline_text as string,
+      bodyText: row.body_text as string,
+      organizationName: row.organization_name as string,
+      signatoryName: row.signatory_name as string,
+      signatoryTitle: row.signatory_title as string,
+      logoUrl: (row.logo_url as string | null) ?? null,
+      signatureUrl: (row.signature_url as string | null) ?? null,
+      footerText: row.footer_text as string,
+      accentColor: row.accent_color as string,
+      isActive: row.is_active as boolean,
+      createdAt: row.ct_created_at as string,
+      updatedAt: row.ct_updated_at as string,
+    },
+  };
+}
+
+const CERT_SELECT = `
+  SELECT ci.content_id::text,
+         ci.title,
+         ci.thumbnail_url,
+         cp.completed_at::text,
+         u.display_name,
+         ct.template_id::text, ct.template_number, ct.name, ct.headline_text, ct.body_text,
+         ct.organization_name, ct.signatory_name, ct.signatory_title,
+         ct.logo_url, ct.signature_url, ct.footer_text, ct.accent_color, ct.is_active,
+         ct.created_at::text AS ct_created_at, ct.updated_at::text AS ct_updated_at
+  FROM app_learning.content_items ci
+  JOIN app_learning.content_progress cp ON cp.content_id = ci.content_id AND cp.user_id = $1::uuid
+  JOIN app_learning.certificate_templates ct ON ct.template_id = ci.certificate_template_id
+  JOIN app_core.users u ON u.user_id = $1::uuid
+  WHERE cp.seen = true
+    AND ci.certificate_template_id IS NOT NULL
+`;
+
+export async function getCourseCertificateData(
+  client: PoolClient,
+  actor: AuthUser,
+  contentId: string,
+): Promise<CourseCertificateData> {
+  await requireModulePermission(client, 'aprendizaje', 'view');
+
+  const { rows } = await client.query(
+    `${CERT_SELECT} AND ci.content_id = $2::uuid`,
+    [actor.userId, contentId],
+  );
+
+  const row = rows[0];
+  if (!row) {
+    throw new Error('Certificate not available: course not completed or no template assigned');
+  }
+
+  return mapCourseCertificateRow(row);
+}
+
+export async function listUserEarnedCertificates(
+  client: PoolClient,
+  actor: AuthUser,
+): Promise<CourseCertificateData[]> {
+  await requireModulePermission(client, 'aprendizaje', 'view');
+
+  const { rows } = await client.query(
+    `${CERT_SELECT} ORDER BY cp.completed_at DESC NULLS LAST`,
+    [actor.userId],
+  );
+
+  return rows.map(mapCourseCertificateRow);
+}
