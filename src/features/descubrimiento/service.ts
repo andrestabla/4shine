@@ -3794,10 +3794,13 @@ function getReportRejectionReason(report: string, pillar: DiscoveryReportFilter)
 function hasAnyLists(report: string): boolean {
   const lines = report.split("\n");
   for (const line of lines) {
-    const trimmed = line.trim();
+    // Strip ALL leading whitespace including non-breaking spaces
+    const trimmed = line.replace(/^[\s\u00a0\u2002-\u2009\u200b\ufeff]+/, "");
     if (!trimmed) continue;
-    // Catch bullets and numbers at the start of a line
-    if (/^([-*••■□◦‣⁌⁍]|\d+[.)])\s+/.test(trimmed)) return true;
+    // Match any bullet character or numbered list at start of line
+    if (/^([-*•‣◦■□–—●▪]|\d+[.):]|[a-z][.)]\s)/.test(trimmed)) return true;
+    // Also catch markdown bold-bullet pattern: **text**: ...
+    if (/^\*\*[A-ZÀ-ÿ]/.test(trimmed) && trimmed.includes("**:")) return true;
   }
   return false;
 }
@@ -4823,7 +4826,14 @@ function buildContractPrompts(input: {
     "- Evita marcas morfosintácticas típicas de texto IA: paralelismos rígidos, cierre sentencioso repetido y estructuras demasiado simétricas entre secciones.",
     "- Habla como si le estuvieras diciendo la verdad útil a la persona, no como si redactaras un informe corporativo genérico.",
     "- No incluyas bloques de evidencia, listados de fuentes, anexos metodológicos ni texto tipo 'Evidencia contextual usada'.",
-    "- PROHIBICIÓN ABSOLUTA: No uses viñetas (-), asteriscos (*) ni listas numeradas (1., 2.). Todo el informe debe ser prosa narrativa continua y profunda.",
+    "- PROHIBICIÓN ABSOLUTA DE FORMATO LISTA: Está terminantemente prohibido el uso de cualquier elemento de lista. Esto incluye:",
+    "  * Guiones al inicio de línea: '- texto'",
+    "  * Asteriscos al inicio de línea: '* texto'",
+    "  * Numeración al inicio: '1. texto', '2. texto'",
+    "  * Patrón de definición en negrita: '**Competencia**: definición corta.'",
+    "  El único formato permitido son PÁRRAFOS NARRATIVOS CONTINUOS con mínimo 3-4 oraciones cada uno.",
+    "- EJEMPLO DE LO QUE ESTÁ PROHIBIDO: '- **Autoconciencia emocional**: Reconocimiento en tiempo real...'",
+    "- EJEMPLO DE LO QUE ES CORRECTO: 'La autoconciencia emocional de John muestra una brecha notable entre su autopercepción del 76% y el criterio situacional del 100%. Esta distancia revela que...'",
     `- La primera frase del informe debe iniciar exactamente con: "${username}, tu perfil de liderazgo".`,
   ].join("\n");
 
@@ -5020,13 +5030,16 @@ async function runContractStyleAnalysis(
       attempts += 1;
     }
     if (!isDeepEnoughReport(report, pillar)) {
-      if (isGlobal && isUsableGlobalReport(report)) {
-        return { report, source: "ai" };
-      }
-      if (!isGlobal && isUsablePillarReport(report)) {
-        return { report, source: "ai" };
-      }
+      // No fallback - always try to get a quality report
       const reason = getReportRejectionReason(report, pillar);
+      console.warn(`[Discovery] Report quality check failed after ${attempts} attempts: ${reason}`);
+      // If the only issue is word count and sections are present, accept it rather than fail
+      const wordCount = countWords(report);
+      const hasSections = includesRequiredSections(report);
+      const noBullets = !hasAnyLists(report);
+      if (hasSections && noBullets && wordCount >= 300) {
+        return { report, source: "ai" };
+      }
       throw new Error(`Calidad insuficiente: ${reason}`);
     }
     return { report, source: "ai" };
