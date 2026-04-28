@@ -157,6 +157,30 @@ export async function resetDiscoveryOverviewAttempt(
   );
 }
 
+export async function regenerateDiscoveryReport(
+  sessionId: string,
+): Promise<{ sessionId: string }> {
+  return requestApi<{ sessionId: string }>(
+    "/api/v1/modules/descubrimiento/overview/regenerate",
+    {
+      method: "POST",
+      body: JSON.stringify({ sessionId }),
+    },
+  );
+}
+
+export async function sendDiscoveryReportEmail(
+  sessionId: string,
+): Promise<{ ok: true }> {
+  return requestApi<{ ok: true }>(
+    "/api/v1/modules/descubrimiento/overview/send-report",
+    {
+      method: "POST",
+      body: JSON.stringify({ sessionId }),
+    },
+  );
+}
+
 export async function verifyInvitationAccess(input: {
   inviteToken: string;
   accessCode: string;

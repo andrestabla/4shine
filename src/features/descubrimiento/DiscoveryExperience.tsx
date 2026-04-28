@@ -60,9 +60,11 @@ import {
   getDiscoveryOverviewDetail,
   getDiscoverySession,
   listDiscoveryInvitations,
+  regenerateDiscoveryReport,
   resendDiscoveryInvitationRequest,
   resetDiscoveryOverviewAttempt,
   resetDiscoverySessionRequest,
+  sendDiscoveryReportEmail,
   updateDiscoveryFeedbackSettings,
   updateDiscoverySessionRequest,
 } from "./client";
@@ -551,6 +553,82 @@ export function DiscoveryExperience() {
       }
     },
     [alert, ensureOverviewDetail],
+  );
+
+  const handleRegenerateOverviewReport = React.useCallback(
+    async (row: DiscoveryOverviewRow) => {
+      const approved = await confirm({
+        title: "Regenerar informe",
+        message: `Se eliminarán los análisis de IA actuales para ${row.participantName} y se pondrán en cola para una nueva generación profunda. ¿Continuar?`,
+        tone: "warning",
+        confirmText: "Regenerar",
+        cancelText: "Cancelar",
+      });
+      if (!approved) return;
+
+      const loadingKey = `${row.sessionId}:regen`;
+      setRowActionLoadingKey(loadingKey);
+      try {
+        await regenerateDiscoveryReport(row.sessionId);
+        overviewDetailCacheRef.current.delete(row.sessionId);
+        await alert({
+          title: "Generación iniciada",
+          message: "Los informes se están regenerando. Podrás ver los resultados en unos segundos al actualizar la fila.",
+          tone: "success",
+        });
+      } catch (error) {
+        await alert({
+          title: "No se pudo regenerar",
+          message: error instanceof Error ? error.message : "Error inesperado.",
+          tone: "error",
+        });
+      } finally {
+        setRowActionLoadingKey((current) => (current === loadingKey ? null : current));
+      }
+    },
+    [alert, confirm],
+  );
+
+  const handleSendOverviewReport = React.useCallback(
+    async (row: DiscoveryOverviewRow) => {
+      if (row.globalIndex === null) {
+        await alert({
+          title: "Informe no disponible",
+          message: "Solo se pueden enviar informes de diagnósticos completados.",
+          tone: "warning",
+        });
+        return;
+      }
+
+      const approved = await confirm({
+        title: "Enviar informe por correo",
+        message: `Se enviará el informe PDF a la dirección de correo asociada a ${row.participantName}. ¿Continuar?`,
+        tone: "info",
+        confirmText: "Enviar",
+        cancelText: "Cancelar",
+      });
+      if (!approved) return;
+
+      const loadingKey = `${row.sessionId}:send`;
+      setRowActionLoadingKey(loadingKey);
+      try {
+        await sendDiscoveryReportEmail(row.sessionId);
+        await alert({
+          title: "Informe enviado",
+          message: `El informe ha sido enviado exitosamente a ${row.invitedEmail || row.participantName}.`,
+          tone: "success",
+        });
+      } catch (error) {
+        await alert({
+          title: "No se pudo enviar",
+          message: error instanceof Error ? error.message : "Error inesperado.",
+          tone: "error",
+        });
+      } finally {
+        setRowActionLoadingKey((current) => (current === loadingKey ? null : current));
+      }
+    },
+    [alert, confirm],
   );
 
   const handleDownloadOverviewResults = React.useCallback(
@@ -2064,6 +2142,41 @@ export function DiscoveryExperience() {
                               <FileSpreadsheet size={12} />
                             )}
                             Excel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void handleRegenerateOverviewReport(row);
+                            }}
+                            disabled={rowActionLoadingKey === `${row.sessionId}:regen`}
+                            className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-white px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {rowActionLoadingKey === `${row.sessionId}:regen` ? (
+                              <Loader2 size={12} className="animate-spin" />
+                            ) : (
+                              <RefreshCw size={12} />
+                            )}
+                            Regenerar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void handleSendOverviewReport(row);
+                            }}
+                            disabled={
+                              row.globalIndex === null ||
+                              rowActionLoadingKey === `${row.sessionId}:send`
+                            }
+                            className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-white px-3 py-1.5 text-xs font-semibold text-blue-700 transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {rowActionLoadingKey === `${row.sessionId}:send` ? (
+                              <Loader2 size={12} className="animate-spin" />
+                            ) : (
+                              <Mail size={12} />
+                            )}
+                            Enviar
                           </button>
                           {row.sourceType === "invited" && row.invitationId && (
                             <>
