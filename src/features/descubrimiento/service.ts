@@ -4991,7 +4991,7 @@ async function runContractStyleAnalysis(
     const isGlobal = pillar === "all";
     const primaryModel = isGlobal ? "gpt-4.1" : "gpt-4.1-mini";
     const refinementModel = "gpt-4.1";
-    const maxAttempts = isGlobal ? 2 : 1;
+    const maxAttempts = 4;
 
     let report = await requestOpenAiReport(context, systemPrompt, userPrompt, {
       model: primaryModel,
@@ -5002,24 +5002,19 @@ async function runContractStyleAnalysis(
     let attempts = 1;
     while (!isDeepEnoughReport(report, pillar) && attempts < maxAttempts) {
       const refinementPrompt = [
-        `Iteración de mejora ${attempts}. El borrador no cumple profundidad mínima.`,
-        `Palabras actuales: ${countWords(report)}.`,
-        `Menciones de porcentaje actuales: ${(report.match(/\b\d{1,3}(?:[.,]\d+)?%/g) ?? []).length}.`,
+        `Iteración de mejora ${attempts}. El borrador sigue insuficiente en profundidad analítica o incumple las reglas de estilo.`,
+        "REQUISITOS CRÍTICOS:",
+        "- NO USES VIÑETAS O LISTAS en Perfil, Impulso, Plan, Atención o Táctica. Usa párrafos narrativos extensos.",
+        "- Aumenta la profundidad del análisis. Conecta los datos con el impacto en el negocio.",
+        "- Asegura que el informe sea extenso (mínimo 850 palabras para global, 500 para pilar).",
         "",
-        "Reescribe TODO el informe con más profundidad y causalidad.",
-        "Mantén tono propositivo, cercano y útil.",
-        "Evita negaciones repetidas, frases comodín, cierres sentenciosos y definiciones de diccionario.",
-        "Sustenta cada sección con datos numéricos, competencias concretas y acciones específicas.",
-        "Haz que el feedback suene humano, formal y con tacto.",
-        "Mantén exactamente los títulos y el orden solicitado.",
-        "",
-        "Borrador actual:",
+        "Borrador actual a superar:",
         report,
       ].join("\n");
       report = await requestOpenAiReport(context, systemPrompt, refinementPrompt, {
         model: refinementModel,
-        temperature: attempts === 1 ? (isGlobal ? 0.7 : 0.64) : 0.6,
-        timeoutMs: isGlobal ? 80000 : 60000,
+        temperature: 0.65 + (attempts * 0.05),
+        timeoutMs: isGlobal ? 95000 : 75000,
         maxTokens: isGlobal ? 4000 : 2500,
       });
       attempts += 1;
