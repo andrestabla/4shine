@@ -3614,7 +3614,7 @@ export async function sendDiscoveryReportEmail(
   }
 
   const baseUrl = resolveAppBaseUrl();
-  const reportUrl = `${baseUrl}/descubrimiento/share/${publicId}`;
+  const reportUrl = `${baseUrl}/descubrimiento/pdf/${publicId}`;
 
   const subject = "¡Ha sido generado un nuevo informe diagnóstico 4Shine! Revísalo aquí.";
   const html = `
