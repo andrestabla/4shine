@@ -3768,7 +3768,7 @@ function normalizeHeadingForMatch(input: string): string {
 
 function includesRequiredSections(report: string): boolean {
   const normalized = normalizeHeadingForMatch(report);
-  const required = ["perfil", "impulso", "plan", "atencion", "tactica"];
+  const required = ["perfil", "impuls", "plan", "atencion", "tactic"];
   return required.every((section) => normalized.includes(section));
 }
 
@@ -3779,7 +3779,7 @@ function getReportRejectionReason(report: string, pillar: DiscoveryReportFilter)
   const minPercentMentions = pillar === "all" ? 6 : 4;
 
   const normalized = normalizeHeadingForMatch(report);
-  const required = ["perfil", "impulso", "plan", "atencion", "tactica"];
+  const required = ["perfil", "impuls", "plan", "atencion", "tactic"];
   const missing = required.filter(s => !normalized.includes(s));
   
   if (missing.length > 0) return `Faltan secciones obligatorias: ${missing.join(", ")}`;
