@@ -3780,28 +3780,23 @@ function includesRequiredSections(report: string): boolean {
 }
 
 function isDeepEnoughReport(report: string, pillar: DiscoveryReportFilter): boolean {
-  const minWords = pillar === "all" ? 850 : 500;
+  const minWords = pillar === "all" ? 1000 : 650;
   const wordCount = countWords(report);
   const percentMentions = (report.match(/\b\d{1,3}(?:[.,]\d+)?%/g) ?? []).length;
-  const minPercentMentions = pillar === "all" ? 5 : 3;
+  const minPercentMentions = pillar === "all" ? 6 : 4;
 
-  // Strict check for bullets in narrative sections
-  const sectionsToCheck = ["perfil", "impulso", "plan", "atención", "táctica"];
+  // Strict check for ANY bullets or numbered lists in the entire report
+  // (except potentially within a single paragraph if they are not at the start of a line)
   const lines = report.split("\n");
-  let currentSection = "";
-  let hasForbiddenBullets = false;
+  let hasForbiddenLists = false;
 
   for (const line of lines) {
-    if (line.startsWith("##")) {
-      currentSection = line.toLowerCase();
-      continue;
-    }
-    if (sectionsToCheck.some(s => currentSection.includes(s))) {
-      // If a narrative section contains a bullet or numbered list at the start
-      if (/^\s*([-*•]|\d+\.)\s+/.test(line)) {
-        hasForbiddenBullets = true;
-        break;
-      }
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    // Catch: - item, * item, • item, 1. item, 1) item
+    if (/^([-*•]|\d+[.)])\s+/.test(trimmed)) {
+      hasForbiddenLists = true;
+      break;
     }
   }
 
@@ -3810,7 +3805,7 @@ function isDeepEnoughReport(report: string, pillar: DiscoveryReportFilter): bool
     wordCount >= minWords &&
     percentMentions >= minPercentMentions &&
     !looksGenericReport(report) &&
-    !hasForbiddenBullets
+    !hasForbiddenLists
   );
 }
 
@@ -4826,6 +4821,7 @@ function buildContractPrompts(input: {
     "- Evita marcas morfosintácticas típicas de texto IA: paralelismos rígidos, cierre sentencioso repetido y estructuras demasiado simétricas entre secciones.",
     "- Habla como si le estuvieras diciendo la verdad útil a la persona, no como si redactaras un informe corporativo genérico.",
     "- No incluyas bloques de evidencia, listados de fuentes, anexos metodológicos ni texto tipo 'Evidencia contextual usada'.",
+    "- PROHIBICIÓN ABSOLUTA: No uses viñetas (-), asteriscos (*) ni listas numeradas (1., 2.). Todo el informe debe ser prosa narrativa continua y profunda.",
     `- La primera frase del informe debe iniciar exactamente con: "${username}, tu perfil de liderazgo".`,
   ].join("\n");
 
@@ -4835,10 +4831,11 @@ ${feedbackInstructions.trim()}
 
 ${editorialRules}
 
-Restricciones de profundidad:
-- Cada sección debe tener mínimo 90 palabras.
-- Usa mínimo 2 porcentajes y 2 competencias por sección.
-- El análisis debe verse escrito para este caso, no para cualquier persona.
+Restricciones de profundidad (ESTRICTAS):
+- Cada sección debe tener mínimo 150 palabras de análisis denso.
+- Usa mínimo 3 porcentajes y 3 competencias específicas por sección.
+- El informe total debe superar las 1000 palabras.
+- PROHIBIDO USAR LISTAS O VIÑETAS. Usa solo párrafos.
 
 Estructura obligatoria (usa markdown):
 ## Tu perfil estratégico
@@ -4873,13 +4870,12 @@ ${feedbackInstructions.trim()}
 
 ${editorialRules}
 
-Restricciones de profundidad:
- - Cada sección debe tener mínimo 55 palabras.
- - Distribuye mínimo 3 porcentajes en total a lo largo del informe.
+Restricciones de profundidad (ESTRICTAS):
+ - Cada sección debe tener mínimo 95 palabras de análisis denso.
+ - Distribuye mínimo 5 porcentajes en total a lo largo del informe.
 - Usa mínimo 2 competencias concretas por sección.
-- Conecta el pilar con impacto en equipo, coordinación y resultados.
-- Usa el nombre exacto de las brechas y fortalezas del caso, no categorías abstractas.
-- Cada sección debe sonar escrita para este pilar específico y no para un pilar cualquiera.
+- El informe total debe superar las 650 palabras.
+- PROHIBIDO USAR LISTAS O VIÑETAS. Usa solo párrafos.
 
 Estructura obligatoria (usa markdown):
 ## Tu perfil estratégico
@@ -4989,33 +4985,36 @@ async function runContractStyleAnalysis(
 
   try {
     const isGlobal = pillar === "all";
-    const primaryModel = isGlobal ? "gpt-4.1" : "gpt-4.1-mini";
+    const primaryModel = "gpt-4.1"; // Always use the best model for quality
     const refinementModel = "gpt-4.1";
-    const maxAttempts = 4;
+    const maxAttempts = 5; // Allow one more attempt for extreme quality
 
     let report = await requestOpenAiReport(context, systemPrompt, userPrompt, {
       model: primaryModel,
-      temperature: isGlobal ? 0.64 : 0.62,
-      timeoutMs: isGlobal ? 90000 : 70000,
-      maxTokens: isGlobal ? 4000 : 2500,
+      temperature: isGlobal ? 0.68 : 0.65, // Higher temp for more narrative flow
+      timeoutMs: isGlobal ? 100000 : 80000,
+      maxTokens: isGlobal ? 4500 : 3000,
     });
     let attempts = 1;
     while (!isDeepEnoughReport(report, pillar) && attempts < maxAttempts) {
       const refinementPrompt = [
-        `Iteración de mejora ${attempts}. El borrador sigue insuficiente en profundidad analítica o incumple las reglas de estilo.`,
-        "REQUISITOS CRÍTICOS:",
-        "- NO USES VIÑETAS O LISTAS en Perfil, Impulso, Plan, Atención o Táctica. Usa párrafos narrativos extensos.",
-        "- Aumenta la profundidad del análisis. Conecta los datos con el impacto en el negocio.",
-        "- Asegura que el informe sea extenso (mínimo 850 palabras para global, 500 para pilar).",
+        `Iteración de mejora ${attempts}. EL REPORTE ES DEMASIADO CORTO O USA LISTAS PROHIBIDAS.`,
+        `Palabras actuales: ${countWords(report)} (mínimo requerido: ${isGlobal ? 1000 : 650}).`,
         "",
-        "Borrador actual a superar:",
+        "INSTRUCCIONES DE EMERGENCIA:",
+        "1. PROHIBIDO TOTALMENTE EL USO DE VIÑETAS (-), ASTERISCOS (*) O LISTAS NUMERADAS (1.).",
+        "2. TODO EL CONTENIDO DEBE SER PROSA NARRATIVA DENSA Y EJECUTIVA.",
+        "3. EXPANDE CADA SECCIÓN. Entra en el detalle de las competencias, los comportamientos y el impacto organizacional.",
+        "4. Usa más datos numéricos extraídos de los resultados.",
+        "",
+        "Borrador insuficiente a mejorar radicalmente:",
         report,
       ].join("\n");
       report = await requestOpenAiReport(context, systemPrompt, refinementPrompt, {
         model: refinementModel,
-        temperature: 0.65 + (attempts * 0.05),
-        timeoutMs: isGlobal ? 95000 : 75000,
-        maxTokens: isGlobal ? 4000 : 2500,
+        temperature: 0.7 + (attempts * 0.04), // More temperature on each retry
+        timeoutMs: isGlobal ? 110000 : 90000,
+        maxTokens: isGlobal ? 4500 : 3000,
       });
       attempts += 1;
     }
