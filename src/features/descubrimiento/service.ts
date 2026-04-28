@@ -3779,34 +3779,33 @@ function includesRequiredSections(report: string): boolean {
   return required.every((section) => normalized.includes(section));
 }
 
-function isDeepEnoughReport(report: string, pillar: DiscoveryReportFilter): boolean {
+function getReportRejectionReason(report: string, pillar: DiscoveryReportFilter): string | null {
   const minWords = pillar === "all" ? 900 : 550;
   const wordCount = countWords(report);
   const percentMentions = (report.match(/\b\d{1,3}(?:[.,]\d+)?%/g) ?? []).length;
   const minPercentMentions = pillar === "all" ? 6 : 4;
 
-  // Strict check for ANY bullets or numbered lists in the entire report
-  // (except potentially within a single paragraph if they are not at the start of a line)
-  const lines = report.split("\n");
-  let hasForbiddenLists = false;
+  if (!includesRequiredSections(report)) return "Faltan secciones obligatorias";
+  if (wordCount < minWords) return `Extensión insuficiente (${wordCount}/${minWords} palabras)`;
+  if (percentMentions < minPercentMentions) return `Faltan menciones de porcentajes (${percentMentions}/${minPercentMentions})`;
+  if (looksGenericReport(report)) return "El contenido parece genérico";
 
+  const lines = report.split("\n");
   for (const line of lines) {
     const trimmed = line.trim();
     if (!trimmed) continue;
-    // Catch: - item, * item, • item, 1. item, 1) item
-    if (/^([-*•]|\d+[.)])\s+/.test(trimmed)) {
-      hasForbiddenLists = true;
-      break;
-    }
+    if (/^([-*•]|\d+[.)])\s+/.test(trimmed)) return "Contiene listas o viñetas prohibidas";
   }
 
-  return (
-    includesRequiredSections(report) &&
-    wordCount >= minWords &&
-    percentMentions >= minPercentMentions &&
-    !looksGenericReport(report) &&
-    !hasForbiddenLists
-  );
+  return null;
+}
+
+function isUsableGlobalReport(report: string): boolean {
+  return countWords(report) >= 400 && includesRequiredSections(report);
+}
+
+function isDeepEnoughReport(report: string, pillar: DiscoveryReportFilter): boolean {
+  return getReportRejectionReason(report, pillar) === null;
 }
 
 function isUsablePillarReport(report: string): boolean {
@@ -5018,13 +5017,18 @@ async function runContractStyleAnalysis(
       attempts += 1;
     }
     if (!isDeepEnoughReport(report, pillar)) {
+      if (isGlobal && isUsableGlobalReport(report)) {
+        return { report, source: "ai" };
+      }
       if (!isGlobal && isUsablePillarReport(report)) {
         return { report, source: "ai" };
       }
-      throw createPendingFinalAnalysisError();
+      const reason = getReportRejectionReason(report, pillar);
+      throw new Error(`Calidad insuficiente: ${reason}`);
     }
     return { report, source: "ai" };
   } catch (error) {
+    if (error instanceof Error && error.message.includes("Calidad")) throw error;
     throw error instanceof Error ? error : createPendingFinalAnalysisError();
   }
 }
