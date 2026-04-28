@@ -305,10 +305,20 @@ export default function LearningResourceDetailPage() {
       return;
     }
 
-    if (totalItems > 0 && activeResourceIndex >= totalItems) {
+    if (totalItems > 0 && activeResourceIndex > totalItems) {
+      // totalItems is the certificate screen index; clamp beyond that only
+      setActiveResourceIndex(totalItems);
+      return;
+    }
+
+    if (
+      totalItems > 0 &&
+      activeResourceIndex === totalItems &&
+      !(resource?.certificateTemplateId && calculatedProgress >= 100)
+    ) {
       setActiveResourceIndex(totalItems - 1);
     }
-  }, [activeResourceIndex, totalItems, setActiveResourceIndex]);
+  }, [activeResourceIndex, totalItems, resource?.certificateTemplateId, calculatedProgress]);
 
   React.useEffect(() => {
     if (!resource || resource.contentType !== "scorm" || !currentItem) return;
