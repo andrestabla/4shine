@@ -79,6 +79,7 @@ import {
   type DiscoveryOverviewPayload,
   type DiscoveryOverviewRow,
   type DiscoveryParticipantProfile,
+  DiscoveryReportFilter,
   type DiscoverySessionRecord,
   type DiscoveryUserState,
 } from "./types";

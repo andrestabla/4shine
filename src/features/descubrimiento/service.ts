@@ -3568,28 +3568,38 @@ export async function sendDiscoveryReportEmail(
 
   let email = "";
   let name = "";
+  let publicId = "";
 
   if (normalizedSessionId.startsWith("inv-")) {
     const invitationId = normalizedSessionId.slice(4);
     const { rows } = await client.query(
-      `
-        SELECT invited_email, meta
-        FROM app_assessment.discovery_invitations
-        WHERE invitation_id = $1::uuid
-      `,
+      `SELECT invited_email, meta FROM app_assessment.discovery_invitations WHERE invitation_id = $1::uuid`,
       [invitationId],
     );
-    if (!rows[0]) throw new Error("No se encontró la invitación.");
-    email = rows[0].invited_email;
-    const meta = rows[0].meta as any;
-    const progress = parseInvitationExternalProgress(meta);
-    name = progress?.name || "Usuario 4Shine";
+    const row = rows[0];
+    if (!row) throw new Error("No se encontró la invitación.");
+    email = row.invited_email;
+    const meta = row.meta || {};
+    name = (meta as any).participant_name || "Líder";
+    publicId = (meta as any).public_id || "";
   } else {
-    const sessionRow = await readDiscoverySession(client, normalizedSessionId);
-    if (!sessionRow) throw new Error("No se encontró la sesión.");
-    const userRow = await client.query(`SELECT email FROM app_core.users WHERE user_id = $1::uuid`, [sessionRow.userId]);
-    email = userRow.rows[0]?.email;
-    name = sessionRow.nameSnapshot;
+    const { rows } = await client.query(
+      `
+      SELECT 
+        COALESCE(ds.first_name || ' ' || ds.last_name, ds.name_snapshot, u.first_name || ' ' || u.last_name) as name,
+        COALESCE(u.email, ds.user_id::text) as email,
+        ds.public_id
+      FROM app_assessment.discovery_sessions ds
+      LEFT JOIN app_core.users u ON ds.user_id = u.user_id
+      WHERE ds.session_id = $1::uuid
+      `,
+      [normalizedSessionId],
+    );
+    const row = rows[0];
+    if (!row) throw new Error("No se encontró la sesión.");
+    email = row.email;
+    name = row.name;
+    publicId = row.public_id;
   }
 
   if (!email) {
@@ -3602,16 +3612,33 @@ export async function sendDiscoveryReportEmail(
     throw new Error("El servicio de correo no está configurado para esta organización.");
   }
 
-  const subject = `Tu informe de liderazgo 4Shine - ${name}`;
+  const baseUrl = resolveAppBaseUrl();
+  const reportUrl = `${baseUrl}/descubrimiento/share/${publicId}`;
+
+  const subject = "¡Ha sido generado un nuevo informe diagnóstico 4Shine! Revísalo aquí.";
   const html = `
-    <div style="font-family: sans-serif; padding: 20px; color: #333;">
-      <h2 style="color: #311f44;">Hola ${name},</h2>
-      <p>Adjunto encontrarás tu informe ejecutivo de liderazgo generado a partir de tu diagnóstico en 4Shine.</p>
-      <p>Este documento contiene un análisis profundo de tus pilares de liderazgo, fortalezas y áreas de oportunidad.</p>
-      <br/>
-      <p>Te recomendamos leerlo con calma y reflexionar sobre las acciones propuestas en el plan de aceleración.</p>
-      <br/>
-      <p>Saludos,<br/><b>Equipo 4Shine</b></p>
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; color: #1a202c;">
+      <div style="background-color: #311f44; padding: 30px; text-align: center;">
+        <img src="${baseUrl}/workbooks-v2/diamond.svg" alt="4Shine" style="width: 50px; margin-bottom: 10px;" />
+        <h1 style="color: #ffffff; margin: 0; font-size: 20px; font-weight: 600;">Lectura de Liderazgo</h1>
+      </div>
+      <div style="padding: 40px; background-color: #ffffff;">
+        <h2 style="color: #311f44; margin-top: 0;">Hola, ${name}</h2>
+        <p style="font-size: 16px; line-height: 1.6; color: #4a5568;">
+          Tu diagnóstico de liderazgo 4Shine ha sido procesado con éxito. Hemos generado un análisis profundo de tu perfil, tus impulsos actuales y tu plan de aceleración.
+        </p>
+        <div style="margin: 35px 0; text-align: center;">
+          <a href="${reportUrl}" style="background-color: #6C55CC; color: #ffffff; padding: 14px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block; box-shadow: 0 4px 6px rgba(108, 85, 204, 0.2);">
+            Ver mi Informe Completo
+          </a>
+        </div>
+        <p style="font-size: 14px; line-height: 1.5; color: #718096; border-top: 1px solid #edf2f7; padding-top: 20px;">
+          Este enlace te permitirá acceder directamente a tu lectura ejecutiva interactiva y descargar la versión en PDF para tu trayectoria profesional.
+        </p>
+      </div>
+      <div style="background-color: #f8fafc; padding: 20px; text-align: center; font-size: 12px; color: #a0aec0;">
+        © ${new Date().getFullYear()} 4Shine Platform. Todos los derechos reservados.
+      </div>
     </div>
   `;
 
@@ -3619,7 +3646,7 @@ export async function sendDiscoveryReportEmail(
     to: email,
     subject,
     html,
-    text: `Hola ${name},\n\nAdjunto encontrarás tu informe ejecutivo de liderazgo de 4Shine.\n\nSaludos,\nEquipo 4Shine`,
+    text: `Hola ${name},\n\nTu informe de liderazgo 4Shine ha sido generado. Puedes revisarlo en el siguiente enlace:\n${reportUrl}\n\nSaludos,\nEquipo 4Shine`,
   });
 
   return { ok: true };
