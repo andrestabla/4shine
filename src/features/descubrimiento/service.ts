@@ -3779,14 +3779,37 @@ function includesRequiredSections(report: string): boolean {
 }
 
 function isDeepEnoughReport(report: string, pillar: DiscoveryReportFilter): boolean {
-  const minWords = pillar === "all" ? 480 : 150;
+  const minWords = pillar === "all" ? 850 : 500;
+  const wordCount = countWords(report);
   const percentMentions = (report.match(/\b\d{1,3}(?:[.,]\d+)?%/g) ?? []).length;
-  const minPercentMentions = pillar === "all" ? 6 : 1;
+  const minPercentMentions = pillar === "all" ? 5 : 3;
+
+  // Strict check for bullets in narrative sections
+  const sectionsToCheck = ["perfil", "impulso", "plan", "atención", "táctica"];
+  const lines = report.split("\n");
+  let currentSection = "";
+  let hasForbiddenBullets = false;
+
+  for (const line of lines) {
+    if (line.startsWith("##")) {
+      currentSection = line.toLowerCase();
+      continue;
+    }
+    if (sectionsToCheck.some(s => currentSection.includes(s))) {
+      // If a narrative section contains a bullet or numbered list at the start
+      if (/^\s*([-*•]|\d+\.)\s+/.test(line)) {
+        hasForbiddenBullets = true;
+        break;
+      }
+    }
+  }
+
   return (
     includesRequiredSections(report) &&
-    countWords(report) >= minWords &&
+    wordCount >= minWords &&
     percentMentions >= minPercentMentions &&
-    !looksGenericReport(report)
+    !looksGenericReport(report) &&
+    !hasForbiddenBullets
   );
 }
 
@@ -4444,19 +4467,19 @@ async function runDiscoveryAnalysisWithContext(
     "",
     "Estructura obligatoria:",
     "## Tu perfil estratégico",
-    "Describe el equilibrio entre fortalezas y brechas, incluyendo el índice global y el nivel de madurez.",
+    "Analiza el índice global, el nivel de madurez y el arquetipo de liderazgo. Explica la brecha entre autopercepción y juicio situacional. Mínimo 200 palabras en prosa pura.",
     "## Lo que hoy te impulsa",
-    "Explica los patrones de fortaleza que hoy sí generan tracción.",
+    "Detalla las fortalezas que hoy generan tracción y por qué son sostenibles. Mínimo 150 palabras en prosa pura.",
     "## Plan de aceleración de 30 días",
-    "Propón 3 acciones concretas, semanales y medibles.",
+    "Propón 3 acciones críticas semanales. Describe el 'cómo' y el 'para qué' de cada una con detalle quirúrgico. Mínimo 150 palabras en prosa pura.",
     "## Lectura del pilar",
-    "Integra una lectura comparativa de los cuatro pilares y explica dónde apalancarte primero.",
+    "Integra una lectura comparativa de los cuatro pilares. Mínimo 100 palabras.",
     "## Puntos críticos de atención",
-    "Explica riesgos de continuidad y costo de no intervenir.",
+    "Explica riesgos de continuidad y costo de no intervenir. Mínimo 100 palabras en prosa pura.",
     "## Intervención táctica",
-    "Define micro-hábitos y conversaciones concretas para el próximo ciclo.",
+    "Define micro-hábitos y conversaciones concretas. Mínimo 100 palabras en prosa pura.",
     "## Señal de progreso",
-    "Cierra con indicadores observables para validar avance en 2 a 4 semanas.",
+    "Cierra con indicadores observables. Mínimo 80 palabras.",
     "",
     contextBlock,
   ].join("\n");
@@ -4510,20 +4533,21 @@ async function runDiscoveryAnalysisWithContext(
       maxTokens: pillar === "all" ? 1300 : 1000,
     });
     let attempts = 1;
-    while (!isDeepEnoughReport(report, pillar) && attempts < 2) {
+    while (!isDeepEnoughReport(report, pillar) && attempts < 4) {
       const refinementPrompt = [
-        `Iteración de mejora ${attempts}. El borrador sigue insuficiente en profundidad o especificidad.`,
-        "Reescribe completo el informe con narrativa más concreta, causal y accionable.",
-        "Evita frases comodín. Sustenta cada sección con datos numéricos y competencias del caso.",
-        "No acortes. Mantén todas las secciones requeridas y su orden.",
+        `Iteración de mejora ${attempts}. El borrador sigue insuficiente en profundidad analítica o incumple las reglas de estilo.`,
+        "REQUISITOS CRÍTICOS:",
+        "- NO USES VIÑETAS O LISTAS en Perfil, Impulso, Plan, Atención o Táctica. Usa párrafos narrativos extensos.",
+        "- Aumenta la profundidad del análisis. Conecta los datos con el impacto en el negocio.",
+        "- Asegura que el informe sea extenso (mínimo 850 palabras para global, 500 para pilar).",
         "",
         "Borrador actual a superar:",
         report,
       ].join("\n");
       report = await requestOpenAiReport(context, systemPrompt, refinementPrompt, {
-        temperature: attempts === 1 ? 0.62 : 0.55,
-        timeoutMs: pillar === "all" ? 35000 : 25000,
-        maxTokens: pillar === "all" ? 1200 : 900,
+        temperature: 0.65 + (attempts * 0.05), // Increase temperature on each retry
+        timeoutMs: pillar === "all" ? 50000 : 35000,
+        maxTokens: pillar === "all" ? 1800 : 1200,
       });
       attempts += 1;
     }
