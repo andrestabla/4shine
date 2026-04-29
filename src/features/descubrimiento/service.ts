@@ -3805,41 +3805,70 @@ async function requestOpenAiReport(
 ): Promise<string> {
   const endpoint = `${sanitizeOpenAiBaseUrl(context.openAiConfig.wizardData.baseUrl)}/chat/completions`;
   const model = options?.model?.trim() || context.openAiConfig.wizardData.model?.trim() || "gpt-4.1";
-  const controller = new AbortController();
   const timeoutMs = options?.timeoutMs ?? 20000;
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${context.openAiConfig.secretValue}`,
-      "Content-Type": "application/json",
-    },
-    signal: controller.signal,
-    body: JSON.stringify({
-      model,
-      temperature: options?.temperature ?? 0.55,
-      max_tokens: options?.maxTokens ?? 1800,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-    }),
-  }).finally(() => clearTimeout(timeout));
+  const body = JSON.stringify({
+    model,
+    temperature: options?.temperature ?? 0.55,
+    max_tokens: options?.maxTokens ?? 1800,
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ],
+  });
 
-  const payload = (await response.json().catch(() => null)) as unknown;
-  if (!response.ok) {
-    const detail =
-      payload && typeof payload === "object" && "error" in payload
-        ? JSON.stringify((payload as { error?: unknown }).error)
-        : `status ${response.status}`;
-    throw new Error(`OpenAI request failed: ${detail}`);
+  // Retry on transient gateway errors (502, 503, 504, 529) with exponential backoff.
+  const RETRYABLE = new Set([502, 503, 504, 529]);
+  const MAX_ATTEMPTS = 3;
+  let lastError: Error = new Error("OpenAI request failed after retries.");
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    let response: Response;
+    try {
+      response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${context.openAiConfig.secretValue}`,
+          "Content-Type": "application/json",
+        },
+        signal: controller.signal,
+        body,
+      });
+    } catch (fetchErr) {
+      clearTimeout(timer);
+      // AbortError or network failure — retry if attempts remain
+      lastError = fetchErr instanceof Error ? fetchErr : new Error(String(fetchErr));
+      if (attempt < MAX_ATTEMPTS) {
+        await new Promise<void>((r) => setTimeout(r, attempt * 4000));
+        continue;
+      }
+      throw lastError;
+    }
+    clearTimeout(timer);
+
+    const payload = (await response.json().catch(() => null)) as unknown;
+
+    if (!response.ok) {
+      const detail =
+        payload && typeof payload === "object" && "error" in payload
+          ? JSON.stringify((payload as { error?: unknown }).error)
+          : `status ${response.status}`;
+      lastError = new Error(`OpenAI request failed: ${detail}`);
+
+      if (RETRYABLE.has(response.status) && attempt < MAX_ATTEMPTS) {
+        await new Promise<void>((r) => setTimeout(r, attempt * 5000));
+        continue;
+      }
+      throw lastError;
+    }
+
+    const report = parseOpenAiContent(payload);
+    if (!report) throw new Error("OpenAI returned empty content.");
+    return report;
   }
 
-  const report = parseOpenAiContent(payload);
-  if (!report) {
-    throw new Error("OpenAI returned empty content.");
-  }
-  return report;
+  throw lastError;
 }
 
 function sanitizeOpenAiBaseUrl(value: string | null | undefined): string {
