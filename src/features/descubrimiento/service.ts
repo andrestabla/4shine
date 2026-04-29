@@ -3626,7 +3626,7 @@ export async function bulkRegenerateDiscoveryReportsByManager(
     const pillarPromises = DISCOVERY_REPORT_BATCH_FILTERS.map(async (pillar, index) => {
       // Add a small stagger to avoid hitting TPM limits all at once
       if (index > 0) {
-        await new Promise((r) => setTimeout(r, index * 3000));
+        await new Promise((r) => setTimeout(r, index * 1000));
       }
       // Use a fresh client for each parallel pillar analysis to avoid connection concurrency issues
       return withClient(async (subClient) => {
@@ -3834,7 +3834,7 @@ async function requestOpenAiReport(
   options?: { temperature?: number; model?: string; timeoutMs?: number; maxTokens?: number },
 ): Promise<string> {
   const endpoint = `${sanitizeOpenAiBaseUrl(context.openAiConfig.wizardData.baseUrl)}/chat/completions`;
-  const model = options?.model?.trim() || context.openAiConfig.wizardData.model?.trim() || "gpt-4.1";
+  const model = options?.model?.trim() || context.openAiConfig.wizardData.model?.trim() || "gpt-4o";
   const timeoutMs = options?.timeoutMs ?? 20000;
   const body = JSON.stringify({
     model,
@@ -5154,8 +5154,8 @@ async function runContractStyleAnalysis(
 
   try {
     const isGlobal = pillar === "all";
-    const primaryModel = "gpt-4.1"; 
-    const refinementModel = "gpt-4.1";
+    const primaryModel = "gpt-4o"; 
+    const refinementModel = "gpt-4o";
     const maxAttempts = 3; 
 
     let report = await requestOpenAiReport(context, systemPrompt, userPrompt, {
