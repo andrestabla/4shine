@@ -8,6 +8,25 @@ const GOLD   = '#C9A84C';
 const GOLD_L = '#E8D090';
 const GOLD_D = '#A07830';
 
+// ─── Color helpers ────────────────────────────────────────────────────────────
+// Mirror the same logic used in CertificatePreviewCard so preview ≈ PDF.
+
+function hexToRgb(hex: string): [number, number, number] {
+  const c = (hex ?? '#5f3471').replace('#', '');
+  const r = parseInt(c.slice(0, 2), 16);
+  const g = parseInt(c.slice(2, 4), 16);
+  const b = parseInt(c.slice(4, 6), 16);
+  return [isNaN(r) ? 95 : r, isNaN(g) ? 52 : g, isNaN(b) ? 113 : b];
+}
+
+function colorDarken([r, g, b]: [number, number, number], t: number): string {
+  return `rgb(${Math.round(r * (1 - t))},${Math.round(g * (1 - t))},${Math.round(b * (1 - t))})`;
+}
+
+function colorLighten([r, g, b]: [number, number, number], t: number): string {
+  return `rgb(${Math.min(255, Math.round(r + (255 - r) * t))},${Math.min(255, Math.round(g + (255 - g) * t))},${Math.min(255, Math.round(b + (255 - b) * t))})`;
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function esc(s: string | null | undefined): string {
@@ -53,7 +72,12 @@ function goldStrip(): string {
   return `<div style="height:5px;background:linear-gradient(to right,${GOLD_D},${GOLD_L},${GOLD},${GOLD_L},${GOLD_D});flex-shrink:0;"></div>`;
 }
 
-function sigBlock(t: CertificateTemplateRecord, nameColor = '#333', titleColor = '#888', lineColor = '#ccc'): string {
+function sigBlock(
+  t: CertificateTemplateRecord,
+  nameColor = '#333',
+  titleColor = '#888',
+  lineColor = '#ccc',
+): string {
   if (!t.signatoryName) return '<div style="min-width:160px;"></div>';
   return `
 <div style="text-align:center;min-width:160px;">
@@ -65,10 +89,10 @@ function sigBlock(t: CertificateTemplateRecord, nameColor = '#333', titleColor =
 }
 
 // ─── Template 1 — Ejecutiva ───────────────────────────────────────────────────
-// Accent header band · gold separator · clean white body · corner ornaments
+// Matches preview: accent gradient header · gold strip · white body · light footer
 
 function htmlEjecutiva(t: CertificateTemplateRecord, name: string, course: string, date: string): string {
-  const a = esc(t.accentColor);
+  const a = esc(t.accentColor ?? '#5f3471');
   return `
 <div style="width:1123px;height:794px;overflow:hidden;position:relative;background:#fff;font-family:Georgia,'Times New Roman',serif;">
   <!-- Corner ornaments -->
@@ -76,14 +100,12 @@ function htmlEjecutiva(t: CertificateTemplateRecord, name: string, course: strin
   <div style="position:absolute;bottom:0;left:0;width:120px;height:120px;border-bottom:2px solid ${GOLD}45;border-left:2px solid ${GOLD}45;z-index:10;pointer-events:none;"></div>
 
   <!-- HEADER BAND -->
-  <div style="background:${a};height:228px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 80px;text-align:center;position:relative;overflow:hidden;">
+  <div style="background:linear-gradient(135deg,${a}ee,${a}99);height:228px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 80px;text-align:center;position:relative;overflow:hidden;">
     <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 50% -10%,rgba(255,255,255,0.13),transparent 65%);"></div>
-    <div style="position:absolute;top:-80px;right:-80px;width:260px;height:260px;border-radius:50%;border:1px solid rgba(255,255,255,0.06);"></div>
-    <div style="position:absolute;bottom:-60px;left:-60px;width:200px;height:200px;border-radius:50%;border:1px solid rgba(255,255,255,0.06);"></div>
     <div style="position:relative;z-index:1;width:100%;display:flex;flex-direction:column;align-items:center;">
       ${t.logoUrl
         ? imgTag(t.logoUrl, 'height:38px;max-width:180px;object-fit:contain;display:block;margin:0 auto 12px;')
-        : `<p style="font-family:Montserrat,Arial,sans-serif;font-size:10px;letter-spacing:0.34em;text-transform:uppercase;color:rgba(255,255,255,0.55);margin:0 0 12px;">${esc(t.organizationName)}</p>`}
+        : `<p style="font-family:Montserrat,Arial,sans-serif;font-size:10px;letter-spacing:0.34em;text-transform:uppercase;color:rgba(255,255,255,0.65);margin:0 0 10px;">${esc(t.organizationName)}</p>`}
       <div style="display:flex;align-items:center;gap:20px;margin-bottom:10px;">
         <div style="height:1px;width:80px;background:${GOLD};"></div>
         <p style="font-family:Montserrat,Arial,sans-serif;font-size:28px;letter-spacing:0.24em;text-transform:uppercase;color:#fff;font-weight:700;margin:0;">CERTIFICADO</p>
@@ -117,91 +139,83 @@ function htmlEjecutiva(t: CertificateTemplateRecord, name: string, course: strin
 }
 
 // ─── Template 2 — Premium ─────────────────────────────────────────────────────
-// Light textured background · dark diagonal corner shapes · gold name
+// Matches preview: dark luxury background · accent border frame · inner border ·
+// mid panel · white recipient name. No clip-path (breaks html2canvas).
 
 function htmlPremium(t: CertificateTemplateRecord, name: string, course: string, date: string): string {
-  const a = esc(t.accentColor);
+  const rgb = hexToRgb(t.accentColor ?? '#5f3471');
+  const bgDark    = colorDarken(rgb, 0.82);
+  const bgMid     = colorDarken(rgb, 0.72);
+  const bgFooter  = colorDarken(rgb, 0.88);
+  const acLight   = colorLighten(rgb, 0.55);
+  const a = esc(t.accentColor ?? '#5f3471');
+
   return `
-<div style="width:1123px;height:794px;overflow:hidden;position:relative;background:#f6f5f0;font-family:Georgia,'Times New Roman',serif;">
-  <!-- Diagonal stripe texture -->
-  <div style="position:absolute;inset:0;background:repeating-linear-gradient(-55deg,transparent,transparent 22px,rgba(0,0,0,0.018) 22px,rgba(0,0,0,0.018) 23px);pointer-events:none;"></div>
+<div style="width:1123px;height:794px;overflow:hidden;position:relative;background:${bgDark};font-family:Georgia,'Times New Roman',serif;">
+  <!-- Outer accent border frame (matches preview 5px solid accent) -->
+  <div style="position:absolute;inset:0;border:6px solid ${a};pointer-events:none;z-index:20;"></div>
+  <!-- Inner thin border -->
+  <div style="position:absolute;inset:14px;border:1px solid ${acLight};pointer-events:none;z-index:20;opacity:0.6;"></div>
+  <!-- Inner mid panel (matches preview inset:14%) -->
+  <div style="position:absolute;top:11%;right:11%;bottom:21%;left:11%;background:${bgMid};border-radius:6px;z-index:2;"></div>
 
-  <!-- TOP-RIGHT dark triangle -->
-  <div style="position:absolute;top:0;right:0;width:420px;height:268px;background:${a};clip-path:polygon(100% 0,0 0,100% 100%);"></div>
-  <!-- Gold shimmer on top triangle -->
-  <div style="position:absolute;top:0;right:0;width:420px;height:268px;clip-path:polygon(100% 0,0 0,100% 100%);background:linear-gradient(135deg,${GOLD}55,transparent 55%);pointer-events:none;"></div>
-
-  <!-- BOTTOM-LEFT dark triangle -->
-  <div style="position:absolute;bottom:0;left:0;width:360px;height:238px;background:${a};clip-path:polygon(0 0,0 100%,100% 100%);"></div>
-  <!-- Gold shimmer on bottom triangle -->
-  <div style="position:absolute;bottom:0;left:0;width:360px;height:238px;clip-path:polygon(0 0,0 100%,100% 100%);background:linear-gradient(315deg,${GOLD}55,transparent 55%);pointer-events:none;"></div>
-
-  <!-- Outer frame line -->
-  <div style="position:absolute;inset:16px;border:1px solid ${GOLD}38;pointer-events:none;"></div>
-
-  <!-- Company badge (pentagon, top center) -->
-  <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:96px;height:80px;background:${a};clip-path:polygon(0 0,100% 0,100% 74%,50% 100%,0 74%);display:flex;align-items:center;justify-content:center;padding-bottom:18px;z-index:10;">
+  <!-- MAIN CONTENT (78% height, centered) -->
+  <div style="position:absolute;top:0;left:0;right:0;height:78%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 22%;text-align:center;z-index:5;">
+    <p style="font-family:Montserrat,Arial,sans-serif;font-size:8.5px;letter-spacing:0.26em;color:${acLight};font-weight:700;text-transform:uppercase;margin:0 0 16px;">CERTIFICADO DE EXCELENCIA</p>
     ${t.logoUrl
-      ? imgTag(t.logoUrl, 'height:46px;width:70px;object-fit:contain;')
-      : `<span style="color:rgba(255,255,255,0.85);font-size:28px;line-height:1;">&#9733;</span>`}
+      ? imgTag(t.logoUrl, 'height:36px;max-width:150px;object-fit:contain;display:block;margin:0 auto 12px;')
+      : `<p style="font-family:Montserrat,Arial,sans-serif;font-size:11px;color:rgba(220,215,240,0.85);margin:0 0 12px;">${esc(t.organizationName)}</p>`}
+    <div style="width:56px;height:2px;background:${a};margin:0 auto 14px;border-radius:1px;"></div>
+    <p style="font-family:Montserrat,Arial,sans-serif;font-size:12px;color:rgba(220,215,235,0.85);margin:0 0 12px;letter-spacing:0.03em;">${esc(t.headlineText)}</p>
+    <p style="font-size:54px;color:#ffffff;margin:0 0 6px;font-style:italic;font-weight:400;line-height:1.05;">${esc(name)}</p>
+    <p style="font-family:Montserrat,Arial,sans-serif;font-size:11px;color:rgba(200,195,220,0.8);margin:0 0 8px;line-height:1.5;">${esc(t.bodyText)}</p>
+    <p style="font-size:13px;color:${acLight};font-style:italic;margin:0 0 4px;">"${esc(course)}"</p>
+    <p style="font-family:Montserrat,Arial,sans-serif;font-size:9px;color:rgba(180,175,205,0.7);margin:0;">${esc(date)}</p>
+    <div style="width:56px;height:2px;background:${a};margin:14px auto 0;border-radius:1px;"></div>
   </div>
 
-  <!-- MAIN CONTENT -->
-  <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 160px 100px;text-align:center;z-index:5;">
-    ${!t.logoUrl ? `<p style="font-family:Montserrat,Arial,sans-serif;font-size:9px;letter-spacing:0.3em;text-transform:uppercase;color:#999;margin:0 0 4px;">${esc(t.organizationName)}</p>` : ''}
-    <p style="font-family:Montserrat,Arial,sans-serif;font-size:26px;letter-spacing:0.22em;text-transform:uppercase;color:${a};font-weight:700;margin:0 0 2px;">CERTIFICADO</p>
-    <p style="font-family:Montserrat,Arial,sans-serif;font-size:12px;letter-spacing:0.24em;text-transform:uppercase;color:${GOLD_D};margin:0 0 18px;">DE EXCELENCIA</p>
-    <p style="font-family:Montserrat,Arial,sans-serif;font-size:11px;letter-spacing:0.1em;color:#666;margin:0 0 12px;">${esc(t.headlineText)}</p>
-    <p style="font-size:54px;color:${GOLD_D};margin:0 0 4px;font-style:italic;font-weight:400;line-height:1.05;">${esc(name)}</p>
-    <div style="margin:12px auto;">${goldDivider(300)}</div>
-    <p style="font-family:Montserrat,Arial,sans-serif;font-size:11px;color:#555;margin:0 0 5px;">${esc(t.bodyText)}</p>
-    <p style="font-size:13.5px;color:${a};font-style:italic;margin:0 0 5px;">"${esc(course)}"</p>
-    <p style="font-family:Montserrat,Arial,sans-serif;font-size:9.5px;color:#bbb;margin:0;">${esc(date)}</p>
-  </div>
-
-  <!-- BOTTOM FOOTER -->
-  <div style="position:absolute;bottom:0;left:0;right:0;height:108px;display:flex;align-items:center;justify-content:space-between;padding:0 150px;z-index:6;">
-    ${sigBlock(t)}
+  <!-- FOOTER -->
+  <div style="position:absolute;bottom:8px;left:8px;right:8px;height:19%;background:${bgFooter};display:flex;align-items:center;justify-content:space-between;padding:0 80px;border-top:1px solid ${acLight};z-index:6;opacity:1;">
+    ${sigBlock(t, 'rgba(220,215,240,1)', 'rgba(180,175,205,0.8)', 'rgba(180,175,205,0.5)')}
     ${goldSeal(72)}
     <div style="text-align:right;max-width:220px;">
-      <p style="font-family:Montserrat,Arial,sans-serif;font-size:8px;color:#bbb;margin:0;line-height:1.75;">${esc(t.footerText)}</p>
+      <p style="font-family:Montserrat,Arial,sans-serif;font-size:8px;color:rgba(180,175,205,0.65);margin:0;line-height:1.75;">${esc(t.footerText)}</p>
     </div>
   </div>
 </div>`;
 }
 
 // ─── Template 3 — Estándar ────────────────────────────────────────────────────
-// Accent sidebar with diagonal cut · gold strip · white content area
+// Matches preview: accent sidebar · white content area. Uses SVG polygon for
+// the diagonal sidebar edge instead of clip-path (which html2canvas ignores).
 
 function htmlEstandar(t: CertificateTemplateRecord, name: string, course: string, date: string): string {
-  const a = esc(t.accentColor);
+  const a = esc(t.accentColor ?? '#5f3471');
   return `
 <div style="width:1123px;height:794px;overflow:hidden;position:relative;font-family:Georgia,'Times New Roman',serif;background:#fff;">
 
-  <!-- SIDEBAR BACKGROUND SHAPE (diagonal right edge) -->
-  <div style="position:absolute;top:0;left:0;width:380px;height:794px;background:${a};clip-path:polygon(0 0,100% 0,84% 100%,0 100%);z-index:1;">
-    <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(255,255,255,0.1),transparent 65%);"></div>
-    <div style="position:absolute;top:-55px;left:-55px;width:190px;height:190px;border-radius:50%;border:1px solid rgba(255,255,255,0.07);"></div>
-    <div style="position:absolute;bottom:-35px;right:30px;width:140px;height:140px;border-radius:50%;border:1px solid rgba(255,255,255,0.06);"></div>
-  </div>
+  <!-- SIDEBAR: diagonal right edge via inline SVG (clip-path not supported by html2canvas) -->
+  <svg style="position:absolute;top:0;left:0;" width="390" height="794" xmlns="http://www.w3.org/2000/svg">
+    <polygon points="0,0 390,0 328,794 0,794" fill="${a}"/>
+  </svg>
 
-  <!-- SIDEBAR CONTENT (separate layer, no clip) -->
-  <div style="position:absolute;top:0;left:0;width:320px;height:794px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 30px;text-align:center;z-index:2;">
-    ${goldSeal(90)}
-    <div style="height:20px;"></div>
+  <!-- SIDEBAR CONTENT (within the narrower safe zone of the trapezoid) -->
+  <div style="position:absolute;top:0;left:0;width:318px;height:794px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 28px;text-align:center;z-index:2;">
+    ${goldSeal(88)}
+    <div style="height:18px;"></div>
     ${t.logoUrl
-      ? imgTag(t.logoUrl, 'height:34px;max-width:140px;object-fit:contain;display:block;margin:0 auto 14px;')
-      : `<p style="font-family:Montserrat,Arial,sans-serif;font-size:10px;letter-spacing:0.26em;text-transform:uppercase;color:rgba(255,255,255,0.82);font-weight:700;margin:0 0 14px;">${esc(t.organizationName)}</p>`}
+      ? imgTag(t.logoUrl, 'height:32px;max-width:130px;object-fit:contain;display:block;margin:0 auto 12px;')
+      : `<p style="font-family:Montserrat,Arial,sans-serif;font-size:10px;letter-spacing:0.26em;text-transform:uppercase;color:rgba(255,255,255,0.85);font-weight:700;margin:0 0 12px;">${esc(t.organizationName)}</p>`}
     <div style="width:52px;height:1px;background:${GOLD};margin:0 auto 12px;"></div>
     <p style="font-family:Montserrat,Arial,sans-serif;font-size:8px;letter-spacing:0.34em;text-transform:uppercase;color:${GOLD_L};margin:0;">CERTIFICADO</p>
   </div>
 
   <!-- RIGHT CONTENT AREA -->
-  <div style="position:absolute;top:0;left:348px;right:0;bottom:0;background:#fff;display:flex;flex-direction:column;z-index:1;">
+  <div style="position:absolute;top:0;left:352px;right:0;bottom:0;background:#fff;display:flex;flex-direction:column;z-index:1;">
     ${goldStrip()}
     <!-- Body -->
-    <div style="flex:1;padding:36px 62px 0 52px;display:flex;flex-direction:column;justify-content:center;">
-      <p style="font-family:Montserrat,Arial,sans-serif;font-size:9px;letter-spacing:0.3em;text-transform:uppercase;color:#bbb;margin:0 0 8px;">SE CERTIFICA QUE</p>
+    <div style="flex:1;padding:32px 58px 0 50px;display:flex;flex-direction:column;justify-content:center;">
+      <p style="font-family:Montserrat,Arial,sans-serif;font-size:9px;letter-spacing:0.3em;text-transform:uppercase;color:#bbb;margin:0 0 10px;">SE CERTIFICA QUE</p>
       <p style="font-size:50px;color:${a};margin:0 0 4px;font-style:italic;font-weight:400;line-height:1.1;">${esc(name)}</p>
       <div style="display:flex;align-items:center;gap:12px;margin:12px 0;">
         <div style="width:40px;height:1px;background:${GOLD};flex-shrink:0;"></div>
@@ -214,7 +228,7 @@ function htmlEstandar(t: CertificateTemplateRecord, name: string, course: string
       <p style="font-family:Montserrat,Arial,sans-serif;font-size:9.5px;color:#bbb;letter-spacing:0.06em;margin:0;">${esc(date)}</p>
     </div>
     <!-- Footer -->
-    <div style="height:114px;background:#f9f7f1;border-top:1px solid ${GOLD}28;display:flex;align-items:center;justify-content:space-between;padding:0 62px 0 52px;flex-shrink:0;">
+    <div style="height:114px;background:#f9f7f1;border-top:1px solid ${GOLD}28;display:flex;align-items:center;justify-content:space-between;padding:0 58px 0 50px;flex-shrink:0;">
       ${sigBlock(t)}
       <div style="text-align:right;max-width:240px;">
         <p style="font-family:Montserrat,Arial,sans-serif;font-size:8px;color:#bbb;margin:0;line-height:1.75;">${esc(t.footerText)}</p>
@@ -251,7 +265,7 @@ async function htmlToCanvas(html: string): Promise<HTMLCanvasElement> {
   wrap.innerHTML = html;
   document.body.appendChild(wrap);
 
-  // Wait for all images
+  // Wait for all images to load before rendering.
   await Promise.all(
     Array.from(wrap.querySelectorAll<HTMLImageElement>('img')).map(
       (img) =>
@@ -270,7 +284,7 @@ async function htmlToCanvas(html: string): Promise<HTMLCanvasElement> {
     width: 1123,
     height: 794,
     logging: false,
-    backgroundColor: '#ffffff',
+    backgroundColor: null,
   });
 
   document.body.removeChild(wrap);
