@@ -3623,7 +3623,11 @@ export async function bulkRegenerateDiscoveryReportsByManager(
       "Líder";
     const role = state.profile?.jobRole || "Líder";
 
-    const pillarPromises = DISCOVERY_REPORT_BATCH_FILTERS.map(async (pillar) => {
+    const pillarPromises = DISCOVERY_REPORT_BATCH_FILTERS.map(async (pillar, index) => {
+      // Add a small stagger to avoid hitting TPM limits all at once
+      if (index > 0) {
+        await new Promise((r) => setTimeout(r, index * 3000));
+      }
       // Use a fresh client for each parallel pillar analysis to avoid connection concurrency issues
       return withClient(async (subClient) => {
         return withRoleContext(subClient, actor.userId, actor.role, async () => {
@@ -3663,7 +3667,11 @@ export async function bulkRegenerateDiscoveryReportsByManager(
     const role = session.jobRole || "Líder";
     const scores = scoreDiscoveryAnswers(session.answers);
 
-    const pillarPromises = DISCOVERY_REPORT_BATCH_FILTERS.map(async (pillar) => {
+    const pillarPromises = DISCOVERY_REPORT_BATCH_FILTERS.map(async (pillar, index) => {
+      // Add a small stagger to avoid hitting TPM limits all at once
+      if (index > 0) {
+        await new Promise((r) => setTimeout(r, index * 3000));
+      }
       // Use a fresh client for each parallel pillar analysis to avoid connection concurrency issues
       return withClient(async (subClient) => {
         return withRoleContext(subClient, actor.userId, actor.role, async () => {
@@ -3838,9 +3846,9 @@ async function requestOpenAiReport(
     ],
   });
 
-  // Retry on transient gateway errors (502, 503, 504, 529) with exponential backoff.
-  const RETRYABLE = new Set([502, 503, 504, 529]);
-  const MAX_ATTEMPTS = 3;
+  // Retry on transient gateway errors (502, 503, 504, 529) and rate limits (429) with backoff.
+  const RETRYABLE = new Set([429, 502, 503, 504, 529]);
+  const MAX_ATTEMPTS = 5;
   let lastError: Error = new Error("OpenAI request failed after retries.");
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
@@ -3859,27 +3867,28 @@ async function requestOpenAiReport(
       });
     } catch (fetchErr) {
       clearTimeout(timer);
-      // AbortError or network failure — retry if attempts remain
       lastError = fetchErr instanceof Error ? fetchErr : new Error(String(fetchErr));
       if (attempt < MAX_ATTEMPTS) {
-        await new Promise<void>((r) => setTimeout(r, attempt * 4000));
+        await new Promise<void>((r) => setTimeout(r, attempt * 5000));
         continue;
       }
       throw lastError;
     }
     clearTimeout(timer);
 
-    const payload = (await response.json().catch(() => null)) as unknown;
+    const payload = (await response.json().catch(() => null)) as any;
 
     if (!response.ok) {
       const detail =
         payload && typeof payload === "object" && "error" in payload
-          ? JSON.stringify((payload as { error?: unknown }).error)
+          ? JSON.stringify(payload.error)
           : `status ${response.status}`;
       lastError = new Error(`OpenAI request failed: ${detail}`);
 
       if (RETRYABLE.has(response.status) && attempt < MAX_ATTEMPTS) {
-        await new Promise<void>((r) => setTimeout(r, attempt * 5000));
+        // Longer wait for rate limits (429)
+        const delay = response.status === 429 ? (attempt * 10000) : (attempt * 5000);
+        await new Promise<void>((r) => setTimeout(r, delay));
         continue;
       }
       throw lastError;
