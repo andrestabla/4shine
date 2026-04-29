@@ -371,7 +371,7 @@ export default function LearningResourceDetailPage() {
   }, [activeResourceIndex, currentItem, resource, totalItems, validCompletedResourceIds]);
 
   const hasCertificateScreen =
-    Boolean(resource?.certificateTemplateId) && calculatedProgress >= 100;
+    Boolean(resource?.certificateTemplateId) && calculatedProgress >= 95;
 
   const handleNext = () => {
     const maxIndex = hasCertificateScreen ? totalItems : totalItems - 1;
@@ -679,6 +679,7 @@ export default function LearningResourceDetailPage() {
                       <div className="space-y-1">
                         {module.items.map((item) => {
                           const isActive = item.globalIndex === activeResourceIndex;
+                          const isCompleted = validCompletedResourceIds.includes(item.id);
                           return (
                             <button
                               key={item.id}
@@ -691,9 +692,13 @@ export default function LearningResourceDetailPage() {
                               }`}
                             >
                               <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
-                                isActive ? "bg-[var(--brand-primary)] text-white" : "bg-slate-100 text-slate-500"
+                                isActive
+                                  ? "bg-[var(--brand-primary)] text-white"
+                                  : isCompleted
+                                    ? "bg-emerald-500 text-white"
+                                    : "bg-slate-100 text-slate-500"
                               }`}>
-                                {item.globalIndex + 1}
+                                {!isActive && isCompleted ? "✓" : item.globalIndex + 1}
                               </div>
                               <div className="flex-1 min-w-0">
                                 <p className={`truncate text-sm font-bold ${isActive ? "text-[#e85d24]" : "text-[var(--app-ink)]"}`}>
@@ -713,7 +718,7 @@ export default function LearningResourceDetailPage() {
                     </div>
                   ))}
 
-                {/* Certificate entry — visible only when course is 100% complete */}
+                {/* Certificate entry — visible when course is ≥95% complete */}
                 {hasCertificateScreen && (
                   <div className="mt-6">
                     <div className="px-3 mb-2 flex items-center gap-2">
