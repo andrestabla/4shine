@@ -277,41 +277,31 @@ function htmlEstandar(t: ResolvedTemplate, name: string, course: string, date: s
 // Best-effort: converts logo/signature to data URLs so html2canvas never makes
 // network requests. If this fails, imgTag() falls back to the same-origin proxy URL.
 
-async function blobToDataUrl(blob: Blob): Promise<string | null> {
-  if (blob.size === 0) return null;
-  return new Promise<string | null>((resolve) => {
-    const reader = new FileReader();
-    reader.onload  = () => resolve(reader.result as string);
-    reader.onerror = () => resolve(null);
-    reader.readAsDataURL(blob);
-  });
-}
-
+// Loads via same-origin proxy → draws to canvas → exports as PNG data URL.
+// No crossOrigin attribute on Image: same-origin proxy URL never taints the canvas,
+// so toDataURL() always works regardless of the upstream content-type header.
 async function fetchAsDataUrl(url: string | null | undefined): Promise<string | null> {
   if (!url) return null;
-
-  // Strategy 1: direct browser fetch (works if R2 CORS allows the current origin)
-  try {
-    const res = await fetch(url, { mode: 'cors' });
-    if (res.ok) {
-      const blob = await res.blob();
-      if (blob.type.startsWith('image/')) {
-        const dataUrl = await blobToDataUrl(blob);
-        if (dataUrl) return dataUrl;
+  const proxyUrl = `/api/v1/image-proxy?url=${encodeURIComponent(url)}`;
+  return new Promise<string | null>((resolve) => {
+    const img = new Image();
+    const timer = setTimeout(() => resolve(null), 10000);
+    img.onload = () => {
+      clearTimeout(timer);
+      if (!img.naturalWidth) { resolve(null); return; }
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width  = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        canvas.getContext('2d')!.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      } catch {
+        resolve(null);
       }
-    }
-  } catch { /* CORS blocked or network error */ }
-
-  // Strategy 2: server-side proxy (same-origin, no CORS restrictions)
-  try {
-    const res = await fetch(`/api/v1/image-proxy?url=${encodeURIComponent(url)}`);
-    if (res.ok) {
-      const blob = await res.blob();
-      if (blob.size > 0) return blobToDataUrl(blob);
-    }
-  } catch { /* ignore */ }
-
-  return null;
+    };
+    img.onerror = () => { clearTimeout(timer); resolve(null); };
+    img.src = proxyUrl;
+  });
 }
 
 // ─── Font loading ─────────────────────────────────────────────────────────────

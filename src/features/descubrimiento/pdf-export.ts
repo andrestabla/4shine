@@ -370,10 +370,8 @@ export async function downloadDiscoveryPdfReport({
     { key: "beyond", title: PILLAR_INFO.beyond.title, pillar: "beyond" },
   ];
 
-  for (const [index, section] of reportSections.entries()) {
-    if (index > 0) {
-      writer.startNewPage();
-    }
+  for (const section of reportSections) {
+    writer.startNewPage();
     writer.writeHeading(section.title, "section");
 
     const sectionChartY = writer.getY();

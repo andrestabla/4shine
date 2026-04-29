@@ -4505,11 +4505,13 @@ async function runDiscoveryAnalysisWithContext(
 
   const editorialBlock = [
     "Instrucciones editoriales obligatorias:",
-    "- Escribe en español con cercanía profesional, en prosa natural y continua.",
-    "- Evita lenguaje robótico o frases de relleno.",
-    "- No inventes datos. Si no hay evidencia suficiente, dilo de forma directa.",
-    "- Fundamenta cada conclusión con resultados y contexto disponible.",
-    "- Entrega texto accionable y priorizado.",
+    "- Escribe en español con lenguaje cercano, simple y directo. Que suene a una conversación honesta, no a un informe corporativo.",
+    "- Evita tecnicismos, jerga académica y frases hechas típicas de inteligencia artificial.",
+    "- PROHIBICIÓN DE CIFRAS EN EL TEXTO: No cites porcentajes ni puntuaciones. Los datos son insumo para tu análisis; escribe lo que significan para el liderazgo de esta persona, no los números. Usa adjetivos cualitativos: marcado, amplio, sólido, moderado, incipiente.",
+    "- Evita frases que revelan que lees una tabla: 'tu índice de X%', 'alcanzas un Y% en', 'la brecha de Z puntos'. Describe el fenómeno, no la métrica.",
+    "- Habla siempre en segunda persona del singular ('tú', 'tu', 'te'). Conecta directamente con la persona.",
+    "- No inventes datos. Fundamenta cada conclusión en los resultados del caso.",
+    "- Entrega análisis concreto, accionable y específico para esta persona.",
     "- Usa títulos markdown de nivel 2 (##) con los nombres exactos solicitados.",
     `- La primera frase del informe debe iniciar exactamente con: "${input.username}, tu perfil de liderazgo".`,
   ].join("\n");
@@ -4553,29 +4555,29 @@ async function runDiscoveryAnalysisWithContext(
     "Reglas anti-genérico obligatorias:",
     "- No escribas definiciones sueltas tipo 'Competencia: descripción corta'.",
     "- Cada sección debe tener mínimo 100 palabras en prosa continua.",
-    "- Prohibido usar viñetas (bullet points) o listas numeradas en las secciones de Perfil, Impulso y Plan. Usa exclusivamente párrafos narrativos de alta profundidad ejecutiva.",
-    "- Conecta cada fortaleza o brecha con un impacto real en el negocio o el equipo (causalidad).",
-    "- Usa al menos 3 porcentajes y 2 competencias concretas por sección.",
-    "- Debes inferir causas y consecuencias específicas, no frases universales.",
+    "- Prohibido usar viñetas (bullet points) o listas numeradas. Usa exclusivamente párrafos narrativos.",
+    "- Conecta cada fortaleza o brecha con un impacto real y concreto en la forma de liderar de esta persona.",
+    "- No uses cifras en el texto; interpreta los datos internamente y escribe lo que significan, no los números.",
+    "- Debes inferir causas y consecuencias específicas para este caso, no frases universales.",
     "",
     "Objetivo:",
-    "Genera una lectura ejecutiva profunda y organizada para la vista global. Conecta fortalezas, brechas y tensiones reales del liderazgo. Mantén un tono cercano, respetuoso y retador.",
+    "Genera una lectura profunda y organizada para la vista global. Conecta fortalezas, brechas y tensiones reales del liderazgo con lenguaje cercano, simple y retador. Habla directamente con la persona.",
     "",
     "Estructura obligatoria:",
     "## Tu perfil estratégico",
-    "Analiza el índice global, el nivel de madurez y el arquetipo de liderazgo. Explica la brecha entre autopercepción y juicio situacional. Mínimo 200 palabras en prosa pura.",
+    "Describe cómo lidera esta persona hoy: qué la caracteriza, qué tensiones carga y qué distancia hay entre cómo se ve a sí misma y cómo actúa bajo presión. Mínimo 200 palabras en prosa pura.",
     "## Lo que hoy te impulsa",
-    "Detalla las fortalezas que hoy generan tracción y por qué son sostenibles. Mínimo 150 palabras en prosa pura.",
+    "Conecta con las fortalezas reales: en qué situaciones concretas se expresan, por qué funcionan y qué hace que sean sostenibles. Mínimo 150 palabras en prosa pura.",
     "## Plan de aceleración de 30 días",
-    "Propón 3 acciones críticas semanales. Describe el 'cómo' y el 'para qué' de cada una con detalle quirúrgico. Mínimo 150 palabras en prosa pura.",
+    "Propón 3 acciones concretas y ligadas a este caso. Describe el cómo y el para qué de cada una con precisión. Mínimo 150 palabras en prosa pura.",
     "## Lectura del pilar",
-    "Integra una lectura comparativa de los cuatro pilares. Mínimo 100 palabras.",
+    "Explica cómo se relacionan los cuatro pilares entre sí en este caso y qué revela esa combinación. Mínimo 100 palabras.",
     "## Puntos críticos de atención",
-    "Explica riesgos de continuidad y costo de no intervenir. Mínimo 100 palabras en prosa pura.",
+    "Describe qué pasa si no se interviene: consecuencias concretas para el equipo y para el propio líder. Mínimo 100 palabras en prosa pura.",
     "## Intervención táctica",
-    "Define micro-hábitos y conversaciones concretas. Mínimo 100 palabras en prosa pura.",
+    "Propón micro-hábitos y conversaciones específicas ligadas a las brechas de este caso. Mínimo 100 palabras en prosa pura.",
     "## Señal de progreso",
-    "Cierra con indicadores observables. Mínimo 80 palabras.",
+    "Cierra describiendo qué cambiaría en el día a día cuando las intervenciones funcionen. Mínimo 80 palabras.",
     "",
     contextBlock,
   ].join("\n");
@@ -4588,26 +4590,26 @@ async function runDiscoveryAnalysisWithContext(
     "Reglas anti-genérico obligatorias:",
     "- No escribas definiciones sueltas tipo 'Competencia: descripción corta'.",
     "- Cada sección debe tener mínimo 80 palabras en prosa continua.",
-    "- Usa al menos 2 porcentajes y 2 competencias concretas por sección.",
-    "- Debes inferir causas y consecuencias específicas para este pilar.",
+    "- No uses cifras en el texto; interpreta los datos internamente y escribe lo que significan, no los números.",
+    "- Debes inferir causas y consecuencias específicas para este caso y este pilar, no frases universales.",
     "",
-    `Objetivo: generar un diagnóstico profundo del pilar ${toPillarDisplayName(pillar)} con consecuencias sistémicas y tácticas prácticas.`,
+    `Objetivo: generar un diagnóstico profundo del pilar ${toPillarDisplayName(pillar)} con lenguaje cercano, directo y concreto. Que la persona sienta que esto fue escrito para ella.`,
     "",
     "Estructura obligatoria:",
     "## Tu perfil estratégico",
-    "Enfoca esta sección en cómo este pilar condiciona su liderazgo general.",
+    "Describe cómo este pilar condiciona su liderazgo general y qué tensión específica revela en este caso.",
     "## Lo que hoy te impulsa",
-    "Describe fortalezas del pilar y por qué hoy le funcionan.",
+    "Conecta con las fortalezas del pilar: en qué situaciones aparecen y por qué funcionan para esta persona.",
     "## Plan de aceleración de 30 días",
-    "Presenta 2 o 3 rutinas de aplicación inmediata dentro del pilar.",
+    "Propón 2 o 3 acciones concretas ligadas a las brechas de este pilar y este caso.",
     "## Lectura del pilar",
-    "Explica la brecha entre autopercepción y juicio situacional en este pilar y su efecto.",
+    "Explica qué revela la distancia entre cómo se percibe y cómo actúa en este pilar, y qué consecuencias tiene.",
     "## Puntos críticos de atención",
-    "Detalla los 3 focos de mayor riesgo y su impacto en equipo/organización.",
+    "Describe las consecuencias concretas si no se interviene: qué pasa en el equipo y en el propio líder.",
     "## Intervención táctica",
-    "Propón acciones semanales específicas, con foco en ejecución conductual.",
+    "Propón acciones semanales específicas y ligadas a las brechas concretas de este caso.",
     "## Señal de progreso",
-    "Define señales concretas de mejora para el siguiente mes.",
+    "Describe qué cambiaría en el día a día cuando la intervención funcione.",
     "",
     contextBlock,
   ].join("\n");
@@ -4922,6 +4924,8 @@ function buildContractPrompts(input: {
     "- Evita marcas morfosintácticas típicas de texto IA: paralelismos rígidos, cierre sentencioso repetido y estructuras demasiado simétricas entre secciones.",
     "- Habla como si le estuvieras diciendo la verdad útil a la persona, no como si redactaras un informe corporativo genérico.",
     "- No incluyas bloques de evidencia, listados de fuentes, anexos metodológicos ni texto tipo 'Evidencia contextual usada'.",
+    "- PROHIBICIÓN DE CIFRAS EN EL TEXTO: No cites porcentajes ni puntuaciones en el texto final. Los datos son insumo para tu análisis; lo que escribes debe ser la interpretación, no los números. Evita frases como 'tu índice de X%', 'alcanzas un Y% en', 'la brecha de Z puntos'. Usa adjetivos cualitativos: marcado, amplio, sólido, moderado, incipiente.",
+    "- El lenguaje debe ser simple, cercano y directo. Que se sienta como una conversación honesta con la persona, no como un dictamen técnico.",
     "- PROHIBICIÓN ABSOLUTA DE FORMATO LISTA: Está terminantemente prohibido el uso de cualquier elemento de lista. Esto incluye:",
     "  * Guiones al inicio de línea: '- texto'",
     "  * Asteriscos al inicio de línea: '* texto'",
@@ -4929,7 +4933,7 @@ function buildContractPrompts(input: {
     "  * Patrón de definición en negrita: '**Competencia**: definición corta.'",
     "  El único formato permitido son PÁRRAFOS NARRATIVOS CONTINUOS con mínimo 3-4 oraciones cada uno.",
     "- EJEMPLO DE LO QUE ESTÁ PROHIBIDO: '- **Autoconciencia emocional**: Reconocimiento en tiempo real...'",
-    "- EJEMPLO DE LO QUE ES CORRECTO: 'La autoconciencia emocional de John muestra una brecha notable entre su autopercepción del 76% y el criterio situacional del 100%. Esta distancia revela que...'",
+    "- EJEMPLO DE LO QUE ES CORRECTO: 'Tu autoconciencia emocional muestra una distancia importante entre cómo te ves y cómo reaccionas bajo presión. Esa brecha se nota cuando...'",
     `- La primera frase del informe debe iniciar exactamente con: "${username}, tu perfil de liderazgo".`,
   ].join("\n");
 
@@ -4941,7 +4945,6 @@ ${editorialRules}
 
 Restricciones de profundidad (ESTRICTAS):
 - Cada sección debe tener mínimo 130 palabras de análisis denso.
-- Usa mínimo 3 porcentajes y 3 competencias específicas por sección.
 - El informe total debe superar las 900 palabras.
 - PROHIBIDO USAR LISTAS O VIÑETAS. Usa solo párrafos narrativos continuos.
 
@@ -4980,8 +4983,6 @@ ${editorialRules}
 
 Restricciones de profundidad (ESTRICTAS):
 - Cada sección debe tener mínimo 85 palabras de análisis denso.
-- Distribuye mínimo 5 porcentajes en total a lo largo del informe.
-- Usa mínimo 2 competencias concretas por sección.
 - El informe total debe superar las 550 palabras.
 - PROHIBIDO USAR LISTAS O VIÑETAS. Usa solo párrafos narrativos continuos.
 
