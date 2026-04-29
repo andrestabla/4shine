@@ -315,7 +315,7 @@ export default function LearningResourceDetailPage() {
     if (
       totalItems > 0 &&
       activeResourceIndex === totalItems &&
-      !(resource?.certificateTemplateId && calculatedProgress >= 100)
+      !(resource?.certificateTemplateId && calculatedProgress >= 95)
     ) {
       setActiveResourceIndex(totalItems - 1);
     }
@@ -939,6 +939,7 @@ export default function LearningResourceDetailPage() {
                         <CertificatePreviewCard
                           template={certificateData.template}
                           recipientName={certificateData.recipientName}
+                          courseName={certificateData.courseTitle}
                         />
 
                         {/* Download button */}

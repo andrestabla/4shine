@@ -1,7 +1,12 @@
 'use client';
 
-import { Award } from 'lucide-react';
 import type { CertificateTemplateRecord } from '@/features/aprendizaje/service';
+
+// ── Design constants (mirror certificate-generator.ts) ────────────────────────
+
+const GOLD   = '#C9A84C';
+const GOLD_L = '#E8D090';
+const GOLD_D = '#A07830';
 
 // ── Color helpers ─────────────────────────────────────────────────────────────
 
@@ -19,158 +24,190 @@ function cpDarken([r, g, b]: [number, number, number], t: number): string {
   return `rgb(${Math.round(r * (1 - t))},${Math.round(g * (1 - t))},${Math.round(b * (1 - t))})`;
 }
 
+// ── Shared sub-components ─────────────────────────────────────────────────────
+
+function GoldSeal({ size = 30 }: { size?: number }) {
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: '50%', flexShrink: 0,
+      background: `radial-gradient(circle at 36% 36%, ${GOLD_L}, ${GOLD_D})`,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }}>
+      <span style={{ color: '#fff', fontSize: size * 0.38, lineHeight: 1 }}>★</span>
+    </div>
+  );
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 interface CertificatePreviewCardProps {
   template: Partial<CertificateTemplateRecord>;
   recipientName?: string;
+  courseName?: string;
 }
 
 export function CertificatePreviewCard({
   template,
   recipientName = 'Nombre del Participante',
+  courseName,
 }: CertificatePreviewCardProps) {
-  const accent = template.accentColor ?? '#5f3471';
-  const rgb = cpHex(accent);
-  const n = template.templateNumber ?? 1;
+  const accent      = template.accentColor ?? '#5f3471';
+  const rgb         = cpHex(accent);
+  const n           = template.templateNumber ?? 1;
+  const orgLabel    = template.organizationName ?? 'Organización';
+  const headlineText = template.headlineText ?? 'Se certifica que';
+  const bodyText    = template.bodyText ?? 'ha completado satisfactoriamente el curso';
+  const sigName     = template.signatoryName ?? '';
+  const sigTitle    = template.signatoryTitle ?? '';
+  const footerText  = template.footerText ?? '';
 
-  const orgLabel = template.organizationName ?? 'Organización';
-  const headlineText = template.headlineText ?? 'Este certificado acredita que';
-  const bodyText = template.bodyText ?? 'ha completado satisfactoriamente el curso';
-  const sigName = template.signatoryName ?? '';
-  const sigTitle = template.signatoryTitle ?? '';
-  const footerText = template.footerText ?? '';
+  const logo = template.logoUrl
+    ? <img src={template.logoUrl} alt="Logo" style={{ height: 16, maxWidth: 70, objectFit: 'contain', display: 'block' }} />
+    : null;
 
-  const logo = template.logoUrl ? (
-    <img src={template.logoUrl} alt="Logo" style={{ height: 22, maxWidth: 80, objectFit: 'contain' }} />
-  ) : null;
+  const SigBlock = ({ nameColor = '#333', titleColor = '#888' }: { nameColor?: string; titleColor?: string }) => (
+    <div>
+      {template.signatureUrl && (
+        <img src={template.signatureUrl} alt="Firma"
+          style={{ height: 11, maxWidth: 44, objectFit: 'contain', display: 'block', marginBottom: 2 }} />
+      )}
+      {sigName  && <p style={{ fontSize: 5.5, fontWeight: 700, color: nameColor,  margin: 0 }}>{sigName}</p>}
+      {sigTitle && <p style={{ fontSize: 5,   color: titleColor, margin: '1px 0 0' }}>{sigTitle}</p>}
+    </div>
+  );
 
   // ── Template 2 — Premium ─────────────────────────────────────────────────
   if (n === 2) {
-    const bgDark = cpDarken(rgb, 0.82);
-    const bgMid = cpDarken(rgb, 0.72);
+    const bgDark   = cpDarken(rgb, 0.82);
+    const bgMid    = cpDarken(rgb, 0.72);
     const bgFooter = cpDarken(rgb, 0.88);
-    const accentLight = cpLighten(rgb, 0.55);
+    const acLight  = cpLighten(rgb, 0.60);
     return (
-      <div
-        className="w-full overflow-hidden rounded-[14px] shadow-lg"
-        style={{ aspectRatio: '1.414', background: bgDark, position: 'relative' }}
-      >
-        <div style={{ position: 'absolute', inset: 0, border: `5px solid ${accent}`, borderRadius: 14, zIndex: 2, pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', inset: 10, border: `0.5px solid ${accentLight}`, borderRadius: 8, zIndex: 2, pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', inset: '14%', background: bgMid, borderRadius: 4 }} />
-        <div style={{ position: 'relative', zIndex: 3, height: '80%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 16%', textAlign: 'center' }}>
-          <p style={{ fontSize: '6px', letterSpacing: '0.22em', color: accentLight, fontWeight: 700, textTransform: 'uppercase', marginBottom: 7 }}>
-            CERTIFICADO DE EXCELENCIA
-          </p>
-          {logo ? (
-            <div style={{ marginBottom: 5 }}>{logo}</div>
-          ) : (
-            <p style={{ fontSize: '8px', color: 'rgba(220,215,240,0.8)', marginBottom: 5 }}>{orgLabel}</p>
-          )}
-          <div style={{ width: 28, height: 1.5, background: accent, marginBottom: 8, borderRadius: 2 }} />
-          <p style={{ fontSize: '8px', color: 'rgba(220,215,235,0.85)', marginBottom: 5, lineHeight: 1.4 }}>{headlineText}</p>
-          <p style={{ fontSize: '16px', fontWeight: 800, color: 'white', lineHeight: 1.2, marginBottom: 5 }}>{recipientName}</p>
-          <p style={{ fontSize: '8px', color: 'rgba(200,195,220,0.8)', lineHeight: 1.4, maxWidth: '82%' }}>{bodyText}</p>
-          <div style={{ width: 28, height: 1.5, background: accent, marginTop: 8, borderRadius: 2 }} />
+      <div className="w-full overflow-hidden rounded-[12px] shadow-lg"
+        style={{ aspectRatio: '1.414', background: bgDark, position: 'relative' }}>
+        {/* Borders */}
+        <div style={{ position: 'absolute', inset: 0, border: `4px solid ${accent}`, borderRadius: 12, zIndex: 5, pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', inset: 8, border: `0.5px solid ${acLight}`, borderRadius: 8, zIndex: 5, pointerEvents: 'none', opacity: 0.55 }} />
+        {/* Mid panel */}
+        <div style={{ position: 'absolute', top: '10%', right: '10%', bottom: '20%', left: '10%', background: bgMid, borderRadius: 3 }} />
+        {/* Main content */}
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: '20%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 17%', textAlign: 'center', zIndex: 3 }}>
+          <p style={{ fontSize: 5, letterSpacing: '0.22em', color: acLight, fontWeight: 700, textTransform: 'uppercase', margin: '0 0 7px' }}>CERTIFICADO DE EXCELENCIA</p>
+          {logo
+            ? <div style={{ marginBottom: 6 }}>{logo}</div>
+            : orgLabel ? <p style={{ fontSize: 7, color: 'rgba(220,215,240,0.85)', margin: '0 0 6px' }}>{orgLabel}</p> : null
+          }
+          <div style={{ width: 24, height: 1.5, background: accent, borderRadius: 1, margin: '0 0 7px' }} />
+          <p style={{ fontSize: 6, color: 'rgba(220,215,235,0.80)', margin: '0 0 7px', lineHeight: 1.4 }}>{headlineText}</p>
+          <p style={{ fontSize: 19, color: '#fff', margin: '0 0 5px', fontStyle: 'italic', lineHeight: 1.05, fontFamily: 'Georgia,serif' }}>{recipientName}</p>
+          <p style={{ fontSize: 5.5, color: 'rgba(200,195,220,0.75)', margin: '0 0 4px', lineHeight: 1.4 }}>{bodyText}</p>
+          {courseName && <p style={{ fontSize: 7, color: acLight, fontStyle: 'italic', margin: '0 0 4px', fontFamily: 'Georgia,serif' }}>"{courseName}"</p>}
+          <div style={{ width: 24, height: 1.5, background: accent, borderRadius: 1, marginTop: 7 }} />
         </div>
-        <div style={{ position: 'absolute', bottom: 5, left: 5, right: 5, height: '19%', background: bgFooter, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 14px', borderTop: `0.5px solid ${accentLight}`, borderRadius: '0 0 8px 8px' }}>
-          <div>
-            {template.signatureUrl && <img src={template.signatureUrl} alt="Firma" style={{ height: 13, maxWidth: 55, objectFit: 'contain', display: 'block', marginBottom: 2 }} />}
-            {sigName && <p style={{ fontSize: '7px', fontWeight: 700, color: 'rgba(220,215,240,1)' }}>{sigName}</p>}
-            {sigTitle && <p style={{ fontSize: '6px', color: 'rgba(180,175,205,0.8)' }}>{sigTitle}</p>}
-          </div>
-          <p style={{ fontSize: '6px', color: 'rgba(180,175,205,0.65)', textAlign: 'right', maxWidth: '45%', lineHeight: 1.4 }}>{footerText}</p>
+        {/* Footer */}
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '20%', background: bgFooter, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 8%', borderTop: `0.5px solid ${acLight}44`, zIndex: 4 }}>
+          <SigBlock nameColor="rgba(220,215,240,1)" titleColor="rgba(180,175,205,0.75)" />
+          <GoldSeal size={26} />
+          <p style={{ fontSize: 5, color: 'rgba(180,175,205,0.60)', textAlign: 'right', maxWidth: '30%', lineHeight: 1.6, margin: 0 }}>{footerText}</p>
         </div>
       </div>
     );
   }
 
   // ── Template 3 — Estándar ────────────────────────────────────────────────
+  // Sidebar uses CSS clip-path for diagonal edge (safe in browser; PDF uses SVG polygon).
   if (n === 3) {
-    const accentLight = cpLighten(rgb, 0.9);
     return (
-      <div
-        className="w-full overflow-hidden rounded-[14px] shadow-lg"
-        style={{ aspectRatio: '1.414', display: 'flex' }}
-      >
-        {/* Sidebar */}
-        <div style={{ width: '27%', background: accent, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '10px 7px', gap: 7, flexShrink: 0 }}>
-          <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(255,255,255,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Award size={14} color="white" />
-          </div>
-          <div style={{ width: 24, height: 0.5, background: 'rgba(255,255,255,0.35)' }} />
-          <p style={{ fontSize: '8px', fontWeight: 700, color: 'white', textAlign: 'center', lineHeight: 1.35, wordBreak: 'break-word', maxWidth: '90%' }}>{orgLabel}</p>
-          <div style={{ width: 24, height: 0.5, background: 'rgba(255,255,255,0.35)' }} />
-          <p style={{ fontSize: '5.5px', color: 'rgba(255,255,255,0.55)', letterSpacing: '0.14em', fontWeight: 700, textTransform: 'uppercase' }}>CERT.</p>
+      <div className="w-full overflow-hidden rounded-[12px] shadow-lg"
+        style={{ aspectRatio: '1.414', position: 'relative', background: '#fff' }}>
+        {/* Diagonal accent sidebar */}
+        <div style={{
+          position: 'absolute', top: 0, left: 0, bottom: 0, width: '35%',
+          background: accent,
+          clipPath: 'polygon(0 0, 100% 0, 84% 100%, 0 100%)',
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          justifyContent: 'center', gap: 6, padding: '0 5%',
+        }}>
+          <GoldSeal size={30} />
+          <div style={{ width: 22, height: 0.5, background: `${GOLD}80` }} />
+          {logo
+            ? logo
+            : <p style={{ fontSize: 7, fontWeight: 700, color: 'rgba(255,255,255,0.88)', textAlign: 'center', margin: 0, letterSpacing: '0.2em', textTransform: 'uppercase', lineHeight: 1.4 }}>{orgLabel}</p>
+          }
+          <div style={{ width: 22, height: 0.5, background: `${GOLD}80` }} />
+          <p style={{ fontSize: 5, color: `${GOLD_L}cc`, letterSpacing: '0.3em', fontWeight: 700, textTransform: 'uppercase', margin: 0 }}>CERT.</p>
         </div>
-        {/* Content */}
-        <div style={{ flex: 1, background: 'white', display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
-          <div style={{ height: 4, background: accentLight, flexShrink: 0 }} />
-          {logo && <div style={{ position: 'absolute', top: 8, right: 10 }}>{logo}</div>}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '4px 12px 4px 14px' }}>
-            <div style={{ width: 36, height: 1.5, background: accent, marginBottom: 7, borderRadius: 2 }} />
-            <p style={{ fontSize: '8px', color: '#777', marginBottom: 4, lineHeight: 1.4 }}>{headlineText}</p>
-            <p style={{ fontSize: '14px', fontWeight: 800, color: accent, lineHeight: 1.2, marginBottom: 4 }}>{recipientName}</p>
-            <div style={{ width: '75%', height: 0.5, background: `${accent}55`, marginBottom: 6 }} />
-            <p style={{ fontSize: '7.5px', color: '#555', lineHeight: 1.4, marginBottom: 6 }}>{bodyText}</p>
-            {sigName && (
-              <div style={{ paddingTop: 5, borderTop: '0.5px solid #eaeaee' }}>
-                {template.signatureUrl && <img src={template.signatureUrl} alt="Firma" style={{ height: 12, maxWidth: 50, objectFit: 'contain', display: 'block', marginBottom: 2 }} />}
-                <p style={{ fontSize: '7px', fontWeight: 700, color: '#444' }}>{sigName}</p>
-                {sigTitle && <p style={{ fontSize: '6px', color: '#888' }}>{sigTitle}</p>}
-              </div>
-            )}
+
+        {/* Right panel — starts at 30% to clear the diagonal */}
+        <div style={{ position: 'absolute', top: 0, left: '30%', right: 0, bottom: 0, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ height: 2.5, background: `linear-gradient(to right, ${GOLD_D}, ${GOLD_L}, ${GOLD})`, flexShrink: 0 }} />
+          <div style={{ flex: 1, padding: '7% 8% 0', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <p style={{ fontSize: 5, letterSpacing: '0.28em', textTransform: 'uppercase', color: '#bbb', margin: '0 0 5px' }}>SE CERTIFICA QUE</p>
+            <p style={{ fontSize: 17, color: accent, margin: '0 0 3px', fontStyle: 'italic', lineHeight: 1.1, fontFamily: 'Georgia,serif' }}>{recipientName}</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, margin: '5px 0' }}>
+              <div style={{ width: 18, height: 0.5, background: GOLD, flexShrink: 0 }} />
+              <div style={{ width: 4, height: 4, background: GOLD, transform: 'rotate(45deg)', flexShrink: 0 }} />
+              <div style={{ flex: 1, height: 0.5, background: `${GOLD}45` }} />
+            </div>
+            <p style={{ fontSize: 6, color: '#555', margin: '0 0 3px', lineHeight: 1.4 }}>{headlineText}</p>
+            <p style={{ fontSize: 5.5, color: '#777', margin: '0 0 4px', lineHeight: 1.45 }}>{bodyText}</p>
+            {courseName && <p style={{ fontSize: 7, color: accent, fontStyle: 'italic', margin: 0, fontFamily: 'Georgia,serif' }}>"{courseName}"</p>}
           </div>
-          <div style={{ height: 4, background: accentLight, flexShrink: 0 }} />
+          <div style={{ height: '22%', background: '#f9f7f1', borderTop: `0.5px solid ${GOLD}30`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 8%', flexShrink: 0 }}>
+            <SigBlock />
+            <p style={{ fontSize: 5, color: '#bbb', textAlign: 'right', maxWidth: '40%', lineHeight: 1.6, margin: 0 }}>{footerText}</p>
+          </div>
+          <div style={{ height: 2.5, background: `linear-gradient(to right, ${GOLD_D}, ${GOLD_L}, ${GOLD})`, flexShrink: 0 }} />
         </div>
       </div>
     );
   }
 
   // ── Template 1 — Ejecutiva (default) ─────────────────────────────────────
-  const accentLight = cpLighten(rgb, 0.92);
-  const accentMid = cpLighten(rgb, 0.55);
   return (
-    <div
-      className="w-full overflow-hidden rounded-[14px] shadow-lg border border-gray-100"
-      style={{ aspectRatio: '1.414' }}
-    >
+    <div className="w-full overflow-hidden rounded-[12px] shadow-md border border-gray-100"
+      style={{ aspectRatio: '1.414', background: '#fff', position: 'relative' }}>
+      {/* Corner ornaments */}
+      <div style={{ position: 'absolute', top: 0, right: 0, width: 36, height: 36, borderTop: `1px solid ${GOLD}50`, borderRight: `1px solid ${GOLD}50`, pointerEvents: 'none', zIndex: 5 }} />
+      <div style={{ position: 'absolute', bottom: 0, left: 0, width: 36, height: 36, borderBottom: `1px solid ${GOLD}50`, borderLeft: `1px solid ${GOLD}50`, pointerEvents: 'none', zIndex: 5 }} />
+
       {/* Header band */}
-      <div style={{ height: '22%', background: `linear-gradient(135deg, ${accent}ee, ${accent}99)`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px' }}>
-        {logo ?? (
-          <span style={{ background: 'rgba(255,255,255,0.22)', borderRadius: 6, padding: '3px 8px', fontSize: '8px', fontWeight: 700, color: 'white' }}>{orgLabel}</span>
-        )}
-        <Award size={14} color="rgba(255,255,255,0.4)" />
+      <div style={{ height: '26%', background: `linear-gradient(135deg, ${accent}f2, ${accent}aa)`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '0 12%', position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 50% -10%, rgba(255,255,255,0.15), transparent 65%)' }} />
+        <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+          {logo ?? <p style={{ fontSize: 5, letterSpacing: '0.28em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.65)', margin: 0 }}>{orgLabel}</p>}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
+            <div style={{ height: 0.5, width: 24, background: GOLD }} />
+            <p style={{ fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase', color: '#fff', fontWeight: 700, margin: 0 }}>CERTIFICADO</p>
+            <div style={{ height: 0.5, width: 24, background: GOLD }} />
+          </div>
+          <p style={{ fontSize: 5, letterSpacing: '0.18em', textTransform: 'uppercase', color: GOLD_L, margin: 0 }}>DE LOGRO</p>
+        </div>
       </div>
-      {/* Strip */}
-      <div style={{ height: 2, background: accentMid }} />
+
+      {/* Gold strip */}
+      <div style={{ height: 2, background: `linear-gradient(to right, ${GOLD_D}, ${GOLD_L}, ${GOLD}, ${GOLD_L}, ${GOLD_D})` }} />
+
       {/* Body */}
-      <div style={{ height: '54%', background: accentLight, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '5px 12px' }}>
-        <div style={{ background: 'white', borderRadius: 6, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 14px', textAlign: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-            <div style={{ flex: 1, height: 0.5, background: `${accent}50` }} />
-            <div style={{ width: 5, height: 5, borderRadius: '50%', background: accent }} />
-            <div style={{ flex: 1, height: 0.5, background: `${accent}50` }} />
-          </div>
-          <p style={{ fontSize: '8.5px', color: '#777', marginBottom: 4 }}>{headlineText}</p>
-          <p style={{ fontSize: '16px', fontWeight: 800, color: accent, lineHeight: 1.2, marginBottom: 4 }}>{recipientName}</p>
-          <p style={{ fontSize: '8.5px', color: '#777', lineHeight: 1.4, marginBottom: 6, maxWidth: '88%' }}>{bodyText}</p>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <div style={{ flex: 1, height: 0.5, background: `${accent}50` }} />
-            <div style={{ width: 5, height: 5, borderRadius: '50%', background: accentMid }} />
-            <div style={{ flex: 1, height: 0.5, background: `${accent}50` }} />
-          </div>
+      <div style={{ padding: '4% 9% 0', textAlign: 'center' }}>
+        <p style={{ fontSize: 4.5, letterSpacing: '0.28em', textTransform: 'uppercase', color: '#bbb', margin: '0 0 5px' }}>SE CERTIFICA QUE</p>
+        <p style={{ fontSize: 19, color: accent, margin: 0, fontStyle: 'italic', fontWeight: 400, lineHeight: 1.05, fontFamily: 'Georgia,serif' }}>{recipientName}</p>
+        {/* Gold divider */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, width: '55%', margin: '5px auto' }}>
+          <div style={{ flex: 1, height: 0.5, background: `${GOLD}60` }} />
+          <div style={{ width: 5, height: 5, background: GOLD, transform: 'rotate(45deg)', flexShrink: 0 }} />
+          <div style={{ flex: 1, height: 0.5, background: `${GOLD}60` }} />
         </div>
+        <p style={{ fontSize: 5.5, color: '#555', margin: '0 0 2px' }}>{headlineText}</p>
+        <p style={{ fontSize: 5, color: '#777', lineHeight: 1.45, margin: '0 0 3px' }}>{bodyText}</p>
+        {courseName && <p style={{ fontSize: 7, color: accent, fontStyle: 'italic', margin: 0, fontFamily: 'Georgia,serif' }}>"{courseName}"</p>}
       </div>
+
       {/* Footer */}
-      <div style={{ height: '22%', background: accentLight, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', borderTop: `1px solid ${accentMid}50` }}>
-        <div>
-          {template.signatureUrl && <img src={template.signatureUrl} alt="Firma" style={{ height: 14, maxWidth: 60, objectFit: 'contain', display: 'block', marginBottom: 2 }} />}
-          {sigName && <p style={{ fontSize: '7px', fontWeight: 700, color: '#444' }}>{sigName}</p>}
-          {sigTitle && <p style={{ fontSize: '6px', color: '#888' }}>{sigTitle}</p>}
-        </div>
-        <p style={{ fontSize: '6px', color: '#999', textAlign: 'right', maxWidth: '45%', lineHeight: 1.4 }}>{footerText}</p>
+      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '22%', background: '#f9f7f1', borderTop: `1px solid ${GOLD}30`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 9%' }}>
+        <SigBlock />
+        <GoldSeal size={26} />
+        <p style={{ fontSize: 5, color: '#bbb', textAlign: 'right', maxWidth: '30%', lineHeight: 1.6, margin: 0 }}>{footerText}</p>
       </div>
     </div>
   );
