@@ -6,7 +6,7 @@ import type { PoolClient } from "pg";
 import JSZip from "jszip";
 import * as XLSX from "xlsx";
 import { requireDiscoveryAccess } from "@/features/access/service";
-import { withRoleContext } from "@/server/db/pool";
+import { withClient, withRoleContext } from "@/server/db/pool";
 import { getIntegrationConfigForActor } from "@/server/integrations/config";
 import { requireModulePermission } from "@/server/auth/module-permissions";
 import { hashPassword } from "@/server/auth/password";
@@ -3623,18 +3623,29 @@ export async function bulkRegenerateDiscoveryReportsByManager(
       "Líder";
     const role = state.profile?.jobRole || "Líder";
 
-    for (const pillar of DISCOVERY_REPORT_BATCH_FILTERS) {
-      const result = await runContractStyleAnalysis(client, analysisContext, {
-        username,
-        role,
-        scores,
-        pillar,
-        fastMode: false,
+    const pillarPromises = DISCOVERY_REPORT_BATCH_FILTERS.map(async (pillar) => {
+      // Use a fresh client for each parallel pillar analysis to avoid connection concurrency issues
+      return withClient(async (subClient) => {
+        return withRoleContext(subClient, actor.userId, actor.role, async () => {
+          const result = await runContractStyleAnalysis(subClient, analysisContext, {
+            username,
+            role,
+            scores,
+            pillar,
+            fastMode: false,
+          });
+          if (result.report.trim()) {
+            await persistDiscoveryInvitationAiReport(subClient, invitationId, pillar, result.report.trim());
+            return { pillar, report: result.report.trim() };
+          }
+          return null;
+        });
       });
-      if (result.report.trim()) {
-        reports[pillar] = result.report.trim();
-        await persistDiscoveryInvitationAiReport(client, invitationId, pillar, result.report.trim());
-      }
+    });
+
+    const results = await Promise.all(pillarPromises);
+    for (const res of results) {
+      if (res) reports[res.pillar] = res.report;
     }
   } else {
     await client.query(
@@ -3652,18 +3663,29 @@ export async function bulkRegenerateDiscoveryReportsByManager(
     const role = session.jobRole || "Líder";
     const scores = scoreDiscoveryAnswers(session.answers);
 
-    for (const pillar of DISCOVERY_REPORT_BATCH_FILTERS) {
-      const result = await runContractStyleAnalysis(client, analysisContext, {
-        username,
-        role,
-        scores,
-        pillar,
-        fastMode: false,
+    const pillarPromises = DISCOVERY_REPORT_BATCH_FILTERS.map(async (pillar) => {
+      // Use a fresh client for each parallel pillar analysis to avoid connection concurrency issues
+      return withClient(async (subClient) => {
+        return withRoleContext(subClient, actor.userId, actor.role, async () => {
+          const result = await runContractStyleAnalysis(subClient, analysisContext, {
+            username,
+            role,
+            scores,
+            pillar,
+            fastMode: false,
+          });
+          if (result.report.trim()) {
+            await persistDiscoverySessionAiReport(subClient, normalizedSessionId, pillar, result.report.trim());
+            return { pillar, report: result.report.trim() };
+          }
+          return null;
+        });
       });
-      if (result.report.trim()) {
-        reports[pillar] = result.report.trim();
-        await persistDiscoverySessionAiReport(client, normalizedSessionId, pillar, result.report.trim());
-      }
+    });
+
+    const results = await Promise.all(pillarPromises);
+    for (const res of results) {
+      if (res) reports[res.pillar] = res.report;
     }
   }
 
@@ -5125,7 +5147,7 @@ async function runContractStyleAnalysis(
     const isGlobal = pillar === "all";
     const primaryModel = "gpt-4.1"; 
     const refinementModel = "gpt-4.1";
-    const maxAttempts = 6; 
+    const maxAttempts = 3; 
 
     let report = await requestOpenAiReport(context, systemPrompt, userPrompt, {
       model: primaryModel,
@@ -5157,7 +5179,7 @@ async function runContractStyleAnalysis(
       ].join("\n");
       report = await requestOpenAiReport(context, systemPrompt, refinementPrompt, {
         model: refinementModel,
-        temperature: 0.7 + (attempts * 0.03), 
+        temperature: 0.7 + (attempts * 0.05), 
         timeoutMs: isGlobal ? 120000 : 100000,
         maxTokens: isGlobal ? 4500 : 3000,
       });
