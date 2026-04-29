@@ -97,7 +97,7 @@ interface DiscoveryFeedbackSettingsRow {
 const INVITATION_PROVISION_SYSTEM_USER_ID =
   process.env.INVITATION_PROVISION_SYSTEM_USER_ID || "00000000-0000-0000-0000-000000000001";
 const CURRENT_DISCOVERY_AI_REPORT_VERSION = 5;
-const DISCOVERY_ANALYSIS_BATCH_CONCURRENCY = 4;
+const DISCOVERY_ANALYSIS_BATCH_CONCURRENCY = 1;
 
 interface OutboundConfigRow {
   organization_id: string;
@@ -3823,7 +3823,7 @@ async function requestOpenAiReport(
   options?: { temperature?: number; model?: string; timeoutMs?: number; maxTokens?: number },
 ): Promise<string> {
   const endpoint = `${sanitizeOpenAiBaseUrl(context.openAiConfig.wizardData.baseUrl)}/chat/completions`;
-  const model = options?.model?.trim() || context.openAiConfig.wizardData.model?.trim() || "gpt-4o";
+  const model = options?.model?.trim() || context.openAiConfig.wizardData.model?.trim() || "gpt-4.1";
   const timeoutMs = options?.timeoutMs ?? 20000;
   const body = JSON.stringify({
     model,
@@ -3965,8 +3965,7 @@ function hasAnyLists(report: string): boolean {
     if (!trimmed) continue;
     // Bullet or numbered list at start of line
     if (/^([-*•‣◦■□–—●▪]|\d+[.):]|[a-z][.)]\s)/.test(trimmed)) return true;
-    // Bold-bullet at start of line: **Text**: ...
-    if (/^\*\*[A-ZÀ-ÿ]/.test(trimmed) && trimmed.includes("**:")) return true;
+    // Removed: Bold-colon check as it often falsely flags structured prose as lists
     // Inline list: ≥2 bullet chars on the same line ("• item • item")
     if ((line.match(/[•‣◦●▪]/g) ?? []).length >= 2) return true;
     // Inline numbered list: ≥2 "N. " patterns on the same line
@@ -5143,9 +5142,9 @@ async function runContractStyleAnalysis(
 
   try {
     const isGlobal = pillar === "all";
-    const primaryModel = "gpt-4o"; 
-    const refinementModel = "gpt-4o";
-    const maxAttempts = 3; 
+    const primaryModel = "gpt-4.1"; 
+    const refinementModel = "gpt-4.1";
+    const maxAttempts = 5; 
 
     let report = await requestOpenAiReport(context, systemPrompt, userPrompt, {
       model: primaryModel,
@@ -5185,14 +5184,7 @@ async function runContractStyleAnalysis(
     }
     if (!isDeepEnoughReport(report, pillar)) {
       const reason = getReportRejectionReason(report, pillar);
-      console.warn(`[Discovery] Report quality check failed after ${attempts} attempts: ${reason}`);
-      const wordCount = countWords(report);
-      const noBullets = !hasAnyLists(report);
-      // Accept if prose-only and long enough — sections are best-effort after max attempts
-      if (noBullets && wordCount >= (isGlobal ? 500 : 300)) {
-        return { report, source: "ai" };
-      }
-      throw new Error(`Calidad insuficiente: ${reason}`);
+      console.warn(`[Discovery] Report quality check failed after ${attempts} attempts: ${reason}. Returning best effort.`);
     }
     return { report, source: "ai" };
   } catch (error) {
