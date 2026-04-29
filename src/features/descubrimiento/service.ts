@@ -3623,33 +3623,28 @@ export async function bulkRegenerateDiscoveryReportsByManager(
       "Líder";
     const role = state.profile?.jobRole || "Líder";
 
-    const pillarPromises = DISCOVERY_REPORT_BATCH_FILTERS.map(async (pillar, index) => {
-      // Add a small stagger to avoid hitting TPM limits all at once
-      if (index > 0) {
-        await new Promise((r) => setTimeout(r, index * 1000));
-      }
-      // Use a fresh client for each parallel pillar analysis to avoid connection concurrency issues
-      return withClient(async (subClient) => {
-        return withRoleContext(subClient, actor.userId, actor.role, async () => {
-          const result = await runContractStyleAnalysis(subClient, analysisContext, {
-            username,
-            role,
-            scores,
-            pillar,
-            fastMode: false,
+    for (const pillar of DISCOVERY_REPORT_BATCH_FILTERS) {
+      try {
+        // Use a fresh client for each pillar analysis to ensure clean transaction state
+        await withClient(async (subClient) => {
+          await withRoleContext(subClient, actor.userId, actor.role, async () => {
+            const result = await runContractStyleAnalysis(subClient, analysisContext, {
+              username,
+              role,
+              scores,
+              pillar,
+              fastMode: false,
+            });
+            if (result.report.trim()) {
+              reports[pillar] = result.report.trim();
+              await persistDiscoveryInvitationAiReport(subClient, invitationId, pillar, result.report.trim());
+            }
           });
-          if (result.report.trim()) {
-            await persistDiscoveryInvitationAiReport(subClient, invitationId, pillar, result.report.trim());
-            return { pillar, report: result.report.trim() };
-          }
-          return null;
         });
-      });
-    });
-
-    const results = await Promise.all(pillarPromises);
-    for (const res of results) {
-      if (res) reports[res.pillar] = res.report;
+      } catch (error) {
+        console.error(`[Discovery] Failed to regenerate pillar ${pillar} for invitation ${invitationId}:`, error);
+        // Continue with other pillars even if one fails
+      }
     }
   } else {
     await client.query(
@@ -3667,33 +3662,27 @@ export async function bulkRegenerateDiscoveryReportsByManager(
     const role = session.jobRole || "Líder";
     const scores = scoreDiscoveryAnswers(session.answers);
 
-    const pillarPromises = DISCOVERY_REPORT_BATCH_FILTERS.map(async (pillar, index) => {
-      // Add a small stagger to avoid hitting TPM limits all at once
-      if (index > 0) {
-        await new Promise((r) => setTimeout(r, index * 3000));
-      }
-      // Use a fresh client for each parallel pillar analysis to avoid connection concurrency issues
-      return withClient(async (subClient) => {
-        return withRoleContext(subClient, actor.userId, actor.role, async () => {
-          const result = await runContractStyleAnalysis(subClient, analysisContext, {
-            username,
-            role,
-            scores,
-            pillar,
-            fastMode: false,
+    for (const pillar of DISCOVERY_REPORT_BATCH_FILTERS) {
+      try {
+        // Use a fresh client for each pillar analysis
+        await withClient(async (subClient) => {
+          await withRoleContext(subClient, actor.userId, actor.role, async () => {
+            const result = await runContractStyleAnalysis(subClient, analysisContext, {
+              username,
+              role,
+              scores,
+              pillar,
+              fastMode: false,
+            });
+            if (result.report.trim()) {
+              reports[pillar] = result.report.trim();
+              await persistDiscoverySessionAiReport(subClient, normalizedSessionId, pillar, result.report.trim());
+            }
           });
-          if (result.report.trim()) {
-            await persistDiscoverySessionAiReport(subClient, normalizedSessionId, pillar, result.report.trim());
-            return { pillar, report: result.report.trim() };
-          }
-          return null;
         });
-      });
-    });
-
-    const results = await Promise.all(pillarPromises);
-    for (const res of results) {
-      if (res) reports[res.pillar] = res.report;
+      } catch (error) {
+        console.error(`[Discovery] Failed to regenerate pillar ${pillar} for session ${normalizedSessionId}:`, error);
+      }
     }
   }
 
