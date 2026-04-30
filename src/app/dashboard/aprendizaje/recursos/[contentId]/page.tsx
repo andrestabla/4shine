@@ -49,6 +49,14 @@ import {
 } from "@/features/aprendizaje/presentation";
 import { deleteContent } from "@/features/content/client";
 
+function toScormProxyUrl(r2Url: string): string {
+  try {
+    return `/api/v1/scorm/serve${new URL(r2Url).pathname}`;
+  } catch {
+    return r2Url;
+  }
+}
+
 function getCourseItemFallbackId(
   moduleId: string | null | undefined,
   moduleIndex: number,
@@ -181,6 +189,7 @@ export default function LearningResourceDetailPage() {
   const [certificateData, setCertificateData] = React.useState<CourseCertificateData | null>(null);
   const [certificateLoading, setCertificateLoading] = React.useState(false);
   const [certificateDownloading, setCertificateDownloading] = React.useState(false);
+  const [scormApiReady, setScormApiReady] = React.useState(false);
 
   React.useEffect(() => {
     const mql = window.matchMedia("(max-width: 768px)");
@@ -264,6 +273,8 @@ export default function LearningResourceDetailPage() {
     [courseModules],
   );
   const totalItems = flatItems.length;
+  const isScormPackage =
+    resource?.contentType === "scorm" && Boolean(resource?.url) && totalItems === 0;
   const currentItem =
     activeResourceIndex >= 0 ? flatItems[activeResourceIndex] ?? null : null;
   const validCompletedResourceIds = React.useMemo(() => {
@@ -391,6 +402,58 @@ export default function LearningResourceDetailPage() {
       .catch(() => setCertificateData(null))
       .finally(() => setCertificateLoading(false));
   }, [activeResourceIndex, totalItems, hasCertificateScreen, resource, certificateData]);
+
+  // SCORM LMS API shim — must be on window before the iframe executes.
+  // The proxy serves the entry HTML from our origin so window.parent.API is reachable.
+  React.useEffect(() => {
+    if (!isScormPackage) {
+      setScormApiReady(false);
+      return;
+    }
+    const w = window as unknown as Record<string, unknown>;
+    w.API = {
+      LMSInitialize: () => 'true',
+      LMSFinish: () => 'true',
+      LMSGetValue: (el: string) => {
+        if (el === 'cmi.core.lesson_status') return 'incomplete';
+        if (el === 'cmi.core.student_name') return currentUser?.name ?? 'Estudiante';
+        if (el === 'cmi.core.lesson_mode') return 'normal';
+        if (el === 'cmi.core.entry') return 'ab-initio';
+        if (el === 'cmi.core.score.min') return '0';
+        if (el === 'cmi.core.score.max') return '100';
+        return '';
+      },
+      LMSSetValue: () => 'true',
+      LMSCommit: () => 'true',
+      LMSGetLastError: () => '0',
+      LMSGetErrorString: () => '',
+      LMSGetDiagnostic: () => '',
+    };
+    w.API_1484_11 = {
+      Initialize: () => 'true',
+      Terminate: () => 'true',
+      GetValue: (el: string) => {
+        if (el === 'cmi.completion_status') return 'incomplete';
+        if (el === 'cmi.learner_name') return currentUser?.name ?? 'Estudiante';
+        if (el === 'cmi.mode') return 'normal';
+        if (el === 'cmi.entry') return 'ab-initio';
+        if (el === 'cmi.score.min') return '0';
+        if (el === 'cmi.score.max') return '100';
+        return '';
+      },
+      SetValue: () => 'true',
+      Commit: () => 'true',
+      GetLastError: () => '0',
+      GetErrorString: () => '',
+      GetDiagnostic: () => '',
+    };
+    setScormApiReady(true);
+    return () => {
+      delete w.API;
+      delete w.API_1484_11;
+      setScormApiReady(false);
+    };
+  }, [isScormPackage, currentUser?.name]);
 
   const handlePrev = () => {
     if (activeResourceIndex > 0) {
@@ -556,8 +619,6 @@ export default function LearningResourceDetailPage() {
   const editHref = backTab === "recursos"
       ? `/dashboard/aprendizaje?edit=${resource.contentId}`
       : `/dashboard/aprendizaje?tab=${backTab}&edit=${resource.contentId}`;
-
-  const isScormPackage = resource.contentType === "scorm" && Boolean(resource.url) && totalItems === 0;
 
   if (typeof document === "undefined") return null;
 
@@ -835,9 +896,9 @@ export default function LearningResourceDetailPage() {
         </aside>
 
         <main className="relative flex flex-1 flex-col overflow-hidden bg-black">
-          {isScormPackage && (
+          {isScormPackage && scormApiReady && (
             <iframe
-              src={resource.url!}
+              src={toScormProxyUrl(resource.url!)}
               className="absolute inset-0 w-full h-full border-0"
               style={{ zIndex: 10 }}
               allow="fullscreen; autoplay"
