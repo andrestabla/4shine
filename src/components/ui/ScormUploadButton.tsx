@@ -80,15 +80,13 @@ export function ScormUploadButton({ onUploaded, disabled, className }: ScormUplo
       const fileCount = entries.length;
       setProgress({ uploading: true, done: 0, total: fileCount });
 
-      // Step 1: get presigned PUT URLs for every file in the ZIP
+      // Step 1: allocate an upload session (prefix) on the server.
+      // relay:true tells the server to skip presigned URL generation.
       const presignRes = await fetch('/api/v1/uploads/r2/scorm/presign', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          entryPoint,
-          files: entries.map(([zipPath]) => ({ zipPath, mimeType: mimeFor(zipPath) })),
-        }),
+        body: JSON.stringify({ entryPoint, relay: true }),
       });
 
       const presignPayload = await safeJson<{
@@ -105,34 +103,40 @@ export function ScormUploadButton({ onUploaded, disabled, className }: ScormUplo
         throw new Error(presignPayload.error ?? 'Error al preparar la carga.');
       }
 
-      const { prefix, files: signedFiles } = presignPayload.data;
+      const { prefix } = presignPayload.data;
 
-      // Step 2: PUT each file directly to R2 (bypasses Vercel body limit)
-      // Cache-Control must be included because it is signed into the presigned URL.
-      const CACHE_CONTROL = 'public, max-age=31536000, immutable';
-      const BATCH = 6;
+      // Step 2: Relay files through the server API (avoids R2 S3-endpoint CORS restrictions).
+      // Send up to 10 files per request; each batch is processed sequentially.
+      const BATCH_SIZE = 10;
       let done = 0;
-      for (let i = 0; i < signedFiles.length; i += BATCH) {
-        const batch = signedFiles.slice(i, i + BATCH);
+
+      for (let i = 0; i < entries.length; i += BATCH_SIZE) {
+        const batch = entries.slice(i, i + BATCH_SIZE);
+
+        const fd = new FormData();
+        fd.append('prefix', prefix);
+        fd.append('count', String(batch.length));
+
+        // Decompress all files in the batch in parallel, then append to FormData
         await Promise.all(
-          batch.map(async ({ zipPath, uploadUrl, contentType }) => {
+          batch.map(async ([zipPath], idx) => {
             const zipFile = zip.file(zipPath);
             if (!zipFile) return;
             const body = await zipFile.async('arraybuffer');
-            const res = await fetch(uploadUrl, {
-              method: 'PUT',
-              headers: {
-                'Content-Type': contentType,
-                'Cache-Control': CACHE_CONTROL,
-              },
-              body,
-            });
-            if (!res.ok) {
-              const detail = await res.text().catch(() => '');
-              throw new Error(`Error subiendo ${zipPath} (${res.status})${detail ? ': ' + detail.slice(0, 200) : ''}`);
-            }
+            fd.append(`file_${idx}`, new Blob([body], { type: mimeFor(zipPath) }), zipPath.split('/').pop() ?? zipPath);
+            fd.append(`path_${idx}`, zipPath);
           }),
         );
+
+        const res = await fetch('/api/v1/uploads/r2/scorm/relay', {
+          method: 'POST',
+          credentials: 'include',
+          body: fd,
+        });
+        if (!res.ok) {
+          const payload = await safeJson<{ error?: string }>(res).catch(() => ({}));
+          throw new Error((payload as { error?: string }).error ?? `Error en batch ${i / BATCH_SIZE + 1} (${res.status})`);
+        }
         done += batch.length;
         setProgress({ uploading: true, done, total: fileCount });
       }

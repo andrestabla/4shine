@@ -31,29 +31,32 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
   }
 
-  let body: { files?: unknown; entryPoint?: unknown };
+  let body: { files?: unknown; entryPoint?: unknown; relay?: unknown };
   try {
-    body = (await request.json()) as { files?: unknown; entryPoint?: unknown };
+    body = (await request.json()) as { files?: unknown; entryPoint?: unknown; relay?: unknown };
   } catch {
     return NextResponse.json({ ok: false, error: 'Invalid JSON' }, { status: 400 });
   }
 
-  if (!Array.isArray(body.files) || body.files.length === 0) {
-    return NextResponse.json({ ok: false, error: 'files array is required' }, { status: 400 });
-  }
-
-  const zipPaths = (body.files as Array<{ zipPath: string }>)
-    .map((f) => (typeof f?.zipPath === 'string' ? f.zipPath.trim() : ''))
-    .filter(Boolean);
-
-  if (zipPaths.length === 0) {
-    return NextResponse.json({ ok: false, error: 'No valid file paths' }, { status: 400 });
-  }
+  const relayMode = body.relay === true;
 
   const entryPoint =
     typeof body.entryPoint === 'string' && body.entryPoint.trim()
       ? body.entryPoint.trim()
       : 'index.html';
+
+  // In relay mode the client uploads through the server; no per-file presigned URLs needed.
+  if (!relayMode) {
+    if (!Array.isArray(body.files) || body.files.length === 0) {
+      return NextResponse.json({ ok: false, error: 'files array is required' }, { status: 400 });
+    }
+  }
+
+  const zipPaths = relayMode
+    ? []
+    : (body.files as Array<{ zipPath: string }>)
+        .map((f) => (typeof f?.zipPath === 'string' ? f.zipPath.trim() : ''))
+        .filter(Boolean);
 
   try {
     const data = await withClient((client) =>
@@ -61,6 +64,15 @@ export async function POST(request: Request) {
         await requireModulePermission(client, 'aprendizaje', 'create');
         const config = await getR2StorageConfig(client, identity.userId);
 
+        const courseId = randomUUID().replace(/-/g, '').slice(0, 16);
+        const prefix = `aprendizaje/scorm/${courseId}`;
+
+        if (relayMode) {
+          // Relay mode: just return the prefix; files are uploaded via the relay endpoint.
+          return { courseId, prefix, entryPoint, publicBaseUrl: config.publicBaseUrl, files: [] };
+        }
+
+        // Direct-PUT mode: generate presigned URLs for each file.
         const requestOrigin = new URL(request.url).origin;
         try {
           await ensureR2BucketCors(config, [
@@ -72,10 +84,7 @@ export async function POST(request: Request) {
           // Best effort — upload proceeds if CORS is already correct.
         }
 
-        const courseId = randomUUID().replace(/-/g, '').slice(0, 16);
-        const prefix = `aprendizaje/scorm/${courseId}`;
         const s3 = createR2S3Client(config);
-
         const files = await Promise.all(
           zipPaths.map(async (zipPath) => {
             const contentType = mimeFor(zipPath);
