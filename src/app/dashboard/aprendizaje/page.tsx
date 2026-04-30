@@ -2751,25 +2751,10 @@ export default function AprendizajePage() {
                               <button
                                 type="button"
                                 className="app-button-secondary flex-1 justify-center gap-2"
-                                onClick={() =>
-                                  setCertPreviewId((p) =>
-                                    p === template.templateId ? null : template.templateId,
-                                  )
-                                }
+                                onClick={() => setCertPreviewId(template.templateId)}
                               >
                                 <Eye size={14} />
-                                {certPreviewId === template.templateId ? "Ocultar" : "Vista previa"}
-                              </button>
-                              <button
-                                type="button"
-                                className="app-button-secondary flex-1 justify-center"
-                                onClick={() => {
-                                  setCertificateEditing(template.templateId);
-                                  setCertificateDraft({ ...template });
-                                  setCertPreviewId(null);
-                                }}
-                              >
-                                Editar plantilla
+                                Vista previa
                               </button>
                               <button
                                 type="button"
@@ -2779,9 +2764,6 @@ export default function AprendizajePage() {
                                 Personalizar layout
                               </button>
                             </div>
-                            {certPreviewId === template.templateId && (
-                              <CertificatePreviewCard template={template} />
-                            )}
                           </div>
                         )}
                       </div>
@@ -2799,6 +2781,37 @@ export default function AprendizajePage() {
           )}
         </>
       )}
+
+      {certPreviewId &&
+        typeof document !== "undefined" &&
+        createPortal(
+          (() => {
+            const previewTemplate = certificateTemplates.find(
+              (t) => t.templateId === certPreviewId,
+            );
+            if (!previewTemplate) return null;
+            return (
+              <div
+                className="fixed inset-0 z-[225] flex flex-col items-center justify-center bg-black/70 p-6"
+                onClick={() => setCertPreviewId(null)}
+              >
+                <div
+                  className="relative max-h-full max-w-full overflow-auto rounded-[8px] shadow-2xl"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    className="absolute right-3 top-3 z-10 rounded-full bg-black/40 p-1.5 text-white hover:bg-black/60"
+                    onClick={() => setCertPreviewId(null)}
+                  >
+                    ✕
+                  </button>
+                  <CertificatePreviewCard template={previewTemplate} />
+                </div>
+              </div>
+            );
+          })(),
+          document.body,
+        )}
 
       {certBuilderTemplateId &&
         typeof document !== "undefined" &&

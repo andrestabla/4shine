@@ -159,7 +159,7 @@ function ElementOnCanvas({
   };
 
   return (
-    <div style={style} onMouseDown={(e) => { e.stopPropagation(); onSelect(); onMouseDown(e); }}>
+    <div style={style} onMouseDown={(e) => { e.stopPropagation(); onSelect(); onMouseDown(e); }} onClick={(e) => e.stopPropagation()}>
       {el.type === 'text' ? (
         <div style={{
           width: '100%', height: '100%', overflow: 'hidden',
