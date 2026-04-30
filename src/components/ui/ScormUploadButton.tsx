@@ -106,28 +106,19 @@ export function ScormUploadButton({ onUploaded, disabled, className }: ScormUplo
       const { prefix } = presignPayload.data;
 
       // Step 2: Relay files through the server API (avoids R2 S3-endpoint CORS restrictions).
-      // Send up to 10 files per request; each batch is processed sequentially.
-      const BATCH_SIZE = 10;
+      // One file per request (avoids Vercel 4.5 MB body limit), 4 concurrent uploads.
+      const CONCURRENCY = 4;
       let done = 0;
 
-      for (let i = 0; i < entries.length; i += BATCH_SIZE) {
-        const batch = entries.slice(i, i + BATCH_SIZE);
-
+      const uploadOne = async (zipPath: string, fileIndex: number): Promise<void> => {
+        const zipFile = zip.file(zipPath);
+        if (!zipFile) return;
+        const body = await zipFile.async('arraybuffer');
         const fd = new FormData();
         fd.append('prefix', prefix);
-        fd.append('count', String(batch.length));
-
-        // Decompress all files in the batch in parallel, then append to FormData
-        await Promise.all(
-          batch.map(async ([zipPath], idx) => {
-            const zipFile = zip.file(zipPath);
-            if (!zipFile) return;
-            const body = await zipFile.async('arraybuffer');
-            fd.append(`file_${idx}`, new Blob([body], { type: mimeFor(zipPath) }), zipPath.split('/').pop() ?? zipPath);
-            fd.append(`path_${idx}`, zipPath);
-          }),
-        );
-
+        fd.append('count', '1');
+        fd.append('file_0', new Blob([body], { type: mimeFor(zipPath) }), zipPath.split('/').pop() ?? zipPath);
+        fd.append('path_0', zipPath);
         const res = await fetch('/api/v1/uploads/r2/scorm/relay', {
           method: 'POST',
           credentials: 'include',
@@ -135,9 +126,15 @@ export function ScormUploadButton({ onUploaded, disabled, className }: ScormUplo
         });
         if (!res.ok) {
           const payload = await safeJson<{ error?: string }>(res).catch(() => ({}));
-          throw new Error((payload as { error?: string }).error ?? `Error en batch ${i / BATCH_SIZE + 1} (${res.status})`);
+          throw new Error((payload as { error?: string }).error ?? `Error subiendo archivo ${fileIndex + 1} (${res.status})`);
         }
-        done += batch.length;
+      };
+
+      // Process in windows of CONCURRENCY, updating progress after each window
+      for (let i = 0; i < entries.length; i += CONCURRENCY) {
+        const window = entries.slice(i, i + CONCURRENCY);
+        await Promise.all(window.map(([zipPath], j) => uploadOne(zipPath, i + j)));
+        done += window.length;
         setProgress({ uploading: true, done, total: fileCount });
       }
 
