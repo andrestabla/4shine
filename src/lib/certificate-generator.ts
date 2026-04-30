@@ -56,12 +56,10 @@ function imgTag(
   return `<img src="${src}" style="${style}" />`;
 }
 
-// Gold seal — uses padding-top to vertically center the star without nested flex.
 function goldSeal(size = 72): string {
-  const starPx = Math.round(size * 0.33);
-  const padTop = Math.round(size * 0.28);
-  return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:radial-gradient(circle at 36% 36%,${GOLD_L},${GOLD_D});padding-top:${padTop}px;text-align:center;box-sizing:border-box;flex-shrink:0;display:inline-block;">
-  <span style="color:#fff;font-size:${starPx}px;line-height:1;">&#9733;</span>
+  const starPx = Math.round(size * 0.38);
+  return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:radial-gradient(circle at 36% 36%,${GOLD_L},${GOLD_D});display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;vertical-align:middle;">
+  <span style="color:#fff;font-size:${starPx}px;line-height:1;display:block;">&#9733;</span>
 </div>`;
 }
 
@@ -90,7 +88,7 @@ function sigBlock(
   if (!t.signatoryName) return '<div style="min-width:160px;"></div>';
   return `
 <div style="text-align:center;min-width:160px;">
-  ${imgTag(t.signatureDataUrl, t.signatureUrl, 'height:38px;max-width:130px;object-fit:contain;display:block;margin:0 auto 6px;')}
+  ${imgTag(t.signatureDataUrl, t.signatureUrl, 'max-height:38px;max-width:130px;width:auto;height:auto;display:block;margin:0 auto 6px;')}
   <div style="width:150px;height:1px;background:${lineColor};margin:0 auto 6px;"></div>
   <p style="font-family:Montserrat,Arial,sans-serif;font-size:10px;font-weight:700;color:${nameColor};margin:0;letter-spacing:0.04em;">${esc(t.signatoryName)}</p>
   ${t.signatoryTitle ? `<p style="font-family:Montserrat,Arial,sans-serif;font-size:9px;color:${titleColor};margin:3px 0 0;">${esc(t.signatoryTitle)}</p>` : ''}
@@ -114,7 +112,7 @@ function htmlEjecutiva(t: ResolvedTemplate, name: string, course: string, date: 
   <div style="position:absolute;top:0;left:0;right:0;height:206px;background:linear-gradient(135deg,${a}f2,${a}aa);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 80px;text-align:center;overflow:hidden;">
     <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 50% -10%,rgba(255,255,255,0.15),transparent 65%);"></div>
     <div style="position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:6px;">
-      ${imgTag(t.logoDataUrl, t.logoUrl, 'height:44px;max-width:200px;object-fit:contain;display:block;')}
+      ${imgTag(t.logoDataUrl, t.logoUrl, 'max-height:44px;max-width:200px;width:auto;height:auto;display:block;')}
       ${(!t.logoDataUrl && !t.logoUrl && t.organizationName)
         ? `<p style="font-family:Montserrat,Arial,sans-serif;font-size:10px;letter-spacing:0.32em;text-transform:uppercase;color:rgba(255,255,255,0.68);margin:0;">${esc(t.organizationName)}</p>`
         : ''}
@@ -177,7 +175,7 @@ function htmlPremium(t: ResolvedTemplate, name: string, course: string, date: st
   <div style="position:absolute;top:0;left:0;right:0;bottom:21%;display:table;width:1123px;z-index:5;">
     <div style="display:table-cell;vertical-align:middle;text-align:center;padding:0 18%;">
       <p style="font-family:Montserrat,Arial,sans-serif;font-size:9px;letter-spacing:0.28em;color:${acLight};font-weight:700;text-transform:uppercase;margin:0 0 18px;">CERTIFICADO DE EXCELENCIA</p>
-      ${imgTag(t.logoDataUrl, t.logoUrl, 'height:44px;max-width:160px;object-fit:contain;display:block;margin:0 auto 14px;')}
+      ${imgTag(t.logoDataUrl, t.logoUrl, 'max-height:44px;max-width:160px;width:auto;height:auto;display:block;margin:0 auto 14px;')}
       ${(!t.logoDataUrl && !t.logoUrl && t.organizationName)
         ? `<p style="font-family:Montserrat,Arial,sans-serif;font-size:12px;color:rgba(220,215,240,0.85);margin:0 0 14px;letter-spacing:0.05em;">${esc(t.organizationName)}</p>`
         : ''}
@@ -224,7 +222,7 @@ function htmlEstandar(t: ResolvedTemplate, name: string, course: string, date: s
     <div style="display:table-cell;vertical-align:middle;text-align:center;padding:0 26px;">
       ${goldSeal(96)}
       <div style="height:20px;"></div>
-      ${imgTag(t.logoDataUrl, t.logoUrl, 'height:38px;max-width:140px;object-fit:contain;display:block;margin:0 auto;')}
+      ${imgTag(t.logoDataUrl, t.logoUrl, 'max-height:38px;max-width:140px;width:auto;height:auto;display:block;margin:0 auto;')}
       ${(!t.logoDataUrl && !t.logoUrl && t.organizationName)
         ? `<p style="font-family:Montserrat,Arial,sans-serif;font-size:10px;letter-spacing:0.26em;text-transform:uppercase;color:rgba(255,255,255,0.90);font-weight:700;margin:0;line-height:1.5;">${esc(t.organizationName)}</p>`
         : ''}
@@ -443,11 +441,12 @@ function renderBuilderElement(el: CertificateElement, vars: CertVars, t: Resolve
   }
 
   if (el.type === 'image') {
-    const fit = `width:100%;height:100%;object-fit:${el.objectFit ?? 'contain'};display:block;`;
+    const imgStyle = `max-width:${el.width}px;max-height:${el.height}px;width:auto;height:auto;display:block;`;
     const html = el.imageField === 'logo'
-      ? imgTag(t.logoDataUrl, t.logoUrl, fit)
-      : imgTag(t.signatureDataUrl, t.signatureUrl, fit);
-    return html ? `<div style="${base}">${html}</div>` : '';
+      ? imgTag(t.logoDataUrl, t.logoUrl, imgStyle)
+      : imgTag(t.signatureDataUrl, t.signatureUrl, imgStyle);
+    // Flex wrapper centers the image within the element box without object-fit
+    return html ? `<div style="${base}display:flex;align-items:center;justify-content:center;">${html}</div>` : '';
   }
 
   return '';
