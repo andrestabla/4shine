@@ -22,7 +22,7 @@ import {
   Download,
 } from "lucide-react";
 
-import { CertificatePreviewCard } from "@/components/aprendizaje/CertificatePreviewCard";
+import { CertificateBuilderPreview } from "@/components/aprendizaje/CertificateBuilder";
 import { LearningResourceCard } from "@/components/aprendizaje/LearningResourceCard";
 import { EmptyState } from "@/components/dashboard/EmptyState";
 import { useAppDialog } from "@/components/ui/AppDialogProvider";
@@ -936,10 +936,8 @@ export default function LearningResourceDetailPage() {
                         </p>
 
                         {/* Mini certificate preview */}
-                        <CertificatePreviewCard
+                        <CertificateBuilderPreview
                           template={certificateData.template}
-                          recipientName={certificateData.recipientName}
-                          courseName={certificateData.courseTitle}
                         />
 
                         {/* Download button */}

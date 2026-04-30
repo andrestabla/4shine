@@ -409,7 +409,7 @@ function estandarBackgroundInner(accent: string): string {
 function renderBuilderElement(el: CertificateElement, vars: CertVars, t: ResolvedTemplate): string {
   if (el.visible === false) return '';
 
-  const base = `position:absolute;left:${el.x}px;top:${el.y}px;width:${el.width}px;height:${el.height}px;box-sizing:border-box;overflow:hidden;z-index:10;`;
+  const base = `position:absolute;left:${el.x}px;top:${el.y}px;width:${el.width}px;height:${el.height}px;box-sizing:border-box;overflow:visible;z-index:10;`;
 
   if (el.type === 'text' && el.content != null) {
     const text = esc(resolveContent(el.content, vars));
@@ -427,8 +427,6 @@ function renderBuilderElement(el: CertificateElement, vars: CertVars, t: Resolve
       `opacity:${el.opacity ?? 1}`,
       'white-space:pre-wrap',
       'width:100%',
-      'height:100%',
-      'overflow:hidden',
     ].join(';');
     return `<div style="${base}"><div style="${style}">${text}</div></div>`;
   }
