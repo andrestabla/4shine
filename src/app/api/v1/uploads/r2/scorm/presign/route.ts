@@ -8,6 +8,7 @@ import { withClient, withRoleContext } from '@/server/db/pool';
 import { createR2S3Client, ensureR2BucketCors, getR2StorageConfig } from '@/server/storage/r2-upload';
 
 export const runtime = 'nodejs';
+export const maxDuration = 60;
 
 const MIME_MAP: Record<string, string> = {
   html: 'text/html', htm: 'text/html', js: 'application/javascript',

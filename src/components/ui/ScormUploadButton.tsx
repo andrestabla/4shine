@@ -108,6 +108,8 @@ export function ScormUploadButton({ onUploaded, disabled, className }: ScormUplo
       const { prefix, files: signedFiles } = presignPayload.data;
 
       // Step 2: PUT each file directly to R2 (bypasses Vercel body limit)
+      // Cache-Control must be included because it is signed into the presigned URL.
+      const CACHE_CONTROL = 'public, max-age=31536000, immutable';
       const BATCH = 6;
       let done = 0;
       for (let i = 0; i < signedFiles.length; i += BATCH) {
@@ -119,10 +121,16 @@ export function ScormUploadButton({ onUploaded, disabled, className }: ScormUplo
             const body = await zipFile.async('arraybuffer');
             const res = await fetch(uploadUrl, {
               method: 'PUT',
-              headers: { 'Content-Type': contentType },
+              headers: {
+                'Content-Type': contentType,
+                'Cache-Control': CACHE_CONTROL,
+              },
               body,
             });
-            if (!res.ok) throw new Error(`Error subiendo ${zipPath} (${res.status})`);
+            if (!res.ok) {
+              const detail = await res.text().catch(() => '');
+              throw new Error(`Error subiendo ${zipPath} (${res.status})${detail ? ': ' + detail.slice(0, 200) : ''}`);
+            }
           }),
         );
         done += batch.length;
