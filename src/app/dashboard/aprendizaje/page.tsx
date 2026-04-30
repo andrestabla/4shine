@@ -25,6 +25,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { CertificateBuilder } from "@/components/aprendizaje/CertificateBuilder";
 import { CertificatePreviewCard } from "@/components/aprendizaje/CertificatePreviewCard";
 import { LearningResourceCard } from "@/components/aprendizaje/LearningResourceCard";
 import { LearningAnalyticsPanel } from "@/components/aprendizaje/LearningAnalyticsPanel";
@@ -868,6 +869,7 @@ export default function AprendizajePage() {
   const [certificateDraft, setCertificateDraft] = React.useState<Partial<CertificateTemplateRecord>>({});
   const [certificateSaving, setCertificateSaving] = React.useState(false);
   const [certPreviewId, setCertPreviewId] = React.useState<string | null>(null);
+  const [certBuilderTemplateId, setCertBuilderTemplateId] = React.useState<string | null>(null);
 
   const isResourceManager = currentRole === "gestor" || currentRole === "admin";
   const isOpenLeader =
@@ -2769,6 +2771,13 @@ export default function AprendizajePage() {
                               >
                                 Editar plantilla
                               </button>
+                              <button
+                                type="button"
+                                className="app-button-secondary flex-1 justify-center"
+                                onClick={() => setCertBuilderTemplateId(template.templateId)}
+                              >
+                                Personalizar layout
+                              </button>
                             </div>
                             {certPreviewId === template.templateId && (
                               <CertificatePreviewCard template={template} />
@@ -2790,6 +2799,35 @@ export default function AprendizajePage() {
           )}
         </>
       )}
+
+      {certBuilderTemplateId &&
+        typeof document !== "undefined" &&
+        createPortal(
+          (() => {
+            const builderTemplate = certificateTemplates.find(
+              (t) => t.templateId === certBuilderTemplateId,
+            );
+            if (!builderTemplate) return null;
+            return (
+              <div className="fixed inset-0 z-[230] flex flex-col bg-[#f0eef8]">
+                <CertificateBuilder
+                  template={builderTemplate}
+                  onSave={async (elements) => {
+                    const updated = await updateCertificateTemplate(builderTemplate.templateId, {
+                      elements,
+                    });
+                    setCertificateTemplates((prev) =>
+                      prev.map((t) => (t.templateId === updated.templateId ? updated : t)),
+                    );
+                    setCertBuilderTemplateId(null);
+                  }}
+                  onCancel={() => setCertBuilderTemplateId(null)}
+                />
+              </div>
+            );
+          })(),
+          document.body,
+        )}
 
       {isResourceManager &&
         isResourceModalOpen &&

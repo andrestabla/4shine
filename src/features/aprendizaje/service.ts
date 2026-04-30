@@ -1422,6 +1422,8 @@ export async function deleteWorkbook(
 
 export { DEFAULT_WORKBOOK_FIELDS };
 
+import type { CertificateElement } from '@/lib/certificate-elements';
+
 export interface CertificateTemplateRecord {
   templateId: string;
   templateNumber: number;
@@ -1438,6 +1440,7 @@ export interface CertificateTemplateRecord {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  elements: CertificateElement[] | null;
 }
 
 export interface UpdateCertificateTemplateInput {
@@ -1451,6 +1454,7 @@ export interface UpdateCertificateTemplateInput {
   signatureUrl?: string | null;
   footerText?: string;
   accentColor?: string;
+  elements?: CertificateElement[] | null;
 }
 
 interface CertificateTemplateRow {
@@ -1469,6 +1473,7 @@ interface CertificateTemplateRow {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  elements: CertificateElement[] | null;
 }
 
 function mapCertificateTemplateRow(row: CertificateTemplateRow): CertificateTemplateRecord {
@@ -1488,6 +1493,7 @@ function mapCertificateTemplateRow(row: CertificateTemplateRow): CertificateTemp
     isActive: row.is_active,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    elements: row.elements ?? null,
   };
 }
 
@@ -1506,7 +1512,7 @@ export async function listCertificateTemplates(
     `SELECT template_id::text, template_number, name, headline_text, body_text,
             organization_name, signatory_name, signatory_title,
             logo_url, signature_url, footer_text, accent_color, is_active,
-            created_at::text, updated_at::text
+            elements, created_at::text, updated_at::text
      FROM app_learning.certificate_templates
      ORDER BY template_number ASC`,
   );
@@ -1539,12 +1545,13 @@ export async function updateCertificateTemplate(
        signature_url    = CASE WHEN $10::boolean THEN $11 ELSE signature_url END,
        footer_text      = COALESCE($12, footer_text),
        accent_color     = COALESCE($13, accent_color),
+       elements         = CASE WHEN $14::boolean THEN $15::jsonb ELSE elements END,
        updated_at       = now()
      WHERE template_id = $1::uuid
      RETURNING template_id::text, template_number, name, headline_text, body_text,
                organization_name, signatory_name, signatory_title,
                logo_url, signature_url, footer_text, accent_color, is_active,
-               created_at::text, updated_at::text`,
+               elements, created_at::text, updated_at::text`,
     [
       templateId,
       input.name ?? null,
@@ -1559,6 +1566,8 @@ export async function updateCertificateTemplate(
       input.signatureUrl ?? null,
       input.footerText ?? null,
       input.accentColor ?? null,
+      'elements' in input,
+      input.elements != null ? JSON.stringify(input.elements) : null,
     ],
   );
 
@@ -1604,6 +1613,7 @@ function mapCourseCertificateRow(row: Record<string, unknown>): CourseCertificat
       isActive: row.is_active as boolean,
       createdAt: row.ct_created_at as string,
       updatedAt: row.ct_updated_at as string,
+      elements: (row.elements as import('@/lib/certificate-elements').CertificateElement[] | null) ?? null,
     },
   };
 }
@@ -1617,6 +1627,7 @@ const CERT_SELECT = `
          ct.template_id::text, ct.template_number, ct.name, ct.headline_text, ct.body_text,
          ct.organization_name, ct.signatory_name, ct.signatory_title,
          ct.logo_url, ct.signature_url, ct.footer_text, ct.accent_color, ct.is_active,
+         ct.elements,
          ct.created_at::text AS ct_created_at, ct.updated_at::text AS ct_updated_at
   FROM app_learning.content_items ci
   JOIN app_learning.content_progress cp ON cp.content_id = ci.content_id AND cp.user_id = $1::uuid
