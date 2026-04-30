@@ -557,6 +557,8 @@ export default function LearningResourceDetailPage() {
       ? `/dashboard/aprendizaje?edit=${resource.contentId}`
       : `/dashboard/aprendizaje?tab=${backTab}&edit=${resource.contentId}`;
 
+  const isScormPackage = resource.contentType === "scorm" && Boolean(resource.url) && totalItems === 0;
+
   if (typeof document === "undefined") return null;
 
   // 1. IMMERSIVE PLAYER LAYOUT (SCORM)
@@ -833,6 +835,16 @@ export default function LearningResourceDetailPage() {
         </aside>
 
         <main className="relative flex flex-1 flex-col overflow-hidden bg-black">
+          {isScormPackage && (
+            <iframe
+              src={resource.url!}
+              className="absolute inset-0 w-full h-full border-0"
+              style={{ zIndex: 10 }}
+              allow="fullscreen; autoplay"
+              title={resource.title}
+              allowFullScreen
+            />
+          )}
           <section className="relative flex flex-1 items-center justify-center overflow-auto p-4 sm:p-8 pb-24">
             <div className="w-full max-w-5xl">
               {(!resource) ? (
@@ -1066,7 +1078,7 @@ export default function LearningResourceDetailPage() {
             </div>
           </section>
 
-          <div className="absolute bottom-0 left-0 right-0 z-20 flex h-20 items-center justify-between border-t border-slate-800 bg-[#1e293b] px-6 text-white md:px-12">
+          {!isScormPackage && <div className="absolute bottom-0 left-0 right-0 z-20 flex h-20 items-center justify-between border-t border-slate-800 bg-[#1e293b] px-6 text-white md:px-12">
              <button
                onClick={handlePrev}
                disabled={activeResourceIndex <= -1}
@@ -1093,7 +1105,7 @@ export default function LearningResourceDetailPage() {
              >
                Siguiente <ArrowRight size={16} />
              </button>
-          </div>
+          </div>}
         </main>
       </div>
       </CoursePlayerErrorBoundary>,
