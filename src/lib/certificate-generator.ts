@@ -378,9 +378,7 @@ function ejecutivaBackgroundInner(accent: string): string {
     <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 50% -10%,rgba(255,255,255,0.15),transparent 65%);"></div>
   </div>
   <div style="position:absolute;top:206px;left:0;right:0;height:5px;background:linear-gradient(to right,${GOLD_D},${GOLD_L},${GOLD},${GOLD_L},${GOLD_D});"></div>
-  <div style="position:absolute;bottom:0;left:0;right:0;height:118px;background:#f9f7f1;border-top:1px solid ${GOLD}30;">
-    <div style="position:absolute;left:50%;top:50%;margin-left:-36px;margin-top:-36px;">${goldSeal(72)}</div>
-  </div>`;
+  <div style="position:absolute;bottom:0;left:0;right:0;height:118px;background:#f9f7f1;border-top:1px solid ${GOLD}30;"></div>`;
 }
 
 function premiumBackgroundInner(accent: string): string {
@@ -394,9 +392,7 @@ function premiumBackgroundInner(accent: string): string {
   <div style="position:absolute;inset:0;border:6px solid ${a};pointer-events:none;z-index:20;"></div>
   <div style="position:absolute;inset:15px;border:1px solid ${acLight};pointer-events:none;z-index:20;opacity:0.55;"></div>
   <div style="position:absolute;top:10%;right:10%;bottom:20%;left:10%;background:${bgMid};border-radius:4px;z-index:2;"></div>
-  <div style="position:absolute;bottom:0;left:0;right:0;height:${footH}px;background:${bgFoot};border-top:1px solid ${acLight};z-index:6;">
-    <div style="position:absolute;left:50%;top:50%;margin-left:-38px;margin-top:-38px;">${goldSeal(76)}</div>
-  </div>`;
+  <div style="position:absolute;bottom:0;left:0;right:0;height:${footH}px;background:${bgFoot};border-top:1px solid ${acLight};z-index:6;"></div>`;
 }
 
 function estandarBackgroundInner(accent: string): string {
@@ -405,12 +401,9 @@ function estandarBackgroundInner(accent: string): string {
   <svg style="position:absolute;top:0;left:0;z-index:1;" width="388" height="794" xmlns="http://www.w3.org/2000/svg">
     <polygon points="0,0 388,0 326,794 0,794" fill="${a}"/>
   </svg>
-  <div style="position:absolute;left:110px;top:180px;z-index:2;">${goldSeal(96)}</div>
-  <div style="position:absolute;top:0;left:358px;right:0;bottom:0;background:#fff;z-index:1;">
-    <div style="position:absolute;top:0;left:0;right:0;height:5px;background:linear-gradient(to right,${GOLD_D},${GOLD_L},${GOLD},${GOLD_L},${GOLD_D});"></div>
-    <div style="position:absolute;bottom:5px;left:0;right:0;height:116px;background:#f9f7f1;border-top:1px solid ${GOLD}30;"></div>
-    <div style="position:absolute;bottom:0;left:0;right:0;height:5px;background:linear-gradient(to right,${GOLD_D},${GOLD_L},${GOLD},${GOLD_L},${GOLD_D});"></div>
-  </div>`;
+  <div style="position:absolute;top:0;left:358px;right:0;height:5px;background:linear-gradient(to right,${GOLD_D},${GOLD_L},${GOLD},${GOLD_L},${GOLD_D});z-index:2;"></div>
+  <div style="position:absolute;bottom:5px;left:0;right:0;height:116px;background:#f9f7f1;border-top:1px solid ${GOLD}30;z-index:2;"></div>
+  <div style="position:absolute;bottom:0;left:0;right:0;height:5px;background:linear-gradient(to right,${GOLD_D},${GOLD_L},${GOLD},${GOLD_L},${GOLD_D});z-index:2;"></div>`;
 }
 
 function renderBuilderElement(el: CertificateElement, vars: CertVars, t: ResolvedTemplate): string {
@@ -441,11 +434,14 @@ function renderBuilderElement(el: CertificateElement, vars: CertVars, t: Resolve
   }
 
   if (el.type === 'image') {
+    if (el.imageField === 'seal') {
+      const sz = Math.min(el.width, el.height);
+      return `<div style="${base}display:flex;align-items:center;justify-content:center;">${goldSeal(sz)}</div>`;
+    }
     const imgStyle = `max-width:${el.width}px;max-height:${el.height}px;width:auto;height:auto;display:block;`;
     const html = el.imageField === 'logo'
       ? imgTag(t.logoDataUrl, t.logoUrl, imgStyle)
       : imgTag(t.signatureDataUrl, t.signatureUrl, imgStyle);
-    // Flex wrapper centers the image within the element box without object-fit
     return html ? `<div style="${base}display:flex;align-items:center;justify-content:center;">${html}</div>` : '';
   }
 

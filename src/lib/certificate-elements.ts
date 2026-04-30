@@ -9,7 +9,7 @@ export const CERT_H = 794;
 export type CertElementType = 'text' | 'image';
 export type CertFontFamily = 'Georgia' | 'Montserrat';
 export type CertTextAlign = 'left' | 'center' | 'right';
-export type CertImageField = 'logo' | 'signature';
+export type CertImageField = 'logo' | 'signature' | 'seal';
 
 export interface CertificateElement {
   id: string;
@@ -156,6 +156,7 @@ function defaultsEjecutiva(accent: string): CertificateElement[] {
       { fontFamily: 'Montserrat', fontWeight: 'bold', fontSize: 10, color: '#333333', letterSpacing: 0.04 }),
     t('sig_title', 'Cargo del firmante', '{{signatoryTitle}}', 110, 756, 220, 16,
       { fontFamily: 'Montserrat', fontSize: 9, color: '#888888' }),
+    i('seal', 'Sello dorado', 'seal', 526, 699, 72, 72),
     t('footer_text', 'Pie de página', '{{footerText}}', 750, 714, 265, 52,
       { fontFamily: 'Montserrat', fontSize: 8, color: '#bbbbbb', textAlign: 'right', lineHeight: 1.8 }),
   ];
@@ -164,7 +165,7 @@ function defaultsEjecutiva(accent: string): CertificateElement[] {
 function defaultsPremium(accent: string): CertificateElement[] {
   const rgb = hexToRgb(accent);
   const acLight = lighten(rgb, 0.6);
-  // Footer starts at 79 % of 794 ≈ 627 px
+  // Footer starts at 79 % of 794 ≈ 627 px (height 167 px)
   return [
     t('cert_excel', 'Leyenda "Certificado de Excelencia"', 'CERTIFICADO DE EXCELENCIA', 80, 72, 963, 20,
       { fontFamily: 'Montserrat', fontWeight: 'bold', fontSize: 9, color: acLight, textAlign: 'center', letterSpacing: 0.28, textTransform: 'uppercase' }),
@@ -187,6 +188,7 @@ function defaultsPremium(accent: string): CertificateElement[] {
       { fontFamily: 'Montserrat', fontWeight: 'bold', fontSize: 10, color: 'rgba(220,215,240,1)', letterSpacing: 0.04 }),
     t('sig_title', 'Cargo del firmante', '{{signatoryTitle}}', 90, 714, 220, 16,
       { fontFamily: 'Montserrat', fontSize: 9, color: 'rgba(180,175,205,0.75)' }),
+    i('seal', 'Sello dorado', 'seal', 524, 673, 76, 76),
     t('footer_text', 'Pie de página', '{{footerText}}', 750, 706, 233, 46,
       { fontFamily: 'Montserrat', fontSize: 8, color: 'rgba(180,175,205,0.60)', textAlign: 'right', lineHeight: 1.8 }),
   ];
@@ -194,8 +196,10 @@ function defaultsPremium(accent: string): CertificateElement[] {
 
 function defaultsEstandar(accent: string): CertificateElement[] {
   // Sidebar safe zone: 0–316 px  |  Right panel: 358–1123 px
+  // Footer: full-width band from y=673 to y=789 (116 px), above 5 px gold strip
   return [
     // Sidebar
+    i('seal_sidebar', 'Sello (barra lateral)', 'seal', 110, 180, 96, 96),
     i('logo', 'Logo (barra lateral)', 'logo', 73, 304, 170, 46),
     t('org_name', 'Organización (barra lateral)', '{{organizationName}}', 0, 316, 316, 50,
       { fontFamily: 'Montserrat', fontWeight: 'bold', fontSize: 10, color: 'rgba(255,255,255,0.88)', textAlign: 'center', letterSpacing: 0.26, textTransform: 'uppercase', lineHeight: 1.5 }),
@@ -214,12 +218,13 @@ function defaultsEstandar(accent: string): CertificateElement[] {
       { fontFamily: 'Georgia', fontStyle: 'italic', fontSize: 15, color: accent }),
     t('date', 'Fecha', '{{date}}', 412, 300, 665, 18,
       { fontFamily: 'Montserrat', fontSize: 10, color: '#bbbbbb', letterSpacing: 0.06 }),
-    // Right panel — footer (bottom 121 px: from 673 to 789)
+    // Full-width footer (y=673–789)
     i('sig_img', 'Imagen de firma', 'signature', 412, 688, 130, 38),
     t('sig_name', 'Nombre del firmante', '{{signatoryName}}', 412, 732, 220, 18,
       { fontFamily: 'Montserrat', fontWeight: 'bold', fontSize: 10, color: '#333333', letterSpacing: 0.04 }),
     t('sig_title', 'Cargo del firmante', '{{signatoryTitle}}', 412, 752, 220, 16,
       { fontFamily: 'Montserrat', fontSize: 9, color: '#888888' }),
+    i('seal', 'Sello dorado', 'seal', 530, 699, 64, 64),
     t('footer_text', 'Pie de página', '{{footerText}}', 808, 718, 250, 48,
       { fontFamily: 'Montserrat', fontSize: 8, color: '#bbbbbb', textAlign: 'right', lineHeight: 1.8 }),
   ];

@@ -34,13 +34,12 @@ function colorLighten([r, g, b]: [number, number, number], t: number) {
 }
 
 function GoldSeal({ size = 72 }: { size?: number }) {
-  const starPx = Math.round(size * 0.33);
-  const padTop = Math.round(size * 0.28);
+  const starPx = Math.round(size * 0.38);
   return (
     <div style={{
       width: size, height: size, borderRadius: '50%', flexShrink: 0,
       background: `radial-gradient(circle at 36% 36%, ${GOLD_L}, ${GOLD_D})`,
-      paddingTop: padTop, textAlign: 'center', boxSizing: 'border-box',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>
       <span style={{ color: '#fff', fontSize: starPx, lineHeight: 1 }}>★</span>
     </div>
@@ -60,11 +59,7 @@ function EjecutivaBackground({ accent }: { accent: string }) {
       {/* Gold strip */}
       <div style={{ position: 'absolute', top: 206, left: 0, right: 0, height: 5, background: `linear-gradient(to right,${GOLD_D},${GOLD_L},${GOLD},${GOLD_L},${GOLD_D})` }} />
       {/* Footer band */}
-      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 118, background: '#f9f7f1', borderTop: `1px solid ${GOLD}30` }}>
-        <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)' }}>
-          <GoldSeal size={72} />
-        </div>
-      </div>
+      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 118, background: '#f9f7f1', borderTop: `1px solid ${GOLD}30` }} />
     </div>
   );
 }
@@ -80,11 +75,7 @@ function PremiumBackground({ accent }: { accent: string }) {
       <div style={{ position: 'absolute', inset: 0, border: `6px solid ${accent}`, pointerEvents: 'none', zIndex: 1 }} />
       <div style={{ position: 'absolute', inset: 15, border: `1px solid ${acLight}`, opacity: 0.55, pointerEvents: 'none', zIndex: 1 }} />
       <div style={{ position: 'absolute', top: '10%', right: '10%', bottom: '21%', left: '10%', background: bgMid, borderRadius: 4 }} />
-      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: Math.round(CERT_H * 0.21), background: bgFooter, borderTop: `1px solid ${acLight}` }}>
-        <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)' }}>
-          <GoldSeal size={76} />
-        </div>
-      </div>
+      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: Math.round(CERT_H * 0.21), background: bgFooter, borderTop: `1px solid ${acLight}` }} />
     </div>
   );
 }
@@ -93,23 +84,15 @@ function EstandarBackground({ accent }: { accent: string }) {
   return (
     <div style={{ width: CERT_W, height: CERT_H, position: 'relative', background: '#fff', overflow: 'hidden' }}>
       {/* SVG diagonal sidebar */}
-      <svg style={{ position: 'absolute', top: 0, left: 0, zIndex: 0 }} width={388} height={CERT_H} xmlns="http://www.w3.org/2000/svg">
+      <svg style={{ position: 'absolute', top: 0, left: 0, zIndex: 1 }} width={388} height={CERT_H} xmlns="http://www.w3.org/2000/svg">
         <polygon points={`0,0 388,0 326,${CERT_H} 0,${CERT_H}`} fill={accent} />
       </svg>
-      {/* Gold seal in sidebar */}
-      <div style={{ position: 'absolute', left: 0, width: 316, top: 180, display: 'flex', justifyContent: 'center', zIndex: 1 }}>
-        <GoldSeal size={96} />
-      </div>
-      {/* Right panel structure */}
-      <div style={{ position: 'absolute', top: 0, left: 358, right: 0, bottom: 0, background: '#fff', zIndex: 0 }}>
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 5, background: `linear-gradient(to right,${GOLD_D},${GOLD_L},${GOLD},${GOLD_L},${GOLD_D})` }} />
-        <div style={{ position: 'absolute', bottom: 5, left: 0, right: 0, height: 116, background: '#f9f7f1', borderTop: `1px solid ${GOLD}30` }}>
-          <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)' }}>
-            <GoldSeal size={64} />
-          </div>
-        </div>
-        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 5, background: `linear-gradient(to right,${GOLD_D},${GOLD_L},${GOLD},${GOLD_L},${GOLD_D})` }} />
-      </div>
+      {/* Gold strip at top of right panel only */}
+      <div style={{ position: 'absolute', top: 0, left: 358, right: 0, height: 5, background: `linear-gradient(to right,${GOLD_D},${GOLD_L},${GOLD},${GOLD_L},${GOLD_D})`, zIndex: 2 }} />
+      {/* Full-width footer band — z-index 2 overlays bottom of sidebar polygon */}
+      <div style={{ position: 'absolute', bottom: 5, left: 0, right: 0, height: 116, background: '#f9f7f1', borderTop: `1px solid ${GOLD}30`, zIndex: 2 }} />
+      {/* Full-width bottom gold strip */}
+      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 5, background: `linear-gradient(to right,${GOLD_D},${GOLD_L},${GOLD},${GOLD_L},${GOLD_D})`, zIndex: 2 }} />
     </div>
   );
 }
@@ -140,7 +123,7 @@ function ElementOnCanvas({
     ? resolveContent(el.content, {}, true)
     : '';
 
-  const imgSrc = el.type === 'image'
+  const imgSrc = el.type === 'image' && el.imageField !== 'seal'
     ? (el.imageField === 'logo' ? template.logoUrl : template.signatureUrl)
     : null;
 
@@ -176,6 +159,10 @@ function ElementOnCanvas({
           whiteSpace: 'pre-wrap',
         }}>
           {displayText}
+        </div>
+      ) : el.imageField === 'seal' ? (
+        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <GoldSeal size={Math.min(el.width, el.height) * scale} />
         </div>
       ) : imgSrc ? (
         <img src={imgSrc} alt={el.label} style={{ width: '100%', height: '100%', objectFit: el.objectFit ?? 'contain', display: 'block' }} />
@@ -323,9 +310,16 @@ function PropertiesPanel({
       )}
 
       {el.type === 'image' && (
-        <PropSelect label="Imagen" value={el.imageField ?? 'logo'}
-          options={[{ value: 'logo', label: 'Logo de organización' }, { value: 'signature', label: 'Firma' }]}
-          onChange={(v) => onChange({ imageField: v as CertImageField })} />
+        el.imageField === 'seal' ? (
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--app-muted)] mb-0.5">Tipo</p>
+            <p className="text-xs text-[var(--app-muted)]">Sello decorativo</p>
+          </div>
+        ) : (
+          <PropSelect label="Imagen" value={el.imageField ?? 'logo'}
+            options={[{ value: 'logo', label: 'Logo de organización' }, { value: 'signature', label: 'Firma' }]}
+            onChange={(v) => onChange({ imageField: v as CertImageField })} />
+        )
       )}
     </div>
   );
@@ -612,6 +606,10 @@ export function CertificateBuilderPreview({ template }: { template: CertificateT
                 whiteSpace: 'pre-wrap',
               }}>
                 {resolveContent(el.content ?? '', {}, true)}
+              </div>
+            ) : el.imageField === 'seal' ? (
+              <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <GoldSeal size={Math.min(el.width, el.height) * scale} />
               </div>
             ) : el.imageField === 'logo' && template.logoUrl ? (
               <img src={template.logoUrl} alt="Logo" style={{ width: '100%', height: '100%', objectFit: el.objectFit ?? 'contain', display: 'block' }} />
