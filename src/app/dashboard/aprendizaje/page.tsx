@@ -25,7 +25,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { CertificateBuilder } from "@/components/aprendizaje/CertificateBuilder";
+import { CertificateBuilder, CertificateBuilderPreview } from "@/components/aprendizaje/CertificateBuilder";
 import { CertificatePreviewCard } from "@/components/aprendizaje/CertificatePreviewCard";
 import { LearningResourceCard } from "@/components/aprendizaje/LearningResourceCard";
 import { LearningAnalyticsPanel } from "@/components/aprendizaje/LearningAnalyticsPanel";
@@ -2792,20 +2792,21 @@ export default function AprendizajePage() {
             if (!previewTemplate) return null;
             return (
               <div
-                className="fixed inset-0 z-[225] flex flex-col items-center justify-center bg-black/70 p-6"
+                className="fixed inset-0 z-[225] flex flex-col items-center justify-center bg-black/75 p-4"
                 onClick={() => setCertPreviewId(null)}
               >
                 <div
-                  className="relative max-h-full max-w-full overflow-auto rounded-[8px] shadow-2xl"
+                  className="relative overflow-hidden rounded-[8px] shadow-2xl"
+                  style={{ width: 'min(92vw, calc(88vh * 1.415))' }}
                   onClick={(e) => e.stopPropagation()}
                 >
                   <button
-                    className="absolute right-3 top-3 z-10 rounded-full bg-black/40 p-1.5 text-white hover:bg-black/60"
+                    className="absolute right-3 top-3 z-20 rounded-full bg-black/50 px-2 py-1 text-xs text-white hover:bg-black/70"
                     onClick={() => setCertPreviewId(null)}
                   >
-                    ✕
+                    ✕ Cerrar
                   </button>
-                  <CertificatePreviewCard template={previewTemplate} />
+                  <CertificateBuilderPreview template={previewTemplate} />
                 </div>
               </div>
             );

@@ -1,6 +1,7 @@
 'use client';
 
 import type { CertificateTemplateRecord } from '@/features/aprendizaje/service';
+import { type CertificateElement, type CertVars, resolveContent } from '@/lib/certificate-elements';
 
 // ─── Design constants ─────────────────────────────────────────────────────────
 
@@ -366,6 +367,126 @@ async function htmlToCanvas(html: string): Promise<HTMLCanvasElement> {
   return canvas;
 }
 
+// ─── Builder layout rendering ─────────────────────────────────────────────────
+// When a template has custom elements (from the visual builder), render them
+// on top of the structural background instead of using the legacy hardcoded layouts.
+
+function ejecutivaBackgroundInner(accent: string): string {
+  const a = esc(accent);
+  return `
+  <div style="position:absolute;top:0;right:0;width:130px;height:130px;border-top:2px solid ${GOLD}50;border-right:2px solid ${GOLD}50;z-index:1;pointer-events:none;"></div>
+  <div style="position:absolute;bottom:0;left:0;width:130px;height:130px;border-bottom:2px solid ${GOLD}50;border-left:2px solid ${GOLD}50;z-index:1;pointer-events:none;"></div>
+  <div style="position:absolute;top:0;left:0;right:0;height:206px;background:linear-gradient(135deg,${a}f2,${a}aa);">
+    <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 50% -10%,rgba(255,255,255,0.15),transparent 65%);"></div>
+  </div>
+  <div style="position:absolute;top:206px;left:0;right:0;height:5px;background:linear-gradient(to right,${GOLD_D},${GOLD_L},${GOLD},${GOLD_L},${GOLD_D});"></div>
+  <div style="position:absolute;bottom:0;left:0;right:0;height:118px;background:#f9f7f1;border-top:1px solid ${GOLD}30;">
+    <div style="position:absolute;left:50%;top:50%;margin-left:-36px;margin-top:-36px;">${goldSeal(72)}</div>
+  </div>`;
+}
+
+function premiumBackgroundInner(accent: string): string {
+  const rgb     = hexToRgb(accent);
+  const bgMid   = colorDarken(rgb, 0.72);
+  const bgFoot  = colorDarken(rgb, 0.88);
+  const acLight = colorLighten(rgb, 0.60);
+  const a       = esc(accent);
+  const footH   = Math.round(0.21 * 794);
+  return `
+  <div style="position:absolute;inset:0;border:6px solid ${a};pointer-events:none;z-index:20;"></div>
+  <div style="position:absolute;inset:15px;border:1px solid ${acLight};pointer-events:none;z-index:20;opacity:0.55;"></div>
+  <div style="position:absolute;top:10%;right:10%;bottom:20%;left:10%;background:${bgMid};border-radius:4px;z-index:2;"></div>
+  <div style="position:absolute;bottom:0;left:0;right:0;height:${footH}px;background:${bgFoot};border-top:1px solid ${acLight};z-index:6;">
+    <div style="position:absolute;left:50%;top:50%;margin-left:-38px;margin-top:-38px;">${goldSeal(76)}</div>
+  </div>`;
+}
+
+function estandarBackgroundInner(accent: string): string {
+  const a = esc(accent);
+  return `
+  <svg style="position:absolute;top:0;left:0;z-index:1;" width="388" height="794" xmlns="http://www.w3.org/2000/svg">
+    <polygon points="0,0 388,0 326,794 0,794" fill="${a}"/>
+  </svg>
+  <div style="position:absolute;left:110px;top:180px;z-index:2;">${goldSeal(96)}</div>
+  <div style="position:absolute;top:0;left:358px;right:0;bottom:0;background:#fff;z-index:1;">
+    <div style="position:absolute;top:0;left:0;right:0;height:5px;background:linear-gradient(to right,${GOLD_D},${GOLD_L},${GOLD},${GOLD_L},${GOLD_D});"></div>
+    <div style="position:absolute;bottom:5px;left:0;right:0;height:116px;background:#f9f7f1;border-top:1px solid ${GOLD}30;"></div>
+    <div style="position:absolute;bottom:0;left:0;right:0;height:5px;background:linear-gradient(to right,${GOLD_D},${GOLD_L},${GOLD},${GOLD_L},${GOLD_D});"></div>
+  </div>`;
+}
+
+function renderBuilderElement(el: CertificateElement, vars: CertVars, t: ResolvedTemplate): string {
+  if (el.visible === false) return '';
+
+  const base = `position:absolute;left:${el.x}px;top:${el.y}px;width:${el.width}px;height:${el.height}px;box-sizing:border-box;overflow:hidden;z-index:10;`;
+
+  if (el.type === 'text' && el.content != null) {
+    const text = esc(resolveContent(el.content, vars));
+    const ff   = el.fontFamily === 'Georgia' ? "Georgia,'Times New Roman',serif" : 'Montserrat,Arial,sans-serif';
+    const style = [
+      `font-family:${ff}`,
+      `font-size:${el.fontSize ?? 14}px`,
+      `color:${el.color ?? '#333'}`,
+      `font-weight:${el.fontWeight ?? 'normal'}`,
+      `font-style:${el.fontStyle ?? 'normal'}`,
+      `text-align:${el.textAlign ?? 'left'}`,
+      `letter-spacing:${el.letterSpacing ?? 0}em`,
+      `text-transform:${el.textTransform ?? 'none'}`,
+      `line-height:${el.lineHeight ?? 1.3}`,
+      `opacity:${el.opacity ?? 1}`,
+      'white-space:pre-wrap',
+      'width:100%',
+      'height:100%',
+      'overflow:hidden',
+    ].join(';');
+    return `<div style="${base}"><div style="${style}">${text}</div></div>`;
+  }
+
+  if (el.type === 'image') {
+    const fit = `width:100%;height:100%;object-fit:${el.objectFit ?? 'contain'};display:block;`;
+    const html = el.imageField === 'logo'
+      ? imgTag(t.logoDataUrl, t.logoUrl, fit)
+      : imgTag(t.signatureDataUrl, t.signatureUrl, fit);
+    return html ? `<div style="${base}">${html}</div>` : '';
+  }
+
+  return '';
+}
+
+function htmlBuilder(t: ResolvedTemplate, name: string, course: string, date: string): string {
+  const vars: CertVars = {
+    recipientName:    name,
+    courseName:       course,
+    date,
+    headlineText:     t.headlineText     ?? '',
+    bodyText:         t.bodyText         ?? '',
+    signatoryName:    t.signatoryName    ?? '',
+    signatoryTitle:   t.signatoryTitle   ?? '',
+    footerText:       t.footerText       ?? '',
+    organizationName: t.organizationName ?? '',
+  };
+
+  const accent = t.accentColor ?? '#5f3471';
+  let bgInner: string;
+  switch (t.templateNumber) {
+    case 2:  bgInner = premiumBackgroundInner(accent);  break;
+    case 3:  bgInner = estandarBackgroundInner(accent); break;
+    default: bgInner = ejecutivaBackgroundInner(accent);
+  }
+
+  const rgb    = hexToRgb(accent);
+  const bgBase = t.templateNumber === 2 ? colorDarken(rgb, 0.82) : '#fff';
+
+  const elementsHtml = (t.elements ?? [])
+    .map((el) => renderBuilderElement(el, vars, t))
+    .join('\n');
+
+  return `<div style="width:1123px;height:794px;overflow:hidden;position:relative;background:${bgBase};font-family:Georgia,'Times New Roman',serif;">
+${bgInner}
+${elementsHtml}
+</div>`;
+}
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 export async function downloadCourseCertificate({
@@ -392,10 +513,14 @@ export async function downloadCourseCertificate({
   const date = formatDate(completedAt);
 
   let html: string;
-  switch (template.templateNumber) {
-    case 2:  html = htmlPremium(t, recipientName, courseName, date);  break;
-    case 3:  html = htmlEstandar(t, recipientName, courseName, date); break;
-    default: html = htmlEjecutiva(t, recipientName, courseName, date);
+  if (template.elements && template.elements.length > 0) {
+    html = htmlBuilder(t, recipientName, courseName, date);
+  } else {
+    switch (template.templateNumber) {
+      case 2:  html = htmlPremium(t, recipientName, courseName, date);  break;
+      case 3:  html = htmlEstandar(t, recipientName, courseName, date); break;
+      default: html = htmlEjecutiva(t, recipientName, courseName, date);
+    }
   }
 
   const canvas = await htmlToCanvas(html);

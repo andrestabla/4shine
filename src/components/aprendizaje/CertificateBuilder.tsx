@@ -558,3 +558,69 @@ export function CertificateBuilder({ template, onSave, onCancel }: CertificateBu
     </div>
   );
 }
+
+// ─── Read-only scaled preview (reuses builder canvas rendering) ───────────────
+
+export function CertificateBuilderPreview({ template }: { template: CertificateTemplateRecord }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(0.65);
+
+  useEffect(() => {
+    const update = () => {
+      if (!containerRef.current) return;
+      setScale(Math.min(1, containerRef.current.offsetWidth / CERT_W));
+    };
+    update();
+    const obs = new ResizeObserver(update);
+    if (containerRef.current) obs.observe(containerRef.current);
+    return () => obs.disconnect();
+  }, []);
+
+  const elements: CertificateElement[] =
+    template.elements && template.elements.length > 0
+      ? template.elements
+      : getDefaultElements(template.templateNumber, template.accentColor || '#5f3471');
+
+  return (
+    <div ref={containerRef} style={{ width: '100%' }}>
+      <div style={{ position: 'relative', width: CERT_W * scale, height: CERT_H * scale, overflow: 'hidden', borderRadius: 4 }}>
+        {/* Background layer */}
+        <div style={{ position: 'absolute', inset: 0, transformOrigin: 'top left', transform: `scale(${scale})`, width: CERT_W, height: CERT_H }}>
+          <TemplateBackground template={template} />
+        </div>
+        {/* Content elements */}
+        {elements.filter((el) => el.visible !== false).map((el) => (
+          <div key={el.id} style={{
+            position: 'absolute',
+            left: el.x * scale, top: el.y * scale,
+            width: el.width * scale, height: el.height * scale,
+            overflow: 'hidden', zIndex: 10,
+          }}>
+            {el.type === 'text' ? (
+              <div style={{
+                width: '100%', height: '100%', overflow: 'hidden',
+                fontSize: (el.fontSize ?? 14) * scale,
+                color: el.color ?? '#333',
+                fontFamily: el.fontFamily === 'Georgia' ? "Georgia,'Times New Roman',serif" : 'Montserrat,Arial,sans-serif',
+                fontWeight: el.fontWeight ?? 'normal',
+                fontStyle: el.fontStyle ?? 'normal',
+                textAlign: el.textAlign ?? 'left',
+                letterSpacing: `${el.letterSpacing ?? 0}em`,
+                textTransform: el.textTransform ?? 'none',
+                lineHeight: el.lineHeight ?? 1.3,
+                opacity: el.opacity ?? 1,
+                whiteSpace: 'pre-wrap',
+              }}>
+                {resolveContent(el.content ?? '', {}, true)}
+              </div>
+            ) : el.imageField === 'logo' && template.logoUrl ? (
+              <img src={template.logoUrl} alt="Logo" style={{ width: '100%', height: '100%', objectFit: el.objectFit ?? 'contain', display: 'block' }} />
+            ) : el.imageField === 'signature' && template.signatureUrl ? (
+              <img src={template.signatureUrl} alt="Firma" style={{ width: '100%', height: '100%', objectFit: el.objectFit ?? 'contain', display: 'block' }} />
+            ) : null}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
