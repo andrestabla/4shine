@@ -84,7 +84,8 @@ export interface LearningLikeToggleResult {
 }
 
 export interface LearningProgressUpdateInput {
-  resourceId: string;
+  resourceId?: string;
+  progressPercent?: number;
 }
 
 const SCORM_PACKAGE_COMPLETION_ID = '__scorm_package__';
@@ -1144,30 +1145,36 @@ export async function updateLearningProgress(
   const resource = await getLearningResourceDetail(client, actor, contentId);
   const normalizedResourceId =
     typeof input.resourceId === 'string' ? input.resourceId.trim() : '';
+  const reportedProgressPercent =
+    typeof input.progressPercent === 'number' && Number.isFinite(input.progressPercent)
+      ? Math.min(100, Math.max(0, Math.round(input.progressPercent)))
+      : null;
   const validCourseResourceIds = new Set(getCourseResourceIds(resource.structurePayload));
+  const isScormCourse = resource.contentType === 'scorm';
   const isScormPackageCourse =
-    resource.contentType === 'scorm' &&
+    isScormCourse &&
     validCourseResourceIds.size === 0 &&
     typeof resource.url === 'string' &&
     resource.url.trim().length > 0;
+  const isScormRuntimeSignal =
+    isScormCourse &&
+    (normalizedResourceId === SCORM_PACKAGE_COMPLETION_ID || reportedProgressPercent !== null);
 
-  if (
-    !normalizedResourceId ||
-    (!validCourseResourceIds.has(normalizedResourceId) &&
-      !(isScormPackageCourse && normalizedResourceId === SCORM_PACKAGE_COMPLETION_ID))
-  ) {
+  const hasValidResourceId = normalizedResourceId && validCourseResourceIds.has(normalizedResourceId);
+  if (!hasValidResourceId && !isScormRuntimeSignal) {
     throw new Error('Learning course resource not found');
   }
 
-  const updatedCompletedIds = isScormPackageCourse
+  const updatedCompletedIds = isScormPackageCourse || !hasValidResourceId
     ? []
     : Array.from(new Set([...(resource.completedResourceIds || []), normalizedResourceId]));
   const totalItems = validCourseResourceIds.size;
-  const progressPercent = isScormPackageCourse
-    ? 100
-    : totalItems > 0
-      ? Math.min(100, Math.round((updatedCompletedIds.length / totalItems) * 100))
-      : 0;
+  const progressFromResources =
+    totalItems > 0 ? Math.min(100, Math.round((updatedCompletedIds.length / totalItems) * 100)) : 0;
+  const runtimeProgressPercent = reportedProgressPercent ?? (normalizedResourceId === SCORM_PACKAGE_COMPLETION_ID ? 100 : 0);
+  const progressPercent = isScormRuntimeSignal
+    ? Math.max(progressFromResources, runtimeProgressPercent)
+    : progressFromResources;
   const seen = progressPercent >= 100;
 
   const { rows } = await client.query<{ progress_percent: number; seen: boolean }>(

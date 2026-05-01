@@ -195,6 +195,8 @@ export default function LearningResourceDetailPage() {
   const [scormSidebarOpen, setScormSidebarOpen] = React.useState(false);
   const scormCompletionSentRef = React.useRef(false);
   const scormCompletionSyncingRef = React.useRef(false);
+  const scormRuntimeProgressRef = React.useRef<number | null>(null);
+  const scormRuntimeSyncTimerRef = React.useRef<number | null>(null);
 
   React.useEffect(() => {
     const mql = window.matchMedia("(max-width: 768px)");
@@ -302,7 +304,9 @@ export default function LearningResourceDetailPage() {
     if (!resource || resource.contentType !== "scorm") return resource?.progressPercent ?? 0;
     if (totalItems === 0) return Math.min(100, Math.max(0, resource.progressPercent ?? 0));
 
-    return Math.min(100, Math.round((validCompletedResourceIds.length / totalItems) * 100));
+    const structureProgress = Math.min(100, Math.round((validCompletedResourceIds.length / totalItems) * 100));
+    const runtimeProgress = Math.min(100, Math.max(0, resource.progressPercent ?? 0));
+    return Math.max(structureProgress, runtimeProgress);
   }, [resource, totalItems, validCompletedResourceIds.length]);
 
   React.useEffect(() => {
@@ -408,6 +412,47 @@ export default function LearningResourceDetailPage() {
       .finally(() => setCertificateLoading(false));
   }, [activeResourceIndex, totalItems, hasCertificateScreen, resource, certificateData]);
 
+  const syncScormRuntimeProgress = React.useCallback(
+    (rawValue: unknown) => {
+      if (!resource || !isScormPackage) return;
+
+      const numeric = typeof rawValue === "number" ? rawValue : Number.parseFloat(String(rawValue ?? ""));
+      if (!Number.isFinite(numeric)) return;
+      const normalized = Math.min(100, Math.max(0, numeric <= 1 ? numeric * 100 : numeric));
+      const rounded = Math.round(normalized);
+      const previous = scormRuntimeProgressRef.current ?? -1;
+      if (Math.abs(rounded - previous) < 1) return;
+      scormRuntimeProgressRef.current = rounded;
+
+      React.startTransition(() => {
+        setResource((prev) =>
+          prev && prev.contentId === resource.contentId
+            ? normalizeLearningResourceRecord({
+                ...prev,
+                progressPercent: Math.max(prev.progressPercent ?? 0, rounded),
+                seen: Math.max(prev.progressPercent ?? 0, rounded) >= 100 || prev.seen,
+              })
+            : prev,
+        );
+      });
+
+      if (scormRuntimeSyncTimerRef.current !== null) {
+        window.clearTimeout(scormRuntimeSyncTimerRef.current);
+      }
+      scormRuntimeSyncTimerRef.current = window.setTimeout(() => {
+        const value = scormRuntimeProgressRef.current;
+        if (value === null) return;
+        void updateLearningProgress(resource.contentId, {
+          resourceId: "__scorm_package__",
+          progressPercent: value,
+        }).catch((error) => {
+          console.error("Failed to sync SCORM runtime progress:", error);
+        });
+      }, 900);
+    },
+    [resource, isScormPackage],
+  );
+
   const markScormPackageCompleted = React.useCallback(async () => {
     if (!resource || !isScormPackage) return;
     if (scormCompletionSentRef.current || scormCompletionSyncingRef.current) return;
@@ -415,6 +460,7 @@ export default function LearningResourceDetailPage() {
     try {
       const result = await updateLearningProgress(resource.contentId, {
         resourceId: "__scorm_package__",
+        progressPercent: 100,
       });
       scormCompletionSentRef.current = true;
       React.startTransition(() => {
@@ -446,11 +492,15 @@ export default function LearningResourceDetailPage() {
     const markCompletionFromValue = (element: string, value: unknown) => {
       const key = element.trim().toLowerCase();
       const normalizedValue = String(value ?? "").trim().toLowerCase();
+      if (key === "cmi.progress_measure" || key === "cmi.core.score.raw") {
+        syncScormRuntimeProgress(value);
+      }
       if (
         (key === "cmi.core.lesson_status" &&
           (normalizedValue === "completed" || normalizedValue === "passed")) ||
         (key === "cmi.completion_status" && normalizedValue === "completed")
       ) {
+        syncScormRuntimeProgress(100);
         void markScormPackageCompleted();
       }
     };
@@ -503,7 +553,7 @@ export default function LearningResourceDetailPage() {
       delete w.API_1484_11;
       setScormApiReady(false);
     };
-  }, [isScormPackage, currentUser?.name, markScormPackageCompleted]);
+  }, [isScormPackage, currentUser?.name, markScormPackageCompleted, syncScormRuntimeProgress]);
 
   React.useEffect(() => {
     if (!isScormPackage) return;
@@ -513,7 +563,20 @@ export default function LearningResourceDetailPage() {
   React.useEffect(() => {
     scormCompletionSentRef.current = false;
     scormCompletionSyncingRef.current = false;
+    scormRuntimeProgressRef.current = null;
+    if (scormRuntimeSyncTimerRef.current !== null) {
+      window.clearTimeout(scormRuntimeSyncTimerRef.current);
+      scormRuntimeSyncTimerRef.current = null;
+    }
   }, [resource?.contentId, resource?.url]);
+
+  React.useEffect(() => {
+    return () => {
+      if (scormRuntimeSyncTimerRef.current !== null) {
+        window.clearTimeout(scormRuntimeSyncTimerRef.current);
+      }
+    };
+  }, []);
 
   const handlePrev = () => {
     if (activeResourceIndex > 0) {
