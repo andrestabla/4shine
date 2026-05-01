@@ -201,6 +201,8 @@ export default function LearningResourceDetailPage() {
   const scormCompletionSyncingRef = React.useRef(false);
   const scormRuntimeProgressRef = React.useRef<number | null>(null);
   const scormRuntimeSyncTimerRef = React.useRef<number | null>(null);
+  const scormStateRef = React.useRef<Record<string, string>>({});
+  const scormStateDirtyRef = React.useRef(false);
 
   React.useEffect(() => {
     const mql = window.matchMedia("(max-width: 768px)");
@@ -422,13 +424,17 @@ export default function LearningResourceDetailPage() {
       const progress = typeof forcedProgress === "number"
         ? Math.min(100, Math.max(0, Math.round(forcedProgress)))
         : scormRuntimeProgressRef.current ?? Math.round(resource.progressPercent ?? 0);
-      if (progress <= 0) return;
+      const stateSnapshot = { ...scormStateRef.current };
+      const hasState = Object.keys(stateSnapshot).length > 0;
+      if (!hasState && progress <= 0) return;
 
       try {
         const result = await updateLearningProgress(resource.contentId, {
           resourceId: "__scorm_package__",
           progressPercent: progress,
+          scormState: stateSnapshot,
         });
+        scormStateDirtyRef.current = false;
         React.startTransition(() => {
           setResource((prev) =>
             prev && prev.contentId === resource.contentId
@@ -517,7 +523,15 @@ export default function LearningResourceDetailPage() {
     };
     const getStateValue = (element: string) => {
       const key = element.trim().toLowerCase();
-      return defaultValueFor(key);
+      return scormStateRef.current[key] ?? defaultValueFor(key);
+    };
+    const setStateValue = (element: string, value: unknown) => {
+      const key = element.trim().toLowerCase();
+      if (!key.startsWith("cmi.")) return;
+      // Avoid unbounded payloads from malformed packages.
+      const serialized = String(value ?? "");
+      scormStateRef.current[key] = serialized.slice(0, 65535);
+      scormStateDirtyRef.current = true;
     };
     const markCompletionFromValue = (element: string, value: unknown) => {
       const key = element.trim().toLowerCase();
@@ -543,6 +557,7 @@ export default function LearningResourceDetailPage() {
       },
       LMSGetValue: (el: string) => getStateValue(el),
       LMSSetValue: (el: string, value: unknown) => {
+        setStateValue(el, value);
         markCompletionFromValue(el, value);
         return 'true';
       },
@@ -562,6 +577,7 @@ export default function LearningResourceDetailPage() {
       },
       GetValue: (el: string) => getStateValue(el),
       SetValue: (el: string, value: unknown) => {
+        setStateValue(el, value);
         markCompletionFromValue(el, value);
         return 'true';
       },
@@ -596,11 +612,14 @@ export default function LearningResourceDetailPage() {
     scormCompletionSentRef.current = false;
     scormCompletionSyncingRef.current = false;
     scormRuntimeProgressRef.current = null;
+    scormStateRef.current =
+      resource?.scormState && typeof resource.scormState === "object" ? resource.scormState : {};
+    scormStateDirtyRef.current = false;
     if (scormRuntimeSyncTimerRef.current !== null) {
       window.clearTimeout(scormRuntimeSyncTimerRef.current);
       scormRuntimeSyncTimerRef.current = null;
     }
-  }, [resource?.contentId, resource?.url]);
+  }, [resource?.contentId, resource?.url, resource?.scormState]);
 
   React.useEffect(() => {
     return () => {
@@ -624,7 +643,7 @@ export default function LearningResourceDetailPage() {
   React.useEffect(() => {
     if (!isScormPackage) return;
     const interval = window.setInterval(() => {
-      if (scormRuntimeProgressRef.current !== null) {
+      if (scormRuntimeProgressRef.current !== null || scormStateDirtyRef.current) {
         void flushScormRuntimeToBackend();
       }
     }, 10000);
