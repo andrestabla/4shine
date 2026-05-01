@@ -191,6 +191,7 @@ export default function LearningResourceDetailPage() {
   const [certificateLoading, setCertificateLoading] = React.useState(false);
   const [certificateDownloading, setCertificateDownloading] = React.useState(false);
   const [scormApiReady, setScormApiReady] = React.useState(false);
+  const [scormIframeLoaded, setScormIframeLoaded] = React.useState(false);
 
   React.useEffect(() => {
     const mql = window.matchMedia("(max-width: 768px)");
@@ -456,6 +457,11 @@ export default function LearningResourceDetailPage() {
     };
   }, [isScormPackage, currentUser?.name]);
 
+  React.useEffect(() => {
+    if (!isScormPackage) return;
+    setScormIframeLoaded(false);
+  }, [isScormPackage, resource?.url]);
+
   const handlePrev = () => {
     if (activeResourceIndex > 0) {
       setActiveResourceIndex((prev) => Math.max(0, prev - 1));
@@ -639,16 +645,19 @@ export default function LearningResourceDetailPage() {
              </button>
              <h4 className="text-xs font-bold text-white uppercase tracking-wider truncate max-w-[200px]">{resource.title}</h4>
           </div>
-          <button 
-            onClick={() => setIsMobileMenuOpen(true)}
-            className="flex h-10 items-center gap-2 rounded-full bg-[var(--brand-primary)] px-4 text-[11px] font-bold text-white shadow-lg shadow-orange-500/20"
-          >
-            <Menu size={16} />
-            TEMARIO
-          </button>
+          {!isScormPackage && (
+            <button 
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="flex h-10 items-center gap-2 rounded-full bg-[var(--brand-primary)] px-4 text-[11px] font-bold text-white shadow-lg shadow-orange-500/20"
+            >
+              <Menu size={16} />
+              TEMARIO
+            </button>
+          )}
         </div>
 
         {/* SIDEBAR: Temario y Discusión */}
+        {!isScormPackage && (
         <aside className={`flex h-full shrink-0 flex-col bg-white transition-all duration-300 md:relative md:w-80 lg:w-96 md:flex ${
           isMobileMenuOpen ? "fixed inset-0 z-[110] w-full" : "hidden md:flex"
         }`}>
@@ -895,6 +904,7 @@ export default function LearningResourceDetailPage() {
             </Link>
           </div>
         </aside>
+        )}
 
         <main className="relative flex flex-1 flex-col overflow-hidden bg-black">
           {isScormPackage && scormApiReady && (
@@ -904,9 +914,19 @@ export default function LearningResourceDetailPage() {
               style={{ zIndex: 10 }}
               allow="fullscreen; autoplay"
               title={resource.title}
+              onLoad={() => setScormIframeLoaded(true)}
               allowFullScreen
             />
           )}
+          {isScormPackage && (!scormApiReady || !scormIframeLoaded) && (
+            <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/80">
+              <div className="flex flex-col items-center gap-3 text-white">
+                <Loader2 size={28} className="animate-spin" />
+                <p className="text-sm font-semibold">Cargado experiencia</p>
+              </div>
+            </div>
+          )}
+          {!isScormPackage && (
           <section className="relative flex flex-1 items-center justify-center overflow-auto p-4 sm:p-8 pb-24">
             <div className="w-full max-w-5xl">
               {(!resource) ? (
@@ -1139,6 +1159,7 @@ export default function LearningResourceDetailPage() {
               )}
             </div>
           </section>
+          )}
 
           {!isScormPackage && <div className="absolute bottom-0 left-0 right-0 z-20 flex h-20 items-center justify-between border-t border-slate-800 bg-[#1e293b] px-6 text-white md:px-12">
              <button
