@@ -312,7 +312,11 @@ export default function LearningResourceDetailPage() {
 
     const structureProgress = Math.min(100, Math.round((validCompletedResourceIds.length / totalItems) * 100));
     const runtimeProgress = Math.min(100, Math.max(0, resource.progressPercent ?? 0));
-    return Math.max(structureProgress, runtimeProgress);
+    const liveRuntimeProgress = Math.min(
+      100,
+      Math.max(0, Math.round(scormRuntimeProgressRef.current ?? 0)),
+    );
+    return Math.max(structureProgress, runtimeProgress, liveRuntimeProgress);
   }, [resource, totalItems, validCompletedResourceIds.length]);
 
   React.useEffect(() => {
@@ -370,7 +374,8 @@ export default function LearningResourceDetailPage() {
           if (!prev || prev.contentId !== resource.contentId) return prev;
           return normalizeLearningResourceRecord({
             ...prev,
-            progressPercent: optimisticProgressPercent,
+            // Do not regress runtime SCORM progress when marking structure resources.
+            progressPercent: Math.max(prev.progressPercent ?? 0, optimisticProgressPercent),
             seen: optimisticSeen,
             completedResourceIds: optimisticCompletedIds,
           });
