@@ -56,6 +56,7 @@ export interface LearningResourceRecord {
   structurePayload: ContentStructurePayload;
   completedResourceIds: string[];
   certificateTemplateId: string | null;
+  scormState: Record<string, string>;
 }
 
 
@@ -86,6 +87,7 @@ export interface LearningLikeToggleResult {
 export interface LearningProgressUpdateInput {
   resourceId?: string;
   progressPercent?: number;
+  scormState?: Record<string, unknown>;
 }
 
 const SCORM_PACKAGE_COMPLETION_ID = '__scorm_package__';
@@ -200,6 +202,7 @@ interface LearningResourceRow {
   structure_payload: ContentStructurePayload | null;
   completed_resource_ids: string[] | null;
   certificate_template_id: string | null;
+  scorm_runtime_state: Record<string, unknown> | null;
 }
 
 function getCourseResourceFallbackId(moduleId: string | null | undefined, moduleIndex: number, resourceId: string | null | undefined, resourceIndex: number): string {
@@ -290,6 +293,19 @@ function mapLearningComments(comments: LearningCommentRow[] | null | undefined):
   }));
 }
 
+function normalizeScormState(value: unknown): Record<string, string> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const source = value as Record<string, unknown>;
+  const output: Record<string, string> = {};
+  for (const [key, raw] of Object.entries(source)) {
+    const normalizedKey = key.trim().toLowerCase();
+    if (!normalizedKey.startsWith('cmi.')) continue;
+    if (normalizedKey.length > 128) continue;
+    output[normalizedKey] = String(raw ?? '').slice(0, 65535);
+  }
+  return output;
+}
+
 function mapLearningResourceRow(row: LearningResourceRow): LearningResourceRecord {
   const validCompletedResourceIds = getValidCompletedResourceIds(
     row.structure_payload,
@@ -333,6 +349,7 @@ function mapLearningResourceRow(row: LearningResourceRow): LearningResourceRecor
       },
     completedResourceIds: validCompletedResourceIds,
     certificateTemplateId: row.certificate_template_id ?? null,
+    scormState: normalizeScormState(row.scorm_runtime_state),
     comments: mapLearningComments(row.comments),
   };
 }
@@ -729,6 +746,7 @@ export async function listLearningResources(
         COALESCE(cp.progress_percent, 0)::float AS progress_percent,
         COALESCE(cp.seen, false) AS seen,
         cp.completed_resource_ids,
+        cp.scorm_runtime_state,
         ci.created_at::text,
         ci.updated_at::text,
         ci.published_at::text,
@@ -863,6 +881,7 @@ export async function getLearningResourceDetail(
         COALESCE(cp.progress_percent, 0)::float AS progress_percent,
         COALESCE(cp.seen, false) AS seen,
         cp.completed_resource_ids,
+        cp.scorm_runtime_state,
         ci.created_at::text,
         ci.updated_at::text,
         ci.published_at::text,
@@ -1151,6 +1170,7 @@ export async function updateLearningProgress(
       : null;
   const validCourseResourceIds = new Set(getCourseResourceIds(resource.structurePayload));
   const isScormCourse = resource.contentType === 'scorm';
+  const normalizedScormState = isScormCourse ? normalizeScormState(input.scormState) : {};
   const isScormPackageCourse =
     isScormCourse &&
     validCourseResourceIds.size === 0 &&
@@ -1171,10 +1191,11 @@ export async function updateLearningProgress(
   const totalItems = validCourseResourceIds.size;
   const progressFromResources =
     totalItems > 0 ? Math.min(100, Math.round((updatedCompletedIds.length / totalItems) * 100)) : 0;
+  const persistedProgress = Math.min(100, Math.max(0, Math.round(resource.progressPercent ?? 0)));
   const runtimeProgressPercent = reportedProgressPercent ?? (normalizedResourceId === SCORM_PACKAGE_COMPLETION_ID ? 100 : 0);
   const progressPercent = isScormRuntimeSignal
-    ? Math.max(progressFromResources, runtimeProgressPercent)
-    : progressFromResources;
+    ? Math.max(persistedProgress, progressFromResources, runtimeProgressPercent)
+    : Math.max(persistedProgress, progressFromResources);
   const seen = progressPercent >= 100;
 
   const { rows } = await client.query<{ progress_percent: number; seen: boolean }>(
@@ -1185,16 +1206,18 @@ export async function updateLearningProgress(
         progress_percent, 
         seen, 
         completed_resource_ids,
+        scorm_runtime_state,
         last_viewed_at,
         started_at
       )
-      VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+      VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
       ON CONFLICT (content_id, user_id) 
       DO UPDATE SET
         completed_resource_ids = (
           SELECT jsonb_agg(DISTINCT x) 
           FROM jsonb_array_elements(COALESCE(app_learning.content_progress.completed_resource_ids, '[]'::jsonb) || $5::jsonb) t(x)
         ),
+        scorm_runtime_state = COALESCE(app_learning.content_progress.scorm_runtime_state, '{}'::jsonb) || $6::jsonb,
         progress_percent = $3,
         seen = app_learning.content_progress.seen OR $4,
         last_viewed_at = NOW(),
@@ -1205,7 +1228,14 @@ export async function updateLearningProgress(
         END
       RETURNING progress_percent, seen
     `,
-    [contentId, actor.userId, progressPercent, seen, JSON.stringify(updatedCompletedIds)],
+    [
+      contentId,
+      actor.userId,
+      progressPercent,
+      seen,
+      JSON.stringify(updatedCompletedIds),
+      JSON.stringify(normalizedScormState),
+    ],
   );
 
   return {

@@ -95,7 +95,7 @@ export async function toggleLearningLike(contentId: string): Promise<LearningLik
 
 export async function updateLearningProgress(
   contentId: string,
-  input: { resourceId?: string; progressPercent?: number },
+  input: { resourceId?: string; progressPercent?: number; scormState?: Record<string, unknown> },
 ): Promise<LearningProgressUpdateResult> {
   const result = await requestApi<{ ok: boolean; data: LearningProgressUpdateResult }>(
     `/api/v1/modules/aprendizaje/resources/${contentId}/progress`,
