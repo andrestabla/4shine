@@ -103,21 +103,24 @@ export async function GET(
     const removeFinishModuleScript = `
 <script>
 (() => {
-  const shouldHide = (text) => /terminar\\s*m[oó]dulo/i.test((text || '').trim());
-  const hideNode = (node) => {
-    const target = node.closest('button,a,[role="button"],li,div,span') || node;
-    if (target && target instanceof HTMLElement) {
-      target.style.display = 'none';
+  const shouldHide = (text) => /^\\s*terminar\\s*m[oó]dulo\\s*$/i.test((text || '').trim());
+  const hideElement = (el) => {
+    if (!(el instanceof HTMLElement)) return;
+    el.style.display = 'none';
+  };
+
+  const sweep = () => {
+    const interactive = document.querySelectorAll('button, a, [role="button"], [aria-label]');
+    for (const el of interactive) {
+      const txt = (el.textContent || '').trim();
+      const aria = (el.getAttribute('aria-label') || '').trim();
+      if (shouldHide(txt) || shouldHide(aria)) {
+        hideElement(el);
+      }
     }
   };
-  const sweep = (root) => {
-    const nodes = root.querySelectorAll('*');
-    for (const node of nodes) {
-      const txt = node.textContent || '';
-      if (shouldHide(txt) && node.children.length <= 1) hideNode(node);
-    }
-  };
-  const run = () => sweep(document);
+
+  const run = () => sweep();
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', run, { once: true });
   } else {

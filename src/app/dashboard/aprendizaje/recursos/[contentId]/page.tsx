@@ -730,6 +730,16 @@ export default function LearningResourceDetailPage() {
                 <X size={20} />
               </button>
             )}
+            {isScormPackage && isSidebarOpen && (
+              <button
+                type="button"
+                onClick={() => setScormSidebarOpen(false)}
+                className="absolute right-6 top-6 hidden items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold text-slate-700 shadow-sm md:inline-flex"
+              >
+                <X size={13} />
+                Cerrar panel
+              </button>
+            )}
             <h1 className="text-[17px] font-bold leading-tight text-[var(--app-ink)] pr-8 md:pr-0" data-display-font="true">
               {resource.title}
             </h1>
