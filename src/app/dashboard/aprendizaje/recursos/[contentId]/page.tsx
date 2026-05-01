@@ -509,6 +509,13 @@ export default function LearningResourceDetailPage() {
       return;
     }
     const w = window as unknown as Record<string, unknown>;
+    const normalizeElementKey = (element: unknown): string => {
+      if (typeof element === "string") return element.trim().toLowerCase();
+      if (typeof element === "number" || typeof element === "boolean") {
+        return String(element).trim().toLowerCase();
+      }
+      return "";
+    };
     const defaultValueFor = (key: string) => {
       if (key === "cmi.core.lesson_status") return "incomplete";
       if (key === "cmi.completion_status") return "incomplete";
@@ -522,11 +529,12 @@ export default function LearningResourceDetailPage() {
       return "";
     };
     const getStateValue = (element: string) => {
-      const key = element.trim().toLowerCase();
+      const key = normalizeElementKey(element);
+      if (!key) return "";
       return scormStateRef.current[key] ?? defaultValueFor(key);
     };
     const setStateValue = (element: string, value: unknown) => {
-      const key = element.trim().toLowerCase();
+      const key = normalizeElementKey(element);
       if (!key.startsWith("cmi.")) return;
       // Avoid unbounded payloads from malformed packages.
       const serialized = String(value ?? "");
@@ -534,7 +542,8 @@ export default function LearningResourceDetailPage() {
       scormStateDirtyRef.current = true;
     };
     const markCompletionFromValue = (element: string, value: unknown) => {
-      const key = element.trim().toLowerCase();
+      const key = normalizeElementKey(element);
+      if (!key) return;
       const normalizedValue = String(value ?? "").trim().toLowerCase();
       if (key === "cmi.progress_measure" || key === "cmi.core.score.raw") {
         syncScormRuntimeProgress(value);
