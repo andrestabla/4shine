@@ -203,6 +203,7 @@ export default function LearningResourceDetailPage() {
   const scormRuntimeSyncTimerRef = React.useRef<number | null>(null);
   const scormStateRef = React.useRef<Record<string, string>>({});
   const scormStateDirtyRef = React.useRef(false);
+  const scormVisitedLocationsRef = React.useRef<Set<string>>(new Set());
 
   React.useEffect(() => {
     const mql = window.matchMedia("(max-width: 768px)");
@@ -522,7 +523,9 @@ export default function LearningResourceDetailPage() {
         return currentUser?.name ?? "Estudiante";
       }
       if (key === "cmi.core.lesson_mode" || key === "cmi.mode") return "normal";
-      if (key === "cmi.core.entry" || key === "cmi.entry") return "ab-initio";
+      if (key === "cmi.core.entry" || key === "cmi.entry") {
+        return Object.keys(scormStateRef.current).length > 0 ? "resume" : "ab-initio";
+      }
       if (key === "cmi.core.score.min" || key === "cmi.score.min") return "0";
       if (key === "cmi.core.score.max" || key === "cmi.score.max") return "100";
       return "";
@@ -550,6 +553,16 @@ export default function LearningResourceDetailPage() {
       const serialized = String(value ?? "");
       scormStateRef.current[key] = serialized.slice(0, 65535);
       scormStateDirtyRef.current = true;
+      if ((key === "cmi.core.lesson_location" || key === "cmi.location") && serialized.trim()) {
+        scormVisitedLocationsRef.current.add(serialized.trim());
+        const compactVisited = Array.from(scormVisitedLocationsRef.current).join("|").slice(0, 65535);
+        scormStateRef.current["cmi.x_visited_locations"] = compactVisited;
+        const visitedCount = scormVisitedLocationsRef.current.size;
+        if (totalItems > 0 && visitedCount > 0) {
+          const inferredProgress = Math.min(100, Math.round((visitedCount / totalItems) * 100));
+          syncScormRuntimeProgress(inferredProgress);
+        }
+      }
     };
     const markCompletionFromValue = (element: string, value: unknown) => {
       const key = normalizeElementKey(element);
@@ -681,6 +694,13 @@ export default function LearningResourceDetailPage() {
     scormRuntimeProgressRef.current = null;
     scormStateRef.current =
       resource?.scormState && typeof resource.scormState === "object" ? resource.scormState : {};
+    const persistedVisited = scormStateRef.current["cmi.x_visited_locations"] ?? "";
+    scormVisitedLocationsRef.current = new Set(
+      persistedVisited
+        .split("|")
+        .map((value) => value.trim())
+        .filter(Boolean),
+    );
     scormStateDirtyRef.current = false;
     if (scormRuntimeSyncTimerRef.current !== null) {
       window.clearTimeout(scormRuntimeSyncTimerRef.current);
