@@ -7,7 +7,7 @@ export const runtime = 'nodejs';
 export const maxDuration = 30;
 
 // Only allow paths that match our SCORM upload prefix
-const PATH_RE = /^aprendizaje\/scorm\/[a-f0-9]{16}\//;
+const PATH_RE = /^aprendizaje\/scorm\/[^/]+\//;
 
 export async function GET(
   request: Request,
@@ -18,7 +18,14 @@ export async function GET(
     return new Response('Unauthorized', { status: 401 });
   }
 
-  const { path: segments } = await context.params;
+  const { path: rawSegments } = await context.params;
+  const segments = rawSegments.map((segment) => {
+    try {
+      return decodeURIComponent(segment);
+    } catch {
+      return segment;
+    }
+  });
   const filePath = segments.join('/');
 
   if (!PATH_RE.test(filePath)) {
@@ -41,7 +48,8 @@ export async function GET(
     return new Response('Internal Server Error', { status: 500 });
   }
 
-  const r2Url = `${publicBaseUrl}/${filePath}`;
+  const encodedPath = segments.map(encodeURIComponent).join('/');
+  const r2Url = `${publicBaseUrl}/${encodedPath}${new URL(request.url).search}`;
   let r2Res: Response;
   try {
     r2Res = await fetch(r2Url);
@@ -76,15 +84,16 @@ export async function GET(
       return new Response(text, { headers: { 'Content-Type': rawContentType } });
     }
 
-    // Base href = directory of this entry file on R2 CDN so all relative
-    // asset URLs (scripts, CSS, media) resolve directly against R2 without
-    // going through this proxy — only the entry HTML needs same-origin.
+    // Keep the base on this proxy path so nested HTML/iframes in SCORM stay
+    // same-origin and can still reach window.parent.API.
     const lastSlash = filePath.lastIndexOf('/');
     const dir = lastSlash >= 0 ? filePath.slice(0, lastSlash + 1) : '';
-    const baseHref = `${publicBaseUrl}/${dir}`;
+    const baseHref = `/api/v1/scorm/serve/${dir}`;
 
     let html = text;
-    if (/<head[^>]*>/i.test(html)) {
+    if (/<base[^>]*>/i.test(html)) {
+      html = html.replace(/<base[^>]*>/i, `<base href="${baseHref}">`);
+    } else if (/<head[^>]*>/i.test(html)) {
       html = html.replace(/(<head[^>]*>)/i, `$1<base href="${baseHref}">`);
     } else {
       html = `<base href="${baseHref}">${html}`;

@@ -51,7 +51,8 @@ import { deleteContent } from "@/features/content/client";
 
 function toScormProxyUrl(r2Url: string): string {
   try {
-    return `/api/v1/scorm/serve${new URL(r2Url).pathname}`;
+    const parsed = new URL(r2Url);
+    return `/api/v1/scorm/serve${parsed.pathname}${parsed.search}`;
   } catch {
     return r2Url;
   }
