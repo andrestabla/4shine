@@ -434,14 +434,20 @@ export default function LearningResourceDetailPage() {
           progressPercent: progress,
           scormState: stateSnapshot,
         });
+        const nextProgressPercent =
+          result && typeof result.progressPercent === "number"
+            ? result.progressPercent
+            : progress;
+        const nextSeen =
+          result && typeof result.seen === "boolean" ? result.seen : nextProgressPercent >= 100;
         scormStateDirtyRef.current = false;
         React.startTransition(() => {
           setResource((prev) =>
             prev && prev.contentId === resource.contentId
               ? normalizeLearningResourceRecord({
                   ...prev,
-                  progressPercent: result.progressPercent,
-                  seen: result.seen,
+                  progressPercent: nextProgressPercent,
+                  seen: nextSeen,
                 })
               : prev,
           );
