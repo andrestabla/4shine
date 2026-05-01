@@ -91,6 +91,7 @@ export interface LearningProgressUpdateInput {
 }
 
 const SCORM_PACKAGE_COMPLETION_ID = '__scorm_package__';
+let hasScormRuntimeStateColumnCache: boolean | null = null;
 
 export interface LearningProgressUpdateResult {
   contentId: string;
@@ -304,6 +305,23 @@ function normalizeScormState(value: unknown): Record<string, string> {
     output[normalizedKey] = String(raw ?? '').slice(0, 65535);
   }
   return output;
+}
+
+async function hasScormRuntimeStateColumn(client: PoolClient): Promise<boolean> {
+  if (hasScormRuntimeStateColumnCache !== null) return hasScormRuntimeStateColumnCache;
+  const { rows } = await client.query<{ exists: boolean }>(
+    `
+      SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'app_learning'
+          AND table_name = 'content_progress'
+          AND column_name = 'scorm_runtime_state'
+      ) AS exists
+    `,
+  );
+  hasScormRuntimeStateColumnCache = Boolean(rows[0]?.exists);
+  return hasScormRuntimeStateColumnCache;
 }
 
 function mapLearningResourceRow(row: LearningResourceRow): LearningResourceRecord {
@@ -746,7 +764,7 @@ export async function listLearningResources(
         COALESCE(cp.progress_percent, 0)::float AS progress_percent,
         COALESCE(cp.seen, false) AS seen,
         cp.completed_resource_ids,
-        cp.scorm_runtime_state,
+        (to_jsonb(cp)->'scorm_runtime_state') AS scorm_runtime_state,
         ci.created_at::text,
         ci.updated_at::text,
         ci.published_at::text,
@@ -881,7 +899,7 @@ export async function getLearningResourceDetail(
         COALESCE(cp.progress_percent, 0)::float AS progress_percent,
         COALESCE(cp.seen, false) AS seen,
         cp.completed_resource_ids,
-        cp.scorm_runtime_state,
+        (to_jsonb(cp)->'scorm_runtime_state') AS scorm_runtime_state,
         ci.created_at::text,
         ci.updated_at::text,
         ci.published_at::text,
@@ -1197,45 +1215,80 @@ export async function updateLearningProgress(
     ? Math.max(persistedProgress, progressFromResources, runtimeProgressPercent)
     : Math.max(persistedProgress, progressFromResources);
   const seen = progressPercent >= 100;
+  const supportsScormRuntimeState = await hasScormRuntimeStateColumn(client);
+
+  const queryText = supportsScormRuntimeState
+    ? `
+        INSERT INTO app_learning.content_progress (
+          content_id, 
+          user_id, 
+          progress_percent, 
+          seen, 
+          completed_resource_ids,
+          scorm_runtime_state,
+          last_viewed_at,
+          started_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+        ON CONFLICT (content_id, user_id) 
+        DO UPDATE SET
+          completed_resource_ids = (
+            SELECT jsonb_agg(DISTINCT x) 
+            FROM jsonb_array_elements(COALESCE(app_learning.content_progress.completed_resource_ids, '[]'::jsonb) || $5::jsonb) t(x)
+          ),
+          scorm_runtime_state = COALESCE(app_learning.content_progress.scorm_runtime_state, '{}'::jsonb) || $6::jsonb,
+          progress_percent = $3,
+          seen = app_learning.content_progress.seen OR $4,
+          last_viewed_at = NOW(),
+          completed_at = CASE 
+            WHEN (app_learning.content_progress.progress_percent < 100 AND $3 >= 100) 
+            THEN NOW() 
+            ELSE app_learning.content_progress.completed_at 
+          END
+        RETURNING progress_percent, seen
+      `
+    : `
+        INSERT INTO app_learning.content_progress (
+          content_id, 
+          user_id, 
+          progress_percent, 
+          seen, 
+          completed_resource_ids,
+          last_viewed_at,
+          started_at
+        )
+        VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+        ON CONFLICT (content_id, user_id) 
+        DO UPDATE SET
+          completed_resource_ids = (
+            SELECT jsonb_agg(DISTINCT x) 
+            FROM jsonb_array_elements(COALESCE(app_learning.content_progress.completed_resource_ids, '[]'::jsonb) || $5::jsonb) t(x)
+          ),
+          progress_percent = $3,
+          seen = app_learning.content_progress.seen OR $4,
+          last_viewed_at = NOW(),
+          completed_at = CASE 
+            WHEN (app_learning.content_progress.progress_percent < 100 AND $3 >= 100) 
+            THEN NOW() 
+            ELSE app_learning.content_progress.completed_at 
+          END
+        RETURNING progress_percent, seen
+      `;
+
+  const queryValues = supportsScormRuntimeState
+    ? [
+        contentId,
+        actor.userId,
+        progressPercent,
+        seen,
+        JSON.stringify(updatedCompletedIds),
+        JSON.stringify(normalizedScormState),
+      ]
+    : [contentId, actor.userId, progressPercent, seen, JSON.stringify(updatedCompletedIds)];
 
   const { rows } = await client.query<{ progress_percent: number; seen: boolean }>(
-    `
-      INSERT INTO app_learning.content_progress (
-        content_id, 
-        user_id, 
-        progress_percent, 
-        seen, 
-        completed_resource_ids,
-        scorm_runtime_state,
-        last_viewed_at,
-        started_at
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
-      ON CONFLICT (content_id, user_id) 
-      DO UPDATE SET
-        completed_resource_ids = (
-          SELECT jsonb_agg(DISTINCT x) 
-          FROM jsonb_array_elements(COALESCE(app_learning.content_progress.completed_resource_ids, '[]'::jsonb) || $5::jsonb) t(x)
-        ),
-        scorm_runtime_state = COALESCE(app_learning.content_progress.scorm_runtime_state, '{}'::jsonb) || $6::jsonb,
-        progress_percent = $3,
-        seen = app_learning.content_progress.seen OR $4,
-        last_viewed_at = NOW(),
-        completed_at = CASE 
-          WHEN (app_learning.content_progress.progress_percent < 100 AND $3 >= 100) 
-          THEN NOW() 
-          ELSE app_learning.content_progress.completed_at 
-        END
-      RETURNING progress_percent, seen
-    `,
-    [
-      contentId,
-      actor.userId,
-      progressPercent,
-      seen,
-      JSON.stringify(updatedCompletedIds),
-      JSON.stringify(normalizedScormState),
-    ],
+    queryText,
+    queryValues,
   );
 
   return {
