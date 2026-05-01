@@ -465,18 +465,6 @@ export default function LearningResourceDetailPage() {
       if (Math.abs(rounded - previous) < 1) return;
       scormRuntimeProgressRef.current = rounded;
 
-      React.startTransition(() => {
-        setResource((prev) =>
-          prev && prev.contentId === resource.contentId
-            ? normalizeLearningResourceRecord({
-                ...prev,
-                progressPercent: Math.max(prev.progressPercent ?? 0, rounded),
-                seen: Math.max(prev.progressPercent ?? 0, rounded) >= 100 || prev.seen,
-              })
-            : prev,
-        );
-      });
-
       if (scormRuntimeSyncTimerRef.current !== null) {
         window.clearTimeout(scormRuntimeSyncTimerRef.current);
       }
@@ -536,6 +524,17 @@ export default function LearningResourceDetailPage() {
     const setStateValue = (element: string, value: unknown) => {
       const key = normalizeElementKey(element);
       if (!key.startsWith("cmi.")) return;
+      const isAllowedKey =
+        key === "cmi.suspend_data" ||
+        key === "cmi.core.lesson_location" ||
+        key === "cmi.location" ||
+        key === "cmi.core.lesson_status" ||
+        key === "cmi.completion_status" ||
+        key === "cmi.progress_measure" ||
+        key === "cmi.core.score.raw" ||
+        key === "cmi.exit" ||
+        key === "cmi.entry";
+      if (!isAllowedKey) return;
       // Avoid unbounded payloads from malformed packages.
       const serialized = String(value ?? "");
       scormStateRef.current[key] = serialized.slice(0, 65535);
@@ -559,40 +558,88 @@ export default function LearningResourceDetailPage() {
     };
 
     w.API = {
-      LMSInitialize: () => 'true',
-      LMSFinish: () => {
-        void flushScormRuntimeToBackend();
-        return 'true';
+      LMSInitialize: () => {
+        try {
+          return 'true';
+        } catch {
+          return 'false';
+        }
       },
-      LMSGetValue: (el: string) => getStateValue(el),
+      LMSFinish: () => {
+        try {
+          void flushScormRuntimeToBackend();
+          return 'true';
+        } catch {
+          return 'false';
+        }
+      },
+      LMSGetValue: (el: string) => {
+        try {
+          return getStateValue(el);
+        } catch {
+          return '';
+        }
+      },
       LMSSetValue: (el: string, value: unknown) => {
-        setStateValue(el, value);
-        markCompletionFromValue(el, value);
-        return 'true';
+        try {
+          setStateValue(el, value);
+          markCompletionFromValue(el, value);
+          return 'true';
+        } catch {
+          return 'false';
+        }
       },
       LMSCommit: () => {
-        void flushScormRuntimeToBackend();
-        return 'true';
+        try {
+          void flushScormRuntimeToBackend();
+          return 'true';
+        } catch {
+          return 'false';
+        }
       },
       LMSGetLastError: () => '0',
       LMSGetErrorString: () => '',
       LMSGetDiagnostic: () => '',
     };
     w.API_1484_11 = {
-      Initialize: () => 'true',
-      Terminate: () => {
-        void flushScormRuntimeToBackend();
-        return 'true';
+      Initialize: () => {
+        try {
+          return 'true';
+        } catch {
+          return 'false';
+        }
       },
-      GetValue: (el: string) => getStateValue(el),
+      Terminate: () => {
+        try {
+          void flushScormRuntimeToBackend();
+          return 'true';
+        } catch {
+          return 'false';
+        }
+      },
+      GetValue: (el: string) => {
+        try {
+          return getStateValue(el);
+        } catch {
+          return '';
+        }
+      },
       SetValue: (el: string, value: unknown) => {
-        setStateValue(el, value);
-        markCompletionFromValue(el, value);
-        return 'true';
+        try {
+          setStateValue(el, value);
+          markCompletionFromValue(el, value);
+          return 'true';
+        } catch {
+          return 'false';
+        }
       },
       Commit: () => {
-        void flushScormRuntimeToBackend();
-        return 'true';
+        try {
+          void flushScormRuntimeToBackend();
+          return 'true';
+        } catch {
+          return 'false';
+        }
       },
       GetLastError: () => '0',
       GetErrorString: () => '',
