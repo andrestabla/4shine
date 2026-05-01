@@ -87,6 +87,8 @@ export interface LearningProgressUpdateInput {
   resourceId: string;
 }
 
+const SCORM_PACKAGE_COMPLETION_ID = '__scorm_package__';
+
 export interface LearningProgressUpdateResult {
   contentId: string;
   progressPercent: number;
@@ -293,11 +295,12 @@ function mapLearningResourceRow(row: LearningResourceRow): LearningResourceRecor
     row.completed_resource_ids,
   );
   const isCourse = row.content_type === 'scorm';
+  const hasScormPackageEntry = isCourse && typeof row.url === 'string' && row.url.trim().length > 0;
   const progressPercent = isCourse
     ? calculateCourseProgress(row.structure_payload, validCompletedResourceIds, row.progress_percent)
     : Number(row.progress_percent ?? 0);
   const seen = isCourse
-    ? progressPercent >= 100 && getCourseResourceIds(row.structure_payload).length > 0
+    ? progressPercent >= 100 && (getCourseResourceIds(row.structure_payload).length > 0 || hasScormPackageEntry)
     : row.seen ?? false;
 
   return {
@@ -1142,18 +1145,30 @@ export async function updateLearningProgress(
   const normalizedResourceId =
     typeof input.resourceId === 'string' ? input.resourceId.trim() : '';
   const validCourseResourceIds = new Set(getCourseResourceIds(resource.structurePayload));
+  const isScormPackageCourse =
+    resource.contentType === 'scorm' &&
+    validCourseResourceIds.size === 0 &&
+    typeof resource.url === 'string' &&
+    resource.url.trim().length > 0;
 
-  if (!normalizedResourceId || !validCourseResourceIds.has(normalizedResourceId)) {
+  if (
+    !normalizedResourceId ||
+    (!validCourseResourceIds.has(normalizedResourceId) &&
+      !(isScormPackageCourse && normalizedResourceId === SCORM_PACKAGE_COMPLETION_ID))
+  ) {
     throw new Error('Learning course resource not found');
   }
 
-  const updatedCompletedIds = Array.from(
-    new Set([...(resource.completedResourceIds || []), normalizedResourceId]),
-  );
+  const updatedCompletedIds = isScormPackageCourse
+    ? []
+    : Array.from(new Set([...(resource.completedResourceIds || []), normalizedResourceId]));
   const totalItems = validCourseResourceIds.size;
-  const progressPercent =
-    totalItems > 0 ? Math.min(100, Math.round((updatedCompletedIds.length / totalItems) * 100)) : 0;
-  const seen = totalItems > 0 && progressPercent >= 100;
+  const progressPercent = isScormPackageCourse
+    ? 100
+    : totalItems > 0
+      ? Math.min(100, Math.round((updatedCompletedIds.length / totalItems) * 100))
+      : 0;
+  const seen = progressPercent >= 100;
 
   const { rows } = await client.query<{ progress_percent: number; seen: boolean }>(
     `

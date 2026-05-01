@@ -99,6 +99,40 @@ export async function GET(
       html = `<base href="${baseHref}">${html}`;
     }
 
+    // Hide package-native "Terminar módulo" controls to avoid duplicate finish actions.
+    const removeFinishModuleScript = `
+<script>
+(() => {
+  const shouldHide = (text) => /terminar\\s*m[oó]dulo/i.test((text || '').trim());
+  const hideNode = (node) => {
+    const target = node.closest('button,a,[role="button"],li,div,span') || node;
+    if (target && target instanceof HTMLElement) {
+      target.style.display = 'none';
+    }
+  };
+  const sweep = (root) => {
+    const nodes = root.querySelectorAll('*');
+    for (const node of nodes) {
+      const txt = node.textContent || '';
+      if (shouldHide(txt) && node.children.length <= 1) hideNode(node);
+    }
+  };
+  const run = () => sweep(document);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', run, { once: true });
+  } else {
+    run();
+  }
+  const mo = new MutationObserver(() => run());
+  mo.observe(document.documentElement, { childList: true, subtree: true });
+})();
+</script>`;
+    if (/<\/body>/i.test(html)) {
+      html = html.replace(/<\/body>/i, `${removeFinishModuleScript}</body>`);
+    } else {
+      html += removeFinishModuleScript;
+    }
+
     return new Response(html, {
       headers: {
         'Content-Type': 'text/html; charset=utf-8',

@@ -192,6 +192,9 @@ export default function LearningResourceDetailPage() {
   const [certificateDownloading, setCertificateDownloading] = React.useState(false);
   const [scormApiReady, setScormApiReady] = React.useState(false);
   const [scormIframeLoaded, setScormIframeLoaded] = React.useState(false);
+  const [scormSidebarOpen, setScormSidebarOpen] = React.useState(false);
+  const scormCompletionSentRef = React.useRef(false);
+  const scormCompletionSyncingRef = React.useRef(false);
 
   React.useEffect(() => {
     const mql = window.matchMedia("(max-width: 768px)");
@@ -297,7 +300,7 @@ export default function LearningResourceDetailPage() {
 
   const calculatedProgress = React.useMemo(() => {
     if (!resource || resource.contentType !== "scorm") return resource?.progressPercent ?? 0;
-    if (totalItems === 0) return 0;
+    if (totalItems === 0) return Math.min(100, Math.max(0, resource.progressPercent ?? 0));
 
     return Math.min(100, Math.round((validCompletedResourceIds.length / totalItems) * 100));
   }, [resource, totalItems, validCompletedResourceIds.length]);
@@ -384,7 +387,7 @@ export default function LearningResourceDetailPage() {
   }, [activeResourceIndex, currentItem, resource, totalItems, validCompletedResourceIds]);
 
   const hasCertificateScreen =
-    Boolean(resource?.certificateTemplateId) && calculatedProgress >= 95;
+    Boolean(resource?.certificateTemplateId) && calculatedProgress >= 100;
 
   const handleNext = () => {
     const maxIndex = hasCertificateScreen ? totalItems : totalItems - 1;
@@ -405,6 +408,33 @@ export default function LearningResourceDetailPage() {
       .finally(() => setCertificateLoading(false));
   }, [activeResourceIndex, totalItems, hasCertificateScreen, resource, certificateData]);
 
+  const markScormPackageCompleted = React.useCallback(async () => {
+    if (!resource || !isScormPackage) return;
+    if (scormCompletionSentRef.current || scormCompletionSyncingRef.current) return;
+    scormCompletionSyncingRef.current = true;
+    try {
+      const result = await updateLearningProgress(resource.contentId, {
+        resourceId: "__scorm_package__",
+      });
+      scormCompletionSentRef.current = true;
+      React.startTransition(() => {
+        setResource((prev) =>
+          prev && prev.contentId === resource.contentId
+            ? normalizeLearningResourceRecord({
+                ...prev,
+                progressPercent: result.progressPercent,
+                seen: result.seen,
+              })
+            : prev,
+        );
+      });
+    } catch (error) {
+      console.error("Failed to sync SCORM package completion:", error);
+    } finally {
+      scormCompletionSyncingRef.current = false;
+    }
+  }, [resource, isScormPackage]);
+
   // SCORM LMS API shim — must be on window before the iframe executes.
   // The proxy serves the entry HTML from our origin so window.parent.API is reachable.
   React.useEffect(() => {
@@ -413,6 +443,18 @@ export default function LearningResourceDetailPage() {
       return;
     }
     const w = window as unknown as Record<string, unknown>;
+    const markCompletionFromValue = (element: string, value: unknown) => {
+      const key = element.trim().toLowerCase();
+      const normalizedValue = String(value ?? "").trim().toLowerCase();
+      if (
+        (key === "cmi.core.lesson_status" &&
+          (normalizedValue === "completed" || normalizedValue === "passed")) ||
+        (key === "cmi.completion_status" && normalizedValue === "completed")
+      ) {
+        void markScormPackageCompleted();
+      }
+    };
+
     w.API = {
       LMSInitialize: () => 'true',
       LMSFinish: () => 'true',
@@ -425,7 +467,10 @@ export default function LearningResourceDetailPage() {
         if (el === 'cmi.core.score.max') return '100';
         return '';
       },
-      LMSSetValue: () => 'true',
+      LMSSetValue: (el: string, value: unknown) => {
+        markCompletionFromValue(el, value);
+        return 'true';
+      },
       LMSCommit: () => 'true',
       LMSGetLastError: () => '0',
       LMSGetErrorString: () => '',
@@ -443,7 +488,10 @@ export default function LearningResourceDetailPage() {
         if (el === 'cmi.score.max') return '100';
         return '';
       },
-      SetValue: () => 'true',
+      SetValue: (el: string, value: unknown) => {
+        markCompletionFromValue(el, value);
+        return 'true';
+      },
       Commit: () => 'true',
       GetLastError: () => '0',
       GetErrorString: () => '',
@@ -455,12 +503,17 @@ export default function LearningResourceDetailPage() {
       delete w.API_1484_11;
       setScormApiReady(false);
     };
-  }, [isScormPackage, currentUser?.name]);
+  }, [isScormPackage, currentUser?.name, markScormPackageCompleted]);
 
   React.useEffect(() => {
     if (!isScormPackage) return;
     setScormIframeLoaded(false);
   }, [isScormPackage, resource?.url]);
+
+  React.useEffect(() => {
+    scormCompletionSentRef.current = false;
+    scormCompletionSyncingRef.current = false;
+  }, [resource?.contentId, resource?.url]);
 
   const handlePrev = () => {
     if (activeResourceIndex > 0) {
@@ -626,6 +679,7 @@ export default function LearningResourceDetailPage() {
   const editHref = backTab === "recursos"
       ? `/dashboard/aprendizaje?edit=${resource.contentId}`
       : `/dashboard/aprendizaje?tab=${backTab}&edit=${resource.contentId}`;
+  const isSidebarOpen = isScormPackage ? scormSidebarOpen : isMobileMenuOpen;
 
   if (typeof document === "undefined") return null;
 
@@ -645,26 +699,32 @@ export default function LearningResourceDetailPage() {
              </button>
              <h4 className="text-xs font-bold text-white uppercase tracking-wider truncate max-w-[200px]">{resource.title}</h4>
           </div>
-          {!isScormPackage && (
-            <button 
-              onClick={() => setIsMobileMenuOpen(true)}
-              className="flex h-10 items-center gap-2 rounded-full bg-[var(--brand-primary)] px-4 text-[11px] font-bold text-white shadow-lg shadow-orange-500/20"
-            >
-              <Menu size={16} />
-              TEMARIO
-            </button>
-          )}
+          <button 
+            onClick={() =>
+              isScormPackage ? setScormSidebarOpen((prev) => !prev) : setIsMobileMenuOpen(true)
+            }
+            className="flex h-10 items-center gap-2 rounded-full bg-[var(--brand-primary)] px-4 text-[11px] font-bold text-white shadow-lg shadow-orange-500/20"
+          >
+            <Menu size={16} />
+            {isScormPackage ? (isSidebarOpen ? "OCULTAR PANEL" : "ABRIR PANEL") : "TEMARIO"}
+          </button>
         </div>
 
         {/* SIDEBAR: Temario y Discusión */}
-        {!isScormPackage && (
+        {(!isScormPackage || isSidebarOpen) && (
         <aside className={`flex h-full shrink-0 flex-col bg-white transition-all duration-300 md:relative md:w-80 lg:w-96 md:flex ${
-          isMobileMenuOpen ? "fixed inset-0 z-[110] w-full" : "hidden md:flex"
+          isScormPackage
+            ? (isSidebarOpen
+                ? "fixed inset-0 z-[110] w-full md:inset-auto md:z-auto"
+                : "hidden")
+            : (isSidebarOpen ? "fixed inset-0 z-[110] w-full" : "hidden md:flex")
         }`}>
           <div className="flex shrink-0 flex-col px-6 pt-8 pb-4 relative">
-            {isMobileMenuOpen && (
+            {isSidebarOpen && (
               <button 
-                onClick={() => setIsMobileMenuOpen(false)}
+                onClick={() =>
+                  isScormPackage ? setScormSidebarOpen(false) : setIsMobileMenuOpen(false)
+                }
                 className="absolute top-6 right-6 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-500 md:hidden"
               >
                 <X size={20} />
@@ -722,7 +782,11 @@ export default function LearningResourceDetailPage() {
                 <button
                   onClick={() => {
                     setActiveResourceIndex(-1);
-                    setIsMobileMenuOpen(false);
+                    if (isScormPackage) {
+                      setScormSidebarOpen(false);
+                    } else {
+                      setIsMobileMenuOpen(false);
+                    }
                   }}
                   className={`w-full flex items-center gap-3 rounded-[12px] p-3 text-left transition ${
                     activeResourceIndex === -1 ? "border border-[var(--brand-primary)] bg-[var(--brand-primary-soft)]" : "border border-transparent hover:bg-[var(--app-surface-muted)]"
@@ -758,7 +822,11 @@ export default function LearningResourceDetailPage() {
                               key={item.id}
                               onClick={() => {
                                 setActiveResourceIndex(item.globalIndex);
-                                setIsMobileMenuOpen(false);
+                                if (isScormPackage) {
+                                  setScormSidebarOpen(false);
+                                } else {
+                                  setIsMobileMenuOpen(false);
+                                }
                               }}
                               className={`w-full flex items-center gap-3 rounded-[12px] p-2.5 ml-1 text-left transition ${
                                 isActive ? "border border-[var(--brand-primary)] bg-[var(--brand-primary-soft)]" : "border border-transparent hover:bg-[var(--app-surface-muted)]"
@@ -803,7 +871,11 @@ export default function LearningResourceDetailPage() {
                     <button
                       onClick={() => {
                         setActiveResourceIndex(totalItems);
-                        setIsMobileMenuOpen(false);
+                        if (isScormPackage) {
+                          setScormSidebarOpen(false);
+                        } else {
+                          setIsMobileMenuOpen(false);
+                        }
                       }}
                       className={`w-full flex items-center gap-3 rounded-[12px] p-2.5 ml-1 text-left transition ${
                         activeResourceIndex === totalItems
@@ -907,6 +979,26 @@ export default function LearningResourceDetailPage() {
         )}
 
         <main className="relative flex flex-1 flex-col overflow-hidden bg-black">
+          {isScormPackage && !isSidebarOpen && (
+            <button
+              type="button"
+              onClick={() => setScormSidebarOpen(true)}
+              className="absolute left-4 top-4 z-30 hidden items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-xs font-bold text-slate-900 shadow-lg backdrop-blur md:inline-flex"
+            >
+              <Menu size={14} />
+              Abrir panel
+            </button>
+          )}
+          {isScormPackage && hasCertificateScreen && activeResourceIndex !== totalItems && (
+            <button
+              type="button"
+              onClick={() => setActiveResourceIndex(totalItems)}
+              className="absolute right-4 top-4 z-30 hidden items-center gap-2 rounded-full bg-emerald-500 px-4 py-2 text-xs font-bold text-white shadow-lg md:inline-flex"
+            >
+              <Award size={14} />
+              Ver certificado
+            </button>
+          )}
           {isScormPackage && scormApiReady && (
             <iframe
               src={toScormProxyUrl(resource.url!)}
@@ -926,8 +1018,8 @@ export default function LearningResourceDetailPage() {
               </div>
             </div>
           )}
-          {!isScormPackage && (
-          <section className="relative flex flex-1 items-center justify-center overflow-auto p-4 sm:p-8 pb-24">
+          {(!isScormPackage || (isScormPackage && activeResourceIndex === totalItems && hasCertificateScreen)) && (
+          <section className="relative z-20 flex flex-1 items-center justify-center overflow-auto p-4 sm:p-8 pb-24">
             <div className="w-full max-w-5xl">
               {(!resource) ? (
                 <div className="flex flex-col items-center justify-center p-12 text-slate-500">
