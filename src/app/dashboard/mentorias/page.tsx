@@ -1,6 +1,7 @@
 'use client';
 
 import clsx from 'clsx';
+import Link from 'next/link';
 import React from 'react';
 import {
   ArrowLeft,
@@ -114,6 +115,9 @@ interface AvailabilityBulkFormState {
 }
 
 type MentoriaSection = 'grupales' | 'programa';
+interface MentoriasViewProps {
+  forcedSection?: MentoriaSection;
+}
 
 const SESSION_STATUS_META: Record<MentorshipStatus, { label: string; tone: string }> = {
   scheduled: { label: 'Programada', tone: 'bg-sky-100 text-sky-700' },
@@ -265,7 +269,7 @@ function monthLabel(input: Date): string {
   return input.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
 }
 
-export default function MentoriasPage() {
+export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
   const { alert, confirm } = useAppDialog();
   const { can, currentRole, currentUser, refreshBootstrap, viewerAccess } = useUser();
   const [overview, setOverview] = React.useState<MentorshipOverviewRecord | null>(null);
@@ -275,7 +279,7 @@ export default function MentoriasPage() {
   const [submittingOps, setSubmittingOps] = React.useState(false);
   const [submittingGroupSession, setSubmittingGroupSession] = React.useState(false);
   const [submittingGroupRecording, setSubmittingGroupRecording] = React.useState(false);
-  const [activeSection, setActiveSection] = React.useState<MentoriaSection>('grupales');
+  const [activeSection, setActiveSection] = React.useState<MentoriaSection>(forcedSection ?? 'grupales');
   const [selectedWeekStart, setSelectedWeekStart] = React.useState<Date>(() => startOfWeek(new Date()));
   const [selectedMonthStart, setSelectedMonthStart] = React.useState<Date>(() => monthStart(new Date()));
   const [programForm, setProgramForm] = React.useState<ProgramScheduleFormState>({
@@ -402,6 +406,12 @@ export default function MentoriasPage() {
     }
   }, [overview, currentRole]);
 
+  React.useEffect(() => {
+    if (forcedSection) {
+      setActiveSection(forcedSection);
+    }
+  }, [forcedSection]);
+
   const leaderName = currentUser?.name?.split(' ')[0] ?? 'Líder';
   const isOpenLeader =
     currentRole === 'lider' && viewerAccess?.viewerTier === 'open_leader';
@@ -418,6 +428,8 @@ export default function MentoriasPage() {
   const groupSessions = [...(overview?.groupSessions ?? [])].sort(
     (left, right) => new Date(left.startsAt).getTime() - new Date(right.startsAt).getTime(),
   );
+  const upcomingGroupSession =
+    groupSessions.find((item) => new Date(item.startsAt).getTime() >= Date.now()) ?? groupSessions[0] ?? null;
   const groupRecordings = overview?.groupSessionRecordings ?? [];
   const monthDays = React.useMemo(() => {
     const base = monthStart(selectedMonthStart);
@@ -758,6 +770,33 @@ export default function MentoriasPage() {
     }
   };
 
+  const sectionTabs = (
+    <div className="inline-flex rounded-[16px] border border-[var(--app-border)] bg-white p-1">
+      <Link
+        href="/dashboard/mentorias/grupales"
+        className={clsx(
+          'rounded-[12px] px-4 py-2 text-sm font-semibold',
+          activeSection === 'grupales'
+            ? 'bg-[var(--brand-primary)] font-bold text-white'
+            : 'text-[var(--app-muted)]',
+        )}
+      >
+        Sesiones grupales
+      </Link>
+      <Link
+        href="/dashboard/mentorias/programa"
+        className={clsx(
+          'rounded-[12px] px-4 py-2 text-sm font-semibold',
+          activeSection === 'programa'
+            ? 'bg-[var(--brand-primary)] font-bold text-white'
+            : 'text-[var(--app-muted)]',
+        )}
+      >
+        Mentorías del programa
+      </Link>
+    </div>
+  );
+
   const groupSection = (
     <div className="space-y-6">
       {currentRole === 'lider' && isOpenLeader && (
@@ -842,6 +881,52 @@ export default function MentoriasPage() {
           </form>
         </section>
       )}
+
+      <section className="app-panel p-5 sm:p-6">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="app-section-kicker">Próxima sesión recomendada</p>
+            <p className="mt-2 text-sm text-[var(--app-muted)]">
+              Un solo lugar para entrar a Zoom, confirmar participación y revisar quién lidera la sesión.
+            </p>
+          </div>
+        </div>
+        {upcomingGroupSession ? (
+          <article className="mt-4 rounded-[16px] border border-[var(--app-border)] bg-white p-4">
+            <p className="font-bold text-[var(--app-ink)]">{upcomingGroupSession.title}</p>
+            <p className="mt-1 text-sm text-[var(--app-muted)]">
+              {formatDateTime(upcomingGroupSession.startsAt)} ·{' '}
+              {upcomingGroupSession.hostName ?? upcomingGroupSession.externalExpertName ?? 'Anfitrión por definir'}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {upcomingGroupSession.zoomJoinUrl ? (
+                <a
+                  href={upcomingGroupSession.zoomJoinUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--brand-primary)]"
+                >
+                  Entrar a Zoom
+                </a>
+              ) : null}
+              {(currentRole === 'lider' || currentRole === 'mentor') && (
+                <button
+                  type="button"
+                  className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--app-ink)] disabled:opacity-50"
+                  onClick={() => void handleParticipate(upcomingGroupSession, 'joined')}
+                  disabled={currentRole === 'lider' && isOpenLeader}
+                >
+                  Confirmar participación
+                </button>
+              )}
+            </div>
+          </article>
+        ) : (
+          <div className="mt-4">
+            <EmptyState message="No hay sesiones grupales próximas por ahora." />
+          </div>
+        )}
+      </section>
 
       <section className="app-panel p-5 sm:p-6">
         <div className="flex items-center justify-between">
@@ -1049,14 +1134,11 @@ export default function MentoriasPage() {
     if (activeSection === 'grupales') {
       return (
         <div className="space-y-8">
-          <PageTitle
-            title="Mentorías"
-            subtitle="Sesiones grupales: agenda, participación, grabaciones y colaboración por rol."
-          />
-          <div className="inline-flex rounded-[16px] border border-[var(--app-border)] bg-white p-1">
-            <button type="button" onClick={() => setActiveSection('grupales')} className="rounded-[12px] bg-[var(--brand-primary)] px-4 py-2 text-sm font-bold text-white">Sesiones grupales</button>
-            <button type="button" onClick={() => setActiveSection('programa')} className="rounded-[12px] px-4 py-2 text-sm font-semibold text-[var(--app-muted)]">Mentorías del programa</button>
-          </div>
+        <PageTitle
+          title="Mentorías"
+          subtitle="Sesiones grupales: agenda, participación, grabaciones y colaboración por rol."
+        />
+          {sectionTabs}
           {groupSection}
         </div>
       );
@@ -1068,10 +1150,7 @@ export default function MentoriasPage() {
           title="Mentorías"
           subtitle="Gestiona sesiones, revisa la semana activa y mantén visibilidad sobre la operación del acompañamiento."
         />
-        <div className="inline-flex rounded-[16px] border border-[var(--app-border)] bg-white p-1">
-          <button type="button" onClick={() => setActiveSection('grupales')} className="rounded-[12px] px-4 py-2 text-sm font-semibold text-[var(--app-muted)]">Sesiones grupales</button>
-          <button type="button" onClick={() => setActiveSection('programa')} className="rounded-[12px] bg-[var(--brand-primary)] px-4 py-2 text-sm font-bold text-white">Mentorías del programa</button>
-        </div>
+        {sectionTabs}
 
         <StatGrid stats={opsStats} />
 
@@ -1307,10 +1386,7 @@ export default function MentoriasPage() {
           title="Mentorías"
           subtitle="Sesiones grupales para líderes con suscripción: participa en vivo y consulta grabaciones."
         />
-        <div className="inline-flex rounded-[16px] border border-[var(--app-border)] bg-white p-1">
-          <button type="button" onClick={() => setActiveSection('grupales')} className="rounded-[12px] bg-[var(--brand-primary)] px-4 py-2 text-sm font-bold text-white">Sesiones grupales</button>
-          <button type="button" onClick={() => setActiveSection('programa')} className="rounded-[12px] px-4 py-2 text-sm font-semibold text-[var(--app-muted)]">Mentorías del programa</button>
-        </div>
+        {sectionTabs}
         {groupSection}
       </div>
     );
@@ -1326,10 +1402,7 @@ export default function MentoriasPage() {
             : 'Agenda las sesiones incluidas del programa, compra sesiones adicionales con Advisers disponibles y visualiza tu semana completa de acompañamiento.'
         }
       />
-      <div className="inline-flex rounded-[16px] border border-[var(--app-border)] bg-white p-1">
-        <button type="button" onClick={() => setActiveSection('grupales')} className="rounded-[12px] px-4 py-2 text-sm font-semibold text-[var(--app-muted)]">Sesiones grupales</button>
-        <button type="button" onClick={() => setActiveSection('programa')} className="rounded-[12px] bg-[var(--brand-primary)] px-4 py-2 text-sm font-bold text-white">Mentorías del programa</button>
-      </div>
+      {sectionTabs}
 
       {isOpenLeader && (
         <AccessOfferPanel
@@ -1964,4 +2037,8 @@ export default function MentoriasPage() {
       </section>
     </div>
   );
+}
+
+export default function MentoriasPage() {
+  return <MentoriasView />;
 }
