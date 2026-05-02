@@ -25,12 +25,14 @@ import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useUser } from '@/context/UserContext';
 import { filterCommercialProducts } from '@/features/access/catalog';
 import {
+  bulkCreateMentorAvailability,
   createAdditionalMentorshipOrder,
   createGroupSession,
   createGroupSessionRecording,
   createMentorship,
   deleteMentorship,
   dispatchGroupSessionReminders,
+  dispatchProgramMentorshipReminders,
   getGroupSessionAnalytics,
   getMentorshipOverview,
   inviteGroupSessionByRoles,
@@ -38,6 +40,7 @@ import {
   reactToGroupSessionRecording,
   scheduleProgramMentorship,
   commentGroupSessionRecording,
+  upsertMentorAvailabilitySlot,
   updateMentorship,
   type AdditionalMentorshipOrderRecord,
   type GroupSessionAnalyticsRecord,
@@ -95,6 +98,21 @@ interface GroupRecordingFormState {
   description: string;
 }
 
+interface AvailabilitySlotFormState {
+  mentorUserId: string;
+  startsAt: string;
+  endsAt: string;
+}
+
+interface AvailabilityBulkFormState {
+  mentorUserId: string;
+  fromDate: string;
+  toDate: string;
+  startHour: string;
+  weekdays: string;
+  numberOfSlots: string;
+}
+
 type MentoriaSection = 'grupales' | 'programa';
 
 const SESSION_STATUS_META: Record<MentorshipStatus, { label: string; tone: string }> = {
@@ -110,6 +128,7 @@ const PROGRAM_STATUS_META = {
   available: { label: 'Disponible', tone: 'bg-white text-[var(--app-ink)] border-[var(--app-border)]' },
   scheduled: { label: 'Programada', tone: 'bg-amber-100 text-amber-700 border-amber-200' },
   completed: { label: 'Completada', tone: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+  locked: { label: 'Bloqueada', tone: 'bg-slate-100 text-slate-700 border-slate-200' },
 } as const;
 
 const ORDER_STATUS_META = {
@@ -298,6 +317,19 @@ export default function MentoriasPage() {
   });
   const [recordingCommentDrafts, setRecordingCommentDrafts] = React.useState<Record<string, string>>({});
   const [groupAnalytics, setGroupAnalytics] = React.useState<GroupSessionAnalyticsRecord[]>([]);
+  const [availabilitySlotForm, setAvailabilitySlotForm] = React.useState<AvailabilitySlotFormState>({
+    mentorUserId: '',
+    startsAt: nextSlotValue(),
+    endsAt: nextSlotValue(),
+  });
+  const [availabilityBulkForm, setAvailabilityBulkForm] = React.useState<AvailabilityBulkFormState>({
+    mentorUserId: '',
+    fromDate: new Date().toISOString().slice(0, 10),
+    toDate: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
+    startHour: '8',
+    weekdays: '1,2,3,4,5',
+    numberOfSlots: '3',
+  });
 
   const showError = React.useCallback(
     async (fallbackMessage: string, cause: unknown) => {
@@ -334,7 +366,7 @@ export default function MentoriasPage() {
   }, [currentRole, overview]);
 
   React.useEffect(() => {
-    if (!overview || currentRole !== 'lider') {
+    if (!overview) {
       return;
     }
 
@@ -357,6 +389,17 @@ export default function MentoriasPage() {
       topic: prev.topic,
       note: prev.note,
     }));
+    if (currentRole !== 'lider') {
+      const firstMentor = overview.mentorCatalog[0];
+      setAvailabilitySlotForm((prev) => ({
+        ...prev,
+        mentorUserId: prev.mentorUserId || firstMentor?.mentorUserId || '',
+      }));
+      setAvailabilityBulkForm((prev) => ({
+        ...prev,
+        mentorUserId: prev.mentorUserId || firstMentor?.mentorUserId || '',
+      }));
+    }
   }, [overview, currentRole]);
 
   const leaderName = currentUser?.name?.split(' ')[0] ?? 'Líder';
@@ -545,7 +588,13 @@ export default function MentoriasPage() {
 
   const handleStatusChange = async (session: MentorshipRecord, status: MentorshipStatus) => {
     try {
-      await updateMentorship(session.sessionId, { status });
+      await updateMentorship(session.sessionId, {
+        status,
+        changeReason:
+          status === 'cancelled'
+            ? 'Cambio de agenda y reprogramación operativa.'
+            : undefined,
+      });
       await Promise.all([load(), refreshBootstrap()]);
     } catch (error) {
       await showError('No se pudo actualizar el estado de la sesión.', error);
@@ -661,6 +710,51 @@ export default function MentoriasPage() {
       await load();
     } catch (error) {
       await showError('No se pudo despachar el recordatorio.', error);
+    }
+  };
+
+  const handleUpsertAvailabilitySlot = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!availabilitySlotForm.mentorUserId || !availabilitySlotForm.startsAt || !availabilitySlotForm.endsAt) return;
+    try {
+      await upsertMentorAvailabilitySlot({
+        mentorUserId: availabilitySlotForm.mentorUserId,
+        startsAt: toIso(availabilitySlotForm.startsAt),
+        endsAt: toIso(availabilitySlotForm.endsAt),
+      });
+      await load();
+    } catch (error) {
+      await showError('No se pudo guardar la franja de disponibilidad.', error);
+    }
+  };
+
+  const handleBulkAvailability = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!availabilityBulkForm.mentorUserId) return;
+    try {
+      await bulkCreateMentorAvailability({
+        mentorUserId: availabilityBulkForm.mentorUserId,
+        fromDate: availabilityBulkForm.fromDate,
+        toDate: availabilityBulkForm.toDate,
+        startHour: Number(availabilityBulkForm.startHour),
+        weekdays: availabilityBulkForm.weekdays
+          .split(',')
+          .map((item) => Number(item.trim()))
+          .filter((item) => Number.isFinite(item) && item >= 1 && item <= 7),
+        numberOfSlots: Number(availabilityBulkForm.numberOfSlots),
+      });
+      await load();
+    } catch (error) {
+      await showError('No se pudo crear la disponibilidad masiva.', error);
+    }
+  };
+
+  const handleDispatchProgramReminder = async () => {
+    try {
+      await dispatchProgramMentorshipReminders();
+      await load();
+    } catch (error) {
+      await showError('No se pudo disparar el recordatorio 1h de mentorías del programa.', error);
     }
   };
 
@@ -1036,6 +1130,48 @@ export default function MentoriasPage() {
           </section>
         )}
 
+        {(currentRole === 'admin' || currentRole === 'gestor' || currentRole === 'mentor') && (
+          <section className="app-panel p-5 sm:p-6">
+            <p className="app-section-kicker">Disponibilidad Adviser (90 min)</p>
+            <form className="mt-4 grid gap-3 md:grid-cols-4" onSubmit={handleUpsertAvailabilitySlot}>
+              <select
+                className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
+                value={availabilitySlotForm.mentorUserId}
+                onChange={(event) => setAvailabilitySlotForm((prev) => ({ ...prev, mentorUserId: event.target.value }))}
+                required
+              >
+                <option value="">Selecciona Adviser</option>
+                {overview.mentorCatalog.map((mentor) => (
+                  <option key={mentor.mentorUserId} value={mentor.mentorUserId}>{mentor.name}</option>
+                ))}
+              </select>
+              <input className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm" type="datetime-local" value={availabilitySlotForm.startsAt} onChange={(event) => setAvailabilitySlotForm((prev) => ({ ...prev, startsAt: event.target.value }))} required />
+              <input className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm" type="datetime-local" value={availabilitySlotForm.endsAt} onChange={(event) => setAvailabilitySlotForm((prev) => ({ ...prev, endsAt: event.target.value }))} required />
+              <button className="rounded-[16px] bg-[var(--brand-primary)] px-4 py-3 text-sm font-bold text-white" type="submit">Guardar franja</button>
+            </form>
+
+            <form className="mt-4 grid gap-3 md:grid-cols-6" onSubmit={handleBulkAvailability}>
+              <input className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm" type="date" value={availabilityBulkForm.fromDate} onChange={(event) => setAvailabilityBulkForm((prev) => ({ ...prev, fromDate: event.target.value }))} />
+              <input className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm" type="date" value={availabilityBulkForm.toDate} onChange={(event) => setAvailabilityBulkForm((prev) => ({ ...prev, toDate: event.target.value }))} />
+              <input className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm" placeholder="Hora inicio (0-23)" value={availabilityBulkForm.startHour} onChange={(event) => setAvailabilityBulkForm((prev) => ({ ...prev, startHour: event.target.value }))} />
+              <input className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm" placeholder="Días 1-7 (ej 1,2,3,4,5)" value={availabilityBulkForm.weekdays} onChange={(event) => setAvailabilityBulkForm((prev) => ({ ...prev, weekdays: event.target.value }))} />
+              <input className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm" placeholder="Slots por día" value={availabilityBulkForm.numberOfSlots} onChange={(event) => setAvailabilityBulkForm((prev) => ({ ...prev, numberOfSlots: event.target.value }))} />
+              <button className="rounded-[16px] border border-[var(--app-border)] px-4 py-3 text-sm font-semibold text-[var(--app-ink)]" type="submit">Carga masiva</button>
+            </form>
+          </section>
+        )}
+
+        {(currentRole === 'admin' || currentRole === 'gestor') && (
+          <section className="app-panel p-5 sm:p-6">
+            <div className="flex items-center justify-between gap-3">
+              <p className="app-section-kicker">Recordatorio programa (1h antes)</p>
+              <button type="button" className="rounded-[12px] border border-[var(--app-border)] px-3 py-2 text-xs font-semibold" onClick={() => void handleDispatchProgramReminder()}>
+                Disparar ahora
+              </button>
+            </div>
+          </section>
+        )}
+
         <section className="app-panel p-5 sm:p-6">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
@@ -1228,7 +1364,7 @@ export default function MentoriasPage() {
             <span className="rounded-full border border-white/20 bg-white/10 px-3 py-2">
               {isOpenLeader
                 ? 'Programa requerido para incluidas'
-                : `${overview.programEntitlements.filter((item) => item.status === 'available').length} incluidas por agendar`}
+                : `${overview.programEntitlements.filter((item) => item.canSchedule).length} incluidas por agendar`}
             </span>
             <span className="rounded-full border border-white/20 bg-white/10 px-3 py-2">
               {overview.additionalOrders.filter((item) => item.status !== 'cancelled').length} adicionales registradas
@@ -1347,6 +1483,7 @@ export default function MentoriasPage() {
                     <button
                       className="mt-5 inline-flex items-center gap-2 text-sm font-extrabold text-[var(--brand-primary)]"
                       type="button"
+                      disabled={!item.canSchedule}
                       onClick={() =>
                         setProgramForm((prev) => ({
                           ...prev,
@@ -1354,9 +1491,12 @@ export default function MentoriasPage() {
                         }))
                       }
                     >
-                      {item.status === 'scheduled' ? 'Reagendar incluida' : 'Programar incluida'}
+                      {item.status === 'scheduled' ? 'Reagendar incluida' : item.canSchedule ? 'Programar incluida' : 'Bloqueada por secuencia/semana'}
                       <ArrowRight size={16} />
                     </button>
+                  )}
+                  {!item.canSchedule && item.scheduleBlockedReason && (
+                    <p className="mt-2 text-xs text-[var(--app-muted)]">{item.scheduleBlockedReason}</p>
                   )}
                 </article>
               ))
@@ -1390,7 +1530,7 @@ export default function MentoriasPage() {
                 >
                   <option value="">Selecciona una mentoría incluida</option>
                   {overview.programEntitlements
-                    .filter((item) => item.status !== 'completed')
+                    .filter((item) => item.status !== 'completed' && item.canSchedule)
                     .map((item) => (
                       <option key={item.entitlementId} value={item.entitlementId}>
                         {item.title}

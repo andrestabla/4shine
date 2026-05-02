@@ -12,7 +12,7 @@ export type MentorshipStatus =
   | 'pending_approval'
   | 'no_show';
 export type MentorshipSessionOrigin = 'manual' | 'program_included' | 'additional_paid';
-export type ProgramMentorshipStatus = 'available' | 'scheduled' | 'completed';
+export type ProgramMentorshipStatus = 'available' | 'scheduled' | 'completed' | 'locked';
 export type AdditionalMentorshipOrderStatus =
   | 'pending_payment'
   | 'scheduled'
@@ -61,6 +61,9 @@ export interface UpdateMentorshipInput {
   sessionType?: MentorshipSessionType;
   status?: MentorshipStatus;
   meetingUrl?: string | null;
+  changeReason?: string | null;
+  proposedStartsAt?: string | null;
+  proposedEndsAt?: string | null;
 }
 
 export interface ProgramMentorshipEntitlementRecord {
@@ -74,6 +77,10 @@ export interface ProgramMentorshipEntitlementRecord {
   suggestedWeek: number;
   defaultDurationMinutes: number;
   status: ProgramMentorshipStatus;
+  topicCode: string | null;
+  currentProgramWeek: number;
+  canSchedule: boolean;
+  scheduleBlockedReason: string | null;
   scheduledSessionId: string | null;
   scheduledStartsAt: string | null;
   scheduledEndsAt: string | null;
@@ -253,6 +260,21 @@ export interface GroupSessionAnalyticsRecord {
   hostName: string | null;
 }
 
+export interface UpsertMentorAvailabilityInput {
+  mentorUserId: string;
+  startsAt: string;
+  endsAt: string;
+}
+
+export interface BulkMentorAvailabilityInput {
+  mentorUserId: string;
+  fromDate: string;
+  toDate: string;
+  startHour: number;
+  weekdays: number[];
+  numberOfSlots: number;
+}
+
 interface MentorshipRow {
   session_id: string;
   title: string;
@@ -282,6 +304,7 @@ interface ProgramEntitlementRow {
   workbook_code: string | null;
   suggested_week: number;
   default_duration_minutes: number;
+  topic_code: string | null;
   stored_status: ProgramMentorshipStatus;
   scheduled_session_id: string | null;
   scheduled_starts_at: string | null;
@@ -417,13 +440,28 @@ function mapRow(row: MentorshipRow): MentorshipRecord {
   };
 }
 
-function mapProgramEntitlement(row: ProgramEntitlementRow): ProgramMentorshipEntitlementRecord {
+function mapProgramEntitlement(
+  row: ProgramEntitlementRow,
+  options?: { currentProgramWeek?: number; firstPendingSequence?: number | null },
+): ProgramMentorshipEntitlementRecord {
+  const currentProgramWeek = options?.currentProgramWeek ?? 1;
   const derivedStatus: ProgramMentorshipStatus =
     row.scheduled_session_status === 'completed'
       ? 'completed'
       : row.scheduled_session_status && row.scheduled_session_status !== 'cancelled' && row.scheduled_session_status !== 'no_show'
         ? 'scheduled'
         : row.stored_status;
+  const isLockedByWeek = derivedStatus === 'available' && currentProgramWeek < Number(row.suggested_week);
+  const isLockedByOrder =
+    derivedStatus === 'available' &&
+    options?.firstPendingSequence != null &&
+    Number(row.sequence_no) !== options.firstPendingSequence;
+  const status: ProgramMentorshipStatus = isLockedByWeek || isLockedByOrder ? 'locked' : derivedStatus;
+  const scheduleBlockedReason = isLockedByWeek
+    ? `Disponible a partir de la semana ${row.suggested_week}. Semana actual: ${currentProgramWeek}.`
+    : isLockedByOrder
+      ? 'Debes consumir primero la mentoría pendiente anterior según el orden temático.'
+      : null;
 
   return {
     entitlementId: row.entitlement_id,
@@ -435,7 +473,11 @@ function mapProgramEntitlement(row: ProgramEntitlementRow): ProgramMentorshipEnt
     workbookCode: row.workbook_code,
     suggestedWeek: Number(row.suggested_week),
     defaultDurationMinutes: Number(row.default_duration_minutes),
-    status: derivedStatus,
+    status,
+    topicCode: row.topic_code,
+    currentProgramWeek,
+    canSchedule: status === 'available',
+    scheduleBlockedReason,
     scheduledSessionId: row.scheduled_session_id,
     scheduledStartsAt: row.scheduled_starts_at,
     scheduledEndsAt: row.scheduled_ends_at,
@@ -579,6 +621,40 @@ function addMinutes(value: string, minutes: number): string {
 
   date.setMinutes(date.getMinutes() + minutes);
   return date.toISOString();
+}
+
+function diffWeeksFloor(fromIso: string, toDate = new Date()): number {
+  const from = new Date(fromIso);
+  if (Number.isNaN(from.getTime())) return 1;
+  const diffMs = toDate.getTime() - from.getTime();
+  const days = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+  return Math.floor(days / 7) + 1;
+}
+
+async function resolveProgramStartDate(client: PoolClient, userId: string): Promise<string | null> {
+  const { rows } = await client.query<{ start_at: string | null }>(
+    `
+      SELECT MIN(up.purchased_at)::text AS start_at
+      FROM app_billing.user_purchases up
+      JOIN app_billing.product_catalog pc ON pc.product_code = up.product_code
+      WHERE up.user_id = $1::uuid
+        AND up.status = 'active'
+        AND pc.product_group = 'program'
+    `,
+    [userId],
+  );
+  if (rows[0]?.start_at) return rows[0].start_at;
+
+  const { rows: fallbackRows } = await client.query<{ start_at: string | null }>(
+    `
+      SELECT MIN(created_at)::text AS start_at
+      FROM app_mentoring.user_program_mentorships
+      WHERE owner_user_id = $1::uuid
+    `,
+    [userId],
+  );
+
+  return fallbackRows[0]?.start_at ?? null;
 }
 
 function assertLeaderActor(actor: AuthUser): void {
@@ -732,6 +808,7 @@ async function getProgramEntitlement(
         pt.workbook_code,
         pt.suggested_week,
         pt.default_duration_minutes,
+        pt.topic_code,
         upm.status AS stored_status,
         upm.scheduled_session_id::text,
         ms.starts_at::text AS scheduled_starts_at,
@@ -786,6 +863,59 @@ async function getMentorOffering(client: PoolClient, offerId: string): Promise<M
   }
 
   return row;
+}
+
+async function getMentorOfficeHoursUrl(client: PoolClient, mentorUserId: string): Promise<string | null> {
+  const { rows } = await client.query<{ office_hours_join_url: string | null }>(
+    `
+      SELECT office_hours_join_url
+      FROM app_mentoring.mentors
+      WHERE mentor_user_id = $1::uuid
+      LIMIT 1
+    `,
+    [mentorUserId],
+  );
+  return rows[0]?.office_hours_join_url ?? null;
+}
+
+async function bookAvailabilitySlot(
+  client: PoolClient,
+  mentorUserId: string,
+  startsAt: string,
+  endsAt: string,
+): Promise<void> {
+  const { rowCount } = await client.query(
+    `
+      UPDATE app_mentoring.mentor_availability
+      SET is_booked = true, updated_at = now()
+      WHERE mentor_user_id = $1::uuid
+        AND starts_at = $2::timestamptz
+        AND ends_at = $3::timestamptz
+        AND is_booked = false
+    `,
+    [mentorUserId, startsAt, endsAt],
+  );
+  if (!rowCount) {
+    throw new Error('La franja seleccionada no está disponible para este Adviser.');
+  }
+}
+
+async function releaseAvailabilitySlot(
+  client: PoolClient,
+  mentorUserId: string,
+  startsAt: string,
+  endsAt: string,
+): Promise<void> {
+  await client.query(
+    `
+      UPDATE app_mentoring.mentor_availability
+      SET is_booked = false, updated_at = now()
+      WHERE mentor_user_id = $1::uuid
+        AND starts_at = $2::timestamptz
+        AND ends_at = $3::timestamptz
+    `,
+    [mentorUserId, startsAt, endsAt],
+  );
 }
 
 async function syncProgramEntitlementForSession(
@@ -869,6 +999,8 @@ async function listProgramEntitlements(
   client: PoolClient,
   ownerUserId: string,
 ): Promise<ProgramMentorshipEntitlementRecord[]> {
+  const programStartDate = await resolveProgramStartDate(client, ownerUserId);
+  const currentProgramWeek = diffWeeksFloor(programStartDate ?? new Date().toISOString());
   const { rows } = await client.query<ProgramEntitlementRow>(
     `
       SELECT
@@ -881,6 +1013,7 @@ async function listProgramEntitlements(
         pt.workbook_code,
         pt.suggested_week,
         pt.default_duration_minutes,
+        pt.topic_code,
         upm.status AS stored_status,
         upm.scheduled_session_id::text,
         ms.starts_at::text AS scheduled_starts_at,
@@ -897,8 +1030,16 @@ async function listProgramEntitlements(
     `,
     [ownerUserId],
   );
-
-  return rows.map(mapProgramEntitlement);
+  const mappedBase = rows.map((row) => mapProgramEntitlement(row, { currentProgramWeek }));
+  const firstPending = mappedBase
+    .filter((item) => item.status === 'available' || item.status === 'locked')
+    .sort((a, b) => a.sequenceNo - b.sequenceNo)[0];
+  return rows.map((row) =>
+    mapProgramEntitlement(row, {
+      currentProgramWeek,
+      firstPendingSequence: firstPending?.sequenceNo ?? null,
+    }),
+  );
 }
 
 async function listMentorCatalog(client: PoolClient): Promise<MentorCatalogRecord[]> {
@@ -1837,6 +1978,182 @@ export async function dispatchGroupSessionReminders(
   return { notified: rows.length };
 }
 
+export async function upsertMentorAvailabilitySlot(
+  client: PoolClient,
+  actor: AuthUser,
+  input: UpsertMentorAvailabilityInput,
+): Promise<{ ok: true }> {
+  if (!['admin', 'gestor', 'mentor'].includes(actor.role)) {
+    throw new Error('Solo Adviser, Gestor o Admin pueden gestionar disponibilidad.');
+  }
+  await requireModulePermission(client, 'mentorias', 'update');
+  if (actor.role === 'mentor' && actor.userId !== input.mentorUserId) {
+    throw new Error('Un Adviser solo puede editar su propia disponibilidad.');
+  }
+
+  const startsAt = new Date(input.startsAt);
+  const endsAt = new Date(input.endsAt);
+  const diffMinutes = Math.round((endsAt.getTime() - startsAt.getTime()) / 60000);
+  if (diffMinutes !== 90) {
+    throw new Error('Cada franja debe durar exactamente 90 minutos.');
+  }
+
+  await client.query(
+    `
+      INSERT INTO app_mentoring.mentor_availability (
+        mentor_user_id, starts_at, ends_at, is_booked
+      )
+      VALUES ($1::uuid, $2::timestamptz, $3::timestamptz, false)
+      ON CONFLICT (mentor_user_id, starts_at, ends_at) DO UPDATE
+      SET is_booked = false
+    `,
+    [input.mentorUserId, input.startsAt, input.endsAt],
+  );
+
+  return { ok: true };
+}
+
+export async function bulkCreateMentorAvailability(
+  client: PoolClient,
+  actor: AuthUser,
+  input: BulkMentorAvailabilityInput,
+): Promise<{ created: number }> {
+  if (!['admin', 'gestor', 'mentor'].includes(actor.role)) {
+    throw new Error('Solo Adviser, Gestor o Admin pueden gestionar disponibilidad.');
+  }
+  await requireModulePermission(client, 'mentorias', 'update');
+  if (actor.role === 'mentor' && actor.userId !== input.mentorUserId) {
+    throw new Error('Un Adviser solo puede editar su propia disponibilidad.');
+  }
+  if (input.numberOfSlots <= 0) return { created: 0 };
+
+  const start = new Date(`${input.fromDate}T00:00:00`);
+  const end = new Date(`${input.toDate}T23:59:59`);
+  let created = 0;
+
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    const weekday = d.getDay();
+    const normalizedWeekday = weekday === 0 ? 7 : weekday;
+    if (!input.weekdays.includes(normalizedWeekday)) continue;
+
+    for (let slot = 0; slot < input.numberOfSlots; slot += 1) {
+      const startsAt = new Date(d);
+      startsAt.setHours(input.startHour, 0, 0, 0);
+      startsAt.setMinutes(startsAt.getMinutes() + slot * 90);
+      const endsAt = new Date(startsAt);
+      endsAt.setMinutes(endsAt.getMinutes() + 90);
+      const diffMinutes = Math.round((endsAt.getTime() - startsAt.getTime()) / 60000);
+      if (diffMinutes !== 90) continue;
+
+      const { rowCount } = await client.query(
+        `
+          INSERT INTO app_mentoring.mentor_availability (
+            mentor_user_id, starts_at, ends_at, is_booked
+          )
+          VALUES ($1::uuid, $2::timestamptz, $3::timestamptz, false)
+          ON CONFLICT (mentor_user_id, starts_at, ends_at) DO NOTHING
+        `,
+        [input.mentorUserId, startsAt.toISOString(), endsAt.toISOString()],
+      );
+      created += rowCount ?? 0;
+    }
+  }
+
+  return { created };
+}
+
+export async function dispatchProgramMentorshipReminders(
+  client: PoolClient,
+  actor: AuthUser,
+): Promise<{ notified: number }> {
+  if (!['admin', 'gestor'].includes(actor.role)) {
+    throw new Error('Solo Admin o Gestor pueden despachar recordatorios del programa.');
+  }
+  await requireModulePermission(client, 'mentorias', 'manage');
+
+  const start = new Date();
+  start.setMinutes(start.getMinutes() + 50, 0, 0);
+  const end = new Date();
+  end.setMinutes(end.getMinutes() + 70, 0, 0);
+
+  const { rows } = await client.query<{
+    session_id: string;
+    title: string;
+    starts_at: string;
+    mentor_user_id: string;
+    mentor_name: string;
+    leader_user_id: string | null;
+    leader_name: string | null;
+    meeting_url: string | null;
+  }>(
+    `
+      SELECT
+        ms.session_id::text,
+        ms.title,
+        ms.starts_at::text,
+        ms.mentor_user_id::text,
+        mentor.display_name AS mentor_name,
+        leader.user_id::text AS leader_user_id,
+        leader.display_name AS leader_name,
+        ms.meeting_url
+      FROM app_mentoring.mentorship_sessions ms
+      JOIN app_core.users mentor ON mentor.user_id = ms.mentor_user_id
+      LEFT JOIN LATERAL (
+        SELECT u.user_id, u.display_name
+        FROM app_mentoring.session_participants sp
+        JOIN app_core.users u ON u.user_id = sp.user_id
+        WHERE sp.session_id = ms.session_id
+          AND sp.participant_role = 'mentee'
+        LIMIT 1
+      ) leader ON true
+      WHERE ms.session_origin = 'program_included'
+        AND ms.status = 'scheduled'
+        AND ms.starts_at BETWEEN $1::timestamptz AND $2::timestamptz
+    `,
+    [start.toISOString(), end.toISOString()],
+  );
+
+  let notified = 0;
+  for (const row of rows) {
+    const recipients = [row.mentor_user_id, row.leader_user_id].filter(Boolean) as string[];
+    for (const userId of recipients) {
+      const { rowCount } = await client.query(
+        `
+          INSERT INTO app_mentoring.program_session_reminders (session_id, user_id, reminder_window)
+          VALUES ($1::uuid, $2::uuid, '1h')
+          ON CONFLICT (session_id, user_id, reminder_window) DO NOTHING
+        `,
+        [row.session_id, userId],
+      );
+      if (!rowCount) continue;
+
+      await client.query(
+        `
+          INSERT INTO app_core.notifications (user_id, notification_type, title, message, payload)
+          VALUES (
+            $1::uuid,
+            'info',
+            'Recordatorio mentoría del programa',
+            $2,
+            jsonb_build_object('sessionId', $3, 'meetingUrl', $4, 'startsAt', $5, 'topic', $6)
+          )
+        `,
+        [
+          userId,
+          `En 1 hora inicia "${row.title}" con ${userId === row.mentor_user_id ? row.leader_name ?? 'líder' : row.mentor_name}.`,
+          row.session_id,
+          row.meeting_url,
+          row.starts_at,
+          row.title,
+        ],
+      );
+      notified += 1;
+    }
+  }
+
+  return { notified };
+}
+
 export async function scheduleProgramMentorship(
   client: PoolClient,
   actor: AuthUser,
@@ -1847,6 +2164,10 @@ export async function scheduleProgramMentorship(
   await requireProgramSubscriptionAccess(client, actor, 'Las mentorías incluidas del programa');
 
   const entitlement = await getProgramEntitlement(client, input.entitlementId, actor.userId);
+  const entitlementList = await listProgramEntitlements(client, actor.userId);
+  const firstPending = entitlementList
+    .filter((item) => item.status === 'available' || item.status === 'locked')
+    .sort((a, b) => a.sequenceNo - b.sequenceNo)[0];
 
   if (entitlement.status === 'completed') {
     throw new Error('This included mentorship is already completed');
@@ -1855,24 +2176,41 @@ export async function scheduleProgramMentorship(
   if (entitlement.status === 'scheduled' && entitlement.scheduledSessionId) {
     throw new Error('This included mentorship is already scheduled');
   }
+  if (firstPending && firstPending.entitlementId !== entitlement.entitlementId) {
+    throw new Error('Debes consumir primero la mentoría pendiente anterior según el orden del programa.');
+  }
+  if (entitlement.currentProgramWeek < entitlement.suggestedWeek) {
+    throw new Error(
+      `Esta mentoría se habilita en la semana ${entitlement.suggestedWeek}. Semana actual: ${entitlement.currentProgramWeek}.`,
+    );
+  }
 
   const endsAt = addMinutes(input.startsAt, entitlement.defaultDurationMinutes);
   const description = input.note?.trim()
     ? `${entitlement.description ?? ''}\n\nNota del líder:\n${input.note.trim()}`.trim()
     : entitlement.description;
 
-  const session = await createSessionWithParticipants(client, actor, {
-    mentorUserId: input.mentorUserId,
-    title: entitlement.title,
-    description,
-    startsAt: input.startsAt,
-    endsAt,
-    sessionType: 'individual',
-    status: 'scheduled',
-    meetingUrl: input.meetingUrl ?? null,
-    menteeUserIds: [actor.userId],
-    sessionOrigin: 'program_included',
-  });
+  await bookAvailabilitySlot(client, input.mentorUserId, input.startsAt, endsAt);
+  const fallbackMeetingUrl = await getMentorOfficeHoursUrl(client, input.mentorUserId);
+
+  let session: MentorshipRecord;
+  try {
+    session = await createSessionWithParticipants(client, actor, {
+      mentorUserId: input.mentorUserId,
+      title: entitlement.title,
+      description,
+      startsAt: input.startsAt,
+      endsAt,
+      sessionType: 'individual',
+      status: 'scheduled',
+      meetingUrl: input.meetingUrl ?? fallbackMeetingUrl ?? null,
+      menteeUserIds: [actor.userId],
+      sessionOrigin: 'program_included',
+    });
+  } catch (error) {
+    await releaseAvailabilitySlot(client, input.mentorUserId, input.startsAt, endsAt);
+    throw error;
+  }
 
   await client.query(
     `
@@ -1986,6 +2324,30 @@ export async function updateMentorship(
   input: UpdateMentorshipInput,
 ): Promise<MentorshipRecord> {
   await requireModulePermission(client, 'mentorias', 'update');
+  const current = await getSession(client, sessionId);
+  const isReschedule =
+    (input.startsAt && input.startsAt !== current.startsAt) ||
+    (input.endsAt && input.endsAt !== current.endsAt);
+  const isCancellation = input.status === 'cancelled' && current.status !== 'cancelled';
+  if ((isReschedule || isCancellation) && !input.changeReason?.trim()) {
+    throw new Error('Debes registrar el motivo para cancelar o reprogramar la mentoría.');
+  }
+
+  if (isReschedule) {
+    const nextStartsAt = input.startsAt ?? current.startsAt;
+    const nextEndsAt = input.endsAt ?? current.endsAt;
+    await releaseAvailabilitySlot(client, current.mentorUserId, current.startsAt, current.endsAt);
+    try {
+      await bookAvailabilitySlot(client, current.mentorUserId, nextStartsAt, nextEndsAt);
+    } catch (error) {
+      await bookAvailabilitySlot(client, current.mentorUserId, current.startsAt, current.endsAt);
+      throw error;
+    }
+  }
+
+  if (isCancellation) {
+    await releaseAvailabilitySlot(client, current.mentorUserId, current.startsAt, current.endsAt);
+  }
 
   const { rowCount } = await client.query(
     `
@@ -2020,6 +2382,34 @@ export async function updateMentorship(
     throw new Error('Mentorship session not found');
   }
 
+  if (isReschedule || isCancellation) {
+    await client.query(
+      `
+        INSERT INTO app_mentoring.mentorship_session_change_logs (
+          session_id,
+          change_type,
+          reason,
+          previous_starts_at,
+          previous_ends_at,
+          proposed_starts_at,
+          proposed_ends_at,
+          changed_by
+        )
+        VALUES ($1, $2, $3, $4::timestamptz, $5::timestamptz, $6::timestamptz, $7::timestamptz, $8::uuid)
+      `,
+      [
+        sessionId,
+        isCancellation ? 'cancelled' : 'rescheduled',
+        input.changeReason?.trim() ?? '',
+        current.startsAt,
+        current.endsAt,
+        input.proposedStartsAt ?? input.startsAt ?? current.startsAt,
+        input.proposedEndsAt ?? input.endsAt ?? current.endsAt,
+        actor.userId,
+      ],
+    );
+  }
+
   await syncLinkedMentorshipEntities(client, sessionId);
   return getSession(client, sessionId);
 }
@@ -2029,6 +2419,8 @@ export async function deleteMentorship(
   sessionId: string,
 ): Promise<{ sessionId: string }> {
   await requireModulePermission(client, 'mentorias', 'delete');
+  const current = await getSession(client, sessionId);
+  await releaseAvailabilitySlot(client, current.mentorUserId, current.startsAt, current.endsAt);
 
   const { rows: metaRows } = await client.query<{ session_origin: MentorshipSessionOrigin }>(
     `

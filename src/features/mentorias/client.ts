@@ -11,6 +11,8 @@ import type {
   GroupSessionReaction,
   GroupSessionRecordingRecord,
   InviteGroupSessionByRolesInput,
+  BulkMentorAvailabilityInput,
+  UpsertMentorAvailabilityInput,
   MentorAvailabilitySlot,
   MentorCatalogRecord,
   MentorOfferingRecord,
@@ -38,6 +40,8 @@ export type {
   GroupSessionReaction,
   GroupSessionRecordingRecord,
   InviteGroupSessionByRolesInput,
+  BulkMentorAvailabilityInput,
+  UpsertMentorAvailabilityInput,
   MentorAvailabilitySlot,
   MentorCatalogRecord,
   MentorOfferingRecord,
@@ -179,5 +183,29 @@ export async function dispatchGroupSessionReminders(windowType: '14h' | '30m'): 
   return requestApi<{ notified: number }>('/api/v1/modules/mentorias/group-sessions/reminders/dispatch', {
     method: 'POST',
     body: JSON.stringify({ windowType }),
+  });
+}
+
+export async function upsertMentorAvailabilitySlot(
+  input: UpsertMentorAvailabilityInput,
+): Promise<{ ok: true }> {
+  return requestApi<{ ok: true }>('/api/v1/modules/mentorias/availability', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function bulkCreateMentorAvailability(
+  input: BulkMentorAvailabilityInput,
+): Promise<{ created: number }> {
+  return requestApi<{ created: number }>('/api/v1/modules/mentorias/availability/bulk', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function dispatchProgramMentorshipReminders(): Promise<{ notified: number }> {
+  return requestApi<{ notified: number }>('/api/v1/modules/mentorias/program-reminders/dispatch', {
+    method: 'POST',
   });
 }
