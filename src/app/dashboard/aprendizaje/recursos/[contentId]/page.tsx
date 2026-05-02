@@ -1389,6 +1389,11 @@ export default function LearningResourceDetailPage() {
                         {/* Mini certificate preview */}
                         <CertificateBuilderPreview
                           template={certificateData.template}
+                          previewData={{
+                            recipientName: certificateData.recipientName,
+                            courseName: certificateData.courseTitle,
+                            completedAt: certificateData.completedAt,
+                          }}
                         />
 
                         {/* Download button */}

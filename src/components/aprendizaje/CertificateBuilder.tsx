@@ -555,7 +555,19 @@ export function CertificateBuilder({ template, onSave, onCancel }: CertificateBu
 
 // ─── Read-only scaled preview (reuses builder canvas rendering) ───────────────
 
-export function CertificateBuilderPreview({ template }: { template: CertificateTemplateRecord }) {
+type CertificatePreviewData = {
+  recipientName?: string;
+  courseName?: string;
+  completedAt?: string;
+};
+
+export function CertificateBuilderPreview({
+  template,
+  previewData,
+}: {
+  template: CertificateTemplateRecord;
+  previewData?: CertificatePreviewData;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.65);
 
@@ -574,6 +586,17 @@ export function CertificateBuilderPreview({ template }: { template: CertificateT
     template.elements && template.elements.length > 0
       ? template.elements
       : getDefaultElements(template.templateNumber, template.accentColor || '#5f3471');
+
+  const textVariables = previewData
+    ? {
+        recipientName: previewData.recipientName ?? '',
+        participantName: previewData.recipientName ?? '',
+        courseName: previewData.courseName ?? '',
+        completedAt: previewData.completedAt ?? '',
+        issueDate: previewData.completedAt ?? '',
+        date: previewData.completedAt ?? '',
+      }
+    : {};
 
   return (
     <div ref={containerRef} style={{ width: '100%' }}>
@@ -605,7 +628,7 @@ export function CertificateBuilderPreview({ template }: { template: CertificateT
                 opacity: el.opacity ?? 1,
                 whiteSpace: 'pre-wrap',
               }}>
-                {resolveContent(el.content ?? '', {}, true)}
+                {resolveContent(el.content ?? '', textVariables, !previewData)}
               </div>
             ) : el.imageField === 'seal' ? (
               <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
