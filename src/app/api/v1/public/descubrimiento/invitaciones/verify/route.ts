@@ -103,7 +103,11 @@ export async function POST(request: Request) {
           lastName: session.lastName,
           country: session.country,
           jobRole: session.jobRole,
-          gender: session.gender as any,
+          gender: (session.gender ?? "") as
+            | "Hombre"
+            | "Mujer"
+            | "Prefiero no decirlo"
+            | "",
           yearsExperience: session.yearsExperience,
         },
         profileCompleted: session.profileCompleted,

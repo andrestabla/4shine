@@ -113,7 +113,7 @@ function summarize(value: string, maxLength = 130): string {
 }
 
 function roleViewLabel(role: string | null): string {
-  if (role === "mentor") return "Vista iShine";
+  if (role === "mentor") return "Vista Adviser";
   if (role === "gestor") return "Vista gestor";
   if (role === "admin") return "Vista admin";
   return "Vista líder";

@@ -30,7 +30,7 @@ export function userTypeLabel(option: UserTypeOption): string {
     case 'leader_without_subscription':
       return 'Líder sin suscripción';
     case 'mentor':
-      return 'iShine';
+      return 'Adviser';
     case 'gestor':
       return 'Gestor';
     case 'admin':

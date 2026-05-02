@@ -96,7 +96,7 @@ VALUES
         'mentoring_pack',
         'Mentoría 1 sesión',
         'Pack individual',
-        'Compra 1 sesión adicional de mentoría con iShine disponible.',
+        'Compra 1 sesión adicional de mentoría con Adviser disponible.',
         50,
         'USD',
         1,

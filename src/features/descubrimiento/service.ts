@@ -217,7 +217,11 @@ function normalizeProfile(
   const normalizedRole =
     incomingRole === "Gerente/Mand medio" ? "Gerente/Mando medio" : incomingRole;
 
-  const gender = (typeof input?.gender === "string" ? input.gender.trim() : (fallback?.gender ?? "")) as any;
+  const gender = (typeof input?.gender === "string" ? input.gender.trim() : (fallback?.gender ?? "")) as
+    | "Hombre"
+    | "Mujer"
+    | "Prefiero no decirlo"
+    | "";
   const yearsValue = coerceNumeric(input?.yearsExperience ?? fallback?.yearsExperience ?? null);
 
   const yearsExperience = yearsValue !== null
@@ -228,7 +232,7 @@ function normalizeProfile(
     firstName,
     lastName,
     country,
-    jobRole: normalizedRole as any,
+    jobRole: normalizedRole as DiscoveryParticipantProfile["jobRole"],
     gender: gender as DiscoveryParticipantProfile["gender"],
     yearsExperience,
   };
@@ -339,7 +343,11 @@ function mapDiscoverySessionRow(row: DiscoverySessionRow): DiscoverySessionRecor
     lastName: row.last_name ?? "",
     country: row.country ?? "",
     jobRole: row.job_role ?? "",
-    gender: (row.gender as any) ?? "",
+    gender: (row.gender ?? "") as
+      | "Hombre"
+      | "Mujer"
+      | "Prefiero no decirlo"
+      | "",
     yearsExperience: coerceNumeric(row.years_experience),
   });
 
@@ -961,7 +969,11 @@ function buildNextState(
     lastName: current.lastName,
     country: current.country,
     jobRole: current.jobRole,
-    gender: current.gender as any,
+    gender: (current.gender ?? "") as
+      | "Hombre"
+      | "Mujer"
+      | "Prefiero no decirlo"
+      | "",
     yearsExperience: current.yearsExperience,
   });
 
@@ -2617,7 +2629,7 @@ export async function saveDiscoveryInvitationProgress(
     completedAt: completionDate,
   };
 
-  const metaUpdate: Record<string, any> = {
+  const metaUpdate: Record<string, unknown> = {
     external_progress: progressPayload,
   };
   if (surveyPayload) {
@@ -3718,8 +3730,12 @@ export async function sendDiscoveryReportEmail(
     const row = rows[0];
     if (!row) throw new Error("No se encontró la invitación.");
     email = row.invited_email;
-    const meta = row.meta || {};
-    name = (meta as any).participant_name || "Líder";
+    const meta = row.meta;
+    if (meta && typeof meta === "object" && "participant_name" in meta && typeof meta.participant_name === "string") {
+      name = meta.participant_name;
+    } else {
+      name = "Líder";
+    }
     actualSessionId = row.session_id;
   } else {
     actualSessionId = normalizedSessionId;
@@ -3865,7 +3881,7 @@ async function requestOpenAiReport(
     }
     clearTimeout(timer);
 
-    const payload = (await response.json().catch(() => null)) as any;
+    const payload: unknown = await response.json().catch(() => null);
 
     if (!response.ok) {
       const detail =
@@ -5216,7 +5232,14 @@ export async function generateDiscoveryAnalysisContract(
       `SELECT session_id::text, meta FROM app_assessment.discovery_invitations WHERE invitation_id = $1::uuid`,
       [invId]
     );
-    cached = (rows[0]?.meta as any)?.ai_reports?.[pillar];
+    const meta = rows[0]?.meta;
+    if (meta && typeof meta === "object" && "ai_reports" in meta) {
+      const aiReports = meta.ai_reports;
+      if (aiReports && typeof aiReports === "object" && pillar in aiReports) {
+        const report = aiReports[pillar as keyof typeof aiReports];
+        cached = typeof report === "string" ? report : undefined;
+      }
+    }
     sessionRecordId = rows[0]?.session_id;
   } else if (input.sessionId) {
     // Admin-provided session UUID: look up by session_id, not by user_id

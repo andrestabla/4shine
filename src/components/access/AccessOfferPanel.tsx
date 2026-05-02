@@ -104,7 +104,7 @@ function resolveProductAccent(product: CommercialProductRecord): {
       "border-[rgba(222,169,200,0.18)] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(255,245,251,0.94)_100%)]",
     icon: CalendarDays,
     eyebrow: product.highlightLabel ?? "Sesiones adicionales",
-    footer: "Acompañamiento flexible con iShiners.",
+    footer: "Acompañamiento flexible con Advisers.",
   };
 }
 

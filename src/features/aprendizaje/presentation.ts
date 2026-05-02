@@ -22,7 +22,7 @@ export function formatLearningDateTime(value: string | null | undefined): string
 
 export function learningRoleLabel(role: string | null | undefined): string {
   if (!role) return 'Usuario';
-  if (role === 'mentor') return 'iShine';
+  if (role === 'mentor') return 'Adviser';
   if (role === 'lider') return 'Líder';
   if (role === 'gestor') return 'Gestor';
   if (role === 'admin') return 'Admin';

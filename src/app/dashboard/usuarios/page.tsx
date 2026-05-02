@@ -32,7 +32,7 @@ function roleLabel(role: AppRole): string {
     case 'gestor':
       return 'GESTOR';
     case 'mentor':
-      return 'iShine';
+      return 'Adviser';
     case 'invitado':
       return 'INVITADO';
     case 'lider':
@@ -134,7 +134,7 @@ export default function UsuariosPage() {
             >
               <option value="all">Todos</option>
               <option value="lider">Líder</option>
-              <option value="mentor">iShine</option>
+              <option value="mentor">Adviser</option>
               <option value="gestor">Gestor</option>
               <option value="admin">Admin</option>
               <option value="invitado">Invitado</option>

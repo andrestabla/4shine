@@ -36,7 +36,7 @@ function shouldScopeStorageKey(key: string): boolean {
 }
 
 function roleLabel(role: string | null | undefined): string {
-    if (role === 'mentor') return 'iShine'
+    if (role === 'mentor') return 'Adviser'
     if (role === 'gestor') return 'Gestor'
     if (role === 'admin') return 'Admin'
     return 'Líder'

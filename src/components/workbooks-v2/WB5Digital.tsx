@@ -268,7 +268,7 @@ const MENTOR_LEVEL_REFERENCE = [
     }
 ] as const
 const EVALUATION_STAGES: Array<{ key: EvaluationStageKey; label: string }> = [
-    { key: 'mentor', label: 'Pantalla 1 - iShine' },
+    { key: 'mentor', label: 'Pantalla 1 - Adviser' },
     { key: 'leader', label: 'Pantalla 2 - Líder' },
     { key: 'synthesis', label: 'Pantalla 3 - Síntesis' },
     { key: 'final', label: 'Cierre' }
@@ -1218,7 +1218,7 @@ export function WB5Digital() {
             }
         })
         setMentorEvaluationEditModes((prev) => prev.map((item, rowIndex) => (rowIndex === index ? false : item)))
-        announceSave(`Fila iShine ${index + 1} guardada.`)
+        announceSave(`Fila Adviser ${index + 1} guardada.`)
     }
 
     const setMentorEvaluationField = (index: number, field: 'level' | 'evidence' | 'decision', value: string) => {
@@ -1281,7 +1281,7 @@ export function WB5Digital() {
             }
         }))
         markVisited(7)
-        announceSave('Cierre del iShine guardado.')
+        announceSave('Cierre del Adviser guardado.')
     }
 
     const editLeaderEvaluationRow = (index: number) => {
@@ -4201,7 +4201,7 @@ export function WB5Digital() {
                                     <p className="text-[11px] uppercase tracking-[0.2em] text-blue-600 font-semibold">Página 7</p>
                                     <h2 className="text-2xl md:text-4xl font-extrabold leading-[1.08] tracking-tight text-slate-900">Evaluación</h2>
                                     <p className="text-sm md:text-base text-slate-700 max-w-4xl">
-                                        Objetivo: permitir que iShine y líder evalúen con evidencia, definan decisiones por criterio y cierren con síntesis de
+                                        Objetivo: permitir que Adviser y líder evalúen con evidencia, definan decisiones por criterio y cierren con síntesis de
                                         acuerdos.
                                     </p>
                                 </header>
@@ -4257,7 +4257,7 @@ export function WB5Digital() {
                                     <section className="space-y-5">
                                         <section className="rounded-2xl border border-slate-200 bg-slate-50 p-5 md:p-6 space-y-4">
                                             <div className="flex flex-wrap items-center justify-between gap-2">
-                                                <h3 className="text-base md:text-lg font-bold text-slate-900">A) Modo iShine - Rúbricas</h3>
+                                                <h3 className="text-base md:text-lg font-bold text-slate-900">A) Modo Adviser - Rúbricas</h3>
                                                 <button
                                                     type="button"
                                                     onClick={() => setShowEvaluationLevelReference((current) => !current)}
@@ -4316,7 +4316,7 @@ export function WB5Digital() {
 
                                         <section className="space-y-4">
                                             <div className="flex flex-wrap items-center justify-between gap-2">
-                                                <h3 className="text-base md:text-lg font-bold text-slate-900">Formato de evaluación del iShine (marcar y comentar)</h3>
+                                                <h3 className="text-base md:text-lg font-bold text-slate-900">Formato de evaluación del Adviser (marcar y comentar)</h3>
                                                 <p className="text-xs text-slate-500">
                                                     Criterios completados: {mentorCompletedRows}/{state.evaluation.mentorRows.length}
                                                 </p>
@@ -4400,7 +4400,7 @@ export function WB5Digital() {
 
                                                                 <fieldset className="space-y-2">
                                                                     <legend className="text-xs uppercase tracking-[0.12em] text-slate-500">
-                                                                        Decisión del iShine
+                                                                        Decisión del Adviser
                                                                     </legend>
                                                                     <div className="flex flex-wrap gap-2">
                                                                         {MENTOR_DECISION_OPTIONS.map((decision) => (
@@ -4442,9 +4442,9 @@ export function WB5Digital() {
                                         </section>
 
                                         <section className="rounded-2xl border border-slate-200 bg-slate-50 p-5 md:p-6 space-y-4">
-                                            <h3 className="text-base md:text-lg font-bold text-slate-900">Panel de cierre iShine</h3>
+                                            <h3 className="text-base md:text-lg font-bold text-slate-900">Panel de cierre Adviser</h3>
                                             <label className="block space-y-1">
-                                                <span className="text-xs uppercase tracking-[0.12em] text-slate-500">Observaciones generales del iShine</span>
+                                                <span className="text-xs uppercase tracking-[0.12em] text-slate-500">Observaciones generales del Adviser</span>
                                                 <textarea
                                                     value={state.evaluation.mentorGeneralNotes}
                                                     onChange={(event) => setMentorGeneralNotes(event.target.value)}
@@ -4483,7 +4483,7 @@ export function WB5Digital() {
                                                     disabled={isLocked}
                                                     className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
                                                 >
-                                                    Guardar cierre iShine
+                                                    Guardar cierre Adviser
                                                 </button>
                                             </div>
                                         </section>
@@ -4499,7 +4499,7 @@ export function WB5Digital() {
                                                     'Responde cada pregunta desde hechos concretos y recientes, no desde intención.',
                                                     'Incluye al menos un ejemplo o evidencia por respuesta.',
                                                     'Define una acción o compromiso de 30 días para cada respuesta clave.',
-                                                    'Usa este bloque como insumo para acordar el plan de desarrollo con el iShine.'
+                                                    'Usa este bloque como insumo para acordar el plan de desarrollo con el Adviser.'
                                                 ].map((instruction) => (
                                                     <li key={`wb5-leader-instruction-${instruction}`} className="text-sm text-slate-700 flex items-start gap-2">
                                                         <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-slate-700 shrink-0" />
@@ -4600,7 +4600,7 @@ export function WB5Digital() {
                                     <section className="space-y-5">
                                         <section className="rounded-2xl border border-slate-200 bg-slate-50 p-5 md:p-6 space-y-4">
                                             <div className="flex flex-wrap items-center justify-between gap-2">
-                                                <h3 className="text-base md:text-lg font-bold text-slate-900">C) Síntesis de acuerdos iShine-Líder</h3>
+                                                <h3 className="text-base md:text-lg font-bold text-slate-900">C) Síntesis de acuerdos Adviser-Líder</h3>
                                                 <span
                                                     className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
                                                         synthesisStageComplete
@@ -4612,13 +4612,13 @@ export function WB5Digital() {
                                                 </span>
                                             </div>
                                             <label className="block space-y-1">
-                                                <span className="text-xs uppercase tracking-[0.12em] text-slate-500">Síntesis de acuerdos iShine-Líder</span>
+                                                <span className="text-xs uppercase tracking-[0.12em] text-slate-500">Síntesis de acuerdos Adviser-Líder</span>
                                                 <textarea
                                                     value={state.evaluation.agreementsSynthesis}
                                                     onChange={(event) => setEvaluationSynthesis(event.target.value)}
                                                     disabled={isLocked}
                                                     className="w-full min-h-[160px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                                                    placeholder="Registra acuerdos concretos entre iShine y líder."
+                                                    placeholder="Registra acuerdos concretos entre Adviser y líder."
                                                 />
                                             </label>
                                             <div className="flex justify-end">
@@ -4649,7 +4649,7 @@ export function WB5Digital() {
                                             </h3>
                                             <p className={`mt-2 text-sm ${evaluationSectionComplete ? 'text-emerald-700' : 'text-amber-700'}`}>
                                                 {evaluationSectionComplete
-                                                    ? 'iShine y líder cerraron rúbrica, autoevaluación y síntesis.'
+                                                    ? 'Adviser y líder cerraron rúbrica, autoevaluación y síntesis.'
                                                     : 'Completa los bloques pendientes para cerrar la evaluación.'}
                                             </p>
                                         </article>
@@ -4690,7 +4690,7 @@ export function WB5Digital() {
                                     >
                                         {evaluationSectionComplete
                                             ? 'Evaluación completada'
-                                            : 'Evaluación pendiente (iShine + líder + síntesis)'}
+                                            : 'Evaluación pendiente (Adviser + líder + síntesis)'}
                                     </span>
                                     <button
                                         type="button"

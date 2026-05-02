@@ -58,7 +58,7 @@ function roleLabel(role: AppRole): string {
     case 'gestor':
       return 'GESTOR';
     case 'mentor':
-      return 'iShine';
+      return 'Adviser';
     case 'invitado':
       return 'INVITADO';
     case 'lider':

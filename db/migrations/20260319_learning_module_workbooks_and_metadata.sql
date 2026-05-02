@@ -57,7 +57,7 @@ VALUES
         'Versión digital interactiva completa con navegación editorial, guardado por instrumento y exportación integral.',
         'shine_within',
         0,
-        '{"currentFocus":"","leadershipReflection":"","actionPlan":"","successMetrics":"","iShineNotes":""}'::jsonb
+        '{"currentFocus":"","leadershipReflection":"","actionPlan":"","successMetrics":"","AdviserNotes":""}'::jsonb
     ),
     (
         'wb2',
@@ -66,7 +66,7 @@ VALUES
         'Versión digital interactiva completa con estructura por páginas, experiencia guiada y exportación profesional.',
         'shine_within',
         7,
-        '{"currentFocus":"","leadershipReflection":"","actionPlan":"","successMetrics":"","iShineNotes":""}'::jsonb
+        '{"currentFocus":"","leadershipReflection":"","actionPlan":"","successMetrics":"","AdviserNotes":""}'::jsonb
     ),
     (
         'wb3',
@@ -75,7 +75,7 @@ VALUES
         'Versión digital interactiva completa con diseño editorial estandarizado, flujo claro y cierre de evaluación.',
         'shine_within',
         14,
-        '{"currentFocus":"","leadershipReflection":"","actionPlan":"","successMetrics":"","iShineNotes":""}'::jsonb
+        '{"currentFocus":"","leadershipReflection":"","actionPlan":"","successMetrics":"","AdviserNotes":""}'::jsonb
     ),
     (
         'wb4',
@@ -84,7 +84,7 @@ VALUES
         'Portada y presentación informativa activas en formato digital premium, con flujo guiado para primer ingreso y continuidad automática.',
         'shine_out',
         21,
-        '{"currentFocus":"","leadershipReflection":"","actionPlan":"","successMetrics":"","iShineNotes":""}'::jsonb
+        '{"currentFocus":"","leadershipReflection":"","actionPlan":"","successMetrics":"","AdviserNotes":""}'::jsonb
     ),
     (
         'wb5',
@@ -93,7 +93,7 @@ VALUES
         'Estructura digital en desarrollo con portada, presentación y bloques operativos iniciales para comunicación, influencia y conversaciones estratégicas.',
         'shine_out',
         28,
-        '{"currentFocus":"","leadershipReflection":"","actionPlan":"","successMetrics":"","iShineNotes":""}'::jsonb
+        '{"currentFocus":"","leadershipReflection":"","actionPlan":"","successMetrics":"","AdviserNotes":""}'::jsonb
     ),
     (
         'wb6',
@@ -102,7 +102,7 @@ VALUES
         'Edición premium con bloques avanzados de lenguaje corporal, voz, presión, objeciones, coherencia y evaluación.',
         'shine_out',
         35,
-        '{"currentFocus":"","leadershipReflection":"","actionPlan":"","successMetrics":"","iShineNotes":""}'::jsonb
+        '{"currentFocus":"","leadershipReflection":"","actionPlan":"","successMetrics":"","AdviserNotes":""}'::jsonb
     ),
     (
         'wb7',
@@ -111,7 +111,7 @@ VALUES
         'Nueva versión digital con portada e identificación, presentación informativa completa y continuidad automática por sesión.',
         'shine_up',
         42,
-        '{"currentFocus":"","leadershipReflection":"","actionPlan":"","successMetrics":"","iShineNotes":""}'::jsonb
+        '{"currentFocus":"","leadershipReflection":"","actionPlan":"","successMetrics":"","AdviserNotes":""}'::jsonb
     ),
     (
         'wb8',
@@ -120,7 +120,7 @@ VALUES
         'Portada, presentación y sección Escalera de valor con pasos, ejemplos, validaciones suaves y esquema visual interactivo.',
         'shine_up',
         49,
-        '{"currentFocus":"","leadershipReflection":"","actionPlan":"","successMetrics":"","iShineNotes":""}'::jsonb
+        '{"currentFocus":"","leadershipReflection":"","actionPlan":"","successMetrics":"","AdviserNotes":""}'::jsonb
     ),
     (
         'wb9',
@@ -129,7 +129,7 @@ VALUES
         'Versión digital estructurada para propósito, posicionamiento, reputación y legado ejecutivo.',
         'shine_beyond',
         56,
-        '{"currentFocus":"","leadershipReflection":"","actionPlan":"","successMetrics":"","iShineNotes":""}'::jsonb
+        '{"currentFocus":"","leadershipReflection":"","actionPlan":"","successMetrics":"","AdviserNotes":""}'::jsonb
     ),
     (
         'wb10',
@@ -138,7 +138,7 @@ VALUES
         'Versión digital estructurada para visión a 3 años, prioridades estratégicas, compromisos e indicadores de avance.',
         'shine_beyond',
         63,
-        '{"currentFocus":"","leadershipReflection":"","actionPlan":"","successMetrics":"","iShineNotes":""}'::jsonb
+        '{"currentFocus":"","leadershipReflection":"","actionPlan":"","successMetrics":"","AdviserNotes":""}'::jsonb
     )
 ON CONFLICT (workbook_code) DO UPDATE
 SET

@@ -65,7 +65,7 @@ export function CertificatePreviewCard({
     ? <img src={template.logoUrl} alt="Logo" style={{ height: 16, maxWidth: 70, objectFit: 'contain', display: 'block' }} />
     : null;
 
-  const SigBlock = ({ nameColor = '#333', titleColor = '#888' }: { nameColor?: string; titleColor?: string }) => (
+  const renderSignatureBlock = (nameColor = '#333', titleColor = '#888') => (
     <div>
       {template.signatureUrl && (
         <img src={template.signatureUrl} alt="Firma"
@@ -101,12 +101,12 @@ export function CertificatePreviewCard({
           <p style={{ fontSize: 6, color: 'rgba(220,215,235,0.80)', margin: '0 0 7px', lineHeight: 1.4 }}>{headlineText}</p>
           <p style={{ fontSize: 19, color: '#fff', margin: '0 0 5px', fontStyle: 'italic', lineHeight: 1.05, fontFamily: 'Georgia,serif' }}>{recipientName}</p>
           <p style={{ fontSize: 5.5, color: 'rgba(200,195,220,0.75)', margin: '0 0 4px', lineHeight: 1.4 }}>{bodyText}</p>
-          {courseName && <p style={{ fontSize: 7, color: acLight, fontStyle: 'italic', margin: '0 0 4px', fontFamily: 'Georgia,serif' }}>"{courseName}"</p>}
+          {courseName && <p style={{ fontSize: 7, color: acLight, fontStyle: 'italic', margin: '0 0 4px', fontFamily: 'Georgia,serif' }}>&ldquo;{courseName}&rdquo;</p>}
           <div style={{ width: 24, height: 1.5, background: accent, borderRadius: 1, marginTop: 7 }} />
         </div>
         {/* Footer */}
         <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '20%', background: bgFooter, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 8%', borderTop: `0.5px solid ${acLight}44`, zIndex: 4 }}>
-          <SigBlock nameColor="rgba(220,215,240,1)" titleColor="rgba(180,175,205,0.75)" />
+          {renderSignatureBlock("rgba(220,215,240,1)", "rgba(180,175,205,0.75)")}
           <GoldSeal size={26} />
           <p style={{ fontSize: 5, color: 'rgba(180,175,205,0.60)', textAlign: 'right', maxWidth: '30%', lineHeight: 1.6, margin: 0 }}>{footerText}</p>
         </div>
@@ -151,10 +151,10 @@ export function CertificatePreviewCard({
             </div>
             <p style={{ fontSize: 6, color: '#555', margin: '0 0 3px', lineHeight: 1.4 }}>{headlineText}</p>
             <p style={{ fontSize: 5.5, color: '#777', margin: '0 0 4px', lineHeight: 1.45 }}>{bodyText}</p>
-            {courseName && <p style={{ fontSize: 7, color: accent, fontStyle: 'italic', margin: 0, fontFamily: 'Georgia,serif' }}>"{courseName}"</p>}
+            {courseName && <p style={{ fontSize: 7, color: accent, fontStyle: 'italic', margin: 0, fontFamily: 'Georgia,serif' }}>&ldquo;{courseName}&rdquo;</p>}
           </div>
           <div style={{ height: '22%', background: '#f9f7f1', borderTop: `0.5px solid ${GOLD}30`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 8%', flexShrink: 0 }}>
-            <SigBlock />
+            {renderSignatureBlock()}
             <p style={{ fontSize: 5, color: '#bbb', textAlign: 'right', maxWidth: '40%', lineHeight: 1.6, margin: 0 }}>{footerText}</p>
           </div>
           <div style={{ height: 2.5, background: `linear-gradient(to right, ${GOLD_D}, ${GOLD_L}, ${GOLD})`, flexShrink: 0 }} />
@@ -200,12 +200,12 @@ export function CertificatePreviewCard({
         </div>
         <p style={{ fontSize: 5.5, color: '#555', margin: '0 0 2px' }}>{headlineText}</p>
         <p style={{ fontSize: 5, color: '#777', lineHeight: 1.45, margin: '0 0 3px' }}>{bodyText}</p>
-        {courseName && <p style={{ fontSize: 7, color: accent, fontStyle: 'italic', margin: 0, fontFamily: 'Georgia,serif' }}>"{courseName}"</p>}
+        {courseName && <p style={{ fontSize: 7, color: accent, fontStyle: 'italic', margin: 0, fontFamily: 'Georgia,serif' }}>&ldquo;{courseName}&rdquo;</p>}
       </div>
 
       {/* Footer */}
       <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '22%', background: '#f9f7f1', borderTop: `1px solid ${GOLD}30`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 9%' }}>
-        <SigBlock />
+        {renderSignatureBlock()}
         <GoldSeal size={26} />
         <p style={{ fontSize: 5, color: '#bbb', textAlign: 'right', maxWidth: '30%', lineHeight: 1.6, margin: 0 }}>{footerText}</p>
       </div>

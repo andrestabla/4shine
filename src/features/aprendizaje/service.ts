@@ -119,7 +119,7 @@ export interface WorkbookEditableFields {
   leadershipReflection: string;
   actionPlan: string;
   successMetrics: string;
-  iShineNotes: string;
+  AdviserNotes: string;
 }
 
 export type WorkbookStatePayload = Record<string, string>;
@@ -401,7 +401,7 @@ const DEFAULT_WORKBOOK_FIELDS: WorkbookEditableFields = {
   leadershipReflection: '',
   actionPlan: '',
   successMetrics: '',
-  iShineNotes: '',
+  AdviserNotes: '',
 };
 
 function normalizeWorkbookFields(
@@ -412,7 +412,7 @@ function normalizeWorkbookFields(
     leadershipReflection: input?.leadershipReflection?.trim() ?? '',
     actionPlan: input?.actionPlan?.trim() ?? '',
     successMetrics: input?.successMetrics?.trim() ?? '',
-    iShineNotes: input?.iShineNotes?.trim() ?? input?.ishinerNotes?.trim() ?? '',
+    AdviserNotes: input?.AdviserNotes?.trim() ?? input?.ishinerNotes?.trim() ?? '',
   };
 }
 

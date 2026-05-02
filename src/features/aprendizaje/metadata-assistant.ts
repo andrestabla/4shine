@@ -14,7 +14,7 @@ export const LEARNING_AUDIENCE_OPTIONS = [
   { value: 'lider', label: 'Líderes' },
   { value: 'lider_suscrito', label: 'Líderes con suscripción' },
   { value: 'lider_sin_suscripcion', label: 'Líderes sin suscripción' },
-  { value: 'ishiners', label: 'iShiners' },
+  { value: 'ishiners', label: 'Advisers' },
   { value: 'all', label: 'Toda la plataforma' },
 ] as const;
 

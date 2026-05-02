@@ -84,7 +84,11 @@ function toUserState(session: DiscoverySessionRecord): DiscoveryUserState {
       lastName: session.lastName ?? "",
       country: session.country ?? "",
       jobRole: session.jobRole ?? "",
-      gender: (session.gender as any) ?? "",
+      gender: (session.gender ?? "") as
+        | "Hombre"
+        | "Mujer"
+        | "Prefiero no decirlo"
+        | "",
       yearsExperience: session.yearsExperience,
     },
     profileCompleted: session.profileCompleted,
@@ -364,7 +368,7 @@ export function InvitationAccessExperience({
   };
 
   const persistProgress = React.useCallback(
-    async (state: DiscoveryUserState, extraPayload: Record<string, any> = {}, explicitAccessCode?: string) => {
+    async (state: DiscoveryUserState, extraPayload: Record<string, unknown> = {}, explicitAccessCode?: string) => {
       const code = explicitAccessCode ?? verifiedAccessCode;
       const payload = { ...buildPersistPayload(state), ...extraPayload };
       const snapshot = JSON.stringify(payload);
@@ -496,7 +500,11 @@ export function InvitationAccessExperience({
                 lastName: session.lastName,
                 country: session.country,
                 jobRole: session.jobRole,
-                gender: session.gender as any,
+                gender: (session.gender ?? "") as
+                  | "Hombre"
+                  | "Mujer"
+                  | "Prefiero no decirlo"
+                  | "",
                 yearsExperience: session.yearsExperience,
               },
               profileCompleted: session.profileCompleted,
@@ -673,7 +681,10 @@ export function InvitationAccessExperience({
                 onChange={(event) =>
                   setExternalState((current) => ({
                     ...current,
-                    profile: { ...current.profile, gender: event.target.value as any },
+                    profile: {
+                      ...current.profile,
+                      gender: event.target.value as DiscoveryUserState["profile"]["gender"],
+                    },
                   }))
                 }
                 className="h-11 rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
@@ -1134,5 +1145,4 @@ export function InvitationAccessExperience({
     </div>
   );
 }
-
 
