@@ -26,12 +26,25 @@ import { useUser } from '@/context/UserContext';
 import { filterCommercialProducts } from '@/features/access/catalog';
 import {
   createAdditionalMentorshipOrder,
+  createGroupSession,
+  createGroupSessionRecording,
   createMentorship,
   deleteMentorship,
+  dispatchGroupSessionReminders,
+  getGroupSessionAnalytics,
   getMentorshipOverview,
+  inviteGroupSessionByRoles,
+  participateInGroupSession,
+  reactToGroupSessionRecording,
   scheduleProgramMentorship,
+  commentGroupSessionRecording,
   updateMentorship,
   type AdditionalMentorshipOrderRecord,
+  type GroupSessionAnalyticsRecord,
+  type GroupSessionEventRecord,
+  type GroupSessionParticipationStatus,
+  type GroupSessionReaction,
+  type GroupSessionRecordingRecord,
   type MentorCatalogRecord,
   type MentorOfferingRecord,
   type MentorshipOverviewRecord,
@@ -61,6 +74,28 @@ interface OpsCreateFormState {
   sessionType: MentorshipSessionType;
   meetingUrl: string;
 }
+
+interface GroupSessionFormState {
+  title: string;
+  startsAt: string;
+  endsAt: string;
+  zoomJoinUrl: string;
+  zoomHostUrl: string;
+  hostUserId: string;
+  externalExpertName: string;
+  externalExpertBio: string;
+  description: string;
+}
+
+interface GroupRecordingFormState {
+  eventId: string;
+  title: string;
+  recordingUrl: string;
+  durationMinutes: string;
+  description: string;
+}
+
+type MentoriaSection = 'grupales' | 'programa';
 
 const SESSION_STATUS_META: Record<MentorshipStatus, { label: string; tone: string }> = {
   scheduled: { label: 'Programada', tone: 'bg-sky-100 text-sky-700' },
@@ -200,6 +235,17 @@ function upcomingSessions(sessions: MentorshipRecord[]): MentorshipRecord[] {
     .slice(0, 5);
 }
 
+function monthStart(input: Date): Date {
+  const date = new Date(input);
+  date.setDate(1);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function monthLabel(input: Date): string {
+  return input.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
+}
+
 export default function MentoriasPage() {
   const { alert, confirm } = useAppDialog();
   const { can, currentRole, currentUser, refreshBootstrap, viewerAccess } = useUser();
@@ -208,7 +254,11 @@ export default function MentoriasPage() {
   const [submittingProgram, setSubmittingProgram] = React.useState(false);
   const [submittingAdditional, setSubmittingAdditional] = React.useState(false);
   const [submittingOps, setSubmittingOps] = React.useState(false);
+  const [submittingGroupSession, setSubmittingGroupSession] = React.useState(false);
+  const [submittingGroupRecording, setSubmittingGroupRecording] = React.useState(false);
+  const [activeSection, setActiveSection] = React.useState<MentoriaSection>('grupales');
   const [selectedWeekStart, setSelectedWeekStart] = React.useState<Date>(() => startOfWeek(new Date()));
+  const [selectedMonthStart, setSelectedMonthStart] = React.useState<Date>(() => monthStart(new Date()));
   const [programForm, setProgramForm] = React.useState<ProgramScheduleFormState>({
     entitlementId: '',
     mentorUserId: '',
@@ -228,6 +278,26 @@ export default function MentoriasPage() {
     sessionType: 'individual',
     meetingUrl: '',
   });
+  const [groupSessionForm, setGroupSessionForm] = React.useState<GroupSessionFormState>({
+    title: '',
+    startsAt: nextSlotValue(),
+    endsAt: nextSlotValue(),
+    zoomJoinUrl: '',
+    zoomHostUrl: '',
+    hostUserId: '',
+    externalExpertName: '',
+    externalExpertBio: '',
+    description: '',
+  });
+  const [groupRecordingForm, setGroupRecordingForm] = React.useState<GroupRecordingFormState>({
+    eventId: '',
+    title: '',
+    recordingUrl: '',
+    durationMinutes: '',
+    description: '',
+  });
+  const [recordingCommentDrafts, setRecordingCommentDrafts] = React.useState<Record<string, string>>({});
+  const [groupAnalytics, setGroupAnalytics] = React.useState<GroupSessionAnalyticsRecord[]>([]);
 
   const showError = React.useCallback(
     async (fallbackMessage: string, cause: unknown) => {
@@ -255,6 +325,13 @@ export default function MentoriasPage() {
   React.useEffect(() => {
     void load();
   }, [load]);
+
+  React.useEffect(() => {
+    if (currentRole !== 'admin' && currentRole !== 'gestor') return;
+    void getGroupSessionAnalytics()
+      .then(setGroupAnalytics)
+      .catch(() => setGroupAnalytics([]));
+  }, [currentRole, overview]);
 
   React.useEffect(() => {
     if (!overview || currentRole !== 'lider') {
@@ -294,6 +371,17 @@ export default function MentoriasPage() {
   const selectedOffer = findOfferById(overview, additionalForm.offerId);
   const selectedEntitlement =
     overview?.programEntitlements.find((item) => item.entitlementId === programForm.entitlementId) ?? null;
+  const mentorCatalog = overview?.mentorCatalog ?? [];
+  const groupSessions = [...(overview?.groupSessions ?? [])].sort(
+    (left, right) => new Date(left.startsAt).getTime() - new Date(right.startsAt).getTime(),
+  );
+  const groupRecordings = overview?.groupSessionRecordings ?? [];
+  const monthDays = React.useMemo(() => {
+    const base = monthStart(selectedMonthStart);
+    const start = new Date(base);
+    start.setDate(1 - ((base.getDay() + 6) % 7));
+    return Array.from({ length: 42 }, (_, index) => addDays(start, index));
+  }, [selectedMonthStart]);
 
   const leaderStats = overview
     ? [
@@ -464,6 +552,384 @@ export default function MentoriasPage() {
     }
   };
 
+  const handleCreateGroupSession = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!groupSessionForm.title.trim() || !groupSessionForm.startsAt || !groupSessionForm.endsAt) return;
+
+    setSubmittingGroupSession(true);
+    try {
+      await createGroupSession({
+        title: groupSessionForm.title.trim(),
+        description: groupSessionForm.description.trim() || null,
+        startsAt: toIso(groupSessionForm.startsAt),
+        endsAt: toIso(groupSessionForm.endsAt),
+        zoomJoinUrl: groupSessionForm.zoomJoinUrl.trim() || null,
+        zoomHostUrl: groupSessionForm.zoomHostUrl.trim() || null,
+        hostUserId: groupSessionForm.hostUserId || null,
+        externalExpertName: groupSessionForm.externalExpertName.trim() || null,
+        externalExpertBio: groupSessionForm.externalExpertBio.trim() || null,
+      });
+      setGroupSessionForm((prev) => ({
+        ...prev,
+        title: '',
+        description: '',
+        zoomJoinUrl: '',
+        zoomHostUrl: '',
+        externalExpertName: '',
+        externalExpertBio: '',
+      }));
+      await load();
+    } catch (error) {
+      await showError('No se pudo crear la sesión grupal.', error);
+    } finally {
+      setSubmittingGroupSession(false);
+    }
+  };
+
+  const handleParticipate = async (eventItem: GroupSessionEventRecord, status: GroupSessionParticipationStatus) => {
+    try {
+      await participateInGroupSession(eventItem.eventId, status);
+      await load();
+    } catch (error) {
+      await showError('No se pudo actualizar tu participación.', error);
+    }
+  };
+
+  const handleCreateRecording = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!groupRecordingForm.eventId || !groupRecordingForm.title.trim() || !groupRecordingForm.recordingUrl.trim()) {
+      return;
+    }
+
+    setSubmittingGroupRecording(true);
+    try {
+      await createGroupSessionRecording({
+        eventId: groupRecordingForm.eventId,
+        title: groupRecordingForm.title.trim(),
+        description: groupRecordingForm.description.trim() || null,
+        recordingUrl: groupRecordingForm.recordingUrl.trim(),
+        durationMinutes: groupRecordingForm.durationMinutes ? Number(groupRecordingForm.durationMinutes) : 0,
+      });
+      setGroupRecordingForm({
+        eventId: '',
+        title: '',
+        recordingUrl: '',
+        durationMinutes: '',
+        description: '',
+      });
+      await load();
+    } catch (error) {
+      await showError('No se pudo publicar la grabación.', error);
+    } finally {
+      setSubmittingGroupRecording(false);
+    }
+  };
+
+  const handleReactRecording = async (recording: GroupSessionRecordingRecord, reaction: GroupSessionReaction) => {
+    try {
+      await reactToGroupSessionRecording(recording.recordingId, reaction);
+      await load();
+    } catch (error) {
+      await showError('No se pudo registrar la reacción.', error);
+    }
+  };
+
+  const handleCommentRecording = async (recording: GroupSessionRecordingRecord) => {
+    const text = recordingCommentDrafts[recording.recordingId]?.trim() || '';
+    if (!text) return;
+    try {
+      await commentGroupSessionRecording(recording.recordingId, text);
+      setRecordingCommentDrafts((prev) => ({ ...prev, [recording.recordingId]: '' }));
+      await load();
+    } catch (error) {
+      await showError('No se pudo publicar el comentario.', error);
+    }
+  };
+
+  const handleInviteByRoles = async (eventItem: GroupSessionEventRecord) => {
+    try {
+      await inviteGroupSessionByRoles(eventItem.eventId, ['lider']);
+      await load();
+    } catch (error) {
+      await showError('No se pudieron enviar invitaciones por rol.', error);
+    }
+  };
+
+  const handleDispatchReminder = async (windowType: '14h' | '30m') => {
+    try {
+      await dispatchGroupSessionReminders(windowType);
+      await load();
+    } catch (error) {
+      await showError('No se pudo despachar el recordatorio.', error);
+    }
+  };
+
+  const groupSection = (
+    <div className="space-y-6">
+      {currentRole === 'lider' && isOpenLeader && (
+        <AccessOfferPanel
+          badge="Líder sin suscripción"
+          title="Activa el programa para acceder a sesiones grupales."
+          description="Las sesiones grupales en vivo y sus recordatorios están disponibles para líderes con suscripción activa."
+          products={mentorshipOffers}
+          primaryAction={{ href: '/dashboard', label: 'Ver planes' }}
+        />
+      )}
+      {(currentRole === 'admin' || currentRole === 'gestor') && (
+        <section className="app-panel p-5 sm:p-6">
+          <p className="app-section-kicker">Crear sesión grupal</p>
+          <form className="mt-4 grid gap-3 md:grid-cols-2" onSubmit={handleCreateGroupSession}>
+            <input
+              className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm md:col-span-2"
+              placeholder="Título de la sesión grupal"
+              value={groupSessionForm.title}
+              onChange={(event) => setGroupSessionForm((prev) => ({ ...prev, title: event.target.value }))}
+              required
+            />
+            <input
+              className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
+              type="datetime-local"
+              value={groupSessionForm.startsAt}
+              onChange={(event) => setGroupSessionForm((prev) => ({ ...prev, startsAt: event.target.value }))}
+              required
+            />
+            <input
+              className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
+              type="datetime-local"
+              value={groupSessionForm.endsAt}
+              onChange={(event) => setGroupSessionForm((prev) => ({ ...prev, endsAt: event.target.value }))}
+              required
+            />
+            <input
+              className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
+              placeholder="URL Zoom participantes"
+              value={groupSessionForm.zoomJoinUrl}
+              onChange={(event) => setGroupSessionForm((prev) => ({ ...prev, zoomJoinUrl: event.target.value }))}
+            />
+            <input
+              className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
+              placeholder="URL Zoom anfitrión"
+              value={groupSessionForm.zoomHostUrl}
+              onChange={(event) => setGroupSessionForm((prev) => ({ ...prev, zoomHostUrl: event.target.value }))}
+            />
+            <select
+              className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
+              value={groupSessionForm.hostUserId}
+              onChange={(event) => setGroupSessionForm((prev) => ({ ...prev, hostUserId: event.target.value }))}
+            >
+              <option value="">Adviser anfitrión (opcional)</option>
+              {mentorCatalog.map((mentor) => (
+                <option key={mentor.mentorUserId} value={mentor.mentorUserId}>
+                  {mentor.name}
+                </option>
+              ))}
+            </select>
+            <input
+              className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
+              placeholder="Experto externo (opcional)"
+              value={groupSessionForm.externalExpertName}
+              onChange={(event) =>
+                setGroupSessionForm((prev) => ({ ...prev, externalExpertName: event.target.value }))
+              }
+            />
+            <textarea
+              className="min-h-[96px] rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm md:col-span-2"
+              placeholder="Descripción de la sesión"
+              value={groupSessionForm.description}
+              onChange={(event) => setGroupSessionForm((prev) => ({ ...prev, description: event.target.value }))}
+            />
+            <button
+              type="submit"
+              className="rounded-[16px] bg-[var(--brand-primary)] px-4 py-3 text-sm font-bold text-white disabled:opacity-50 md:col-span-2"
+              disabled={submittingGroupSession}
+            >
+              Crear evento grupal
+            </button>
+          </form>
+        </section>
+      )}
+
+      <section className="app-panel p-5 sm:p-6">
+        <div className="flex items-center justify-between">
+          <p className="app-section-kicker">Calendario mensual</p>
+          <div className="flex items-center gap-2">
+            <button className="rounded-full border border-[var(--app-border)] bg-white p-2" onClick={() => setSelectedMonthStart((prev) => monthStart(addDays(prev, -31)))} type="button"><ArrowLeft size={16} /></button>
+            <p className="text-sm font-semibold capitalize">{monthLabel(selectedMonthStart)}</p>
+            <button className="rounded-full border border-[var(--app-border)] bg-white p-2" onClick={() => setSelectedMonthStart((prev) => monthStart(addDays(prev, 31)))} type="button"><ArrowRight size={16} /></button>
+          </div>
+        </div>
+        <div className="mt-4 grid grid-cols-7 gap-2 text-[11px]">
+          {monthDays.map((day) => {
+            const isCurrentMonth = day.getMonth() === selectedMonthStart.getMonth();
+            const dayEvents = groupSessions.filter((item) => {
+              const date = new Date(item.startsAt);
+              return date.getFullYear() === day.getFullYear() && date.getMonth() === day.getMonth() && date.getDate() === day.getDate();
+            });
+            return (
+              <div key={day.toISOString()} className={clsx('min-h-[72px] rounded-[12px] border p-2', isCurrentMonth ? 'border-[var(--app-border)] bg-white' : 'border-transparent bg-transparent')}>
+                <p className="font-semibold text-[var(--app-muted)]">{day.getDate()}</p>
+                {dayEvents.slice(0, 2).map((item) => (
+                  <p key={item.eventId} className="mt-1 truncate rounded bg-[var(--app-surface-muted)] px-1 py-0.5 text-[10px] font-semibold text-[var(--app-ink)]">
+                    {formatTime(item.startsAt)} {item.title}
+                  </p>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {(currentRole === 'admin' || currentRole === 'gestor') && (
+        <section className="app-panel p-5 sm:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="app-section-kicker">Automatizaciones y analítica</p>
+            <div className="flex gap-2">
+              <button type="button" className="rounded-[12px] border border-[var(--app-border)] px-3 py-2 text-xs font-semibold" onClick={() => void handleDispatchReminder('14h')}>
+                Enviar recordatorios 14h
+              </button>
+              <button type="button" className="rounded-[12px] border border-[var(--app-border)] px-3 py-2 text-xs font-semibold" onClick={() => void handleDispatchReminder('30m')}>
+                Enviar recordatorios 30m
+              </button>
+            </div>
+          </div>
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full min-w-[680px] text-sm">
+              <thead className="border-b border-[var(--app-border)] text-left text-[var(--app-muted)]">
+                <tr>
+                  <th className="py-2 pr-3">Sesión</th>
+                  <th className="py-2 pr-3">Fecha</th>
+                  <th className="py-2 pr-3">Interesados</th>
+                  <th className="py-2 pr-3">Confirmados</th>
+                  <th className="py-2 pr-3">Declinaron</th>
+                </tr>
+              </thead>
+              <tbody>
+                {groupAnalytics.map((row) => (
+                  <tr key={row.eventId} className="border-b border-[var(--app-border)]">
+                    <td className="py-2 pr-3 font-semibold text-[var(--app-ink)]">{row.title}</td>
+                    <td className="py-2 pr-3 text-[var(--app-muted)]">{formatDateTime(row.startsAt)}</td>
+                    <td className="py-2 pr-3">{row.interestedCount}</td>
+                    <td className="py-2 pr-3">{row.joinedCount}</td>
+                    <td className="py-2 pr-3">{row.declinedCount}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      <section className="app-panel p-5 sm:p-6">
+        <p className="app-section-kicker">Sesiones grupales próximas</p>
+        <div className="mt-4 space-y-3">
+          {groupSessions.length === 0 ? (
+            <EmptyState message="No hay sesiones grupales registradas todavía." />
+          ) : (
+            groupSessions.slice(0, 12).map((eventItem) => (
+              <article key={eventItem.eventId} className="rounded-[16px] border border-[var(--app-border)] bg-white/86 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="font-bold text-[var(--app-ink)]">{eventItem.title}</p>
+                    <p className="text-sm text-[var(--app-muted)]">
+                      {formatDateTime(eventItem.startsAt)} · {eventItem.hostName ?? eventItem.externalExpertName ?? 'Anfitrión por definir'}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {eventItem.zoomJoinUrl ? (
+                      <a href={eventItem.zoomJoinUrl} target="_blank" rel="noreferrer" className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--brand-primary)]">
+                        Enlace Zoom
+                      </a>
+                    ) : null}
+                    {(currentRole === 'lider' || currentRole === 'mentor') && (
+                      <button type="button" className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--app-ink)] disabled:opacity-50" onClick={() => void handleParticipate(eventItem, 'joined')} disabled={currentRole === 'lider' && isOpenLeader}>
+                        Participar
+                      </button>
+                    )}
+                    {(currentRole === 'admin' || currentRole === 'gestor') && (
+                      <button
+                        type="button"
+                        className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--app-ink)]"
+                        onClick={() => void handleInviteByRoles(eventItem)}
+                      >
+                        Invitar líderes
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <p className="mt-2 text-xs text-[var(--app-muted)]">
+                  Intención: {eventItem.intentCount} · Participación confirmada: {eventItem.participantCount}
+                </p>
+              </article>
+            ))
+          )}
+        </div>
+      </section>
+
+      {(currentRole === 'admin' || currentRole === 'gestor') && (
+        <section className="app-panel p-5 sm:p-6">
+          <p className="app-section-kicker">Publicar grabación</p>
+          <form className="mt-4 grid gap-3 md:grid-cols-2" onSubmit={handleCreateRecording}>
+            <select
+              className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm md:col-span-2"
+              value={groupRecordingForm.eventId}
+              onChange={(event) => setGroupRecordingForm((prev) => ({ ...prev, eventId: event.target.value }))}
+              required
+            >
+              <option value="">Selecciona sesión grupal</option>
+              {groupSessions.map((item) => (
+                <option key={item.eventId} value={item.eventId}>
+                  {item.title} · {formatDateTime(item.startsAt)}
+                </option>
+              ))}
+            </select>
+            <input className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm" placeholder="Título de grabación" value={groupRecordingForm.title} onChange={(event) => setGroupRecordingForm((prev) => ({ ...prev, title: event.target.value }))} required />
+            <input className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm" placeholder="Duración (min)" value={groupRecordingForm.durationMinutes} onChange={(event) => setGroupRecordingForm((prev) => ({ ...prev, durationMinutes: event.target.value }))} />
+            <input className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm md:col-span-2" placeholder="URL de grabación" value={groupRecordingForm.recordingUrl} onChange={(event) => setGroupRecordingForm((prev) => ({ ...prev, recordingUrl: event.target.value }))} required />
+            <textarea className="min-h-[90px] rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm md:col-span-2" placeholder="Descripción" value={groupRecordingForm.description} onChange={(event) => setGroupRecordingForm((prev) => ({ ...prev, description: event.target.value }))} />
+            <button type="submit" className="rounded-[16px] bg-[var(--brand-primary)] px-4 py-3 text-sm font-bold text-white disabled:opacity-50 md:col-span-2" disabled={submittingGroupRecording}>Publicar grabación</button>
+          </form>
+        </section>
+      )}
+
+      <section className="app-panel p-5 sm:p-6">
+        <p className="app-section-kicker">Grabaciones de sesiones pasadas</p>
+        <div className="mt-4 space-y-4">
+          {groupRecordings.length === 0 ? (
+            <EmptyState message="Aún no hay grabaciones publicadas." />
+          ) : (
+            groupRecordings.map((recording) => (
+              <article key={recording.recordingId} className="rounded-[16px] border border-[var(--app-border)] bg-white p-4">
+                <p className="font-bold text-[var(--app-ink)]">{recording.title}</p>
+                <p className="text-sm text-[var(--app-muted)]">{recording.eventTitle} · {recording.hostName ?? 'Experto invitado'}</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <a href={recording.recordingUrl} target="_blank" rel="noreferrer" className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--brand-primary)]">Ver grabación</a>
+                  {(['like', 'celebrate', 'insightful', 'love'] as GroupSessionReaction[]).map((reaction) => (
+                    <button key={reaction} type="button" className={clsx('rounded-full border px-3 py-1 text-xs font-semibold', recording.myReaction === reaction ? 'border-[var(--brand-primary)] text-[var(--brand-primary)]' : 'border-[var(--app-border)] text-[var(--app-muted)]')} onClick={() => void handleReactRecording(recording, reaction)}>
+                      {reaction} · {recording.reactionTotals[reaction]}
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-3 flex gap-2">
+                  <input className="flex-1 rounded-[12px] border border-[var(--app-border)] px-3 py-2 text-xs" placeholder="Agregar comentario" value={recordingCommentDrafts[recording.recordingId] ?? ''} onChange={(event) => setRecordingCommentDrafts((prev) => ({ ...prev, [recording.recordingId]: event.target.value }))} />
+                  <button type="button" className="rounded-[12px] border border-[var(--app-border)] px-3 py-2 text-xs font-semibold" onClick={() => void handleCommentRecording(recording)}>Comentar</button>
+                </div>
+                {recording.comments.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    {recording.comments.slice(0, 3).map((comment) => (
+                      <p key={comment.commentId} className="rounded-[10px] bg-[var(--app-surface-muted)] px-3 py-2 text-xs text-[var(--app-muted)]">
+                        <span className="font-semibold text-[var(--app-ink)]">{comment.authorName}:</span> {comment.commentText}
+                      </p>
+                    ))}
+                  </div>
+                )}
+              </article>
+            ))
+          )}
+        </div>
+      </section>
+    </div>
+  );
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -486,12 +952,32 @@ export default function MentoriasPage() {
   }
 
   if (currentRole !== 'lider') {
+    if (activeSection === 'grupales') {
+      return (
+        <div className="space-y-8">
+          <PageTitle
+            title="Mentorías"
+            subtitle="Sesiones grupales: agenda, participación, grabaciones y colaboración por rol."
+          />
+          <div className="inline-flex rounded-[16px] border border-[var(--app-border)] bg-white p-1">
+            <button type="button" onClick={() => setActiveSection('grupales')} className="rounded-[12px] bg-[var(--brand-primary)] px-4 py-2 text-sm font-bold text-white">Sesiones grupales</button>
+            <button type="button" onClick={() => setActiveSection('programa')} className="rounded-[12px] px-4 py-2 text-sm font-semibold text-[var(--app-muted)]">Mentorías del programa</button>
+          </div>
+          {groupSection}
+        </div>
+      );
+    }
+
     return (
       <div className="space-y-8">
         <PageTitle
           title="Mentorías"
           subtitle="Gestiona sesiones, revisa la semana activa y mantén visibilidad sobre la operación del acompañamiento."
         />
+        <div className="inline-flex rounded-[16px] border border-[var(--app-border)] bg-white p-1">
+          <button type="button" onClick={() => setActiveSection('grupales')} className="rounded-[12px] px-4 py-2 text-sm font-semibold text-[var(--app-muted)]">Sesiones grupales</button>
+          <button type="button" onClick={() => setActiveSection('programa')} className="rounded-[12px] bg-[var(--brand-primary)] px-4 py-2 text-sm font-bold text-white">Mentorías del programa</button>
+        </div>
 
         <StatGrid stats={opsStats} />
 
@@ -678,6 +1164,22 @@ export default function MentoriasPage() {
     );
   }
 
+  if (activeSection === 'grupales') {
+    return (
+      <div className="space-y-8">
+        <PageTitle
+          title="Mentorías"
+          subtitle="Sesiones grupales para líderes con suscripción: participa en vivo y consulta grabaciones."
+        />
+        <div className="inline-flex rounded-[16px] border border-[var(--app-border)] bg-white p-1">
+          <button type="button" onClick={() => setActiveSection('grupales')} className="rounded-[12px] bg-[var(--brand-primary)] px-4 py-2 text-sm font-bold text-white">Sesiones grupales</button>
+          <button type="button" onClick={() => setActiveSection('programa')} className="rounded-[12px] px-4 py-2 text-sm font-semibold text-[var(--app-muted)]">Mentorías del programa</button>
+        </div>
+        {groupSection}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       <PageTitle
@@ -688,6 +1190,10 @@ export default function MentoriasPage() {
             : 'Agenda las sesiones incluidas del programa, compra sesiones adicionales con Advisers disponibles y visualiza tu semana completa de acompañamiento.'
         }
       />
+      <div className="inline-flex rounded-[16px] border border-[var(--app-border)] bg-white p-1">
+        <button type="button" onClick={() => setActiveSection('grupales')} className="rounded-[12px] px-4 py-2 text-sm font-semibold text-[var(--app-muted)]">Sesiones grupales</button>
+        <button type="button" onClick={() => setActiveSection('programa')} className="rounded-[12px] bg-[var(--brand-primary)] px-4 py-2 text-sm font-bold text-white">Mentorías del programa</button>
+      </div>
 
       {isOpenLeader && (
         <AccessOfferPanel
