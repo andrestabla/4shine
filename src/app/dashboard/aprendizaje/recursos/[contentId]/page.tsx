@@ -204,6 +204,7 @@ export default function LearningResourceDetailPage() {
   const scormStateRef = React.useRef<Record<string, string>>({});
   const scormStateDirtyRef = React.useRef(false);
   const scormVisitedLocationsRef = React.useRef<Set<string>>(new Set());
+  const scormAutoOpenedCertificateRef = React.useRef(false);
 
   React.useEffect(() => {
     const mql = window.matchMedia("(max-width: 768px)");
@@ -404,6 +405,18 @@ export default function LearningResourceDetailPage() {
 
   const hasCertificateScreen =
     Boolean(resource?.certificateTemplateId) && calculatedProgress >= 100;
+
+  // For SCORM packages, once the course reaches 100% and a system certificate
+  // is configured, force-open the left panel and auto-navigate to certificate
+  // exactly once per course load (no navigation loop after manual changes).
+  React.useEffect(() => {
+    if (!isScormPackage || !hasCertificateScreen) return;
+    if (scormAutoOpenedCertificateRef.current) return;
+
+    scormAutoOpenedCertificateRef.current = true;
+    setScormSidebarOpen(true);
+    setActiveResourceIndex(totalItems);
+  }, [isScormPackage, hasCertificateScreen, totalItems]);
 
   const handleNext = () => {
     const maxIndex = hasCertificateScreen ? totalItems : totalItems - 1;
@@ -692,6 +705,7 @@ export default function LearningResourceDetailPage() {
     scormCompletionSentRef.current = false;
     scormCompletionSyncingRef.current = false;
     scormRuntimeProgressRef.current = null;
+    scormAutoOpenedCertificateRef.current = false;
     scormStateRef.current =
       resource?.scormState && typeof resource.scormState === "object" ? resource.scormState : {};
     const persistedVisited = scormStateRef.current["cmi.x_visited_locations"] ?? "";
