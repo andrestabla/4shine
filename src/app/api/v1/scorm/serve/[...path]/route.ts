@@ -99,14 +99,22 @@ export async function GET(
       html = `<base href="${baseHref}">${html}`;
     }
 
-    // Hide package-native "Terminar módulo" controls to avoid duplicate finish actions.
-    const removeFinishModuleScript = `
+    // Hide package-native "Terminar módulo" controls and bridge package-native
+    // "Ver certificado" CTA to the 4Shine system certificate screen.
+    const packageControlsScript = `
 <script>
 (() => {
   const shouldHide = (text) => /^\\s*terminar\\s*m[oó]dulo\\s*$/i.test((text || '').trim());
+  const shouldOpenSystemCertificate = (text) => /^\\s*ver\\s*certificado\\s*$/i.test((text || '').trim());
   const hideElement = (el) => {
     if (!(el instanceof HTMLElement)) return;
     el.style.display = 'none';
+  };
+  const markBound = (el) => {
+    if (!(el instanceof HTMLElement)) return false;
+    if (el.dataset.scormCertBound === '1') return true;
+    el.dataset.scormCertBound = '1';
+    return false;
   };
 
   const sweep = () => {
@@ -116,6 +124,17 @@ export async function GET(
       const aria = (el.getAttribute('aria-label') || '').trim();
       if (shouldHide(txt) || shouldHide(aria)) {
         hideElement(el);
+        continue;
+      }
+      if (shouldOpenSystemCertificate(txt) || shouldOpenSystemCertificate(aria)) {
+        if (markBound(el)) continue;
+        el.addEventListener('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          try {
+            window.parent?.postMessage({ type: 'scorm-open-system-certificate' }, window.location.origin);
+          } catch {}
+        });
       }
     }
   };
@@ -131,9 +150,9 @@ export async function GET(
 })();
 </script>`;
     if (/<\/body>/i.test(html)) {
-      html = html.replace(/<\/body>/i, `${removeFinishModuleScript}</body>`);
+      html = html.replace(/<\/body>/i, `${packageControlsScript}</body>`);
     } else {
-      html += removeFinishModuleScript;
+      html += packageControlsScript;
     }
 
     return new Response(html, {

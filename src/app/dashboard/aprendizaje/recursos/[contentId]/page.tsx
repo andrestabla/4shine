@@ -751,6 +751,21 @@ export default function LearningResourceDetailPage() {
     return () => window.clearInterval(interval);
   }, [isScormPackage, flushScormRuntimeToBackend]);
 
+  React.useEffect(() => {
+    if (!isScormPackage) return;
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      const data = event.data as { type?: string } | null;
+      if (data?.type !== "scorm-open-system-certificate") return;
+      if (!hasCertificateScreen) return;
+
+      setScormSidebarOpen(true);
+      setActiveResourceIndex(totalItems);
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [isScormPackage, hasCertificateScreen, totalItems]);
+
   const handlePrev = () => {
     if (activeResourceIndex > 0) {
       setActiveResourceIndex((prev) => Math.max(0, prev - 1));
