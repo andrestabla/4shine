@@ -333,7 +333,11 @@ export default function LearningResourceDetailPage() {
       return;
     }
 
-    if (totalItems === 0 && activeResourceIndex > -1) {
+    if (
+      totalItems === 0 &&
+      activeResourceIndex > -1 &&
+      !(activeResourceIndex === totalItems && Boolean(resource?.certificateTemplateId) && calculatedProgress >= 100)
+    ) {
       setActiveResourceIndex(-1);
       return;
     }
