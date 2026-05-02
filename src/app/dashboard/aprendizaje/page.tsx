@@ -1394,6 +1394,10 @@ export default function AprendizajePage() {
       return;
     }
     const hasCourseStructure = countCourseResources(resourceForm.courseModules) > 0;
+    const hasScormPackage =
+      editorKind === "course" &&
+      resourceForm.contentType === "scorm" &&
+      Boolean(resourceForm.url.trim());
     if (
       resourceForm.status === "published" &&
       !resourceForm.url.trim() &&
@@ -1412,12 +1416,13 @@ export default function AprendizajePage() {
     if (
       editorKind === "course" &&
       resourceForm.status === "published" &&
-      !hasCourseStructure
+      !hasCourseStructure &&
+      !hasScormPackage
     ) {
       await alert({
         title: "Estructura pendiente",
         message:
-          "Un curso publicado debe tener al menos un módulo con un recurso interno.",
+          "Un curso publicado debe tener un paquete SCORM cargado o al menos un módulo con un recurso interno.",
         tone: "warning",
       });
       return;
