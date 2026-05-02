@@ -118,6 +118,7 @@ type MentoriaSection = 'grupales' | 'programa';
 interface MentoriasViewProps {
   forcedSection?: MentoriaSection;
 }
+type WizardStep = 1 | 2 | 3;
 
 const SESSION_STATUS_META: Record<MentorshipStatus, { label: string; tone: string }> = {
   scheduled: { label: 'Programada', tone: 'bg-sky-100 text-sky-700' },
@@ -282,6 +283,10 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
   const [activeSection, setActiveSection] = React.useState<MentoriaSection>(forcedSection ?? 'grupales');
   const [selectedWeekStart, setSelectedWeekStart] = React.useState<Date>(() => startOfWeek(new Date()));
   const [selectedMonthStart, setSelectedMonthStart] = React.useState<Date>(() => monthStart(new Date()));
+  const [groupWizardStep, setGroupWizardStep] = React.useState<WizardStep>(1);
+  const [opsWizardStep, setOpsWizardStep] = React.useState<WizardStep>(1);
+  const [programWizardStep, setProgramWizardStep] = React.useState<WizardStep>(1);
+  const [additionalWizardStep, setAdditionalWizardStep] = React.useState<WizardStep>(1);
   const [programForm, setProgramForm] = React.useState<ProgramScheduleFormState>({
     entitlementId: '',
     mentorUserId: '',
@@ -770,6 +775,19 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
     }
   };
 
+  const wizardHeader = (label: string, step: WizardStep) => (
+    <div className="mb-4">
+      <p className="app-section-kicker">{label}</p>
+      <p className="mt-1 text-xs text-[var(--app-muted)]">Paso {step} de 3</p>
+      <div className="mt-2 h-2 rounded-full bg-[var(--app-surface-muted)]">
+        <div
+          className="h-2 rounded-full bg-[var(--brand-primary)] transition-all"
+          style={{ width: `${(step / 3) * 100}%` }}
+        />
+      </div>
+    </div>
+  );
+
   const sectionTabs = (
     <div className="inline-flex rounded-[16px] border border-[var(--app-border)] bg-white p-1">
       <Link
@@ -810,7 +828,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
       )}
       {(currentRole === 'admin' || currentRole === 'gestor') && (
         <section className="app-panel p-5 sm:p-6">
-          <p className="app-section-kicker">Crear sesión grupal</p>
+          {wizardHeader('Asistente · Crear sesión grupal', groupWizardStep)}
           <form className="mt-4 grid gap-3 md:grid-cols-2" onSubmit={handleCreateGroupSession}>
             <input
               className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm md:col-span-2"
@@ -874,10 +892,28 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
             <button
               type="submit"
               className="rounded-[16px] bg-[var(--brand-primary)] px-4 py-3 text-sm font-bold text-white disabled:opacity-50 md:col-span-2"
-              disabled={submittingGroupSession}
+              disabled={submittingGroupSession || groupWizardStep !== 3}
             >
-              Crear evento grupal
+              {groupWizardStep === 3 ? 'Crear evento grupal' : 'Completa el asistente para continuar'}
             </button>
+            <div className="md:col-span-2 flex items-center justify-between">
+              <button
+                type="button"
+                className="rounded-[12px] border border-[var(--app-border)] px-3 py-2 text-xs font-semibold disabled:opacity-50"
+                disabled={groupWizardStep === 1}
+                onClick={() => setGroupWizardStep((prev) => (prev > 1 ? ((prev - 1) as WizardStep) : prev))}
+              >
+                Atrás
+              </button>
+              <button
+                type="button"
+                className="rounded-[12px] border border-[var(--app-border)] px-3 py-2 text-xs font-semibold disabled:opacity-50"
+                disabled={groupWizardStep === 3}
+                onClick={() => setGroupWizardStep((prev) => (prev < 3 ? ((prev + 1) as WizardStep) : prev))}
+              >
+                Siguiente
+              </button>
+            </div>
           </form>
         </section>
       )}
@@ -1158,8 +1194,9 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
           <section className="app-panel p-5 sm:p-6">
             <div className="flex items-center gap-2">
               <Sparkles size={16} className="text-[var(--brand-primary)]" />
-              <p className="app-section-kicker">Crear sesión operativa</p>
+              <p className="app-section-kicker">Asistente · Crear sesión operativa</p>
             </div>
+            <p className="mt-1 text-xs text-[var(--app-muted)]">Paso {opsWizardStep} de 3</p>
             <form className="mt-5 grid gap-3 md:grid-cols-6" onSubmit={handleOpsCreate}>
               <input
                 className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm md:col-span-2"
@@ -1195,9 +1232,9 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
               <button
                 className="rounded-[16px] bg-[var(--brand-primary)] px-4 py-3 text-sm font-bold text-white disabled:opacity-50"
                 type="submit"
-                disabled={submittingOps}
+                disabled={submittingOps || opsWizardStep !== 3}
               >
-                Crear sesión
+                {opsWizardStep === 3 ? 'Crear sesión' : 'Completa el asistente para continuar'}
               </button>
               <input
                 className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm md:col-span-6"
@@ -1205,6 +1242,24 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                 value={opsForm.meetingUrl}
                 onChange={(event) => setOpsForm((prev) => ({ ...prev, meetingUrl: event.target.value }))}
               />
+              <div className="md:col-span-6 flex items-center justify-between">
+                <button
+                  type="button"
+                  className="rounded-[12px] border border-[var(--app-border)] px-3 py-2 text-xs font-semibold disabled:opacity-50"
+                  disabled={opsWizardStep === 1}
+                  onClick={() => setOpsWizardStep((prev) => (prev > 1 ? ((prev - 1) as WizardStep) : prev))}
+                >
+                  Atrás
+                </button>
+                <button
+                  type="button"
+                  className="rounded-[12px] border border-[var(--app-border)] px-3 py-2 text-xs font-semibold disabled:opacity-50"
+                  disabled={opsWizardStep === 3}
+                  onClick={() => setOpsWizardStep((prev) => (prev < 3 ? ((prev + 1) as WizardStep) : prev))}
+                >
+                  Siguiente
+                </button>
+              </div>
             </form>
           </section>
         )}
@@ -1581,7 +1636,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
           <section className="app-panel p-5 sm:p-6">
             <div className="flex items-center gap-2">
               <BookOpen size={16} className="text-[var(--brand-primary)]" />
-              <p className="app-section-kicker">Programar incluida</p>
+              <p className="app-section-kicker">Asistente · Programar incluida</p>
             </div>
             {isOpenLeader && (
               <div className="mt-5 rounded-[18px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-4 text-sm text-[var(--app-muted)]">
@@ -1595,6 +1650,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
             )}
             {!isOpenLeader && (
               <form className="mt-5 space-y-3" onSubmit={handleProgramSchedule}>
+                <p className="text-xs text-[var(--app-muted)]">Paso {programWizardStep} de 3</p>
                 <select
                   className="w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
                   value={programForm.entitlementId}
@@ -1652,13 +1708,32 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                   type="submit"
                   disabled={
                     submittingProgram ||
+                    programWizardStep !== 3 ||
                     !programForm.entitlementId ||
                     !programForm.mentorUserId ||
                     overview.mentorCatalog.length === 0
                   }
                 >
-                  Programar mentoría incluida
+                  {programWizardStep === 3 ? 'Programar mentoría incluida' : 'Completa el asistente para continuar'}
                 </button>
+                <div className="flex items-center justify-between">
+                  <button
+                    type="button"
+                    className="rounded-[12px] border border-[var(--app-border)] px-3 py-2 text-xs font-semibold disabled:opacity-50"
+                    disabled={programWizardStep === 1}
+                    onClick={() => setProgramWizardStep((prev) => (prev > 1 ? ((prev - 1) as WizardStep) : prev))}
+                  >
+                    Atrás
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-[12px] border border-[var(--app-border)] px-3 py-2 text-xs font-semibold disabled:opacity-50"
+                    disabled={programWizardStep === 3}
+                    onClick={() => setProgramWizardStep((prev) => (prev < 3 ? ((prev + 1) as WizardStep) : prev))}
+                  >
+                    Siguiente
+                  </button>
+                </div>
               </form>
             )}
           </section>
@@ -1864,7 +1939,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
           <section className="app-panel p-5 sm:p-6">
             <div className="flex items-center gap-2">
               <CircleDollarSign size={16} className="text-[var(--brand-primary)]" />
-              <p className="app-section-kicker">Comprar sesión adicional</p>
+              <p className="app-section-kicker">Asistente · Comprar sesión adicional</p>
             </div>
             {overview.mentorCatalog.length === 0 && (
               <div className="mt-5 rounded-[18px] border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-800">
@@ -1872,6 +1947,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
               </div>
             )}
             <form className="mt-5 space-y-3" onSubmit={handleAdditionalPurchase}>
+              <p className="text-xs text-[var(--app-muted)]">Paso {additionalWizardStep} de 3</p>
               <select
                 className="w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
                 value={additionalForm.offerId}
@@ -1925,10 +2001,37 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
               <button
                 className="w-full rounded-[16px] bg-[var(--brand-primary)] px-4 py-3 text-sm font-bold text-white disabled:opacity-50"
                 type="submit"
-                disabled={submittingAdditional || !additionalForm.offerId || overview.mentorCatalog.length === 0}
+                disabled={
+                  submittingAdditional ||
+                  additionalWizardStep !== 3 ||
+                  !additionalForm.offerId ||
+                  overview.mentorCatalog.length === 0
+                }
               >
-                Comprar y reservar sesión
+                {additionalWizardStep === 3 ? 'Comprar y reservar sesión' : 'Completa el asistente para continuar'}
               </button>
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  className="rounded-[12px] border border-[var(--app-border)] px-3 py-2 text-xs font-semibold disabled:opacity-50"
+                  disabled={additionalWizardStep === 1}
+                  onClick={() =>
+                    setAdditionalWizardStep((prev) => (prev > 1 ? ((prev - 1) as WizardStep) : prev))
+                  }
+                >
+                  Atrás
+                </button>
+                <button
+                  type="button"
+                  className="rounded-[12px] border border-[var(--app-border)] px-3 py-2 text-xs font-semibold disabled:opacity-50"
+                  disabled={additionalWizardStep === 3}
+                  onClick={() =>
+                    setAdditionalWizardStep((prev) => (prev < 3 ? ((prev + 1) as WizardStep) : prev))
+                  }
+                >
+                  Siguiente
+                </button>
+              </div>
 
               <p className="text-xs leading-relaxed text-[var(--app-muted)]">
                 La compra adicional queda registrada en plataforma con estado comercial para seguimiento y puede conectarse luego a checkout real sin perder la trazabilidad.
