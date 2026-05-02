@@ -56,6 +56,7 @@ interface AssistantDefinition {
 
 const DEFAULT_PUBLIC_APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.4shine.co';
 const DEFAULT_SES_REGION = 'us-east-1';
+const SECRET_MASK = '••••••••••••';
 
 function buildSesSmtpHost(region: string | undefined): string {
   const normalizedRegion =
@@ -79,6 +80,122 @@ const DEFAULT_INTEGRATIONS: IntegrationConfigRecord[] = INTEGRATION_CATALOG.map(
 }));
 
 const INTEGRATION_ASSISTANTS: Record<IntegrationKey, AssistantDefinition> = {
+  zoom: {
+    intro:
+      'Conecta Zoom para mentorías grupales y del programa: hosts, enlaces estables, políticas de reserva, grabaciones y webhooks.',
+    primarySecretField: 'clientSecret',
+    steps: [
+      {
+        id: 'app',
+        title: 'App de Zoom Server-to-Server OAuth',
+        description: 'Registra credenciales base de la app para emitir tokens de API.',
+        fields: [
+          { key: 'accountId', label: 'Account ID', type: 'text', required: true, placeholder: 'xxxxxxxxxxxxxxxxxxxx' },
+          { key: 'clientId', label: 'Client ID', type: 'text', required: true, placeholder: 'xxxxxxxxxxxxxxxxxxxx' },
+          { key: 'clientSecret', label: 'Client Secret', type: 'password', required: true, placeholder: SECRET_MASK },
+          {
+            key: 'apiBaseUrl',
+            label: 'API Base URL',
+            type: 'url',
+            required: true,
+            defaultValue: 'https://api.zoom.us/v2',
+          },
+        ],
+      },
+      {
+        id: 'webhooks',
+        title: 'Webhooks y validación',
+        description: 'Activa eventos para sincronizar reservas, cambios y grabaciones.',
+        fields: [
+          {
+            key: 'webhookEndpoint',
+            label: 'Webhook endpoint',
+            type: 'url',
+            required: true,
+            defaultValue: `${DEFAULT_PUBLIC_APP_URL}/api/v1/integrations/zoom/webhook`,
+          },
+          { key: 'webhookSecretToken', label: 'Webhook Secret Token', type: 'password', required: true, placeholder: SECRET_MASK },
+          {
+            key: 'requiredEvents',
+            label: 'Eventos requeridos',
+            type: 'textarea',
+            required: true,
+            defaultValue:
+              'meeting.created\nmeeting.updated\nmeeting.deleted\nrecording.completed\nrecording.deleted',
+          },
+        ],
+      },
+      {
+        id: 'hosts',
+        title: 'Hosts y enlaces estables',
+        description: 'Configura usuarios anfitriones Adviser y política de enlace fijo por usuario.',
+        fields: [
+          { key: 'hostMode', label: 'Modo de hosts', type: 'select', required: true, defaultValue: 'adviser_users', options: [
+            { value: 'adviser_users', label: 'Advisers de la plataforma' },
+            { value: 'mixed', label: 'Mixto (Adviser + externo)' },
+          ] },
+          {
+            key: 'hostEmails',
+            label: 'Emails de hosts (1 por línea)',
+            type: 'textarea',
+            required: true,
+            placeholder: 'adviser1@4shine.co\nadviser2@4shine.co',
+          },
+          {
+            key: 'stableJoinLinkPolicy',
+            label: 'Política de enlace',
+            type: 'select',
+            required: true,
+            defaultValue: 'pmi_or_personal_room',
+            options: [
+              { value: 'pmi_or_personal_room', label: 'Enlace estable por host (PMI/sala personal)' },
+              { value: 'meeting_generated', label: 'Generar enlace por sesión' },
+            ],
+          },
+        ],
+      },
+      {
+        id: 'mentoring-rules',
+        title: 'Reglas de mentorías',
+        description: 'Alinea duración, buffers, zona horaria y permisos de reprogramación.',
+        fields: [
+          { key: 'defaultDurationMinutes', label: 'Duración por defecto (min)', type: 'number', required: true, defaultValue: '90' },
+          { key: 'timezone', label: 'Zona horaria', type: 'text', required: true, defaultValue: 'America/Bogota' },
+          { key: 'bufferMinutes', label: 'Buffer entre sesiones (min)', type: 'number', defaultValue: '15' },
+          { key: 'allowLeaderReschedule', label: 'Permitir reprogramación líder', type: 'select', defaultValue: 'true', options: [
+            { value: 'true', label: 'Sí' },
+            { value: 'false', label: 'No' },
+          ] },
+        ],
+      },
+      {
+        id: 'recordings',
+        title: 'Grabaciones y retención',
+        description: 'Activa flujo automático para traer grabaciones y metadatos al módulo.',
+        fields: [
+          { key: 'autoImportRecordings', label: 'Importar grabaciones automáticamente', type: 'select', required: true, defaultValue: 'true', options: [
+            { value: 'true', label: 'Sí' },
+            { value: 'false', label: 'No' },
+          ] },
+          { key: 'recordingRetentionDays', label: 'Retención grabaciones (días)', type: 'number', defaultValue: '180' },
+          { key: 'recordingVisibility', label: 'Visibilidad', type: 'select', defaultValue: 'participants_only', options: [
+            { value: 'participants_only', label: 'Solo participantes' },
+            { value: 'role_based', label: 'Por rol' },
+          ] },
+        ],
+      },
+      {
+        id: 'ops',
+        title: 'Checklist operativo',
+        description: 'Asegura notificaciones previas, fallback y trazabilidad.',
+        fields: [
+          { key: 'notificationWindows', label: 'Ventanas recordatorio', type: 'text', required: true, defaultValue: '14h,30m,1h' },
+          { key: 'fallbackHostEmail', label: 'Host fallback', type: 'text', placeholder: 'ops@4shine.co' },
+          { key: 'opsNotes', label: 'Notas operativas', type: 'textarea', placeholder: 'Playbook, responsables y escalamiento.' },
+        ],
+      },
+    ],
+  },
   google_meet: {
     intro: 'Configura autenticación OAuth, políticas de reunión y seguridad para sesiones de mentoría.',
     primarySecretField: 'clientSecret',
@@ -761,7 +878,12 @@ export default function IntegracionesAdminPage() {
     const definition = INTEGRATION_ASSISTANTS[integration.key];
     const baseData = { ...integration.wizardData };
 
-    if (definition.primarySecretField && !hasText(baseData[definition.primarySecretField]) && hasText(integration.value)) {
+    if (
+      definition.primarySecretField &&
+      !hasText(baseData[definition.primarySecretField]) &&
+      hasText(integration.value) &&
+      integration.value !== SECRET_MASK
+    ) {
       baseData[definition.primarySecretField] = integration.value;
     }
 

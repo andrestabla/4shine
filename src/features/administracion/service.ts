@@ -37,6 +37,7 @@ const REVISION_REASONS = new Set<string>(BRANDING_REVISION_REASONS);
 const MAX_DYNAMIC_LOGIN_IMAGE_ITEMS = 20;
 const MAX_DYNAMIC_LOGIN_MESSAGE_ITEMS = 20;
 const MAX_DYNAMIC_LOGIN_MESSAGE_LENGTH = 400;
+const SECRET_MASK = '••••••••••••';
 
 const BRANDING_FIELD_KEYS: Array<keyof BrandingSettings> = [
   'platformName',
@@ -834,15 +835,26 @@ function mergeIntegrations(
     if (!update) return item;
 
     const wizardData = update.wizardData
-      ? normalizeWizardData(update.wizardData)
+      ? { ...item.wizardData, ...normalizeWizardData(update.wizardData) }
       : item.wizardData;
+
+    for (const [fieldKey, fieldValue] of Object.entries(wizardData)) {
+      if (fieldValue === SECRET_MASK && hasText(item.wizardData[fieldKey])) {
+        wizardData[fieldKey] = item.wizardData[fieldKey];
+      }
+    }
+
+    const nextValue =
+      typeof update.value === 'string' && update.value !== SECRET_MASK
+        ? update.value
+        : item.value;
 
     return {
       ...item,
       label: hasText(update.label) ? update.label!.trim() : item.label,
       provider: hasText(update.provider) ? update.provider!.trim() : item.provider,
       enabled: typeof update.enabled === 'boolean' ? update.enabled : item.enabled,
-      value: typeof update.value === 'string' ? update.value : item.value,
+      value: nextValue,
       wizardData,
       lastConfiguredAt: normalizeDate(update.lastConfiguredAt) ?? item.lastConfiguredAt,
     };
@@ -1662,7 +1674,7 @@ export async function getIntegrationsSettings(
       label: hasText(row.label) ? row.label : catalog.label,
       provider: hasText(row.provider) ? row.provider : catalog.provider,
       enabled: row.enabled,
-      value: row.secret_value ?? '',
+      value: hasText(row.secret_value) ? SECRET_MASK : '',
       wizardData: normalizeWizardData(row.wizard_data),
       lastConfiguredAt: row.last_configured_at,
       createdAt: row.created_at,

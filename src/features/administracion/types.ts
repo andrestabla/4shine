@@ -1,4 +1,5 @@
 export const INTEGRATION_CATALOG = [
+  { key: 'zoom', label: 'Zoom', provider: 'Zoom' },
   { key: 'google_meet', label: 'Google Meet', provider: 'Google Workspace' },
   { key: 'google_calendar', label: 'Google Calendar', provider: 'Google Workspace' },
   { key: 'r2', label: 'Cloudflare R2', provider: 'Cloudflare' },
