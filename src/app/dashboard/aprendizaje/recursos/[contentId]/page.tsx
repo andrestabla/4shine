@@ -1360,7 +1360,20 @@ export default function LearningResourceDetailPage() {
                       <p className="text-sm">Preparando tu certificado…</p>
                     </div>
                   ) : certificateData ? (
-                    <div className="overflow-hidden rounded-[20px] shadow-2xl">
+                    <div className="relative overflow-visible rounded-[20px] shadow-2xl">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (totalItems > 0) {
+                            setActiveResourceIndex(totalItems - 1);
+                          } else {
+                            setActiveResourceIndex(-1);
+                          }
+                        }}
+                        className="absolute left-1/2 top-0 z-10 -translate-x-1/2 -translate-y-1/2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 shadow-md transition hover:bg-slate-50"
+                      >
+                        Cerrar
+                      </button>
                       {/* Celebration header — accent gradient */}
                       <div
                         className="px-8 py-7 text-center"
