@@ -290,7 +290,7 @@ export default function DashboardLayout({
       <main className="relative flex w-full flex-1 flex-col overflow-y-auto bg-transparent">
         <Header onMenuClick={() => setIsSidebarOpen(true)} />
         <div
-          className="relative z-10 mx-auto min-h-full w-full animate-fade-in px-4 pb-20 pt-4 md:px-8 md:pt-5"
+          className="relative z-10 mx-auto min-h-full w-full animate-fade-in px-4 pb-20 pt-5 md:px-8 md:pt-8"
           style={{ maxWidth: tokens.layout.pageMaxWidth }}
         >
           {children}
@@ -466,3 +466,4 @@ export default function DashboardLayout({
     </div>
   );
 }
+

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useUser } from "@/context/UserContext";
 import { useBranding } from "@/context/BrandingContext";
 import {
@@ -13,17 +13,57 @@ import {
   MessageSquare,
 } from "lucide-react";
 import clsx from "clsx";
+import { usePathname } from "next/navigation";
 import type { Notification } from "@/server/bootstrap/types";
+
+const PATH_TITLES: Record<string, string> = {
+  "/dashboard": "Inicio",
+  "/dashboard/trayectoria": "Trayectoria",
+  "/dashboard/descubrimiento": "Descubrimiento",
+  "/dashboard/aprendizaje": "Aprendizaje",
+  "/dashboard/metodologia": "Metodología",
+  "/dashboard/mentorias": "Mentorías",
+  "/dashboard/networking": "Networking",
+  "/dashboard/convocatorias": "Convocatorias",
+  "/dashboard/mensajes": "Mensajes",
+  "/dashboard/workshops": "Workshops",
+  "/dashboard/perfil": "Perfil",
+  "/dashboard/lideres": "Líderes",
+  "/dashboard/formacion-mentores": "Formación Advisers",
+  "/dashboard/gestion-formacion-mentores": "Gestión Formación Advisers",
+  "/dashboard/usuarios": "Gestión Usuarios",
+  "/dashboard/administracion": "Administración",
+  "/dashboard/administracion/branding": "Branding y Marca",
+  "/dashboard/administracion/integraciones": "Integraciones",
+  "/dashboard/contenido": "Gestión Contenido",
+  "/dashboard/analitica": "Analítica",
+};
+
+function resolvePageTitle(pathname: string): string {
+  const exactMatch = PATH_TITLES[pathname];
+  if (exactMatch) return exactMatch;
+
+  const longestPrefix = Object.entries(PATH_TITLES)
+    .filter(([path]) => pathname.startsWith(`${path}/`))
+    .sort((a, b) => b[0].length - a[0].length)[0];
+
+  return longestPrefix?.[1] ?? "Dashboard";
+}
 
 export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
   const { currentUser, bootstrapData } = useUser();
   const { tokens } = useBranding();
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const pathname = usePathname();
 
   React.useEffect(() => {
     setNotifications(bootstrapData?.notifications ?? []);
   }, [bootstrapData]);
+
+  const pageTitle = useMemo(() => {
+    return resolvePageTitle(pathname);
+  }, [pathname]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
@@ -53,16 +93,27 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
   return (
     <header
       data-dashboard-header
-      className="sticky top-0 z-20 border-b border-[var(--app-border)] bg-[rgba(252,249,255,0.92)] px-4 py-3 md:px-8"
+      className="sticky top-0 z-20 border-b border-[var(--app-border)] bg-[rgba(252,249,255,0.92)] px-4 py-4 md:px-8"
     >
       <div className="mx-auto flex w-full max-w-[var(--brand-page-max-width)] items-center justify-between gap-4">
-        <div className="flex min-w-0 items-center gap-2">
+        <div className="flex min-w-0 items-center gap-4">
           <button
             onClick={onMenuClick}
             className="flex h-[38px] w-[38px] items-center justify-center rounded-[1rem] border border-[var(--app-border)] bg-white/92 text-[var(--app-ink)] shadow-sm transition hover:bg-white md:hidden"
           >
             <Menu size={24} />
           </button>
+          <div className="min-w-0">
+            <p className="app-section-kicker hidden md:block">
+              4Shine Platform
+            </p>
+            <h1
+              className="app-display-title truncate text-[2rem] font-semibold leading-none md:text-[2.3rem]"
+              data-display-font="true"
+            >
+              {pageTitle}
+            </h1>
+          </div>
         </div>
 
         <div className="flex items-center gap-2 md:gap-4">
