@@ -3645,7 +3645,7 @@ export async function bulkRegenerateDiscoveryReportsByManager(
               role,
               scores,
               pillar,
-              fastMode: false,
+              fastMode: pillar !== "all",
             });
             if (result.report.trim()) {
               reports[pillar] = result.report.trim();
@@ -3684,7 +3684,7 @@ export async function bulkRegenerateDiscoveryReportsByManager(
               role,
               scores,
               pillar,
-              fastMode: false,
+              fastMode: pillar !== "all",
             });
             if (result.report.trim()) {
               reports[pillar] = result.report.trim();
@@ -5345,7 +5345,7 @@ export async function generateDiscoveryAnalysisBundleContract(
           const result = await generateDiscoveryAnalysisContract(client, actor, {
             ...input,
             pillar,
-            fastMode: false,
+            fastMode: true,
           });
           return { pillar, report: result.report.trim() };
         }),
@@ -5410,7 +5410,7 @@ export async function generateDiscoveryInvitationAnalysisContract(
   const pillar = input.pillar ?? "all";
   const result = await runContractStyleAnalysis(client, analysisContext, {
     ...input,
-    fastMode: false,
+    fastMode: pillar !== "all",
   });
 
   if (result.report.trim().length > 0) {

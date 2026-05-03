@@ -35,9 +35,7 @@ import { useAppDialog } from "@/components/ui/AppDialogProvider";
 import { PILLAR_INFO, COMP_DEFINITIONS } from "./DiagnosticsData";
 import {
   analyzeDiscoveryReport,
-  analyzeDiscoveryReportBatch,
   analyzeInvitationDiscoveryReport,
-  analyzeInvitationDiscoveryReportBatch,
 } from "./client";
 import { downloadDiscoveryPdfReport } from "./pdf-export";
 import { getDiscoveryStatus, scoreDiscoveryAnswers } from "./reporting";
@@ -380,39 +378,6 @@ export function ResultsView({
     ],
   );
 
-  const generateAnalysisBatch = React.useCallback(async () => {
-    if (isPublic && !invitationCredentials && !enablePublicAnalysis) return;
-    try {
-      const response = invitationCredentials
-        ? await analyzeInvitationDiscoveryReportBatch({
-            inviteToken: invitationCredentials.inviteToken,
-            accessCode: invitationCredentials.accessCode,
-            username: state.name,
-            role: state.profile.jobRole || "Invitado",
-            scores: scoring,
-          })
-        : await analyzeDiscoveryReportBatch({
-            username: state.name,
-            role: state.profile.jobRole || "Lider",
-            scores: scoring,
-          });
-
-      if (response?.reports) {
-        syncReports(response.reports);
-      }
-    } catch {
-      // Keep silent and fall back to per-filter flow.
-    }
-  }, [
-    enablePublicAnalysis,
-    invitationCredentials,
-    isPublic,
-    scoring,
-    state.name,
-    state.profile.jobRole,
-    syncReports,
-  ]);
-
   React.useEffect(() => {
     if (analysisBatchStartedRef.current) return;
     if (isPublic && !invitationCredentials && !enablePublicAnalysis) return;
@@ -422,12 +387,6 @@ export function ResultsView({
     setAnalysisBatchPending(true);
     void (async () => {
       try {
-        // 1) Prefer bundle generation first for lower end-to-end latency.
-        await generateAnalysisBatch();
-
-        if (cancelled) return;
-
-        // 2) Fallback to the current robust per-filter flow for any missing reports.
         if (!analysisCacheRef.current.has("all")) {
           await generateAnalysisForFilter("all");
         }
@@ -456,7 +415,6 @@ export function ResultsView({
     };
   }, [
     enablePublicAnalysis,
-    generateAnalysisBatch,
     generateAnalysisForFilter,
     invitationCredentials,
     isPublic,
