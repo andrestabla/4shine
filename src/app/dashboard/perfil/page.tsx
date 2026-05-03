@@ -16,7 +16,7 @@ import { EmptyState } from '@/components/dashboard/EmptyState';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { R2UploadButton } from '@/components/ui/R2UploadButton';
 import { useUser } from '@/context/UserContext';
-import { getMyProfile, updateMyProfile, type MyProfileRecord } from '@/features/perfil/client';
+import { extractProfileFromCv, getMyProfile, updateMyProfile, type MyProfileRecord } from '@/features/perfil/client';
 import { optimizeAvatarForUpload } from '@/lib/image-processing';
 import { YEARS_EXPERIENCE_OPTIONS, yearsToLabel, yearsToKey, keyToStoredValue } from '@/lib/demographics';
 import { USER_COUNTRY_OPTIONS, USER_GENDER_OPTIONS, USER_JOB_ROLE_OPTIONS, type UserJobRoleOption } from '@/lib/user-demographics';
@@ -139,6 +139,7 @@ export default function PerfilPage() {
   const [loading, setLoading] = React.useState(true);
   const [isEditing, setIsEditing] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
+  const [isExtractingCv, setIsExtractingCv] = React.useState(false);
 
   const canEditProfile = can('perfil', 'update');
 
@@ -357,10 +358,58 @@ export default function PerfilPage() {
                 </button>
               ) : (
                 <>
+                  <R2UploadButton
+                    moduleCode="perfil"
+                    action="update"
+                    accept=".doc,.docx,.txt,.pdf"
+                    pathPrefix={`profiles/${profile.userId}/cv`}
+                    entityTable="app_core.user_profiles"
+                    fieldName="cv_url"
+                    buttonLabel={isExtractingCv ? 'Extrayendo...' : 'Extraer desde CV'}
+                    className="app-button-secondary disabled:opacity-60"
+                    disabled={isSaving || isExtractingCv}
+                    onUploaded={async (url) => {
+                      try {
+                        setIsExtractingCv(true);
+                        const extracted = await extractProfileFromCv(url);
+                        setForm((prev) => {
+                          if (!prev) return prev;
+                          const firstName = extracted.firstName?.trim() || '';
+                          const lastName = extracted.lastName?.trim() || '';
+                          const nextDisplayName =
+                            [firstName, lastName].filter(Boolean).join(' ').trim() || prev.displayName;
+                          return {
+                            ...prev,
+                            displayName: nextDisplayName,
+                            country: extracted.country || prev.country,
+                            jobRole: (extracted.jobRole || prev.jobRole) as UserJobRoleOption | '',
+                            gender: extracted.gender || prev.gender,
+                            yearsExperience:
+                              extracted.yearsExperience === null
+                                ? prev.yearsExperience
+                                : yearsToKey(extracted.yearsExperience),
+                          };
+                        });
+                        await alert({
+                          title: 'Datos detectados',
+                          message: 'Se autocompletaron campos desde tu CV. Revisa y guarda.',
+                          tone: 'success',
+                        });
+                      } catch (error) {
+                        await alert({
+                          title: 'No se pudo extraer',
+                          message: error instanceof Error ? error.message : 'Completa los campos manualmente.',
+                          tone: 'warning',
+                        });
+                      } finally {
+                        setIsExtractingCv(false);
+                      }
+                    }}
+                  />
                   <button
                     type="button"
                     onClick={onCancelEdit}
-                    disabled={isSaving}
+                    disabled={isSaving || isExtractingCv}
                     className="app-button-secondary disabled:opacity-60"
                   >
                     <X size={15} />
@@ -369,7 +418,7 @@ export default function PerfilPage() {
                   <button
                     type="button"
                     onClick={() => void onSaveProfile()}
-                    disabled={isSaving}
+                    disabled={isSaving || isExtractingCv}
                     className="app-button-primary disabled:opacity-60"
                   >
                     <Save size={15} />
