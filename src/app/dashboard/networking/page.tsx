@@ -4,6 +4,7 @@ import React from 'react';
 import { useRouter } from 'next/navigation';
 import { AccessOfferPanel } from '@/components/access/AccessOfferPanel';
 import { EmptyState } from '@/components/dashboard/EmptyState';
+import { R2UploadButton } from '@/components/ui/R2UploadButton';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useUser } from '@/context/UserContext';
 import { filterCommercialProducts } from '@/features/access/catalog';
@@ -55,6 +56,52 @@ function connectionTag(status: ConnectionStatus | 'none'): string {
   return 'Sin contacto';
 }
 
+function normalizeUrl(value: string | null | undefined): string | null {
+  const raw = (value ?? '').trim();
+  if (!raw) return null;
+  if (/^https?:\/\//i.test(raw)) return raw;
+  if (/^www\./i.test(raw)) return `https://${raw}`;
+  return raw;
+}
+
+function getDirectVideoUrl(url: string): string | null {
+  const clean = normalizeUrl(url);
+  if (!clean) return null;
+  const lower = clean.toLowerCase();
+  if (/\.(mp4|webm|ogg|mov|m4v)(\?.*)?$/.test(lower)) return clean;
+  return null;
+}
+
+function getEmbeddedVideoUrl(url: string): string | null {
+  const clean = normalizeUrl(url);
+  if (!clean) return null;
+
+  try {
+    const parsed = new URL(clean);
+    const host = parsed.hostname.toLowerCase();
+    const path = parsed.pathname;
+
+    if (host.includes('youtube.com')) {
+      const id = parsed.searchParams.get('v');
+      if (id) return `https://www.youtube.com/embed/${id}`;
+    }
+
+    if (host.includes('youtu.be')) {
+      const id = path.split('/').filter(Boolean)[0];
+      if (id) return `https://www.youtube.com/embed/${id}`;
+    }
+
+    if (host.includes('vimeo.com')) {
+      const id = path.split('/').filter(Boolean)[0];
+      if (id && /^\d+$/.test(id)) return `https://player.vimeo.com/video/${id}`;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
 export default function NetworkingPage() {
   const router = useRouter();
   const { can, currentRole, currentUser, refreshBootstrap, viewerAccess } = useUser();
@@ -79,6 +126,7 @@ export default function NetworkingPage() {
     category: '',
     visibility: 'open' as CommunityVisibility,
   });
+  const [uploadedResourceName, setUploadedResourceName] = React.useState<string | null>(null);
 
   const isCommunityLocked = currentRole === 'lider' && viewerAccess?.viewerTier === 'open_leader';
   const canManageCommunities = can('networking', 'manage');
@@ -163,6 +211,10 @@ export default function NetworkingPage() {
     }
   };
 
+  const onViewConnectedProfile = (userId: string) => {
+    router.push(`/dashboard/networking/perfiles/${userId}`);
+  };
+
   const onUpdateStatus = async (connection: ConnectionRecord, status: ConnectionStatus) => {
     try {
       await updateConnection(connection.connectionId, { status });
@@ -204,6 +256,7 @@ export default function NetworkingPage() {
         resourceUrl: postForm.resourceUrl || null,
       });
       setPostForm((prev) => ({ ...prev, title: '', body: '', resourceUrl: '' }));
+      setUploadedResourceName(null);
       await load();
     } catch (error) {
       await showError('No se pudo compartir el recurso', error);
@@ -323,20 +376,57 @@ export default function NetworkingPage() {
               ) : (
                 <div className="space-y-2">
                   {connections.slice(0, 5).map((connection) => (
-                    <article key={connection.connectionId} className="rounded-xl border border-[var(--app-line)] p-2">
+                    <article
+                      key={connection.connectionId}
+                      className={`rounded-xl border border-[var(--app-line)] p-2 ${
+                        connection.status === 'connected' ? 'cursor-pointer transition hover:bg-[var(--app-surface-muted)]' : ''
+                      }`}
+                      onClick={() => {
+                        if (connection.status === 'connected') onViewConnectedProfile(connection.counterpartUserId);
+                      }}
+                      onKeyDown={(event) => {
+                        if (connection.status !== 'connected') return;
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          onViewConnectedProfile(connection.counterpartUserId);
+                        }
+                      }}
+                      role={connection.status === 'connected' ? 'button' : undefined}
+                      tabIndex={connection.status === 'connected' ? 0 : undefined}
+                    >
                       <p className="text-sm font-semibold text-[var(--app-ink)]">{connection.counterpartName}</p>
+                      {connection.status === 'connected' && (
+                        <button
+                          className="mt-1 text-xs font-semibold text-[var(--app-primary)] underline"
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onViewConnectedProfile(connection.counterpartUserId);
+                          }}
+                        >
+                          Ver perfil
+                        </button>
+                      )}
                       <div className="mt-2 flex items-center gap-2">
                         <select
                           className="app-select min-h-0 py-1 text-xs"
                           value={connection.status}
                           onChange={(event) => void onUpdateStatus(connection, event.target.value as ConnectionStatus)}
+                          onClick={(event) => event.stopPropagation()}
                         >
                           <option value="pending">pending</option>
                           <option value="connected">connected</option>
                           <option value="rejected">rejected</option>
                           <option value="blocked">blocked</option>
                         </select>
-                        <button className="text-xs font-semibold text-red-600" type="button" onClick={() => void onDeleteConnection(connection)}>
+                        <button
+                          className="text-xs font-semibold text-red-600"
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void onDeleteConnection(connection);
+                          }}
+                        >
                           Quitar
                         </button>
                       </div>
@@ -393,8 +483,28 @@ export default function NetworkingPage() {
                     value={postForm.resourceUrl}
                     onChange={(event) => setPostForm((prev) => ({ ...prev, resourceUrl: event.target.value }))}
                   />
+                  <R2UploadButton
+                    moduleCode="networking"
+                    action="create"
+                    pathPrefix="networking/posts"
+                    entityTable="app_networking.community_posts"
+                    fieldName="resource_url"
+                    accept="video/*,image/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.txt,.csv"
+                    buttonLabel="Subir archivo"
+                    disabled={!canCreate}
+                    className="app-button-secondary"
+                    onUploaded={(url, payload) => {
+                      setPostForm((prev) => ({ ...prev, resourceUrl: url }));
+                      setUploadedResourceName(payload.fileName);
+                    }}
+                  />
                   <button className="app-button-primary" type="submit" disabled={!canCreate}>Publicar</button>
                 </div>
+                {uploadedResourceName ? (
+                  <p className="text-xs text-[var(--app-muted)]">
+                    Archivo cargado: <span className="font-semibold text-[var(--app-ink)]">{uploadedResourceName}</span>
+                  </p>
+                ) : null}
               </form>
             </section>
 
@@ -415,11 +525,49 @@ export default function NetworkingPage() {
                     </div>
                     <h4 className="mt-3 text-base font-bold text-[var(--app-ink)]">{post.title}</h4>
                     <p className="mt-2 whitespace-pre-wrap text-sm text-[var(--app-muted)]">{post.body}</p>
-                    {post.resourceUrl && (
-                      <a href={post.resourceUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex text-sm font-semibold text-[var(--app-primary)] underline">
-                        Abrir recurso compartido
-                      </a>
-                    )}
+                    {post.resourceUrl && (() => {
+                      const directVideo = getDirectVideoUrl(post.resourceUrl);
+                      const embeddedVideo = getEmbeddedVideoUrl(post.resourceUrl);
+                      const normalizedUrl = normalizeUrl(post.resourceUrl);
+
+                      if (directVideo) {
+                        return (
+                          <video className="mt-3 w-full rounded-xl border border-[var(--app-line)]" controls preload="metadata">
+                            <source src={directVideo} />
+                            Tu navegador no soporta este video.
+                          </video>
+                        );
+                      }
+
+                      if (embeddedVideo) {
+                        return (
+                          <div className="mt-3 overflow-hidden rounded-xl border border-[var(--app-line)]">
+                            <iframe
+                              title={`video-${post.postId}`}
+                              src={embeddedVideo}
+                              className="aspect-video w-full"
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                              referrerPolicy="strict-origin-when-cross-origin"
+                              allowFullScreen
+                            />
+                          </div>
+                        );
+                      }
+
+                      if (normalizedUrl && /^https?:\/\//i.test(normalizedUrl)) {
+                        return (
+                          <a href={normalizedUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex text-sm font-semibold text-[var(--app-primary)] underline">
+                            Abrir recurso compartido
+                          </a>
+                        );
+                      }
+
+                      return (
+                        <p className="mt-3 text-xs text-[var(--app-muted)]">
+                          Recurso: {post.resourceUrl}
+                        </p>
+                      );
+                    })()}
                   </article>
                 ))
               )}
@@ -439,7 +587,13 @@ export default function NetworkingPage() {
                         ? 'border-[var(--app-primary)] bg-[var(--app-surface-muted)]'
                         : 'border-[var(--app-line)] hover:bg-[var(--app-surface-muted)]'
                     }`}
-                    onClick={() => setSelectedProfileId(person.userId)}
+                    onClick={() => {
+                      if (person.connectionStatus === 'connected') {
+                        onViewConnectedProfile(person.userId);
+                        return;
+                      }
+                      setSelectedProfileId(person.userId);
+                    }}
                   >
                     <p className="text-sm font-semibold text-[var(--app-ink)]">{person.displayName}</p>
                     <p className="text-xs text-[var(--app-muted)]">{person.profession ?? 'Perfil profesional'}</p>
@@ -481,6 +635,15 @@ export default function NetworkingPage() {
                     <button className="app-button-primary px-3 py-1.5 text-xs" type="button" onClick={() => void onMessage(selectedProfile)}>
                       Mensaje
                     </button>
+                    {selectedProfile.connectionStatus === 'connected' && (
+                      <button
+                        className="app-button-secondary px-3 py-1.5 text-xs"
+                        type="button"
+                        onClick={() => onViewConnectedProfile(selectedProfile.userId)}
+                      >
+                        Ver perfil completo
+                      </button>
+                    )}
                   </div>
                 </>
               )}

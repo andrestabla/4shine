@@ -146,14 +146,28 @@ SET
 
 INSERT INTO app_core.user_profiles (
     user_id,
-    plan_type
+    plan_type,
+    country,
+    job_role,
+    years_experience,
+    gender
 )
-SELECT u.user_id, 'premium'
+SELECT
+    u.user_id,
+    'premium',
+    'No definido',
+    'Especialista sin personal a cargo',
+    0,
+    'Prefiero no decirlo'
 FROM app_core.users u
 WHERE u.email = 'andresrico50@gmail.com'
 ON CONFLICT (user_id) DO UPDATE
 SET
     plan_type = 'premium',
+    country = COALESCE(NULLIF(BTRIM(app_core.user_profiles.country), ''), 'No definido'),
+    job_role = COALESCE(NULLIF(BTRIM(app_core.user_profiles.job_role), ''), 'Especialista sin personal a cargo'),
+    years_experience = COALESCE(app_core.user_profiles.years_experience, 0),
+    gender = COALESCE(NULLIF(BTRIM(app_core.user_profiles.gender), ''), 'Prefiero no decirlo'),
     updated_at = now();
 
 INSERT INTO app_billing.user_purchases (

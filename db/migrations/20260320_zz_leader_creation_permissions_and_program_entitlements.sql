@@ -122,6 +122,7 @@ END;
 $$;
 
 DROP TRIGGER IF EXISTS trg_seed_program_mentorships_for_leader ON app_core.users;
+DROP TRIGGER IF EXISTS trg_sync_program_mentorships_on_user ON app_core.users;
 CREATE TRIGGER trg_sync_program_mentorships_on_user
 AFTER INSERT OR UPDATE OF primary_role, is_active ON app_core.users
 FOR EACH ROW

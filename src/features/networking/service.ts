@@ -74,6 +74,30 @@ export interface CommunityPostRecord {
   updatedAt: string;
 }
 
+export interface ConnectedLeaderProfileRecord {
+  userId: string;
+  displayName: string;
+  primaryRole: string;
+  organizationName: string | null;
+  avatarUrl: string | null;
+  profession: string | null;
+  industry: string | null;
+  location: string | null;
+  country: string | null;
+  bio: string | null;
+  linkedinUrl: string | null;
+  twitterUrl: string | null;
+  websiteUrl: string | null;
+  interests: string[];
+  projects: Array<{
+    projectId: string;
+    title: string;
+    description: string | null;
+    projectRole: string | null;
+    imageUrl: string | null;
+  }>;
+}
+
 export interface CreateCommunityInput {
   name: string;
   description?: string | null;
@@ -149,6 +173,34 @@ interface CommunityPostRow {
   is_pinned: boolean;
   created_at: string;
   updated_at: string;
+}
+
+interface ConnectedLeaderProfileRow {
+  user_id: string;
+  display_name: string;
+  primary_role: string;
+  organization_name: string | null;
+  avatar_url: string | null;
+  profession: string | null;
+  industry: string | null;
+  location: string | null;
+  country: string | null;
+  bio: string | null;
+  linkedin_url: string | null;
+  twitter_url: string | null;
+  website_url: string | null;
+}
+
+interface InterestRow {
+  name: string;
+}
+
+interface ProjectRow {
+  project_id: string;
+  title: string;
+  description: string | null;
+  project_role: string | null;
+  image_url: string | null;
 }
 
 function mapRow(row: ConnectionRow): ConnectionRecord {
@@ -248,6 +300,121 @@ export async function listConnections(client: PoolClient, actor: AuthUser, limit
   );
 
   return rows.map(mapRow);
+}
+
+export async function getConnectedLeaderProfile(
+  client: PoolClient,
+  actor: AuthUser,
+  targetUserId: string,
+): Promise<ConnectedLeaderProfileRecord> {
+  await requireModulePermission(client, 'networking', 'view');
+  await requireCommunityAccess(client, actor, 'Networking');
+
+  const access = await client.query<{ allowed: boolean }>(
+    `
+      SELECT (
+        app_auth.has_permission('networking', 'manage')
+        OR EXISTS (
+          SELECT 1
+          FROM app_networking.connections c
+          WHERE (
+            (c.requester_user_id = $1::uuid AND c.addressee_user_id = $2::uuid)
+            OR (c.requester_user_id = $2::uuid AND c.addressee_user_id = $1::uuid)
+          )
+            AND c.status = 'connected'
+        )
+      ) AS allowed
+    `,
+    [actor.userId, targetUserId],
+  );
+
+  if (!access.rows[0]?.allowed) {
+    throw new Error('Solo puedes ver perfiles completos de líderes con los que ya estás conectado.');
+  }
+
+  const profile = await client.query<ConnectedLeaderProfileRow>(
+    `
+      SELECT
+        u.user_id::text,
+        u.display_name,
+        u.primary_role,
+        o.name AS organization_name,
+        u.avatar_url,
+        p.profession,
+        p.industry,
+        p.location,
+        p.country,
+        p.bio,
+        p.linkedin_url,
+        p.twitter_url,
+        p.website_url
+      FROM app_core.users u
+      LEFT JOIN app_core.organizations o ON o.organization_id = u.organization_id
+      LEFT JOIN app_core.user_profiles p ON p.user_id = u.user_id
+      WHERE u.user_id = $1::uuid
+        AND u.is_active = true
+        AND u.primary_role = 'lider'
+        AND app_mentoring.user_has_program_access(u.user_id)
+      LIMIT 1
+    `,
+    [targetUserId],
+  );
+
+  const row = profile.rows[0];
+  if (!row) {
+    throw new Error('Perfil no disponible.');
+  }
+
+  const [interests, projects] = await Promise.all([
+    client.query<InterestRow>(
+      `
+        SELECT i.name
+        FROM app_core.user_interests ui
+        JOIN app_core.interests i ON i.interest_id = ui.interest_id
+        WHERE ui.user_id = $1::uuid
+        ORDER BY i.name
+      `,
+      [targetUserId],
+    ),
+    client.query<ProjectRow>(
+      `
+        SELECT
+          up.project_id::text,
+          up.title,
+          up.description,
+          up.project_role,
+          up.image_url
+        FROM app_core.user_projects up
+        WHERE up.user_id = $1::uuid
+        ORDER BY up.created_at DESC
+      `,
+      [targetUserId],
+    ),
+  ]);
+
+  return {
+    userId: row.user_id,
+    displayName: row.display_name,
+    primaryRole: row.primary_role,
+    organizationName: row.organization_name,
+    avatarUrl: row.avatar_url,
+    profession: row.profession,
+    industry: row.industry,
+    location: row.location,
+    country: row.country,
+    bio: row.bio,
+    linkedinUrl: row.linkedin_url,
+    twitterUrl: row.twitter_url,
+    websiteUrl: row.website_url,
+    interests: interests.rows.map((item) => item.name),
+    projects: projects.rows.map((item) => ({
+      projectId: item.project_id,
+      title: item.title,
+      description: item.description,
+      projectRole: item.project_role,
+      imageUrl: item.image_url,
+    })),
+  };
 }
 
 export async function listNetworkPeople(

@@ -58,6 +58,30 @@ export interface CommunityPostRecord {
   updatedAt: string;
 }
 
+export interface ConnectedLeaderProfileRecord {
+  userId: string;
+  displayName: string;
+  primaryRole: string;
+  organizationName: string | null;
+  avatarUrl: string | null;
+  profession: string | null;
+  industry: string | null;
+  location: string | null;
+  country: string | null;
+  bio: string | null;
+  linkedinUrl: string | null;
+  twitterUrl: string | null;
+  websiteUrl: string | null;
+  interests: string[];
+  projects: Array<{
+    projectId: string;
+    title: string;
+    description: string | null;
+    projectRole: string | null;
+    imageUrl: string | null;
+  }>;
+}
+
 export interface CreateConnectionInput {
   addresseeUserId: string;
 }
@@ -173,6 +197,10 @@ export async function leaveCommunity(groupId: string): Promise<{ groupId: string
 
 export async function listCommunityPosts(): Promise<CommunityPostRecord[]> {
   return requestApi<CommunityPostRecord[]>('/api/v1/modules/networking/community-posts');
+}
+
+export async function getConnectedLeaderProfile(userId: string): Promise<ConnectedLeaderProfileRecord> {
+  return requestApi<ConnectedLeaderProfileRecord>(`/api/v1/modules/networking/people/${userId}/profile`);
 }
 
 export async function createCommunityPost(groupId: string, input: CreateCommunityPostInput): Promise<CommunityPostRecord> {
