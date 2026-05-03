@@ -78,10 +78,10 @@ const EMPTY_REPORTS: Record<DiscoveryReportFilter, string> = {
   up: "",
   beyond: "",
 };
-const ANALYSIS_MAX_RETRIES = 5;
+const ANALYSIS_MAX_RETRIES = 3;
 const ALL_REPORT_FILTERS: DiscoveryReportFilter[] = ["all", "within", "out", "up", "beyond"];
 const PILLAR_REPORT_FILTERS: DiscoveryReportFilter[] = ["within", "out", "up", "beyond"];
-const ANALYSIS_CONCURRENCY = 4;
+const ANALYSIS_CONCURRENCY = 2;
 
 const FACE_SCALE = [
   { value: 1, icon: Frown, label: "Muy difícil" },
@@ -387,21 +387,20 @@ export function ResultsView({
     setAnalysisBatchPending(true);
     void (async () => {
       try {
-        if (!analysisCacheRef.current.has("all")) {
-          await generateAnalysisForFilter("all");
-        }
-
-        if (cancelled) return;
-
         const pendingPillars = PILLAR_REPORT_FILTERS.filter(
           (target) => !analysisCacheRef.current.has(target),
         );
-        if (pendingPillars.length === 0) return;
+        if (pendingPillars.length > 0) {
+          for (let index = 0; index < pendingPillars.length; index += ANALYSIS_CONCURRENCY) {
+            if (cancelled) return;
+            const chunk = pendingPillars.slice(index, index + ANALYSIS_CONCURRENCY);
+            await Promise.allSettled(chunk.map((target) => generateAnalysisForFilter(target)));
+          }
+        }
 
-        for (let index = 0; index < pendingPillars.length; index += ANALYSIS_CONCURRENCY) {
+        if (!analysisCacheRef.current.has("all")) {
           if (cancelled) return;
-          const chunk = pendingPillars.slice(index, index + ANALYSIS_CONCURRENCY);
-          await Promise.allSettled(chunk.map((target) => generateAnalysisForFilter(target)));
+          await generateAnalysisForFilter("all");
         }
       } finally {
         if (!cancelled) {

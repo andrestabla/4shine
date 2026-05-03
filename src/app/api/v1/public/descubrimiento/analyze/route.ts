@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { withClient } from "@/server/db/pool";
-import { generateDiscoveryInvitationAnalysis } from "@/features/descubrimiento/service";
+import { generateDiscoveryInvitationAnalysisContract } from "@/features/descubrimiento/service";
 import type { DiscoveryReportFilter, DiscoveryScoreResult } from "@/features/descubrimiento/types";
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 interface PublicAnalyzeBody {
   inviteToken?: string;
@@ -13,6 +13,7 @@ interface PublicAnalyzeBody {
   scores?: DiscoveryScoreResult;
   pillar?: DiscoveryReportFilter;
   fallbackReport?: string;
+  force?: boolean;
 }
 
 export async function POST(request: Request) {
@@ -37,7 +38,7 @@ export async function POST(request: Request) {
 
   try {
     const data = await withClient((client) =>
-      generateDiscoveryInvitationAnalysis(client, {
+      generateDiscoveryInvitationAnalysisContract(client, {
         inviteToken,
         accessCode,
         username,
@@ -45,6 +46,7 @@ export async function POST(request: Request) {
         scores,
         pillar: body?.pillar ?? "all",
         fallbackReport: body?.fallbackReport,
+        force: body?.force,
       }),
     );
 

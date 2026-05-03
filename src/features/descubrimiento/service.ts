@@ -3836,7 +3836,13 @@ async function requestOpenAiReport(
   context: DiscoveryAnalysisContext,
   systemPrompt: string,
   userPrompt: string,
-  options?: { temperature?: number; model?: string; timeoutMs?: number; maxTokens?: number },
+  options?: {
+    temperature?: number;
+    model?: string;
+    timeoutMs?: number;
+    maxTokens?: number;
+    maxAttempts?: number;
+  },
 ): Promise<string> {
   const endpoint = `${sanitizeOpenAiBaseUrl(context.openAiConfig.wizardData.baseUrl)}/chat/completions`;
   const model = options?.model?.trim() || context.openAiConfig.wizardData.model?.trim() || "gpt-4.1";
@@ -3853,7 +3859,7 @@ async function requestOpenAiReport(
 
   // Retry on transient gateway errors (502, 503, 504, 529) and rate limits (429) with backoff.
   const RETRYABLE = new Set([429, 502, 503, 504, 529]);
-  const MAX_ATTEMPTS = 5;
+  const MAX_ATTEMPTS = Math.max(1, options?.maxAttempts ?? 3);
   let lastError: Error = new Error("OpenAI request failed after retries.");
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
@@ -3874,7 +3880,7 @@ async function requestOpenAiReport(
       clearTimeout(timer);
       lastError = fetchErr instanceof Error ? fetchErr : new Error(String(fetchErr));
       if (attempt < MAX_ATTEMPTS) {
-        await new Promise<void>((r) => setTimeout(r, attempt * 5000));
+        await new Promise<void>((r) => setTimeout(r, attempt * 1500));
         continue;
       }
       throw lastError;
@@ -3891,8 +3897,7 @@ async function requestOpenAiReport(
       lastError = new Error(`OpenAI request failed: ${detail}`);
 
       if (RETRYABLE.has(response.status) && attempt < MAX_ATTEMPTS) {
-        // Longer wait for rate limits (429)
-        const delay = response.status === 429 ? (attempt * 10000) : (attempt * 5000);
+        const delay = response.status === 429 ? attempt * 3500 : attempt * 1500;
         await new Promise<void>((r) => setTimeout(r, delay));
         continue;
       }
@@ -3993,6 +3998,14 @@ function hasAnyLists(report: string): boolean {
 }
 function isDeepEnoughReport(report: string, pillar: DiscoveryReportFilter): boolean {
   return getReportRejectionReason(report, pillar) === null;
+}
+
+function isFastPillarReportAcceptable(report: string): boolean {
+  const words = countWords(report);
+  if (words < 420) return false;
+  if (hasAnyLists(report)) return false;
+  if (looksGenericReport(report)) return false;
+  return true;
 }
 
 function looksGenericReport(report: string): boolean {
@@ -5158,21 +5171,27 @@ async function runContractStyleAnalysis(
 
   try {
     const isGlobal = pillar === "all";
+    const isFastPillar = !isGlobal && fastMode;
     const primaryModel = "gpt-4.1"; 
     const refinementModel = "gpt-4.1";
-    const maxAttempts = 5; 
+    const maxAttempts = isGlobal ? 3 : 2; 
 
     let report = await requestOpenAiReport(context, systemPrompt, userPrompt, {
       model: primaryModel,
       temperature: isGlobal ? 0.68 : 0.65, 
-      timeoutMs: isGlobal ? 110000 : 90000,
-      maxTokens: isGlobal ? 4500 : 3000,
+      timeoutMs: isGlobal ? 80000 : 45000,
+      maxTokens: isGlobal ? 4000 : 2800,
+      maxAttempts: isGlobal ? 3 : 2,
     });
     let attempts = 1;
-    while (!isDeepEnoughReport(report, pillar) && attempts < maxAttempts) {
+    const shouldRefine = (draft: string): boolean => {
+      if (isFastPillar) return !isFastPillarReportAcceptable(draft);
+      return !isDeepEnoughReport(draft, pillar);
+    };
+    while (shouldRefine(report) && attempts < maxAttempts) {
       const refinementPrompt = [
         `Iteración de mejora ${attempts}. EL REPORTE NO CUMPLE EL ESTÁNDAR DE CALIDAD.`,
-        `Palabras actuales: ${countWords(report)} (mínimo requerido: ${isGlobal ? 900 : 550}).`,
+        `Palabras actuales: ${countWords(report)} (mínimo requerido: ${isGlobal ? 900 : isFastPillar ? 420 : 550}).`,
         "",
         "INSTRUCCIONES DE REESCRITURA OBLIGATORIA:",
         "1. ELIMINA CUALQUIER LISTA, VIÑETA O NUMERACIÓN. Usa exclusivamente párrafos narrativos continuos.",
@@ -5193,12 +5212,13 @@ async function runContractStyleAnalysis(
       report = await requestOpenAiReport(context, systemPrompt, refinementPrompt, {
         model: refinementModel,
         temperature: 0.7 + (attempts * 0.05), 
-        timeoutMs: isGlobal ? 120000 : 100000,
-        maxTokens: isGlobal ? 4500 : 3000,
+        timeoutMs: isGlobal ? 80000 : 50000,
+        maxTokens: isGlobal ? 4000 : 2800,
+        maxAttempts: isGlobal ? 3 : 2,
       });
       attempts += 1;
     }
-    if (!isDeepEnoughReport(report, pillar)) {
+    if (shouldRefine(report)) {
       const reason = getReportRejectionReason(report, pillar);
       console.warn(`[Discovery] Report quality check failed after ${attempts} attempts: ${reason}. Returning best effort.`);
     }
