@@ -1,15 +1,16 @@
 import type { PoolClient } from 'pg';
 import type { AuthUser } from '@/server/auth/types';
 import { requireModulePermission } from '@/server/auth/module-permissions';
+import {
+  USER_COUNTRY_SET,
+  USER_GENDER_SET,
+  USER_JOB_ROLE_OPTIONS,
+  type UserJobRoleOption,
+} from '@/lib/user-demographics';
 
 type PlanType = 'standard' | 'premium' | 'vip' | 'empresa_elite';
 type SeniorityLevel = 'senior' | 'c_level' | 'director' | 'manager' | 'vp';
-type JobRole =
-  | 'Director/C-Level'
-  | 'Gerente/Mando medio'
-  | 'Coordinador'
-  | 'Lider de proyecto con equipo a cargo'
-  | 'Especialista sin personal a cargo';
+type JobRole = UserJobRoleOption;
 
 export interface ProfileProjectRecord {
   projectId: string;
@@ -119,14 +120,7 @@ interface ProjectRow {
   image_url: string | null;
 }
 
-const JOB_ROLE_OPTIONS: readonly JobRole[] = [
-  'Director/C-Level',
-  'Gerente/Mando medio',
-  'Coordinador',
-  'Lider de proyecto con equipo a cargo',
-  'Especialista sin personal a cargo',
-];
-const JOB_ROLE_SET = new Set<JobRole>(JOB_ROLE_OPTIONS);
+const JOB_ROLE_SET = new Set<JobRole>(USER_JOB_ROLE_OPTIONS);
 
 function normalizeText(value: string | null | undefined): string | null {
   if (value === undefined) return null;
@@ -150,10 +144,16 @@ function normalizeJobRole(value: JobRole | string | null | undefined): JobRole |
 function normalizeGender(value: string | null | undefined): string | null {
   if (value === undefined || value === null) return null;
   const trimmed = value.trim();
-  if (trimmed === 'Hombre' || trimmed === 'Mujer' || trimmed === 'Prefiero no decirlo') {
+  if (USER_GENDER_SET.has(trimmed)) {
     return trimmed;
   }
   return null;
+}
+
+function normalizeCountry(value: string | null | undefined): string | null {
+  const normalized = normalizeText(value);
+  if (!normalized) return null;
+  return USER_COUNTRY_SET.has(normalized) ? normalized : null;
 }
 
 function normalizeYearsExperience(value: number | null | undefined): number | null {
@@ -455,7 +455,7 @@ export async function updateMyProfile(
     seniorityLevel: input.seniorityLevel === undefined ? current.seniorityLevel : input.seniorityLevel,
     bio: input.bio === undefined ? current.bio : normalizeText(input.bio),
     location: input.location === undefined ? current.location : normalizeText(input.location),
-    country: input.country === undefined ? current.country : normalizeText(input.country),
+    country: input.country === undefined ? current.country : normalizeCountry(input.country),
     jobRole: input.jobRole === undefined ? current.jobRole : normalizeJobRole(input.jobRole),
     gender: input.gender === undefined ? current.gender : normalizeGender(input.gender),
     yearsExperience:

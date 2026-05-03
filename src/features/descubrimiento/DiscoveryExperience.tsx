@@ -70,6 +70,8 @@ import {
 } from "./client";
 import { ResultsView } from "./ResultsView";
 import {
+  DISCOVERY_COUNTRY_OPTIONS,
+  DISCOVERY_GENDER_OPTIONS,
   DISCOVERY_JOB_ROLE_OPTIONS,
   type DiscoveryFeedbackSettingsRecord,
   type DiscoveryInvitationRecord,
@@ -2323,14 +2325,20 @@ export function DiscoveryExperience() {
                 placeholder="Apellidos"
                 className="h-11 rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
               />
-              <input
+              <select
                 value={state.profile.country}
                 onChange={(event) =>
                   setState((current) => ({ ...current, profile: { ...current.profile, country: event.target.value } }))
                 }
-                placeholder="País"
                 className="h-11 rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
-              />
+              >
+                <option value="">Selecciona país</option>
+                {DISCOVERY_COUNTRY_OPTIONS.map((country) => (
+                  <option key={country} value={country}>
+                    {country}
+                  </option>
+                ))}
+              </select>
               <select
                 value={state.profile.jobRole}
                 onChange={(event) =>
@@ -2357,9 +2365,11 @@ export function DiscoveryExperience() {
                 className="h-11 rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
               >
                 <option value="">Género</option>
-                <option value="Hombre">Hombre</option>
-                <option value="Mujer">Mujer</option>
-                <option value="Prefiero no decirlo">Prefiero no decirlo</option>
+                {DISCOVERY_GENDER_OPTIONS.map((gender) => (
+                  <option key={gender} value={gender}>
+                    {gender}
+                  </option>
+                ))}
               </select>
               <select
                 value={YEARS_EXPERIENCE_OPTIONS.find((o) => o.storedValue === state.profile.yearsExperience)?.key ?? ""}

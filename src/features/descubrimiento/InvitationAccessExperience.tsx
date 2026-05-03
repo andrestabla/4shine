@@ -19,6 +19,7 @@ import {
 } from "./client";
 import {
   DISCOVERY_COUNTRY_OPTIONS,
+  DISCOVERY_GENDER_OPTIONS,
   DISCOVERY_JOB_ROLE_OPTIONS,
   type DiscoverySessionRecord,
   type DiscoveryUserState,
@@ -690,9 +691,11 @@ export function InvitationAccessExperience({
                 className="h-11 rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
               >
                 <option value="">Selecciona género</option>
-                <option value="Hombre">Hombre</option>
-                <option value="Mujer">Mujer</option>
-                <option value="Prefiero no decirlo">Prefiero no decirlo</option>
+                {DISCOVERY_GENDER_OPTIONS.map((gender) => (
+                  <option key={gender} value={gender}>
+                    {gender}
+                  </option>
+                ))}
               </select>
               <select
                 value={getYearsExperienceBucket(externalState.profile.yearsExperience)}
@@ -1145,4 +1148,3 @@ export function InvitationAccessExperience({
     </div>
   );
 }
-

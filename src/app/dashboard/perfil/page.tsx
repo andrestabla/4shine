@@ -19,16 +19,10 @@ import { useUser } from '@/context/UserContext';
 import { getMyProfile, updateMyProfile, type MyProfileRecord } from '@/features/perfil/client';
 import { optimizeAvatarForUpload } from '@/lib/image-processing';
 import { YEARS_EXPERIENCE_OPTIONS, yearsToLabel, yearsToKey, keyToStoredValue } from '@/lib/demographics';
+import { USER_COUNTRY_OPTIONS, USER_GENDER_OPTIONS, USER_JOB_ROLE_OPTIONS, type UserJobRoleOption } from '@/lib/user-demographics';
 
 type PlanType = 'standard' | 'premium' | 'vip' | 'empresa_elite';
 type SeniorityLevel = 'senior' | 'c_level' | 'director' | 'manager' | 'vp';
-type JobRole =
-  | 'Director/C-Level'
-  | 'Gerente/Mando medio'
-  | 'Coordinador'
-  | 'Lider de proyecto con equipo a cargo'
-  | 'Especialista sin personal a cargo';
-
 interface ProjectFormItem {
   title: string;
   description: string;
@@ -44,7 +38,7 @@ interface ProfileFormState {
   industry: string;
   location: string;
   country: string;
-  jobRole: JobRole | '';
+  jobRole: UserJobRoleOption | '';
   gender: string;
   yearsExperience: string;
   bio: string;
@@ -56,14 +50,6 @@ interface ProfileFormState {
   interestsText: string;
   projects: ProjectFormItem[];
 }
-
-const JOB_ROLE_OPTIONS: readonly JobRole[] = [
-  'Director/C-Level',
-  'Gerente/Mando medio',
-  'Coordinador',
-  'Lider de proyecto con equipo a cargo',
-  'Especialista sin personal a cargo',
-];
 
 function planLabel(planType: PlanType | null): 'VIP' | 'Premium' | 'Empresa Élite' | 'Standard' {
   switch (planType) {
@@ -480,12 +466,19 @@ export default function PerfilPage() {
                 </label>
                 <label>
                   <span className="app-field-label">País</span>
-                  <input
-                    className="app-input"
+                  <select
+                    className="app-select"
                     value={form.country}
                     onChange={(event) => setForm((prev) => (prev ? { ...prev, country: event.target.value } : prev))}
                     required
-                  />
+                  >
+                    <option value="">Seleccionar país</option>
+                    {USER_COUNTRY_OPTIONS.map((country) => (
+                      <option key={country} value={country}>
+                        {country}
+                      </option>
+                    ))}
+                  </select>
                 </label>
                 <label>
                   <span className="app-field-label">Cargo</span>
@@ -493,12 +486,12 @@ export default function PerfilPage() {
                     className="app-select"
                     value={form.jobRole}
                     onChange={(event) =>
-                      setForm((prev) => (prev ? { ...prev, jobRole: event.target.value as JobRole | '' } : prev))
+                      setForm((prev) => (prev ? { ...prev, jobRole: event.target.value as UserJobRoleOption | '' } : prev))
                     }
                     required
                   >
                     <option value="">Sin definir</option>
-                    {JOB_ROLE_OPTIONS.map((jobRole) => (
+                    {USER_JOB_ROLE_OPTIONS.map((jobRole) => (
                       <option key={jobRole} value={jobRole}>
                         {jobRole}
                       </option>
@@ -514,9 +507,11 @@ export default function PerfilPage() {
                     required
                   >
                     <option value="">Género</option>
-                    <option value="Hombre">Hombre</option>
-                    <option value="Mujer">Mujer</option>
-                    <option value="Prefiero no decirlo">Prefiero no decirlo</option>
+                    {USER_GENDER_OPTIONS.map((gender) => (
+                      <option key={gender} value={gender}>
+                        {gender}
+                      </option>
+                    ))}
                   </select>
                 </label>
                 <label>

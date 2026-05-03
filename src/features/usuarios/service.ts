@@ -6,15 +6,16 @@ import { requireModulePermission } from '@/server/auth/module-permissions';
 import { hashPassword } from '@/server/auth/password';
 import type { Role } from '@/server/bootstrap/types';
 import type { AuthUser } from '@/server/auth/types';
+import {
+  USER_COUNTRY_SET,
+  USER_GENDER_SET,
+  USER_JOB_ROLE_OPTIONS,
+  type UserJobRoleOption,
+} from '@/lib/user-demographics';
 
 type PlanType = 'standard' | 'premium' | 'vip' | 'empresa_elite';
 type SeniorityLevel = 'senior' | 'c_level' | 'director' | 'manager' | 'vp';
-type JobRole =
-  | 'Director/C-Level'
-  | 'Gerente/Mando medio'
-  | 'Coordinador'
-  | 'Lider de proyecto con equipo a cargo'
-  | 'Especialista sin personal a cargo';
+type JobRole = UserJobRoleOption;
 type PolicyStatus = 'accepted' | 'pending';
 type OutboundProvider = 'smtp' | 'sendgrid' | 'resend' | 'ses';
 
@@ -210,14 +211,7 @@ const SUBSCRIBED_LEADER_PLAN_TYPES = new Set<PlanType>([
   'empresa_elite',
 ]);
 
-const JOB_ROLE_OPTIONS: readonly JobRole[] = [
-  'Director/C-Level',
-  'Gerente/Mando medio',
-  'Coordinador',
-  'Lider de proyecto con equipo a cargo',
-  'Especialista sin personal a cargo',
-];
-const JOB_ROLE_SET = new Set<JobRole>(JOB_ROLE_OPTIONS);
+const JOB_ROLE_SET = new Set<JobRole>(USER_JOB_ROLE_OPTIONS);
 const USER_PROFILE_DEFAULTS = {
   country: 'No definido',
   jobRole: 'Especialista sin personal a cargo' as JobRole,
@@ -572,10 +566,16 @@ function normalizeJobRole(value: JobRole | string | null | undefined): JobRole |
 function normalizeGender(value: string | null | undefined): string | null {
   if (value === undefined || value === null) return null;
   const trimmed = value.trim();
-  if (trimmed === 'Hombre' || trimmed === 'Mujer' || trimmed === 'Prefiero no decirlo') {
+  if (USER_GENDER_SET.has(trimmed)) {
     return trimmed;
   }
   return null;
+}
+
+function normalizeCountry(value: string | null | undefined): string | null {
+  const normalized = normalizeOptionalText(value);
+  if (!normalized) return null;
+  return USER_COUNTRY_SET.has(normalized) ? normalized : null;
 }
 
 function normalizeYearsExperience(value: number | null | undefined): number | null {
@@ -1142,7 +1142,7 @@ export async function createUser(
   const passwordHash = await hashPassword(input.password);
   const displayName = input.displayName ?? `${input.firstName} ${input.lastName}`.trim();
   const resolvedPlanType = resolvePlanTypeForCreate(input);
-  const normalizedCountry = normalizeOptionalText(input.country ?? null);
+  const normalizedCountry = normalizeCountry(input.country ?? null);
   const normalizedJobRole = normalizeJobRole(input.jobRole ?? null);
   const normalizedGender = normalizeGender(input.gender ?? null);
   const normalizedYearsExperience = normalizeYearsExperience(input.yearsExperience ?? null);
@@ -1311,7 +1311,7 @@ export async function updateUser(
     input.jobRole !== undefined ||
     input.gender !== undefined ||
     input.yearsExperience !== undefined;
-  const normalizedCountry = input.country === undefined ? null : normalizeOptionalText(input.country);
+  const normalizedCountry = input.country === undefined ? null : normalizeCountry(input.country);
   const normalizedJobRole = input.jobRole === undefined ? null : normalizeJobRole(input.jobRole);
   const normalizedGender = input.gender === undefined ? null : normalizeGender(input.gender);
   const normalizedYearsExperience =
@@ -1411,7 +1411,7 @@ export async function updateUser(
     );
     const existing = existingRows[0];
 
-    const existingCountry = normalizeOptionalText(existing?.country ?? null);
+    const existingCountry = normalizeCountry(existing?.country ?? null);
     const existingJobRole = normalizeJobRole(existing?.job_role ?? null);
     const existingGender = normalizeGender(existing?.gender ?? null);
     const existingYearsExperience = normalizeYearsExperience(existing?.years_experience ?? null);

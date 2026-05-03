@@ -1,3 +1,5 @@
+import { USER_COUNTRY_OPTIONS, USER_GENDER_OPTIONS, USER_JOB_ROLE_OPTIONS } from "@/lib/user-demographics";
+
 export type DiscoveryStep = "intro" | "instructions" | "quiz" | "results";
 
 export type DiscoveryAnswerValue = string | number;
@@ -7,37 +9,9 @@ export type DiscoveryPillarKey = "within" | "out" | "up" | "beyond";
 export type DiscoveryReportFilter = "all" | DiscoveryPillarKey;
 export type DiscoveryAiReports = Partial<Record<DiscoveryReportFilter, string>>;
 
-export const DISCOVERY_JOB_ROLE_OPTIONS = [
-  "Director/C-Level",
-  "Gerente/Mando medio",
-  "Coordinador",
-  "Lider de proyecto con equipo a cargo",
-  "Especialista sin personal a cargo",
-] as const;
-
-export const DISCOVERY_COUNTRY_OPTIONS = [
-  "Argentina",
-  "Bolivia",
-  "Brasil",
-  "Canadá",
-  "Chile",
-  "Colombia",
-  "Costa Rica",
-  "Ecuador",
-  "El Salvador",
-  "España",
-  "Estados Unidos",
-  "Guatemala",
-  "Honduras",
-  "México",
-  "Nicaragua",
-  "Panamá",
-  "Paraguay",
-  "Perú",
-  "República Dominicana",
-  "Uruguay",
-  "Venezuela",
-] as const;
+export const DISCOVERY_JOB_ROLE_OPTIONS = USER_JOB_ROLE_OPTIONS;
+export const DISCOVERY_COUNTRY_OPTIONS = USER_COUNTRY_OPTIONS;
+export const DISCOVERY_GENDER_OPTIONS = USER_GENDER_OPTIONS;
 
 export type DiscoveryJobRole = (typeof DISCOVERY_JOB_ROLE_OPTIONS)[number];
 

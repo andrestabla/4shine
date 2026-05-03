@@ -12,6 +12,7 @@ import { requireModulePermission } from "@/server/auth/module-permissions";
 import { hashPassword } from "@/server/auth/password";
 import { resolveOrganizationIdForActor } from "@/server/integrations/config";
 import type { AuthUser } from "@/server/auth/types";
+import { USER_COUNTRY_SET, USER_GENDER_SET, USER_JOB_ROLE_SET } from "@/lib/user-demographics";
 import { COMP_DEFINITIONS } from "./DiagnosticsData";
 import {
   DISCOVERY_TOTAL_ITEMS,
@@ -223,13 +224,17 @@ function normalizeProfile(
     typeof input?.country === "string"
       ? input.country.trim().slice(0, 120)
       : (fallback?.country ?? "").trim().slice(0, 120);
+  const normalizedCountry = USER_COUNTRY_SET.has(country) ? country : "";
 
   const incomingRole =
     typeof input?.jobRole === "string" ? input.jobRole.trim() : fallback?.jobRole ?? "";
   const normalizedRole =
     incomingRole === "Gerente/Mand medio" ? "Gerente/Mando medio" : incomingRole;
+  const safeRole = USER_JOB_ROLE_SET.has(normalizedRole) ? normalizedRole : "";
 
-  const gender = (typeof input?.gender === "string" ? input.gender.trim() : (fallback?.gender ?? "")) as
+  const genderCandidate =
+    typeof input?.gender === "string" ? input.gender.trim() : (fallback?.gender ?? "");
+  const gender = (USER_GENDER_SET.has(genderCandidate) ? genderCandidate : "") as
     | "Hombre"
     | "Mujer"
     | "Prefiero no decirlo"
@@ -243,8 +248,8 @@ function normalizeProfile(
   return {
     firstName,
     lastName,
-    country,
-    jobRole: normalizedRole as DiscoveryParticipantProfile["jobRole"],
+    country: normalizedCountry,
+    jobRole: safeRole as DiscoveryParticipantProfile["jobRole"],
     gender: gender as DiscoveryParticipantProfile["gender"],
     yearsExperience,
   };

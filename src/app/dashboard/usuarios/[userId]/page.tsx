@@ -37,6 +37,7 @@ import {
   type UserTypeOption,
 } from '@/features/usuarios/user-types';
 import { YEARS_EXPERIENCE_OPTIONS, yearsToKey, keyToStoredValue } from '@/lib/demographics';
+import { USER_COUNTRY_OPTIONS, USER_GENDER_OPTIONS, USER_JOB_ROLE_OPTIONS, type UserJobRoleOption } from '@/lib/user-demographics';
 
 function asUserId(value: string | string[] | undefined): string | null {
   if (!value) return null;
@@ -76,19 +77,9 @@ function summarizeLogPayload(payload: Record<string, unknown>): string {
   }
 }
 
-const JOB_ROLE_OPTIONS = [
-  'Director/C-Level',
-  'Gerente/Mando medio',
-  'Coordinador',
-  'Lider de proyecto con equipo a cargo',
-  'Especialista sin personal a cargo',
-] as const;
-
-type JobRoleOption = (typeof JOB_ROLE_OPTIONS)[number];
-
 interface DemographicsFormState {
   country: string;
-  jobRole: JobRoleOption | '';
+  jobRole: UserJobRoleOption | '';
   gender: string;
   yearsExperience: string;
 }
@@ -96,7 +87,7 @@ interface DemographicsFormState {
 function toDemographicsForm(detail: UserDetailRecord): DemographicsFormState {
   return {
     country: detail.country ?? '',
-    jobRole: (detail.jobRole ?? '') as JobRoleOption | '',
+    jobRole: (detail.jobRole ?? '') as UserJobRoleOption | '',
     gender: detail.gender ?? '',
     yearsExperience: yearsToKey(detail.yearsExperience),
   };
@@ -479,15 +470,22 @@ export default function UsuarioDetallePage() {
             <div className="grid grid-cols-1 gap-3">
               <label>
                 <span className="app-field-label">País</span>
-                <input
-                  className="app-input"
+                <select
+                  className="app-select"
                   value={demographicsForm.country}
                   onChange={(event) =>
                     setDemographicsForm((prev) => ({ ...prev, country: event.target.value }))
                   }
                   disabled={!canUpdate || processingAction !== null}
                   required
-                />
+                >
+                  <option value="">Seleccionar país</option>
+                  {USER_COUNTRY_OPTIONS.map((country) => (
+                    <option key={country} value={country}>
+                      {country}
+                    </option>
+                  ))}
+                </select>
               </label>
 
               <label>
@@ -496,13 +494,13 @@ export default function UsuarioDetallePage() {
                   className="app-select"
                   value={demographicsForm.jobRole}
                   onChange={(event) =>
-                    setDemographicsForm((prev) => ({ ...prev, jobRole: event.target.value as JobRoleOption | '' }))
+                    setDemographicsForm((prev) => ({ ...prev, jobRole: event.target.value as UserJobRoleOption | '' }))
                   }
                   disabled={!canUpdate || processingAction !== null}
                   required
                 >
                   <option value="">Sin definir</option>
-                  {JOB_ROLE_OPTIONS.map((jobRole) => (
+                  {USER_JOB_ROLE_OPTIONS.map((jobRole) => (
                     <option key={jobRole} value={jobRole}>
                       {jobRole}
                     </option>
@@ -522,9 +520,11 @@ export default function UsuarioDetallePage() {
                   required
                 >
                   <option value="">Género</option>
-                  <option value="Hombre">Hombre</option>
-                  <option value="Mujer">Mujer</option>
-                  <option value="Prefiero no decirlo">Prefiero no decirlo</option>
+                  {USER_GENDER_OPTIONS.map((gender) => (
+                    <option key={gender} value={gender}>
+                      {gender}
+                    </option>
+                  ))}
                 </select>
               </label>
 

@@ -14,13 +14,7 @@ import {
   type UserTypeOption,
 } from '@/features/usuarios/user-types';
 import { YEARS_EXPERIENCE_OPTIONS, keyToStoredValue } from '@/lib/demographics';
-
-type JobRole =
-  | 'Director/C-Level'
-  | 'Gerente/Mando medio'
-  | 'Coordinador'
-  | 'Lider de proyecto con equipo a cargo'
-  | 'Especialista sin personal a cargo';
+import { USER_COUNTRY_OPTIONS, USER_GENDER_OPTIONS, USER_JOB_ROLE_OPTIONS, type UserJobRoleOption } from '@/lib/user-demographics';
 
 interface FormState {
   firstName: string;
@@ -29,18 +23,10 @@ interface FormState {
   password: string;
   userType: UserTypeOption;
   country: string;
-  jobRole: JobRole | '';
+  jobRole: UserJobRoleOption | '';
   gender: string;
   yearsExperience: string;
 }
-
-const JOB_ROLE_OPTIONS: readonly JobRole[] = [
-  'Director/C-Level',
-  'Gerente/Mando medio',
-  'Coordinador',
-  'Lider de proyecto con equipo a cargo',
-  'Especialista sin personal a cargo',
-];
 
 export default function NuevoUsuarioPage() {
   const router = useRouter();
@@ -193,13 +179,19 @@ export default function NuevoUsuarioPage() {
 
           <label>
             <span className="app-field-label">País</span>
-            <input
-              className="app-input"
-              placeholder="Ej: Colombia"
+            <select
+              className="app-select"
               value={form.country}
               onChange={(event) => setForm((prev) => ({ ...prev, country: event.target.value }))}
               required
-            />
+            >
+              <option value="">Seleccionar país</option>
+              {USER_COUNTRY_OPTIONS.map((country) => (
+                <option key={country} value={country}>
+                  {country}
+                </option>
+              ))}
+            </select>
           </label>
 
           <label>
@@ -211,7 +203,7 @@ export default function NuevoUsuarioPage() {
               required
             >
               <option value="">Sin definir</option>
-              {JOB_ROLE_OPTIONS.map((jobRole) => (
+              {USER_JOB_ROLE_OPTIONS.map((jobRole) => (
                 <option key={jobRole} value={jobRole}>
                   {jobRole}
                 </option>
@@ -228,9 +220,11 @@ export default function NuevoUsuarioPage() {
               required
             >
               <option value="">Género</option>
-              <option value="Hombre">Hombre</option>
-              <option value="Mujer">Mujer</option>
-              <option value="Prefiero no decirlo">Prefiero no decirlo</option>
+              {USER_GENDER_OPTIONS.map((gender) => (
+                <option key={gender} value={gender}>
+                  {gender}
+                </option>
+              ))}
             </select>
           </label>
 
