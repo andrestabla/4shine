@@ -40,7 +40,7 @@ import {
   analyzeInvitationDiscoveryReportBatch,
 } from "./client";
 import { downloadDiscoveryPdfReport } from "./pdf-export";
-import { buildDiscoveryReports, getDiscoveryStatus, scoreDiscoveryAnswers } from "./reporting";
+import { getDiscoveryStatus, scoreDiscoveryAnswers } from "./reporting";
 import type {
   DiscoveryAiReports,
   DiscoveryExperienceSurvey,
@@ -170,10 +170,6 @@ export function ResultsView({
   const scoring = React.useMemo(
     () => scoreDiscoveryAnswers(state.answers),
     [state.answers],
-  );
-  const fallbackReports = React.useMemo(
-    () => buildDiscoveryReports(state, scoring),
-    [state, scoring],
   );
   const isInvitationExperience =
     isPublic && (Boolean(invitationCredentials) || enablePublicAnalysis);
@@ -337,14 +333,12 @@ export function ResultsView({
                   role: state.profile.jobRole || "Invitado",
                   scores: scoring,
                   pillar: target,
-                  fallbackReport: fallbackReports[target],
                 })
               : await analyzeDiscoveryReport({
                   username: state.name,
                   role: state.profile.jobRole || "Lider",
                   scores: scoring,
                   pillar: target,
-                  fallbackReport: fallbackReports[target],
                 });
 
             if (response.report?.trim()) {
@@ -377,7 +371,6 @@ export function ResultsView({
     },
     [
       enablePublicAnalysis,
-      fallbackReports,
       invitationCredentials,
       isPublic,
       scoring,
@@ -814,6 +807,9 @@ export function ResultsView({
               <span>Generando análisis</span>
               <span>{analysisCompletedCount}/5</span>
             </div>
+            <p className="mt-2 text-[11px] text-[var(--app-muted)]">
+              Este proceso puede tardar hasta 5 minutos por la profundidad del análisis.
+            </p>
             <div className="mt-2 h-2 overflow-hidden rounded-full bg-white">
               <div
                 className="h-full rounded-full bg-[var(--brand-primary)] transition-all duration-500"
@@ -1058,6 +1054,9 @@ export function ResultsView({
                   <div className="text-xs font-semibold text-[var(--app-muted)]">
                     {analysisCompletedCount} de {ALL_REPORT_FILTERS.length} vistas cerradas
                   </div>
+                  <p className="max-w-xs text-[11px] text-[var(--app-muted)]">
+                    Este proceso puede tardar hasta 5 minutos debido a la profundidad del análisis.
+                  </p>
                 </div>
               </div>
             )}
