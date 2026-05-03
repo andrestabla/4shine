@@ -23,6 +23,13 @@ const DISCOVERY_CONTEXT_EXTRA_MIME_TYPES = [
   'application/vnd.ms-excel',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 ];
+const PROFILE_CV_MIN_MAX_SIZE_MB = 30;
+const PROFILE_CV_EXTRA_MIME_TYPES = [
+  'application/pdf',
+  'text/plain',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+];
 
 function asString(value: FormDataEntryValue | null): string {
   return typeof value === 'string' ? value.trim() : '';
@@ -56,6 +63,9 @@ export async function POST(request: Request) {
     moduleCodeInput === 'descubrimiento' &&
     (fieldName === 'context_documents' ||
       (pathPrefix?.startsWith('descubrimiento/context') ?? false));
+  const isProfileCvUpload =
+    moduleCodeInput === 'perfil' &&
+    (fieldName === 'cv_url' || (pathPrefix?.startsWith('profiles/') && pathPrefix.includes('/cv')));
 
   if (!VALID_MODULE_CODES.has(moduleCodeInput)) {
     return NextResponse.json(
@@ -95,6 +105,20 @@ export async function POST(request: Request) {
             new Set([
               ...config.allowedMimeTypes,
               ...DISCOVERY_CONTEXT_EXTRA_MIME_TYPES,
+            ]),
+          );
+          config.maxFileSizeBytes = expandedBytes;
+          config.allowedMimeTypes = mergedMimeTypes;
+        }
+        if (isProfileCvUpload) {
+          const expandedBytes = Math.max(
+            config.maxFileSizeBytes,
+            PROFILE_CV_MIN_MAX_SIZE_MB * 1024 * 1024,
+          );
+          const mergedMimeTypes = Array.from(
+            new Set([
+              ...config.allowedMimeTypes,
+              ...PROFILE_CV_EXTRA_MIME_TYPES,
             ]),
           );
           config.maxFileSizeBytes = expandedBytes;
