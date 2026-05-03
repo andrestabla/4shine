@@ -783,7 +783,7 @@ export function ResultsView({
               <span>{analysisCompletedCount}/5</span>
             </div>
             <p className="mt-2 text-[11px] text-[var(--app-muted)]">
-              Este proceso puede tardar hasta 5 minutos por la profundidad del análisis.
+              Puede tardar hasta 10 minutos dependiendo de tu conexión a Internet.
             </p>
             <div className="mt-2 h-2 overflow-hidden rounded-full bg-white">
               <div
@@ -1030,7 +1030,7 @@ export function ResultsView({
                     {analysisCompletedCount} de {ALL_REPORT_FILTERS.length} vistas cerradas
                   </div>
                   <p className="max-w-xs text-[11px] text-[var(--app-muted)]">
-                    Este proceso puede tardar hasta 5 minutos debido a la profundidad del análisis.
+                    Puede tardar hasta 10 minutos dependiendo de tu conexión a Internet.
                   </p>
                 </div>
               </div>

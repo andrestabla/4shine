@@ -137,6 +137,18 @@ const DISCOVERY_SURVEY_QUESTIONS = [
   "¿Te gustó la experiencia de hacer el diagnóstico?",
   "¿El diagnóstico te ayudó a conocerte mejor como líder?",
 ] as const;
+
+function logDiscoveryAnalysisTiming(input: {
+  scope: "session" | "invitation" | "guest";
+  pillar: DiscoveryReportFilter;
+  username: string;
+  durationMs: number;
+  source: "ai" | "fallback";
+}) {
+  console.info(
+    `[Discovery][AI][Timing] scope=${input.scope} pillar=${input.pillar} user="${input.username}" source=${input.source} durationMs=${input.durationMs}`,
+  );
+}
 const DEFAULT_AI_FEEDBACK_INSTRUCTIONS = `
 Eres un analista experto en la metodologia 4Shine.
 Tu objetivo es analizar el perfil de liderazgo del usuario usando el contexto metodologico cargado por el admin en RAG.
@@ -5294,6 +5306,7 @@ export async function generateDiscoveryAnalysisContract(
     feedbackSettings,
   };
 
+  const startedAt = Date.now();
   const result = await runContractStyleAnalysis(client, analysisContext, {
     ...input,
     fastMode: pillar !== "all",
@@ -5306,6 +5319,14 @@ export async function generateDiscoveryAnalysisContract(
       await persistDiscoverySessionAiReport(client, sessionRecordId, pillar, result.report.trim());
     }
   }
+
+  logDiscoveryAnalysisTiming({
+    scope: "session",
+    pillar,
+    username: input.username,
+    durationMs: Date.now() - startedAt,
+    source: result.source,
+  });
 
   return result;
 }
@@ -5428,6 +5449,7 @@ export async function generateDiscoveryInvitationAnalysisContract(
   };
 
   const pillar = input.pillar ?? "all";
+  const startedAt = Date.now();
   const result = await runContractStyleAnalysis(client, analysisContext, {
     ...input,
     fastMode: pillar !== "all",
@@ -5441,6 +5463,14 @@ export async function generateDiscoveryInvitationAnalysisContract(
       result.report.trim(),
     );
   }
+
+  logDiscoveryAnalysisTiming({
+    scope: "invitation",
+    pillar,
+    username: input.username,
+    durationMs: Date.now() - startedAt,
+    source: result.source,
+  });
 
   return result;
 }
@@ -5608,6 +5638,7 @@ export async function generateDiscoveryGuestSessionAnalysisContract(
     feedbackSettings,
   };
 
+  const startedAt = Date.now();
   const result = await runContractStyleAnalysis(client, analysisContext, {
     ...input,
     fastMode: pillar !== "all",
@@ -5616,6 +5647,14 @@ export async function generateDiscoveryGuestSessionAnalysisContract(
   if (result.report.trim().length > 0) {
     await persistDiscoveryInvitationAiReport(client, row.invitation_id, pillar, result.report.trim());
   }
+
+  logDiscoveryAnalysisTiming({
+    scope: "guest",
+    pillar,
+    username: input.username,
+    durationMs: Date.now() - startedAt,
+    source: result.source,
+  });
 
   return result;
 }
