@@ -577,59 +577,112 @@ export async function updateMyProfile(
     [actor.userId, nextFirstName, nextLastName, nextDisplayName, nextTimezone, nextAvatarUrl],
   );
 
-  await client.query(
-    `
-      INSERT INTO app_core.user_profiles (
-        user_id,
-        profession,
-        industry,
-        plan_type,
-        seniority_level,
-        bio,
-        location,
-        country,
-        job_role,
-        gender,
-        years_experience,
-        linkedin_url,
-        twitter_url,
-        website_url
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-      ON CONFLICT (user_id) DO UPDATE
-      SET
-        profession = EXCLUDED.profession,
-        industry = EXCLUDED.industry,
-        plan_type = EXCLUDED.plan_type,
-        seniority_level = EXCLUDED.seniority_level,
-        bio = EXCLUDED.bio,
-        location = EXCLUDED.location,
-        country = EXCLUDED.country,
-        job_role = EXCLUDED.job_role,
-        gender = EXCLUDED.gender,
-        years_experience = EXCLUDED.years_experience,
-        linkedin_url = EXCLUDED.linkedin_url,
-        twitter_url = EXCLUDED.twitter_url,
-        website_url = EXCLUDED.website_url,
-        updated_at = now()
-    `,
-    [
-      actor.userId,
-      nextProfile.profession,
-      nextProfile.industry,
-      nextProfile.planType,
-      nextProfile.seniorityLevel,
-      nextProfile.bio,
-      nextProfile.location,
-      nextProfile.country,
-      nextProfile.jobRole,
-      nextProfile.gender,
-      nextProfile.yearsExperience,
-      nextProfile.linkedinUrl,
-      nextProfile.twitterUrl,
-      nextProfile.websiteUrl,
-    ],
-  );
+  const profileExists = (
+    await client.query<{ exists: boolean }>(
+      `
+        SELECT EXISTS (
+          SELECT 1
+          FROM app_core.user_profiles
+          WHERE user_id = $1
+        ) AS exists
+      `,
+      [actor.userId],
+    )
+  ).rows[0]?.exists;
+
+  if (!profileExists) {
+    await client.query(
+      `
+        INSERT INTO app_core.user_profiles (
+          user_id,
+          profession,
+          industry,
+          plan_type,
+          seniority_level,
+          bio,
+          location,
+          country,
+          job_role,
+          gender,
+          years_experience,
+          linkedin_url,
+          twitter_url,
+          website_url
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      `,
+      [
+        actor.userId,
+        nextProfile.profession,
+        nextProfile.industry,
+        nextProfile.planType,
+        nextProfile.seniorityLevel,
+        nextProfile.bio,
+        nextProfile.location,
+        nextProfile.country,
+        nextProfile.jobRole,
+        nextProfile.gender,
+        nextProfile.yearsExperience,
+        nextProfile.linkedinUrl,
+        nextProfile.twitterUrl,
+        nextProfile.websiteUrl,
+      ],
+    );
+  } else {
+    await client.query(
+      `
+        UPDATE app_core.user_profiles
+        SET
+          profession = $2,
+          industry = $3,
+          seniority_level = $4,
+          bio = $5,
+          location = $6,
+          country = $7,
+          job_role = $8,
+          gender = $9,
+          years_experience = $10,
+          linkedin_url = $11,
+          twitter_url = $12,
+          website_url = $13,
+          updated_at = now()
+          ${input.planType !== undefined ? ', plan_type = $14' : ''}
+        WHERE user_id = $1
+      `,
+      input.planType !== undefined
+        ? [
+            actor.userId,
+            nextProfile.profession,
+            nextProfile.industry,
+            nextProfile.seniorityLevel,
+            nextProfile.bio,
+            nextProfile.location,
+            nextProfile.country,
+            nextProfile.jobRole,
+            nextProfile.gender,
+            nextProfile.yearsExperience,
+            nextProfile.linkedinUrl,
+            nextProfile.twitterUrl,
+            nextProfile.websiteUrl,
+            nextProfile.planType,
+          ]
+        : [
+            actor.userId,
+            nextProfile.profession,
+            nextProfile.industry,
+            nextProfile.seniorityLevel,
+            nextProfile.bio,
+            nextProfile.location,
+            nextProfile.country,
+            nextProfile.jobRole,
+            nextProfile.gender,
+            nextProfile.yearsExperience,
+            nextProfile.linkedinUrl,
+            nextProfile.twitterUrl,
+            nextProfile.websiteUrl,
+          ],
+    );
+  }
 
   const normalizedInterests = normalizeInterests(input.interests);
   if (normalizedInterests) {
