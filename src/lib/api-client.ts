@@ -30,19 +30,37 @@ function buildErrorMessage(payload: unknown, fallback: string): string {
   return fallback;
 }
 
-export async function requestApi<T>(input: string, init: RequestInit = {}): Promise<T> {
+interface RequestApiInit extends RequestInit {
+  timeoutMs?: number;
+}
+
+export async function requestApi<T>(input: string, init: RequestApiInit = {}): Promise<T> {
   const headers = new Headers(init.headers ?? {});
   if (init.body && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
+  const timeoutMs = typeof init.timeoutMs === "number" ? Math.max(1000, init.timeoutMs) : 0;
 
-  const makeRequest = () =>
-    fetch(input, {
-      ...init,
-      headers,
-      credentials: 'include',
-      cache: 'no-store',
-    });
+  const makeRequest = async () => {
+    const controller = timeoutMs > 0 ? new AbortController() : null;
+    const timeoutId = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+    try {
+      return await fetch(input, {
+        ...init,
+        headers,
+        credentials: 'include',
+        cache: 'no-store',
+        signal: controller?.signal ?? init.signal,
+      });
+    } catch (error) {
+      if (controller?.signal.aborted) {
+        throw new Error("Request timeout");
+      }
+      throw error;
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
+    }
+  };
 
   let response = await makeRequest();
 

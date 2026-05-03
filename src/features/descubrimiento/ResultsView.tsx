@@ -186,6 +186,7 @@ export function ResultsView({
     [initialAiReports],
   );
   const [reports, setReports] = React.useState(initialReports);
+  const [failedFilters, setFailedFilters] = React.useState<Partial<Record<DiscoveryReportFilter, true>>>({});
   const [filter, setFilter] = React.useState<DiscoveryReportFilter>("all");
   const [isExporting, setIsExporting] = React.useState(false);
   const [isSharing, setIsSharing] = React.useState(false);
@@ -224,6 +225,7 @@ export function ResultsView({
     setAnalysisCompletedCount(initiallyCachedFilters.length);
     setAnalysisActiveCount(0);
     setAnalysisBatchPending(false);
+    setFailedFilters({});
     analysisBatchStartedRef.current = false;
   }, [initialReports, initiallyCachedFilters, isInvitationExperience]);
 
@@ -309,14 +311,20 @@ export function ResultsView({
       known.add(target);
     }
     analysisCacheRef.current = known;
-    setAnalysisCompletedCount(known.size);
-  }, []);
+    setAnalysisCompletedCount(Math.min(5, known.size + Object.keys(failedFilters).length));
+  }, [failedFilters]);
 
   const generateAnalysisForFilter = React.useCallback(
     async (target: DiscoveryReportFilter) => {
       if (isPublic && !invitationCredentials && !enablePublicAnalysis) return;
       if (analysisCacheRef.current.has(target)) return;
       if (analysisInFlightRef.current.has(target)) return;
+      setFailedFilters((current) => {
+        if (!current[target]) return current;
+        const next = { ...current };
+        delete next[target];
+        return next;
+      });
 
       analysisInFlightRef.current.add(target);
       setAnalysisActiveCount((current) => current + 1);
@@ -349,8 +357,10 @@ export function ResultsView({
             const isRetryable =
               message.includes("ai_final_analysis_pending") ||
               message.includes("openai request failed") ||
-              message.includes("failed to analyze diagnostics");
+              message.includes("failed to analyze diagnostics") ||
+              message.includes("request timeout");
             if (!isRetryable || attempt >= ANALYSIS_MAX_RETRIES) {
+              setFailedFilters((current) => ({ ...current, [target]: true }));
               return;
             }
           }
@@ -361,6 +371,7 @@ export function ResultsView({
             );
           }
         }
+        setFailedFilters((current) => ({ ...current, [target]: true }));
         return;
       } finally {
         analysisInFlightRef.current.delete(target);
@@ -374,6 +385,7 @@ export function ResultsView({
       scoring,
       state.name,
       state.profile.jobRole,
+      failedFilters,
       syncReports,
     ],
   );
@@ -418,6 +430,11 @@ export function ResultsView({
     invitationCredentials,
     isPublic,
   ]);
+
+  React.useEffect(() => {
+    const completed = analysisCacheRef.current.size + Object.keys(failedFilters).length;
+    setAnalysisCompletedCount(Math.min(5, completed));
+  }, [failedFilters]);
 
   const radarData = React.useMemo(
     () => [
@@ -658,7 +675,8 @@ export function ResultsView({
   };
 
   const currentReport = reports[filter]?.trim() ?? "";
-  const shouldMaskAnalysis = currentReport.length === 0;
+  const currentFilterFailed = Boolean(failedFilters[filter]);
+  const shouldMaskAnalysis = currentReport.length === 0 && !currentFilterFailed;
 
   return (
     <div className="space-y-6">
@@ -1018,6 +1036,23 @@ export function ResultsView({
               </div>
             )}
             <div className="prose prose-slate max-w-none text-[15px] leading-relaxed md:text-sm md:leading-7">
+              {currentFilterFailed && currentReport.length === 0 && (
+                <div className="mb-4 rounded-[14px] border border-amber-200 bg-amber-50 px-4 py-3 not-prose">
+                  <p className="text-sm font-semibold text-amber-900">
+                    Este análisis tardó más de lo esperado.
+                  </p>
+                  <p className="mt-1 text-xs text-amber-800">
+                    Puedes reintentar esta vista ahora. El resto de resultados ya disponibles no se perderán.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void generateAnalysisForFilter(filter)}
+                    className="mt-3 inline-flex items-center gap-2 rounded-full border border-amber-300 bg-white px-3 py-1.5 text-xs font-extrabold uppercase tracking-[0.12em] text-amber-900 hover:bg-amber-100"
+                  >
+                    Reintentar análisis
+                  </button>
+                </div>
+              )}
               <ReactMarkdown
                 components={{
                   h2: ({ children }) => (

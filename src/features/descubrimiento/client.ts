@@ -266,6 +266,7 @@ export async function analyzeDiscoveryReport(input: {
     {
       method: "POST",
       body: JSON.stringify(input),
+      timeoutMs: 90000,
     },
   );
 }
@@ -280,6 +281,7 @@ export async function analyzeDiscoveryReportBatch(input: {
     {
       method: "POST",
       body: JSON.stringify(input),
+      timeoutMs: 180000,
     },
   );
 }
@@ -307,6 +309,7 @@ export async function analyzeInvitationDiscoveryReport(input: {
         pillar,
         fallbackReport,
       }),
+      timeoutMs: 90000,
     },
   );
 }
@@ -330,6 +333,7 @@ export async function analyzeInvitationDiscoveryReportBatch(input: {
         role,
         scores,
       }),
+      timeoutMs: 180000,
     },
   );
 }
