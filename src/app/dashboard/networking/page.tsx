@@ -25,11 +25,11 @@ import {
   unfollowUser,
   updateCommunity,
   updateConnection,
+  type CommunityPostRecord,
   type CommunityRecord,
   type CommunityVisibility,
   type ConnectionRecord,
   type ConnectionStatus,
-  type CommunityPostRecord,
   type NetworkPersonRecord,
 } from '@/features/networking/client';
 
@@ -48,9 +48,17 @@ function roleLabel(role: string): string {
   return role;
 }
 
+function statusTone(status: ConnectionStatus | 'none'): string {
+  if (status === 'connected') return 'bg-emerald-50 text-emerald-700 border border-emerald-100';
+  if (status === 'pending') return 'bg-amber-50 text-amber-700 border border-amber-100';
+  if (status === 'blocked') return 'bg-rose-50 text-rose-700 border border-rose-100';
+  if (status === 'rejected') return 'bg-slate-100 text-slate-600 border border-slate-200';
+  return 'bg-[var(--app-surface-muted)] text-[var(--app-muted)] border border-[var(--app-line)]';
+}
+
 export default function NetworkingPage() {
   const router = useRouter();
-  const { bootstrapData, can, currentRole, refreshBootstrap, viewerAccess } = useUser();
+  const { can, currentRole, refreshBootstrap, viewerAccess } = useUser();
   const { alert, confirm } = useAppDialog();
 
   const [connections, setConnections] = React.useState<ConnectionRecord[]>([]);
@@ -58,6 +66,9 @@ export default function NetworkingPage() {
   const [communities, setCommunities] = React.useState<CommunityRecord[]>([]);
   const [communityPosts, setCommunityPosts] = React.useState<CommunityPostRecord[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [activeView, setActiveView] = React.useState<'descubrir' | 'comunidades' | 'actividad'>('descubrir');
+  const [peopleSearch, setPeopleSearch] = React.useState('');
+  const [peopleFilter, setPeopleFilter] = React.useState<'all' | 'connected' | 'none' | 'following'>('all');
   const [communityForm, setCommunityForm] = React.useState({
     name: '',
     description: '',
@@ -246,11 +257,30 @@ export default function NetworkingPage() {
         resourceUrl: postForm.resourceUrl || null,
       });
       setPostForm((prev) => ({ ...prev, title: '', body: '', resourceUrl: '' }));
+      setActiveView('actividad');
       await load();
     } catch (error) {
       await showError('No se pudo compartir el recurso', error);
     }
   };
+
+  const filteredPeople = people
+    .filter((person) => {
+      if (peopleFilter === 'connected') return person.connectionStatus === 'connected';
+      if (peopleFilter === 'none') return person.connectionStatus === 'none';
+      if (peopleFilter === 'following') return person.isFollowing;
+      return true;
+    })
+    .filter((person) => {
+      const term = peopleSearch.trim().toLowerCase();
+      if (!term) return true;
+      const haystack = `${person.displayName} ${person.profession ?? ''} ${person.industry ?? ''} ${person.location ?? ''}`.toLowerCase();
+      return haystack.includes(term);
+    });
+
+  const connectedCount = connections.filter((c) => c.status === 'connected').length;
+  const pendingCount = connections.filter((c) => c.status === 'pending').length;
+  const followingCount = people.filter((p) => p.isFollowing).length;
 
   if (isCommunityLocked) {
     return (
@@ -278,210 +308,290 @@ export default function NetworkingPage() {
     <div className="space-y-5">
       <PageTitle
         title="Networking"
-        subtitle="Red social de líderes con suscripción: perfiles públicos, seguimiento, contacto y comunidades."
+        subtitle="Conecta con líderes, gestiona comunidades y comparte recursos de alto valor."
       />
 
       {loading ? (
         <div className="app-panel px-4 py-5 text-sm text-[var(--app-muted)]">Cargando networking...</div>
       ) : (
         <>
-          <section className="grid grid-cols-1 gap-3 md:grid-cols-4">
-            <article className="app-panel p-4">
-              <p className="text-xs uppercase tracking-wide text-[var(--app-muted)]">Líderes visibles</p>
-              <p className="mt-1 text-2xl font-black text-[var(--app-ink)]">{people.length}</p>
-            </article>
-            <article className="app-panel p-4">
-              <p className="text-xs uppercase tracking-wide text-[var(--app-muted)]">Contactos</p>
-              <p className="mt-1 text-2xl font-black text-[var(--app-ink)]">{connections.filter((c) => c.status === 'connected').length}</p>
-            </article>
-            <article className="app-panel p-4">
-              <p className="text-xs uppercase tracking-wide text-[var(--app-muted)]">Comunidades</p>
-              <p className="mt-1 text-2xl font-black text-[var(--app-ink)]">{communities.length}</p>
-            </article>
-            <article className="app-panel p-4">
-              <p className="text-xs uppercase tracking-wide text-[var(--app-muted)]">Recursos compartidos</p>
-              <p className="mt-1 text-2xl font-black text-[var(--app-ink)]">{communityPosts.length}</p>
-            </article>
+          <section className="overflow-hidden rounded-3xl border border-[var(--app-line)] bg-gradient-to-r from-[rgba(37,19,94,0.98)] via-[rgba(57,27,128,0.95)] to-[rgba(20,14,52,0.98)] p-6 text-white shadow-[0_20px_60px_rgba(25,15,67,0.35)]">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-[0.28em] text-white/70">Social Graph</p>
+                <h2 className="mt-2 text-3xl font-black leading-tight">Tu red ejecutiva en una sola vista</h2>
+                <p className="mt-2 max-w-2xl text-sm text-white/80">
+                  Descubre perfiles, fortalece relaciones y activa comunidades temáticas con una experiencia diseñada para colaboración profesional.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-right sm:grid-cols-4">
+                <div className="rounded-2xl bg-white/10 px-3 py-2 backdrop-blur">
+                  <p className="text-[10px] uppercase tracking-widest text-white/70">Líderes</p>
+                  <p className="text-xl font-black">{people.length}</p>
+                </div>
+                <div className="rounded-2xl bg-white/10 px-3 py-2 backdrop-blur">
+                  <p className="text-[10px] uppercase tracking-widest text-white/70">Contactos</p>
+                  <p className="text-xl font-black">{connectedCount}</p>
+                </div>
+                <div className="rounded-2xl bg-white/10 px-3 py-2 backdrop-blur">
+                  <p className="text-[10px] uppercase tracking-widest text-white/70">Siguiendo</p>
+                  <p className="text-xl font-black">{followingCount}</p>
+                </div>
+                <div className="rounded-2xl bg-white/10 px-3 py-2 backdrop-blur">
+                  <p className="text-[10px] uppercase tracking-widest text-white/70">Comunidades</p>
+                  <p className="text-xl font-black">{communities.length}</p>
+                </div>
+              </div>
+            </div>
           </section>
 
-          <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
-            <section className="app-panel p-5 xl:col-span-2">
-              <h3 className="mb-4 text-lg font-bold text-[var(--app-ink)]">Directorio público de líderes</h3>
-              {people.length === 0 ? (
-                <EmptyState message="No hay perfiles públicos de líderes disponibles." />
-              ) : (
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                  {people.map((person) => (
-                    <article key={person.userId} className="app-list-card p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="font-semibold text-[var(--app-ink)]">{person.displayName}</p>
-                          <p className="text-xs text-[var(--app-muted)]">{roleLabel(person.primaryRole)}</p>
-                          <p className="mt-2 text-sm text-[var(--app-muted)]">{person.profession ?? 'Perfil profesional no definido'}</p>
-                        </div>
-                        <span className="app-badge app-badge-muted">{person.connectionStatus}</span>
-                      </div>
-                      <p className="mt-2 text-xs text-[var(--app-muted)]">
-                        {person.industry ?? 'Industria no definida'} · {person.location ?? 'Ubicación no definida'}
-                      </p>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <button className="app-button-secondary px-3 py-1.5 text-xs" type="button" onClick={() => void onToggleFollow(person)}>
-                          {person.isFollowing ? 'Dejar de seguir' : 'Seguir'}
-                        </button>
-                        {canCreate && (
-                          <button className="app-button-secondary px-3 py-1.5 text-xs" type="button" onClick={() => void onContact(person)}>
-                            Contactar
-                          </button>
-                        )}
-                        {can('mensajes', 'create') && (
-                          <button className="app-button-primary px-3 py-1.5 text-xs" type="button" onClick={() => void onMessage(person)}>
-                            Enviar mensaje
-                          </button>
-                        )}
-                      </div>
-                    </article>
-                  ))}
+          <section className="app-panel p-2">
+            <div className="flex flex-wrap gap-2">
+              {[
+                { key: 'descubrir', label: 'Descubrir líderes' },
+                { key: 'comunidades', label: 'Comunidades' },
+                { key: 'actividad', label: 'Actividad' },
+              ].map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => setActiveView(item.key as typeof activeView)}
+                  className={`rounded-2xl px-4 py-2 text-sm font-semibold transition ${
+                    activeView === item.key
+                      ? 'bg-[var(--app-primary)] text-white shadow'
+                      : 'text-[var(--app-muted)] hover:bg-[var(--app-surface-muted)]'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {activeView === 'descubrir' && (
+            <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
+              <section className="app-panel p-5 xl:col-span-2">
+                <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <h3 className="text-lg font-bold text-[var(--app-ink)]">Directorio público de líderes</h3>
+                  <div className="flex flex-wrap gap-2">
+                    <input
+                      className="app-input min-w-56"
+                      placeholder="Buscar por nombre, industria, ubicación..."
+                      value={peopleSearch}
+                      onChange={(event) => setPeopleSearch(event.target.value)}
+                    />
+                    <select className="app-select" value={peopleFilter} onChange={(event) => setPeopleFilter(event.target.value as typeof peopleFilter)}>
+                      <option value="all">Todos</option>
+                      <option value="none">Sin contacto</option>
+                      <option value="connected">Conectados</option>
+                      <option value="following">Siguiendo</option>
+                    </select>
+                  </div>
                 </div>
-              )}
-            </section>
 
-            <aside className="app-panel p-5">
-              <h3 className="mb-4 text-lg font-bold text-[var(--app-ink)]">Solicitudes y contactos</h3>
-              {connections.length === 0 ? (
-                <EmptyState message="No hay solicitudes o contactos todavía." />
-              ) : (
-                <div className="space-y-3">
-                  {connections.map((connection) => (
-                    <article key={connection.connectionId} className="app-list-card p-3">
-                      <p className="font-semibold text-[var(--app-ink)]">{connection.counterpartName}</p>
-                      <p className="mt-1 text-xs text-[var(--app-muted)]">{toDateLabel(connection.requestedAt)}</p>
-                      <div className="mt-2 flex gap-2">
-                        {can('networking', 'update') ? (
-                          <select
-                            className="app-select min-h-0 px-2 py-1 text-xs"
-                            value={connection.status}
-                            onChange={(event) => void onUpdateStatus(connection, event.target.value as ConnectionStatus)}
-                          >
-                            <option value="pending">pending</option>
-                            <option value="connected">connected</option>
-                            <option value="rejected">rejected</option>
-                            <option value="blocked">blocked</option>
-                          </select>
-                        ) : (
-                          <span className="app-badge app-badge-muted">{connection.status}</span>
-                        )}
-                        {can('networking', 'delete') && (
-                          <button className="rounded-full border border-red-200 px-3 py-1 text-xs font-semibold text-red-600" type="button" onClick={() => void onDeleteConnection(connection)}>
-                            Eliminar
+                {filteredPeople.length === 0 ? (
+                  <EmptyState message="No hay perfiles que coincidan con tu búsqueda." />
+                ) : (
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    {filteredPeople.map((person) => (
+                      <article key={person.userId} className="rounded-2xl border border-[var(--app-line)] bg-white p-4 shadow-sm transition hover:shadow-md">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-start gap-3">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--app-surface-muted)] text-sm font-bold text-[var(--app-ink)]">
+                              {(person.displayName[0] ?? 'L').toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="font-semibold text-[var(--app-ink)]">{person.displayName}</p>
+                              <p className="text-xs text-[var(--app-muted)]">{roleLabel(person.primaryRole)}</p>
+                            </div>
+                          </div>
+                          <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusTone(person.connectionStatus)}`}>
+                            {person.connectionStatus}
+                          </span>
+                        </div>
+
+                        <p className="mt-3 text-sm text-[var(--app-muted)]">{person.profession ?? 'Perfil profesional no definido'}</p>
+                        <p className="mt-2 text-xs text-[var(--app-muted)]">{person.industry ?? 'Industria no definida'} · {person.location ?? 'Ubicación no definida'}</p>
+
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          <button className="app-button-secondary px-3 py-1.5 text-xs" type="button" onClick={() => void onToggleFollow(person)}>
+                            {person.isFollowing ? 'Siguiendo' : 'Seguir'}
                           </button>
-                        )}
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              )}
-            </aside>
-          </div>
-
-          <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
-            <section className="app-panel p-5 xl:col-span-2">
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <h3 className="text-lg font-bold text-[var(--app-ink)]">Comunidades</h3>
-                <span className="text-xs text-[var(--app-muted)]">Acceso: Líder con suscripción, Adviser, Gestor, Admin</span>
-              </div>
-
-              {canManageCommunities && (
-                <form className="mb-4 grid grid-cols-1 gap-2 rounded-2xl border border-[var(--app-line)] p-3 md:grid-cols-4" onSubmit={onCreateCommunity}>
-                  <input className="app-input" placeholder="Nombre comunidad" value={communityForm.name} onChange={(event) => setCommunityForm((prev) => ({ ...prev, name: event.target.value }))} required />
-                  <input className="app-input" placeholder="Categoría" value={communityForm.category} onChange={(event) => setCommunityForm((prev) => ({ ...prev, category: event.target.value }))} />
-                  <select className="app-select" value={communityForm.visibility} onChange={(event) => setCommunityForm((prev) => ({ ...prev, visibility: event.target.value as CommunityVisibility }))}>
-                    <option value="open">Abierta</option>
-                    <option value="closed">Cerrada</option>
-                  </select>
-                  <button className="app-button-primary" type="submit">Crear comunidad</button>
-                  <textarea className="app-textarea md:col-span-4" placeholder="Descripción" value={communityForm.description} onChange={(event) => setCommunityForm((prev) => ({ ...prev, description: event.target.value }))} />
-                </form>
-              )}
-
-              {communities.length === 0 ? (
-                <EmptyState message="No hay comunidades creadas." />
-              ) : (
-                <div className="space-y-3">
-                  {communities.map((community) => (
-                    <article key={community.groupId} className="app-list-card p-3">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div>
-                          <p className="font-semibold text-[var(--app-ink)]">{community.name}</p>
-                          <p className="text-xs text-[var(--app-muted)]">{community.category ?? 'General'} · {community.memberCount} miembros</p>
-                        </div>
-                        <div className="flex gap-2">
-                          <span className="app-badge app-badge-muted">{community.visibility === 'open' ? 'Abierta' : 'Cerrada'}</span>
-                          <span className="app-badge app-badge-muted">{community.isActive ? 'Activa' : 'Cerrada'}</span>
-                        </div>
-                      </div>
-                      {community.description && <p className="mt-2 text-sm text-[var(--app-muted)]">{community.description}</p>}
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <button className="app-button-secondary px-3 py-1.5 text-xs" type="button" onClick={() => void onToggleMembership(community)}>
-                          {community.isMember ? 'Salir' : 'Unirme'}
-                        </button>
-                        {canManageCommunities && (
-                          <>
-                            <button className="app-button-secondary px-3 py-1.5 text-xs" type="button" onClick={() => void onToggleCommunityStatus(community)}>
-                              {community.isActive ? 'Cerrar' : 'Abrir'}
+                          {canCreate && (
+                            <button className="app-button-secondary px-3 py-1.5 text-xs" type="button" onClick={() => void onContact(person)}>
+                              Contactar
                             </button>
-                            <button className="rounded-full border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600" type="button" onClick={() => void onDeleteCommunity(community)}>
-                              Eliminar
+                          )}
+                          {can('mensajes', 'create') && (
+                            <button className="app-button-primary px-3 py-1.5 text-xs" type="button" onClick={() => void onMessage(person)}>
+                              Mensaje
                             </button>
-                          </>
-                        )}
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              )}
-            </section>
+                          )}
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </section>
 
-            <aside className="app-panel p-5">
-              <h3 className="mb-4 text-lg font-bold text-[var(--app-ink)]">Compartir recurso</h3>
-              <form className="space-y-2" onSubmit={onCreatePost}>
-                <select className="app-select" value={postForm.groupId} onChange={(event) => setPostForm((prev) => ({ ...prev, groupId: event.target.value }))} required>
-                  <option value="">Seleccionar comunidad</option>
-                  {communities.map((community) => (
-                    <option key={community.groupId} value={community.groupId}>{community.name}</option>
-                  ))}
-                </select>
-                <input className="app-input" placeholder="Título" value={postForm.title} onChange={(event) => setPostForm((prev) => ({ ...prev, title: event.target.value }))} required />
-                <textarea className="app-textarea min-h-24" placeholder="Descripción o aporte" value={postForm.body} onChange={(event) => setPostForm((prev) => ({ ...prev, body: event.target.value }))} required />
-                <input className="app-input" placeholder="URL recurso (opcional)" value={postForm.resourceUrl} onChange={(event) => setPostForm((prev) => ({ ...prev, resourceUrl: event.target.value }))} />
-                <button className="app-button-primary w-full" type="submit" disabled={!canCreate}>Compartir</button>
-              </form>
-            </aside>
-          </div>
-
-          <section className="app-panel p-5">
-            <h3 className="mb-4 text-lg font-bold text-[var(--app-ink)]">Feed de comunidades</h3>
-            {communityPosts.length === 0 ? (
-              <EmptyState message="Todavía no hay recursos compartidos." />
-            ) : (
-              <div className="space-y-3">
-                {communityPosts.map((post) => (
-                  <article key={post.postId} className="app-list-card p-4">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="font-semibold text-[var(--app-ink)]">{post.title}</p>
-                      <span className="app-badge app-badge-muted">{post.groupName}</span>
+              <aside className="space-y-5">
+                <section className="app-panel p-5">
+                  <h3 className="mb-4 text-lg font-bold text-[var(--app-ink)]">Solicitudes y contactos</h3>
+                  {connections.length === 0 ? (
+                    <EmptyState message="No tienes relaciones activas todavía." />
+                  ) : (
+                    <div className="space-y-3">
+                      {connections.map((connection) => (
+                        <article key={connection.connectionId} className="rounded-2xl border border-[var(--app-line)] bg-white p-3">
+                          <p className="font-semibold text-[var(--app-ink)]">{connection.counterpartName}</p>
+                          <p className="mt-1 text-xs text-[var(--app-muted)]">{toDateLabel(connection.requestedAt)}</p>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {can('networking', 'update') ? (
+                              <select
+                                className="app-select min-h-0 px-2 py-1 text-xs"
+                                value={connection.status}
+                                onChange={(event) => void onUpdateStatus(connection, event.target.value as ConnectionStatus)}
+                              >
+                                <option value="pending">pending</option>
+                                <option value="connected">connected</option>
+                                <option value="rejected">rejected</option>
+                                <option value="blocked">blocked</option>
+                              </select>
+                            ) : (
+                              <span className="app-badge app-badge-muted">{connection.status}</span>
+                            )}
+                            {can('networking', 'delete') && (
+                              <button className="rounded-full border border-red-200 px-3 py-1 text-xs font-semibold text-red-600" type="button" onClick={() => void onDeleteConnection(connection)}>
+                                Eliminar
+                              </button>
+                            )}
+                          </div>
+                        </article>
+                      ))}
                     </div>
-                    <p className="mt-2 text-sm text-[var(--app-muted)]">{post.body}</p>
-                    {post.resourceUrl && (
-                      <a href={post.resourceUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex text-xs font-semibold text-[var(--app-primary)] underline">
-                        Abrir recurso
-                      </a>
-                    )}
-                    <p className="mt-2 text-xs text-[var(--app-muted)]">{post.authorName} · {toDateLabel(post.createdAt)}</p>
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
+                  )}
+                </section>
+
+                <section className="app-panel p-5">
+                  <h3 className="text-lg font-bold text-[var(--app-ink)]">Resumen rápido</h3>
+                  <div className="mt-3 space-y-2 text-sm text-[var(--app-muted)]">
+                    <p>Pendientes: <span className="font-semibold text-[var(--app-ink)]">{pendingCount}</span></p>
+                    <p>Recursos compartidos: <span className="font-semibold text-[var(--app-ink)]">{communityPosts.length}</span></p>
+                  </div>
+                </section>
+              </aside>
+            </div>
+          )}
+
+          {activeView === 'comunidades' && (
+            <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
+              <section className="app-panel p-5 xl:col-span-2">
+                <div className="mb-4 flex items-center justify-between">
+                  <h3 className="text-lg font-bold text-[var(--app-ink)]">Comunidades profesionales</h3>
+                  <span className="text-xs text-[var(--app-muted)]">Líder con suscripción · Adviser · Gestor · Admin</span>
+                </div>
+
+                {communities.length === 0 ? (
+                  <EmptyState message="No hay comunidades creadas." />
+                ) : (
+                  <div className="space-y-3">
+                    {communities.map((community) => (
+                      <article key={community.groupId} className="rounded-2xl border border-[var(--app-line)] bg-white p-4">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div>
+                            <p className="font-semibold text-[var(--app-ink)]">{community.name}</p>
+                            <p className="text-xs text-[var(--app-muted)]">{community.category ?? 'General'} · {community.memberCount} miembros</p>
+                          </div>
+                          <div className="flex gap-2">
+                            <span className="app-badge app-badge-muted">{community.visibility === 'open' ? 'Abierta' : 'Cerrada'}</span>
+                            <span className="app-badge app-badge-muted">{community.isActive ? 'Activa' : 'Cerrada'}</span>
+                          </div>
+                        </div>
+                        {community.description && <p className="mt-2 text-sm text-[var(--app-muted)]">{community.description}</p>}
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <button className="app-button-secondary px-3 py-1.5 text-xs" type="button" onClick={() => void onToggleMembership(community)}>
+                            {community.isMember ? 'Salir de comunidad' : 'Unirme a comunidad'}
+                          </button>
+                          {canManageCommunities && (
+                            <>
+                              <button className="app-button-secondary px-3 py-1.5 text-xs" type="button" onClick={() => void onToggleCommunityStatus(community)}>
+                                {community.isActive ? 'Cerrar' : 'Abrir'}
+                              </button>
+                              <button className="rounded-full border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600" type="button" onClick={() => void onDeleteCommunity(community)}>
+                                Eliminar
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              <aside className="space-y-5">
+                {canManageCommunities && (
+                  <section className="app-panel p-5">
+                    <h3 className="mb-3 text-lg font-bold text-[var(--app-ink)]">Crear comunidad</h3>
+                    <form className="space-y-2" onSubmit={onCreateCommunity}>
+                      <input className="app-input" placeholder="Nombre" value={communityForm.name} onChange={(event) => setCommunityForm((prev) => ({ ...prev, name: event.target.value }))} required />
+                      <input className="app-input" placeholder="Categoría" value={communityForm.category} onChange={(event) => setCommunityForm((prev) => ({ ...prev, category: event.target.value }))} />
+                      <select className="app-select" value={communityForm.visibility} onChange={(event) => setCommunityForm((prev) => ({ ...prev, visibility: event.target.value as CommunityVisibility }))}>
+                        <option value="open">Abierta</option>
+                        <option value="closed">Cerrada</option>
+                      </select>
+                      <textarea className="app-textarea min-h-20" placeholder="Descripción" value={communityForm.description} onChange={(event) => setCommunityForm((prev) => ({ ...prev, description: event.target.value }))} />
+                      <button className="app-button-primary w-full" type="submit">Crear comunidad</button>
+                    </form>
+                  </section>
+                )}
+
+                <section className="app-panel p-5">
+                  <h3 className="mb-3 text-lg font-bold text-[var(--app-ink)]">Compartir recurso</h3>
+                  <form className="space-y-2" onSubmit={onCreatePost}>
+                    <select className="app-select" value={postForm.groupId} onChange={(event) => setPostForm((prev) => ({ ...prev, groupId: event.target.value }))} required>
+                      <option value="">Seleccionar comunidad</option>
+                      {communities.map((community) => (
+                        <option key={community.groupId} value={community.groupId}>{community.name}</option>
+                      ))}
+                    </select>
+                    <input className="app-input" placeholder="Título del recurso" value={postForm.title} onChange={(event) => setPostForm((prev) => ({ ...prev, title: event.target.value }))} required />
+                    <textarea className="app-textarea min-h-24" placeholder="Descripción o aporte" value={postForm.body} onChange={(event) => setPostForm((prev) => ({ ...prev, body: event.target.value }))} required />
+                    <input className="app-input" placeholder="URL (opcional)" value={postForm.resourceUrl} onChange={(event) => setPostForm((prev) => ({ ...prev, resourceUrl: event.target.value }))} />
+                    <button className="app-button-primary w-full" type="submit" disabled={!canCreate}>Publicar</button>
+                  </form>
+                </section>
+              </aside>
+            </div>
+          )}
+
+          {activeView === 'actividad' && (
+            <section className="app-panel p-5">
+              <h3 className="mb-4 text-lg font-bold text-[var(--app-ink)]">Feed de comunidades</h3>
+              {communityPosts.length === 0 ? (
+                <EmptyState message="Todavía no hay recursos compartidos." />
+              ) : (
+                <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                  {communityPosts.map((post) => (
+                    <article key={post.postId} className="rounded-2xl border border-[var(--app-line)] bg-white p-4 shadow-sm">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="rounded-full bg-[var(--app-surface-muted)] px-2.5 py-1 text-[11px] font-semibold text-[var(--app-muted)]">{post.groupName}</span>
+                        <span className="text-xs text-[var(--app-muted)]">{toDateLabel(post.createdAt)}</span>
+                      </div>
+                      <h4 className="mt-3 font-semibold text-[var(--app-ink)]">{post.title}</h4>
+                      <p className="mt-2 text-sm text-[var(--app-muted)]">{post.body}</p>
+                      {post.resourceUrl && (
+                        <a href={post.resourceUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex text-xs font-semibold text-[var(--app-primary)] underline">
+                          Abrir recurso
+                        </a>
+                      )}
+                      <p className="mt-3 text-xs text-[var(--app-muted)]">Publicado por {post.authorName}</p>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
         </>
       )}
     </div>
