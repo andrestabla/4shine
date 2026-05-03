@@ -22,7 +22,6 @@ import { YEARS_EXPERIENCE_OPTIONS, yearsToLabel, yearsToKey, keyToStoredValue } 
 import { USER_COUNTRY_OPTIONS, USER_GENDER_OPTIONS, USER_JOB_ROLE_OPTIONS, type UserJobRoleOption } from '@/lib/user-demographics';
 
 type PlanType = 'standard' | 'premium' | 'vip' | 'empresa_elite';
-type SeniorityLevel = 'senior' | 'c_level' | 'director' | 'manager' | 'vp';
 interface ProjectFormItem {
   title: string;
   description: string;
@@ -45,8 +44,6 @@ interface ProfileFormState {
   linkedinUrl: string;
   twitterUrl: string;
   websiteUrl: string;
-  planType: PlanType | '';
-  seniorityLevel: SeniorityLevel | '';
   interestsText: string;
   projects: ProjectFormItem[];
 }
@@ -62,6 +59,28 @@ function planLabel(planType: PlanType | null): 'VIP' | 'Premium' | 'Empresa Éli
     case 'standard':
     default:
       return 'Standard';
+  }
+}
+
+function userTypeLabel(role: string | undefined): string {
+  const normalized = (role ?? '').trim().toLowerCase();
+  switch (normalized) {
+    case 'líder':
+    case 'lider':
+      return 'Líder con suscripción';
+    case 'adviser':
+    case 'mentor':
+      return 'Adviser';
+    case 'gestor del programa':
+    case 'gestor':
+      return 'Gestor';
+    case 'administrador':
+    case 'admin':
+      return 'Administrador';
+    case 'invitado':
+      return 'Invitado';
+    default:
+      return role?.trim() || 'Líder sin suscripción';
   }
 }
 
@@ -81,8 +100,6 @@ function buildForm(profile: MyProfileRecord): ProfileFormState {
     linkedinUrl: profile.linkedinUrl ?? '',
     twitterUrl: profile.twitterUrl ?? '',
     websiteUrl: profile.websiteUrl ?? '',
-    planType: profile.planType ?? '',
-    seniorityLevel: profile.seniorityLevel ?? '',
     interestsText: profile.interests.join(', '),
     projects:
       profile.projects.length > 0
@@ -212,8 +229,6 @@ export default function PerfilPage() {
         linkedinUrl: form.linkedinUrl,
         twitterUrl: form.twitterUrl,
         websiteUrl: form.websiteUrl,
-        planType: form.planType || null,
-        seniorityLevel: form.seniorityLevel || null,
         interests: parseInterests(form.interestsText),
         projects: form.projects
           .map(compactProject)
@@ -279,6 +294,7 @@ export default function PerfilPage() {
 
   const avatarFallback = (profile.avatarInitial || profile.displayName.charAt(0) || 'U').toUpperCase();
   const avatarPreviewUrl = form.avatarUrl.trim().length > 0 ? form.avatarUrl.trim() : null;
+  const userType = userTypeLabel(currentUser?.role);
 
   return (
     <div className="space-y-5">
@@ -380,10 +396,21 @@ export default function PerfilPage() {
                             [firstName, lastName].filter(Boolean).join(' ').trim() || prev.displayName;
                           return {
                             ...prev,
-                            displayName: nextDisplayName,
-                            country: extracted.country || prev.country,
-                            jobRole: (extracted.jobRole || prev.jobRole) as UserJobRoleOption | '',
-                            gender: extracted.gender || prev.gender,
+                            displayName: prev.displayName.trim() ? prev.displayName : nextDisplayName,
+                            profession: prev.profession.trim() ? prev.profession : extracted.profession || prev.profession,
+                            industry: prev.industry.trim() ? prev.industry : extracted.industry || prev.industry,
+                            location: prev.location.trim() ? prev.location : extracted.location || prev.location,
+                            bio: prev.bio.trim() ? prev.bio : extracted.bio || prev.bio,
+                            linkedinUrl: prev.linkedinUrl.trim() ? prev.linkedinUrl : extracted.linkedinUrl || prev.linkedinUrl,
+                            twitterUrl: prev.twitterUrl.trim() ? prev.twitterUrl : extracted.twitterUrl || prev.twitterUrl,
+                            websiteUrl: prev.websiteUrl.trim() ? prev.websiteUrl : extracted.websiteUrl || prev.websiteUrl,
+                            interestsText:
+                              prev.interestsText.trim().length > 0
+                                ? prev.interestsText
+                                : (extracted.interests ?? []).join(', ') || prev.interestsText,
+                            country: prev.country || extracted.country || prev.country,
+                            jobRole: (prev.jobRole || extracted.jobRole || prev.jobRole) as UserJobRoleOption | '',
+                            gender: prev.gender || extracted.gender || prev.gender,
                             yearsExperience:
                               extracted.yearsExperience === null
                                 ? prev.yearsExperience
@@ -392,7 +419,7 @@ export default function PerfilPage() {
                         });
                         await alert({
                           title: 'Datos detectados',
-                          message: 'Se autocompletaron campos desde tu CV. Revisa y guarda.',
+                          message: 'Se autocompletaron campos faltantes desde tu CV. Revisa y guarda.',
                           tone: 'success',
                         });
                       } catch (error) {
@@ -588,44 +615,12 @@ export default function PerfilPage() {
                   />
                 </label>
                 <label>
-                  <span className="app-field-label">Plan</span>
-                  <select
-                    className="app-select"
-                    value={form.planType}
-                    onChange={(event) =>
-                      setForm((prev) => (prev ? { ...prev, planType: event.target.value as PlanType | '' } : prev))
-                    }
-                  >
-                    <option value="">Sin definir</option>
-                    <option value="standard">Standard</option>
-                    <option value="premium">Premium</option>
-                    <option value="vip">VIP</option>
-                    <option value="empresa_elite">Empresa Élite</option>
-                  </select>
+                  <span className="app-field-label">Tipo de usuario</span>
+                  <input className="app-input" value={userType} disabled readOnly />
                 </label>
                 <label>
-                  <span className="app-field-label">Nivel</span>
-                  <select
-                    className="app-select"
-                    value={form.seniorityLevel}
-                    onChange={(event) =>
-                      setForm((prev) =>
-                        prev
-                          ? {
-                              ...prev,
-                              seniorityLevel: event.target.value as SeniorityLevel | '',
-                            }
-                          : prev,
-                      )
-                    }
-                  >
-                    <option value="">Sin definir</option>
-                    <option value="manager">Manager</option>
-                    <option value="director">Director</option>
-                    <option value="vp">VP</option>
-                    <option value="senior">Senior</option>
-                    <option value="c_level">C-Level</option>
-                  </select>
+                  <span className="app-field-label">Plan asignado</span>
+                  <input className="app-input" value={planLabel(profile.planType)} disabled readOnly />
                 </label>
                 <label className="md:col-span-2">
                   <span className="app-field-label">Biografía</span>

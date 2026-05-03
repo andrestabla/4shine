@@ -1,7 +1,6 @@
 import { requestApi } from '@/lib/api-client';
 
 type PlanType = 'standard' | 'premium' | 'vip' | 'empresa_elite';
-type SeniorityLevel = 'senior' | 'c_level' | 'director' | 'manager' | 'vp';
 type JobRole =
   | 'Director/C-Level'
   | 'Gerente/Mando medio'
@@ -31,7 +30,7 @@ export interface MyProfileRecord {
   profession: string | null;
   industry: string | null;
   planType: PlanType | null;
-  seniorityLevel: SeniorityLevel | null;
+  seniorityLevel: string | null;
   bio: string | null;
   location: string | null;
   country: string | null;
@@ -62,8 +61,6 @@ export interface UpdateMyProfileInput {
   timezone?: string;
   profession?: string | null;
   industry?: string | null;
-  planType?: PlanType | null;
-  seniorityLevel?: SeniorityLevel | null;
   bio?: string | null;
   location?: string | null;
   country?: string | null;
@@ -80,6 +77,14 @@ export interface UpdateMyProfileInput {
 export interface ExtractProfileFromCvResult {
   firstName: string;
   lastName: string;
+  profession: string;
+  industry: string;
+  location: string;
+  bio: string;
+  linkedinUrl: string;
+  twitterUrl: string;
+  websiteUrl: string;
+  interests: string[];
   country: string;
   jobRole:
     | 'Director/C-Level'

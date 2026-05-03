@@ -67,8 +67,6 @@ export interface UpdateMyProfileInput {
   timezone?: string;
   profession?: string | null;
   industry?: string | null;
-  planType?: PlanType | null;
-  seniorityLevel?: SeniorityLevel | null;
   bio?: string | null;
   location?: string | null;
   country?: string | null;
@@ -89,6 +87,14 @@ export interface ExtractProfileFromCvInput {
 export interface ExtractProfileFromCvResult {
   firstName: string;
   lastName: string;
+  profession: string;
+  industry: string;
+  location: string;
+  bio: string;
+  linkedinUrl: string;
+  twitterUrl: string;
+  websiteUrl: string;
+  interests: string[];
   country: string;
   jobRole: JobRole | '';
   gender: 'Hombre' | 'Mujer' | 'Prefiero no decirlo' | '';
@@ -538,8 +544,8 @@ export async function updateMyProfile(
   const nextProfile = {
     profession: input.profession === undefined ? current.profession : normalizeText(input.profession),
     industry: input.industry === undefined ? current.industry : normalizeText(input.industry),
-    planType: input.planType === undefined ? current.planType : input.planType,
-    seniorityLevel: input.seniorityLevel === undefined ? current.seniorityLevel : input.seniorityLevel,
+    planType: current.planType,
+    seniorityLevel: current.seniorityLevel,
     bio: input.bio === undefined ? current.bio : normalizeText(input.bio),
     location: input.location === undefined ? current.location : normalizeText(input.location),
     country: input.country === undefined ? current.country : normalizeCountry(input.country),
@@ -646,41 +652,23 @@ export async function updateMyProfile(
           twitter_url = $12,
           website_url = $13,
           updated_at = now()
-          ${input.planType !== undefined ? ', plan_type = $14' : ''}
         WHERE user_id = $1
       `,
-      input.planType !== undefined
-        ? [
-            actor.userId,
-            nextProfile.profession,
-            nextProfile.industry,
-            nextProfile.seniorityLevel,
-            nextProfile.bio,
-            nextProfile.location,
-            nextProfile.country,
-            nextProfile.jobRole,
-            nextProfile.gender,
-            nextProfile.yearsExperience,
-            nextProfile.linkedinUrl,
-            nextProfile.twitterUrl,
-            nextProfile.websiteUrl,
-            nextProfile.planType,
-          ]
-        : [
-            actor.userId,
-            nextProfile.profession,
-            nextProfile.industry,
-            nextProfile.seniorityLevel,
-            nextProfile.bio,
-            nextProfile.location,
-            nextProfile.country,
-            nextProfile.jobRole,
-            nextProfile.gender,
-            nextProfile.yearsExperience,
-            nextProfile.linkedinUrl,
-            nextProfile.twitterUrl,
-            nextProfile.websiteUrl,
-          ],
+      [
+        actor.userId,
+        nextProfile.profession,
+        nextProfile.industry,
+        nextProfile.seniorityLevel,
+        nextProfile.bio,
+        nextProfile.location,
+        nextProfile.country,
+        nextProfile.jobRole,
+        nextProfile.gender,
+        nextProfile.yearsExperience,
+        nextProfile.linkedinUrl,
+        nextProfile.twitterUrl,
+        nextProfile.websiteUrl,
+      ],
     );
   }
 
@@ -709,6 +697,14 @@ export async function extractProfileFromCv(
   const fallback: ExtractProfileFromCvResult = {
     firstName: current.firstName,
     lastName: current.lastName,
+    profession: current.profession ?? '',
+    industry: current.industry ?? '',
+    location: current.location ?? '',
+    bio: current.bio ?? '',
+    linkedinUrl: current.linkedinUrl ?? '',
+    twitterUrl: current.twitterUrl ?? '',
+    websiteUrl: current.websiteUrl ?? '',
+    interests: current.interests ?? [],
     country: current.country ?? '',
     jobRole: (current.jobRole ?? '') as JobRole | '',
     gender: (current.gender as ExtractProfileFromCvResult['gender']) ?? '',
@@ -724,11 +720,13 @@ export async function extractProfileFromCv(
     const endpoint = `${sanitizeOpenAiBaseUrl(openAiIntegration.wizardData.baseUrl)}/chat/completions`;
     const systemPrompt = [
       'Extrae datos de perfil de un CV y devuelve SOLO JSON válido.',
-      'Campos: firstName, lastName, country, jobRole, gender, yearsExperience.',
+      'Haz lectura semántica: infiere datos faltantes con alta probabilidad según experiencia, sector, responsabilidades y contexto.',
+      'Campos: firstName, lastName, profession, industry, location, bio, linkedinUrl, twitterUrl, websiteUrl, interests, country, jobRole, gender, yearsExperience.',
       `jobRole permitido: ${USER_JOB_ROLE_OPTIONS.join(' | ')}`,
       'gender permitido: Hombre | Mujer | Prefiero no decirlo',
       `country permitido: ${Array.from(USER_COUNTRY_SET).join(' | ')}`,
-      'Si no estás seguro, devuelve string vacío o null.',
+      'interests: arreglo de máximo 8 intereses profesionales concretos en español.',
+      'Si un dato no se puede inferir de forma confiable, devuelve string vacío o null.',
     ].join('\n');
     const userPrompt = `CV:\n${text.slice(0, 16000)}`;
 
@@ -761,7 +759,36 @@ export async function extractProfileFromCv(
     const firstName = normalizeRequiredText(parsed.firstName ?? fallback.firstName, fallback.firstName);
     const lastName = normalizeRequiredText(parsed.lastName ?? fallback.lastName, fallback.lastName);
 
-    return { firstName, lastName, country: country ?? '', jobRole: jobRole ?? '', gender: (gender ?? '') as ExtractProfileFromCvResult['gender'], yearsExperience };
+    const profession = normalizeText(parsed.profession ?? null) ?? fallback.profession;
+    const industry = normalizeText(parsed.industry ?? null) ?? fallback.industry;
+    const location = normalizeText(parsed.location ?? null) ?? fallback.location;
+    const bio = normalizeText(parsed.bio ?? null) ?? fallback.bio;
+    const linkedinUrl = normalizeText(parsed.linkedinUrl ?? null) ?? fallback.linkedinUrl;
+    const twitterUrl = normalizeText(parsed.twitterUrl ?? null) ?? fallback.twitterUrl;
+    const websiteUrl = normalizeText(parsed.websiteUrl ?? null) ?? fallback.websiteUrl;
+    const interests = Array.isArray(parsed.interests)
+      ? parsed.interests
+          .map((item) => (typeof item === 'string' ? item.trim() : ''))
+          .filter((item) => item.length > 0)
+          .slice(0, 8)
+      : fallback.interests;
+
+    return {
+      firstName,
+      lastName,
+      profession,
+      industry,
+      location,
+      bio,
+      linkedinUrl,
+      twitterUrl,
+      websiteUrl,
+      interests,
+      country: country ?? '',
+      jobRole: jobRole ?? '',
+      gender: (gender ?? '') as ExtractProfileFromCvResult['gender'],
+      yearsExperience,
+    };
   } catch {
     return fallback;
   }
