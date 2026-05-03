@@ -1,6 +1,8 @@
 import type { PoolClient } from 'pg';
+import JSZip from 'jszip';
 import type { AuthUser } from '@/server/auth/types';
 import { requireModulePermission } from '@/server/auth/module-permissions';
+import { getIntegrationConfigForActor } from '@/server/integrations/config';
 import {
   USER_COUNTRY_SET,
   USER_GENDER_SET,
@@ -78,6 +80,19 @@ export interface UpdateMyProfileInput {
   websiteUrl?: string | null;
   interests?: string[];
   projects?: ProfileProjectInput[];
+}
+
+export interface ExtractProfileFromCvInput {
+  fileUrl: string;
+}
+
+export interface ExtractProfileFromCvResult {
+  firstName: string;
+  lastName: string;
+  country: string;
+  jobRole: JobRole | '';
+  gender: 'Hombre' | 'Mujer' | 'Prefiero no decirlo' | '';
+  yearsExperience: number | null;
 }
 
 interface ProfileRow {
@@ -230,6 +245,78 @@ function normalizeProjects(input: ProfileProjectInput[] | undefined): ProfilePro
     .slice(0, 8);
 
   return projects;
+}
+
+function sanitizeOpenAiBaseUrl(value: string | null | undefined): string {
+  const candidate = (value ?? '').trim();
+  if (!candidate) return 'https://api.openai.com/v1';
+  return candidate.replace(/\/+$/, '');
+}
+
+function parseOpenAiContent(payload: unknown): string {
+  if (!payload || typeof payload !== 'object') return '';
+  const data = payload as { choices?: Array<{ message?: { content?: unknown } }> };
+  const content = data.choices?.[0]?.message?.content;
+  if (typeof content === 'string') return content.trim();
+  if (Array.isArray(content)) {
+    return content
+      .map((item) => {
+        if (!item || typeof item !== 'object') return '';
+        const row = item as { type?: string; text?: string };
+        return row.type === 'text' && typeof row.text === 'string' ? row.text : '';
+      })
+      .join('')
+      .trim();
+  }
+  return '';
+}
+
+async function extractTextFromDocx(raw: Uint8Array): Promise<string | null> {
+  try {
+    const zip = await JSZip.loadAsync(raw);
+    const documentXml = await zip.file('word/document.xml')?.async('text');
+    if (!documentXml) return null;
+    const text = documentXml
+      .replace(/<w:br\s*\/>/g, '\n')
+      .replace(/<\/w:p>/g, '\n')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    return text.length > 0 ? text.slice(0, 20000) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function extractTextFromFileUrl(fileUrl: string): Promise<string | null> {
+  const response = await fetch(fileUrl, { cache: 'no-store' });
+  if (!response.ok) return null;
+  const contentType = (response.headers.get('content-type') ?? '').toLowerCase();
+  const raw = new Uint8Array(await response.arrayBuffer());
+  if (raw.length === 0) return null;
+
+  if (contentType.includes('wordprocessingml.document') || fileUrl.toLowerCase().endsWith('.docx')) {
+    return extractTextFromDocx(raw);
+  }
+
+  if (
+    contentType.startsWith('text/') ||
+    contentType.includes('json') ||
+    fileUrl.toLowerCase().endsWith('.txt')
+  ) {
+    return new TextDecoder('utf-8').decode(raw).replace(/\s+/g, ' ').trim().slice(0, 20000);
+  }
+
+  return null;
+}
+
+function extractYearsExperienceFromText(text: string): number | null {
+  const normalized = text.toLowerCase();
+  const match = normalized.match(/(\d{1,2})\s*\+?\s*años?\s+de\s+experiencia/);
+  if (!match) return null;
+  const parsed = Number(match[1]);
+  if (!Number.isFinite(parsed)) return null;
+  return Math.max(0, Math.min(80, Math.floor(parsed)));
 }
 
 function mapProfile(row: ProfileRow, interests: string[], projects: ProfileProjectRecord[]): MyProfileRecord {
@@ -555,4 +642,74 @@ export async function updateMyProfile(
   }
 
   return getMyProfile(client, actor);
+}
+
+export async function extractProfileFromCv(
+  client: PoolClient,
+  actor: AuthUser,
+  input: ExtractProfileFromCvInput,
+): Promise<ExtractProfileFromCvResult> {
+  await requireModulePermission(client, 'perfil', 'update');
+  const current = await getMyProfile(client, actor);
+  const text = (await extractTextFromFileUrl(input.fileUrl)) ?? '';
+
+  const fallback: ExtractProfileFromCvResult = {
+    firstName: current.firstName,
+    lastName: current.lastName,
+    country: current.country ?? '',
+    jobRole: (current.jobRole ?? '') as JobRole | '',
+    gender: (current.gender as ExtractProfileFromCvResult['gender']) ?? '',
+    yearsExperience: current.yearsExperience ?? extractYearsExperienceFromText(text),
+  };
+
+  if (!text) return fallback;
+
+  try {
+    const openAiIntegration = await getIntegrationConfigForActor(client, actor.userId, 'openai');
+    if (!openAiIntegration?.enabled || !openAiIntegration.secretValue) return fallback;
+
+    const endpoint = `${sanitizeOpenAiBaseUrl(openAiIntegration.wizardData.baseUrl)}/chat/completions`;
+    const systemPrompt = [
+      'Extrae datos de perfil de un CV y devuelve SOLO JSON válido.',
+      'Campos: firstName, lastName, country, jobRole, gender, yearsExperience.',
+      `jobRole permitido: ${USER_JOB_ROLE_OPTIONS.join(' | ')}`,
+      'gender permitido: Hombre | Mujer | Prefiero no decirlo',
+      `country permitido: ${Array.from(USER_COUNTRY_SET).join(' | ')}`,
+      'Si no estás seguro, devuelve string vacío o null.',
+    ].join('\n');
+    const userPrompt = `CV:\n${text.slice(0, 16000)}`;
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${openAiIntegration.secretValue}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: openAiIntegration.wizardData.model?.trim() || 'gpt-4.1',
+        temperature: 0.1,
+        max_tokens: 400,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+      }),
+    });
+    if (!response.ok) return fallback;
+    const payload = (await response.json()) as unknown;
+    const raw = parseOpenAiContent(payload);
+    if (!raw) return fallback;
+    const parsed = JSON.parse(raw) as Partial<ExtractProfileFromCvResult>;
+
+    const country = normalizeCountry(parsed.country ?? null) ?? fallback.country;
+    const jobRole = normalizeJobRole(parsed.jobRole ?? null) ?? fallback.jobRole;
+    const gender = normalizeGender(parsed.gender ?? null) ?? fallback.gender;
+    const yearsExperience = normalizeYearsExperience(parsed.yearsExperience ?? null) ?? fallback.yearsExperience;
+    const firstName = normalizeRequiredText(parsed.firstName ?? fallback.firstName, fallback.firstName);
+    const lastName = normalizeRequiredText(parsed.lastName ?? fallback.lastName, fallback.lastName);
+
+    return { firstName, lastName, country: country ?? '', jobRole: jobRole ?? '', gender: (gender ?? '') as ExtractProfileFromCvResult['gender'], yearsExperience };
+  } catch {
+    return fallback;
+  }
 }

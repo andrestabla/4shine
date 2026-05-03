@@ -77,6 +77,21 @@ export interface UpdateMyProfileInput {
   projects?: ProfileProjectInput[];
 }
 
+export interface ExtractProfileFromCvResult {
+  firstName: string;
+  lastName: string;
+  country: string;
+  jobRole:
+    | 'Director/C-Level'
+    | 'Gerente/Mando medio'
+    | 'Coordinador'
+    | 'Lider de proyecto con equipo a cargo'
+    | 'Especialista sin personal a cargo'
+    | '';
+  gender: 'Hombre' | 'Mujer' | 'Prefiero no decirlo' | '';
+  yearsExperience: number | null;
+}
+
 export async function getMyProfile(): Promise<MyProfileRecord> {
   return requestApi<MyProfileRecord>('/api/v1/modules/perfil');
 }
@@ -85,5 +100,13 @@ export async function updateMyProfile(input: UpdateMyProfileInput): Promise<MyPr
   return requestApi<MyProfileRecord>('/api/v1/modules/perfil', {
     method: 'PATCH',
     body: JSON.stringify(input),
+  });
+}
+
+export async function extractProfileFromCv(fileUrl: string): Promise<ExtractProfileFromCvResult> {
+  return requestApi<ExtractProfileFromCvResult>('/api/v1/modules/perfil/cv-extract', {
+    method: 'POST',
+    body: JSON.stringify({ fileUrl }),
+    timeoutMs: 90000,
   });
 }
