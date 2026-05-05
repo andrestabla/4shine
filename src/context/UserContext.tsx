@@ -313,7 +313,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
       console.error('Logout request failed', error);
     } finally {
       clearSession();
-      router.push('/');
+      router.push('/acceso');
     }
   };
 

@@ -1,401 +1,116 @@
-'use client';
+import Link from 'next/link';
 
-import React from 'react';
-import { useRouter } from 'next/navigation';
-import { Gem, Loader2, Lock, Mail } from 'lucide-react';
-import { useAppDialog } from '@/components/ui/AppDialogProvider';
-import { useBranding } from '@/context/BrandingContext';
-import { useUser } from '@/context/UserContext';
-import { consumeSessionTimeoutNotice } from '@/lib/session-timeout-client';
+const pillars = [
+  {
+    title: 'Shine Within',
+    description: 'Autoliderazgo, identidad y claridad personal para decidir con conciencia.',
+  },
+  {
+    title: 'Shine Out',
+    description: 'Comunicación estratégica, presencia ejecutiva y narrativa de impacto.',
+  },
+  {
+    title: 'Shine Up',
+    description: 'Pensamiento estratégico, influencia y toma de decisiones en contextos complejos.',
+  },
+  {
+    title: 'Shine Beyond',
+    description: 'Legado, expansión y liderazgo que transforma equipos y ecosistemas.',
+  },
+];
 
-function hexToRgba(hex: string, opacity: number): string {
-  const normalized = hex.replace('#', '').trim();
-  if (normalized.length !== 6) return `rgba(15, 23, 42, ${opacity})`;
+const stories = [
+  {
+    name: 'Líder de tecnología, LATAM',
+    text: 'En 12 semanas logré convertir mi visión en una ruta concreta de desarrollo. Mi equipo mejoró foco y coordinación.',
+  },
+  {
+    name: 'Directiva de educación',
+    text: '4Shine me ayudó a integrar estrategia con bienestar. Tomo decisiones más consistentes y lidero con más claridad.',
+  },
+  {
+    name: 'Gerente comercial',
+    text: 'Pasé de reaccionar a priorizar con método. Mi comunicación ejecutiva mejoró y crecí en influencia interna.',
+  },
+];
 
-  const red = Number.parseInt(normalized.slice(0, 2), 16);
-  const green = Number.parseInt(normalized.slice(2, 4), 16);
-  const blue = Number.parseInt(normalized.slice(4, 6), 16);
-  if ([red, green, blue].some((value) => Number.isNaN(value))) {
-    return `rgba(15, 23, 42, ${opacity})`;
-  }
-
-  return `rgba(${red}, ${green}, ${blue}, ${opacity})`;
-}
-
-function hasText(value: string): boolean {
-  return value.trim().length > 0;
-}
-
-function normalizeCandidates(values: string[]): string[] {
-  const deduped = new Set<string>();
-  for (const value of values) {
-    const normalized = value.trim();
-    if (!normalized) continue;
-    deduped.add(normalized);
-    if (deduped.size >= 20) break;
-  }
-  return [...deduped];
-}
-
-function pickRandom(values: string[], fallback = ''): string {
-  if (values.length === 0) return fallback;
-  const index = Math.floor(Math.random() * values.length);
-  return values[index] ?? fallback;
-}
-
-export default function LoginPage() {
-  const { login, isHydrating } = useUser();
-  const { branding, tokens, isLoading: isBrandingLoading } = useBranding();
-  const { alert } = useAppDialog();
-  const router = useRouter();
-  const [email, setEmail] = React.useState('');
-  const [password, setPassword] = React.useState('');
-
-  const visibility = tokens.text.visibility;
-  const isImageRightLayout = branding.loginLayout === 'image_right';
-  const isImageLeftLayout = branding.loginLayout === 'image_left';
-  const isCenteredImageLayout = branding.loginLayout === 'centered_image';
-  const loginBackgroundCandidates = React.useMemo(
-    () =>
-      normalizeCandidates([
-        ...(branding.loginBackgroundImageUrls ?? []),
-        branding.loginBackgroundImageUrl,
-      ]),
-    [branding.loginBackgroundImageUrl, branding.loginBackgroundImageUrls],
-  );
-  const loginImageCandidates = React.useMemo(
-    () =>
-      normalizeCandidates([
-        ...(branding.loginImageUrls ?? []),
-        ...loginBackgroundCandidates,
-      ]),
-    [branding.loginImageUrls, loginBackgroundCandidates],
-  );
-  const imageWelcomeMessageCandidates = React.useMemo(
-    () =>
-      normalizeCandidates([
-        ...(branding.imageWelcomeMessages ?? []),
-        branding.imageWelcomeMessage,
-      ]),
-    [branding.imageWelcomeMessage, branding.imageWelcomeMessages],
-  );
-
-  const dynamicLoginBackgroundImageUrl = React.useMemo(
-    () => pickRandom(loginBackgroundCandidates, branding.loginBackgroundImageUrl),
-    [branding.loginBackgroundImageUrl, loginBackgroundCandidates],
-  );
-  const dynamicLoginImageUrl = React.useMemo(
-    () => pickRandom(loginImageCandidates, dynamicLoginBackgroundImageUrl),
-    [dynamicLoginBackgroundImageUrl, loginImageCandidates],
-  );
-  const dynamicImageWelcomeMessage = React.useMemo(
-    () => pickRandom(imageWelcomeMessageCandidates, branding.imageWelcomeMessage),
-    [branding.imageWelcomeMessage, imageWelcomeMessageCandidates],
-  );
-
-  React.useEffect(() => {
-    const notice = consumeSessionTimeoutNotice();
-    if (!notice) return;
-
-    void alert({
-      title: 'Sesión expirada',
-      message: notice,
-      tone: 'error',
-    });
-    router.replace('/');
-  }, [alert, router]);
-
-  const hasLoginBackgroundImage = hasText(dynamicLoginBackgroundImageUrl);
-  const hasLoginImage = hasText(dynamicLoginImageUrl);
-  const overlayColor = hexToRgba(
-    tokens.layout.loginOverlayColor,
-    Math.min(Math.max(tokens.layout.loginOverlayOpacity, 0), 1),
-  );
-
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-
-    const result = await login(email, password);
-    if (!result.ok) {
-      await alert({
-        title: 'Error de acceso',
-        message: result.error ?? 'No fue posible iniciar sesión',
-        tone: 'error',
-      });
-    }
-  };
-
-  if (isBrandingLoading) {
-    const loaderText = branding.loaderText.trim();
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center px-6">
-        <div className="text-center">
-          {branding.loaderAssetUrl.trim().length > 0 ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={branding.loaderAssetUrl}
-              alt={loaderText || 'Cargando'}
-              className="mx-auto h-14 w-auto"
-            />
-          ) : (
-            <Loader2
-              size={42}
-              className="mx-auto animate-spin"
-              style={{ color: tokens.colors.accent }}
-            />
-          )}
-
-          {tokens.text.visibility.loaderText && loaderText.length > 0 && (
-            <p className="mt-3 text-sm text-slate-600">{loaderText}</p>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  const splitImagePanelStyle: React.CSSProperties = hasLoginImage
-    ? {
-        backgroundImage: `linear-gradient(0deg, ${overlayColor}, ${overlayColor}), url("${dynamicLoginImageUrl}")`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-      }
-    : {
-        backgroundImage: `linear-gradient(120deg, color-mix(in srgb, ${tokens.colors.primary} 86%, black), color-mix(in srgb, ${tokens.colors.secondary} 78%, black))`,
-      };
-
-  const centeredPageBackgroundStyle: React.CSSProperties = hasLoginBackgroundImage
-    ? {
-        backgroundImage: `linear-gradient(0deg, ${overlayColor}, ${overlayColor}), url("${dynamicLoginBackgroundImageUrl}")`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-      }
-    : {
-        backgroundImage: `radial-gradient(circle at 12% 16%, color-mix(in srgb, ${tokens.colors.accent} 30%, transparent), transparent 45%), linear-gradient(120deg, color-mix(in srgb, ${tokens.colors.primary} 90%, black), color-mix(in srgb, ${tokens.colors.secondary} 78%, black))`,
-      };
-
-  const inputClassName = isCenteredImageLayout
-    ? 'bg-black/20 outline-none w-full text-sm text-white placeholder:text-white/45'
-    : 'bg-transparent outline-none w-full text-sm text-slate-900 placeholder:text-slate-400';
-
-  const fieldWrapperClassName = isCenteredImageLayout
-    ? 'mt-1 flex items-center gap-2 rounded-xl border border-white/25 bg-black/20 px-3 py-2 focus-within:border-white/50'
-    : 'mt-1 flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 focus-within:border-slate-500';
-
-  const loginCardClassName = isCenteredImageLayout
-    ? 'w-full border border-white/15 shadow-2xl backdrop-blur-xl p-6 md:p-8'
-    : 'w-full p-7 md:p-10';
-
-  const loginCardStyle: React.CSSProperties = isCenteredImageLayout
-    ? {
-        borderRadius: `calc(${tokens.shape.borderRadiusRem}rem + 0.9rem)`,
-        backgroundColor: 'color-mix(in srgb, white 10%, var(--brand-primary))',
-        maxWidth: '520px',
-      }
-    : {
-        maxWidth: '520px',
-      };
-
-  const formContainer = (
-    <section className={loginCardClassName} style={loginCardStyle}>
-      <div className="flex justify-center mb-4">
-        {branding.logoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={branding.logoUrl}
-            alt={branding.platformName}
-            className="w-14 h-14 rounded-2xl object-cover"
-          />
-        ) : (
-          <Gem className="w-14 h-14" style={{ color: tokens.colors.accent }} />
-        )}
-      </div>
-
-      {visibility.platformName && hasText(branding.platformName) && (
-        <h1
-          className={`text-3xl font-bold text-center ${isCenteredImageLayout ? 'text-white' : 'text-slate-900'}`}
-        >
-          {branding.platformName}
-        </h1>
-      )}
-
-      {visibility.welcomeMessage && hasText(branding.welcomeMessage) && (
-        <p
-          className={`text-center text-sm mt-2 ${
-            isCenteredImageLayout ? 'text-white/75' : 'text-slate-600'
-          }`}
-        >
-          {branding.welcomeMessage}
-        </p>
-      )}
-
-      {visibility.loginHeadline && hasText(branding.loginHeadline) && (
-        <p
-          className={`text-center mt-4 text-lg font-semibold ${
-            isCenteredImageLayout ? 'text-white' : 'text-slate-900'
-          }`}
-        >
-          {branding.loginHeadline}
-        </p>
-      )}
-
-      <form onSubmit={handleSubmit} className="space-y-4 mt-6">
-        <label className="block">
-          <span
-            className={`text-xs font-semibold tracking-wide ${
-              isCenteredImageLayout ? 'text-white/75' : 'text-slate-600'
-            }`}
-          >
-            Correo
-          </span>
-          <div className={fieldWrapperClassName}>
-            <Mail
-              size={16}
-              className={isCenteredImageLayout ? 'text-white/55' : 'text-slate-400'}
-            />
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="tu.correo@empresa.com"
-              className={inputClassName}
-            />
-          </div>
-        </label>
-
-        <label className="block">
-          <span
-            className={`text-xs font-semibold tracking-wide ${
-              isCenteredImageLayout ? 'text-white/75' : 'text-slate-600'
-            }`}
-          >
-            Contraseña
-          </span>
-          <div className={fieldWrapperClassName}>
-            <Lock
-              size={16}
-              className={isCenteredImageLayout ? 'text-white/55' : 'text-slate-400'}
-            />
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="••••••••"
-              className={inputClassName}
-            />
-          </div>
-        </label>
-
-        <button
-          type="submit"
-          disabled={isHydrating}
-          className="w-full mt-1 text-white font-bold py-2.5 transition-colors flex items-center justify-center gap-2"
-          style={{
-            backgroundColor: tokens.colors.accent,
-            borderRadius: `calc(${tokens.shape.borderRadiusRem}rem + 0.3rem)`,
-          }}
-        >
-          {isHydrating && <Loader2 size={16} className="animate-spin" />}
-          Entrar
-        </button>
-      </form>
-
-      {branding.loaderAssetUrl && isHydrating && (
-        <>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={branding.loaderAssetUrl}
-            alt={branding.loaderText}
-            className="mx-auto mt-5 h-12 w-auto"
-          />
-          {visibility.loaderText && hasText(branding.loaderText) && (
-            <p
-              className={`text-center text-xs mt-2 ${
-                isCenteredImageLayout ? 'text-white/75' : 'text-slate-600'
-              }`}
-            >
-              {branding.loaderText}
-            </p>
-          )}
-        </>
-      )}
-
-      {visibility.loginSupportMessage && hasText(branding.loginSupportMessage) && (
-        <p
-          className={`text-center text-xs mt-4 ${
-            isCenteredImageLayout ? 'text-white/70' : 'text-slate-500'
-          }`}
-        >
-          {branding.loginSupportMessage}
-        </p>
-      )}
-    </section>
-  );
-
-  if (isCenteredImageLayout) {
-    return (
-      <div
-        className="min-h-screen flex items-center justify-center p-4 md:p-8"
-        style={centeredPageBackgroundStyle}
-      >
-        {formContainer}
-      </div>
-    );
-  }
-
-  const imagePanel = (
-    <aside
-      className="hidden lg:flex h-full min-h-[100vh] items-end"
-      style={splitImagePanelStyle}
-    >
-      <div className="w-full p-12 text-white">
-        {visibility.platformName && hasText(branding.platformName) && (
-          <div className="flex items-center gap-3 mb-5">
-            {branding.logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={branding.logoUrl}
-                alt={branding.platformName}
-                className="w-12 h-12 rounded-xl object-cover"
-              />
-            ) : (
-              <Gem size={36} style={{ color: tokens.colors.accent }} />
-            )}
-            <p className="text-3xl font-bold">{branding.platformName}</p>
-          </div>
-        )}
-
-        {visibility.imageLoginHeadline && hasText(branding.imageLoginHeadline) && (
-          <p className="text-5xl leading-tight font-bold max-w-2xl">
-            {branding.imageLoginHeadline}
-          </p>
-        )}
-
-        {visibility.imageWelcomeMessage && hasText(dynamicImageWelcomeMessage) && (
-          <p className="text-white/90 text-xl mt-4 max-w-2xl">{dynamicImageWelcomeMessage}</p>
-        )}
-
-        {visibility.imageLoginSupportMessage && hasText(branding.imageLoginSupportMessage) && (
-          <p className="text-white/80 text-sm mt-6 max-w-2xl">
-            {branding.imageLoginSupportMessage}
-          </p>
-        )}
-      </div>
-    </aside>
-  );
-
+export default function HomeMarketingPage() {
   return (
-    <div className="min-h-screen bg-slate-100">
-      <div className="grid min-h-screen lg:grid-cols-2">
-        {isImageLeftLayout && imagePanel}
+    <main className="min-h-screen bg-[#f4f2fa] text-[#261739]">
+      <section className="relative overflow-hidden border-b border-[#d8d0ea] bg-[#1c102d] text-white">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(198,151,255,0.35),transparent_38%),radial-gradient(circle_at_85%_25%,rgba(240,181,95,0.22),transparent_44%)]" />
+        <div className="relative mx-auto flex max-w-[1240px] flex-col px-6 pb-18 pt-6 md:px-10 lg:px-14">
+          <header className="mb-14 flex items-center justify-between">
+            <div className="text-xl font-black tracking-tight">4Shine</div>
+            <nav className="hidden items-center gap-8 text-sm font-semibold md:flex">
+              <Link href="/metodologia" className="hover:text-[#f4cf8e]">Metodología</Link>
+              <Link href="/planes-precios" className="hover:text-[#f4cf8e]">Planes y precios</Link>
+              <Link href="/afiliados" className="hover:text-[#f4cf8e]">Afiliados</Link>
+            </nav>
+            <Link href="/acceso" className="rounded-full bg-[#f2b24b] px-5 py-2 text-sm font-extrabold text-[#2a1b3f] hover:bg-[#f6c56d]">Ingresar</Link>
+          </header>
 
-        <div className="flex items-center justify-center bg-white p-6 md:p-10">
-          {formContainer}
+          <div className="grid items-end gap-12 lg:grid-cols-[1.05fr_0.95fr]">
+            <div>
+              <p className="mb-5 text-xs font-bold uppercase tracking-[0.3em] text-[#e1d6ff]">Plataforma de liderazgo</p>
+              <h1 className="max-w-[15ch] text-5xl font-black leading-[0.96] tracking-tight md:text-6xl">Transforma tu liderazgo con método, mentoría y resultados medibles.</h1>
+              <p className="mt-6 max-w-[58ch] text-base text-[#ddd6f0] md:text-lg">4Shine existe para acelerar el desarrollo de líderes que necesitan elevar su impacto personal, profesional y estratégico con una ruta estructurada de 6 meses.</p>
+              <div className="mt-8 flex flex-wrap gap-3">
+                <Link href="/metodologia" className="rounded-full bg-white px-6 py-3 text-sm font-black text-[#2f1a47]">Conocer metodología</Link>
+                <Link href="/planes-precios" className="rounded-full border border-white/40 px-6 py-3 text-sm font-bold text-white hover:bg-white/10">Ver planes</Link>
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              {pillars.map((pillar) => (
+                <article key={pillar.title} className="rounded-2xl border border-white/15 bg-white/10 p-5 backdrop-blur-sm">
+                  <h2 className="text-lg font-extrabold">{pillar.title}</h2>
+                  <p className="mt-2 text-sm text-[#ece6fc]">{pillar.description}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-[1240px] px-6 py-16 md:px-10 lg:px-14">
+        <div className="mb-10 flex items-end justify-between gap-6">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.28em] text-[#6d5a90]">Experiencias de transformación</p>
+            <h2 className="mt-3 text-4xl font-black tracking-tight">Resultados reales en líderes reales</h2>
+          </div>
+          <Link href="/afiliados" className="text-sm font-bold text-[#4f2c79] underline underline-offset-4">Conoce a nuestros Advisers</Link>
         </div>
 
-        {isImageRightLayout && imagePanel}
-      </div>
-    </div>
+        <div className="grid gap-5 md:grid-cols-3">
+          {stories.map((story) => (
+            <article key={story.name} className="rounded-2xl border border-[#d6cced] bg-white p-6 shadow-[0_12px_40px_rgba(42,20,68,0.06)]">
+              <p className="text-sm font-black text-[#3d255f]">{story.name}</p>
+              <p className="mt-3 text-sm leading-relaxed text-[#5d4a78]">{story.text}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="border-y border-[#ddcfee] bg-[#efeaf8]">
+        <div className="mx-auto grid max-w-[1240px] gap-8 px-6 py-14 md:grid-cols-3 md:px-10 lg:px-14">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.28em] text-[#6e5895]">Programa completo</p>
+            <p className="mt-2 text-3xl font-black tracking-tight">USD 3000</p>
+            <p className="mt-2 text-sm text-[#5f4c79]">Diagnóstico, contenido exclusivo, networking, 10 mentorías y workbooks.</p>
+          </div>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.28em] text-[#6e5895]">Duración</p>
+            <p className="mt-2 text-3xl font-black tracking-tight">6 meses</p>
+            <p className="mt-2 text-sm text-[#5f4c79]">Ruta estructurada con hitos semanales, sesiones y acompañamiento.</p>
+          </div>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.28em] text-[#6e5895]">Afiliados</p>
+            <p className="mt-2 text-3xl font-black tracking-tight">Advisers</p>
+            <p className="mt-2 text-sm text-[#5f4c79]">Mentores especializados que acompañan sesiones individuales y grupales.</p>
+          </div>
+        </div>
+      </section>
+    </main>
   );
 }
