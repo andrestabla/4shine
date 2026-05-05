@@ -659,13 +659,7 @@ export default function TrayectoriaPage() {
           <p className="mt-5 text-xl font-medium text-[var(--app-muted)] md:text-2xl">
             Hola, <span className="font-black text-[var(--app-ink)]">{firstName}</span>
           </p>
-          <h1
-            className="app-display-title mt-2 text-[2.8rem] font-semibold leading-[0.94] text-[var(--app-ink)] md:text-[4rem]"
-            data-display-font="true"
-          >
-            Mi Trayectoria
-          </h1>
-          <p className="mt-4 max-w-3xl text-sm leading-relaxed text-[var(--app-muted)] md:text-base">
+          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-[var(--app-muted)] md:text-base">
             Visualiza tu evolución y gestiona tus 5 hitos clave del journey
             líder 4Shine, conectando diagnóstico, workbooks, mentorías y
             oportunidades del programa.
