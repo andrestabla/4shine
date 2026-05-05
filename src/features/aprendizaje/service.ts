@@ -695,6 +695,7 @@ export async function listLearningResources(
         AND ($1::boolean = true OR ci.status = 'published')
         AND (
           $2::boolean = false
+          OR COALESCE(ci.competency_metadata->>'audience', '') = 'all'
           OR EXISTS (
             SELECT 1
             FROM app_learning.content_tags ct
@@ -809,6 +810,7 @@ export async function listLearningResources(
         AND ($2::boolean = true OR ci.status = 'published')
         AND (
           $3::boolean = false
+          OR COALESCE(ci.competency_metadata->>'audience', '') = 'all'
           OR EXISTS (
             SELECT 1
             FROM app_learning.content_tags ct
