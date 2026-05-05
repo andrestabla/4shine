@@ -234,7 +234,7 @@ export default function PerfilPage() {
         industry: form.industry,
         location: form.location,
         country: form.country.trim(),
-        jobRole: form.jobRole,
+        jobRole: form.jobRole || null,
         gender: form.gender,
         yearsExperience,
         bio: form.bio,
