@@ -559,11 +559,12 @@ async function getAccessibleLearningItem(
       ? await getViewerAccessState(client, actor, { includeCatalog: false })
       : null;
 
-  const { rows } = await client.query<{ content_id: string; status: ContentStatus; is_free: boolean }>(
+  const { rows } = await client.query<{ content_id: string; status: ContentStatus; is_free: boolean; audience: string }>(
     `
       SELECT
         ci.content_id::text,
         ci.status,
+        COALESCE(ci.competency_metadata->>'audience', 'all') AS audience,
         EXISTS (
           SELECT 1
           FROM app_learning.content_tags ct
@@ -591,6 +592,7 @@ async function getAccessibleLearningItem(
   if (
     actor.role === 'lider' &&
     access?.freeLearningOnly &&
+    item.audience !== 'all' &&
     (item.status !== 'published' || !item.is_free)
   ) {
     throw new ForbiddenError('Este recurso requiere plan 4Shine para esta cuenta.');
