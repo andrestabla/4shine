@@ -8,6 +8,8 @@ import {
   CalendarDays,
   Compass,
   MessageSquare,
+  Settings,
+  ShieldCheck,
   Sparkles,
   Users,
 } from "lucide-react";
@@ -15,121 +17,216 @@ import { AccessOfferPanel } from "@/components/access/AccessOfferPanel";
 import { useUser } from "@/context/UserContext";
 import { filterCommercialProducts } from "@/features/access/catalog";
 import { PageTitle } from "@/components/dashboard/PageTitle";
-import { StatGrid } from "@/components/dashboard/StatGrid";
+import { StatGrid, type StatItem } from "@/components/dashboard/StatGrid";
+import type { UserStats } from "@/server/bootstrap/types";
+
+type RoleSummary = {
+  roleTag: string;
+  title: string;
+  description: string;
+  primaryCta: { href: string; label: string };
+  secondaryCta?: { href: string; label: string };
+};
+
+type ShortcutItem = {
+  href: string;
+  label: string;
+  description: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  visible: boolean;
+};
+
+const ROLE_LABEL: Record<string, string> = {
+  lider: "Líder",
+  mentor: "Adviser",
+  gestor: "Gestor",
+  admin: "Administrador",
+  invitado: "Invitado",
+};
+
+function buildRoleSummary(
+  role: string,
+  isOpenLeader: boolean,
+): RoleSummary {
+  if (role === "admin") {
+    return {
+      roleTag: "Vista Administrador",
+      title: "Control central de operación",
+      description:
+        "Supervisa usuarios, marca, integraciones y rendimiento del ecosistema desde una vista simple y accionable.",
+      primaryCta: { href: "/dashboard/usuarios", label: "Gestionar usuarios" },
+      secondaryCta: {
+        href: "/dashboard/administracion/integraciones",
+        label: "Revisar integraciones",
+      },
+    };
+  }
+
+  if (role === "gestor") {
+    return {
+      roleTag: "Vista Gestor",
+      title: "Orquesta el programa sin fricción",
+      description:
+        "Da seguimiento a mentorías, contenidos y operaciones clave del programa con foco en continuidad.",
+      primaryCta: { href: "/dashboard/mentorias", label: "Gestionar mentorías" },
+      secondaryCta: { href: "/dashboard/contenido", label: "Gestionar contenido" },
+    };
+  }
+
+  if (role === "mentor") {
+    return {
+      roleTag: "Vista Adviser",
+      title: "Acompañamiento experto con contexto",
+      description:
+        "Consulta sesiones, líderes asignados y mensajes para mantener un acompañamiento consistente.",
+      primaryCta: { href: "/dashboard/mentorias", label: "Ver agenda" },
+      secondaryCta: { href: "/dashboard/mensajes", label: "Abrir mensajes" },
+    };
+  }
+
+  if (role === "invitado") {
+    return {
+      roleTag: "Vista Invitado",
+      title: "Acceso de descubrimiento",
+      description:
+        "Completa tu diagnóstico y conoce tu punto de partida antes de activar una experiencia completa.",
+      primaryCta: {
+        href: "/dashboard/descubrimiento",
+        label: "Ir a descubrimiento",
+      },
+    };
+  }
+
+  if (isOpenLeader) {
+    return {
+      roleTag: "Líder sin suscripción",
+      title: "Empieza en modo free y escala cuando quieras",
+      description:
+        "Accede a contenido abierto y compra diagnóstico o mentorías puntuales según tu momento.",
+      primaryCta: {
+        href: "/dashboard/aprendizaje",
+        label: "Explorar contenido free",
+      },
+      secondaryCta: { href: "/dashboard/mentorias", label: "Comprar mentorías" },
+    };
+  }
+
+  return {
+    roleTag: "Líder con suscripción",
+    title: "Tu ruta estratégica ya está activa",
+    description:
+      "Continúa tu avance en trayectoria, mentorías y networking desde un panel claro de prioridades.",
+    primaryCta: { href: "/dashboard/trayectoria", label: "Continuar trayectoria" },
+    secondaryCta: { href: "/dashboard/mentorias", label: "Ver mentorías" },
+  };
+}
+
+function buildRoleStats(params: {
+  role: string;
+  isOpenLeader: boolean;
+  learningCount: number;
+  mentorshipCount: number;
+  newsCount: number;
+  userStats: UserStats;
+  menteesCount: number;
+}): StatItem[] {
+  const {
+    role,
+    isOpenLeader,
+    learningCount,
+    mentorshipCount,
+    newsCount,
+    userStats,
+    menteesCount,
+  } = params;
+
+  if (role === "admin") {
+    return [
+      { label: "Usuarios activos", value: userStats.totalUsers ?? menteesCount, hint: "Base operativa" },
+      { label: "Cohortes", value: userStats.activeCohorts ?? 0, hint: "En curso" },
+      { label: "Integridad", value: userStats.uptime ?? "N/A", hint: "Estado plataforma" },
+      { label: "Novedades", value: newsCount, hint: "Publicadas" },
+    ];
+  }
+
+  if (role === "gestor") {
+    return [
+      { label: "Contenido", value: userStats.managedContent ?? learningCount, hint: "En gestión" },
+      { label: "Pendientes", value: userStats.pendingReviews ?? 0, hint: "Por revisar" },
+      { label: "Mentorías", value: mentorshipCount, hint: "Con seguimiento" },
+      { label: "Satisfacción", value: userStats.programSatisfaction ?? "N/A", hint: "Percepción" },
+    ];
+  }
+
+  if (role === "mentor") {
+    return [
+      { label: "Líderes", value: userStats.students ?? menteesCount, hint: "Asignados" },
+      { label: "Sesiones", value: mentorshipCount, hint: "Totales" },
+      { label: "Horas", value: userStats.hours ?? 0, hint: "Acumuladas" },
+      { label: "Rating", value: userStats.rating ?? 0, hint: "Promedio" },
+    ];
+  }
+
+  if (role === "invitado") {
+    return [
+      { label: "Acceso", value: "Temporal", hint: "Solo descubrimiento" },
+      { label: "Estado", value: "Activo", hint: "Sesión vigente" },
+      { label: "Progreso", value: `${userStats.progress ?? 0}%`, hint: "Diagnóstico" },
+      { label: "Recursos", value: learningCount, hint: "Disponibles" },
+    ];
+  }
+
+  if (isOpenLeader) {
+    return [
+      { label: "Acceso", value: "Free", hint: "Líder sin suscripción" },
+      { label: "Recursos", value: learningCount, hint: "Contenido abierto" },
+      { label: "Mentorías", value: "On demand", hint: "Compra puntual" },
+      { label: "Diagnóstico", value: "Opcional", hint: "Compra individual" },
+    ];
+  }
+
+  return [
+    { label: "Progreso", value: `${userStats.progress ?? 0}%`, hint: "Ruta personal" },
+    { label: "Tests", value: userStats.tests ?? 0, hint: "Completados" },
+    { label: "Conexiones", value: userStats.connections ?? 0, hint: "Networking" },
+    { label: "Mentorías", value: mentorshipCount, hint: "Sesiones" },
+  ];
+}
 
 export default function DashboardHomePage() {
-  const { currentUser, currentRole, bootstrapData, can, viewerAccess } =
-    useUser();
+  const { currentUser, currentRole, bootstrapData, can, viewerAccess } = useUser();
 
   if (!currentUser || !currentRole || !bootstrapData) return null;
 
   const firstName = currentUser.name.split(" ")[0] ?? currentUser.name;
-  const isOpenLeader =
-    currentRole === "lider" && viewerAccess?.viewerTier === "open_leader";
-  const quote = bootstrapData.quotes[0];
+  const isOpenLeader = currentRole === "lider" && viewerAccess?.viewerTier === "open_leader";
+
+  const roleSummary = buildRoleSummary(currentRole, isOpenLeader);
+
   const newsUpdates = bootstrapData.newsUpdates;
-  const mentees = bootstrapData.mentees;
-  const mentorships = bootstrapData.mentorships;
-  const learningContent = bootstrapData.learningContent;
+  const quote = bootstrapData.quotes[0];
+  const mentorshipCount = bootstrapData.mentorships.length;
+  const learningCount = bootstrapData.learningContent.length;
+  const menteesCount = bootstrapData.mentees.length;
 
-  const roleStats = {
-    lider: [
-      {
-        label: "Progreso",
-        value: `${currentUser.stats.progress ?? 0}%`,
-        hint: "Ruta personal",
-      },
-      {
-        label: "Tests",
-        value: currentUser.stats.tests ?? 0,
-        hint: "Completados",
-      },
-      {
-        label: "Conexiones",
-        value: currentUser.stats.connections ?? 0,
-        hint: "Networking activo",
-      },
-      { label: "Recursos", value: learningContent.length, hint: "Disponibles" },
-    ],
-    mentor: [
-      {
-        label: "Mentees",
-        value: currentUser.stats.students ?? mentees.length,
-        hint: "Activos",
-      },
-      {
-        label: "Horas",
-        value: currentUser.stats.hours ?? 0,
-        hint: "Mentoría acumulada",
-      },
-      {
-        label: "Rating",
-        value: currentUser.stats.rating ?? 0,
-        hint: "Promedio",
-      },
-      { label: "Sesiones", value: mentorships.length, hint: "Totales" },
-    ],
-    gestor: [
-      {
-        label: "Contenido",
-        value: currentUser.stats.managedContent ?? learningContent.length,
-        hint: "Gestionado",
-      },
-      {
-        label: "Pendientes",
-        value: currentUser.stats.pendingReviews ?? 0,
-        hint: "Por revisar",
-      },
-      {
-        label: "Satisfacción",
-        value: currentUser.stats.programSatisfaction ?? "N/A",
-        hint: "Programa",
-      },
-      { label: "Mentorías", value: mentorships.length, hint: "En seguimiento" },
-    ],
-    admin: [
-      {
-        label: "Usuarios",
-        value: currentUser.stats.totalUsers ?? mentees.length,
-        hint: "Activos",
-      },
-      {
-        label: "Cohortes",
-        value: currentUser.stats.activeCohorts ?? 0,
-        hint: "En curso",
-      },
-      {
-        label: "Uptime",
-        value: currentUser.stats.uptime ?? "N/A",
-        hint: "Plataforma",
-      },
-      { label: "Noticias", value: newsUpdates.length, hint: "Publicadas" },
-    ],
-    invitado: [
-      {
-        label: "Acceso",
-        value: "Temporal",
-        hint: "Invitación",
-      },
-      {
-        label: "Módulo",
-        value: "Descubrimiento",
-        hint: "Habilitado",
-      },
-      {
-        label: "Progreso",
-        value: `${currentUser.stats.progress ?? 0}%`,
-        hint: "Diagnóstico",
-      },
-      {
-        label: "Estado",
-        value: "Activo",
-        hint: "Sesión vigente",
-      },
-    ],
-  }[currentRole];
+  const roleStats = buildRoleStats({
+    role: currentRole,
+    isOpenLeader,
+    learningCount,
+    mentorshipCount,
+    newsCount: newsUpdates.length,
+    userStats: currentUser.stats,
+    menteesCount,
+  });
 
-  const quickActions = [
+  const shortcuts: ShortcutItem[] = [
+    {
+      href: "/dashboard/trayectoria",
+      label: "Trayectoria",
+      description: "Avance general y próximos hitos.",
+      icon: Sparkles,
+      visible: can("trayectoria", "view"),
+    },
     {
       href: "/dashboard/descubrimiento",
       label: "Descubrimiento",
@@ -140,301 +237,159 @@ export default function DashboardHomePage() {
     {
       href: "/dashboard/aprendizaje",
       label: "Aprendizaje",
-      description: "Recursos, SCORM y workbooks.",
+      description: "Contenido y workbooks.",
       icon: BookOpen,
       visible: can("aprendizaje", "view"),
     },
     {
       href: "/dashboard/mentorias",
       label: "Mentorías",
-      description: "Agenda y seguimiento.",
+      description: "Sesiones grupales y del programa.",
       icon: CalendarDays,
       visible: can("mentorias", "view"),
     },
     {
       href: "/dashboard/networking",
       label: "Networking",
-      description: "Conecta con tu red.",
+      description: "Comunidad y conexiones.",
       icon: Users,
       visible: can("networking", "view"),
     },
     {
       href: "/dashboard/mensajes",
       label: "Mensajes",
-      description: "Conversaciones activas.",
+      description: "Conversaciones y seguimiento.",
       icon: MessageSquare,
       visible: can("mensajes", "view"),
     },
-  ].filter((action) => action.visible);
+    {
+      href: "/dashboard/usuarios",
+      label: "Usuarios",
+      description: "Gestión de cuentas y roles.",
+      icon: ShieldCheck,
+      visible: can("usuarios", "view"),
+    },
+    {
+      href: "/dashboard/administracion",
+      label: "Administración",
+      description: "Integraciones, marca y operación.",
+      icon: Settings,
+      visible: can("usuarios", "manage"),
+    },
+  ].filter((item) => item.visible);
 
-  const executiveSummary = [
-    `${learningContent.length} recursos disponibles para seguir avanzando.`,
-    `${mentorships.length} sesiones registradas en tu ecosistema.`,
-    `${newsUpdates.length} novedades recientes publicadas en plataforma.`,
-  ];
-
-  if (isOpenLeader) {
-    const commercialOffers = filterCommercialProducts(viewerAccess?.catalog, {
-      groups: ["program", "discovery", "mentoring_pack"],
-    });
-
-    return (
-      <div className="space-y-8">
-        <PageTitle
-          title={`Hola, ${firstName}`}
-          subtitle="Tu cuenta ya está activa. Desde aquí puedes empezar con recursos free o activar una experiencia 4Shine más completa."
-        />
-
-        <StatGrid
-          stats={[
-            {
-              label: "Acceso actual",
-              value: "Free",
-              hint:
-                learningContent.length > 0
-                  ? `${learningContent.length} recursos abiertos en Aprendizaje.`
-                  : "Empieza con contenido abierto en Aprendizaje.",
-            },
-            {
-              label: "Diagnóstico",
-              value: viewerAccess?.hasDiscoveryPurchase ? "Activo" : "50 USD",
-              hint: viewerAccess?.hasDiscoveryPurchase
-                ? "La prueba ya está disponible para esta cuenta."
-                : "Compra individual para conocer tu punto de partida.",
-            },
-            {
-              label: "Mentorías",
-              value: "50-200 USD",
-              hint: "Sesiones adicionales con Advisers disponibles.",
-            },
-            {
-              label: "Programa 4Shine",
-              value: "2.000 USD",
-              hint: "Ruta completa con acompañamiento y módulos integrales.",
-            },
-          ]}
-        />
-
-        <AccessOfferPanel
-          badge="Líder sin suscripción"
-          title="Elige el nivel de acceso que mejor acompaña tu momento."
-          description="Activa el programa completo, compra solo Descubrimiento o reserva mentorías adicionales. La experiencia sigue clara y simple: empiezas con contenido free y escalas cuando lo necesites."
-          products={commercialOffers}
-          primaryAction={{
-            href: "/dashboard/aprendizaje",
-            label: "Explorar contenido free",
-          }}
-          note="El programa 4Shine desbloquea Trayectoria, Descubrimiento, biblioteca completa, workbooks únicos por usuario, mentorías incluidas y acceso a los módulos de comunidad."
-        />
-
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-          <Link
-            href="/dashboard/aprendizaje"
-            className="app-panel block p-5 transition hover:-translate-y-0.5"
-          >
-            <div className="flex items-center gap-3">
-              <div className="rounded-[1rem] bg-[var(--app-chip)] p-3 text-[#4f2360]">
-                <BookOpen size={18} />
-              </div>
-              <div>
-                <p className="font-extrabold text-[var(--app-ink)]">
-                  Aprendizaje free
-                </p>
-                <p className="text-sm text-[var(--app-muted)]">
-                  Accede a recursos públicos etiquetados como free.
-                </p>
-              </div>
-            </div>
-          </Link>
-
-          <Link
-            href="/dashboard/mentorias"
-            className="app-panel block p-5 transition hover:-translate-y-0.5"
-          >
-            <div className="flex items-center gap-3">
-              <div className="rounded-[1rem] bg-[var(--app-chip)] p-3 text-[#4f2360]">
-                <CalendarDays size={18} />
-              </div>
-              <div>
-                <p className="font-extrabold text-[var(--app-ink)]">
-                  Mentorías adicionales
-                </p>
-                <p className="text-sm text-[var(--app-muted)]">
-                  Reserva sesiones puntuales con el catálogo de Advisers.
-                </p>
-              </div>
-            </div>
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  const commercialOffers = filterCommercialProducts(viewerAccess?.catalog, {
+    groups: ["program", "discovery", "mentoring_pack"],
+  });
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-7">
       <PageTitle
         title={`Hola, ${firstName}`}
-        subtitle="Nos alegra tenerte aquí. Esta vista reúne tu progreso, accesos clave y señales importantes del programa."
+        subtitle={`Bienvenido, ${ROLE_LABEL[currentRole] ?? "Usuario"}. Panel simplificado con lo esencial para avanzar sin ruido.`}
       />
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.7fr)]">
-        <section className="app-hero-surface relative overflow-hidden px-6 py-7 md:px-8 md:py-8">
-          <div className="relative max-w-2xl">
-            <p className="text-xs font-black uppercase tracking-[0.28em] text-white/70">
-              Espacio ejecutivo
+      <section className="app-panel p-5 sm:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="app-section-kicker">{roleSummary.roleTag}</p>
+            <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-[var(--app-ink)] md:text-4xl">
+              {roleSummary.title}
+            </h2>
+            <p className="mt-3 max-w-3xl text-sm leading-relaxed text-[var(--app-muted)] md:text-base">
+              {roleSummary.description}
             </p>
-            <h3
-              className="app-display-title mt-3 text-4xl font-semibold leading-[0.92] text-white md:text-[3.6rem]"
-              data-display-font="true"
-            >
-              Liderazgo con claridad, foco y continuidad.
-            </h3>
-            <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/82 md:text-base">
-              Revisa lo importante, vuelve rápido a tu ruta y mantén el avance
-              del programa desde una experiencia más clara y editorial.
-            </p>
+          </div>
 
-            <div className="mt-6 flex flex-wrap gap-2">
-              {executiveSummary.map((item) => (
-                <span
-                  key={item}
-                  className="rounded-[999px] border border-white/18 bg-white/10 px-4 py-2 text-xs font-semibold text-white/92"
-                >
-                  {item}
-                </span>
-              ))}
-            </div>
-
+          <div className="flex flex-wrap gap-2">
             <Link
-              href={quickActions[0]?.href ?? "/dashboard/aprendizaje"}
-              className="mt-7 inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-extrabold text-[#4f2360] transition hover:-translate-y-0.5"
+              href={roleSummary.primaryCta.href}
+              className="app-button-primary"
             >
-              Ir a tu siguiente paso
+              {roleSummary.primaryCta.label}
               <ArrowRight size={16} />
             </Link>
-          </div>
-        </section>
-
-        <aside className="app-panel p-5 sm:p-6">
-          <div className="flex items-center gap-2">
-            <Sparkles size={16} className="text-[var(--app-muted)]" />
-            <p className="app-section-kicker">Accesos rápidos</p>
-          </div>
-          <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-1">
-            {quickActions.map((action) => (
+            {roleSummary.secondaryCta ? (
               <Link
-                key={action.href}
-                href={action.href}
-                className="app-list-card"
+                href={roleSummary.secondaryCta.href}
+                className="app-button-secondary"
               >
-                <div className="flex items-center gap-3">
-                  <div className="rounded-[1rem] bg-[var(--app-chip)] p-3 text-[#4f2360]">
-                    <action.icon size={18} />
-                  </div>
-                  <div>
-                    <p className="font-extrabold text-[var(--app-ink)]">
-                      {action.label}
-                    </p>
-                    <p className="text-xs text-[var(--app-muted)]">
-                      {action.description}
-                    </p>
-                  </div>
-                </div>
+                {roleSummary.secondaryCta.label}
               </Link>
-            ))}
+            ) : null}
           </div>
-        </aside>
-      </div>
+        </div>
+      </section>
 
       <StatGrid stats={roleStats} />
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.6fr)]">
+      {isOpenLeader ? (
+        <AccessOfferPanel
+          badge="Líder sin suscripción"
+          title="Activa solo lo que necesitas"
+          description="Mantén una entrada simple: contenido free, diagnóstico individual o paquetes de mentoría según tu momento." 
+          products={commercialOffers}
+          primaryAction={{ href: "/dashboard/aprendizaje", label: "Explorar contenido free" }}
+          note="Puedes escalar al programa completo cuando quieras para desbloquear la ruta integral."
+        />
+      ) : null}
+
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.7fr)]">
         <section className="app-panel p-5 sm:p-6">
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="app-section-kicker">Novedades</p>
-              <h3
-                className="app-display-title mt-2 text-3xl font-semibold"
-                data-display-font="true"
-              >
-                Lo que merece tu atención
-              </h3>
+              <p className="app-section-kicker">Accesos necesarios</p>
+              <h3 className="mt-2 text-2xl font-extrabold text-[var(--app-ink)]">Atajos por rol</h3>
             </div>
-            <span className="app-chip">
-              {newsUpdates.length} actualizaciones
-            </span>
+            <span className="app-chip">{shortcuts.length} accesos</span>
           </div>
 
-          <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-            {newsUpdates.slice(0, 4).map((news, index) => (
-              <article
-                key={news.id}
-                className={`rounded-[22px] border border-[var(--app-border)] p-5 shadow-[0_16px_36px_rgba(55,32,80,0.05)] ${
-                  index === 0
-                    ? "bg-[linear-gradient(135deg,rgba(80,40,94,0.96),rgba(109,60,128,0.9))] text-white"
-                    : "bg-white/76 text-[var(--app-ink)]"
-                }`}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <span
-                    className={`rounded-full px-3 py-1 text-[11px] font-extrabold uppercase tracking-[0.18em] ${
-                      index === 0
-                        ? "bg-white/12 text-white/80"
-                        : "bg-[var(--app-chip)] text-[var(--app-muted)]"
-                    }`}
-                  >
-                    {news.category}
-                  </span>
-                  <span
-                    className={
-                      index === 0
-                        ? "text-xs text-white/68"
-                        : "text-xs text-[var(--app-muted)]"
-                    }
-                  >
-                    {news.date}
-                  </span>
+          <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {shortcuts.map((item) => (
+              <Link key={item.href} href={item.href} className="app-list-card">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-[0.9rem] bg-[var(--app-chip)] p-2.5 text-[#4f2360]">
+                    <item.icon size={17} />
+                  </div>
+                  <div>
+                    <p className="font-bold text-[var(--app-ink)]">{item.label}</p>
+                    <p className="text-xs text-[var(--app-muted)]">{item.description}</p>
+                  </div>
                 </div>
-                <h4
-                  className={`mt-4 text-xl font-extrabold leading-tight ${index === 0 ? "text-white" : "text-[var(--app-ink)]"}`}
-                >
-                  {news.title}
-                </h4>
-                <p
-                  className={`mt-3 text-sm leading-relaxed ${index === 0 ? "text-white/78" : "text-[var(--app-muted)]"}`}
-                >
-                  {news.summary}
-                </p>
-              </article>
+              </Link>
             ))}
           </div>
         </section>
 
         <aside className="space-y-6">
           <section className="app-panel p-5 sm:p-6">
-            <p className="app-section-kicker">Mensaje</p>
-            <blockquote
-              className="app-display-title mt-3 text-[2rem] font-semibold leading-tight"
-              data-display-font="true"
-            >
-              “{quote?.text ?? "Sigue adelante."}”
+            <p className="app-section-kicker">Mensaje del día</p>
+            <blockquote className="mt-3 text-xl font-semibold leading-tight text-[var(--app-ink)]">
+              “{quote?.text ?? "Sigue avanzando con enfoque."}”
             </blockquote>
-            <p className="mt-4 text-sm font-semibold text-[var(--app-muted)]">
+            <p className="mt-3 text-sm font-semibold text-[var(--app-muted)]">
               {quote?.author ?? "4Shine"}
             </p>
           </section>
 
           <section className="app-panel p-5 sm:p-6">
-            <p className="app-section-kicker">En síntesis</p>
+            <p className="app-section-kicker">Novedades</p>
             <div className="mt-4 space-y-3">
-              {executiveSummary.map((item) => (
-                <div
-                  key={item}
-                  className="rounded-[16px] border border-[var(--app-border)] bg-white/74 px-4 py-3 text-sm text-[var(--app-ink)]"
+              {newsUpdates.slice(0, 3).map((news) => (
+                <article
+                  key={news.id}
+                  className="rounded-[14px] border border-[var(--app-border)] bg-white/75 px-4 py-3"
                 >
-                  {item}
-                </div>
+                  <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-[var(--app-muted)]">
+                    {news.category}
+                  </p>
+                  <p className="mt-1 font-semibold text-[var(--app-ink)]">{news.title}</p>
+                  <p className="mt-1 text-xs text-[var(--app-muted)]">{news.date}</p>
+                </article>
               ))}
+              {newsUpdates.length === 0 ? (
+                <p className="text-sm text-[var(--app-muted)]">No hay novedades por ahora.</p>
+              ) : null}
             </div>
           </section>
         </aside>
