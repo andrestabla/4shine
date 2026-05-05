@@ -727,6 +727,14 @@ export async function listLearningResources(
               AND lower(t.tag_name) LIKE $7
           )
         )
+        AND (
+          $1::boolean = true
+          OR COALESCE(ci.competency_metadata->>'audience', 'all') = 'all'
+          OR (COALESCE(ci.competency_metadata->>'audience', 'all') = 'lider' AND $8::text = 'lider')
+          OR (COALESCE(ci.competency_metadata->>'audience', 'all') = 'lider_suscrito' AND $8::text = 'lider' AND $2::boolean = false)
+          OR (COALESCE(ci.competency_metadata->>'audience', 'all') = 'lider_sin_suscripcion' AND $8::text = 'lider' AND $2::boolean = true)
+          OR (COALESCE(ci.competency_metadata->>'audience', 'all') = 'ishiners' AND $8::text = 'mentor')
+        )
     `,
     [
       canManage,
@@ -736,6 +744,7 @@ export async function listLearningResources(
       statusFilter,
       query?.pillar ?? null,
       normalizedQuery,
+      actor.role,
     ],
   );
 
@@ -832,6 +841,14 @@ export async function listLearningResources(
               AND lower(t.tag_name) LIKE $8
           )
         )
+        AND (
+          $2::boolean = true
+          OR COALESCE(ci.competency_metadata->>'audience', 'all') = 'all'
+          OR (COALESCE(ci.competency_metadata->>'audience', 'all') = 'lider' AND $11::text = 'lider')
+          OR (COALESCE(ci.competency_metadata->>'audience', 'all') = 'lider_suscrito' AND $11::text = 'lider' AND $3::boolean = false)
+          OR (COALESCE(ci.competency_metadata->>'audience', 'all') = 'lider_sin_suscripcion' AND $11::text = 'lider' AND $3::boolean = true)
+          OR (COALESCE(ci.competency_metadata->>'audience', 'all') = 'ishiners' AND $11::text = 'mentor')
+        )
       ORDER BY
         ci.is_recommended DESC,
         CASE ci.status
@@ -857,6 +874,7 @@ export async function listLearningResources(
       normalizedQuery,
       pageSize,
       offset,
+      actor.role,
     ],
   );
 
