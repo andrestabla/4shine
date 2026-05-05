@@ -38,7 +38,22 @@ export default function HomeMarketingPage() {
   return (
     <main className="min-h-screen bg-[#f4f2fa] text-[#261739]">
       <section className="relative overflow-hidden border-b border-[#d8d0ea] bg-[#1c102d] text-white">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(198,151,255,0.35),transparent_38%),radial-gradient(circle_at_85%_25%,rgba(240,181,95,0.22),transparent_44%)]" />
+        <video
+          className="absolute inset-0 h-full w-full object-cover"
+          autoPlay
+          loop
+          muted
+          playsInline
+          preload="metadata"
+          aria-hidden="true"
+        >
+          <source
+            src="https://liderazgoestrategico.s3.us-east-1.amazonaws.com/4shine/International_Team_1920x1080.mp4"
+            type="video/mp4"
+          />
+        </video>
+        <div className="absolute inset-0 bg-[linear-gradient(108deg,rgba(20,9,36,0.88)_10%,rgba(28,14,45,0.74)_48%,rgba(46,23,62,0.7)_100%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(198,151,255,0.24),transparent_38%),radial-gradient(circle_at_85%_25%,rgba(240,181,95,0.16),transparent_44%)]" />
         <div className="relative mx-auto flex max-w-[1240px] flex-col px-6 pb-18 pt-6 md:px-10 lg:px-14">
           <header className="mb-14 flex items-center justify-between">
             <div className="text-xl font-black tracking-tight">4Shine</div>
