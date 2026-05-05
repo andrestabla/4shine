@@ -19,7 +19,13 @@ import { useUser } from '@/context/UserContext';
 import { extractProfileFromCv, getMyProfile, updateMyProfile, type MyProfileRecord } from '@/features/perfil/client';
 import { optimizeAvatarForUpload } from '@/lib/image-processing';
 import { YEARS_EXPERIENCE_OPTIONS, yearsToLabel, yearsToKey, keyToStoredValue } from '@/lib/demographics';
-import { USER_COUNTRY_OPTIONS, USER_GENDER_OPTIONS, USER_JOB_ROLE_OPTIONS, type UserJobRoleOption } from '@/lib/user-demographics';
+import {
+  USER_COUNTRY_OPTIONS,
+  USER_DEMOGRAPHIC_PLACEHOLDERS,
+  USER_GENDER_OPTIONS,
+  USER_JOB_ROLE_OPTIONS,
+  type UserJobRoleOption,
+} from '@/lib/user-demographics';
 
 type PlanType = 'standard' | 'premium' | 'vip' | 'empresa_elite';
 interface ProjectFormItem {
@@ -200,10 +206,16 @@ export default function PerfilPage() {
       return;
     }
     const yearsExperience = keyToStoredValue(form.yearsExperience);
-    if (!form.country.trim() || !form.jobRole || !form.gender.trim() || yearsExperience === null) {
+    const missingFields: string[] = [];
+    if (!form.country.trim()) missingFields.push('País');
+    if (!form.jobRole) missingFields.push('Cargo');
+    if (!form.gender.trim()) missingFields.push('Género');
+    if (yearsExperience === null) missingFields.push('Años de experiencia');
+
+    if (missingFields.length > 0) {
       await alert({
         title: 'Datos obligatorios',
-        message: 'País, cargo, género y años de experiencia son obligatorios.',
+        message: `Completa estos campos para guardar: ${missingFields.join(', ')}.`,
         tone: 'warning',
       });
       return;
@@ -548,7 +560,7 @@ export default function PerfilPage() {
                     onChange={(event) => setForm((prev) => (prev ? { ...prev, country: event.target.value } : prev))}
                     required
                   >
-                    <option value="">Seleccionar país</option>
+                    <option value="">{USER_DEMOGRAPHIC_PLACEHOLDERS.country}</option>
                     {USER_COUNTRY_OPTIONS.map((country) => (
                       <option key={country} value={country}>
                         {country}
@@ -566,7 +578,7 @@ export default function PerfilPage() {
                     }
                     required
                   >
-                    <option value="">Sin definir</option>
+                    <option value="">{USER_DEMOGRAPHIC_PLACEHOLDERS.jobRole}</option>
                     {USER_JOB_ROLE_OPTIONS.map((jobRole) => (
                       <option key={jobRole} value={jobRole}>
                         {jobRole}
@@ -582,7 +594,7 @@ export default function PerfilPage() {
                     onChange={(event) => setForm((prev) => (prev ? { ...prev, gender: event.target.value } : prev))}
                     required
                   >
-                    <option value="">Género</option>
+                    <option value="">{USER_DEMOGRAPHIC_PLACEHOLDERS.gender}</option>
                     {USER_GENDER_OPTIONS.map((gender) => (
                       <option key={gender} value={gender}>
                         {gender}
@@ -600,7 +612,7 @@ export default function PerfilPage() {
                     }
                     required
                   >
-                    <option value="">Seleccionar rango</option>
+                    <option value="">{USER_DEMOGRAPHIC_PLACEHOLDERS.yearsExperience}</option>
                     {YEARS_EXPERIENCE_OPTIONS.map((opt) => (
                       <option key={opt.key} value={opt.key}>{opt.label}</option>
                     ))}

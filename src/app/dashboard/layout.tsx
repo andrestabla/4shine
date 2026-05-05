@@ -12,6 +12,7 @@ import { trackAuditEvent } from "@/lib/audit-client";
 import { YEARS_EXPERIENCE_OPTIONS, keyToStoredValue, yearsToKey } from "@/lib/demographics";
 import {
   USER_COUNTRY_OPTIONS,
+  USER_DEMOGRAPHIC_PLACEHOLDERS,
   USER_GENDER_OPTIONS,
   USER_JOB_ROLE_OPTIONS,
   type UserJobRoleOption,
@@ -397,7 +398,7 @@ export default function DashboardLayout({
                 value={onboardingForm.country}
                 onChange={(event) => setOnboardingForm((prev) => ({ ...prev, country: event.target.value }))}
               >
-                <option value="">Selecciona país</option>
+                <option value="">{USER_DEMOGRAPHIC_PLACEHOLDERS.country}</option>
                 {USER_COUNTRY_OPTIONS.map((country) => (
                   <option key={country} value={country}>
                     {country}
@@ -411,7 +412,7 @@ export default function DashboardLayout({
                   setOnboardingForm((prev) => ({ ...prev, jobRole: event.target.value as UserJobRoleOption | "" }))
                 }
               >
-                <option value="">Selecciona cargo</option>
+                <option value="">{USER_DEMOGRAPHIC_PLACEHOLDERS.jobRole}</option>
                 {USER_JOB_ROLE_OPTIONS.map((jobRole) => (
                   <option key={jobRole} value={jobRole}>
                     {jobRole}
@@ -428,7 +429,7 @@ export default function DashboardLayout({
                   }))
                 }
               >
-                <option value="">Selecciona género</option>
+                <option value="">{USER_DEMOGRAPHIC_PLACEHOLDERS.gender}</option>
                 {USER_GENDER_OPTIONS.map((gender) => (
                   <option key={gender} value={gender}>
                     {gender}
@@ -440,7 +441,7 @@ export default function DashboardLayout({
                 value={onboardingForm.yearsExperienceKey}
                 onChange={(event) => setOnboardingForm((prev) => ({ ...prev, yearsExperienceKey: event.target.value }))}
               >
-                <option value="">Años de experiencia</option>
+                <option value="">{USER_DEMOGRAPHIC_PLACEHOLDERS.yearsExperience}</option>
                 {YEARS_EXPERIENCE_OPTIONS.map((opt) => (
                   <option key={opt.key} value={opt.key}>
                     {opt.label}
@@ -466,4 +467,3 @@ export default function DashboardLayout({
     </div>
   );
 }
-

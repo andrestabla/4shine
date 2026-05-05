@@ -43,3 +43,10 @@ export type UserCountryOption = (typeof USER_COUNTRY_OPTIONS)[number];
 export const USER_JOB_ROLE_SET = new Set<string>(USER_JOB_ROLE_OPTIONS);
 export const USER_GENDER_SET = new Set<string>(USER_GENDER_OPTIONS);
 export const USER_COUNTRY_SET = new Set<string>(USER_COUNTRY_OPTIONS);
+
+export const USER_DEMOGRAPHIC_PLACEHOLDERS = {
+  country: 'Seleccionar país',
+  jobRole: 'Seleccionar cargo',
+  gender: 'Seleccionar género',
+  yearsExperience: 'Seleccionar rango',
+} as const;

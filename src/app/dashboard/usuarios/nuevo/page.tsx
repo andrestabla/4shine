@@ -14,7 +14,13 @@ import {
   type UserTypeOption,
 } from '@/features/usuarios/user-types';
 import { YEARS_EXPERIENCE_OPTIONS, keyToStoredValue } from '@/lib/demographics';
-import { USER_COUNTRY_OPTIONS, USER_GENDER_OPTIONS, USER_JOB_ROLE_OPTIONS, type UserJobRoleOption } from '@/lib/user-demographics';
+import {
+  USER_COUNTRY_OPTIONS,
+  USER_DEMOGRAPHIC_PLACEHOLDERS,
+  USER_GENDER_OPTIONS,
+  USER_JOB_ROLE_OPTIONS,
+  type UserJobRoleOption,
+} from '@/lib/user-demographics';
 
 interface FormState {
   firstName: string;
@@ -185,7 +191,7 @@ export default function NuevoUsuarioPage() {
               onChange={(event) => setForm((prev) => ({ ...prev, country: event.target.value }))}
               required
             >
-              <option value="">Seleccionar país</option>
+              <option value="">{USER_DEMOGRAPHIC_PLACEHOLDERS.country}</option>
               {USER_COUNTRY_OPTIONS.map((country) => (
                 <option key={country} value={country}>
                   {country}
@@ -202,7 +208,7 @@ export default function NuevoUsuarioPage() {
               onChange={(event) => setForm((prev) => ({ ...prev, jobRole: event.target.value as FormState['jobRole'] }))}
               required
             >
-              <option value="">Sin definir</option>
+              <option value="">{USER_DEMOGRAPHIC_PLACEHOLDERS.jobRole}</option>
               {USER_JOB_ROLE_OPTIONS.map((jobRole) => (
                 <option key={jobRole} value={jobRole}>
                   {jobRole}
@@ -219,7 +225,7 @@ export default function NuevoUsuarioPage() {
               onChange={(event) => setForm((prev) => ({ ...prev, gender: event.target.value }))}
               required
             >
-              <option value="">Género</option>
+              <option value="">{USER_DEMOGRAPHIC_PLACEHOLDERS.gender}</option>
               {USER_GENDER_OPTIONS.map((gender) => (
                 <option key={gender} value={gender}>
                   {gender}
@@ -236,7 +242,7 @@ export default function NuevoUsuarioPage() {
               onChange={(event) => setForm((prev) => ({ ...prev, yearsExperience: event.target.value }))}
               required
             >
-              <option value="">Seleccionar rango</option>
+              <option value="">{USER_DEMOGRAPHIC_PLACEHOLDERS.yearsExperience}</option>
               {YEARS_EXPERIENCE_OPTIONS.map((opt) => (
                 <option key={opt.key} value={opt.key}>{opt.label}</option>
               ))}
