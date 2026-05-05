@@ -973,6 +973,7 @@ function buildNextState(
   current: DiscoverySessionRecord,
   actor: AuthUser,
   input: UpdateDiscoverySessionInput,
+  persistedProfileFallback?: Partial<DiscoveryParticipantProfile>,
 ) {
   const nextAnswers = input.answers ? normalizeAnswers(input.answers) : current.answers;
   const completionPercent =
@@ -982,16 +983,19 @@ function buildNextState(
     input.currentIdx !== undefined ? clampCurrentIdx(input.currentIdx) : current.currentIdx;
 
   const nextProfile = normalizeProfile(input.profile, {
-    firstName: current.firstName,
-    lastName: current.lastName,
-    country: current.country,
-    jobRole: current.jobRole,
-    gender: (current.gender ?? "") as
+    firstName: current.firstName || persistedProfileFallback?.firstName || "",
+    lastName: current.lastName || persistedProfileFallback?.lastName || "",
+    country: current.country || persistedProfileFallback?.country || "",
+    jobRole: current.jobRole || persistedProfileFallback?.jobRole || "",
+    gender: ((current.gender || persistedProfileFallback?.gender || "") as
       | "Hombre"
       | "Mujer"
       | "Prefiero no decirlo"
-      | "",
-    yearsExperience: current.yearsExperience,
+      | ""),
+    yearsExperience:
+      current.yearsExperience ??
+      persistedProfileFallback?.yearsExperience ??
+      null,
   });
 
   const profileCompleted = isProfileCompleted(nextProfile);
@@ -1639,7 +1643,48 @@ export async function updateDiscoverySession(
   await requireDiscoveryAccess(client, actor);
 
   const current = await getOrCreateDiscoverySession(client, actor);
-  const next = buildNextState(current, actor, input);
+  const { rows: persistedRows } = await client.query<{
+    first_name: string | null;
+    last_name: string | null;
+    country: string | null;
+    job_role: string | null;
+    gender: string | null;
+    years_experience: number | null;
+  }>(
+    `
+      SELECT
+        u.first_name,
+        u.last_name,
+        up.country,
+        up.job_role,
+        up.gender,
+        up.years_experience
+      FROM app_core.users u
+      LEFT JOIN app_core.user_profiles up
+        ON up.user_id = u.user_id
+      WHERE u.user_id = $1::uuid
+      LIMIT 1
+    `,
+    [actor.userId],
+  );
+
+  const persistedProfileFallback = normalizeProfile(
+    {
+      firstName: persistedRows[0]?.first_name ?? "",
+      lastName: persistedRows[0]?.last_name ?? "",
+      country: persistedRows[0]?.country ?? "",
+      jobRole: (persistedRows[0]?.job_role ?? "") as DiscoveryParticipantProfile["jobRole"] | "",
+      gender: (persistedRows[0]?.gender ?? "") as
+        | "Hombre"
+        | "Mujer"
+        | "Prefiero no decirlo"
+        | "",
+      yearsExperience: persistedRows[0]?.years_experience ?? null,
+    },
+    {},
+  );
+
+  const next = buildNextState(current, actor, input, persistedProfileFallback);
 
   const { rows } = await client.query<DiscoverySessionRow>(
     `
