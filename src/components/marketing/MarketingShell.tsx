@@ -18,7 +18,15 @@ export function MarketingShell({ title, subtitle, children }: { title: string; s
     <main className="min-h-screen bg-[#f4f2fa] text-[#27163a]">
       <header className="sticky top-0 z-30 border-b border-[#d7cdec] bg-[#f4f2fa]/90 backdrop-blur">
         <div className="mx-auto flex h-20 w-full max-w-[1240px] items-center justify-between px-6 md:px-10 lg:px-14">
-          <Link href="/" className="text-2xl font-black tracking-tight text-[#2d1845]">4Shine</Link>
+          <Link href="/" className="inline-flex items-center gap-2.5 text-[#2d1845]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/workbooks-v2/diamond.svg"
+              alt="Logo 4Shine"
+              className="h-8 w-8 object-contain"
+            />
+            <span className="text-2xl font-black tracking-tight">4Shine</span>
+          </Link>
           <nav className="hidden items-center gap-7 text-sm font-bold text-[#4e356a] md:flex">
             {navItems.map((item) => (
               <Link key={item.href} href={item.href} className="transition hover:text-[#2d1845]">{item.label}</Link>

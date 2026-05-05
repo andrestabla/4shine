@@ -56,7 +56,15 @@ export default function HomeMarketingPage() {
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(198,151,255,0.24),transparent_38%),radial-gradient(circle_at_85%_25%,rgba(240,181,95,0.16),transparent_44%)]" />
         <div className="relative mx-auto flex max-w-[1240px] flex-col px-6 pb-18 pt-6 md:px-10 lg:px-14">
           <header className="mb-14 flex items-center justify-between">
-            <div className="text-xl font-black tracking-tight">4Shine</div>
+            <Link href="/" className="inline-flex items-center gap-2.5">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/workbooks-v2/diamond.svg"
+                alt="Logo 4Shine"
+                className="h-8 w-8 object-contain"
+              />
+              <span className="text-xl font-black tracking-tight">4Shine</span>
+            </Link>
             <nav className="hidden items-center gap-8 text-sm font-semibold md:flex">
               <Link href="/metodologia" className="hover:text-[#f4cf8e]">Metodología</Link>
               <Link href="/planes-precios" className="hover:text-[#f4cf8e]">Planes y precios</Link>
