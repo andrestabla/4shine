@@ -24,6 +24,14 @@ ALTER TABLE app_assessment.discovery_sessions
 ALTER TABLE app_assessment.discovery_sessions
   DROP CONSTRAINT IF EXISTS discovery_sessions_job_role_check;
 
+UPDATE app_assessment.discovery_sessions
+SET job_role = 'Gerente/Mand medio'
+WHERE job_role = 'Gerente/Mando medio';
+
+UPDATE app_assessment.discovery_sessions
+SET job_role = 'Individual contributor'
+WHERE job_role = 'Especialista sin personal a cargo';
+
 ALTER TABLE app_assessment.discovery_sessions
   ADD CONSTRAINT discovery_sessions_job_role_check
   CHECK (

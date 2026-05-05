@@ -4,13 +4,13 @@ INSERT INTO app_core.user_profiles (
   user_id,
   country,
   job_role,
-  age,
+  gender,
   years_experience
 )
 SELECT u.user_id
      , 'No definido'
-     , 'Individual contributor'
-     , 30
+     , 'Especialista sin personal a cargo'
+     , 'Prefiero no decirlo'
      , 0
 FROM app_core.users u
 ON CONFLICT (user_id) DO NOTHING;
@@ -25,14 +25,12 @@ SET
       'Gerente/Mando medio',
       'Coordinador',
       'Lider de proyecto con equipo a cargo',
-      'Individual contributor'
+      'Especialista sin personal a cargo'
     ) THEN up.job_role
-    ELSE 'Individual contributor'
+    WHEN up.job_role = 'Individual contributor' THEN 'Especialista sin personal a cargo'
+    ELSE 'Especialista sin personal a cargo'
   END,
-  age = CASE
-    WHEN up.age BETWEEN 16 AND 100 THEN up.age
-    ELSE 30
-  END,
+  gender = COALESCE(NULLIF(BTRIM(up.gender), ''), 'Prefiero no decirlo'),
   years_experience = CASE
     WHEN up.years_experience BETWEEN 0 AND 80 THEN up.years_experience
     ELSE 0
@@ -48,11 +46,8 @@ WHERE
     'Gerente/Mando medio',
     'Coordinador',
     'Lider de proyecto con equipo a cargo',
-    'Individual contributor'
+    'Especialista sin personal a cargo'
   )
-  OR up.age IS NULL
-  OR up.age < 16
-  OR up.age > 100
   OR up.years_experience IS NULL
   OR up.years_experience < 0
   OR up.years_experience > 80;
@@ -61,6 +56,7 @@ UPDATE app_assessment.discovery_sessions ds
 SET
   job_role = CASE
     WHEN ds.job_role = 'Gerente/Mand medio' THEN 'Gerente/Mando medio'
+    WHEN ds.job_role = 'Especialista sin personal a cargo' THEN 'Individual contributor'
     ELSE ds.job_role
   END,
   country = COALESCE(NULLIF(BTRIM(ds.country), ''), 'No definido'),
@@ -75,6 +71,7 @@ SET
   updated_at = now()
 WHERE
   ds.job_role = 'Gerente/Mand medio'
+  OR ds.job_role = 'Especialista sin personal a cargo'
   OR ds.country IS NULL
   OR BTRIM(ds.country) = ''
   OR ds.age IS NULL

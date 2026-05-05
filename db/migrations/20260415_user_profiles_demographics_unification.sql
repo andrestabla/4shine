@@ -3,7 +3,7 @@ BEGIN;
 ALTER TABLE app_core.user_profiles
   ADD COLUMN IF NOT EXISTS country text,
   ADD COLUMN IF NOT EXISTS job_role text,
-  ADD COLUMN IF NOT EXISTS age integer,
+  ADD COLUMN IF NOT EXISTS gender text,
   ADD COLUMN IF NOT EXISTS years_experience integer;
 
 ALTER TABLE app_core.user_profiles
@@ -17,15 +17,9 @@ ALTER TABLE app_core.user_profiles
       'Gerente/Mando medio',
       'Coordinador',
       'Lider de proyecto con equipo a cargo',
-      'Individual contributor'
+      'Especialista sin personal a cargo'
     )
   );
-
-ALTER TABLE app_core.user_profiles
-  DROP CONSTRAINT IF EXISTS user_profiles_age_check;
-ALTER TABLE app_core.user_profiles
-  ADD CONSTRAINT user_profiles_age_check
-  CHECK (age IS NULL OR (age >= 16 AND age <= 100));
 
 ALTER TABLE app_core.user_profiles
   DROP CONSTRAINT IF EXISTS user_profiles_years_experience_check;
@@ -37,13 +31,13 @@ INSERT INTO app_core.user_profiles (
   user_id,
   country,
   job_role,
-  age,
+  gender,
   years_experience
 )
 SELECT u.user_id
      , 'No definido'
-     , 'Individual contributor'
-     , 30
+     , 'Especialista sin personal a cargo'
+     , 'Prefiero no decirlo'
      , 0
 FROM app_core.users u
 ON CONFLICT (user_id) DO NOTHING;
@@ -58,15 +52,12 @@ WITH latest_sessions AS (
         'Gerente/Mando medio',
         'Coordinador',
         'Lider de proyecto con equipo a cargo',
-        'Individual contributor'
+        'Especialista sin personal a cargo'
       ) THEN ds.job_role
       WHEN ds.job_role = 'Gerente/Mand medio' THEN 'Gerente/Mando medio'
+      WHEN ds.job_role = 'Individual contributor' THEN 'Especialista sin personal a cargo'
       ELSE NULL
     END AS job_role,
-    CASE
-      WHEN ds.age BETWEEN 16 AND 100 THEN ds.age
-      ELSE NULL
-    END AS age,
     CASE
       WHEN ds.years_experience BETWEEN 0 AND 80 THEN ds.years_experience
       ELSE NULL
@@ -78,8 +69,8 @@ WITH latest_sessions AS (
 UPDATE app_core.user_profiles up
 SET
   country = COALESCE(latest_sessions.country, NULLIF(BTRIM(up.country), ''), 'No definido'),
-  job_role = COALESCE(latest_sessions.job_role, up.job_role, 'Individual contributor'),
-  age = COALESCE(latest_sessions.age, up.age, 30),
+  job_role = COALESCE(latest_sessions.job_role, up.job_role, 'Especialista sin personal a cargo'),
+  gender = COALESCE(NULLIF(BTRIM(up.gender), ''), 'Prefiero no decirlo'),
   years_experience = COALESCE(latest_sessions.years_experience, up.years_experience, 0),
   updated_at = now()
 FROM latest_sessions
@@ -87,7 +78,6 @@ WHERE up.user_id = latest_sessions.user_id
   AND (
     latest_sessions.country IS NOT NULL
     OR latest_sessions.job_role IS NOT NULL
-    OR latest_sessions.age IS NOT NULL
     OR latest_sessions.years_experience IS NOT NULL
   );
 

@@ -13,8 +13,8 @@ BEGIN
     RAISE EXCEPTION 'job_role is required in app_core.user_profiles';
   END IF;
 
-  IF NEW.age IS NULL THEN
-    RAISE EXCEPTION 'age is required in app_core.user_profiles';
+  IF NEW.gender IS NULL THEN
+    RAISE EXCEPTION 'gender is required in app_core.user_profiles';
   END IF;
 
   IF NEW.years_experience IS NULL THEN
