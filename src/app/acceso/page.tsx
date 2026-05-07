@@ -89,7 +89,17 @@ export default function LoginPage() {
   const [isResending, setIsResending] = React.useState(false);
   const [unverifiedEmail, setUnverifiedEmail] = React.useState('');
   const googleButtonRef = React.useRef<HTMLDivElement>(null);
-  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? '';
+  const [googleSso, setGoogleSso] = React.useState<{ enabled: boolean; clientId: string | null }>({ enabled: false, clientId: null });
+  const googleClientId = googleSso.enabled && googleSso.clientId ? googleSso.clientId : '';
+
+  React.useEffect(() => {
+    fetch('/api/v1/public/sso-config')
+      .then((r) => r.json())
+      .then((data: { googleSso?: { enabled: boolean; clientId: string | null } }) => {
+        if (data.googleSso) setGoogleSso(data.googleSso);
+      })
+      .catch(() => {});
+  }, []);
 
   const visibility = tokens.text.visibility;
   const isImageRightLayout = branding.loginLayout === 'image_right';
@@ -177,6 +187,10 @@ export default function LoginPage() {
           };
 
           if (!data.ok) {
+            if (data.error === 'email_not_verified' && data.email) {
+              setUnverifiedEmail(data.email);
+              return;
+            }
             await alert({
               title: 'Error con Google',
               message: data.error ?? 'No fue posible autenticar con Google',

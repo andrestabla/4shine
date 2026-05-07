@@ -77,83 +77,104 @@ export async function POST(request: Request) {
 
   try {
     const result = await withClient(async (client) => {
-      await client.query('SELECT set_config($1, $2, true)', ['app.current_role', 'gestor']);
+      await client.query('BEGIN');
+      try {
+        await client.query('SELECT set_config($1, $2, true)', ['app.current_role', 'gestor']);
 
-      const { rows } = await client.query<{
-        user_id: string;
-        email: string;
-        display_name: string;
-        primary_role: AuthUser['role'];
-        is_active: boolean;
-      }>(
-        `
-          SELECT u.user_id, u.email, u.display_name, u.primary_role, u.is_active
-          FROM app_core.users u
-          WHERE u.email = $1
-          LIMIT 1
-        `,
-        [email],
-      );
+        const { rows } = await client.query<{
+          user_id: string;
+          email: string;
+          display_name: string;
+          primary_role: AuthUser['role'];
+          is_active: boolean;
+          email_verified_at: string | null;
+        }>(
+          `
+            SELECT u.user_id, u.email, u.display_name, u.primary_role, u.is_active,
+                   uc.email_verified_at::text
+            FROM app_core.users u
+            JOIN app_auth.user_credentials uc ON uc.user_id = u.user_id
+            WHERE u.email = $1
+            LIMIT 1
+          `,
+          [email],
+        );
 
-      const userRow = rows[0];
+        const userRow = rows[0];
 
-      if (!userRow) {
+        if (!userRow) {
+          await client.query('COMMIT');
+          return {
+            status: 200 as const,
+            payload: {
+              ok: true,
+              action: 'register' as const,
+              email,
+              firstName,
+              lastName,
+            },
+          };
+        }
+
+        if (!userRow.is_active) {
+          await client.query('COMMIT');
+          return {
+            status: 403 as const,
+            payload: { ok: false, error: 'Cuenta inactiva. Contacta al administrador.' },
+          };
+        }
+
+        if (!userRow.email_verified_at) {
+          await client.query('COMMIT');
+          return {
+            status: 403 as const,
+            payload: { ok: false, error: 'email_not_verified', email: userRow.email },
+          };
+        }
+
+        await client.query('SELECT set_config($1, $2, true)', [
+          'app.current_user_id',
+          userRow.user_id,
+        ]);
+        await client.query('SELECT set_config($1, $2, true)', [
+          'app.current_role',
+          userRow.primary_role,
+        ]);
+
+        const authUser: AuthUser = {
+          userId: userRow.user_id,
+          email: userRow.email,
+          name: userRow.display_name,
+          role: userRow.primary_role,
+        };
+
+        const tokens = await issueAuthTokens(
+          client,
+          authUser,
+          request.headers.get('user-agent'),
+          getIpAddress(request),
+        );
+
+        await client.query('COMMIT');
+
         return {
           status: 200 as const,
           payload: {
             ok: true,
-            action: 'register' as const,
-            email,
-            firstName,
-            lastName,
+            action: 'login' as const,
+            user: {
+              id: authUser.userId,
+              email: authUser.email,
+              name: authUser.name,
+              role: authUser.role,
+            },
           },
+          tokens,
         };
+      } catch (e) {
+        await client.query('ROLLBACK');
+        throw e;
       }
-
-      if (!userRow.is_active) {
-        return {
-          status: 403 as const,
-          payload: { ok: false, error: 'Cuenta inactiva. Contacta al administrador.' },
-        };
-      }
-
-      await client.query('SELECT set_config($1, $2, true)', [
-        'app.current_user_id',
-        userRow.user_id,
-      ]);
-      await client.query('SELECT set_config($1, $2, true)', [
-        'app.current_role',
-        userRow.primary_role,
-      ]);
-
-      const authUser: AuthUser = {
-        userId: userRow.user_id,
-        email: userRow.email,
-        name: userRow.display_name,
-        role: userRow.primary_role,
-      };
-
-      const tokens = await issueAuthTokens(
-        client,
-        authUser,
-        request.headers.get('user-agent'),
-        getIpAddress(request),
-      );
-
-      return {
-        status: 200 as const,
-        payload: {
-          ok: true,
-          action: 'login' as const,
-          user: {
-            id: authUser.userId,
-            email: authUser.email,
-            name: authUser.name,
-            role: authUser.role,
-          },
-        },
-        tokens,
-      };
     });
 
     const response = NextResponse.json(result.payload, { status: result.status });
