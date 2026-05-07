@@ -76,7 +76,7 @@ interface GooglePrefill {
 }
 
 export default function LoginPage() {
-  const { login, isHydrating, applySession } = useUser();
+  const { login, isHydrating, isAuthenticated, applySession } = useUser();
   const { branding, tokens, isLoading: isBrandingLoading } = useBranding();
   const { alert } = useAppDialog();
   const router = useRouter();
@@ -144,6 +144,12 @@ export default function LoginPage() {
     });
     router.replace('/acceso');
   }, [alert, router]);
+
+  React.useEffect(() => {
+    if (!isHydrating && isAuthenticated) {
+      router.replace('/dashboard');
+    }
+  }, [isHydrating, isAuthenticated, router]);
 
   const initGoogleButton = React.useCallback(() => {
     if (!googleClientId || !window.google?.accounts?.id || !googleButtonRef.current) return;
@@ -275,7 +281,7 @@ export default function LoginPage() {
     await alert({ title: 'Error al registrarse', message, tone: 'error' });
   };
 
-  if (isBrandingLoading) {
+  if (isBrandingLoading || isHydrating) {
     const loaderText = branding.loaderText.trim();
     return (
       <div className="min-h-screen bg-white flex items-center justify-center px-6">
