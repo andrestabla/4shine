@@ -493,7 +493,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
             >
               <p
                 className="truncate text-sm font-semibold"
-                style={{ color: onPrimaryText }}
+                style={{ color: isProfileActive ? "#4f2360" : onPrimaryText }}
               >
                 {currentUser.name}
               </p>
