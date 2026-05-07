@@ -62,6 +62,14 @@ export function RegisterForm({
     confirmPassword: '',
   });
 
+  // googlePrefill arrives after the component is already mounted (user clicked
+  // the Google button while the manual form was showing). Advance to step 2.
+  React.useEffect(() => {
+    if (googlePrefill) {
+      setStep(2);
+    }
+  }, [googlePrefill]);
+
   const [step2, setStep2] = React.useState<Step2Data>({
     profession: '',
     industry: '',
