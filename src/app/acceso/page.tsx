@@ -623,13 +623,11 @@ export default function LoginPage() {
 
   return (
     <>
-      {googleClientId && (
-        <Script
-          src="https://accounts.google.com/gsi/client"
-          strategy="afterInteractive"
-          onLoad={initGoogleButton}
-        />
-      )}
+      <Script
+        src="https://accounts.google.com/gsi/client"
+        strategy="afterInteractive"
+        onLoad={initGoogleButton}
+      />
 
       {isCenteredImageLayout ? (
         <div

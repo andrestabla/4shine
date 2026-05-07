@@ -36,7 +36,8 @@ export async function GET() {
     const response = NextResponse.json(result);
     response.headers.set('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=120');
     return response;
-  } catch {
+  } catch (error) {
+    console.error('[sso-config] Failed to load SSO config:', error instanceof Error ? error.message : error);
     return NextResponse.json({ googleSso: { enabled: false, clientId: null } });
   }
 }

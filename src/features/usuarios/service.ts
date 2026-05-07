@@ -1111,7 +1111,10 @@ export async function sendVerificationEmail(
     }
   });
 
-  if (!config) return;
+  if (!config) {
+    console.warn('[sendVerificationEmail] No outbound email config found — email not sent for userId:', userId);
+    return;
+  }
 
   const payload = buildVerificationEmailPayload(config, email, firstName, verificationUrl);
   await sendOutboundEmail(config, payload);
