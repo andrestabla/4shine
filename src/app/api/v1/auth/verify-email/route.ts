@@ -23,6 +23,8 @@ export async function GET(request: Request) {
 
   try {
     const result = await withClient(async (client) => {
+      await client.query('BEGIN');
+      try {
       await client.query('SELECT set_config($1, $2, true)', ['app.current_role', 'gestor']);
 
       const { rows } = await client.query<{
@@ -62,18 +64,22 @@ export async function GET(request: Request) {
       const row = rows[0];
 
       if (!row) {
+        await client.query('ROLLBACK');
         return { status: 400 as const, payload: { ok: false, error: 'El enlace de verificación es inválido o ya fue utilizado.' } };
       }
 
       if (row.already_verified) {
+        await client.query('ROLLBACK');
         return { status: 400 as const, payload: { ok: false, error: 'Esta cuenta ya fue verificada. Puedes iniciar sesión.' } };
       }
 
       if (!row.is_active) {
+        await client.query('ROLLBACK');
         return { status: 403 as const, payload: { ok: false, error: 'Cuenta inactiva.' } };
       }
 
       if (row.expires_at && new Date(row.expires_at).getTime() < Date.now()) {
+        await client.query('ROLLBACK');
         return { status: 410 as const, payload: { ok: false, error: 'El enlace expiró. Solicita uno nuevo desde la pantalla de acceso.' } };
       }
 
@@ -105,6 +111,8 @@ export async function GET(request: Request) {
         getIpAddress(request),
       );
 
+      await client.query('COMMIT');
+
       return {
         status: 200 as const,
         payload: {
@@ -119,6 +127,10 @@ export async function GET(request: Request) {
         },
         tokens,
       };
+      } catch (e) {
+        await client.query('ROLLBACK');
+        throw e;
+      }
     });
 
     const response = NextResponse.json(result.payload, { status: result.status });

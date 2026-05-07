@@ -1038,13 +1038,15 @@ function buildVerificationEmailPayload(
   recipient: string,
   firstName: string,
   verificationUrl: string,
+  branding: { platformName: string; logoUrl: string | null },
 ): OutboundEmailPayload {
   const safeName = firstName.trim() || 'usuario';
-  const subject = '4Shine · Confirma tu cuenta';
+  const platformName = branding.platformName || '4Shine';
+  const subject = `${platformName} · Confirma tu cuenta`;
   const text = [
     `Hola ${safeName},`,
     '',
-    'Gracias por registrarte en 4Shine. Para activar tu cuenta, haz clic en el siguiente enlace:',
+    `Gracias por registrarte en ${platformName}. Para activar tu cuenta, haz clic en el siguiente enlace:`,
     '',
     verificationUrl,
     '',
@@ -1052,6 +1054,10 @@ function buildVerificationEmailPayload(
     '',
     'Si no creaste esta cuenta, puedes ignorar este mensaje.',
   ].join('\n');
+
+  const headerContent = branding.logoUrl
+    ? `<img src="${branding.logoUrl}" alt="${platformName}" style="height:48px;width:auto;display:block;margin:0 auto;" />`
+    : `<span style="color:#ffffff;font-size:22px;font-weight:700;letter-spacing:0.5px;">${platformName}</span>`;
 
   const html = `<!DOCTYPE html>
 <html lang="es">
@@ -1063,14 +1069,14 @@ function buildVerificationEmailPayload(
       <table width="560" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;width:100%;background-color:#ffffff;border-radius:16px;overflow:hidden;">
         <tr>
           <td style="background-color:#1e293b;padding:28px 40px;text-align:center;">
-            <span style="color:#ffffff;font-size:22px;font-weight:700;letter-spacing:0.5px;">4Shine</span>
+            ${headerContent}
           </td>
         </tr>
         <tr>
           <td style="padding:36px 40px;">
             <p style="margin:0 0 16px;font-size:15px;color:#0f172a;">Hola <strong>${safeName}</strong>,</p>
             <p style="margin:0 0 28px;font-size:15px;color:#334155;line-height:1.6;">
-              Gracias por registrarte en 4Shine. Haz clic en el botón para confirmar tu correo y activar tu cuenta:
+              Gracias por registrarte en ${platformName}. Haz clic en el botón para confirmar tu correo y activar tu cuenta:
             </p>
             <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 28px;">
               <tr>
@@ -1088,7 +1094,7 @@ function buildVerificationEmailPayload(
         </tr>
         <tr>
           <td style="background-color:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 40px;text-align:center;">
-            <p style="margin:0 0 4px;font-size:12px;color:#94a3b8;">4Shine &middot; Plataforma de desarrollo de equipos</p>
+            <p style="margin:0 0 4px;font-size:12px;color:#94a3b8;">${platformName} &middot; Plataforma de desarrollo de equipos</p>
             <p style="margin:0;font-size:12px;color:#cbd5e1;">soporte@4shine.co</p>
           </td>
         </tr>
@@ -1119,6 +1125,7 @@ export async function sendVerificationEmail(
   // (required by RLS on outbound_email_configs) is properly set regardless of
   // whether the caller already committed its transaction.
   let config: OutboundConfigRow | null = null;
+  let branding: { platformName: string; logoUrl: string | null } = { platformName: '4Shine', logoUrl: null };
   await withClient(async (client) => {
     await client.query('BEGIN');
     try {
@@ -1135,6 +1142,20 @@ export async function sendVerificationEmail(
       );
 
       config = await resolveOutboundConfig(client, organizationId);
+
+      // branding_settings has a public SELECT policy — no user context required
+      const brandingQuery = organizationId
+        ? `SELECT platform_name, logo_url FROM app_admin.branding_settings WHERE organization_id = $1::uuid LIMIT 1`
+        : `SELECT platform_name, logo_url FROM app_admin.branding_settings ORDER BY updated_at DESC LIMIT 1`;
+      const brandingParams = organizationId ? [organizationId] : [];
+      const { rows: brandingRows } = await client.query<{ platform_name: string; logo_url: string | null }>(
+        brandingQuery,
+        brandingParams,
+      );
+      if (brandingRows[0]) {
+        branding = { platformName: brandingRows[0].platform_name || '4Shine', logoUrl: brandingRows[0].logo_url ?? null };
+      }
+
       await client.query('COMMIT');
     } catch (e) {
       await client.query('ROLLBACK');
@@ -1147,7 +1168,7 @@ export async function sendVerificationEmail(
     return;
   }
 
-  const payload = buildVerificationEmailPayload(config, email, firstName, verificationUrl);
+  const payload = buildVerificationEmailPayload(config, email, firstName, verificationUrl, branding);
   await sendOutboundEmail(config, payload);
 }
 
