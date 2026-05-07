@@ -481,9 +481,10 @@ const INTEGRATION_ASSISTANTS: Record<IntegrationKey, AssistantDefinition> = {
             type: 'select',
             defaultValue: 'lider',
             options: [
-              { value: 'lider', label: 'Líder' },
+              { value: 'lider', label: 'Líder sin suscripción' },
               { value: 'mentor', label: 'Adviser' },
               { value: 'gestor', label: 'Gestor' },
+              { value: 'admin', label: 'Administrador' },
             ],
             helpText:
               'Rol aplicado a usuarios nuevos creados desde SSO. Luego podrás ajustarlo desde Gestión de Usuarios.',

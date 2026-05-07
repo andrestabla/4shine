@@ -188,25 +188,30 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
         let response = await makeAuthMeRequest();
 
-        if (!response.ok && response.status === 401 && hasTrackedSessionActivity()) {
-          if (!isSessionIdleExpired()) {
-            const refreshed = await tryRefreshSessionFromActivity();
-            if (refreshed) {
-              response = await makeAuthMeRequest();
-            } else {
-              if (!cancelled) {
-                clearSession();
-                setIsHydrating(false);
-              }
-              await redirectToLoginAfterSessionTimeout();
-              return;
-            }
-          } else {
+        if (!response.ok && response.status === 401) {
+          if (hasTrackedSessionActivity() && isSessionIdleExpired()) {
             if (!cancelled) {
               clearSession();
               setIsHydrating(false);
             }
             await redirectToLoginAfterSessionTimeout();
+            return;
+          }
+
+          const refreshed = await tryRefreshSessionFromActivity();
+          if (!refreshed) {
+            if (!cancelled) {
+              clearSession();
+              setIsHydrating(false);
+            }
+            return;
+          }
+          response = await makeAuthMeRequest();
+          if (!response.ok) {
+            if (!cancelled) {
+              clearSession();
+              setIsHydrating(false);
+            }
             return;
           }
         }
@@ -346,6 +351,11 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
       }
 
       timeoutId = window.setTimeout(() => {
+        // Re-check activity from localStorage — another tab may have updated it.
+        if (!isSessionIdleExpired()) {
+          scheduleExpirationCheck();
+          return;
+        }
         void expireSession();
       }, remainingMs);
     };
