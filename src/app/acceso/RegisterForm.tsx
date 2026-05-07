@@ -17,6 +17,7 @@ interface StyleProps {
 interface RegisterFormProps extends StyleProps {
   onBack: () => void;
   onSuccess: (user: SessionUser) => void;
+  onVerifyEmail: (email: string) => void;
   onError: (message: string) => void;
   googlePrefill?: { email: string; firstName: string; lastName: string; credential: string } | null;
 }
@@ -45,6 +46,7 @@ export function RegisterForm({
   borderRadiusRem,
   onBack,
   onSuccess,
+  onVerifyEmail,
   onError,
   googlePrefill,
 }: RegisterFormProps) {
@@ -134,15 +136,24 @@ export function RegisterForm({
       const data = (await res.json()) as {
         ok: boolean;
         error?: string;
+        action?: 'login' | 'verify_email';
+        email?: string;
         user?: SessionUser;
       };
 
-      if (!res.ok || !data.ok || !data.user) {
+      if (!res.ok || !data.ok) {
         onError(data.error ?? 'No fue posible crear la cuenta.');
         return;
       }
 
-      onSuccess(data.user as SessionUser);
+      if (data.action === 'verify_email') {
+        onVerifyEmail(data.email ?? step1.email);
+        return;
+      }
+
+      if (data.user) {
+        onSuccess(data.user as SessionUser);
+      }
     } catch {
       onError('Error de conexión. Intenta de nuevo.');
     } finally {

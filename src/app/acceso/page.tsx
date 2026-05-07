@@ -66,7 +66,7 @@ function pickRandom(values: string[], fallback = ''): string {
   return values[index] ?? fallback;
 }
 
-type Mode = 'login' | 'register';
+type Mode = 'login' | 'register' | 'verify_pending';
 
 interface GooglePrefill {
   email: string;
@@ -85,6 +85,9 @@ export default function LoginPage() {
   const [mode, setMode] = React.useState<Mode>('login');
   const [googlePrefill, setGooglePrefill] = React.useState<GooglePrefill | null>(null);
   const [isGoogleLoading, setIsGoogleLoading] = React.useState(false);
+  const [pendingEmail, setPendingEmail] = React.useState('');
+  const [isResending, setIsResending] = React.useState(false);
+  const [unverifiedEmail, setUnverifiedEmail] = React.useState('');
   const googleButtonRef = React.useRef<HTMLDivElement>(null);
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? '';
 
@@ -226,11 +229,40 @@ export default function LoginPage() {
 
     const result = await login(email, password);
     if (!result.ok) {
+      if (result.error === 'email_not_verified') {
+        setUnverifiedEmail(email);
+        return;
+      }
       await alert({
         title: 'Error de acceso',
         message: result.error ?? 'No fue posible iniciar sesión',
         tone: 'error',
       });
+    }
+  };
+
+  const handleVerifyEmail = (registeredEmail: string) => {
+    setPendingEmail(registeredEmail);
+    setMode('verify_pending');
+  };
+
+  const handleResend = async (emailToResend: string) => {
+    setIsResending(true);
+    try {
+      await fetch('/api/v1/auth/resend-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: emailToResend }),
+      });
+      await alert({
+        title: 'Correo enviado',
+        message: 'Si el correo existe y no está verificado, recibirás un nuevo enlace en tu bandeja.',
+        tone: 'success',
+      });
+    } catch {
+      // Silently ignore
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -348,22 +380,66 @@ export default function LoginPage() {
     </div>
   ) : null;
 
+  const logoEl = (size: 'sm' | 'lg') => (
+    <div className="flex justify-center mb-4">
+      {branding.logoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={branding.logoUrl}
+          alt={branding.platformName}
+          className={`${size === 'lg' ? 'w-14 h-14' : 'w-10 h-10'} rounded-2xl object-cover`}
+        />
+      ) : (
+        <Gem
+          className={size === 'lg' ? 'w-14 h-14' : 'w-10 h-10'}
+          style={{ color: tokens.colors.accent }}
+        />
+      )}
+    </div>
+  );
+
   const formContainer = (
     <section className={loginCardClassName} style={loginCardStyle}>
-      {mode === 'register' ? (
+      {mode === 'verify_pending' ? (
         <>
-          <div className="flex justify-center mb-4">
-            {branding.logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={branding.logoUrl}
-                alt={branding.platformName}
-                className="w-10 h-10 rounded-2xl object-cover"
-              />
-            ) : (
-              <Gem className="w-10 h-10" style={{ color: tokens.colors.accent }} />
-            )}
+          {logoEl('sm')}
+          <div className="text-center">
+            <p className={`text-xl font-bold mb-2 ${isCenteredImageLayout ? 'text-white' : 'text-slate-900'}`}>
+              Revisa tu correo
+            </p>
+            <p className={`text-sm mb-1 ${isCenteredImageLayout ? 'text-white/70' : 'text-slate-500'}`}>
+              Enviamos un enlace de confirmación a
+            </p>
+            <p className={`text-sm font-semibold mb-5 ${isCenteredImageLayout ? 'text-white' : 'text-slate-800'}`}>
+              {pendingEmail}
+            </p>
+            <p className={`text-xs mb-6 ${isCenteredImageLayout ? 'text-white/55' : 'text-slate-400'}`}>
+              Haz clic en el enlace del correo para activar tu cuenta. El enlace expira en 24 horas.
+            </p>
+            <button
+              type="button"
+              disabled={isResending}
+              onClick={() => void handleResend(pendingEmail)}
+              className={`text-sm underline underline-offset-2 ${
+                isCenteredImageLayout ? 'text-white/70 hover:text-white' : 'text-slate-500 hover:text-slate-800'
+              } transition-colors disabled:opacity-50`}
+            >
+              {isResending ? 'Enviando...' : '¿No lo recibiste? Reenviar correo'}
+            </button>
+            <div className={`mt-4 pt-4 border-t ${isCenteredImageLayout ? 'border-white/15' : 'border-slate-100'}`}>
+              <button
+                type="button"
+                onClick={() => setMode('login')}
+                className={`text-xs ${isCenteredImageLayout ? 'text-white/50 hover:text-white/80' : 'text-slate-400 hover:text-slate-600'} transition-colors`}
+              >
+                ← Volver al inicio de sesión
+              </button>
+            </div>
           </div>
+        </>
+      ) : mode === 'register' ? (
+        <>
+          {logoEl('sm')}
           <RegisterForm
             {...styleProps}
             onBack={() => {
@@ -371,24 +447,14 @@ export default function LoginPage() {
               setGooglePrefill(null);
             }}
             onSuccess={handleRegisterSuccess}
+            onVerifyEmail={handleVerifyEmail}
             onError={handleRegisterError}
             googlePrefill={googlePrefill}
           />
         </>
       ) : (
         <>
-          <div className="flex justify-center mb-4">
-            {branding.logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={branding.logoUrl}
-                alt={branding.platformName}
-                className="w-14 h-14 rounded-2xl object-cover"
-              />
-            ) : (
-              <Gem className="w-14 h-14" style={{ color: tokens.colors.accent }} />
-            )}
-          </div>
+          {logoEl('lg')}
 
           {visibility.platformName && hasText(branding.platformName) && (
             <h1
@@ -470,6 +536,23 @@ export default function LoginPage() {
               Entrar
             </button>
           </form>
+
+          {unverifiedEmail && (
+            <div className={`mt-4 rounded-xl p-3.5 text-sm ${isCenteredImageLayout ? 'bg-amber-400/15 border border-amber-300/30 text-amber-200' : 'bg-amber-50 border border-amber-200 text-amber-800'}`}>
+              <p className="font-semibold mb-1">Correo pendiente de verificación</p>
+              <p className={`text-xs mb-2.5 ${isCenteredImageLayout ? 'text-amber-200/80' : 'text-amber-700'}`}>
+                Revisa tu bandeja de entrada y haz clic en el enlace de confirmación.
+              </p>
+              <button
+                type="button"
+                disabled={isResending}
+                onClick={() => void handleResend(unverifiedEmail)}
+                className={`text-xs font-semibold underline underline-offset-2 disabled:opacity-50 ${isCenteredImageLayout ? 'text-amber-200' : 'text-amber-700'}`}
+              >
+                {isResending ? 'Enviando...' : 'Reenviar correo de verificación'}
+              </button>
+            </div>
+          )}
 
           {branding.loaderAssetUrl && isHydrating && (
             <>

@@ -68,6 +68,7 @@ export async function POST(request: Request) {
           failed_attempts: number;
           locked_until: string | null;
           is_active: boolean;
+          email_verified_at: string | null;
         }>(
           `
             SELECT
@@ -78,7 +79,8 @@ export async function POST(request: Request) {
               uc.password_hash,
               uc.failed_attempts,
               uc.locked_until::text,
-              u.is_active
+              u.is_active,
+              uc.email_verified_at::text
             FROM app_core.users u
             JOIN app_auth.user_credentials uc ON uc.user_id = u.user_id
             WHERE u.email = $1
@@ -92,6 +94,18 @@ export async function POST(request: Request) {
         if (!authRow || !authRow.is_active) {
           await client.query('ROLLBACK');
           return { status: 401 as const, payload: { ok: false, error: 'Invalid credentials' } };
+        }
+
+        if (!authRow.email_verified_at) {
+          await client.query('ROLLBACK');
+          return {
+            status: 403 as const,
+            payload: {
+              ok: false,
+              error: 'email_not_verified',
+              email: authRow.email,
+            },
+          };
         }
 
         if (authRow.locked_until && new Date(authRow.locked_until).getTime() > Date.now()) {

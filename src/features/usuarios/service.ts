@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import nodemailer from 'nodemailer';
 import type { PoolClient } from 'pg';
 import { createDirectThread, sendMessage } from '@/features/mensajes/service';
@@ -1030,6 +1030,75 @@ function buildPasswordResetPayload(
     html,
     replyTo: buildReplyTo(config),
   };
+}
+
+function buildVerificationEmailPayload(
+  config: OutboundConfigRow,
+  recipient: string,
+  firstName: string,
+  verificationUrl: string,
+): OutboundEmailPayload {
+  const safeName = firstName.trim() || 'usuario';
+  const subject = '4Shine · Confirma tu cuenta';
+  const text = [
+    `Hola ${safeName},`,
+    '',
+    'Gracias por registrarte en 4Shine. Para activar tu cuenta, haz clic en el siguiente enlace:',
+    '',
+    verificationUrl,
+    '',
+    'Este enlace expira en 24 horas.',
+    '',
+    'Si no creaste esta cuenta, puedes ignorar este mensaje.',
+  ].join('\n');
+
+  const html = [
+    '<div style="font-family:Inter,Arial,sans-serif;line-height:1.6;color:#0f172a;max-width:520px;">',
+    `<p>Hola <strong>${safeName}</strong>,</p>`,
+    '<p>Gracias por registrarte en 4Shine. Haz clic en el botón para confirmar tu correo y activar tu cuenta:</p>',
+    `<p style="margin:24px 0;">`,
+    `  <a href="${verificationUrl}" style="background:#6366f1;color:#fff;padding:12px 28px;border-radius:10px;text-decoration:none;font-weight:700;display:inline-block;">`,
+    '  Confirmar mi cuenta',
+    '  </a>',
+    '</p>',
+    '<p style="font-size:13px;color:#64748b;">Si el botón no funciona, copia y pega este enlace en tu navegador:</p>',
+    `<p style="font-size:12px;color:#94a3b8;word-break:break-all;">${verificationUrl}</p>`,
+    '<p style="font-size:13px;color:#94a3b8;margin-top:24px;">Este enlace expira en 24 horas. Si no creaste esta cuenta, ignora este mensaje.</p>',
+    '</div>',
+  ].join('');
+
+  return { to: recipient, subject, text, html, replyTo: buildReplyTo(config) };
+}
+
+export async function sendVerificationEmail(
+  client: PoolClient,
+  userId: string,
+  email: string,
+  firstName: string,
+  organizationId: string | null,
+): Promise<void> {
+  const token = randomBytes(32).toString('hex');
+  const tokenHash = createHash('sha256').update(token).digest('hex');
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+  await client.query(
+    `
+      UPDATE app_auth.user_credentials
+      SET email_verification_token = $2,
+          email_verification_expires_at = $3
+      WHERE user_id = $1
+    `,
+    [userId, tokenHash, expiresAt.toISOString()],
+  );
+
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.4shine.co').replace(/\/$/, '');
+  const verificationUrl = `${appUrl}/verificar?token=${token}`;
+
+  const config = await resolveOutboundConfig(client, organizationId);
+  if (!config) return;
+
+  const payload = buildVerificationEmailPayload(config, email, firstName, verificationUrl);
+  await sendOutboundEmail(config, payload);
 }
 
 export async function listUsers(client: PoolClient, input: ListUsersInput = {}): Promise<UserRecord[]> {

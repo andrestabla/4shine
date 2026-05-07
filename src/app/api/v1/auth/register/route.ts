@@ -3,8 +3,8 @@ import { withClient } from '@/server/db/pool';
 import { issueAuthTokens } from '@/server/auth/session';
 import { setAuthCookies } from '@/server/auth/cookies';
 import type { AuthUser } from '@/server/auth/types';
-import { selfRegisterUser } from '@/features/usuarios/service';
 import { buildRequestSummary, writeAuditLog } from '@/server/audit/service';
+import { selfRegisterUser, sendVerificationEmail } from '@/features/usuarios/service';
 
 interface RegisterBody {
   email?: string;
@@ -82,7 +82,11 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await withClient(async (client) => {
+    type Result =
+      | { action: 'verify_email'; email: string }
+      | { action: 'login'; authUser: AuthUser; organizationId: string | null };
+
+    const result = await withClient(async (client): Promise<Result> => {
       await client.query('BEGIN');
       try {
         await client.query('SELECT set_config($1, $2, true)', ['app.current_role', 'gestor']);
@@ -98,22 +102,13 @@ export async function POST(request: Request) {
           jobRole: jobRole!,
         });
 
-        await client.query('SELECT set_config($1, $2, true)', ['app.current_user_id', user.userId]);
-        await client.query('SELECT set_config($1, $2, true)', ['app.current_role', user.primaryRole]);
-
-        const authUser: AuthUser = {
-          userId: user.userId,
-          email: user.email,
-          name: user.displayName,
-          role: user.primaryRole,
-        };
-
-        const tokens = await issueAuthTokens(
-          client,
-          authUser,
-          request.headers.get('user-agent'),
-          getIpAddress(request),
-        );
+        // For Google users: pre-verify and issue tokens in the same transaction.
+        if (isGoogleRegistration) {
+          await client.query(
+            `UPDATE app_auth.user_credentials SET email_verified_at = now() WHERE user_id = $1`,
+            [user.userId],
+          );
+        }
 
         await writeAuditLog(client, {
           actorUserId: user.userId,
@@ -128,28 +123,69 @@ export async function POST(request: Request) {
 
         await client.query('COMMIT');
 
-        return {
-          status: 201 as const,
-          payload: {
-            ok: true,
-            user: {
-              id: user.userId,
+        if (isGoogleRegistration) {
+          return {
+            action: 'login',
+            authUser: {
+              userId: user.userId,
               email: user.email,
               name: user.displayName,
               role: user.primaryRole,
             },
-          },
-          tokens,
-        };
+            organizationId: user.organizationId,
+          };
+        }
+
+        // Password registration: send verification email after COMMIT (non-fatal).
+        try {
+          await sendVerificationEmail(client, user.userId, user.email, user.firstName, user.organizationId);
+        } catch (emailError) {
+          console.error('Verification email failed (non-fatal)', emailError);
+        }
+
+        return { action: 'verify_email', email: user.email };
       } catch (error) {
         await client.query('ROLLBACK');
         throw error;
       }
     });
 
-    const response = NextResponse.json(result.payload, { status: result.status });
-    setAuthCookies(response, result.tokens.accessToken, result.tokens.refreshToken);
-    return response;
+    if (result.action === 'login') {
+      const tokens = await withClient(async (client) => {
+        await client.query('SELECT set_config($1, $2, true)', [
+          'app.current_user_id',
+          result.authUser.userId,
+        ]);
+        await client.query('SELECT set_config($1, $2, true)', [
+          'app.current_role',
+          result.authUser.role,
+        ]);
+        return issueAuthTokens(
+          client,
+          result.authUser,
+          request.headers.get('user-agent'),
+          getIpAddress(request),
+        );
+      });
+
+      const response = NextResponse.json(
+        {
+          ok: true,
+          action: 'login',
+          user: {
+            id: result.authUser.userId,
+            email: result.authUser.email,
+            name: result.authUser.name,
+            role: result.authUser.role,
+          },
+        },
+        { status: 201 },
+      );
+      setAuthCookies(response, tokens.accessToken, tokens.refreshToken);
+      return response;
+    }
+
+    return NextResponse.json({ ok: true, action: 'verify_email', email: result.email }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Error al crear la cuenta';
     const pgError = error as { code?: string };
