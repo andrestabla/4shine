@@ -203,13 +203,23 @@ export default function LoginPage() {
             await applySession(data.user);
             router.push('/dashboard');
           } else if (data.action === 'register') {
-            setGooglePrefill({
-              email: data.email ?? '',
-              firstName: data.firstName ?? '',
-              lastName: data.lastName ?? '',
-              credential: response.credential,
-            });
-            setMode('register');
+            if (mode === 'login') {
+              // In login mode, Google returned a user that doesn't exist yet
+              // → don't auto-register, tell them to use "Crear cuenta"
+              await alert({
+                title: 'Sin cuenta registrada',
+                message: `No encontramos una cuenta con ${data.email ?? 'ese correo'}. Ve a "Crear cuenta" para registrarte.`,
+                tone: 'error',
+              });
+            } else {
+              // In register mode → proceed to complete the profile
+              setGooglePrefill({
+                email: data.email ?? '',
+                firstName: data.firstName ?? '',
+                lastName: data.lastName ?? '',
+                credential: response.credential,
+              });
+            }
           }
         } catch {
           await alert({
@@ -228,8 +238,9 @@ export default function LoginPage() {
       size: 'large',
       width: 400,
       locale: 'es',
-    });
-  }, [googleClientId, isCenteredImageLayout, alert, applySession, router]);
+      text: mode === 'register' ? 'signup_with' : 'signin_with',
+    } as Parameters<typeof window.google.accounts.id.renderButton>[1]);
+  }, [googleClientId, isCenteredImageLayout, alert, applySession, router, mode]);
 
   React.useEffect(() => {
     if ((mode === 'login' || mode === 'register') && googleButtonRef.current && window.google?.accounts?.id) {
