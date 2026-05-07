@@ -1661,3 +1661,117 @@ export async function hardDeleteUser(
     userId: deleted.user_id,
   };
 }
+
+export interface SelfRegisterInput {
+  email: string;
+  password?: string;
+  firstName: string;
+  lastName: string;
+  profession?: string | null;
+  industry?: string | null;
+  country: string;
+  jobRole: string;
+}
+
+export async function selfRegisterUser(
+  client: PoolClient,
+  input: SelfRegisterInput,
+): Promise<UserRecord> {
+  const email = input.email.trim().toLowerCase();
+
+  const { rows: existing } = await client.query<{ user_id: string }>(
+    `SELECT user_id FROM app_core.users WHERE email = $1 LIMIT 1`,
+    [email],
+  );
+  if (existing.length > 0) {
+    throw new Error('Este correo ya está registrado.');
+  }
+
+  const rawPassword = input.password ?? randomBytes(32).toString('hex');
+  const passwordHash = await hashPassword(rawPassword);
+  const firstName = input.firstName.trim();
+  const lastName = input.lastName.trim();
+  const displayName = `${firstName} ${lastName}`.trim();
+
+  const normalizedCountry = normalizeCountry(input.country);
+  const normalizedJobRole = normalizeJobRole(input.jobRole);
+
+  if (!normalizedCountry) throw new Error('País inválido.');
+  if (!normalizedJobRole) throw new Error('Cargo inválido.');
+
+  const { rows: orgRows } = await client.query<{ organization_id: string }>(
+    `SELECT organization_id::text FROM app_core.organizations ORDER BY created_at LIMIT 1`,
+  );
+  const organizationId = orgRows[0]?.organization_id ?? null;
+
+  // Enable the self-registration RLS policy for this transaction only.
+  await client.query(`SELECT set_config('app.allow_self_register', '1', true)`);
+
+  const { rows } = await client.query<{ user_id: string }>(
+    `
+      INSERT INTO app_core.users (
+        email, first_name, last_name, display_name, avatar_initial,
+        timezone, primary_role, is_active, organization_id
+      )
+      VALUES ($1, $2, $3, $4, UPPER(LEFT($4, 1)), $5, 'lider', true, $6)
+      RETURNING user_id::text
+    `,
+    [email, firstName, lastName, displayName, 'America/Bogota', organizationId],
+  );
+
+  const userId = rows[0]?.user_id;
+  if (!userId) throw new Error('Error al crear la cuenta.');
+
+  await client.query(
+    `
+      INSERT INTO app_auth.user_roles (user_id, role_code, is_default, assigned_by)
+      VALUES ($1, 'lider', true, $1)
+      ON CONFLICT (user_id, role_code) DO UPDATE
+      SET is_default = EXCLUDED.is_default, assigned_at = now()
+    `,
+    [userId],
+  );
+
+  await client.query(
+    `
+      INSERT INTO app_auth.user_credentials (user_id, password_hash, failed_attempts, locked_until)
+      VALUES ($1, $2, 0, NULL)
+      ON CONFLICT (user_id) DO UPDATE
+      SET password_hash = EXCLUDED.password_hash,
+          failed_attempts = 0,
+          locked_until = NULL,
+          password_updated_at = now(),
+          updated_at = now()
+    `,
+    [userId, passwordHash],
+  );
+
+  await client.query(
+    `
+      INSERT INTO app_core.user_profiles (
+        user_id, profession, industry, plan_type, seniority_level,
+        bio, location, country, job_role, gender, years_experience
+      )
+      VALUES ($1, $2, $3, NULL, NULL, NULL, NULL, $4, $5, $6, $7)
+      ON CONFLICT (user_id) DO UPDATE
+      SET profession = EXCLUDED.profession,
+          industry = EXCLUDED.industry,
+          country = EXCLUDED.country,
+          job_role = EXCLUDED.job_role,
+          gender = EXCLUDED.gender,
+          years_experience = EXCLUDED.years_experience,
+          updated_at = now()
+    `,
+    [
+      userId,
+      input.profession?.trim() || null,
+      input.industry?.trim() || null,
+      normalizedCountry,
+      normalizedJobRole,
+      'Prefiero no decirlo',
+      0,
+    ],
+  );
+
+  return getUserById(client, userId);
+}

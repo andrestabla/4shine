@@ -25,7 +25,7 @@ import {
   toModulePermissionMap,
 } from '@/lib/permissions';
 
-interface SessionUser {
+export interface SessionUser {
   id: string;
   email: string;
   name: string;
@@ -46,6 +46,7 @@ interface UserContextType {
   can: (moduleCode: ModuleCode, action?: PermissionAction) => boolean;
   refreshBootstrap: () => Promise<void>;
   updateUser: (updates: Partial<User>) => void;
+  applySession: (sessionUser: SessionUser) => Promise<void>;
 }
 
 interface AuthMeResponse {
@@ -411,6 +412,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         can,
         refreshBootstrap,
         updateUser,
+        applySession,
       }}
     >
       {children}
