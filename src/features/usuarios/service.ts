@@ -1053,20 +1053,51 @@ function buildVerificationEmailPayload(
     'Si no creaste esta cuenta, puedes ignorar este mensaje.',
   ].join('\n');
 
-  const html = [
-    '<div style="font-family:Inter,Arial,sans-serif;line-height:1.6;color:#0f172a;max-width:520px;">',
-    `<p>Hola <strong>${safeName}</strong>,</p>`,
-    '<p>Gracias por registrarte en 4Shine. Haz clic en el botón para confirmar tu correo y activar tu cuenta:</p>',
-    `<p style="margin:24px 0;">`,
-    `  <a href="${verificationUrl}" style="background:#6366f1;color:#fff;padding:12px 28px;border-radius:10px;text-decoration:none;font-weight:700;display:inline-block;">`,
-    '  Confirmar mi cuenta',
-    '  </a>',
-    '</p>',
-    '<p style="font-size:13px;color:#64748b;">Si el botón no funciona, copia y pega este enlace en tu navegador:</p>',
-    `<p style="font-size:12px;color:#94a3b8;word-break:break-all;">${verificationUrl}</p>`,
-    '<p style="font-size:13px;color:#94a3b8;margin-top:24px;">Este enlace expira en 24 horas. Si no creaste esta cuenta, ignora este mensaje.</p>',
-    '</div>',
-  ].join('');
+  const html = `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background-color:#f1f5f9;font-family:Inter,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f1f5f9;">
+  <tr>
+    <td align="center" style="padding:32px 16px;">
+      <table width="560" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;width:100%;background-color:#ffffff;border-radius:16px;overflow:hidden;">
+        <tr>
+          <td style="background-color:#1e293b;padding:28px 40px;text-align:center;">
+            <span style="color:#ffffff;font-size:22px;font-weight:700;letter-spacing:0.5px;">4Shine</span>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:36px 40px;">
+            <p style="margin:0 0 16px;font-size:15px;color:#0f172a;">Hola <strong>${safeName}</strong>,</p>
+            <p style="margin:0 0 28px;font-size:15px;color:#334155;line-height:1.6;">
+              Gracias por registrarte en 4Shine. Haz clic en el botón para confirmar tu correo y activar tu cuenta:
+            </p>
+            <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 28px;">
+              <tr>
+                <td align="center" bgcolor="#6366f1" style="border-radius:10px;">
+                  <a href="${verificationUrl}" target="_blank" style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:10px;background-color:#6366f1;">
+                    Confirmar mi cuenta
+                  </a>
+                </td>
+              </tr>
+            </table>
+            <p style="margin:0 0 8px;font-size:13px;color:#64748b;">Si el botón no funciona, copia y pega este enlace en tu navegador:</p>
+            <p style="margin:0;font-size:12px;color:#94a3b8;word-break:break-all;">${verificationUrl}</p>
+            <p style="margin:24px 0 0;font-size:13px;color:#94a3b8;">Este enlace expira en 24 horas. Si no creaste esta cuenta, puedes ignorar este mensaje.</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="background-color:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 40px;text-align:center;">
+            <p style="margin:0 0 4px;font-size:12px;color:#94a3b8;">4Shine &middot; Plataforma de desarrollo de equipos</p>
+            <p style="margin:0;font-size:12px;color:#cbd5e1;">soporte@4shine.co</p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>`;
 
   return { to: recipient, subject, text, html, replyTo: buildReplyTo(config) };
 }
@@ -1081,7 +1112,7 @@ export async function sendVerificationEmail(
   const tokenHash = createHash('sha256').update(token).digest('hex');
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.4shine.co').replace(/\/$/, '');
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.4shine.co').trim().replace(/\/$/, '');
   const verificationUrl = `${appUrl}/verificar?token=${token}`;
 
   // Use a dedicated connection with its own transaction so the role context

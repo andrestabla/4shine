@@ -232,7 +232,7 @@ export default function LoginPage() {
   }, [googleClientId, isCenteredImageLayout, alert, applySession, router]);
 
   React.useEffect(() => {
-    if (mode === 'login' && googleButtonRef.current && window.google?.accounts?.id) {
+    if ((mode === 'login' || mode === 'register') && googleButtonRef.current && window.google?.accounts?.id) {
       initGoogleButton();
     }
   }, [mode, initGoogleButton]);
@@ -393,7 +393,7 @@ export default function LoginPage() {
       <div className={`flex items-center gap-3 mt-4 mb-1 ${isCenteredImageLayout ? 'text-white/30' : 'text-slate-300'}`}>
         <div className="flex-1 h-px bg-current" />
         <span className={`text-xs ${isCenteredImageLayout ? 'text-white/45' : 'text-slate-400'}`}>
-          o ingresa con tu correo
+          {mode === 'register' ? 'o regístrate con tu correo' : 'o ingresa con tu correo'}
         </span>
         <div className="flex-1 h-px bg-current" />
       </div>
@@ -460,6 +460,7 @@ export default function LoginPage() {
       ) : mode === 'register' ? (
         <>
           {logoEl('sm')}
+          {!googlePrefill && googleButton}
           <RegisterForm
             {...styleProps}
             onBack={() => {
