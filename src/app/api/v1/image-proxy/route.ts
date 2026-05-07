@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { authenticateRequest } from '@/server/auth/request-auth';
 
 export const runtime = 'nodejs';
 
@@ -17,6 +18,9 @@ function isPrivateHost(hostname: string): boolean {
 }
 
 export async function GET(request: Request) {
+  const identity = await authenticateRequest(request);
+  if (!identity) return new NextResponse('Unauthorized', { status: 401 });
+
   const { searchParams } = new URL(request.url);
   const rawUrl = searchParams.get('url');
   if (!rawUrl) return new NextResponse('Missing url', { status: 400 });
