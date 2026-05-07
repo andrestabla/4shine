@@ -138,7 +138,7 @@ export async function POST(request: Request) {
 
         // Password registration: send verification email after COMMIT (non-fatal).
         try {
-          await sendVerificationEmail(client, user.userId, user.email, user.firstName, user.organizationId);
+          await sendVerificationEmail(user.userId, user.email, user.firstName, user.organizationId);
         } catch (emailError) {
           console.error('Verification email failed (non-fatal)', emailError);
         }

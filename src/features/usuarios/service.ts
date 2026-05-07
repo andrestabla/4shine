@@ -4,6 +4,7 @@ import type { PoolClient } from 'pg';
 import { createDirectThread, sendMessage } from '@/features/mensajes/service';
 import { requireModulePermission } from '@/server/auth/module-permissions';
 import { hashPassword } from '@/server/auth/password';
+import { withClient } from '@/server/db/pool';
 import type { Role } from '@/server/bootstrap/types';
 import type { AuthUser } from '@/server/auth/types';
 import {
@@ -1071,7 +1072,6 @@ function buildVerificationEmailPayload(
 }
 
 export async function sendVerificationEmail(
-  client: PoolClient,
   userId: string,
   email: string,
   firstName: string,
@@ -1081,20 +1081,36 @@ export async function sendVerificationEmail(
   const tokenHash = createHash('sha256').update(token).digest('hex');
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-  await client.query(
-    `
-      UPDATE app_auth.user_credentials
-      SET email_verification_token = $2,
-          email_verification_expires_at = $3
-      WHERE user_id = $1
-    `,
-    [userId, tokenHash, expiresAt.toISOString()],
-  );
-
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.4shine.co').replace(/\/$/, '');
   const verificationUrl = `${appUrl}/verificar?token=${token}`;
 
-  const config = await resolveOutboundConfig(client, organizationId);
+  // Use a dedicated connection with its own transaction so the role context
+  // (required by RLS on outbound_email_configs) is properly set regardless of
+  // whether the caller already committed its transaction.
+  let config: OutboundConfigRow | null = null;
+  await withClient(async (client) => {
+    await client.query('BEGIN');
+    try {
+      await client.query('SELECT set_config($1, $2, true)', ['app.current_role', 'gestor']);
+
+      await client.query(
+        `
+          UPDATE app_auth.user_credentials
+          SET email_verification_token = $2,
+              email_verification_expires_at = $3
+          WHERE user_id = $1
+        `,
+        [userId, tokenHash, expiresAt.toISOString()],
+      );
+
+      config = await resolveOutboundConfig(client, organizationId);
+      await client.query('COMMIT');
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    }
+  });
+
   if (!config) return;
 
   const payload = buildVerificationEmailPayload(config, email, firstName, verificationUrl);

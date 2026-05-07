@@ -62,7 +62,7 @@ export async function POST(request: Request) {
         if (Date.now() - issuedAt < RESEND_COOLDOWN_MS) return;
       }
 
-      await sendVerificationEmail(client, row.user_id, email, row.first_name, row.organization_id);
+      await sendVerificationEmail(row.user_id, email, row.first_name, row.organization_id);
     });
 
     // Always return success to avoid email enumeration.
