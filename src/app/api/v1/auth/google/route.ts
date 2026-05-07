@@ -88,10 +88,12 @@ export async function POST(request: Request) {
           primary_role: AuthUser['role'];
           is_active: boolean;
           email_verified_at: string | null;
+          privacy_policy_accepted_at: string | null;
         }>(
           `
             SELECT u.user_id, u.email, u.display_name, u.primary_role, u.is_active,
-                   uc.email_verified_at::text
+                   uc.email_verified_at::text,
+                   uc.privacy_policy_accepted_at::text
             FROM app_core.users u
             JOIN app_auth.user_credentials uc ON uc.user_id = u.user_id
             WHERE u.email = $1
@@ -167,6 +169,7 @@ export async function POST(request: Request) {
               email: authUser.email,
               name: authUser.name,
               role: authUser.role,
+              privacyPolicyAccepted: !!userRow.privacy_policy_accepted_at,
             },
           },
           tokens,

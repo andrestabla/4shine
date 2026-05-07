@@ -69,6 +69,7 @@ export async function POST(request: Request) {
           locked_until: string | null;
           is_active: boolean;
           email_verified_at: string | null;
+          privacy_policy_accepted_at: string | null;
         }>(
           `
             SELECT
@@ -80,7 +81,8 @@ export async function POST(request: Request) {
               uc.failed_attempts,
               uc.locked_until::text,
               u.is_active,
-              uc.email_verified_at::text
+              uc.email_verified_at::text,
+              uc.privacy_policy_accepted_at::text
             FROM app_core.users u
             JOIN app_auth.user_credentials uc ON uc.user_id = u.user_id
             WHERE u.email = $1
@@ -191,6 +193,7 @@ export async function POST(request: Request) {
               email: user.email,
               name: user.name,
               role: user.role,
+              privacyPolicyAccepted: !!authRow.privacy_policy_accepted_at,
             },
           },
           tokens,

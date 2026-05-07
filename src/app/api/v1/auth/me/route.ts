@@ -33,11 +33,14 @@ export async function GET(request: Request) {
         display_name: string;
         primary_role: string;
         is_active: boolean;
+        privacy_policy_accepted_at: string | null;
       }>(
         `
-          SELECT user_id, email, display_name, primary_role, is_active
-          FROM app_core.users
-          WHERE user_id = $1
+          SELECT u.user_id, u.email, u.display_name, u.primary_role, u.is_active,
+                 uc.privacy_policy_accepted_at::text
+          FROM app_core.users u
+          JOIN app_auth.user_credentials uc ON uc.user_id = u.user_id
+          WHERE u.user_id = $1
           LIMIT 1
         `,
         [identity.userId],
@@ -73,6 +76,7 @@ export async function GET(request: Request) {
         email: result.email,
         name: result.display_name,
         role: result.primary_role,
+        privacyPolicyAccepted: !!result.privacy_policy_accepted_at,
       },
     },
     { status: 200 },

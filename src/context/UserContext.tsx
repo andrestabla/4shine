@@ -5,6 +5,7 @@ import type { ViewerAccessState } from '@/features/access/types';
 import type { BootstrapPayload, Role, User } from '@/server/bootstrap/types';
 import { useRouter } from 'next/navigation';
 import { hydrateFromBackend } from '@/lib/bootstrap-client';
+import { PrivacyPolicyModal } from '@/components/ui/PrivacyPolicyModal';
 import { SESSION_IDLE_LIMIT_MS } from '@/lib/session-timeout';
 import {
   clearTrackedSessionActivity,
@@ -30,6 +31,7 @@ export interface SessionUser {
   email: string;
   name: string;
   role: Role;
+  privacyPolicyAccepted: boolean;
 }
 
 interface UserContextType {
@@ -47,6 +49,7 @@ interface UserContextType {
   refreshBootstrap: () => Promise<void>;
   updateUser: (updates: Partial<User>) => void;
   applySession: (sessionUser: SessionUser) => Promise<void>;
+  acceptPrivacyPolicy: () => Promise<void>;
 }
 
 interface AuthMeResponse {
@@ -120,6 +123,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   const [bootstrapData, setBootstrapData] = useState<BootstrapPayload | null>(null);
   const [modulePermissions, setModulePermissions] = useState<ModulePermissionMap>(emptyModulePermissionMap());
   const [isHydrating, setIsHydrating] = useState(true);
+  const [privacyPolicyAccepted, setPrivacyPolicyAccepted] = useState(true);
   const router = useRouter();
 
   const clearSession = React.useCallback(() => {
@@ -128,6 +132,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     setSessionUser(null);
     setBootstrapData(null);
     setModulePermissions(emptyModulePermissionMap());
+    setPrivacyPolicyAccepted(true);
     clearTrackedSessionActivity();
   }, []);
 
@@ -160,9 +165,15 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
       setModulePermissions(permissions);
       setBootstrapData(data);
       setCurrentUser(buildCurrentUser(nextSessionUser, data));
+      setPrivacyPolicyAccepted(nextSessionUser.privacyPolicyAccepted);
     },
     [fetchPermissions],
   );
+
+  const acceptPrivacyPolicy = React.useCallback(async (): Promise<void> => {
+    await fetch('/api/v1/auth/accept-policy', { method: 'POST', credentials: 'include' });
+    setPrivacyPolicyAccepted(true);
+  }, []);
 
   const refreshBootstrap = React.useCallback(async () => {
     if (!sessionUser) {
@@ -423,9 +434,13 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         refreshBootstrap,
         updateUser,
         applySession,
+        acceptPrivacyPolicy,
       }}
     >
       {children}
+      {!!sessionUser && !privacyPolicyAccepted && (
+        <PrivacyPolicyModal onAccept={acceptPrivacyPolicy} />
+      )}
     </UserContext.Provider>
   );
 };

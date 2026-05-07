@@ -33,6 +33,7 @@ export async function GET(request: Request) {
         is_active: boolean;
         expires_at: string | null;
         already_verified: boolean;
+        privacy_policy_accepted_at: string | null;
       }>(
         `
           SELECT
@@ -42,7 +43,8 @@ export async function GET(request: Request) {
             u.primary_role,
             u.is_active,
             uc.email_verification_expires_at::text AS expires_at,
-            (uc.email_verified_at IS NOT NULL) AS already_verified
+            (uc.email_verified_at IS NOT NULL) AS already_verified,
+            uc.privacy_policy_accepted_at::text
           FROM app_auth.user_credentials uc
           JOIN app_core.users u ON u.user_id = uc.user_id
           WHERE uc.email_verification_token = $1
@@ -101,7 +103,13 @@ export async function GET(request: Request) {
         status: 200 as const,
         payload: {
           ok: true,
-          user: { id: authUser.userId, email: authUser.email, name: authUser.name, role: authUser.role },
+          user: {
+            id: authUser.userId,
+            email: authUser.email,
+            name: authUser.name,
+            role: authUser.role,
+            privacyPolicyAccepted: !!row.privacy_policy_accepted_at,
+          },
         },
         tokens,
       };
