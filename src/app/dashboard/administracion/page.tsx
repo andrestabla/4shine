@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { PageTitle } from '@/components/dashboard/PageTitle';
-import { Settings, Palette, PlugZap, Users } from 'lucide-react';
+import { Settings, Palette, PlugZap, Users, ShieldCheck } from 'lucide-react';
 
 const ADMIN_CARDS = [
   {
@@ -22,6 +22,12 @@ const ADMIN_CARDS = [
     description: 'Administrar conectores: Meet, Calendar, R2, Gemini, SSO Google y OpenAI.',
     href: '/dashboard/administracion/integraciones',
     icon: PlugZap,
+  },
+  {
+    title: 'Política de Privacidad',
+    description: 'Editar el texto de la política de privacidad que los usuarios deben aceptar al ingresar.',
+    href: '/dashboard/administracion/politicas',
+    icon: ShieldCheck,
   },
 ] as const;
 

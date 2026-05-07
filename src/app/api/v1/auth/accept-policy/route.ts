@@ -12,12 +12,12 @@ export async function POST(request: Request) {
     await withClient(async (client) => {
       await client.query('BEGIN');
       try {
-        await client.query('SELECT set_config($1, $2, true)', ['app.current_role', 'gestor']);
         await client.query('SELECT set_config($1, $2, true)', ['app.current_user_id', identity.userId]);
+        await client.query('SELECT set_config($1, $2, true)', ['app.current_role', identity.role]);
         await client.query(
-          `UPDATE app_auth.user_credentials
-           SET privacy_policy_accepted_at = now()
-           WHERE user_id = $1`,
+          `INSERT INTO app_auth.user_policy_acceptances (user_id, policy_code, policy_version)
+           VALUES ($1, 'privacy_policy', '2026-05-07')
+           ON CONFLICT (user_id, policy_code, policy_version) DO NOTHING`,
           [identity.userId],
         );
         await client.query('COMMIT');

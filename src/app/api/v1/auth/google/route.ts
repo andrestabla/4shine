@@ -93,9 +93,15 @@ export async function POST(request: Request) {
           `
             SELECT u.user_id, u.email, u.display_name, u.primary_role, u.is_active,
                    uc.email_verified_at::text,
-                   uc.privacy_policy_accepted_at::text
+                   lpa.accepted_at::text AS privacy_policy_accepted_at
             FROM app_core.users u
             JOIN app_auth.user_credentials uc ON uc.user_id = u.user_id
+            LEFT JOIN LATERAL (
+              SELECT accepted_at
+              FROM app_auth.user_policy_acceptances
+              WHERE user_id = u.user_id AND policy_code = 'privacy_policy'
+              ORDER BY accepted_at DESC LIMIT 1
+            ) lpa ON true
             WHERE u.email = $1
             LIMIT 1
           `,
