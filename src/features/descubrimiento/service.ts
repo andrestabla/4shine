@@ -13,6 +13,7 @@ import { hashPassword } from "@/server/auth/password";
 import { resolveOrganizationIdForActor } from "@/server/integrations/config";
 import type { AuthUser } from "@/server/auth/types";
 import { USER_COUNTRY_SET, USER_GENDER_SET, USER_JOB_ROLE_SET } from "@/lib/user-demographics";
+import { buildBrandedEmailHtml } from "@/lib/email-template";
 import { COMP_DEFINITIONS } from "./DiagnosticsData";
 import {
   DISCOVERY_TOTAL_ITEMS,
@@ -3829,41 +3830,42 @@ export async function sendDiscoveryReportEmail(
     throw new Error("El servicio de correo no está configurado para esta organización.");
   }
 
+  const { rows: brandingRows } = await client.query<{ platform_name: string; logo_url: string | null }>(
+    `SELECT platform_name, logo_url FROM app_admin.branding_settings ORDER BY updated_at DESC LIMIT 1`,
+  );
+  const branding = {
+    platformName: brandingRows[0]?.platform_name || "4Shine",
+    logoUrl: brandingRows[0]?.logo_url ?? null,
+  };
+
   const baseUrl = resolveAppBaseUrl();
   const reportUrl = `${baseUrl}/descubrimiento/pdf/${publicId}`;
 
-  const subject = "¡Ha sido generado un nuevo informe diagnóstico 4Shine! Revísalo aquí.";
-  const html = `
-    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; color: #1a202c;">
-      <div style="background-color: #311f44; padding: 30px; text-align: center;">
-        <img src="${baseUrl}/workbooks-v2/diamond.svg" alt="4Shine" style="width: 50px; margin-bottom: 10px;" />
-        <h1 style="color: #ffffff; margin: 0; font-size: 20px; font-weight: 600;">Lectura de Liderazgo</h1>
-      </div>
-      <div style="padding: 40px; background-color: #ffffff;">
-        <h2 style="color: #311f44; margin-top: 0;">Hola, ${name}</h2>
-        <p style="font-size: 16px; line-height: 1.6; color: #4a5568;">
-          Tu diagnóstico de liderazgo 4Shine ha sido procesado con éxito. Hemos generado un análisis profundo de tu perfil, tus impulsos actuales y tu plan de aceleración.
-        </p>
-        <div style="margin: 35px 0; text-align: center;">
-          <a href="${reportUrl}" style="background-color: #6C55CC; color: #ffffff; padding: 14px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block; box-shadow: 0 4px 6px rgba(108, 85, 204, 0.2);">
+  const subject = `¡Tu informe de liderazgo ${branding.platformName} está listo! Revísalo aquí.`;
+  const bodyHtml = `
+    <p style="margin:0 0 16px;font-size:15px;color:#0f172a;">Hola <strong>${name}</strong>,</p>
+    <p style="margin:0 0 28px;font-size:15px;color:#334155;line-height:1.6;">
+      Tu diagnóstico de liderazgo ha sido procesado con éxito. Hemos generado un análisis profundo de tu perfil, tus impulsos actuales y tu plan de aceleración.
+    </p>
+    <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 28px;">
+      <tr>
+        <td align="center" bgcolor="#6366f1" style="border-radius:10px;">
+          <a href="${reportUrl}" target="_blank" style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:10px;background-color:#6366f1;">
             Ver mi Informe Completo
           </a>
-        </div>
-        <p style="font-size: 14px; line-height: 1.5; color: #718096; border-top: 1px solid #edf2f7; padding-top: 20px;">
-          Este enlace te permitirá acceder directamente a tu lectura ejecutiva interactiva y descargar la versión en PDF para tu trayectoria profesional.
-        </p>
-      </div>
-      <div style="background-color: #f8fafc; padding: 20px; text-align: center; font-size: 12px; color: #a0aec0;">
-        © ${new Date().getFullYear()} 4Shine Platform. Todos los derechos reservados.
-      </div>
-    </div>
+        </td>
+      </tr>
+    </table>
+    <p style="margin:0;font-size:13px;color:#94a3b8;line-height:1.6;">
+      Este enlace te permitirá acceder directamente a tu lectura ejecutiva interactiva y descargar la versión en PDF para tu trayectoria profesional.
+    </p>
   `;
 
   await sendOutboundEmail(outbound, {
     to: email,
     subject,
-    html,
-    text: `Hola ${name},\n\nTu informe de liderazgo 4Shine ha sido generado. Puedes revisarlo en el siguiente enlace:\n${reportUrl}\n\nSaludos,\nEquipo 4Shine`,
+    html: buildBrandedEmailHtml(bodyHtml, branding),
+    text: `Hola ${name},\n\nTu informe de liderazgo ${branding.platformName} ha sido generado. Puedes revisarlo en el siguiente enlace:\n${reportUrl}\n\nSaludos,\nEquipo ${branding.platformName}`,
   });
 
   return { ok: true };

@@ -13,6 +13,7 @@ import {
   USER_JOB_ROLE_OPTIONS,
   type UserJobRoleOption,
 } from '@/lib/user-demographics';
+import { buildBrandedEmailHtml, type EmailBranding } from '@/lib/email-template';
 
 type PlanType = 'standard' | 'premium' | 'vip' | 'empresa_elite';
 type SeniorityLevel = 'senior' | 'c_level' | 'director' | 'manager' | 'vp';
@@ -1003,32 +1004,33 @@ function buildPasswordResetPayload(
   recipient: string,
   targetName: string,
   temporaryPassword: string,
+  branding: EmailBranding,
 ): OutboundEmailPayload {
   const safeName = targetName.trim() || 'usuario';
-  const subject = '4Shine · Nueva contraseña temporal';
+  const platformName = branding.platformName || '4Shine';
+  const subject = `${platformName} · Nueva contraseña temporal`;
   const text = [
     `Hola ${safeName},`,
     '',
-    'Se ha solicitado un reseteo de contraseña desde el panel de administración de 4Shine.',
+    `Se ha solicitado un reseteo de contraseña desde el panel de administración de ${platformName}.`,
     `Tu nueva contraseña temporal es: ${temporaryPassword}`,
     '',
     'Te recomendamos cambiarla al iniciar sesión.',
   ].join('\n');
 
-  const html = [
-    '<div style="font-family:Inter,Arial,sans-serif;line-height:1.5;color:#0f172a;">',
-    `<p>Hola <strong>${safeName}</strong>,</p>`,
-    '<p>Se ha solicitado un reseteo de contraseña desde el panel de administración de 4Shine.</p>',
-    `<p>Tu nueva contraseña temporal es: <strong style="font-size:16px;">${temporaryPassword}</strong></p>`,
-    '<p>Te recomendamos cambiarla al iniciar sesión.</p>',
-    '</div>',
+  const bodyHtml = [
+    `<p style="margin:0 0 16px;font-size:15px;color:#0f172a;">Hola <strong>${safeName}</strong>,</p>`,
+    `<p style="margin:0 0 16px;font-size:15px;color:#334155;line-height:1.6;">Se ha solicitado un reseteo de contraseña desde el panel de administración de ${platformName}.</p>`,
+    `<p style="margin:0 0 8px;font-size:15px;color:#334155;">Tu nueva contraseña temporal es:</p>`,
+    `<p style="margin:0 0 24px;font-size:20px;font-weight:700;color:#0f172a;letter-spacing:1px;">${temporaryPassword}</p>`,
+    `<p style="margin:0;font-size:13px;color:#94a3b8;">Te recomendamos cambiarla al iniciar sesión.</p>`,
   ].join('');
 
   return {
     to: recipient,
     subject,
     text,
-    html,
+    html: buildBrandedEmailHtml(bodyHtml, branding),
     replyTo: buildReplyTo(config),
   };
 }
@@ -1055,57 +1057,26 @@ function buildVerificationEmailPayload(
     'Si no creaste esta cuenta, puedes ignorar este mensaje.',
   ].join('\n');
 
-  const headerContent = branding.logoUrl
-    ? `<img src="${branding.logoUrl}" alt="${platformName}" style="height:48px;width:auto;display:block;margin:0 auto;" />`
-    : `<span style="color:#ffffff;font-size:22px;font-weight:700;letter-spacing:0.5px;">${platformName}</span>`;
+  const bodyHtml = `
+    <p style="margin:0 0 16px;font-size:15px;color:#0f172a;">Hola <strong>${safeName}</strong>,</p>
+    <p style="margin:0 0 28px;font-size:15px;color:#334155;line-height:1.6;">
+      Gracias por registrarte en ${platformName}. Haz clic en el botón para confirmar tu correo y activar tu cuenta:
+    </p>
+    <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 28px;">
+      <tr>
+        <td align="center" bgcolor="#6366f1" style="border-radius:10px;">
+          <a href="${verificationUrl}" target="_blank" style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:10px;background-color:#6366f1;">
+            Confirmar mi cuenta
+          </a>
+        </td>
+      </tr>
+    </table>
+    <p style="margin:0 0 8px;font-size:13px;color:#64748b;">Si el botón no funciona, copia y pega este enlace en tu navegador:</p>
+    <p style="margin:0;font-size:12px;color:#94a3b8;word-break:break-all;">${verificationUrl}</p>
+    <p style="margin:24px 0 0;font-size:13px;color:#94a3b8;">Este enlace expira en 24 horas. Si no creaste esta cuenta, puedes ignorar este mensaje.</p>
+  `;
 
-  const html = `<!DOCTYPE html>
-<html lang="es">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background-color:#f1f5f9;font-family:Inter,Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f1f5f9;">
-  <tr>
-    <td align="center" style="padding:32px 16px;">
-      <table width="560" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;width:100%;background-color:#ffffff;border-radius:16px;overflow:hidden;">
-        <tr>
-          <td style="background-color:#1e293b;padding:28px 40px;text-align:center;">
-            ${headerContent}
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:36px 40px;">
-            <p style="margin:0 0 16px;font-size:15px;color:#0f172a;">Hola <strong>${safeName}</strong>,</p>
-            <p style="margin:0 0 28px;font-size:15px;color:#334155;line-height:1.6;">
-              Gracias por registrarte en ${platformName}. Haz clic en el botón para confirmar tu correo y activar tu cuenta:
-            </p>
-            <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 28px;">
-              <tr>
-                <td align="center" bgcolor="#6366f1" style="border-radius:10px;">
-                  <a href="${verificationUrl}" target="_blank" style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:10px;background-color:#6366f1;">
-                    Confirmar mi cuenta
-                  </a>
-                </td>
-              </tr>
-            </table>
-            <p style="margin:0 0 8px;font-size:13px;color:#64748b;">Si el botón no funciona, copia y pega este enlace en tu navegador:</p>
-            <p style="margin:0;font-size:12px;color:#94a3b8;word-break:break-all;">${verificationUrl}</p>
-            <p style="margin:24px 0 0;font-size:13px;color:#94a3b8;">Este enlace expira en 24 horas. Si no creaste esta cuenta, puedes ignorar este mensaje.</p>
-          </td>
-        </tr>
-        <tr>
-          <td style="background-color:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 40px;text-align:center;">
-            <p style="margin:0 0 4px;font-size:12px;color:#94a3b8;">${platformName} &middot; Plataforma de desarrollo de equipos</p>
-            <p style="margin:0;font-size:12px;color:#cbd5e1;">soporte@4shine.co</p>
-          </td>
-        </tr>
-      </table>
-    </td>
-  </tr>
-</table>
-</body>
-</html>`;
-
-  return { to: recipient, subject, text, html, replyTo: buildReplyTo(config) };
+  return { to: recipient, subject, text, html: buildBrandedEmailHtml(bodyHtml, branding), replyTo: buildReplyTo(config) };
 }
 
 export async function sendVerificationEmail(
@@ -1686,7 +1657,15 @@ export async function resetUserPassword(
     throw new Error('No fue posible actualizar la contraseña');
   }
 
-  const payload = buildPasswordResetPayload(outboundConfig, user.email, user.displayName, temporaryPassword);
+  const { rows: brandingRows } = await client.query<{ platform_name: string; logo_url: string | null }>(
+    `SELECT platform_name, logo_url FROM app_admin.branding_settings ORDER BY updated_at DESC LIMIT 1`,
+  );
+  const branding: EmailBranding = {
+    platformName: brandingRows[0]?.platform_name || '4Shine',
+    logoUrl: brandingRows[0]?.logo_url ?? null,
+  };
+
+  const payload = buildPasswordResetPayload(outboundConfig, user.email, user.displayName, temporaryPassword, branding);
   const messageId = await sendOutboundEmail(outboundConfig, payload);
 
   await client.query(
