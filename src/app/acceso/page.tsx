@@ -90,6 +90,7 @@ export default function LoginPage() {
   const [unverifiedEmail, setUnverifiedEmail] = React.useState('');
   const googleButtonRef = React.useRef<HTMLDivElement>(null);
   const [googleSso, setGoogleSso] = React.useState<{ enabled: boolean; clientId: string | null }>({ enabled: false, clientId: null });
+  const [isSsoLoading, setIsSsoLoading] = React.useState(true);
   const googleClientId = googleSso.enabled && googleSso.clientId ? googleSso.clientId : '';
 
   React.useEffect(() => {
@@ -98,7 +99,8 @@ export default function LoginPage() {
       .then((data: { googleSso?: { enabled: boolean; clientId: string | null } }) => {
         if (data.googleSso) setGoogleSso(data.googleSso);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setIsSsoLoading(false));
   }, []);
 
   const visibility = tokens.text.visibility;
@@ -306,7 +308,7 @@ export default function LoginPage() {
     await alert({ title: 'Error al registrarse', message, tone: 'error' });
   };
 
-  if (isBrandingLoading || isHydrating) {
+  if (isBrandingLoading || isHydrating || isSsoLoading) {
     const loaderText = branding.loaderText.trim();
     return (
       <div className="min-h-screen bg-white flex items-center justify-center px-6">
