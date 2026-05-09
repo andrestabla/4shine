@@ -3678,22 +3678,30 @@ export async function bulkRegenerateDiscoveryReportsByManager(
 
   if (isInvitation) {
     const invitationId = normalizedSessionId.slice(4);
-    await client.query(
-      `UPDATE app_assessment.discovery_invitations
-         SET meta = (COALESCE(meta, '{}'::jsonb) - 'ai_reports'), updated_at = now()
-         WHERE invitation_id = $1::uuid`,
-      [invitationId],
-    );
-    const { rows } = await client.query(
-      `SELECT meta FROM app_assessment.discovery_invitations WHERE invitation_id = $1::uuid`,
-      [invitationId],
-    );
-    const row = rows[0];
-    if (!row) throw new Error("Invitación no encontrada.");
-    const state = parseInvitationExternalProgress(row.meta) ?? buildFallbackInvitationState("");
+
+    // Clear ai_reports and read invitation data in a separate committed transaction
+    // so the row lock is released before the long-running AI analysis loop starts.
+    const { meta: invMeta } = await withClient(async (clearClient) => {
+      await withRoleContext(clearClient, actor.userId, actor.role, async () => {
+        await clearClient.query(
+          `UPDATE app_assessment.discovery_invitations
+             SET meta = (COALESCE(meta, '{}'::jsonb) - 'ai_reports'), updated_at = now()
+             WHERE invitation_id = $1::uuid`,
+          [invitationId],
+        );
+      });
+      const { rows } = await clearClient.query(
+        `SELECT meta FROM app_assessment.discovery_invitations WHERE invitation_id = $1::uuid`,
+        [invitationId],
+      );
+      if (!rows[0]) throw new Error("Invitación no encontrada.");
+      return { meta: rows[0].meta };
+    });
+
+    const state = parseInvitationExternalProgress(invMeta) ?? buildFallbackInvitationState("");
     const scores = scoreDiscoveryAnswers(state.answers);
     const username =
-      ((row.meta as Record<string, unknown>)?.participant_name as string | undefined) ||
+      ((invMeta as Record<string, unknown>)?.participant_name as string | undefined) ||
       [state.profile?.firstName, state.profile?.lastName].filter(Boolean).join(" ") ||
       "Líder";
     const role = state.profile?.jobRole || "Líder";
@@ -3722,12 +3730,18 @@ export async function bulkRegenerateDiscoveryReportsByManager(
       }
     }
   } else {
-    await client.query(
-      `UPDATE app_assessment.discovery_sessions
-         SET ai_reports = NULL, updated_at = now()
-         WHERE session_id = $1::uuid`,
-      [normalizedSessionId],
-    );
+    // Clear ai_reports in a separate committed transaction so the row lock is
+    // released before the long-running AI analysis loop starts.
+    await withClient(async (clearClient) => {
+      await withRoleContext(clearClient, actor.userId, actor.role, async () => {
+        await clearClient.query(
+          `UPDATE app_assessment.discovery_sessions
+             SET ai_reports = NULL, updated_at = now()
+             WHERE session_id = $1::uuid`,
+          [normalizedSessionId],
+        );
+      });
+    });
     const session = await readDiscoverySessionBySessionId(client, normalizedSessionId);
     if (!session) throw new Error("Sesión no encontrada.");
     const username =

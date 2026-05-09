@@ -38,7 +38,7 @@ import {
   analyzeInvitationDiscoveryReport,
 } from "./client";
 import { downloadDiscoveryPdfReport } from "./pdf-export";
-import { getDiscoveryStatus, scoreDiscoveryAnswers } from "./reporting";
+import { buildDiscoveryReport, getDiscoveryStatus, scoreDiscoveryAnswers } from "./reporting";
 import type {
   DiscoveryAiReports,
   DiscoveryExperienceSurvey,
@@ -168,6 +168,16 @@ export function ResultsView({
   const scoring = React.useMemo(
     () => scoreDiscoveryAnswers(state.answers),
     [state.answers],
+  );
+  const staticFallbackReports = React.useMemo<Record<DiscoveryReportFilter, string>>(
+    () => ({
+      all: buildDiscoveryReport("all", state, scoring),
+      within: buildDiscoveryReport("within", state, scoring),
+      out: buildDiscoveryReport("out", state, scoring),
+      up: buildDiscoveryReport("up", state, scoring),
+      beyond: buildDiscoveryReport("beyond", state, scoring),
+    }),
+    [state, scoring],
   );
   const isInvitationExperience =
     isPublic && (Boolean(invitationCredentials) || enablePublicAnalysis);
@@ -329,6 +339,7 @@ export function ResultsView({
       analysisInFlightRef.current.add(target);
       setAnalysisActiveCount((current) => current + 1);
       try {
+        const fallbackReport = staticFallbackReports[target];
         for (let attempt = 1; attempt <= ANALYSIS_MAX_RETRIES; attempt += 1) {
           try {
             const response = invitationCredentials
@@ -339,12 +350,14 @@ export function ResultsView({
                   role: state.profile.jobRole || "Invitado",
                   scores: scoring,
                   pillar: target,
+                  fallbackReport,
                 })
               : await analyzeDiscoveryReport({
                   username: state.name,
                   role: state.profile.jobRole || "Lider",
                   scores: scoring,
                   pillar: target,
+                  fallbackReport,
                 });
 
             if (response.report?.trim()) {
@@ -385,6 +398,7 @@ export function ResultsView({
       scoring,
       state.name,
       state.profile.jobRole,
+      staticFallbackReports,
       failedFilters,
       syncReports,
     ],
