@@ -285,175 +285,127 @@ export default function DashboardHomePage() {
 
   // ── Free leader view ─────────────────────────────────────────────────────
   if (isOpenLeader) {
-    const FREE_MODULES = [
-      {
-        href: "/dashboard/aprendizaje",
-        icon: BookOpen,
-        label: "Aprendizaje",
-        desc: "Biblioteca de recursos, videos y cursos etiquetados como free.",
-        available: true,
-      },
-      {
-        href: "/dashboard/descubrimiento",
-        icon: Compass,
-        label: "Descubrimiento",
-        desc: "Diagnóstico de liderazgo en 4 pilares con informe IA. Compra individual.",
-        available: true,
-        badge: "$50 USD",
-      },
-      {
-        href: "/dashboard/mentorias",
-        icon: CalendarDays,
-        label: "Mentorías",
-        desc: "Sesiones individuales con Advisers. Paquetes desde $50 USD.",
-        available: true,
-        badge: "Desde $50",
-      },
-    ];
-
-    const LOCKED_MODULES = [
-      {
-        icon: Sparkles,
-        label: "Trayectoria",
-        desc: "Ruta de 24 semanas con 5 hitos, workbooks y seguimiento integral.",
-      },
-      {
-        icon: Users,
-        label: "Networking",
-        desc: "Comunidad de líderes, perfiles, conexiones y convocatorias.",
-      },
-      {
-        icon: MessageSquare,
-        label: "Mensajes",
-        desc: "Conversaciones directas con Advisers y equipo del programa.",
-      },
+    const FREE_SHORTCUTS = [
+      { href: "/dashboard/aprendizaje", icon: BookOpen, label: "Aprendizaje", color: "#5b3fa5" },
+      { href: "/dashboard/descubrimiento", icon: Compass, label: "Diagnóstico", color: "#9b3f8a", badge: "$50 USD" },
+      { href: "/dashboard/mentorias", icon: CalendarDays, label: "Mentorías", color: "#3f7ea5", badge: "Desde $50" },
     ];
 
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
 
-        {/* Hero */}
-        <section className="app-hero-surface relative overflow-hidden px-7 py-8 sm:px-9 sm:py-10">
-          <div className="pointer-events-none absolute inset-0 opacity-10"
-            style={{ backgroundImage: "radial-gradient(circle at 78% 18%, white 0%, transparent 55%)" }}
+        {/* Promo banner */}
+        <section
+          className="relative overflow-hidden rounded-[1.5rem] px-7 py-7 sm:px-9 sm:py-8"
+          style={{ background: "linear-gradient(135deg, #5b2d8a 0%, #8b3fa8 45%, #d96bb5 100%)" }}
+        >
+          <div
+            className="pointer-events-none absolute right-0 top-0 h-48 w-48 rounded-full opacity-20"
+            style={{ background: "radial-gradient(circle, white 0%, transparent 70%)", transform: "translate(35%, -35%)" }}
           />
-          <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/12 px-3 py-1 text-[11px] font-black uppercase tracking-[0.28em] text-white/80">
-                Acceso Free
-              </div>
-              <h1 className="mt-4 text-[2.4rem] font-black leading-[0.95] tracking-tight text-white sm:text-[2.8rem]">
-                Hola, {firstName}
-              </h1>
-              <p className="mt-3 max-w-md text-[0.97rem] leading-relaxed text-white/74">
-                Tu cuenta está activa. Explora contenido libre, activa el diagnóstico
-                o compra mentorías cuando lo necesites.
-              </p>
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Link href="/dashboard/aprendizaje" className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-bold text-[#4f2360] transition hover:-translate-y-0.5 hover:bg-white/96">
-                  Explorar contenido <ArrowRight size={15} />
-                </Link>
-                <Link href="/dashboard/descubrimiento" className="inline-flex items-center gap-2 rounded-full border border-white/30 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-white/10">
-                  Activar diagnóstico · $50
-                </Link>
-              </div>
-            </div>
-            {/* Quick stats */}
-            <div className="grid grid-cols-2 gap-2.5 sm:w-52 sm:grid-cols-1">
-              {[
-                { v: learningCount > 0 ? learningCount : "∞", l: "Recursos libres" },
-                { v: "3", l: "Módulos accesibles" },
-                { v: "$50", l: "Diagnóstico" },
-                { v: "$3,000", l: "Programa completo" },
-              ].map((s) => (
-                <div key={s.l} className="rounded-[0.9rem] border border-white/14 bg-white/10 px-3.5 py-2.5">
-                  <p className="text-lg font-black leading-none text-white">{s.v}</p>
-                  <p className="mt-0.5 text-[10px] font-semibold text-white/55">{s.l}</p>
-                </div>
-              ))}
-            </div>
+          <div
+            className="pointer-events-none absolute bottom-0 left-1/4 h-28 w-28 rounded-full opacity-10"
+            style={{ background: "radial-gradient(circle, white 0%, transparent 70%)", transform: "translateY(40%)" }}
+          />
+          <div className="relative">
+            <p className="text-[11px] font-extrabold uppercase tracking-[0.28em] text-white/70">
+              Bienvenido, {firstName}
+            </p>
+            <h1 className="mt-2 text-[1.85rem] font-black leading-tight text-white sm:text-[2.1rem]">
+              Tu liderazgo<br />empieza aquí.
+            </h1>
+            <p className="mt-2.5 max-w-md text-sm leading-relaxed text-white/78">
+              Accede a recursos gratuitos, activa tu diagnóstico o agenda una mentoría cuando lo necesites.
+            </p>
+            <Link
+              href="/dashboard/aprendizaje"
+              className="mt-5 inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-bold text-[#5b2d8a] shadow-sm transition hover:-translate-y-0.5"
+            >
+              Explorar recursos <ArrowRight size={14} />
+            </Link>
           </div>
         </section>
 
-        {/* Available modules */}
-        <section className="app-panel-strong overflow-hidden p-5 sm:p-6">
-          <p className="app-section-kicker">Disponible ahora</p>
-          <h2 className="mt-1.5 text-xl font-extrabold text-[var(--app-ink)]">Lo que puedes hacer hoy</h2>
-          <div className="mt-5 grid gap-3 sm:grid-cols-3">
-            {FREE_MODULES.map((mod) => {
-              const Icon = mod.icon;
+        {/* Quick access */}
+        <div>
+          <p className="mb-3 text-[11px] font-extrabold uppercase tracking-[0.22em] text-[var(--app-muted)]">Acceso rápido</p>
+          <div className="grid grid-cols-3 gap-3">
+            {FREE_SHORTCUTS.map((item) => {
+              const Icon = item.icon;
               return (
                 <Link
-                  key={mod.label}
-                  href={mod.href}
-                  className="group flex flex-col gap-3 rounded-[1.2rem] border border-[var(--app-border)] bg-white p-5 shadow-[var(--app-shadow-soft)] transition hover:-translate-y-0.5 hover:shadow-[var(--app-shadow-card)]"
+                  key={item.label}
+                  href={item.href}
+                  className="flex flex-col items-center gap-2.5 rounded-[1.3rem] border border-[var(--app-border)] bg-white px-3 py-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="rounded-[0.9rem] bg-[var(--app-chip)] p-2.5 text-[#4f2360]">
-                      <Icon size={18} />
-                    </div>
-                    {mod.badge && (
-                      <span className="rounded-full border border-[var(--app-chip-border)] bg-[var(--app-chip)] px-2.5 py-1 text-[10px] font-extrabold tracking-wide text-[#4f2360]">
-                        {mod.badge}
-                      </span>
-                    )}
+                  <div
+                    className="flex h-11 w-11 items-center justify-center rounded-[0.9rem]"
+                    style={{ backgroundColor: `${item.color}18` }}
+                  >
+                    <Icon size={20} style={{ color: item.color }} />
                   </div>
-                  <div>
-                    <p className="font-bold text-[var(--app-ink)]">{mod.label}</p>
-                    <p className="mt-1 text-xs leading-relaxed text-[var(--app-muted)]">{mod.desc}</p>
-                  </div>
-                  <div className="mt-auto flex items-center gap-1 text-xs font-semibold text-[#7c5f93] opacity-0 transition group-hover:opacity-100">
-                    Abrir <ArrowRight size={12} />
-                  </div>
+                  <p className="text-center text-[0.78rem] font-bold leading-snug text-[var(--app-ink)]">
+                    {item.label}
+                  </p>
+                  {item.badge && (
+                    <span
+                      className="rounded-full px-2.5 py-0.5 text-[10px] font-extrabold"
+                      style={{ backgroundColor: `${item.color}14`, color: item.color }}
+                    >
+                      {item.badge}
+                    </span>
+                  )}
                 </Link>
               );
             })}
           </div>
-        </section>
+        </div>
 
-        {/* Locked modules + upgrade */}
-        <section className="app-panel-strong overflow-hidden p-5 sm:p-6">
-          <div className="grid gap-6 xl:grid-cols-[1fr_auto]">
+        {/* Locked modules */}
+        <section className="rounded-[1.5rem] border border-[var(--app-border)] bg-white p-5 sm:p-6">
+          <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="app-section-kicker">Con suscripción</p>
-              <h2 className="mt-1.5 text-xl font-extrabold text-[var(--app-ink)]">Módulos que se desbloquean</h2>
-              <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                {LOCKED_MODULES.map((mod) => {
-                  const Icon = mod.icon;
-                  return (
-                    <div key={mod.label} className="flex flex-col gap-2.5 rounded-[1.2rem] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4 opacity-60">
-                      <div className="rounded-[0.9rem] bg-white p-2.5 text-[var(--app-muted)] w-fit">
-                        <Icon size={17} />
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold text-[var(--app-ink)]">{mod.label}</p>
-                        <p className="mt-0.5 text-xs leading-relaxed text-[var(--app-muted)]">{mod.desc}</p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+              <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[var(--app-muted)]">Con suscripción</p>
+              <h2 className="mt-1 text-base font-extrabold text-[var(--app-ink)]">Módulos que se desbloquean</h2>
             </div>
-
-            {/* Upgrade CTA */}
-            <div className="flex flex-col justify-center gap-3 xl:w-60">
-              <div className="rounded-[1.2rem] bg-[var(--app-chip)] px-5 py-5 text-center">
-                <p className="text-[10px] font-extrabold uppercase tracking-[0.24em] text-[var(--app-muted)]">Programa completo</p>
-                <p className="mt-2 text-[2.2rem] font-black leading-none text-[var(--app-ink)]">$3,000</p>
-                <p className="mt-1 text-xs font-semibold text-[var(--app-muted)]">USD · 6 meses · Todo incluido</p>
-                <a
-                  href="https://www.4shine.co/planes-precios"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-4 block rounded-full bg-[var(--brand-primary)] py-2.5 text-sm font-bold text-white transition hover:opacity-90"
+            <a
+              href="https://www.4shine.co/planes-precios"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="shrink-0 rounded-full bg-[#5b2d8a] px-4 py-2 text-xs font-bold text-white transition hover:opacity-90"
+            >
+              Ver programa
+            </a>
+          </div>
+          <div className="mt-4 space-y-2">
+            {[
+              { icon: Sparkles, label: "Trayectoria", desc: "24 semanas · 5 hitos · workbooks guiados" },
+              { icon: Users, label: "Networking", desc: "Comunidad de líderes · perfiles · conexiones" },
+              { icon: MessageSquare, label: "Mensajes", desc: "Conversaciones directas con tu Adviser" },
+            ].map((mod) => {
+              const Icon = mod.icon;
+              return (
+                <div
+                  key={mod.label}
+                  className="flex items-center gap-3.5 rounded-[1rem] bg-[var(--app-surface-muted)] px-4 py-3.5 opacity-55"
                 >
-                  Ver el programa →
-                </a>
-              </div>
-              <p className="text-center text-[11px] text-[var(--app-muted)]">
-                Incluye diagnóstico, 10 mentorías, trayectoria y comunidad.
-              </p>
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[0.75rem] bg-white text-[var(--app-muted)]">
+                    <Icon size={15} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-[var(--app-ink)]">{mod.label}</p>
+                    <p className="text-[11px] leading-snug text-[var(--app-muted)]">{mod.desc}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-4 flex items-center justify-between rounded-[1rem] border border-dashed border-[#5b2d8a]/20 bg-[#f8f3ff] px-4 py-3.5">
+            <div>
+              <p className="text-sm font-extrabold text-[#5b2d8a]">Programa completo · $3,000 USD</p>
+              <p className="mt-0.5 text-[11px] text-[var(--app-muted)]">Diagnóstico · 10 mentorías · 24 semanas · comunidad</p>
             </div>
+            <ArrowRight size={16} className="shrink-0 text-[#5b2d8a]" />
           </div>
         </section>
 

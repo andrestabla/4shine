@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
+import { Lock, Users } from 'lucide-react';
 import { AccessOfferPanel } from '@/components/access/AccessOfferPanel';
 import { EmptyState } from '@/components/dashboard/EmptyState';
 import { R2UploadButton } from '@/components/ui/R2UploadButton';
@@ -324,45 +325,53 @@ export default function NetworkingPage() {
 
   if (isCommunityLocked) {
     const NETWORK_FEATURES = [
-      { icon: "👤", label: "Perfiles de líderes", desc: "Explora quiénes integran la comunidad 4Shine y conecta con perfiles afines." },
-      { icon: "🤝", label: "Conexiones directas", desc: "Solicita y acepta conexiones para construir tu red ejecutiva dentro del programa." },
-      { icon: "💬", label: "Comunidades temáticas", desc: "Participa en grupos por industria, función o interés para compartir aprendizajes." },
-      { icon: "📢", label: "Convocatorias", desc: "Accede a oportunidades, eventos y proyectos disponibles para miembros del programa." },
+      { label: "Perfiles de líderes", desc: "Explora quiénes integran la comunidad 4Shine." },
+      { label: "Conexiones directas", desc: "Solicita y acepta conexiones en tu red ejecutiva." },
+      { label: "Comunidades temáticas", desc: "Grupos por industria, función o interés." },
+      { label: "Convocatorias", desc: "Oportunidades, eventos y proyectos del programa." },
     ];
     return (
-      <div className="space-y-6">
-        {/* Hero locked */}
-        <section className="app-hero-surface relative overflow-hidden px-7 py-9 sm:px-10">
-          <div className="pointer-events-none absolute inset-0 opacity-10"
-            style={{ backgroundImage: "radial-gradient(circle at 75% 25%, white 0%, transparent 55%)" }}
-          />
-          <div className="relative flex items-start gap-4">
-            <div className="rounded-[1rem] border border-white/18 bg-white/12 px-3 py-2.5 shrink-0 text-white/80 text-sm font-black">
-              🔒
-            </div>
-            <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.3em] text-white/65">Módulo bloqueado</p>
-              <h1 className="mt-2 text-[2rem] font-black leading-tight text-white sm:text-[2.4rem]">
-                Tu comunidad de líderes<br />está aquí adentro.
-              </h1>
-              <p className="mt-3 max-w-xl text-[0.95rem] leading-relaxed text-white/72">
-                Networking es el espacio de conexión, colaboración y expansión del programa 4Shine.
-                Se activa junto con tu suscripción.
-              </p>
-            </div>
+      <div className="space-y-4">
+
+        {/* Empty-state card */}
+        <section className="rounded-[1.5rem] border border-[var(--app-border)] bg-white px-7 py-10 text-center sm:py-12">
+          <div
+            className="mx-auto flex h-14 w-14 items-center justify-center rounded-[1.1rem]"
+            style={{ background: "linear-gradient(135deg, #e8f0ff 0%, #e4eeff 100%)" }}
+          >
+            <Users size={22} style={{ color: "#3f5fa8" }} />
           </div>
+          <h1 className="mt-5 text-[1.6rem] font-black leading-tight text-[var(--app-ink)] sm:text-[1.9rem]">
+            Tu comunidad de líderes<br />está aquí adentro.
+          </h1>
+          <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-[var(--app-muted)]">
+            Networking es el espacio de conexión, colaboración y expansión del programa 4Shine.
+            Se activa junto con tu suscripción.
+          </p>
+          <a
+            href="https://www.4shine.co/planes-precios"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#5b2d8a] px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:-translate-y-0.5 hover:opacity-90"
+          >
+            Activar programa · $3,000 USD
+          </a>
         </section>
 
         {/* Features preview */}
-        <section className="app-panel-strong overflow-hidden p-5 sm:p-6">
-          <p className="app-section-kicker">Qué incluye Networking</p>
-          <h2 className="mt-1.5 text-lg font-extrabold text-[var(--app-ink)]">Conecta, colabora y expande tu influencia.</h2>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <section className="rounded-[1.5rem] border border-[var(--app-border)] bg-white p-5 sm:p-6">
+          <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[var(--app-muted)]">Qué incluye Networking</p>
+          <h2 className="mt-1 text-base font-extrabold text-[var(--app-ink)]">Conecta, colabora y expande tu influencia.</h2>
+          <div className="mt-4 space-y-2 opacity-60">
             {NETWORK_FEATURES.map((f) => (
-              <div key={f.label} className="rounded-[1.1rem] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4 opacity-65">
-                <p className="text-2xl">{f.icon}</p>
-                <p className="mt-2 text-sm font-bold text-[var(--app-ink)]">{f.label}</p>
-                <p className="mt-1 text-xs leading-relaxed text-[var(--app-muted)]">{f.desc}</p>
+              <div key={f.label} className="flex items-center gap-3.5 rounded-[1rem] bg-[var(--app-surface-muted)] px-4 py-3">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[0.7rem] bg-white">
+                  <Lock size={12} className="text-[var(--app-muted)]" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-[var(--app-ink)]">{f.label}</p>
+                  <p className="text-[11px] text-[var(--app-muted)]">{f.desc}</p>
+                </div>
               </div>
             ))}
           </div>
