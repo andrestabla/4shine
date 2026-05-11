@@ -323,17 +323,57 @@ export default function NetworkingPage() {
   const myPending = connections.filter((connection) => connection.status === 'pending').length;
 
   if (isCommunityLocked) {
+    const NETWORK_FEATURES = [
+      { icon: "👤", label: "Perfiles de líderes", desc: "Explora quiénes integran la comunidad 4Shine y conecta con perfiles afines." },
+      { icon: "🤝", label: "Conexiones directas", desc: "Solicita y acepta conexiones para construir tu red ejecutiva dentro del programa." },
+      { icon: "💬", label: "Comunidades temáticas", desc: "Participa en grupos por industria, función o interés para compartir aprendizajes." },
+      { icon: "📢", label: "Convocatorias", desc: "Accede a oportunidades, eventos y proyectos disponibles para miembros del programa." },
+    ];
     return (
       <div className="space-y-6">
+        {/* Hero locked */}
+        <section className="app-hero-surface relative overflow-hidden px-7 py-9 sm:px-10">
+          <div className="pointer-events-none absolute inset-0 opacity-10"
+            style={{ backgroundImage: "radial-gradient(circle at 75% 25%, white 0%, transparent 55%)" }}
+          />
+          <div className="relative flex items-start gap-4">
+            <div className="rounded-[1rem] border border-white/18 bg-white/12 px-3 py-2.5 shrink-0 text-white/80 text-sm font-black">
+              🔒
+            </div>
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.3em] text-white/65">Módulo bloqueado</p>
+              <h1 className="mt-2 text-[2rem] font-black leading-tight text-white sm:text-[2.4rem]">
+                Tu comunidad de líderes<br />está aquí adentro.
+              </h1>
+              <p className="mt-3 max-w-xl text-[0.95rem] leading-relaxed text-white/72">
+                Networking es el espacio de conexión, colaboración y expansión del programa 4Shine.
+                Se activa junto con tu suscripción.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* Features preview */}
+        <section className="app-panel-strong overflow-hidden p-5 sm:p-6">
+          <p className="app-section-kicker">Qué incluye Networking</p>
+          <h2 className="mt-1.5 text-lg font-extrabold text-[var(--app-ink)]">Conecta, colabora y expande tu influencia.</h2>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {NETWORK_FEATURES.map((f) => (
+              <div key={f.label} className="rounded-[1.1rem] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4 opacity-65">
+                <p className="text-2xl">{f.icon}</p>
+                <p className="mt-2 text-sm font-bold text-[var(--app-ink)]">{f.label}</p>
+                <p className="mt-1 text-xs leading-relaxed text-[var(--app-muted)]">{f.desc}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
         <AccessOfferPanel
           badge="Acceso bloqueado"
           title="Desbloquea Networking con el programa 4Shine."
           description="Networking forma parte de la experiencia completa del programa. Al activarlo accedes a perfiles públicos, contacto, mensajería y comunidades temáticas."
           products={programOffers}
-          primaryAction={{
-            href: '/dashboard',
-            label: 'Ver plan 4Shine',
-          }}
+          primaryAction={{ href: '/dashboard', label: 'Ver plan 4Shine' }}
           note="Mientras tu cuenta siga en modo free, este módulo no estará disponible."
         />
       </div>

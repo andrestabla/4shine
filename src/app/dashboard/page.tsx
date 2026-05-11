@@ -283,122 +283,180 @@ export default function DashboardHomePage() {
     groups: ["program", "discovery", "mentoring_pack"],
   });
 
-  // ── Simplified view for free leaders ──────────────────────────────────────
+  // ── Free leader view ─────────────────────────────────────────────────────
   if (isOpenLeader) {
-    const FREE_ACCESS = [
-      { label: "Biblioteca de recursos free", desc: "Videos, podcasts y documentos abiertos sin costo" },
-      { label: "Cursos disponibles", desc: "Contenido del catálogo etiquetado como free" },
-      { label: "Vista de la comunidad", desc: "Acceso a la sección de networking de la plataforma" },
+    const FREE_MODULES = [
+      {
+        href: "/dashboard/aprendizaje",
+        icon: BookOpen,
+        label: "Aprendizaje",
+        desc: "Biblioteca de recursos, videos y cursos etiquetados como free.",
+        available: true,
+      },
+      {
+        href: "/dashboard/descubrimiento",
+        icon: Compass,
+        label: "Descubrimiento",
+        desc: "Diagnóstico de liderazgo en 4 pilares con informe IA. Compra individual.",
+        available: true,
+        badge: "$50 USD",
+      },
+      {
+        href: "/dashboard/mentorias",
+        icon: CalendarDays,
+        label: "Mentorías",
+        desc: "Sesiones individuales con Advisers. Paquetes desde $50 USD.",
+        available: true,
+        badge: "Desde $50",
+      },
     ];
 
-    const PLANS = [
+    const LOCKED_MODULES = [
       {
-        kicker: "Acceso puntual",
-        name: "Diagnóstico",
-        price: "$50 USD",
-        desc: "Realiza la prueba diagnóstica 4Shine y recibe tu lectura ejecutiva con tu punto de partida.",
-        featured: false,
+        icon: Sparkles,
+        label: "Trayectoria",
+        desc: "Ruta de 24 semanas con 5 hitos, workbooks y seguimiento integral.",
       },
       {
-        kicker: "Sesiones adicionales",
-        name: "Pack de mentorías",
-        price: "Desde $750 USD",
-        desc: "Sesiones individuales con Advisers disponibles. Paquetes de 5, 10 o 15 sesiones.",
-        featured: false,
+        icon: Users,
+        label: "Networking",
+        desc: "Comunidad de líderes, perfiles, conexiones y convocatorias.",
       },
       {
-        kicker: "Programa principal",
-        name: "4Shine Programa",
-        price: "$3,000 USD",
-        desc: "Ruta completa con suscripción: trayectoria, diagnóstico, 10 mentorías incluidas y comunidad.",
-        featured: true,
+        icon: MessageSquare,
+        label: "Mensajes",
+        desc: "Conversaciones directas con Advisers y equipo del programa.",
       },
     ];
 
     return (
-      <div className="space-y-6 max-w-4xl">
-        <div>
-          <span className="inline-block rounded-full bg-[var(--brand-primary-soft)] px-3 py-1 text-xs font-bold uppercase tracking-widest text-[var(--brand-primary)]">
-            Acceso Free
-          </span>
-          <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-[var(--app-ink)]">
-            Hola, {firstName}
-          </h1>
-          <p className="mt-2 text-base text-[var(--app-muted)] max-w-lg">
-            Tu cuenta está activa. Accede al contenido libre de la plataforma desde hoy.
-          </p>
-        </div>
+      <div className="space-y-6">
 
-        <section className="app-panel p-5 sm:p-7">
-          <p className="app-section-kicker">Lo que tienes hoy</p>
-          <h2 className="mt-2 text-xl font-extrabold text-[var(--app-ink)]">Tu acceso actual</h2>
-          <ul className="mt-5 space-y-4">
-            {FREE_ACCESS.map((item) => (
-              <li key={item.label} className="flex items-start gap-3">
-                <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100">
-                  <Check size={11} className="text-emerald-600" strokeWidth={3} />
+        {/* Hero */}
+        <section className="app-hero-surface relative overflow-hidden px-7 py-8 sm:px-9 sm:py-10">
+          <div className="pointer-events-none absolute inset-0 opacity-10"
+            style={{ backgroundImage: "radial-gradient(circle at 78% 18%, white 0%, transparent 55%)" }}
+          />
+          <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/12 px-3 py-1 text-[11px] font-black uppercase tracking-[0.28em] text-white/80">
+                Acceso Free
+              </div>
+              <h1 className="mt-4 text-[2.4rem] font-black leading-[0.95] tracking-tight text-white sm:text-[2.8rem]">
+                Hola, {firstName}
+              </h1>
+              <p className="mt-3 max-w-md text-[0.97rem] leading-relaxed text-white/74">
+                Tu cuenta está activa. Explora contenido libre, activa el diagnóstico
+                o compra mentorías cuando lo necesites.
+              </p>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Link href="/dashboard/aprendizaje" className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-bold text-[#4f2360] transition hover:-translate-y-0.5 hover:bg-white/96">
+                  Explorar contenido <ArrowRight size={15} />
+                </Link>
+                <Link href="/dashboard/descubrimiento" className="inline-flex items-center gap-2 rounded-full border border-white/30 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-white/10">
+                  Activar diagnóstico · $50
+                </Link>
+              </div>
+            </div>
+            {/* Quick stats */}
+            <div className="grid grid-cols-2 gap-2.5 sm:w-52 sm:grid-cols-1">
+              {[
+                { v: learningCount > 0 ? learningCount : "∞", l: "Recursos libres" },
+                { v: "3", l: "Módulos accesibles" },
+                { v: "$50", l: "Diagnóstico" },
+                { v: "$3,000", l: "Programa completo" },
+              ].map((s) => (
+                <div key={s.l} className="rounded-[0.9rem] border border-white/14 bg-white/10 px-3.5 py-2.5">
+                  <p className="text-lg font-black leading-none text-white">{s.v}</p>
+                  <p className="mt-0.5 text-[10px] font-semibold text-white/55">{s.l}</p>
                 </div>
-                <div>
-                  <p className="text-sm font-semibold text-[var(--app-ink)]">{item.label}</p>
-                  <p className="text-xs text-[var(--app-muted)]">{item.desc}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-          <Link href="/dashboard/aprendizaje" className="app-button-primary mt-6 inline-flex">
-            Explorar contenido <ArrowRight size={16} />
-          </Link>
+              ))}
+            </div>
+          </div>
         </section>
 
-        <section className="app-panel p-5 sm:p-7">
-          <p className="app-section-kicker">Escala tu experiencia</p>
-          <h2 className="mt-2 text-xl font-extrabold text-[var(--app-ink)]">Elige el nivel que necesitas</h2>
-          <p className="mt-1 text-sm text-[var(--app-muted)]">
-            Activa solo lo que necesitas, cuando lo necesites. Sin compromisos.
-          </p>
-          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-            {PLANS.map((plan) => (
-              <div
-                key={plan.name}
-                className={`flex flex-col rounded-[18px] p-5 ${
-                  plan.featured
-                    ? "border-2 border-[var(--brand-primary)] bg-[var(--brand-primary-soft)]"
-                    : "border border-[var(--app-border)] bg-white"
-                }`}
-              >
-                <p className={`text-[10px] font-extrabold uppercase tracking-widest ${plan.featured ? "text-[var(--brand-primary)]" : "text-[var(--app-muted)]"}`}>
-                  {plan.kicker}
-                </p>
-                <p className="mt-3 text-2xl font-extrabold text-[var(--app-ink)]">{plan.price}</p>
-                <p className="mt-0.5 text-base font-bold text-[var(--app-ink)]">{plan.name}</p>
-                <p className="mt-2 flex-1 text-sm leading-relaxed text-[var(--app-muted)]">{plan.desc}</p>
+        {/* Available modules */}
+        <section className="app-panel-strong overflow-hidden p-5 sm:p-6">
+          <p className="app-section-kicker">Disponible ahora</p>
+          <h2 className="mt-1.5 text-xl font-extrabold text-[var(--app-ink)]">Lo que puedes hacer hoy</h2>
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            {FREE_MODULES.map((mod) => {
+              const Icon = mod.icon;
+              return (
+                <Link
+                  key={mod.label}
+                  href={mod.href}
+                  className="group flex flex-col gap-3 rounded-[1.2rem] border border-[var(--app-border)] bg-white p-5 shadow-[var(--app-shadow-soft)] transition hover:-translate-y-0.5 hover:shadow-[var(--app-shadow-card)]"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="rounded-[0.9rem] bg-[var(--app-chip)] p-2.5 text-[#4f2360]">
+                      <Icon size={18} />
+                    </div>
+                    {mod.badge && (
+                      <span className="rounded-full border border-[var(--app-chip-border)] bg-[var(--app-chip)] px-2.5 py-1 text-[10px] font-extrabold tracking-wide text-[#4f2360]">
+                        {mod.badge}
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    <p className="font-bold text-[var(--app-ink)]">{mod.label}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-[var(--app-muted)]">{mod.desc}</p>
+                  </div>
+                  <div className="mt-auto flex items-center gap-1 text-xs font-semibold text-[#7c5f93] opacity-0 transition group-hover:opacity-100">
+                    Abrir <ArrowRight size={12} />
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Locked modules + upgrade */}
+        <section className="app-panel-strong overflow-hidden p-5 sm:p-6">
+          <div className="grid gap-6 xl:grid-cols-[1fr_auto]">
+            <div>
+              <p className="app-section-kicker">Con suscripción</p>
+              <h2 className="mt-1.5 text-xl font-extrabold text-[var(--app-ink)]">Módulos que se desbloquean</h2>
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                {LOCKED_MODULES.map((mod) => {
+                  const Icon = mod.icon;
+                  return (
+                    <div key={mod.label} className="flex flex-col gap-2.5 rounded-[1.2rem] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4 opacity-60">
+                      <div className="rounded-[0.9rem] bg-white p-2.5 text-[var(--app-muted)] w-fit">
+                        <Icon size={17} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-[var(--app-ink)]">{mod.label}</p>
+                        <p className="mt-0.5 text-xs leading-relaxed text-[var(--app-muted)]">{mod.desc}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Upgrade CTA */}
+            <div className="flex flex-col justify-center gap-3 xl:w-60">
+              <div className="rounded-[1.2rem] bg-[var(--app-chip)] px-5 py-5 text-center">
+                <p className="text-[10px] font-extrabold uppercase tracking-[0.24em] text-[var(--app-muted)]">Programa completo</p>
+                <p className="mt-2 text-[2.2rem] font-black leading-none text-[var(--app-ink)]">$3,000</p>
+                <p className="mt-1 text-xs font-semibold text-[var(--app-muted)]">USD · 6 meses · Todo incluido</p>
                 <a
                   href="https://www.4shine.co/planes-precios"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`mt-5 block rounded-full py-2.5 text-center text-sm font-bold transition ${
-                    plan.featured
-                      ? "bg-[var(--brand-primary)] text-white hover:opacity-90"
-                      : "border border-[var(--app-border)] bg-white text-[var(--app-ink)] hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)]"
-                  }`}
+                  className="mt-4 block rounded-full bg-[var(--brand-primary)] py-2.5 text-sm font-bold text-white transition hover:opacity-90"
                 >
-                  Ver detalles →
+                  Ver el programa →
                 </a>
               </div>
-            ))}
+              <p className="text-center text-[11px] text-[var(--app-muted)]">
+                Incluye diagnóstico, 10 mentorías, trayectoria y comunidad.
+              </p>
+            </div>
           </div>
-          <p className="mt-5 text-center text-xs text-[var(--app-muted)]">
-            Más información en{" "}
-            <a
-              href="https://www.4shine.co/planes-precios"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-semibold underline hover:text-[var(--brand-primary)]"
-            >
-              4shine.co/planes-precios
-            </a>
-          </p>
         </section>
+
       </div>
     );
   }

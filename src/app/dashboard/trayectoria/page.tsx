@@ -626,12 +626,64 @@ export default function TrayectoriaPage() {
   }
 
   if (isLockedForViewer) {
+    const PHASES = [
+      { num: "01", label: "Autoconocimiento", weeks: "Semanas 1–4" },
+      { num: "02", label: "Comunicación e influencia", weeks: "Semanas 5–8" },
+      { num: "03", label: "Estrategia y decisión", weeks: "Semanas 9–14" },
+      { num: "04", label: "Liderazgo de equipos", weeks: "Semanas 15–20" },
+      { num: "05", label: "Legado e impacto", weeks: "Semanas 21–24" },
+    ];
     return (
-      <div className="space-y-8">
-        <PageTitle
-          title="Trayectoria"
-          subtitle="La timeline del journey líder se activa con el programa 4Shine."
-        />
+      <div className="space-y-6">
+        {/* Hero locked */}
+        <section className="app-hero-surface relative overflow-hidden px-7 py-9 sm:px-10">
+          <div className="pointer-events-none absolute inset-0 opacity-10"
+            style={{ backgroundImage: "radial-gradient(circle at 80% 20%, white 0%, transparent 55%)" }}
+          />
+          <div className="relative flex items-start gap-4">
+            <div className="rounded-[1rem] border border-white/18 bg-white/12 p-2.5 shrink-0">
+              <Lock size={18} className="text-white/80" />
+            </div>
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.3em] text-white/65">Ruta bloqueada</p>
+              <h1 className="mt-2 text-[2rem] font-black leading-tight text-white sm:text-[2.4rem]">
+                Tu journey de 24 semanas<br />te espera.
+              </h1>
+              <p className="mt-3 max-w-xl text-[0.95rem] leading-relaxed text-white/72">
+                La Trayectoria conecta diagnóstico, workbooks, mentorías y señales de progreso
+                en una sola línea de tiempo personalizada. Se activa con el programa 4Shine.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* Phase preview */}
+        <section className="app-panel-strong overflow-hidden p-5 sm:p-6">
+          <p className="app-section-kicker">Contenido del programa</p>
+          <h2 className="mt-1.5 text-lg font-extrabold text-[var(--app-ink)]">5 fases de transformación · 24 semanas</h2>
+          <div className="mt-4 grid gap-2.5 sm:grid-cols-5">
+            {PHASES.map((phase) => (
+              <div key={phase.num} className="rounded-[1.1rem] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4 opacity-70">
+                <p className="text-[10px] font-extrabold uppercase tracking-[0.24em] text-[var(--app-muted)]">{phase.weeks}</p>
+                <p className="mt-2 text-2xl font-black leading-none text-[var(--app-ink)]">{phase.num}</p>
+                <p className="mt-1.5 text-xs font-semibold leading-snug text-[var(--app-ink)]">{phase.label}</p>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-3">
+            {[
+              { v: "24", l: "Semanas de ruta" },
+              { v: "10", l: "Mentorías incluidas" },
+              { v: "5", l: "Workbooks digitales" },
+            ].map((s) => (
+              <div key={s.l} className="rounded-[1rem] bg-[var(--app-chip)] px-4 py-3 text-center opacity-70">
+                <p className="text-xl font-black text-[var(--app-ink)]">{s.v}</p>
+                <p className="mt-0.5 text-[10px] font-semibold text-[var(--app-muted)]">{s.l}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
         <AccessOfferPanel
           badge="Ruta bloqueada"
           title="Activa el programa para desbloquear tu trayectoria."
@@ -641,10 +693,7 @@ export default function TrayectoriaPage() {
               : "Todavía no hay una compra asociada a esta cuenta. Al activar el programa 4Shine se desbloquean los 5 hitos, la timeline de 24 semanas, los workbooks y el progreso integral."
           }
           products={trajectoryOffers}
-          primaryAction={{
-            href: "/dashboard",
-            label: "Ver plan 4Shine",
-          }}
+          primaryAction={{ href: "/dashboard", label: "Ver plan 4Shine" }}
           note="Trayectoria conecta diagnóstico, workbooks, mentorías incluidas y señales del programa en una sola línea de tiempo por usuario."
         />
       </div>
