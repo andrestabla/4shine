@@ -45,6 +45,7 @@ import { useAppDialog } from "@/components/ui/AppDialogProvider";
 import { useUser } from "@/context/UserContext";
 import { uploadToR2 } from "@/lib/r2-upload-client";
 import { filterCommercialProducts } from "@/features/access/catalog";
+import { DiscoveryLanding } from "./DiscoveryLanding";
 import { downloadDiscoveryRowResultsWorkbook } from "./admin-results-export";
 import { DB, SCALES } from "./DiagnosticsData";
 import { downloadDiscoveryPdfReport } from "./pdf-export";
@@ -1241,23 +1242,8 @@ export function DiscoveryExperience() {
   }, [overview?.rows, selectedOverviewRowId]);
 
   if (isLockedForViewer) {
-    return (
-      <div className="space-y-8">
-        <PageTitle
-          title="Descubrimiento"
-          subtitle="Activa el diagnóstico individual o el programa completo para abrir esta lectura ejecutiva."
-        />
-        <StatGrid stats={stats} />
-        <AccessOfferPanel
-          badge="Compra requerida"
-          title="Desbloquea tu diagnóstico 4Shine."
-          description="Esta experiencia se vincula a tu usuario y guarda un diagnóstico único por cuenta. Puedes activar solo Descubrimiento o entrar al programa completo 4Shine."
-          products={discoveryOffers}
-          primaryAction={{ href: "/dashboard", label: "Ver opciones disponibles" }}
-          note="Con Descubrimiento obtienes la prueba diagnóstica y su lectura ejecutiva."
-        />
-      </div>
-    );
+    const discoveryProduct = discoveryOffers.find((p) => p.productCode === "discovery_4shine") ?? null;
+    return <DiscoveryLanding discoveryProduct={discoveryProduct} />;
   }
 
   if (isLoading) {
