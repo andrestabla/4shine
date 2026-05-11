@@ -67,6 +67,7 @@ export default function HomeMarketingPage() {
             </Link>
             <nav className="hidden items-center gap-8 text-sm font-semibold md:flex">
               <Link href="/metodologia" className="hover:text-[#f4cf8e]">Metodología</Link>
+              <Link href="/descubrimiento" className="hover:text-[#f4cf8e]">Descubrimiento</Link>
               <Link href="/planes-precios" className="hover:text-[#f4cf8e]">Planes y precios</Link>
               <Link href="/afiliados" className="hover:text-[#f4cf8e]">Afiliados</Link>
             </nav>

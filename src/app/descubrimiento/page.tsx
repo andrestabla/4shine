@@ -47,8 +47,8 @@ const PILLARS = [
 ];
 
 const FEATURES = [
-  { title: "Escala Likert", detail: "39 afirmaciones medidas en frecuencia o nivel de acuerdo para cuantificar autopercepción." },
-  { title: "SJT · 29 situaciones reales", detail: "Escenarios de liderazgo bajo presión que revelan criterio aplicado, no solo intención." },
+  { title: "Escala Likert", detail: "107 afirmaciones medidas en frecuencia o nivel de acuerdo para cuantificar autopercepción." },
+  { title: "SJT · 19 situaciones reales", detail: "Escenarios de liderazgo bajo presión que revelan criterio aplicado, no solo intención." },
   { title: "Análisis cualitativo IA", detail: "Cada pilar recibe una narrativa ejecutiva generada por IA con patrones, fortalezas y áreas de desarrollo." },
   { title: "16 competencias medidas", detail: "Distribuidas en los 4 pilares. Cada una tiene score individual para un diagnóstico granular." },
   { title: "Acceso permanente", detail: "Tu informe queda vinculado a tu cuenta. Puedes consultarlo en cualquier momento." },
@@ -79,10 +79,10 @@ export default function DescubrimientoPublicPage() {
       <section className="border-y border-[#ddcfee] bg-[#efeaf8]">
         <div className="mx-auto grid max-w-[1240px] grid-cols-2 gap-6 px-6 py-10 md:grid-cols-4 md:px-10 lg:px-14">
           {[
-            { value: "68", label: "Preguntas totales", detail: "Diagnóstico integral" },
+            { value: "125", label: "Preguntas totales", detail: "Diagnóstico integral" },
             { value: "4", label: "Pilares evaluados", detail: "Within · Out · Up · Beyond" },
-            { value: "29", label: "Escenarios SJT", detail: "Criterio en acción real" },
-            { value: "20 min", label: "Duración promedio", detail: "Flexible, a tu ritmo" },
+            { value: "19", label: "Escenarios SJT", detail: "Criterio en acción real" },
+            { value: "30–40 min", label: "Duración promedio", detail: "Flexible, a tu ritmo" },
           ].map((s) => (
             <div key={s.label}>
               <p className="text-xs font-black uppercase tracking-[0.26em] text-[#7557a1]">{s.label}</p>
@@ -174,7 +174,7 @@ export default function DescubrimientoPublicPage() {
           </h2>
           <div className="mt-8 grid gap-6 md:grid-cols-2">
             <div className="rounded-2xl border border-white/14 bg-white/8 p-6">
-              <p className="text-xs font-black uppercase tracking-[0.26em] text-[#c9b8e8]">Escala Likert · 39 ítems</p>
+              <p className="text-xs font-black uppercase tracking-[0.26em] text-[#c9b8e8]">Escala Likert · 107 ítems</p>
               <h3 className="mt-2 text-xl font-black">Autopercepción cuantificable</h3>
               <p className="mt-3 text-sm leading-relaxed text-[#d8cff0]">
                 Afirmaciones sobre comportamientos de liderazgo medidas en escala de frecuencia
@@ -183,7 +183,7 @@ export default function DescubrimientoPublicPage() {
               </p>
             </div>
             <div className="rounded-2xl border border-white/14 bg-white/8 p-6">
-              <p className="text-xs font-black uppercase tracking-[0.26em] text-[#c9b8e8]">SJT · 29 situaciones</p>
+              <p className="text-xs font-black uppercase tracking-[0.26em] text-[#c9b8e8]">SJT · 19 situaciones</p>
               <h3 className="mt-2 text-xl font-black">Criterio en condiciones reales</h3>
               <p className="mt-3 text-sm leading-relaxed text-[#d8cff0]">
                 Escenarios que presentan dilemas de liderazgo reales — ambigüedad, conflicto,

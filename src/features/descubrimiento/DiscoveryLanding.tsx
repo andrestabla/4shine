@@ -233,10 +233,10 @@ export function DiscoveryLanding({ discoveryProduct }: DiscoveryLandingProps) {
           {/* Quick stats */}
           <div className="grid grid-cols-2 gap-3 self-center xl:grid-cols-1 xl:w-44">
             {[
-              { value: "68", label: "Preguntas", hint: "Diagnóstico integral" },
+              { value: "125", label: "Preguntas", hint: "Diagnóstico integral" },
               { value: "4", label: "Pilares", hint: "Shine Within · Out · Up · Beyond" },
-              { value: "29", label: "Situacionales", hint: "Criterio en acción real" },
-              { value: "20m", label: "Duración", hint: "Promedio estimado" },
+              { value: "19", label: "Situacionales", hint: "Criterio en acción real" },
+              { value: "35m", label: "Duración", hint: "Promedio estimado" },
             ].map((s) => (
               <div
                 key={s.label}
@@ -349,7 +349,7 @@ export function DiscoveryLanding({ discoveryProduct }: DiscoveryLandingProps) {
               </div>
             </div>
             <p className="mt-4 text-[0.95rem] leading-relaxed text-[var(--app-muted)]">
-              Completas las 68 preguntas una sola vez. Al terminar, el sistema genera tu informe
+              Completas las 125 preguntas una sola vez. Al terminar, el sistema genera tu informe
               completo de forma automática — no hay espera ni revisión manual. Puedes volver a
               consultarlo en cualquier momento desde tu cuenta.
             </p>
