@@ -779,8 +779,8 @@ export function DiscoveryExperience() {
   const stats = [
     { label: "Preguntas", value: DB.length, hint: "Diagnóstico integral" },
     { label: "Pilares", value: 4, hint: "Within, Out, Up y Beyond" },
-    { label: "Situacionales", value: 29, hint: "Criterio aplicado" },
-    { label: "Duración", value: "20-25m", hint: "Promedio estimado" },
+    { label: "Situacionales", value: 19, hint: "Criterio aplicado" },
+    { label: "Duración", value: "35m", hint: "Promedio estimado" },
   ];
   const canResume = answeredCount > 0;
 
