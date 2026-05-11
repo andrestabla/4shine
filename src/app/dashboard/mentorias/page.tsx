@@ -818,13 +818,26 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
   const groupSection = (
     <div className="space-y-6">
       {currentRole === 'lider' && isOpenLeader && (
-        <AccessOfferPanel
-          badge="Líder sin suscripción"
-          title="Activa el programa para acceder a sesiones grupales."
-          description="Las sesiones grupales en vivo y sus recordatorios están disponibles para líderes con suscripción activa."
-          products={mentorshipOffers}
-          primaryAction={{ href: '/dashboard', label: 'Ver planes' }}
-        />
+        <div className="rounded-[1.5rem] border border-[var(--app-border)] bg-white px-6 py-8 text-center">
+          <div
+            className="mx-auto flex h-12 w-12 items-center justify-center rounded-[0.9rem]"
+            style={{ background: "linear-gradient(135deg, #f0e8ff 0%, #fce4f3 100%)" }}
+          >
+            <span className="text-xl">👥</span>
+          </div>
+          <p className="mt-4 text-base font-extrabold text-[var(--app-ink)]">Sesiones grupales del programa</p>
+          <p className="mx-auto mt-2 max-w-xs text-sm text-[var(--app-muted)]">
+            Las sesiones grupales en vivo con tu cohorte están disponibles para líderes con suscripción activa.
+          </p>
+          <a
+            href="https://www.4shine.co/planes-precios"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#5b2d8a] px-5 py-2.5 text-sm font-bold text-white transition hover:opacity-90"
+          >
+            Activar programa · $3,000 USD
+          </a>
+        </div>
       )}
       {(currentRole === 'admin' || currentRole === 'gestor') && (
         <section className="app-panel p-5 sm:p-6">
@@ -1460,17 +1473,28 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
       {sectionTabs}
 
       {isOpenLeader && (
-        <AccessOfferPanel
-          badge="Líder sin suscripción"
-          title="Activa mentorías del programa o compra sesiones puntuales."
-          description="Tu cuenta puede reservar sesiones adicionales con los Advisers disponibles. Si quieres las mentorías incluidas del journey, necesitas activar el programa 4Shine."
-          products={mentorshipOffers}
-          primaryAction={{
-            href: '/dashboard',
-            label: 'Ver opciones del programa',
-          }}
-          note="Los packs adicionales te permiten coordinar sesiones puntuales. El programa suma además mentorías incluidas alineadas al journey y a la Trayectoria."
-        />
+        <div className="flex items-start gap-4 rounded-[1.3rem] border border-[#5b2d8a]/12 bg-[#f8f3ff] px-5 py-4">
+          <div
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[0.75rem]"
+            style={{ background: "linear-gradient(135deg, #e8d8f8 0%, #f4d0ee 100%)" }}
+          >
+            <span className="text-lg">💡</span>
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-extrabold text-[#5b2d8a]">Sesiones adicionales disponibles para tu cuenta</p>
+            <p className="mt-0.5 text-xs leading-relaxed text-[var(--app-muted)]">
+              Puedes reservar sesiones adicionales con los Advisers disponibles. Las mentorías incluidas del journey se activan con el programa 4Shine.
+            </p>
+          </div>
+          <a
+            href="https://www.4shine.co/planes-precios"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shrink-0 rounded-full bg-[#5b2d8a] px-4 py-2 text-xs font-bold text-white transition hover:opacity-90"
+          >
+            Ver programa
+          </a>
+        </div>
       )}
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(340px,0.8fr)]">

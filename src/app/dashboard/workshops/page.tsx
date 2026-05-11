@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { CalendarRange, Lock } from 'lucide-react';
 import { AccessOfferPanel } from '@/components/access/AccessOfferPanel';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { EmptyState } from '@/components/dashboard/EmptyState';
@@ -168,20 +169,58 @@ export default function WorkshopsPage() {
 
   if (isCommunityLocked) {
     return (
-      <div className="space-y-6">
-        <PageTitle
-          title="Workshops"
-          subtitle="Los workshops del ecosistema 4Shine se activan con el programa completo."
-        />
+      <div className="space-y-4">
+        <section className="rounded-[1.5rem] border border-[var(--app-border)] bg-white px-7 py-10 text-center sm:py-12">
+          <div
+            className="mx-auto flex h-14 w-14 items-center justify-center rounded-[1.1rem]"
+            style={{ background: "linear-gradient(135deg, #edf7f0 0%, #d6f0dc 100%)" }}
+          >
+            <CalendarRange size={22} style={{ color: "#2a7a4b" }} />
+          </div>
+          <h1 className="mt-5 text-[1.6rem] font-black leading-tight text-[var(--app-ink)] sm:text-[1.9rem]">
+            Los workshops del programa<br />te esperan aquí.
+          </h1>
+          <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-[var(--app-muted)]">
+            Experiencias grupales de relacionamiento, formación y bienestar integradas a tu trayectoria.
+          </p>
+          <a
+            href="https://www.4shine.co/planes-precios"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#5b2d8a] px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:-translate-y-0.5 hover:opacity-90"
+          >
+            Activar programa · $3,000 USD
+          </a>
+        </section>
+
+        <section className="rounded-[1.5rem] border border-[var(--app-border)] bg-white p-5 sm:p-6">
+          <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[var(--app-muted)]">Tipos de workshop</p>
+          <h2 className="mt-1 text-base font-extrabold text-[var(--app-ink)]">Formación grupal integrada al journey.</h2>
+          <div className="mt-4 space-y-2 opacity-60">
+            {[
+              { label: "Relacionamiento", desc: "Dinámicas para construir y fortalecer tu red." },
+              { label: "Formación", desc: "Sesiones de aprendizaje grupal en vivo." },
+              { label: "Wellbeing e innovación", desc: "Espacios de bienestar y pensamiento creativo." },
+            ].map((f) => (
+              <div key={f.label} className="flex items-center gap-3.5 rounded-[1rem] bg-[var(--app-surface-muted)] px-4 py-3">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[0.7rem] bg-white">
+                  <Lock size={12} className="text-[var(--app-muted)]" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-[var(--app-ink)]">{f.label}</p>
+                  <p className="text-[11px] text-[var(--app-muted)]">{f.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
         <AccessOfferPanel
           badge="Acceso bloqueado"
           title="Activa Workshops con el plan 4Shine."
           description="Los workshops complementan la trayectoria del líder con experiencias grupales, relacionamiento y formación. Este acceso requiere el programa 4Shine."
           products={programOffers}
-          primaryAction={{
-            href: '/dashboard',
-            label: 'Ver plan 4Shine',
-          }}
+          primaryAction={{ href: '/dashboard', label: 'Ver plan 4Shine' }}
           note="Cuando el programa está activo, Workshops se integra con tu agenda y con el resto de módulos del journey."
         />
       </div>

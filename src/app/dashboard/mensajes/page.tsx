@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { Lock, MessageCircle } from 'lucide-react';
 import { AccessOfferPanel } from '@/components/access/AccessOfferPanel';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { EmptyState } from '@/components/dashboard/EmptyState';
@@ -185,20 +186,58 @@ export default function MensajesPage() {
 
   if (isCommunityLocked) {
     return (
-      <div className="space-y-6">
-        <PageTitle
-          title="Mensajes"
-          subtitle="La mensajería entre líderes, Advisers y red del programa se habilita con el plan 4Shine."
-        />
+      <div className="space-y-4">
+        <section className="rounded-[1.5rem] border border-[var(--app-border)] bg-white px-7 py-10 text-center sm:py-12">
+          <div
+            className="mx-auto flex h-14 w-14 items-center justify-center rounded-[1.1rem]"
+            style={{ background: "linear-gradient(135deg, #e8f4ff 0%, #dceeff 100%)" }}
+          >
+            <MessageCircle size={22} style={{ color: "#3f6fa8" }} />
+          </div>
+          <h1 className="mt-5 text-[1.6rem] font-black leading-tight text-[var(--app-ink)] sm:text-[1.9rem]">
+            Mensajes se activa<br />con el programa.
+          </h1>
+          <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-[var(--app-muted)]">
+            Aquí conversa con tu Adviser, tu red de líderes y el equipo del programa en tiempo real.
+          </p>
+          <a
+            href="https://www.4shine.co/planes-precios"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#5b2d8a] px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:-translate-y-0.5 hover:opacity-90"
+          >
+            Activar programa · $3,000 USD
+          </a>
+        </section>
+
+        <section className="rounded-[1.5rem] border border-[var(--app-border)] bg-white p-5 sm:p-6">
+          <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[var(--app-muted)]">Qué incluye Mensajes</p>
+          <h2 className="mt-1 text-base font-extrabold text-[var(--app-ink)]">Comunicación en tiempo real con tu red.</h2>
+          <div className="mt-4 space-y-2 opacity-60">
+            {[
+              { label: "Chat con tu Adviser", desc: "Conversaciones directas con tu mentor asignado." },
+              { label: "Red de líderes", desc: "Mensajería con otros líderes del programa." },
+              { label: "Equipo 4Shine", desc: "Comunicación con el equipo de acompañamiento." },
+            ].map((f) => (
+              <div key={f.label} className="flex items-center gap-3.5 rounded-[1rem] bg-[var(--app-surface-muted)] px-4 py-3">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[0.7rem] bg-white">
+                  <Lock size={12} className="text-[var(--app-muted)]" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-[var(--app-ink)]">{f.label}</p>
+                  <p className="text-[11px] text-[var(--app-muted)]">{f.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
         <AccessOfferPanel
           badge="Acceso bloqueado"
           title="Activa Mensajes con el programa 4Shine."
           description="Este módulo forma parte de la experiencia colaborativa del programa. Al activar el plan podrás conversar con tu red, tus Advisers y otros actores del ecosistema."
           products={programOffers}
-          primaryAction={{
-            href: '/dashboard',
-            label: 'Ver plan 4Shine',
-          }}
+          primaryAction={{ href: '/dashboard', label: 'Ver plan 4Shine' }}
           note="La cuenta free conserva acceso a contenido abierto en Aprendizaje y a compra de mentorías adicionales."
         />
       </div>

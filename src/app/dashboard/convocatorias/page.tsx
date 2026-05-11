@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { Lock, Megaphone } from 'lucide-react';
 import { AccessOfferPanel } from '@/components/access/AccessOfferPanel';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { EmptyState } from '@/components/dashboard/EmptyState';
@@ -155,20 +156,58 @@ export default function ConvocatoriasPage() {
 
   if (isCommunityLocked) {
     return (
-      <div className="space-y-6">
-        <PageTitle
-          title="Convocatorias"
-          subtitle="Las oportunidades y convocatorias del ecosistema se habilitan con el programa 4Shine."
-        />
+      <div className="space-y-4">
+        <section className="rounded-[1.5rem] border border-[var(--app-border)] bg-white px-7 py-10 text-center sm:py-12">
+          <div
+            className="mx-auto flex h-14 w-14 items-center justify-center rounded-[1.1rem]"
+            style={{ background: "linear-gradient(135deg, #fff4e6 0%, #ffe8cc 100%)" }}
+          >
+            <Megaphone size={22} style={{ color: "#a85f1a" }} />
+          </div>
+          <h1 className="mt-5 text-[1.6rem] font-black leading-tight text-[var(--app-ink)] sm:text-[1.9rem]">
+            Las convocatorias del<br />ecosistema te esperan.
+          </h1>
+          <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-[var(--app-muted)]">
+            Oportunidades profesionales, búsquedas y dinámicas del ecosistema 4Shine disponibles con el programa.
+          </p>
+          <a
+            href="https://www.4shine.co/planes-precios"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#5b2d8a] px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:-translate-y-0.5 hover:opacity-90"
+          >
+            Activar programa · $3,000 USD
+          </a>
+        </section>
+
+        <section className="rounded-[1.5rem] border border-[var(--app-border)] bg-white p-5 sm:p-6">
+          <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[var(--app-muted)]">Qué incluye Convocatorias</p>
+          <h2 className="mt-1 text-base font-extrabold text-[var(--app-ink)]">Accede a oportunidades alineadas a tu momento.</h2>
+          <div className="mt-4 space-y-2 opacity-60">
+            {[
+              { label: "Oportunidades profesionales", desc: "Posiciones, proyectos y roles publicados en el ecosistema." },
+              { label: "Búsquedas activas", desc: "Convocatorias abiertas por empresas del programa." },
+              { label: "Integración con Trayectoria", desc: "Conectadas a tu etapa y objetivos del journey." },
+            ].map((f) => (
+              <div key={f.label} className="flex items-center gap-3.5 rounded-[1rem] bg-[var(--app-surface-muted)] px-4 py-3">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[0.7rem] bg-white">
+                  <Lock size={12} className="text-[var(--app-muted)]" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-[var(--app-ink)]">{f.label}</p>
+                  <p className="text-[11px] text-[var(--app-muted)]">{f.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
         <AccessOfferPanel
           badge="Acceso bloqueado"
           title="Desbloquea Convocatorias con el plan 4Shine."
           description="Este módulo te abre acceso a oportunidades, búsquedas y dinámicas del ecosistema. Está disponible para líderes con el programa activo."
           products={programOffers}
-          primaryAction={{
-            href: '/dashboard',
-            label: 'Ver plan 4Shine',
-          }}
+          primaryAction={{ href: '/dashboard', label: 'Ver plan 4Shine' }}
           note="Cuando actives el programa, Convocatorias se integrará con tu Trayectoria y tus siguientes desafíos."
         />
       </div>

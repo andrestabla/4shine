@@ -2025,26 +2025,35 @@ export default function AprendizajePage() {
           {(isResourcesTab || isCoursesTab) && (
             <section className="space-y-4">
               {isOpenLeader && isResourcesTab ? (
-                <div className="rounded-[22px] border border-[var(--app-border)] bg-white/80 px-4 py-4 text-sm leading-relaxed text-[var(--app-muted)]">
-                  Estás navegando la biblioteca abierta de 4Shine. Aquí ves solo
-                  recursos etiquetados como <span className="font-semibold text-[var(--app-ink)]">free</span>;
-                  los cursos premium y la experiencia completa se activan con el
-                  programa.
+                <div className="flex items-center gap-3 rounded-[1rem] border border-[#5b2d8a]/10 bg-[#f8f3ff] px-4 py-3 text-sm text-[var(--app-muted)]">
+                  <span className="shrink-0 text-base">✦</span>
+                  <span>
+                    Estás viendo solo recursos <span className="font-semibold text-[#5b2d8a]">free</span>. Los cursos premium y la experiencia completa se activan con el programa 4Shine.
+                  </span>
                 </div>
               ) : null}
 
               {isOpenLeader && isCoursesTab ? (
-                <AccessOfferPanel
-                  badge="Programa 4Shine"
-                  title="Activa el programa para desbloquear la ruta completa de cursos."
-                  description="Los cursos viven en un espacio propio para facilitar la navegación por experiencias estructuradas, módulos y recursos internos."
-                  products={programOffers}
-                  primaryAction={{
-                    href: "/dashboard",
-                    label: "Ver plan 4Shine",
-                  }}
-                  note="Si en el futuro habilitas cursos free, también aparecerán aquí sin mezclarse con los recursos individuales."
-                />
+                <div className="rounded-[1.5rem] border border-[var(--app-border)] bg-white px-6 py-8 text-center">
+                  <div
+                    className="mx-auto flex h-12 w-12 items-center justify-center rounded-[0.9rem]"
+                    style={{ background: "linear-gradient(135deg, #f0e8ff 0%, #fce4f3 100%)" }}
+                  >
+                    <BookOpen size={20} style={{ color: "#7c3fa8" }} />
+                  </div>
+                  <p className="mt-4 text-base font-extrabold text-[var(--app-ink)]">Cursos disponibles con el programa</p>
+                  <p className="mx-auto mt-2 max-w-xs text-sm text-[var(--app-muted)]">
+                    Rutas estructuradas con módulos, recursos y certificados. Se activan con el plan 4Shine.
+                  </p>
+                  <a
+                    href="https://www.4shine.co/planes-precios"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#5b2d8a] px-5 py-2.5 text-sm font-bold text-white transition hover:opacity-90"
+                  >
+                    Activar programa · $3,000 USD
+                  </a>
+                </div>
               ) : null}
 
               <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
@@ -2276,17 +2285,26 @@ export default function AprendizajePage() {
               </div>
 
               {isOpenLeader ? (
-                <AccessOfferPanel
-                  badge="Programa 4Shine"
-                  title="Desbloquea los 10 workbooks del journey."
-                  description="Cada workbook es único por usuario y se libera según cronograma. Esta cuenta free no genera ni muestra instancias del programa hasta activar la suscripción."
-                  products={programOffers}
-                  primaryAction={{
-                    href: "/dashboard",
-                    label: "Desbloquear workbooks",
-                  }}
-                  note="Los workbooks también sincronizan progreso real con Trayectoria y Mentorías, por eso solo se crean para líderes con plan activo."
-                />
+                <div className="rounded-[1.5rem] border border-[var(--app-border)] bg-white px-6 py-8 text-center">
+                  <div
+                    className="mx-auto flex h-12 w-12 items-center justify-center rounded-[0.9rem]"
+                    style={{ background: "linear-gradient(135deg, #f0e8ff 0%, #fce4f3 100%)" }}
+                  >
+                    <span className="text-xl">📓</span>
+                  </div>
+                  <p className="mt-4 text-base font-extrabold text-[var(--app-ink)]">10 workbooks del journey</p>
+                  <p className="mx-auto mt-2 max-w-xs text-sm text-[var(--app-muted)]">
+                    Cada workbook es personal y se libera según tu etapa en la trayectoria. Requieren el programa 4Shine.
+                  </p>
+                  <a
+                    href="https://www.4shine.co/planes-precios"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#5b2d8a] px-5 py-2.5 text-sm font-bold text-white transition hover:opacity-90"
+                  >
+                    Activar programa · $3,000 USD
+                  </a>
+                </div>
               ) : (
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.7fr)_minmax(260px,0.7fr)]">
