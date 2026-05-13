@@ -27,6 +27,7 @@ import {
   PlugZap,
   ShieldCheck,
   Compass,
+  Globe,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -170,6 +171,14 @@ const ADMIN_NAV_ITEMS: NavItem[] = [
     label: "Integraciones",
     icon: PlugZap,
     path: "/dashboard/administracion/integraciones",
+    requiredAction: "manage",
+    adminOnly: true,
+  },
+  {
+    moduleCode: "usuarios",
+    label: "Site",
+    icon: Globe,
+    path: "/dashboard/administracion/site",
     requiredAction: "manage",
     adminOnly: true,
   },

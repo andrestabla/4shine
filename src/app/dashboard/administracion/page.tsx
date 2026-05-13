@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { PageTitle } from '@/components/dashboard/PageTitle';
-import { Settings, Palette, PlugZap, Users, ShieldCheck } from 'lucide-react';
+import { Settings, Palette, PlugZap, Users, ShieldCheck, Globe } from 'lucide-react';
 
 const ADMIN_CARDS = [
   {
@@ -28,6 +28,12 @@ const ADMIN_CARDS = [
     description: 'Editar el texto de la política de privacidad que los usuarios deben aceptar al ingresar.',
     href: '/dashboard/administracion/politicas',
     icon: ShieldCheck,
+  },
+  {
+    title: 'Site',
+    description: 'Habilitar u ocultar las páginas públicas del sitio: home, diagnóstico, metodología, precios y afiliados.',
+    href: '/dashboard/administracion/site',
+    icon: Globe,
   },
 ] as const;
 
