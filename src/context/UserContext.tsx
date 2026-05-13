@@ -134,6 +134,10 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     setModulePermissions(emptyModulePermissionMap());
     setPrivacyPolicyAccepted(true);
     clearTrackedSessionActivity();
+    // Reset Google Sign-In so the button shows "Sign in with Google" instead of a cached account
+    if (typeof window !== 'undefined') {
+      window.google?.accounts?.id?.disableAutoSelect();
+    }
   }, []);
 
   const fetchPermissions = React.useCallback(async (): Promise<ModulePermissionMap> => {

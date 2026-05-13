@@ -25,6 +25,7 @@ declare global {
             options: { theme: string; size: string; width: number; locale: string },
           ) => void;
           prompt: () => void;
+          disableAutoSelect: () => void;
         };
       };
     };
