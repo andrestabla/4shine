@@ -51,9 +51,18 @@ function maybeCleanup() {
   }
 }
 
+// ── Public page keys that can be toggled via admin site settings ─────────────
+const PUBLIC_PAGE_KEYS: Record<string, string> = {
+  '/': 'home',
+  '/descubrimiento': 'descubrimiento',
+  '/metodologia': 'metodologia',
+  '/planes-precios': 'planes_precios',
+  '/afiliados': 'afiliados',
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   maybeCleanup();
 
   const { pathname } = request.nextUrl;
@@ -99,6 +108,23 @@ export function proxy(request: NextRequest) {
       loginUrl.pathname = '/acceso';
       loginUrl.search = '';
       return NextResponse.redirect(loginUrl);
+    }
+  }
+
+  // ── 4. Public page gating via site settings ───────────────────────────────
+  const pageKey = PUBLIC_PAGE_KEYS[pathname];
+  if (pageKey) {
+    try {
+      const settingsUrl = new URL('/api/v1/public/site-settings', request.url);
+      const res = await fetch(settingsUrl.toString());
+      if (res.ok) {
+        const data = (await res.json()) as { ok: boolean; pages: Record<string, boolean> };
+        if (data.ok && data.pages[pageKey] === false) {
+          return NextResponse.redirect(new URL('/acceso', request.url));
+        }
+      }
+    } catch {
+      // Fail open — show the page if settings can't be fetched
     }
   }
 
