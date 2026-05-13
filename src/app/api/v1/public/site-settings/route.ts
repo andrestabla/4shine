@@ -16,8 +16,14 @@ const DEFAULT_PAGES: Record<string, boolean> = {
 export async function GET() {
   try {
     const row = await withClient(async (client) => {
+      // Pick from the first/only organization (single-tenant platform)
       const { rows } = await client.query<SiteSettingsRow>(
-        `SELECT wizard_data FROM app_admin.integration_configs WHERE integration_key = 'site_pages' LIMIT 1`,
+        `SELECT ic.wizard_data
+         FROM app_admin.integration_configs ic
+         JOIN app_core.organizations o ON o.organization_id = ic.organization_id
+         WHERE ic.integration_key = 'site_pages'
+         ORDER BY o.created_at
+         LIMIT 1`,
       );
       return rows[0] ?? null;
     });
