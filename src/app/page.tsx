@@ -83,38 +83,53 @@ const stories = [
 
 const plans = [
   {
-    name: 'Open Leader',
-    label: 'Entrada',
-    price: 'Gratis',
-    currency: '',
-    description: 'Accede a la comunidad de líderes, realiza el diagnóstico de equipo y explora módulos introductorios sin costo.',
+    name: 'Diagnóstico Ejecutivo',
+    label: 'Primer paso',
+    price: '50',
+    currency: 'USD',
+    description: 'Evalúa tu nivel en los 4 pilares y obtén un informe ejecutivo personalizado con tus fortalezas, brechas y próximos pasos.',
     features: [
-      'Diagnóstico de cultura de equipo',
-      'Comunidad de líderes activos',
-      'Módulos de introducción a los pilares',
-      'Webinars mensuales con Advisers',
+      'Evaluación de los 4 pilares de liderazgo',
+      'Informe ejecutivo personalizado',
+      'Identificación de brechas críticas',
+      'Acceso permanente a tus resultados',
     ],
-    cta: 'Comenzar gratis',
-    href: '/acceso',
+    cta: 'Comprar diagnóstico',
+    href: '/acceso?plan=diagnostico',
     highlighted: false,
   },
   {
-    name: 'Programa Completo',
+    name: 'Programas de liderazgo',
     label: 'Recomendado',
-    price: '3.000',
+    price: 'desde 1.000',
     currency: 'USD',
-    description: 'Ruta estructurada de 6 meses con acompañamiento personalizado, metodología exclusiva y certificación.',
+    description: 'Trayectoria de 24 semanas con Adviser asignado, workbooks exclusivos, diagnóstico, comunidad y certificación. 4 niveles disponibles.',
     features: [
-      'Trayectoria completa de 6 meses',
-      '10 sesiones individuales con tu Adviser',
-      'Workbooks y metodología exclusiva',
-      'Networking con líderes del programa',
+      'Junior · Reinvéntate · Marca Ejecutiva · Executive',
+      'De 5 a 10 sesiones individuales con Adviser',
+      'Workbooks de metodología 4Shine',
+      'Networking, workshops y convocatorias',
       'Certificación 4Shine Leadership',
-      'Diagnóstico avanzado de los 4 pilares',
     ],
-    cta: 'Ver planes completos',
+    cta: 'Ver todos los programas',
     href: '/planes-precios',
     highlighted: true,
+  },
+  {
+    name: 'Círculo de líderes',
+    label: 'Comunidad',
+    price: '57',
+    currency: 'USD / mes',
+    description: 'Sesiones en vivo grupales semanales, cursos exclusivos, comunidad de práctica continua, convocatorias y workshops.',
+    features: [
+      '1 sesión en vivo grupal por semana',
+      'Todos los cursos y material exclusivo',
+      'Comunidad y networking',
+      'Convocatorias y workshops',
+    ],
+    cta: 'Unirme al Círculo',
+    href: '/planes-precios',
+    highlighted: false,
   },
 ];
 
@@ -429,12 +444,12 @@ export default async function HomeMarketingPage() {
           <div className="mb-14 text-center">
             <p className="mb-3 text-xs font-black uppercase tracking-[0.3em] text-[#7557a1]">Inversión</p>
             <h2 className="text-4xl font-black tracking-tight md:text-5xl">Elige tu punto de entrada.</h2>
-            <p className="mx-auto mt-4 max-w-[48ch] text-base text-[#5e4b78]">
-              Sea cual sea tu momento, hay una forma de empezar. Cuando estés listo para ir más lejos, el programa completo te espera.
+            <p className="mx-auto mt-4 max-w-[52ch] text-base text-[#5e4b78]">
+              Diagnóstico individual, programa completo o comunidad semanal. Cada opción lleva al mismo destino: un liderazgo más claro, más potente.
             </p>
           </div>
 
-          <div className="mx-auto grid max-w-[820px] gap-6 sm:grid-cols-2">
+          <div className="mx-auto grid max-w-[1100px] gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {plans.map((plan) => (
               <article
                 key={plan.name}
