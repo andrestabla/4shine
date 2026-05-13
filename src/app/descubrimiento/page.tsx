@@ -9,50 +9,54 @@ import {
 
 const PILLARS = [
   {
+    num: "01",
     label: "Shine Within",
     tagline: "El liderazgo que viene de adentro",
     description:
       "Autoconocimiento, inteligencia emocional y gestión del estado interno. Evalúa tu capacidad de liderar desde la claridad y la coherencia personal.",
-    accent: "bg-[#7c5f93]",
-    light: "bg-[#f2ecff]",
-    border: "border-[#d8ccf0]",
+    gradient: "from-[#5b2d8a] to-[#7c4fa8]",
+    chip: "bg-[#f2ecff] text-[#5b2d8a]",
+    dot: "bg-[#7c5f93]",
   },
   {
+    num: "02",
     label: "Shine Out",
     tagline: "La presencia que proyectas",
     description:
       "Comunicación, influencia y construcción de relaciones. Mide cómo impactas a tu entorno y la calidad de los vínculos que generas.",
-    accent: "bg-[#6a9fd8]",
-    light: "bg-[#ebf4ff]",
-    border: "border-[#c5ddf5]",
+    gradient: "from-[#1e5fa0] to-[#3a82c7]",
+    chip: "bg-[#ebf4ff] text-[#1e5fa0]",
+    dot: "bg-[#6a9fd8]",
   },
   {
+    num: "03",
     label: "Shine Up",
     tagline: "La visión que te orienta",
     description:
       "Propósito, pensamiento estratégico y capacidad de decisión. Mide si tienes claridad sobre hacia dónde vas y cómo generas tracción real.",
-    accent: "bg-[#9d79c8]",
-    light: "bg-[#f5eeff]",
-    border: "border-[#ddd0f2]",
+    gradient: "from-[#7040b0] to-[#9d79c8]",
+    chip: "bg-[#f5eeff] text-[#7040b0]",
+    dot: "bg-[#9d79c8]",
   },
   {
+    num: "04",
     label: "Shine Beyond",
     tagline: "El impacto que dejas",
     description:
       "Desarrollo de equipos, cultura y trascendencia organizacional. Evalúa tu capacidad de construir algo que perdure más allá de ti.",
-    accent: "bg-[#d48ab4]",
-    light: "bg-[#fff0f8]",
-    border: "border-[#f2d1e6]",
+    gradient: "from-[#a0306a] to-[#d48ab4]",
+    chip: "bg-[#fff0f8] text-[#a0306a]",
+    dot: "bg-[#d48ab4]",
   },
 ];
 
 const FEATURES = [
-  { title: "Escala Likert", detail: "107 afirmaciones medidas en frecuencia o nivel de acuerdo para cuantificar autopercepción." },
-  { title: "SJT · 19 situaciones reales", detail: "Escenarios de liderazgo bajo presión que revelan criterio aplicado, no solo intención." },
-  { title: "Análisis cualitativo IA", detail: "Cada pilar recibe una narrativa ejecutiva generada por IA con patrones, fortalezas y áreas de desarrollo." },
-  { title: "16 competencias medidas", detail: "Distribuidas en los 4 pilares. Cada una tiene score individual para un diagnóstico granular." },
-  { title: "Acceso permanente", detail: "Tu informe queda vinculado a tu cuenta. Puedes consultarlo en cualquier momento." },
-  { title: "Exportable", detail: "Descarga el informe en PDF y los datos de competencias en Excel para seguimiento futuro." },
+  { num: "01", title: "Escala Likert", detail: "107 afirmaciones medidas en frecuencia o nivel de acuerdo para cuantificar autopercepción.", icon: "📊" },
+  { num: "02", title: "SJT · 19 situaciones", detail: "Escenarios de liderazgo bajo presión que revelan criterio aplicado, no solo intención.", icon: "🎯" },
+  { num: "03", title: "Análisis cualitativo IA", detail: "Cada pilar recibe una narrativa ejecutiva generada por IA con patrones, fortalezas y áreas de desarrollo.", icon: "🤖" },
+  { num: "04", title: "16 competencias medidas", detail: "Distribuidas en los 4 pilares. Cada una tiene score individual para un diagnóstico granular.", icon: "📈" },
+  { num: "05", title: "Acceso permanente", detail: "Tu informe queda vinculado a tu cuenta. Puedes consultarlo en cualquier momento.", icon: "🔐" },
+  { num: "06", title: "Exportable", detail: "Descarga el informe en PDF y los datos de competencias en Excel para seguimiento futuro.", icon: "⬇️" },
 ];
 
 const DELIVERABLES = [
@@ -75,157 +79,270 @@ export default function DescubrimientoPublicPage() {
       title="Descubrimiento · Diagnóstico de liderazgo"
       subtitle="Evalúa tu liderazgo en 4 dimensiones con metodología validada. Obtén un informe ejecutivo con análisis cualitativo generado por IA y un mapa completo de tus competencias."
     >
-      {/* Stats strip */}
-      <section className="border-y border-[#ddcfee] bg-[#efeaf8]">
-        <div className="mx-auto grid max-w-[1240px] grid-cols-2 gap-6 px-6 py-10 md:grid-cols-4 md:px-10 lg:px-14">
-          {[
-            { value: "125", label: "Preguntas totales", detail: "Diagnóstico integral" },
-            { value: "4", label: "Pilares evaluados", detail: "Within · Out · Up · Beyond" },
-            { value: "19", label: "Escenarios SJT", detail: "Criterio en acción real" },
-            { value: "30–40 min", label: "Duración promedio", detail: "Flexible, a tu ritmo" },
-          ].map((s) => (
-            <div key={s.label}>
-              <p className="text-xs font-black uppercase tracking-[0.26em] text-[#7557a1]">{s.label}</p>
-              <p className="mt-1.5 text-3xl font-black tracking-tight text-[#2d1845]">{s.value}</p>
-              <p className="mt-1 text-sm text-[#5f4c78]">{s.detail}</p>
+
+      {/* ── Hero ─────────────────────────────────────────────────────────── */}
+      <section className="relative overflow-hidden">
+        {/* gradient background */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(135deg, #1a0b2e 0%, #2d1256 40%, #4a1f7a 70%, #6b2f9e 100%)",
+          }}
+        />
+        {/* decorative blobs */}
+        <div
+          className="pointer-events-none absolute -right-32 -top-32 h-[480px] w-[480px] rounded-full opacity-25"
+          style={{
+            background:
+              "radial-gradient(circle, #c98ab6 0%, transparent 70%)",
+          }}
+        />
+        <div
+          className="pointer-events-none absolute -bottom-24 left-1/4 h-[320px] w-[320px] rounded-full opacity-15"
+          style={{
+            background:
+              "radial-gradient(circle, #f4cf8e 0%, transparent 70%)",
+          }}
+        />
+
+        <div className="relative mx-auto max-w-[1240px] px-6 pb-20 pt-20 md:px-10 lg:px-14 lg:pb-28 lg:pt-28">
+          <div className="grid gap-12 lg:grid-cols-[1fr_440px] lg:items-center">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.3em] text-white/80">
+                Diagnóstico de liderazgo · 4Shine
+              </div>
+              <h1 className="mt-6 text-[3rem] font-black leading-[0.92] tracking-tight text-white sm:text-[4rem] lg:text-[4.5rem]">
+                Conoce tu<br />
+                <span
+                  style={{
+                    background: "linear-gradient(90deg, #f4cf8e 0%, #e9a84c 100%)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                  }}
+                >
+                  liderazgo
+                </span>
+                <br />con precisión.
+              </h1>
+              <p className="mt-6 max-w-lg text-[1.05rem] leading-relaxed text-white/72">
+                125 preguntas. 4 pilares. Análisis IA personalizado. Un informe ejecutivo
+                que te muestra exactamente dónde estás hoy como líder.
+              </p>
+              <div className="mt-8 flex flex-wrap gap-3">
+                <Link
+                  href="/acceso"
+                  className="inline-flex items-center gap-2 rounded-full bg-[#f4cf8e] px-7 py-3.5 text-sm font-extrabold text-[#2a1b3f] shadow-[0_4px_20px_rgba(244,207,142,0.4)] transition hover:-translate-y-0.5 hover:bg-[#f6d9a0]"
+                >
+                  Activar diagnóstico · $50 USD
+                </Link>
+                <Link
+                  href="#metodologia"
+                  className="inline-flex items-center gap-2 rounded-full border border-white/25 px-7 py-3.5 text-sm font-bold text-white/90 transition hover:bg-white/10"
+                >
+                  Ver metodología
+                </Link>
+              </div>
             </div>
-          ))}
+
+            {/* Stats card */}
+            <div className="rounded-3xl border border-white/14 bg-white/8 p-7 backdrop-blur-sm">
+              <p className="mb-5 text-[11px] font-black uppercase tracking-[0.28em] text-white/55">
+                En números
+              </p>
+              <div className="grid grid-cols-2 gap-5">
+                {[
+                  { value: "125", label: "Preguntas totales", sub: "Diagnóstico integral" },
+                  { value: "4", label: "Pilares evaluados", sub: "Within · Out · Up · Beyond" },
+                  { value: "19", label: "Escenarios SJT", sub: "Criterio aplicado" },
+                  { value: "35 min", label: "Duración promedio", sub: "A tu ritmo" },
+                ].map((s) => (
+                  <div key={s.label} className="rounded-2xl border border-white/10 bg-white/6 px-4 py-4">
+                    <p className="text-2xl font-black leading-none text-white">{s.value}</p>
+                    <p className="mt-1.5 text-[11px] font-bold text-white/70">{s.label}</p>
+                    <p className="mt-0.5 text-[10px] text-white/45">{s.sub}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
-      <div className="mx-auto w-full max-w-[1240px] space-y-16 px-6 pb-20 pt-14 md:px-10 lg:px-14">
+      <div className="mx-auto w-full max-w-[1240px] space-y-20 px-6 pb-24 pt-20 md:px-10 lg:px-14">
 
-        {/* Objetivo */}
-        <section className="grid gap-8 lg:grid-cols-[1fr_1fr]">
+        {/* ── Objetivo + Deliverables ───────────────────────────────────── */}
+        <section className="grid gap-10 lg:grid-cols-[1fr_1fr] lg:items-start">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.28em] text-[#7557a1]">Objetivo</p>
-            <h2 className="mt-3 text-4xl font-black leading-[0.97] tracking-tight text-[#2d1845]">
+            <span className="inline-block rounded-full bg-[#f2ecff] px-3 py-1 text-[10px] font-black uppercase tracking-[0.28em] text-[#5b2d8a]">
+              Objetivo
+            </span>
+            <h2 className="mt-4 text-[2.6rem] font-black leading-[0.95] tracking-tight text-[#1a0b2e] lg:text-[3rem]">
               Un mapa claro de<br />dónde estás hoy.
             </h2>
-            <p className="mt-5 text-[1rem] leading-relaxed text-[#5f4c78]">
+            <p className="mt-5 text-[1rem] leading-relaxed text-[#4a3560]">
               Descubrimiento mide tu posicionamiento actual como líder en cuatro dimensiones
-              complementarias. No es una evaluación de desempeño ni una certificación —
-              es un diagnóstico de autoconocimiento ejecutivo que te da un punto de
-              referencia sólido para orientar tu desarrollo con método.
+              complementarias. No es una evaluación de desempeño — es un diagnóstico de
+              autoconocimiento ejecutivo que te da un punto de referencia sólido para
+              orientar tu desarrollo con método.
             </p>
-            <p className="mt-4 text-[1rem] leading-relaxed text-[#5f4c78]">
-              El resultado identifica dónde tienes fortalezas consolidadas y qué áreas tienen
-              mayor potencial de impacto si las desarrollas intencionalmente.
+            <p className="mt-4 text-[1rem] leading-relaxed text-[#4a3560]">
+              El resultado identifica fortalezas consolidadas y las áreas con mayor potencial
+              de impacto si las desarrollas intencionalmente.
             </p>
-            <div className="mt-6 inline-flex items-center gap-3">
-              <Link
-                href="/acceso"
-                className="rounded-full bg-[#2e1b49] px-6 py-3 text-sm font-bold text-white hover:bg-[#402662]"
-              >
-                Activar diagnóstico · $50 USD
-              </Link>
-              <Link
-                href="#metodologia"
-                className="text-sm font-semibold text-[#4f2c79] underline underline-offset-4 hover:text-[#2d1845]"
-              >
-                Ver metodología
-              </Link>
-            </div>
           </div>
-          <div className="rounded-3xl border border-[#d8cfee] bg-white p-6 shadow-[0_12px_40px_rgba(42,20,68,0.06)]">
-            <p className="text-xs font-black uppercase tracking-[0.24em] text-[#7557a1]">Qué obtienes</p>
+
+          <div
+            className="rounded-3xl p-7 shadow-[0_20px_60px_rgba(91,45,138,0.12)]"
+            style={{
+              background: "linear-gradient(145deg, #1a0b2e 0%, #2d1256 100%)",
+            }}
+          >
+            <p className="text-[11px] font-black uppercase tracking-[0.26em] text-[#c9b8e8]">
+              Lo que obtienes
+            </p>
             <ul className="mt-5 space-y-3">
-              {DELIVERABLES.map((item) => (
+              {DELIVERABLES.map((item, i) => (
                 <li key={item} className="flex items-start gap-3">
-                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#9d79c8]" />
-                  <span className="text-sm leading-snug text-[#4a3560]">{item}</span>
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#f4cf8e]/20 text-[10px] font-black text-[#f4cf8e]">
+                    {i + 1}
+                  </span>
+                  <span className="text-sm leading-snug text-[#ddd6ef]">{item}</span>
                 </li>
               ))}
             </ul>
+            <div className="mt-7 border-t border-white/10 pt-6">
+              <Link
+                href="/acceso"
+                className="block rounded-full bg-[#f4cf8e] py-3 text-center text-sm font-extrabold text-[#2a1b3f] transition hover:bg-[#f6d9a0]"
+              >
+                Activar diagnóstico · $50 USD
+              </Link>
+            </div>
           </div>
         </section>
 
-        {/* 4 Pillars */}
+        {/* ── 4 Pillars ─────────────────────────────────────────────────── */}
         <section id="metodologia">
-          <p className="text-xs font-black uppercase tracking-[0.28em] text-[#7557a1]">Metodología 4Shine</p>
-          <h2 className="mt-3 text-4xl font-black leading-[0.97] tracking-tight text-[#2d1845]">
+          <span className="inline-block rounded-full bg-[#f2ecff] px-3 py-1 text-[10px] font-black uppercase tracking-[0.28em] text-[#5b2d8a]">
+            Metodología 4Shine
+          </span>
+          <h2 className="mt-4 text-[2.6rem] font-black leading-[0.95] tracking-tight text-[#1a0b2e] lg:text-[3rem]">
             Los 4 pilares del liderazgo.
           </h2>
-          <p className="mt-4 max-w-3xl text-[0.98rem] leading-relaxed text-[#5f4c78]">
-            El modelo 4Shine estructura el liderazgo en cuatro dimensiones interdependientes.
+          <p className="mt-4 max-w-2xl text-[0.98rem] leading-relaxed text-[#4a3560]">
             Cada pilar combina preguntas Likert con situaciones de juicio situacional (SJT)
             que revelan cómo actúas cuando hay presión, ambigüedad o decisiones difíciles.
           </p>
-          <div className="mt-8 grid gap-5 sm:grid-cols-2">
+          <div className="mt-10 grid gap-5 sm:grid-cols-2">
             {PILLARS.map((pillar) => (
               <article
                 key={pillar.label}
-                className={`rounded-2xl border ${pillar.border} ${pillar.light} p-6`}
+                className="group relative overflow-hidden rounded-3xl p-7 shadow-[0_8px_30px_rgba(0,0,0,0.08)] transition hover:-translate-y-1 hover:shadow-[0_16px_50px_rgba(0,0,0,0.13)]"
+                style={{ background: "white" }}
               >
-                <div className={`mb-3 h-1 w-8 rounded-full ${pillar.accent}`} />
-                <h3 className="text-xl font-black text-[#2d1845]">{pillar.label}</h3>
-                <p className="text-sm font-semibold text-[#5f4c78]">{pillar.tagline}</p>
-                <p className="mt-3 text-sm leading-relaxed text-[#5f4c78]">{pillar.description}</p>
+                {/* top gradient bar */}
+                <div className={`h-1.5 w-12 rounded-full bg-gradient-to-r ${pillar.gradient} mb-5`} />
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-xl font-black text-[#1a0b2e]">{pillar.label}</h3>
+                    <p className="mt-0.5 text-sm font-semibold text-[#5f4c78]">{pillar.tagline}</p>
+                  </div>
+                  <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black ${pillar.chip}`}>
+                    {pillar.num}
+                  </span>
+                </div>
+                <p className="mt-4 text-sm leading-relaxed text-[#4a3560]">{pillar.description}</p>
+                {/* decorative circle */}
+                <div
+                  className={`pointer-events-none absolute -right-8 -bottom-8 h-28 w-28 rounded-full opacity-8 bg-gradient-to-br ${pillar.gradient}`}
+                />
               </article>
             ))}
           </div>
         </section>
 
-        {/* Methodology dual */}
-        <section className="rounded-3xl border border-[#d8cfee] bg-[#1f1232] p-8 text-white md:p-11">
-          <p className="text-xs font-black uppercase tracking-[0.28em] text-[#d7c5f8]">Metodología dual</p>
-          <h2 className="mt-3 text-3xl font-black tracking-tight md:text-4xl">
-            Likert + SJT: más que lo que piensas, lo que haces.
+        {/* ── Methodology dual ─────────────────────────────────────────── */}
+        <section
+          className="relative overflow-hidden rounded-3xl p-9 text-white md:p-12"
+          style={{
+            background: "linear-gradient(135deg, #1a0b2e 0%, #2d1256 50%, #3f1a70 100%)",
+          }}
+        >
+          <div
+            className="pointer-events-none absolute right-0 top-0 h-80 w-80 rounded-full opacity-15"
+            style={{ background: "radial-gradient(circle, #c98ab6 0%, transparent 70%)", transform: "translate(30%, -30%)" }}
+          />
+          <span className="inline-block rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.28em] text-[#c9b8e8]">
+            Metodología dual
+          </span>
+          <h2 className="mt-4 text-[2.2rem] font-black tracking-tight md:text-[2.8rem]">
+            Likert + SJT: más que lo que<br />piensas, lo que haces.
           </h2>
-          <div className="mt-8 grid gap-6 md:grid-cols-2">
-            <div className="rounded-2xl border border-white/14 bg-white/8 p-6">
-              <p className="text-xs font-black uppercase tracking-[0.26em] text-[#c9b8e8]">Escala Likert · 107 ítems</p>
-              <h3 className="mt-2 text-xl font-black">Autopercepción cuantificable</h3>
-              <p className="mt-3 text-sm leading-relaxed text-[#d8cff0]">
-                Afirmaciones sobre comportamientos de liderazgo medidas en escala de frecuencia
-                o acuerdo. Te dan una lectura numérica de cómo percibes tu propio desempeño
-                en cada competencia.
-              </p>
-            </div>
-            <div className="rounded-2xl border border-white/14 bg-white/8 p-6">
-              <p className="text-xs font-black uppercase tracking-[0.26em] text-[#c9b8e8]">SJT · 19 situaciones</p>
-              <h3 className="mt-2 text-xl font-black">Criterio en condiciones reales</h3>
-              <p className="mt-3 text-sm leading-relaxed text-[#d8cff0]">
-                Escenarios que presentan dilemas de liderazgo reales — ambigüedad, conflicto,
-                presión, decisión. Tu elección de respuesta revela tu criterio aplicado, no solo
-                tu intención declarada.
-              </p>
-            </div>
+          <div className="mt-10 grid gap-5 md:grid-cols-2">
+            {[
+              {
+                tag: "Escala Likert · 107 ítems",
+                title: "Autopercepción cuantificable",
+                body: "Afirmaciones sobre comportamientos de liderazgo medidas en escala de frecuencia o acuerdo. Te dan una lectura numérica de cómo percibes tu propio desempeño en cada competencia.",
+                accent: "#c9b8e8",
+              },
+              {
+                tag: "SJT · 19 situaciones",
+                title: "Criterio en condiciones reales",
+                body: "Escenarios que presentan dilemas de liderazgo reales — ambigüedad, conflicto, presión, decisión. Tu elección de respuesta revela tu criterio aplicado, no solo tu intención declarada.",
+                accent: "#f4cf8e",
+              },
+            ].map((block) => (
+              <div
+                key={block.tag}
+                className="rounded-2xl border border-white/12 bg-white/7 p-7 backdrop-blur-sm"
+              >
+                <p
+                  className="text-[10px] font-black uppercase tracking-[0.26em]"
+                  style={{ color: block.accent }}
+                >
+                  {block.tag}
+                </p>
+                <h3 className="mt-3 text-xl font-black text-white">{block.title}</h3>
+                <p className="mt-3 text-sm leading-relaxed text-white/70">{block.body}</p>
+              </div>
+            ))}
           </div>
         </section>
 
-        {/* Sample product / charts */}
+        {/* ── Sample product / charts ──────────────────────────────────── */}
         <section>
-          <p className="text-xs font-black uppercase tracking-[0.28em] text-[#7557a1]">Ejemplo del informe</p>
-          <h2 className="mt-3 text-4xl font-black leading-[0.97] tracking-tight text-[#2d1845]">
+          <span className="inline-block rounded-full bg-[#f2ecff] px-3 py-1 text-[10px] font-black uppercase tracking-[0.28em] text-[#5b2d8a]">
+            Ejemplo del informe
+          </span>
+          <h2 className="mt-4 text-[2.6rem] font-black leading-[0.95] tracking-tight text-[#1a0b2e] lg:text-[3rem]">
             Así luce tu resultado.
           </h2>
-          <p className="mt-4 max-w-3xl text-[0.98rem] leading-relaxed text-[#5f4c78]">
+          <p className="mt-3 max-w-2xl text-[0.98rem] leading-relaxed text-[#4a3560]">
             Datos de ejemplo. Tu diagnóstico real generará scores propios con análisis IA personalizado.
           </p>
 
-          {/* Global index + Radar */}
-          <div className="mt-8 grid gap-6 lg:grid-cols-[320px_1fr]">
-            <div className="rounded-3xl border border-[#d8cfee] bg-white p-6 shadow-[0_12px_40px_rgba(42,20,68,0.05)]">
-              <p className="text-xs font-black uppercase tracking-[0.24em] text-[#7557a1]">Índice global</p>
+          <div className="mt-10 grid gap-6 lg:grid-cols-[340px_1fr]">
+            <div className="rounded-3xl border border-[#e4d8f5] bg-white p-7 shadow-[0_12px_50px_rgba(91,45,138,0.07)]">
+              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#5b2d8a]">Índice global</p>
               <GlobalIndexDisplay />
-              <div className="mt-2 border-t border-[#ede6f7] pt-4">
-                <p className="mb-3 text-xs font-black uppercase tracking-[0.22em] text-[#7557a1]">Score por pilar</p>
+              <div className="mt-4 border-t border-[#ede6f7] pt-5">
+                <p className="mb-3 text-[10px] font-black uppercase tracking-[0.22em] text-[#5b2d8a]">Score por pilar</p>
                 <PillarScoreBars />
               </div>
             </div>
 
-            <div className="rounded-3xl border border-[#d8cfee] bg-white p-6 shadow-[0_12px_40px_rgba(42,20,68,0.05)]">
-              <p className="text-xs font-black uppercase tracking-[0.24em] text-[#7557a1]">Mapa de pilares</p>
+            <div className="rounded-3xl border border-[#e4d8f5] bg-white p-7 shadow-[0_12px_50px_rgba(91,45,138,0.07)]">
+              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#5b2d8a]">Mapa de pilares</p>
               <p className="mt-1 text-sm text-[#5f4c78]">Visualización radial de los 4 ejes de liderazgo</p>
               <DiscoveryRadarChart />
             </div>
           </div>
 
-          {/* Competencies bar chart */}
-          <div className="mt-6 rounded-3xl border border-[#d8cfee] bg-white p-6 shadow-[0_12px_40px_rgba(42,20,68,0.05)]">
-            <p className="text-xs font-black uppercase tracking-[0.24em] text-[#7557a1]">16 competencias · Score individual</p>
-            <p className="mt-1 mb-4 text-sm text-[#5f4c78]">
+          <div className="mt-6 rounded-3xl border border-[#e4d8f5] bg-white p-7 shadow-[0_12px_50px_rgba(91,45,138,0.07)]">
+            <p className="mb-1 text-[10px] font-black uppercase tracking-[0.24em] text-[#5b2d8a]">16 competencias · Score individual</p>
+            <p className="mb-5 text-sm text-[#5f4c78]">
               Cada barra representa una competencia coloreada por pilar.{" "}
               <span className="font-semibold text-[#7c5f93]">■ Within</span>{" "}
               <span className="font-semibold text-[#6a9fd8]">■ Out</span>{" "}
@@ -235,15 +352,24 @@ export default function DescubrimientoPublicPage() {
             <DiscoveryCompetenciesChart />
           </div>
 
-          {/* AI report sample */}
-          <div className="mt-6 rounded-3xl border border-[#d8cfee] bg-white p-7 shadow-[0_12px_40px_rgba(42,20,68,0.05)]">
-            <div className="mb-4 flex items-center gap-3">
-              <div className="rounded-xl bg-[#f4ecff] px-3 py-1.5">
-                <p className="text-[10px] font-black uppercase tracking-[0.26em] text-[#7557a1]">Análisis IA · Shine Up</p>
-              </div>
-              <span className="text-[10px] font-semibold text-[#9d8cb5]">Ejemplo de lectura ejecutiva</span>
+          {/* AI sample */}
+          <div
+            className="mt-6 rounded-3xl p-8"
+            style={{ background: "linear-gradient(135deg, #f7f3ff 0%, #fdf0f8 100%)" }}
+          >
+            <div className="mb-5 flex flex-wrap items-center gap-3">
+              <span
+                className="rounded-full px-3.5 py-1.5 text-[10px] font-black uppercase tracking-[0.26em]"
+                style={{
+                  background: "linear-gradient(135deg, #5b2d8a, #9d79c8)",
+                  color: "white",
+                }}
+              >
+                Análisis IA · Shine Up
+              </span>
+              <span className="text-[11px] font-semibold text-[#9d8cb5]">Ejemplo de lectura ejecutiva</span>
             </div>
-            <div className="space-y-3 text-sm leading-relaxed text-[#4a3560]">
+            <div className="space-y-4 text-[0.95rem] leading-relaxed text-[#3a2a55]">
               {SAMPLE_REPORT.split("\n\n").map((para, i) => (
                 <p key={i}>{para}</p>
               ))}
@@ -254,54 +380,90 @@ export default function DescubrimientoPublicPage() {
           </div>
         </section>
 
-        {/* Features grid */}
+        {/* ── Features grid ─────────────────────────────────────────────── */}
         <section>
-          <p className="text-xs font-black uppercase tracking-[0.28em] text-[#7557a1]">Características</p>
-          <h2 className="mt-3 text-4xl font-black leading-[0.97] tracking-tight text-[#2d1845]">
-            Qué hace único a este diagnóstico.
+          <span className="inline-block rounded-full bg-[#f2ecff] px-3 py-1 text-[10px] font-black uppercase tracking-[0.28em] text-[#5b2d8a]">
+            Características
+          </span>
+          <h2 className="mt-4 text-[2.6rem] font-black leading-[0.95] tracking-tight text-[#1a0b2e] lg:text-[3rem]">
+            Qué hace único<br />a este diagnóstico.
           </h2>
-          <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {FEATURES.map((f) => (
-              <article key={f.title} className="rounded-2xl border border-[#d8cfee] bg-white p-6">
-                <h3 className="text-base font-black text-[#2d1845]">{f.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-[#5f4c78]">{f.detail}</p>
+              <article
+                key={f.title}
+                className="group flex flex-col gap-4 rounded-3xl border border-[#e8dff5] bg-white p-6 shadow-[0_4px_20px_rgba(91,45,138,0.05)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_40px_rgba(91,45,138,0.1)]"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-2xl">{f.icon}</span>
+                  <span className="text-[11px] font-black text-[#c4b4dc]">{f.num}</span>
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-[#1a0b2e]">{f.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-[#5f4c78]">{f.detail}</p>
+                </div>
               </article>
             ))}
           </div>
         </section>
 
-        {/* CTA final */}
-        <section className="rounded-3xl bg-[#1f1232] p-9 text-white md:p-12">
-          <div className="grid gap-8 lg:grid-cols-[1fr_auto]">
+        {/* ── Final CTA ─────────────────────────────────────────────────── */}
+        <section
+          className="relative overflow-hidden rounded-3xl p-10 text-white md:p-14"
+          style={{
+            background: "linear-gradient(135deg, #1a0b2e 0%, #3a1060 50%, #5b1f80 100%)",
+          }}
+        >
+          <div
+            className="pointer-events-none absolute -left-20 -top-20 h-72 w-72 rounded-full opacity-20"
+            style={{ background: "radial-gradient(circle, #c98ab6 0%, transparent 70%)" }}
+          />
+          <div
+            className="pointer-events-none absolute -bottom-16 right-20 h-56 w-56 rounded-full opacity-15"
+            style={{ background: "radial-gradient(circle, #f4cf8e 0%, transparent 70%)" }}
+          />
+          <div className="relative grid gap-10 lg:grid-cols-[1fr_auto] lg:items-center">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.28em] text-[#d7c5f8]">Pago único · Sin suscripción</p>
-              <h2 className="mt-3 text-4xl font-black tracking-tight md:text-5xl">
-                Activa tu diagnóstico hoy.
+              <span className="inline-block rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.28em] text-[#c9b8e8]">
+                Pago único · Sin suscripción
+              </span>
+              <h2 className="mt-4 text-[2.8rem] font-black leading-[0.93] tracking-tight md:text-[3.5rem]">
+                Activa tu<br />diagnóstico hoy.
               </h2>
-              <p className="mt-4 max-w-xl text-[1rem] leading-relaxed text-[#dfd6ef]">
-                Acceso inmediato. El diagnóstico queda vinculado a tu cuenta y puedes consultar
-                tu informe completo en cualquier momento. Una inversión puntual para entender
-                exactamente dónde estás como líder.
+              <p className="mt-5 max-w-xl text-[1rem] leading-relaxed text-white/72">
+                Acceso inmediato. Tu informe queda vinculado a tu cuenta para consultarlo
+                en cualquier momento. Una inversión puntual para entender exactamente
+                dónde estás como líder.
               </p>
-              <div className="mt-7 flex flex-wrap gap-3">
+              <div className="mt-8 flex flex-wrap gap-3">
                 <Link
                   href="/acceso"
-                  className="rounded-full bg-[#f2b24b] px-7 py-3.5 text-sm font-extrabold text-[#2a1b3f] hover:bg-[#f6c56d]"
+                  className="inline-flex items-center gap-2 rounded-full bg-[#f4cf8e] px-8 py-3.5 text-sm font-extrabold text-[#2a1b3f] shadow-[0_4px_24px_rgba(244,207,142,0.45)] transition hover:-translate-y-0.5 hover:bg-[#f6d9a0]"
                 >
                   Activar diagnóstico
                 </Link>
                 <Link
                   href="/planes-precios"
-                  className="rounded-full border border-white/30 px-7 py-3.5 text-sm font-bold text-white hover:bg-white/10"
+                  className="inline-flex items-center gap-2 rounded-full border border-white/25 px-8 py-3.5 text-sm font-bold text-white/90 transition hover:bg-white/10"
                 >
                   Ver todos los planes
                 </Link>
               </div>
             </div>
-            <div className="flex flex-col items-start gap-1 self-center rounded-2xl border border-white/16 bg-white/10 px-8 py-6 lg:items-center">
-              <p className="text-xs font-black uppercase tracking-[0.26em] text-[#c9b8e8]">Precio</p>
-              <p className="text-[3.5rem] font-black leading-none text-white">$50</p>
-              <p className="text-sm font-semibold text-[#c9b8e8]">USD · Pago único</p>
+
+            <div className="flex flex-col items-center gap-1 self-center rounded-2xl border border-white/16 bg-white/8 px-10 py-8 text-center backdrop-blur-sm">
+              <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#c9b8e8]">Precio</p>
+              <p
+                className="mt-1 text-[4rem] font-black leading-none"
+                style={{
+                  background: "linear-gradient(90deg, #f4cf8e 0%, #e9a84c 100%)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                }}
+              >
+                $50
+              </p>
+              <p className="mt-1 text-sm font-semibold text-[#c9b8e8]">USD · Pago único</p>
             </div>
           </div>
         </section>
