@@ -438,7 +438,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
       }}
     >
       {children}
-      {!!sessionUser && !privacyPolicyAccepted && (
+      {!!sessionUser && !privacyPolicyAccepted && sessionUser.role !== 'invitado' && (
         <PrivacyPolicyModal onAccept={acceptPrivacyPolicy} />
       )}
     </UserContext.Provider>
