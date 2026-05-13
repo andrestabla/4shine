@@ -5252,15 +5252,15 @@ async function runContractStyleAnalysis(
     const isFastPillar = !isGlobal && fastMode;
     const primaryModel = "gpt-4.1";
     const refinementModel = "gpt-4.1";
-    // 1 refinement attempt for per-pillar (fast), 2 for global — keeps each call under 60s
-    const maxRefinements = isGlobal ? 2 : 1;
+    // 1 refinement for both global and per-pillar — caller retries if needed
+    const maxRefinements = 1;
 
     let report = await requestOpenAiReport(context, systemPrompt, userPrompt, {
       model: primaryModel,
       temperature: isGlobal ? 0.68 : 0.65,
       timeoutMs: isGlobal ? 90000 : 50000,
-      maxTokens: isGlobal ? 4000 : 2800,
-      maxAttempts: isGlobal ? 2 : 1,
+      maxTokens: isGlobal ? 3000 : 2800,
+      maxAttempts: 1,
     });
     let attempts = 1;
     const shouldRefine = (draft: string): boolean => {

@@ -413,20 +413,13 @@ export function ResultsView({
     setAnalysisBatchPending(true);
     void (async () => {
       try {
-        const pendingPillars = PILLAR_REPORT_FILTERS.filter(
+        // Fire all 5 reports concurrently — "all" doesn't depend on pillar results
+        const pendingAll = ALL_REPORT_FILTERS.filter(
           (target) => !analysisCacheRef.current.has(target),
         );
-        if (pendingPillars.length > 0) {
-          for (let index = 0; index < pendingPillars.length; index += ANALYSIS_CONCURRENCY) {
-            if (cancelled) return;
-            const chunk = pendingPillars.slice(index, index + ANALYSIS_CONCURRENCY);
-            await Promise.allSettled(chunk.map((target) => generateAnalysisForFilter(target)));
-          }
-        }
-
-        if (!analysisCacheRef.current.has("all")) {
+        if (pendingAll.length > 0) {
           if (cancelled) return;
-          await generateAnalysisForFilter("all");
+          await Promise.allSettled(pendingAll.map((target) => generateAnalysisForFilter(target)));
         }
       } finally {
         if (!cancelled) {
