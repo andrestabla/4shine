@@ -282,30 +282,14 @@ export default async function HomeMarketingPage() {
             </Link>
           </div>
 
-          {/* Panel de cita + datos del programa — ASSETS: reemplazar con foto de líder 640×480px */}
-          <div className="relative overflow-hidden rounded-3xl bg-[#1c102d] p-8 lg:p-10">
-            <div className="absolute -right-10 -top-10 h-52 w-52 rounded-full bg-[#f2b24b]/6 blur-2xl" />
-            <div className="absolute -bottom-14 -left-6 h-40 w-40 rounded-full bg-[#5b2d8a]/50 blur-3xl" />
-            <div className="relative">
-              <p className="text-6xl font-black leading-none text-[#f2b24b] select-none">"</p>
-              <p className="mt-1 text-xl font-black leading-snug text-white md:text-2xl">
-                El liderazgo real no se improvisa. Se construye con método, acompañamiento y la voluntad de mirarse con honestidad.
-              </p>
-              <p className="mt-4 text-sm font-semibold text-[#c9b8ff]">Fundamento del programa 4Shine</p>
-              <div className="mt-8 grid grid-cols-2 gap-5 border-t border-white/10 pt-8">
-                {[
-                  { v: '6 meses', l: 'de acompañamiento real' },
-                  { v: '4 pilares', l: 'de desarrollo integrado' },
-                  { v: '10 sesiones', l: 'con tu Adviser personal' },
-                  { v: '100%', l: 'orientado a resultados' },
-                ].map((s) => (
-                  <div key={s.v}>
-                    <p className="text-2xl font-black text-[#f2b24b]">{s.v}</p>
-                    <p className="mt-0.5 text-xs text-[#9b88c8]">{s.l}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
+          <div className="relative overflow-hidden rounded-3xl shadow-[0_24px_64px_rgba(28,16,45,0.18)]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="https://liderazgoestrategico.s3.us-east-1.amazonaws.com/recursos/IMG_4119.JPG"
+              alt="Líderes en acción"
+              className="h-full w-full object-cover"
+              style={{ aspectRatio: '4/3' }}
+            />
           </div>
         </div>
       </section>
