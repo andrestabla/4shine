@@ -1,34 +1,57 @@
 import Link from 'next/link';
+import { Compass, MessageSquare, TrendingUp, Globe, Map, BarChart2, Users } from 'lucide-react';
 import { getSitePages } from '@/lib/site-settings';
+
+// ── Icon system ───────────────────────────────────────────────────────────────
+
+type PillarKey = 'within' | 'out' | 'up' | 'beyond';
+
+const PILLAR_ICONS = {
+  within: Compass,
+  out: MessageSquare,
+  up: TrendingUp,
+  beyond: Globe,
+} satisfies Record<PillarKey, React.ElementType>;
 
 // ── Data ─────────────────────────────────────────────────────────────────────
 
-const pillars = [
+const pillars: Array<{
+  key: PillarKey;
+  title: string;
+  gradient: string;
+  iconColor: string;
+  description: string;
+  detail: string;
+}> = [
   {
+    key: 'within',
     title: 'Shine Within',
-    emoji: '🌟',
     gradient: 'linear-gradient(135deg,#5b2d8a,#7c3aad)',
+    iconColor: '#9b72d0',
     description: 'Autoliderazgo, identidad y claridad personal para decidir con conciencia.',
     detail: 'Descubres quién eres como líder, qué valores te mueven y cómo tomar decisiones profundamente alineadas con tu propósito.',
   },
   {
+    key: 'out',
     title: 'Shine Out',
-    emoji: '💬',
     gradient: 'linear-gradient(135deg,#1e5fa8,#2d7dd2)',
+    iconColor: '#5a9fd4',
     description: 'Comunicación estratégica, presencia ejecutiva y narrativa de impacto.',
     detail: 'Desarrollas la capacidad de articular ideas con poder, influir con autenticidad y proyectar una presencia ejecutiva real.',
   },
   {
+    key: 'up',
     title: 'Shine Up',
-    emoji: '⚡',
     gradient: 'linear-gradient(135deg,#0e7a5a,#15a37a)',
+    iconColor: '#3db88a',
     description: 'Pensamiento estratégico, influencia y toma de decisiones en contextos complejos.',
     detail: 'Elevas tu pensamiento, navegas la ambigüedad y ejerces influencia sin necesitar autoridad directa.',
   },
   {
+    key: 'beyond',
     title: 'Shine Beyond',
-    emoji: '🚀',
     gradient: 'linear-gradient(135deg,#a8420e,#d45a0f)',
+    iconColor: '#d4793a',
     description: 'Legado, expansión y liderazgo que transforma equipos y ecosistemas.',
     detail: 'Construyes equipos de alto desempeño, articulas un legado de impacto y multiplicas tu capacidad de transformación.',
   },
@@ -102,7 +125,6 @@ const advisers = [
     name: 'María Torres',
     specialty: 'Liderazgo Estratégico',
     years: '15 años de experiencia',
-    // IMAGEN: Reemplazar con headshot profesional de alta calidad (400×400px, fondo neutro)
   },
   {
     initial: 'J',
@@ -110,7 +132,6 @@ const advisers = [
     name: 'Jorge Espinosa',
     specialty: 'Comunicación Ejecutiva',
     years: '12 años de experiencia',
-    // IMAGEN: Reemplazar con headshot profesional de alta calidad (400×400px, fondo neutro)
   },
   {
     initial: 'L',
@@ -118,15 +139,32 @@ const advisers = [
     name: 'Laura Méndez',
     specialty: 'Transformación Organizacional',
     years: '18 años de experiencia',
-    // IMAGEN: Reemplazar con headshot profesional de alta calidad (400×400px, fondo neutro)
   },
 ];
 
 const metrics = [
-  { value: '+120', label: 'Líderes activos' },
+  { value: '+1.000', label: 'Líderes activos' },
   { value: '6', label: 'Meses de programa' },
   { value: '4', label: 'Pilares de liderazgo' },
   { value: '+25', label: 'Advisers certificados' },
+];
+
+const platformFeatures = [
+  {
+    Icon: Map,
+    title: 'Trayectoria estructurada',
+    text: 'Ruta clara semana a semana con hitos y entregables concretos.',
+  },
+  {
+    Icon: BarChart2,
+    title: 'Diagnóstico profundo',
+    text: 'Mide tu punto de partida en los 4 pilares con herramientas validadas.',
+  },
+  {
+    Icon: Users,
+    title: 'Comunidad activa',
+    text: 'Comparte el camino con líderes que tienen el mismo nivel de ambición.',
+  },
 ];
 
 const HOME_NAV_ITEMS = [
@@ -145,13 +183,13 @@ export default async function HomeMarketingPage() {
   return (
     <main className="min-h-screen bg-[#f4f2fa] text-[#1c0f32]">
 
-      {/* ── 1. HERO ── video background, nav, headline, pillar mini-cards ── */}
+      {/* ── 1. HERO ── */}
       <section className="relative overflow-hidden border-b border-[#d8d0ea] bg-[#1c102d] text-white">
         <video
           className="absolute inset-0 h-full w-full object-cover"
           autoPlay loop muted playsInline preload="metadata" aria-hidden="true"
         >
-          {/* VIDEO: hero corporativo — líderes en contexto (1920×1080, .mp4) */}
+          {/* ASSETS: video corporativo de líderes en contexto (1920×1080 .mp4) */}
           <source src="https://liderazgoestrategico.s3.us-east-1.amazonaws.com/4shine/International_Team_1920x1080.mp4" type="video/mp4" />
         </video>
         <div className="absolute inset-0 bg-[linear-gradient(108deg,rgba(20,9,36,0.90)_10%,rgba(28,14,45,0.76)_50%,rgba(46,23,62,0.72)_100%)]" />
@@ -175,14 +213,14 @@ export default async function HomeMarketingPage() {
             <Link href="/acceso" className="rounded-full bg-[#f2b24b] px-5 py-2 text-sm font-extrabold text-[#2a1b3f] hover:bg-[#f6c56d] transition">Ingresar</Link>
           </header>
 
-          {/* Headline */}
+          {/* Content */}
           <div className="grid items-center gap-12 lg:grid-cols-[1.1fr_0.9fr]">
             <div>
               <p className="mb-5 text-xs font-bold uppercase tracking-[0.32em] text-[#c9b8ff]">Plataforma de liderazgo</p>
               <h1 className="max-w-[14ch] text-5xl font-black leading-[0.94] tracking-tight md:text-6xl lg:text-7xl">
                 Transforma tu liderazgo con método, mentoría y resultados medibles.
               </h1>
-              <p className="mt-6 max-w-[54ch] text-base text-[#ddd6f0] md:text-lg leading-relaxed">
+              <p className="mt-6 max-w-[54ch] text-base leading-relaxed text-[#ddd6f0] md:text-lg">
                 4Shine existe para acelerar el desarrollo de líderes que necesitan elevar su impacto personal, profesional y estratégico con una ruta estructurada de 6 meses.
               </p>
               <div className="mt-9 flex flex-wrap gap-3">
@@ -190,22 +228,28 @@ export default async function HomeMarketingPage() {
                 <Link href="/planes-precios" className="rounded-full border border-white/40 px-7 py-3 text-sm font-bold text-white hover:bg-white/10 transition">Ver planes</Link>
               </div>
             </div>
+
             <div className="grid gap-4 sm:grid-cols-2">
-              {pillars.map((p) => (
-                <article key={p.title} className="rounded-2xl border border-white/15 bg-white/10 p-5 backdrop-blur-sm hover:bg-white/15 transition">
-                  <span className="text-2xl">{p.emoji}</span>
-                  <h2 className="mt-2 text-base font-extrabold">{p.title}</h2>
-                  <p className="mt-1.5 text-sm leading-snug text-[#e8e0fc]">{p.description}</p>
-                </article>
-              ))}
+              {pillars.map((p) => {
+                const Icon = PILLAR_ICONS[p.key];
+                return (
+                  <article key={p.title} className="rounded-2xl border border-white/15 bg-white/10 p-5 backdrop-blur-sm hover:bg-white/15 transition">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/12">
+                      <Icon size={18} color="white" />
+                    </div>
+                    <h2 className="mt-3 text-base font-extrabold">{p.title}</h2>
+                    <p className="mt-1.5 text-sm leading-snug text-[#e8e0fc]">{p.description}</p>
+                  </article>
+                );
+              })}
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── 2. IMPACT METRICS ── */}
+      {/* ── 2. MÉTRICAS ── */}
       <section className="bg-[#14082a] text-white">
-        <div className="mx-auto grid max-w-[1240px] grid-cols-2 gap-0 px-6 md:grid-cols-4 md:px-10 lg:px-14">
+        <div className="mx-auto grid max-w-[1240px] grid-cols-2 px-6 md:grid-cols-4 md:px-10 lg:px-14">
           {metrics.map((m, i) => (
             <div
               key={m.label}
@@ -238,16 +282,29 @@ export default async function HomeMarketingPage() {
             </Link>
           </div>
 
-          {/* IMAGEN: foto de líder en acción, contexto profesional real — 640×480px, luz natural, warmth */}
-          <div className="relative overflow-hidden rounded-3xl aspect-[4/3] bg-gradient-to-br from-[#2e1a49] to-[#5b2d8a] flex items-center justify-center">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_40%,rgba(198,151,255,0.3),transparent_60%)]" />
-            <div className="relative text-center px-8">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white/10 backdrop-blur">
-                <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><rect x="4" y="4" width="24" height="24" rx="4" stroke="white" strokeWidth="2"/><path d="M4 12h24M12 4v24" stroke="white" strokeWidth="2" strokeDasharray="3 2"/></svg>
+          {/* Panel de cita + datos del programa — ASSETS: reemplazar con foto de líder 640×480px */}
+          <div className="relative overflow-hidden rounded-3xl bg-[#1c102d] p-8 lg:p-10">
+            <div className="absolute -right-10 -top-10 h-52 w-52 rounded-full bg-[#f2b24b]/6 blur-2xl" />
+            <div className="absolute -bottom-14 -left-6 h-40 w-40 rounded-full bg-[#5b2d8a]/50 blur-3xl" />
+            <div className="relative">
+              <p className="text-6xl font-black leading-none text-[#f2b24b] select-none">"</p>
+              <p className="mt-1 text-xl font-black leading-snug text-white md:text-2xl">
+                El liderazgo real no se improvisa. Se construye con método, acompañamiento y la voluntad de mirarse con honestidad.
+              </p>
+              <p className="mt-4 text-sm font-semibold text-[#c9b8ff]">Fundamento del programa 4Shine</p>
+              <div className="mt-8 grid grid-cols-2 gap-5 border-t border-white/10 pt-8">
+                {[
+                  { v: '6 meses', l: 'de acompañamiento real' },
+                  { v: '4 pilares', l: 'de desarrollo integrado' },
+                  { v: '10 sesiones', l: 'con tu Adviser personal' },
+                  { v: '100%', l: 'orientado a resultados' },
+                ].map((s) => (
+                  <div key={s.v}>
+                    <p className="text-2xl font-black text-[#f2b24b]">{s.v}</p>
+                    <p className="mt-0.5 text-xs text-[#9b88c8]">{s.l}</p>
+                  </div>
+                ))}
               </div>
-              <p className="text-sm font-semibold text-white/70">IMAGEN</p>
-              <p className="mt-1 text-xs text-white/50">Foto de líder en contexto profesional real</p>
-              <p className="text-xs text-white/40">640 × 480 px · luz natural</p>
             </div>
           </div>
         </div>
@@ -264,36 +321,39 @@ export default async function HomeMarketingPage() {
             </p>
           </div>
 
-          {/* VIDEO: tour de la plataforma — 2 min, screencast de alta calidad, narración en off */}
+          {/* ASSETS: reemplazar con video embed (YouTube / Vimeo / S3) — screencast 16:9 de la plataforma */}
           <div className="relative mx-auto max-w-[900px] overflow-hidden rounded-3xl bg-[#1c102d] shadow-[0_40px_80px_rgba(28,16,45,0.22)]">
-            <div className="aspect-video flex flex-col items-center justify-center gap-4 px-8 text-center">
+            <div className="aspect-video flex items-center justify-center">
+              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_40%_50%,rgba(91,45,138,0.5),transparent_60%),radial-gradient(ellipse_at_78%_20%,rgba(242,178,75,0.08),transparent_50%)]" />
               <div
-                className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-white/30 bg-white/10 backdrop-blur transition hover:bg-white/20 cursor-pointer"
-                style={{ boxShadow: '0 0 0 12px rgba(255,255,255,0.06)' }}
-              >
-                <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-                  <path d="M10 7l12 7-12 7V7z" fill="white"/>
-                </svg>
-              </div>
-              <div>
-                <p className="text-lg font-bold text-white">VIDEO</p>
-                <p className="mt-1 text-sm text-white/60">Tour de la plataforma · 2 minutos</p>
-                <p className="mt-0.5 text-xs text-white/40">Reemplazar con video embed (YouTube / Vimeo / S3)</p>
+                className="absolute inset-0 opacity-[0.025]"
+                style={{
+                  backgroundImage: 'linear-gradient(rgba(255,255,255,0.8) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.8) 1px, transparent 1px)',
+                  backgroundSize: '44px 44px',
+                }}
+              />
+              <div className="relative flex flex-col items-center gap-5">
+                <div
+                  className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-full border border-[#f2b24b]/40 bg-[#f2b24b]/10 backdrop-blur transition hover:scale-105 hover:bg-[#f2b24b]/20"
+                  style={{ boxShadow: '0 0 0 16px rgba(242,178,75,0.05), 0 0 0 32px rgba(242,178,75,0.025)' }}
+                >
+                  <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+                    <path d="M9 6.5l12 6.5-12 6.5V6.5z" fill="#f2b24b" />
+                  </svg>
+                </div>
+                <p className="text-sm font-medium text-white/50">Conoce cómo funciona 4Shine</p>
               </div>
             </div>
           </div>
 
-          {/* Feature highlights below video */}
           <div className="mx-auto mt-12 grid max-w-[900px] gap-6 sm:grid-cols-3">
-            {[
-              { emoji: '🗺️', title: 'Trayectoria estructurada', text: 'Ruta clara semana a semana con hitos y entregables concretos.' },
-              { emoji: '🎯', title: 'Diagnóstico profundo', text: 'Mide tu punto de partida en los 4 pilares con herramientas validadas.' },
-              { emoji: '👥', title: 'Comunidad activa', text: 'Comparte el camino con líderes que tienen el mismo nivel de ambición.' },
-            ].map((f) => (
-              <div key={f.title} className="rounded-2xl border border-[#d6cced] bg-white p-6 shadow-[0_8px_24px_rgba(42,20,68,0.05)]">
-                <span className="text-3xl">{f.emoji}</span>
-                <h3 className="mt-3 text-base font-black text-[#1c0f32]">{f.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-[#5d4a78]">{f.text}</p>
+            {platformFeatures.map(({ Icon, title, text }) => (
+              <div key={title} className="rounded-2xl border border-[#d6cced] bg-white p-6 shadow-[0_8px_24px_rgba(42,20,68,0.05)]">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#f0eaff]">
+                  <Icon size={18} color="#5b2d8a" />
+                </div>
+                <h3 className="mt-4 text-base font-black text-[#1c0f32]">{title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-[#5d4a78]">{text}</p>
               </div>
             ))}
           </div>
@@ -316,20 +376,28 @@ export default async function HomeMarketingPage() {
           </div>
 
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {pillars.map((p) => (
-              <article
-                key={p.title}
-                className="group relative overflow-hidden rounded-3xl border border-[#e8e0f8] bg-white shadow-[0_8px_32px_rgba(42,20,68,0.06)] transition hover:shadow-[0_16px_48px_rgba(42,20,68,0.12)] hover:-translate-y-1"
-              >
-                <div className="h-2 w-full" style={{ background: p.gradient }} />
-                <div className="p-6">
-                  <span className="text-3xl">{p.emoji}</span>
-                  <h3 className="mt-3 text-lg font-black text-[#1c0f32]">{p.title}</h3>
-                  <p className="mt-2 text-sm font-semibold text-[#3d255f]">{p.description}</p>
-                  <p className="mt-3 text-sm leading-relaxed text-[#6b5487]">{p.detail}</p>
-                </div>
-              </article>
-            ))}
+            {pillars.map((p) => {
+              const Icon = PILLAR_ICONS[p.key];
+              return (
+                <article
+                  key={p.title}
+                  className="group relative overflow-hidden rounded-3xl border border-[#e8e0f8] bg-white shadow-[0_8px_32px_rgba(42,20,68,0.06)] transition hover:shadow-[0_16px_48px_rgba(42,20,68,0.12)] hover:-translate-y-1"
+                >
+                  <div className="h-1.5 w-full" style={{ background: p.gradient }} />
+                  <div className="p-6">
+                    <div
+                      className="flex h-11 w-11 items-center justify-center rounded-2xl"
+                      style={{ background: `${p.iconColor}18` }}
+                    >
+                      <Icon size={20} color={p.iconColor} />
+                    </div>
+                    <h3 className="mt-4 text-lg font-black text-[#1c0f32]">{p.title}</h3>
+                    <p className="mt-2 text-sm font-semibold text-[#3d255f]">{p.description}</p>
+                    <p className="mt-3 text-sm leading-relaxed text-[#6b5487]">{p.detail}</p>
+                  </div>
+                </article>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -352,12 +420,14 @@ export default async function HomeMarketingPage() {
           <div className="grid gap-6 md:grid-cols-3">
             {stories.map((s) => (
               <article key={s.name} className="flex flex-col rounded-3xl border border-white/10 bg-white/5 p-7 backdrop-blur-sm">
-                <div className="mb-4 text-4xl font-black leading-none text-[#f2b24b] select-none">"</div>
+                <svg className="mb-4 shrink-0" width="32" height="24" viewBox="0 0 32 24" fill="none">
+                  <path d="M0 24V14.4C0 6.4 4.267 1.6 12.8 0l1.6 2.4C10.133 3.733 7.733 6.4 7.2 10.4H13.6V24H0ZM18.4 24V14.4C18.4 6.4 22.667 1.6 31.2 0l1.6 2.4c-4.267 1.333-6.667 4-7.2 8H32V24H18.4Z" fill="#f2b24b" fillOpacity="0.5"/>
+                </svg>
                 <p className="flex-1 text-[15px] leading-relaxed text-[#e8e0fc]">{s.text}</p>
                 <div className="mt-7 flex items-center gap-3">
-                  {/* IMAGEN: foto del líder (80×80px, circular) — reemplazar div con <img> */}
+                  {/* ASSETS: foto del líder 80×80px circular — reemplazar con <img> */}
                   <div
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-base font-black text-white shadow"
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-base font-black text-white"
                     style={{ background: s.color }}
                   >
                     {s.initial}
@@ -400,17 +470,15 @@ export default async function HomeMarketingPage() {
                 <div className="p-8">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <span
-                        className={`rounded-full px-3 py-0.5 text-[11px] font-black uppercase tracking-wider ${
-                          plan.highlighted ? 'bg-[#f2b24b]/20 text-[#f2b24b]' : 'bg-[#efeaf8] text-[#7557a1]'
-                        }`}
-                      >
+                      <span className={`rounded-full px-3 py-0.5 text-[11px] font-black uppercase tracking-wider ${plan.highlighted ? 'bg-[#f2b24b]/20 text-[#f2b24b]' : 'bg-[#efeaf8] text-[#7557a1]'}`}>
                         {plan.label}
                       </span>
                       <h3 className="mt-3 text-xl font-black">{plan.name}</h3>
                     </div>
-                    <div className="text-right shrink-0">
-                      {plan.currency && <span className={`text-xs font-bold ${plan.highlighted ? 'text-[#c9b8ff]' : 'text-[#7557a1]'}`}>{plan.currency}</span>}
+                    <div className="shrink-0 text-right">
+                      {plan.currency && (
+                        <span className={`text-xs font-bold ${plan.highlighted ? 'text-[#c9b8ff]' : 'text-[#7557a1]'}`}>{plan.currency}</span>
+                      )}
                       <p className={`text-3xl font-black leading-none ${plan.highlighted ? 'text-[#f2b24b]' : 'text-[#1c0f32]'}`}>{plan.price}</p>
                     </div>
                   </div>
@@ -457,7 +525,7 @@ export default async function HomeMarketingPage() {
                 Cada Adviser de 4Shine ha liderado equipos, tomado decisiones difíciles y transitado su propia transformación. No son coaches genéricos — son practicantes del liderazgo que acompañan desde la experiencia real.
               </p>
               <p className="mt-4 max-w-[50ch] text-sm leading-relaxed text-[#6b5487]">
-                Nuestros Advisers acompañan sesiones individuales y grupales, retroalimentan con profundidad y se convierten en aliados del desarrollo de cada líder en el programa.
+                Acompañan sesiones individuales y grupales, retroalimentan con profundidad y se convierten en aliados del desarrollo de cada líder en el programa.
               </p>
               <Link
                 href="/afiliados"
@@ -467,12 +535,12 @@ export default async function HomeMarketingPage() {
               </Link>
             </div>
 
-            <div className="grid gap-5 sm:grid-cols-3 lg:grid-cols-3">
+            <div className="grid gap-5 sm:grid-cols-3">
               {advisers.map((a) => (
-                <article key={a.name} className="flex flex-col items-center rounded-2xl border border-[#e8e0f8] bg-[#faf8ff] p-5 text-center shadow-[0_4px_16px_rgba(42,20,68,0.05)]">
-                  {/* IMAGEN: headshot profesional 400×400px — reemplazar div con <img className="h-20 w-20 rounded-full object-cover"> */}
+                <article key={a.name} className="flex flex-col items-center rounded-2xl border border-[#e8e0f8] bg-[#faf8ff] p-5 text-center">
+                  {/* ASSETS: headshot profesional 400×400px — reemplazar con <img className="h-20 w-20 rounded-full object-cover"> */}
                   <div
-                    className="mb-3 flex h-20 w-20 items-center justify-center rounded-full text-2xl font-black text-white shadow-lg"
+                    className="mb-4 flex h-20 w-20 items-center justify-center rounded-full text-2xl font-black text-white"
                     style={{ background: a.gradient }}
                   >
                     {a.initial}
@@ -489,10 +557,8 @@ export default async function HomeMarketingPage() {
 
       {/* ── 9. CONVIÉRTETE EN AFILIADO ── */}
       <section className="relative overflow-hidden bg-[#1c102d]">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_20%_50%,rgba(242,178,75,0.18),transparent_55%),radial-gradient(ellipse_at_80%_30%,rgba(91,45,138,0.4),transparent_60%)]" />
-
-        {/* IMAGEN: foto de profesionales en entorno colaborativo, cálida y dinámica — 1920×600px, posición background-center */}
-
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_20%_50%,rgba(242,178,75,0.14),transparent_55%),radial-gradient(ellipse_at_80%_30%,rgba(91,45,138,0.45),transparent_60%)]" />
+        {/* ASSETS: foto de fondo — profesionales en entorno colaborativo, cálida (1920×600px) */}
         <div className="relative mx-auto max-w-[1240px] px-6 py-24 md:px-10 lg:px-14">
           <div className="mx-auto max-w-[720px] text-center">
             <p className="mb-4 text-xs font-black uppercase tracking-[0.3em] text-[#f2b24b]">Programa de afiliados</p>
@@ -505,22 +571,14 @@ export default async function HomeMarketingPage() {
             <p className="mx-auto mt-4 max-w-[50ch] text-sm leading-relaxed text-[#9b88c8]">
               Conectamos tu experiencia con líderes que están listos para crecer. Tú pones el expertise; nosotros ponemos la comunidad, la plataforma y el programa.
             </p>
-
             <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-              <Link
-                href="/afiliados"
-                className="rounded-full bg-[#f2b24b] px-8 py-3.5 text-sm font-extrabold text-[#1c0f32] hover:bg-[#f6c56d] transition"
-              >
+              <Link href="/afiliados" className="rounded-full bg-[#f2b24b] px-8 py-3.5 text-sm font-extrabold text-[#1c0f32] hover:bg-[#f6c56d] transition">
                 Postularme como Adviser
               </Link>
-              <Link
-                href="/metodologia"
-                className="rounded-full border border-white/30 px-8 py-3.5 text-sm font-bold text-white hover:bg-white/10 transition"
-              >
+              <Link href="/metodologia" className="rounded-full border border-white/30 px-8 py-3.5 text-sm font-bold text-white hover:bg-white/10 transition">
                 Conocer el programa primero
               </Link>
             </div>
-
             <div className="mt-12 grid grid-cols-3 gap-6 border-t border-white/10 pt-12">
               {[
                 { value: 'Flexible', label: 'Define tu disponibilidad y modalidad' },
@@ -551,13 +609,13 @@ export default async function HomeMarketingPage() {
           {navItems.length > 0 && (
             <nav className="flex flex-wrap gap-6 text-sm font-semibold text-[#5f4a7a]">
               {navItems.map((item) => (
-                <Link key={item.href} href={item.href} className="hover:text-[#1c0f32] transition">{item.label}</Link>
+                <Link key={item.href} href={item.href} className="transition hover:text-[#1c0f32]">{item.label}</Link>
               ))}
             </nav>
           )}
-          <div className="flex items-center gap-4">
-            <Link href="/acceso" className="rounded-full bg-[#1c0f32] px-5 py-2 text-sm font-bold text-white hover:bg-[#2e1a49] transition">Ingresar</Link>
-          </div>
+          <Link href="/acceso" className="rounded-full bg-[#1c0f32] px-5 py-2 text-sm font-bold text-white hover:bg-[#2e1a49] transition">
+            Ingresar
+          </Link>
         </div>
         <div className="border-t border-[#ebe4f7] py-4 text-center text-xs text-[#9b88c8]">
           © {new Date().getFullYear()} 4Shine · Todos los derechos reservados
