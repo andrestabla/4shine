@@ -82,6 +82,7 @@ const ANALYSIS_MAX_RETRIES = 2;
 const ALL_REPORT_FILTERS: DiscoveryReportFilter[] = ["all", "within", "out", "up", "beyond"];
 const PILLAR_REPORT_FILTERS: DiscoveryReportFilter[] = ["within", "out", "up", "beyond"];
 const ANALYSIS_CONCURRENCY = 4;
+const SURVEY_INTERVAL_MS = 5 * 60 * 1000;
 
 const FACE_SCALE = [
   { value: 1, icon: Frown, label: "Muy difícil" },
@@ -260,8 +261,7 @@ export function ResultsView({
       clearSurveyPromptTimer();
       surveyPromptTimerRef.current = window.setTimeout(() => {
         setIsSurveyOpen(true);
-        // Reschedule for every 2 minutes if still not submitted
-        scheduleSurveyPrompt(120000);
+        scheduleSurveyPrompt(SURVEY_INTERVAL_MS);
       }, delayMs);
     },
     [clearSurveyPromptTimer, hasSurveyResponses],
@@ -272,8 +272,8 @@ export function ResultsView({
       clearSurveyPromptTimer();
       return;
     }
-    // Initial prompt after 20s, then recursive every 2 minutes via scheduleSurveyPrompt
-    scheduleSurveyPrompt(20000);
+    // Show every 5 minutes until submitted; also triggered by download action
+    scheduleSurveyPrompt(SURVEY_INTERVAL_MS);
     return clearSurveyPromptTimer;
   }, [hasSurveyResponses, isSurveyOpen, scheduleSurveyPrompt, clearSurveyPromptTimer]);
 
