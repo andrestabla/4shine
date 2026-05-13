@@ -3,10 +3,10 @@
 import type { ReactElement } from "react";
 import Link from "next/link";
 import { useState } from "react";
-import { Check, Minus } from "lucide-react";
+import { Check } from "lucide-react";
 
 type Tab = "diagnostico" | "programas" | "mentorias" | "circulo";
-type CellValue = true | false | string;
+type CellValue = string;
 
 type Plan = {
   id: string;
@@ -18,8 +18,7 @@ type Plan = {
   checkoutHref: string;
 };
 
-type FeatureRow = {
-  category: string;
+type DiffRow = {
   label: string;
   values: Record<string, CellValue>;
 };
@@ -40,13 +39,13 @@ const PROGRAMS: Plan[] = [
     checkoutHref: "/acceso?plan=reinventate",
   },
   {
-    id: "shine",
-    name: "Programa 4Shine",
+    id: "marca",
+    name: "Marca Ejecutiva",
     price: 3000,
     currency: "USD",
     badge: "Recomendado",
     highlighted: true,
-    checkoutHref: "/acceso?plan=programa-4shine",
+    checkoutHref: "/acceso?plan=marca-ejecutiva",
   },
   {
     id: "executive",
@@ -58,72 +57,37 @@ const PROGRAMS: Plan[] = [
   },
 ];
 
-const FEATURE_ROWS: FeatureRow[] = [
+// Lo que cambia entre planes
+const DIFF_ROWS: DiffRow[] = [
   {
-    category: "Fundamentos",
-    label: "Diagnóstico ejecutivo de los 4 pilares",
-    values: { junior: true, reinventate: true, shine: true, executive: true },
+    label: "Sesiones con Adviser",
+    values: { junior: "5", reinventate: "8", marca: "10", executive: "10" },
   },
   {
-    category: "Fundamentos",
-    label: "Acceso a la plataforma",
-    values: { junior: true, reinventate: true, shine: true, executive: true },
+    label: "Workbooks incluidos",
+    values: { junior: "3", reinventate: "4", marca: "10", executive: "10" },
   },
   {
-    category: "Fundamentos",
-    label: "Trayectoria estructurada (24 semanas)",
-    values: { junior: true, reinventate: true, shine: true, executive: true },
+    label: "Nivel del Adviser",
+    values: {
+      junior: "Certificado",
+      reinventate: "Senior",
+      marca: "Senior",
+      executive: "Executive",
+    },
   },
-  {
-    category: "Contenido",
-    label: "Workbooks de metodología 4Shine",
-    values: { junior: "Básicos", reinventate: true, shine: true, executive: true },
-  },
-  {
-    category: "Contenido",
-    label: "Biblioteca de aprendizaje",
-    values: { junior: true, reinventate: true, shine: true, executive: true },
-  },
-  {
-    category: "Acompañamiento",
-    label: "Sesiones individuales con Adviser",
-    values: { junior: "3", reinventate: "6", shine: "10", executive: "15" },
-  },
-  {
-    category: "Acompañamiento",
-    label: "Mensajes directos con tu Adviser",
-    values: { junior: false, reinventate: true, shine: true, executive: true },
-  },
-  {
-    category: "Acompañamiento",
-    label: "Retroalimentación de Adviser en workbooks",
-    values: { junior: false, reinventate: false, shine: true, executive: true },
-  },
-  {
-    category: "Comunidad",
-    label: "Networking y comunidad de líderes",
-    values: { junior: false, reinventate: true, shine: true, executive: true },
-  },
-  {
-    category: "Comunidad",
-    label: "Workshops y convocatorias mensuales",
-    values: { junior: false, reinventate: false, shine: true, executive: true },
-  },
-  {
-    category: "Comunidad",
-    label: "Sesiones en vivo — Círculo de líderes",
-    values: { junior: false, reinventate: false, shine: false, executive: true },
-  },
-  {
-    category: "Cierre",
-    label: "Certificación 4Shine Leadership",
-    values: { junior: false, reinventate: true, shine: true, executive: true },
-  },
-  {
-    category: "Cierre",
-    label: "Soporte y seguimiento prioritario",
-    values: { junior: false, reinventate: false, shine: false, executive: true },
-  },
+];
+
+// Lo que tienen todos los planes
+const SHARED_FEATURES = [
+  "Diagnóstico ejecutivo de los 4 pilares",
+  "Acceso completo a la plataforma",
+  "Trayectoria estructurada (24 semanas)",
+  "Biblioteca de aprendizaje y recursos",
+  "Mensajes directos con tu Adviser",
+  "Networking y comunidad de líderes",
+  "Workshops y convocatorias",
+  "Certificación 4Shine Leadership",
 ];
 
 const MENTORING_PACKS = [
@@ -131,7 +95,7 @@ const MENTORING_PACKS = [
     id: "mentor-1",
     sessions: 1,
     label: "1 sesión",
-    price: 50,
+    price: 70,
     note: "Sesión individual de 60 min. con Adviser certificado. Ideal para un momento puntual de claridad o acompañamiento.",
     checkoutHref: "/acceso?plan=mentoria-1",
   },
@@ -139,19 +103,27 @@ const MENTORING_PACKS = [
     id: "mentor-3",
     sessions: 3,
     label: "3 sesiones",
-    price: 140,
+    price: 200,
     badge: "Popular",
-    note: "Pack de 3 sesiones. Ahorro vs precio individual. Recomendado para trabajar un reto concreto en profundidad.",
+    note: "Pack de 3 sesiones. Recomendado para trabajar un reto concreto con continuidad y profundidad.",
     checkoutHref: "/acceso?plan=mentoria-3",
   },
   {
     id: "mentor-5",
     sessions: 5,
     label: "5 sesiones",
-    price: 200,
-    note: "Pack de 5 sesiones con el mayor ahorro por sesión. Para un ciclo de acompañamiento sostenido.",
+    price: 300,
+    note: "Pack de 5 sesiones. El mayor ahorro por sesión para un ciclo de acompañamiento sostenido.",
     checkoutHref: "/acceso?plan=mentoria-5",
   },
+];
+
+const CIRCULO_FEATURES = [
+  "1 sesión en vivo grupal por semana",
+  "Todos los cursos y material exclusivo",
+  "Comunidad y networking",
+  "Convocatorias",
+  "Workshops",
 ];
 
 const CIRCULO_PLANS = [
@@ -160,12 +132,6 @@ const CIRCULO_PLANS = [
     name: "Mensual",
     price: 57,
     period: "/ mes",
-    features: [
-      "2 sesiones en vivo por mes",
-      "Comunidad exclusiva de líderes",
-      "Grabaciones de todas las sesiones",
-      "Recursos y materiales del círculo",
-    ],
     checkoutHref: "/acceso?plan=circulo-mensual",
   },
   {
@@ -174,13 +140,6 @@ const CIRCULO_PLANS = [
     price: 300,
     period: "/ 6 meses",
     badge: "Ahorra 42%",
-    features: [
-      "12 sesiones en vivo (6 meses)",
-      "Comunidad exclusiva de líderes",
-      "Grabaciones de todas las sesiones",
-      "Recursos y materiales del círculo",
-      "Acceso al archivo histórico de sesiones",
-    ],
     checkoutHref: "/acceso?plan=circulo-semestral",
   },
 ];
@@ -192,31 +151,13 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "circulo", label: "Círculo de líderes" },
 ];
 
-function Cell({ value, highlighted }: { value: CellValue; highlighted?: boolean }) {
-  if (value === true) {
-    return (
-      <div className="flex justify-center">
-        <div
-          className={`flex h-6 w-6 items-center justify-center rounded-full ${
-            highlighted ? "bg-[#f2b24b]/20" : "bg-[#5b2d8a]/10"
-          }`}
-        >
-          <Check
-            size={13}
-            strokeWidth={2.5}
-            className={highlighted ? "text-[#f2b24b]" : "text-[#5b2d8a]"}
-          />
-        </div>
-      </div>
-    );
-  }
-  if (value === false) {
-    return (
-      <div className="flex justify-center">
-        <Minus size={14} className="text-[#ccc3db]" />
-      </div>
-    );
-  }
+function DiffCell({
+  value,
+  highlighted,
+}: {
+  value: CellValue;
+  highlighted?: boolean;
+}) {
   return (
     <p
       className={`text-center text-sm font-extrabold ${
@@ -308,15 +249,16 @@ export function PricingMatrix() {
       {tab === "programas" && (
         <div>
           <p className="mb-8 max-w-[64ch] text-base leading-relaxed text-[#5e4b78]">
-            Programas estructurados de 24 semanas con Adviser asignado. Cada nivel incluye la ruta completa — diagnóstico, trayectoria, workbooks y certificación — y se diferencia en la profundidad del acompañamiento.
+            Los 4 programas dan acceso completo a la plataforma. Lo que varía es la intensidad del acompañamiento: número de sesiones, workbooks y nivel del Adviser asignado.
           </p>
+
           <div className="overflow-x-auto rounded-2xl border border-[#d6cced] bg-white shadow-[0_8px_40px_rgba(42,20,68,0.07)]">
             <table className="w-full min-w-[680px] border-collapse">
+
+              {/* Header — plan names + prices */}
               <thead>
                 <tr className="border-b border-[#ede7f8]">
-                  <th className="w-56 px-6 py-6 text-left text-xs font-extrabold uppercase tracking-widest text-[#9b88c8]">
-                    Características
-                  </th>
+                  <th className="w-56 px-6 py-6 text-left" />
                   {PROGRAMS.map((p) => (
                     <th
                       key={p.id}
@@ -360,50 +302,88 @@ export function PricingMatrix() {
                   ))}
                 </tr>
               </thead>
+
               <tbody>
-                {(() => {
+                {/* Section: Lo que cambia */}
+                <tr className="border-b border-[#f0ebfa]">
+                  <td
+                    colSpan={PROGRAMS.length + 1}
+                    className="bg-[#1c102d] px-6 py-2.5 text-[10px] font-extrabold uppercase tracking-widest text-[#c9b8ff]"
+                  >
+                    Lo que cambia entre planes
+                  </td>
+                </tr>
+
+                {DIFF_ROWS.map((row) => {
                   const rows: ReactElement[] = [];
-                  let lastCategory = "";
-                  FEATURE_ROWS.forEach((row) => {
-                    if (row.category !== lastCategory) {
-                      lastCategory = row.category;
-                      rows.push(
-                        <tr key={`cat-${row.category}`} className="border-b border-[#f0ebfa]">
-                          <td
-                            colSpan={PROGRAMS.length + 1}
-                            className="bg-[#f9f7fd] px-6 py-2 text-[10px] font-extrabold uppercase tracking-widest text-[#9b88c8]"
-                          >
-                            {row.category}
-                          </td>
-                        </tr>
-                      );
-                    }
-                    rows.push(
-                      <tr
-                        key={row.label}
-                        className="border-b border-[#f5f0fa] transition hover:bg-[#fbf9ff]"
-                      >
-                        <td className="px-6 py-3.5 text-sm font-medium text-[#3d2b5f]">
-                          {row.label}
+                  rows.push(
+                    <tr
+                      key={row.label}
+                      className="border-b border-[#f0ebfa] transition hover:bg-[#fbf9ff]"
+                    >
+                      <td className="px-6 py-4 text-sm font-semibold text-[#3d2b5f]">
+                        {row.label}
+                      </td>
+                      {PROGRAMS.map((p) => (
+                        <td
+                          key={p.id}
+                          className={`px-5 py-4 ${p.highlighted ? "bg-[#1c102d]/[0.025]" : ""}`}
+                        >
+                          <DiffCell
+                            value={row.values[p.id] ?? "—"}
+                            highlighted={p.highlighted}
+                          />
                         </td>
-                        {PROGRAMS.map((p) => (
-                          <td
-                            key={p.id}
-                            className={`px-5 py-3.5 ${
-                              p.highlighted ? "bg-[#1c102d]/[0.025]" : ""
+                      ))}
+                    </tr>
+                  );
+                  return rows;
+                })}
+
+                {/* Section: Incluido en todos */}
+                <tr className="border-b border-[#f0ebfa]">
+                  <td
+                    colSpan={PROGRAMS.length + 1}
+                    className="bg-[#f9f7fd] px-6 py-2.5 text-[10px] font-extrabold uppercase tracking-widest text-[#9b88c8]"
+                  >
+                    Incluido en todos los planes
+                  </td>
+                </tr>
+
+                {SHARED_FEATURES.map((feature) => (
+                  <tr
+                    key={feature}
+                    className="border-b border-[#f5f0fa] transition hover:bg-[#fbf9ff]"
+                  >
+                    <td className="px-6 py-3.5 text-sm font-medium text-[#3d2b5f]">
+                      {feature}
+                    </td>
+                    {PROGRAMS.map((p) => (
+                      <td
+                        key={p.id}
+                        className={`px-5 py-3.5 ${p.highlighted ? "bg-[#1c102d]/[0.025]" : ""}`}
+                      >
+                        <div className="flex justify-center">
+                          <div
+                            className={`flex h-6 w-6 items-center justify-center rounded-full ${
+                              p.highlighted ? "bg-[#f2b24b]/20" : "bg-[#5b2d8a]/10"
                             }`}
                           >
-                            <Cell
-                              value={row.values[p.id] ?? false}
-                              highlighted={p.highlighted}
+                            <Check
+                              size={13}
+                              strokeWidth={2.5}
+                              className={
+                                p.highlighted ? "text-[#f2b24b]" : "text-[#5b2d8a]"
+                              }
                             />
-                          </td>
-                        ))}
-                      </tr>
-                    );
-                  });
-                  return rows;
-                })()}
+                          </div>
+                        </div>
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+
+                {/* CTA row */}
                 <tr>
                   <td className="px-6 py-5 text-[11px] text-[#9b88c8]">
                     * Precio único. Sin cuotas ocultas.
@@ -513,7 +493,7 @@ export function PricingMatrix() {
       {tab === "circulo" && (
         <div>
           <p className="mb-8 max-w-[62ch] text-base leading-relaxed text-[#5e4b78]">
-            Acceso a sesiones en vivo mensuales con líderes activos del ecosistema 4Shine. Una comunidad de práctica continua con grabaciones, recursos y espacio de conversación real.
+            Acceso a sesiones en vivo grupales semanales, cursos exclusivos, comunidad, convocatorias y workshops. Los dos planes tienen exactamente el mismo acceso — solo cambia la duración.
           </p>
           <div className="mx-auto grid max-w-[720px] gap-6 sm:grid-cols-2">
             {CIRCULO_PLANS.map((plan) => (
@@ -552,7 +532,7 @@ export function PricingMatrix() {
                   </span>
                 </p>
                 <ul className="mt-6 flex-1 space-y-2.5">
-                  {plan.features.map((f) => (
+                  {CIRCULO_FEATURES.map((f) => (
                     <li key={f} className="flex items-start gap-2.5 text-sm">
                       <Check
                         size={14}
@@ -561,9 +541,7 @@ export function PricingMatrix() {
                           plan.badge ? "text-[#f2b24b]" : "text-[#5b2d8a]"
                         }`}
                       />
-                      <span
-                        className={plan.badge ? "text-[#ddd6f0]" : "text-[#4a3665]"}
-                      >
+                      <span className={plan.badge ? "text-[#ddd6f0]" : "text-[#4a3665]"}>
                         {f}
                       </span>
                     </li>
