@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { authenticateRequest } from "@/server/auth/request-auth";
+
+export const maxDuration = 300;
 import { withClient, withRoleContext } from "@/server/db/pool";
 import {
   generateDiscoveryAnalysis,

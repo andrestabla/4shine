@@ -99,7 +99,7 @@ interface DiscoveryFeedbackSettingsRow {
 const INVITATION_PROVISION_SYSTEM_USER_ID =
   process.env.INVITATION_PROVISION_SYSTEM_USER_ID || "00000000-0000-0000-0000-000000000001";
 const CURRENT_DISCOVERY_AI_REPORT_VERSION = 5;
-const DISCOVERY_ANALYSIS_BATCH_CONCURRENCY = 1;
+const DISCOVERY_ANALYSIS_BATCH_CONCURRENCY = 4;
 
 interface OutboundConfigRow {
   organization_id: string;
@@ -5250,23 +5250,24 @@ async function runContractStyleAnalysis(
   try {
     const isGlobal = pillar === "all";
     const isFastPillar = !isGlobal && fastMode;
-    const primaryModel = "gpt-4.1"; 
+    const primaryModel = "gpt-4.1";
     const refinementModel = "gpt-4.1";
-    const maxAttempts = isGlobal ? 3 : 2; 
+    // 1 refinement attempt for per-pillar (fast), 2 for global — keeps each call under 60s
+    const maxRefinements = isGlobal ? 2 : 1;
 
     let report = await requestOpenAiReport(context, systemPrompt, userPrompt, {
       model: primaryModel,
-      temperature: isGlobal ? 0.68 : 0.65, 
-      timeoutMs: isGlobal ? 80000 : 45000,
+      temperature: isGlobal ? 0.68 : 0.65,
+      timeoutMs: isGlobal ? 90000 : 50000,
       maxTokens: isGlobal ? 4000 : 2800,
-      maxAttempts: isGlobal ? 3 : 2,
+      maxAttempts: isGlobal ? 2 : 1,
     });
     let attempts = 1;
     const shouldRefine = (draft: string): boolean => {
       if (isFastPillar) return !isFastPillarReportAcceptable(draft);
       return !isDeepEnoughReport(draft, pillar);
     };
-    while (shouldRefine(report) && attempts < maxAttempts) {
+    while (shouldRefine(report) && attempts <= maxRefinements) {
       const refinementPrompt = [
         `Iteración de mejora ${attempts}. EL REPORTE NO CUMPLE EL ESTÁNDAR DE CALIDAD.`,
         `Palabras actuales: ${countWords(report)} (mínimo requerido: ${isGlobal ? 900 : isFastPillar ? 420 : 550}).`,
@@ -5289,10 +5290,10 @@ async function runContractStyleAnalysis(
       ].join("\n");
       report = await requestOpenAiReport(context, systemPrompt, refinementPrompt, {
         model: refinementModel,
-        temperature: 0.7 + (attempts * 0.05), 
-        timeoutMs: isGlobal ? 80000 : 50000,
+        temperature: 0.7 + (attempts * 0.05),
+        timeoutMs: isGlobal ? 90000 : 55000,
         maxTokens: isGlobal ? 4000 : 2800,
-        maxAttempts: isGlobal ? 3 : 2,
+        maxAttempts: 1,
       });
       attempts += 1;
     }

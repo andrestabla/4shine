@@ -78,10 +78,10 @@ const EMPTY_REPORTS: Record<DiscoveryReportFilter, string> = {
   up: "",
   beyond: "",
 };
-const ANALYSIS_MAX_RETRIES = 3;
+const ANALYSIS_MAX_RETRIES = 2;
 const ALL_REPORT_FILTERS: DiscoveryReportFilter[] = ["all", "within", "out", "up", "beyond"];
 const PILLAR_REPORT_FILTERS: DiscoveryReportFilter[] = ["within", "out", "up", "beyond"];
-const ANALYSIS_CONCURRENCY = 2;
+const ANALYSIS_CONCURRENCY = 4;
 
 const FACE_SCALE = [
   { value: 1, icon: Frown, label: "Muy difícil" },
