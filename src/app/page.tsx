@@ -359,26 +359,22 @@ export default async function HomeMarketingPage() {
             </Link>
           </div>
 
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {pillars.map((p) => {
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {pillars.map((p, i) => {
               const Icon = PILLAR_ICONS[p.key];
               return (
                 <article
                   key={p.title}
-                  className="group relative overflow-hidden rounded-3xl border border-[#e8e0f8] bg-white shadow-[0_8px_32px_rgba(42,20,68,0.06)] transition hover:shadow-[0_16px_48px_rgba(42,20,68,0.12)] hover:-translate-y-1"
+                  className="group relative overflow-hidden rounded-3xl p-7 text-white transition duration-300 hover:-translate-y-1 hover:shadow-[0_28px_56px_rgba(0,0,0,0.22)]"
+                  style={{ background: p.gradient }}
                 >
-                  <div className="h-1.5 w-full" style={{ background: p.gradient }} />
-                  <div className="p-6">
-                    <div
-                      className="flex h-11 w-11 items-center justify-center rounded-2xl"
-                      style={{ background: `${p.iconColor}18` }}
-                    >
-                      <Icon size={20} color={p.iconColor} />
-                    </div>
-                    <h3 className="mt-4 text-lg font-black text-[#1c0f32]">{p.title}</h3>
-                    <p className="mt-2 text-sm font-semibold text-[#3d255f]">{p.description}</p>
-                    <p className="mt-3 text-sm leading-relaxed text-[#6b5487]">{p.detail}</p>
-                  </div>
+                  <span className="pointer-events-none absolute -right-3 -top-5 select-none text-[8.5rem] font-black leading-none text-white/[0.07]">
+                    {String(i + 1).padStart(2, '0')}
+                  </span>
+                  <Icon size={26} color="rgba(255,255,255,0.88)" strokeWidth={1.8} />
+                  <h3 className="mt-5 text-lg font-black tracking-tight">{p.title}</h3>
+                  <p className="mt-2 text-sm font-semibold leading-snug text-white/80">{p.description}</p>
+                  <p className="mt-3 text-[13px] leading-relaxed text-white/60">{p.detail}</p>
                 </article>
               );
             })}
