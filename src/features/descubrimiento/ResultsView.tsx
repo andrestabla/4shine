@@ -203,6 +203,7 @@ export function ResultsView({
   const [sharedPublicId, setSharedPublicId] = React.useState(publicId ?? null);
   const [isTourOpen, setIsTourOpen] = React.useState(false);
   const [tourStepIdx, setTourStepIdx] = React.useState(0);
+  const [analysisReady, setAnalysisReady] = React.useState(false);
   const [maximizedChart, setMaximizedChart] = React.useState<"global" | "pillar" | null>(null);
   const [isSurveyOpen, setIsSurveyOpen] = React.useState(false);
   const [isSurveySubmitting, setIsSurveySubmitting] = React.useState(false);
@@ -289,15 +290,22 @@ export function ResultsView({
     const seenTour = window.localStorage.getItem("discovery-results-tour-seen") === "1";
     if (!seenTour) {
       setIsTourOpen(true);
+    } else {
+      setAnalysisReady(true);
     }
+  }, []);
+
+  const closeTour = React.useCallback(() => {
+    setIsTourOpen(false);
+    window.localStorage.setItem("discovery-results-tour-seen", "1");
+    setAnalysisReady(true);
   }, []);
 
   const handleNextTourStep = () => {
     if (tourStepIdx < TOUR_STEPS.length - 1) {
       setTourStepIdx((prev) => prev + 1);
     } else {
-      setIsTourOpen(false);
-      window.localStorage.setItem("discovery-results-tour-seen", "1");
+      closeTour();
     }
   };
 
@@ -405,6 +413,7 @@ export function ResultsView({
   );
 
   React.useEffect(() => {
+    if (!analysisReady) return;
     if (analysisBatchStartedRef.current) return;
     if (isPublic && !invitationCredentials && !enablePublicAnalysis) return;
     if (ALL_REPORT_FILTERS.every((target) => analysisCacheRef.current.has(target))) return;
@@ -432,6 +441,7 @@ export function ResultsView({
       cancelled = true;
     };
   }, [
+    analysisReady,
     enablePublicAnalysis,
     generateAnalysisForFilter,
     invitationCredentials,
@@ -1106,10 +1116,7 @@ export function ResultsView({
             <div className="mt-6 flex items-center justify-between gap-3">
               <button
                 type="button"
-                onClick={() => {
-                  setIsTourOpen(false);
-                  window.localStorage.setItem("discovery-results-tour-seen", "1");
-                }}
+                onClick={closeTour}
                 className="text-xs font-semibold text-[var(--app-muted)] underline underline-offset-4"
               >
                 Saltar tour
