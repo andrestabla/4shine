@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { getSitePages } from '@/lib/site-settings';
 
 const pillars = [
   {
@@ -34,7 +35,17 @@ const stories = [
   },
 ];
 
-export default function HomeMarketingPage() {
+const HOME_NAV_ITEMS = [
+  { href: '/metodologia', label: 'Metodología', pageKey: 'metodologia' },
+  { href: '/descubrimiento', label: 'Descubrimiento', pageKey: 'descubrimiento' },
+  { href: '/planes-precios', label: 'Planes y precios', pageKey: 'planes_precios' },
+  { href: '/afiliados', label: 'Afiliados', pageKey: 'afiliados' },
+] as const;
+
+export default async function HomeMarketingPage() {
+  const enabledPages = await getSitePages();
+  const navItems = HOME_NAV_ITEMS.filter((item) => enabledPages[item.pageKey] !== false);
+
   return (
     <main className="min-h-screen bg-[#f4f2fa] text-[#261739]">
       <section className="relative overflow-hidden border-b border-[#d8d0ea] bg-[#1c102d] text-white">
@@ -65,12 +76,13 @@ export default function HomeMarketingPage() {
               />
               <span className="text-xl font-black tracking-tight">4Shine</span>
             </Link>
-            <nav className="hidden items-center gap-8 text-sm font-semibold md:flex">
-              <Link href="/metodologia" className="hover:text-[#f4cf8e]">Metodología</Link>
-              <Link href="/descubrimiento" className="hover:text-[#f4cf8e]">Descubrimiento</Link>
-              <Link href="/planes-precios" className="hover:text-[#f4cf8e]">Planes y precios</Link>
-              <Link href="/afiliados" className="hover:text-[#f4cf8e]">Afiliados</Link>
-            </nav>
+            {navItems.length > 0 && (
+              <nav className="hidden items-center gap-8 text-sm font-semibold md:flex">
+                {navItems.map((item) => (
+                  <Link key={item.href} href={item.href} className="hover:text-[#f4cf8e]">{item.label}</Link>
+                ))}
+              </nav>
+            )}
             <Link href="/acceso" className="rounded-full bg-[#f2b24b] px-5 py-2 text-sm font-extrabold text-[#2a1b3f] hover:bg-[#f6c56d]">Ingresar</Link>
           </header>
 

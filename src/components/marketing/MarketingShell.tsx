@@ -1,20 +1,24 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { getSitePages } from '@/lib/site-settings';
 
 type NavItem = {
   href: string;
   label: string;
+  pageKey: string;
 };
 
-const navItems: NavItem[] = [
-  { href: '/', label: 'Home' },
-  { href: '/metodologia', label: 'Metodología' },
-  { href: '/descubrimiento', label: 'Descubrimiento' },
-  { href: '/planes-precios', label: 'Planes y precios' },
-  { href: '/afiliados', label: 'Afiliados' },
+const ALL_NAV_ITEMS: NavItem[] = [
+  { href: '/metodologia', label: 'Metodología', pageKey: 'metodologia' },
+  { href: '/descubrimiento', label: 'Descubrimiento', pageKey: 'descubrimiento' },
+  { href: '/planes-precios', label: 'Planes y precios', pageKey: 'planes_precios' },
+  { href: '/afiliados', label: 'Afiliados', pageKey: 'afiliados' },
 ];
 
-export function MarketingShell({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
+export async function MarketingShell({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
+  const enabledPages = await getSitePages();
+  const navItems = ALL_NAV_ITEMS.filter((item) => enabledPages[item.pageKey] !== false);
+
   return (
     <main className="min-h-screen bg-[#f4f2fa] text-[#27163a]">
       <header className="sticky top-0 z-30 border-b border-[#d7cdec] bg-[#f4f2fa]/90 backdrop-blur">
@@ -28,11 +32,13 @@ export function MarketingShell({ title, subtitle, children }: { title: string; s
             />
             <span className="text-2xl font-black tracking-tight">4Shine</span>
           </Link>
-          <nav className="hidden items-center gap-7 text-sm font-bold text-[#4e356a] md:flex">
-            {navItems.map((item) => (
-              <Link key={item.href} href={item.href} className="transition hover:text-[#2d1845]">{item.label}</Link>
-            ))}
-          </nav>
+          {navItems.length > 0 && (
+            <nav className="hidden items-center gap-7 text-sm font-bold text-[#4e356a] md:flex">
+              {navItems.map((item) => (
+                <Link key={item.href} href={item.href} className="transition hover:text-[#2d1845]">{item.label}</Link>
+              ))}
+            </nav>
+          )}
           <Link href="/acceso" className="rounded-full bg-[#2e1b49] px-5 py-2 text-sm font-bold text-white hover:bg-[#402662]">Iniciar sesión</Link>
         </div>
       </header>
@@ -51,11 +57,13 @@ export function MarketingShell({ title, subtitle, children }: { title: string; s
             <p className="text-xl font-black text-[#2e1b48]">4Shine</p>
             <p className="text-sm text-[#68557f]">Liderazgo con método, consciencia e impacto.</p>
           </div>
-          <div className="flex gap-5 text-sm font-semibold text-[#5f4a7a]">
-            {navItems.map((item) => (
-              <Link key={item.href} href={item.href} className="hover:text-[#2e1b48]">{item.label}</Link>
-            ))}
-          </div>
+          {navItems.length > 0 && (
+            <div className="flex gap-5 text-sm font-semibold text-[#5f4a7a]">
+              {navItems.map((item) => (
+                <Link key={item.href} href={item.href} className="hover:text-[#2e1b48]">{item.label}</Link>
+              ))}
+            </div>
+          )}
         </div>
       </footer>
     </main>
