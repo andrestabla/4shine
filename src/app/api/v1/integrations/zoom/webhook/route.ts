@@ -2,6 +2,7 @@ import { createHmac } from 'crypto';
 import { NextResponse } from 'next/server';
 import { withClient } from '@/server/db/pool';
 import { ingestZoomRecording } from '@/features/mentorias/service';
+import { setZoomRecordingPublic } from '@/server/integrations/zoom';
 
 export const runtime = 'nodejs';
 
@@ -84,16 +85,20 @@ export async function POST(request: Request) {
           start && end
             ? Math.max(0, Math.round((new Date(end).getTime() - new Date(start).getTime()) / 60000))
             : 0;
+        const playUrl = String(mp4.play_url);
 
-        withClient((client) =>
-          ingestZoomRecording(client, {
-            meetingId,
-            topic,
-            playUrl: String(mp4.play_url),
-            durationMinutes,
-            recordedAt: start,
-          }),
-        ).catch((err) => console.error('[zoom webhook] recording ingest failed:', err));
+        // Make recording publicly accessible, then ingest it.
+        // Both are fire-and-forget so the webhook returns 200 immediately.
+        void (async () => {
+          try {
+            await withClient((client) => setZoomRecordingPublic(client, meetingId));
+          } catch (err) {
+            console.error('[zoom webhook] set recording public failed:', err);
+          }
+          withClient((client) =>
+            ingestZoomRecording(client, { meetingId, topic, playUrl, durationMinutes, recordedAt: start }),
+          ).catch((err) => console.error('[zoom webhook] recording ingest failed:', err));
+        })();
       }
     }
   }

@@ -176,3 +176,43 @@ export async function deleteZoomMeeting(
     headers: { Authorization: `Bearer ${token}` },
   });
 }
+
+async function getZoomCredentials(
+  client: PoolClient,
+): Promise<{ accountId: string; clientId: string; clientSecret: string } | null> {
+  const { rows } = await client.query<{ wizard_data: Record<string, string> | null; secret_value: string | null }>(
+    `SELECT ic.wizard_data, ic.secret_value
+     FROM app_admin.integration_configs ic
+     WHERE ic.integration_key = 'zoom'
+     ORDER BY ic.updated_at DESC
+     LIMIT 1`,
+  );
+  const row = rows[0];
+  if (!row?.wizard_data) return null;
+  const accountId = row.wizard_data.accountId?.trim();
+  const clientId = row.wizard_data.clientId?.trim();
+  const clientSecret = row.wizard_data.clientSecret?.trim() || row.secret_value?.trim();
+  if (!accountId || !clientId || !clientSecret) return null;
+  return { accountId, clientId, clientSecret };
+}
+
+export async function setZoomRecordingPublic(
+  client: PoolClient,
+  meetingId: string,
+): Promise<void> {
+  const creds = await getZoomCredentials(client);
+  if (!creds) return;
+
+  const token = await getAccessToken(creds.accountId, creds.clientId, creds.clientSecret);
+  const res = await fetch(
+    `https://api.zoom.us/v2/meetings/${encodeURIComponent(meetingId)}/recordings/settings`,
+    {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ share_recording: 'publicly' }),
+    },
+  );
+  if (!res.ok && res.status !== 204) {
+    throw new Error(`Zoom set recording public error ${res.status}: ${await res.text()}`);
+  }
+}
