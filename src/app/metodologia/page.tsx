@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Compass, MessageSquare, TrendingUp, Globe, BookOpen, Layers, Users } from 'lucide-react';
+import { Compass, MessageSquare, TrendingUp, Globe } from 'lucide-react';
 import { MarketingShell } from '@/components/marketing/MarketingShell';
 
 type PillarKey = 'within' | 'out' | 'up' | 'beyond';
@@ -110,7 +110,6 @@ export default function MetodologiaPage() {
         <div className="mx-auto max-w-[1240px] px-6 pb-20 pt-4 md:px-10 lg:px-14">
           <div className="grid items-center gap-16 lg:grid-cols-2">
             <div>
-              <p className="mb-4 text-xs font-black uppercase tracking-[0.3em] text-[#7557a1]">¿Qué es 4Shine?</p>
               <h2 className="max-w-[22ch] text-4xl font-black leading-[1.05] tracking-tight text-[#1c0f32] md:text-5xl">
                 Más que una plataforma. Un sistema de transformación.
               </h2>
@@ -136,26 +135,18 @@ export default function MetodologiaPage() {
             </div>
 
             {/* Video panel */}
-            <div className="relative overflow-hidden rounded-3xl bg-[#1c102d] shadow-[0_32px_72px_rgba(28,16,45,0.22)]">
+            <div className="overflow-hidden rounded-3xl bg-[#1c102d] shadow-[0_32px_72px_rgba(28,16,45,0.22)]">
               <div className="aspect-video flex items-center justify-center">
-                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_38%_50%,rgba(91,45,138,0.55),transparent_60%),radial-gradient(ellipse_at_76%_20%,rgba(242,178,75,0.09),transparent_50%)]" />
-                <div
-                  className="absolute inset-0 opacity-[0.025]"
-                  style={{
-                    backgroundImage: 'linear-gradient(rgba(255,255,255,0.8) 1px, transparent 1px), linear-gradient(90deg,rgba(255,255,255,0.8) 1px, transparent 1px)',
-                    backgroundSize: '44px 44px',
-                  }}
-                />
-                <div className="relative flex flex-col items-center gap-5">
-                  <div
-                    className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-full border border-[#f2b24b]/40 bg-[#f2b24b]/10 backdrop-blur transition hover:scale-105 hover:bg-[#f2b24b]/20"
-                    style={{ boxShadow: '0 0 0 16px rgba(242,178,75,0.05),0 0 0 32px rgba(242,178,75,0.025)' }}
+                <div className="flex flex-col items-center gap-5">
+                  <button
+                    type="button"
+                    className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-full border border-[#f2b24b]/50 bg-[#f2b24b]/15 transition hover:bg-[#f2b24b]/25"
                   >
                     <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
                       <path d="M9 6.5l12 6.5-12 6.5V6.5z" fill="#f2b24b" />
                     </svg>
-                  </div>
-                  <p className="text-sm font-medium text-white/50">Conoce cómo funciona 4Shine</p>
+                  </button>
+                  <p className="text-sm font-medium text-white/40">Conoce cómo funciona 4Shine</p>
                 </div>
               </div>
             </div>
@@ -181,30 +172,13 @@ export default function MetodologiaPage() {
       {/* ── 3. LOS 4 PILARES ── */}
       <section className="bg-[#f4f2fa]">
         <div className="mx-auto max-w-[1240px] px-6 py-20 md:px-10 lg:px-14">
-          <p className="mb-4 text-xs font-black uppercase tracking-[0.3em] text-[#7557a1]">El programa</p>
-          <div className="mb-12 grid items-end gap-4 md:grid-cols-[1fr_auto]">
+          <div className="mb-14 grid items-end gap-4 md:grid-cols-[1fr_auto]">
             <h2 className="max-w-[28ch] text-4xl font-black tracking-tight text-[#1c0f32] md:text-5xl">
               Cuatro dimensiones. Una transformación completa.
             </h2>
             <p className="max-w-[42ch] text-base leading-relaxed text-[#5e4b78] md:text-lg">
               Cada fase construye sobre la anterior. De adentro hacia afuera, de la identidad al impacto colectivo.
             </p>
-          </div>
-
-          {/* Phase flow */}
-          <div className="mb-10 flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-[#e8e0f8] px-3.5 py-1.5 text-xs font-bold text-[#5b2d8a]">Diagnóstico</span>
-            {pillars.map((p, i) => (
-              <span key={p.key} className="flex items-center gap-2">
-                <svg width="18" height="12" viewBox="0 0 18 12" fill="none"><path d="M0 6h14M10 2l4 4-4 4" stroke="#c4b5da" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                <span
-                  className="rounded-full px-3.5 py-1.5 text-xs font-bold text-white"
-                  style={{ background: PHASE_COLORS[p.key] }}
-                >
-                  {p.title}
-                </span>
-              </span>
-            ))}
           </div>
 
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -219,7 +193,7 @@ export default function MetodologiaPage() {
                   <span className="pointer-events-none absolute -right-3 -top-5 select-none text-[8.5rem] font-black leading-none text-white/[0.07]">
                     {String(i + 1).padStart(2, '0')}
                   </span>
-                  <p className="mb-4 text-[11px] font-bold uppercase tracking-widest text-white/60">{p.weeks}</p>
+                  <p className="mb-4 text-[11px] font-bold uppercase tracking-widest text-white/50">{p.weeks}</p>
                   <Icon size={26} color="rgba(255,255,255,0.88)" strokeWidth={1.8} />
                   <h3 className="mt-4 text-lg font-black tracking-tight">{p.title}</h3>
                   <p className="mt-2 text-sm font-semibold leading-snug text-white/80">{p.description}</p>
@@ -235,131 +209,112 @@ export default function MetodologiaPage() {
       <section className="bg-white">
         <div className="mx-auto max-w-[1240px] px-6 py-20 md:px-10 lg:px-14">
           <div className="mb-10 grid items-end gap-6 md:grid-cols-[1fr_auto]">
-            <div>
-              <p className="mb-4 text-xs font-black uppercase tracking-[0.3em] text-[#7557a1]">Workbooks</p>
-              <h2 className="max-w-[26ch] text-4xl font-black tracking-tight text-[#1c0f32] md:text-5xl">
-                10 guías de trabajo práctico, una por fase y momento.
-              </h2>
-            </div>
+            <h2 className="max-w-[26ch] text-4xl font-black tracking-tight text-[#1c0f32] md:text-5xl">
+              10 guías de trabajo práctico, una por fase y momento.
+            </h2>
             <div className="flex flex-wrap gap-2.5 md:justify-end">
               {pillars.map((p) => (
                 <span
                   key={p.key}
-                  className="flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold text-white"
+                  className="rounded-full px-3 py-1 text-[11px] font-bold text-white"
                   style={{ background: PHASE_COLORS[p.key] }}
                 >
-                  <span className="h-1.5 w-1.5 rounded-full bg-white/70" />
                   {p.title}
                 </span>
               ))}
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2">
             {workbooks.map((wb) => (
               <div
                 key={wb.n}
-                className="flex items-center gap-4 rounded-2xl border border-[#e8e0f4] bg-[#faf8ff] px-5 py-4 transition hover:border-[#c4b5da] hover:shadow-[0_4px_18px_rgba(91,45,138,0.07)]"
+                className="flex items-center gap-4 border-b border-[#ede8f6] px-2 py-4 last:border-0 transition hover:bg-[#faf8ff]"
               >
                 <span
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-black text-white"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-black text-white"
                   style={{ background: PHASE_COLORS[wb.phase] }}
                 >
                   {wb.n}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-base font-black text-[#1c0f32]">{wb.title}</p>
-                  <div className="mt-0.5 flex items-center gap-2">
-                    <span className="text-xs text-[#8b75a8]">{wb.weeks}</span>
-                    <span className="text-[10px] text-[#c4b5da]">·</span>
-                    <span className="text-xs font-semibold" style={{ color: PHASE_COLORS[wb.phase] }}>{wb.phaseLabel}</span>
-                  </div>
+                  <p className="text-base font-black text-[#1c0f32]">{wb.title}</p>
+                  <p className="mt-0.5 text-xs text-[#8b75a8]">{wb.weeks} · <span style={{ color: PHASE_COLORS[wb.phase] }}>{wb.phaseLabel}</span></p>
                 </div>
-                <BookOpen size={16} color="#c4b5da" className="shrink-0" />
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── 5. CONTENIDO EXCLUSIVO ── */}
+      {/* ── 5. PLATAFORMA ── */}
       <section className="bg-[#f4f2fa]">
         <div className="mx-auto max-w-[1240px] px-6 py-20 md:px-10 lg:px-14">
-          <p className="mb-4 text-xs font-black uppercase tracking-[0.3em] text-[#7557a1]">Plataforma</p>
           <h2 className="mb-14 max-w-[28ch] text-4xl font-black tracking-tight text-[#1c0f32] md:text-5xl">
             Todo lo que necesitas para crecer, en un solo lugar.
           </h2>
 
           {/* Row A: Contenido exclusivo */}
-          <div className="grid items-center gap-10 rounded-3xl border border-[#ddd5f2] bg-white p-8 lg:grid-cols-[240px_1fr] lg:p-10">
+          <div className="grid items-start gap-10 rounded-3xl border border-[#ddd5f2] bg-white p-8 lg:grid-cols-[220px_1fr] lg:p-10">
             <div>
-              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f0eaff]">
-                <Layers size={22} color="#5b2d8a" />
-              </div>
-              <h3 className="text-2xl font-black text-[#1c0f32]">Contenido exclusivo</h3>
+              <h3 className="text-xl font-black text-[#1c0f32]">Contenido exclusivo</h3>
               <p className="mt-2 text-sm leading-relaxed text-[#5e4b78]">
                 Clases, masterclasses y material de apoyo diseñados para aplicar en tu realidad profesional inmediata.
               </p>
             </div>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-6 sm:grid-cols-3">
               {[
                 { title: 'Video-clases por fase', text: 'Lecciones cortas y accionables alineadas a cada workbook.' },
                 { title: 'Masterclasses de Advisers', text: 'Sesiones de expertos sobre temas de liderazgo de alto impacto.' },
                 { title: 'Biblioteca de recursos', text: 'Lecturas, frameworks y herramientas curadas por especialistas.' },
               ].map(({ title, text }) => (
-                <div key={title} className="rounded-2xl border border-[#ebe4f8] bg-[#faf8ff] p-4">
+                <div key={title}>
                   <p className="text-sm font-black text-[#1c0f32]">{title}</p>
-                  <p className="mt-1.5 text-xs leading-relaxed text-[#7557a1]">{text}</p>
+                  <p className="mt-1.5 text-sm leading-relaxed text-[#7557a1]">{text}</p>
                 </div>
               ))}
             </div>
           </div>
 
           {/* Row B: Mentorías (dark) */}
-          <div className="mt-5 grid items-center gap-10 overflow-hidden rounded-3xl bg-[#1c102d] p-8 text-white lg:grid-cols-[240px_1fr] lg:p-10">
+          <div className="mt-4 grid items-start gap-10 rounded-3xl bg-[#1c102d] p-8 text-white lg:grid-cols-[220px_1fr] lg:p-10">
             <div>
-              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10">
-                <Users size={22} color="white" />
-              </div>
-              <h3 className="text-2xl font-black">Sesiones de mentoría con expertos</h3>
+              <h3 className="text-xl font-black">Sesiones de mentoría con expertos</h3>
               <p className="mt-2 text-sm leading-relaxed text-[#c9b8ff]">
                 Acompañamiento 1:1 y grupal con Advisers especializados que te ayudan a tomar decisiones con mayor claridad y velocidad.
               </p>
             </div>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-6 sm:grid-cols-3">
               {[
                 { title: 'Adviser Guía', text: 'Acompañamiento continuo a lo largo de tu ruta. Seguimiento semanal, retroalimentación y accountability.' },
                 { title: 'Adviser Experto', text: 'Sesiones focalizadas con especialistas según la fase que estés transitando en el programa.' },
                 { title: 'Estructura probada', text: 'Cada sesión tiene un marco de preparación, conversación y compromisos que aceleran el avance real.' },
               ].map(({ title, text }) => (
-                <div key={title} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <div key={title}>
                   <p className="text-sm font-black">{title}</p>
-                  <p className="mt-1.5 text-xs leading-relaxed text-[#c9b8ff]">{text}</p>
+                  <p className="mt-1.5 text-sm leading-relaxed text-[#c9b8ff]">{text}</p>
                 </div>
               ))}
             </div>
           </div>
 
           {/* Row C: Comunidad */}
-          <div className="mt-5 grid items-center gap-10 rounded-3xl border border-[#ddd5f2] bg-white p-8 lg:grid-cols-[240px_1fr] lg:p-10">
+          <div className="mt-4 grid items-start gap-10 rounded-3xl border border-[#ddd5f2] bg-white p-8 lg:grid-cols-[220px_1fr] lg:p-10">
             <div>
-              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f0eaff]">
-                <Users size={22} color="#5b2d8a" />
-              </div>
-              <h3 className="text-2xl font-black text-[#1c0f32]">Comunidad · Networking</h3>
+              <h3 className="text-xl font-black text-[#1c0f32]">Comunidad · Networking</h3>
               <p className="mt-2 text-sm leading-relaxed text-[#5e4b78]">
                 Una red de líderes con el mismo nivel de ambición y compromiso. Colaboración real, no solo contactos.
               </p>
             </div>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-6 sm:grid-cols-3">
               {[
                 { title: 'Sesiones grupales en vivo', text: 'Encuentros semanales con el grupo del programa para compartir avances y desafíos reales.' },
                 { title: 'Workshops y convocatorias', text: 'Eventos de profundización, talleres temáticos y encuentros presenciales o virtuales.' },
                 { title: 'Red de líderes 4Shine', text: 'Acceso permanente a la comunidad: más de 1.000 líderes activos en distintas industrias.' },
               ].map(({ title, text }) => (
-                <div key={title} className="rounded-2xl border border-[#ebe4f8] bg-[#faf8ff] p-4">
+                <div key={title}>
                   <p className="text-sm font-black text-[#1c0f32]">{title}</p>
-                  <p className="mt-1.5 text-xs leading-relaxed text-[#7557a1]">{text}</p>
+                  <p className="mt-1.5 text-sm leading-relaxed text-[#7557a1]">{text}</p>
                 </div>
               ))}
             </div>
@@ -371,12 +326,9 @@ export default function MetodologiaPage() {
       <section className="bg-[#1c102d] text-white">
         <div className="mx-auto max-w-[1240px] px-6 py-20 md:px-10 lg:px-14">
           <div className="mb-14 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="mb-3 text-xs font-black uppercase tracking-[0.3em] text-[#c9b8ff]">Testimonios</p>
-              <h2 className="max-w-[24ch] text-4xl font-black tracking-tight md:text-5xl">
-                Experiencias reales de transformación.
-              </h2>
-            </div>
+            <h2 className="max-w-[24ch] text-4xl font-black tracking-tight md:text-5xl">
+              Experiencias reales de transformación.
+            </h2>
             <Link href="/planes-precios" className="whitespace-nowrap text-sm font-bold text-[#f2b24b] underline underline-offset-4 hover:text-[#f6c56d]">
               Ver planes y empezar →
             </Link>
@@ -384,10 +336,7 @@ export default function MetodologiaPage() {
 
           <div className="grid gap-6 md:grid-cols-3">
             {stories.map((s) => (
-              <article key={s.name} className="flex flex-col rounded-3xl border border-white/10 bg-white/5 p-7 backdrop-blur-sm">
-                <svg className="mb-4 shrink-0" width="32" height="24" viewBox="0 0 32 24" fill="none">
-                  <path d="M0 24V14.4C0 6.4 4.267 1.6 12.8 0l1.6 2.4C10.133 3.733 7.733 6.4 7.2 10.4H13.6V24H0ZM18.4 24V14.4C18.4 6.4 22.667 1.6 31.2 0l1.6 2.4c-4.267 1.333-6.667 4-7.2 8H32V24H18.4Z" fill="#f2b24b" fillOpacity="0.5"/>
-                </svg>
+              <article key={s.name} className="flex flex-col rounded-3xl border border-white/10 bg-white/5 p-7">
                 <p className="flex-1 text-[15px] leading-relaxed text-[#e8e0fc]">{s.text}</p>
                 <div className="mt-7 flex items-center gap-3">
                   <div

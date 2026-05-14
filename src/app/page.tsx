@@ -2,8 +2,6 @@ import Link from 'next/link';
 import { Compass, MessageSquare, TrendingUp, Globe, Map, BarChart2, Users } from 'lucide-react';
 import { getSitePages } from '@/lib/site-settings';
 
-// ── Icon system ───────────────────────────────────────────────────────────────
-
 type PillarKey = 'within' | 'out' | 'up' | 'beyond';
 
 const PILLAR_ICONS = {
@@ -12,8 +10,6 @@ const PILLAR_ICONS = {
   up: TrendingUp,
   beyond: Globe,
 } satisfies Record<PillarKey, React.ElementType>;
-
-// ── Data ─────────────────────────────────────────────────────────────────────
 
 const pillars: Array<{
   key: PillarKey;
@@ -136,21 +132,21 @@ const plans = [
 const advisers = [
   {
     initial: 'M',
-    gradient: 'linear-gradient(135deg,#5b2d8a,#8e44c8)',
+    color: '#5b2d8a',
     name: 'María Torres',
     specialty: 'Liderazgo Estratégico',
     years: '15 años de experiencia',
   },
   {
     initial: 'J',
-    gradient: 'linear-gradient(135deg,#1e5fa8,#2d7dd2)',
+    color: '#1e5fa8',
     name: 'Jorge Espinosa',
     specialty: 'Comunicación Ejecutiva',
     years: '12 años de experiencia',
   },
   {
     initial: 'L',
-    gradient: 'linear-gradient(135deg,#0e7a5a,#15a37a)',
+    color: '#0e7a5a',
     name: 'Laura Méndez',
     specialty: 'Transformación Organizacional',
     years: '18 años de experiencia',
@@ -189,8 +185,6 @@ const HOME_NAV_ITEMS = [
   { href: '/afiliados', label: 'Afiliados', pageKey: 'afiliados' },
 ] as const;
 
-// ─────────────────────────────────────────────────────────────────────────────
-
 export default async function HomeMarketingPage() {
   const enabledPages = await getSitePages();
   const navItems = HOME_NAV_ITEMS.filter((item) => enabledPages[item.pageKey] !== false);
@@ -204,11 +198,9 @@ export default async function HomeMarketingPage() {
           className="absolute inset-0 h-full w-full object-cover"
           autoPlay loop muted playsInline preload="metadata" aria-hidden="true"
         >
-          {/* ASSETS: video corporativo de líderes en contexto (1920×1080 .mp4) */}
           <source src="https://liderazgoestrategico.s3.us-east-1.amazonaws.com/4shine/International_Team_1920x1080.mp4" type="video/mp4" />
         </video>
-        <div className="absolute inset-0 bg-[linear-gradient(108deg,rgba(20,9,36,0.90)_10%,rgba(28,14,45,0.76)_50%,rgba(46,23,62,0.72)_100%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(198,151,255,0.26),transparent_38%),radial-gradient(circle_at_84%_24%,rgba(240,181,95,0.18),transparent_44%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(108deg,rgba(20,9,36,0.92)_10%,rgba(28,14,45,0.80)_55%,rgba(46,23,62,0.74)_100%)]" />
 
         <div className="relative mx-auto flex max-w-[1240px] flex-col px-6 pb-20 pt-6 md:px-10 lg:px-14">
           {/* Nav */}
@@ -248,10 +240,8 @@ export default async function HomeMarketingPage() {
               {pillars.map((p) => {
                 const Icon = PILLAR_ICONS[p.key];
                 return (
-                  <article key={p.title} className="rounded-2xl border border-white/15 bg-white/10 p-5 backdrop-blur-sm hover:bg-white/15 transition">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/12">
-                      <Icon size={18} color="white" />
-                    </div>
+                  <article key={p.title} className="rounded-2xl border border-white/15 bg-white/8 p-5 transition hover:bg-white/12">
+                    <Icon size={20} color="rgba(255,255,255,0.65)" strokeWidth={1.6} />
                     <h2 className="mt-3 text-base font-extrabold">{p.title}</h2>
                     <p className="mt-1.5 text-sm leading-snug text-[#e8e0fc]">{p.description}</p>
                   </article>
@@ -277,11 +267,10 @@ export default async function HomeMarketingPage() {
         </div>
       </section>
 
-      {/* ── 3. POR QUÉ EXISTE 4SHINE ── */}
+      {/* ── 3. NUESTRO PROPÓSITO ── */}
       <section className="bg-white">
         <div className="mx-auto grid max-w-[1240px] items-center gap-16 px-6 py-20 md:px-10 lg:grid-cols-2 lg:px-14">
           <div>
-            <p className="mb-4 text-xs font-black uppercase tracking-[0.3em] text-[#7557a1]">Nuestro propósito</p>
             <h2 className="max-w-[22ch] text-4xl font-black leading-[1.05] tracking-tight md:text-5xl">
               Para líderes que saben que hay más en ellos.
             </h2>
@@ -313,44 +302,32 @@ export default async function HomeMarketingPage() {
       <section className="bg-[#f4f2fa]">
         <div className="mx-auto max-w-[1240px] px-6 py-20 md:px-10 lg:px-14">
           <div className="mb-12 text-center">
-            <p className="mb-3 text-xs font-black uppercase tracking-[0.3em] text-[#7557a1]">La plataforma</p>
             <h2 className="text-4xl font-black tracking-tight md:text-5xl">Conoce 4Shine por dentro.</h2>
             <p className="mx-auto mt-4 max-w-[52ch] text-base text-[#5e4b78] md:text-lg">
               Un espacio diseñado para que tu desarrollo no dependa del azar. Todo en un solo lugar: ruta, contenido, mentores y comunidad.
             </p>
           </div>
 
-          {/* ASSETS: reemplazar con video embed (YouTube / Vimeo / S3) — screencast 16:9 de la plataforma */}
           <div className="relative mx-auto max-w-[900px] overflow-hidden rounded-3xl bg-[#1c102d] shadow-[0_40px_80px_rgba(28,16,45,0.22)]">
             <div className="aspect-video flex items-center justify-center">
-              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_40%_50%,rgba(91,45,138,0.5),transparent_60%),radial-gradient(ellipse_at_78%_20%,rgba(242,178,75,0.08),transparent_50%)]" />
-              <div
-                className="absolute inset-0 opacity-[0.025]"
-                style={{
-                  backgroundImage: 'linear-gradient(rgba(255,255,255,0.8) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.8) 1px, transparent 1px)',
-                  backgroundSize: '44px 44px',
-                }}
-              />
               <div className="relative flex flex-col items-center gap-5">
-                <div
-                  className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-full border border-[#f2b24b]/40 bg-[#f2b24b]/10 backdrop-blur transition hover:scale-105 hover:bg-[#f2b24b]/20"
-                  style={{ boxShadow: '0 0 0 16px rgba(242,178,75,0.05), 0 0 0 32px rgba(242,178,75,0.025)' }}
+                <button
+                  type="button"
+                  className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-full border border-[#f2b24b]/50 bg-[#f2b24b]/15 transition hover:bg-[#f2b24b]/25"
                 >
                   <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
                     <path d="M9 6.5l12 6.5-12 6.5V6.5z" fill="#f2b24b" />
                   </svg>
-                </div>
-                <p className="text-sm font-medium text-white/50">Conoce cómo funciona 4Shine</p>
+                </button>
+                <p className="text-sm font-medium text-white/40">Conoce cómo funciona 4Shine</p>
               </div>
             </div>
           </div>
 
           <div className="mx-auto mt-12 grid max-w-[900px] gap-6 sm:grid-cols-3">
             {platformFeatures.map(({ Icon, title, text }) => (
-              <div key={title} className="rounded-2xl border border-[#d6cced] bg-white p-6 shadow-[0_8px_24px_rgba(42,20,68,0.05)]">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#f0eaff]">
-                  <Icon size={18} color="#5b2d8a" />
-                </div>
+              <div key={title} className="rounded-2xl border border-[#d6cced] bg-white p-6">
+                <Icon size={20} color="#5b2d8a" strokeWidth={1.6} />
                 <h3 className="mt-4 text-base font-black text-[#1c0f32]">{title}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-[#5d4a78]">{text}</p>
               </div>
@@ -363,12 +340,9 @@ export default async function HomeMarketingPage() {
       <section className="bg-white">
         <div className="mx-auto max-w-[1240px] px-6 py-20 md:px-10 lg:px-14">
           <div className="mb-14 grid items-end gap-6 md:grid-cols-[1fr_auto]">
-            <div>
-              <p className="mb-3 text-xs font-black uppercase tracking-[0.3em] text-[#7557a1]">El programa</p>
-              <h2 className="max-w-[24ch] text-4xl font-black tracking-tight md:text-5xl">
-                Cuatro dimensiones. Una transformación completa.
-              </h2>
-            </div>
+            <h2 className="max-w-[24ch] text-4xl font-black tracking-tight md:text-5xl">
+              Cuatro dimensiones. Una transformación completa.
+            </h2>
             <Link href="/metodologia" className="whitespace-nowrap text-sm font-bold text-[#5b2d8a] underline underline-offset-4 hover:text-[#7c3aad]">
               Ver metodología →
             </Link>
@@ -401,12 +375,9 @@ export default async function HomeMarketingPage() {
       <section className="bg-[#1c102d] text-white">
         <div className="mx-auto max-w-[1240px] px-6 py-20 md:px-10 lg:px-14">
           <div className="mb-14 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="mb-3 text-xs font-black uppercase tracking-[0.3em] text-[#c9b8ff]">Testimonios</p>
-              <h2 className="max-w-[22ch] text-4xl font-black tracking-tight md:text-5xl">
-                Resultados reales en líderes reales.
-              </h2>
-            </div>
+            <h2 className="max-w-[22ch] text-4xl font-black tracking-tight md:text-5xl">
+              Resultados reales en líderes reales.
+            </h2>
             <Link href="/afiliados" className="whitespace-nowrap text-sm font-bold text-[#f2b24b] underline underline-offset-4 hover:text-[#f6c56d]">
               Conoce a nuestros Advisers →
             </Link>
@@ -414,13 +385,9 @@ export default async function HomeMarketingPage() {
 
           <div className="grid gap-6 md:grid-cols-3">
             {stories.map((s) => (
-              <article key={s.name} className="flex flex-col rounded-3xl border border-white/10 bg-white/5 p-7 backdrop-blur-sm">
-                <svg className="mb-4 shrink-0" width="32" height="24" viewBox="0 0 32 24" fill="none">
-                  <path d="M0 24V14.4C0 6.4 4.267 1.6 12.8 0l1.6 2.4C10.133 3.733 7.733 6.4 7.2 10.4H13.6V24H0ZM18.4 24V14.4C18.4 6.4 22.667 1.6 31.2 0l1.6 2.4c-4.267 1.333-6.667 4-7.2 8H32V24H18.4Z" fill="#f2b24b" fillOpacity="0.5"/>
-                </svg>
+              <article key={s.name} className="flex flex-col rounded-3xl border border-white/10 bg-white/5 p-7">
                 <p className="flex-1 text-[15px] leading-relaxed text-[#e8e0fc]">{s.text}</p>
                 <div className="mt-7 flex items-center gap-3">
-                  {/* ASSETS: foto del líder 80×80px circular — reemplazar con <img> */}
                   <div
                     className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-base font-black text-white"
                     style={{ background: s.color }}
@@ -512,7 +479,6 @@ export default async function HomeMarketingPage() {
         <div className="mx-auto max-w-[1240px] px-6 py-20 md:px-10 lg:px-14">
           <div className="grid items-center gap-16 lg:grid-cols-[1fr_1fr]">
             <div>
-              <p className="mb-4 text-xs font-black uppercase tracking-[0.3em] text-[#7557a1]">Advisers</p>
               <h2 className="max-w-[20ch] text-4xl font-black leading-[1.05] tracking-tight md:text-5xl">
                 Aprende de quienes ya lo han vivido.
               </h2>
@@ -533,10 +499,9 @@ export default async function HomeMarketingPage() {
             <div className="grid gap-5 sm:grid-cols-3">
               {advisers.map((a) => (
                 <article key={a.name} className="flex flex-col items-center rounded-2xl border border-[#e8e0f8] bg-[#faf8ff] p-5 text-center">
-                  {/* ASSETS: headshot profesional 400×400px — reemplazar con <img className="h-20 w-20 rounded-full object-cover"> */}
                   <div
-                    className="mb-4 flex h-20 w-20 items-center justify-center rounded-full text-2xl font-black text-white"
-                    style={{ background: a.gradient }}
+                    className="mb-4 flex h-14 w-14 items-center justify-center rounded-full text-xl font-black text-white"
+                    style={{ background: a.color }}
                   >
                     {a.initial}
                   </div>
@@ -551,12 +516,9 @@ export default async function HomeMarketingPage() {
       </section>
 
       {/* ── 9. CONVIÉRTETE EN AFILIADO ── */}
-      <section className="relative overflow-hidden bg-[#1c102d]">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_20%_50%,rgba(242,178,75,0.14),transparent_55%),radial-gradient(ellipse_at_80%_30%,rgba(91,45,138,0.45),transparent_60%)]" />
-        {/* ASSETS: foto de fondo — profesionales en entorno colaborativo, cálida (1920×600px) */}
-        <div className="relative mx-auto max-w-[1240px] px-6 py-24 md:px-10 lg:px-14">
+      <section className="bg-[#1c102d]">
+        <div className="mx-auto max-w-[1240px] px-6 py-24 md:px-10 lg:px-14">
           <div className="mx-auto max-w-[720px] text-center">
-            <p className="mb-4 text-xs font-black uppercase tracking-[0.3em] text-[#f2b24b]">Programa de afiliados</p>
             <h2 className="text-4xl font-black leading-[1.05] tracking-tight text-white md:text-5xl lg:text-6xl">
               ¿Eres experto? Multiplica tu impacto como Adviser.
             </h2>
