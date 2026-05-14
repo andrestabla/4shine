@@ -123,7 +123,7 @@ interface AvailabilityBulkFormState {
   numberOfSlots: string;
 }
 
-type MentoriaSection = 'grupales' | 'programa';
+type MentoriaSection = 'grupales' | 'programa' | 'comprar';
 interface MentoriasViewProps {
   forcedSection?: MentoriaSection;
 }
@@ -300,6 +300,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
   const [opsWizardStep, setOpsWizardStep] = React.useState<WizardStep>(1);
   const [programWizardStep, setProgramWizardStep] = React.useState<WizardStep>(1);
   const [additionalWizardStep, setAdditionalWizardStep] = React.useState<WizardStep>(1);
+  const [activeAdviserId, setActiveAdviserId] = React.useState<string | null>(null);
   const [programForm, setProgramForm] = React.useState<ProgramScheduleFormState>({
     entitlementId: '',
     mentorUserId: '',
@@ -877,6 +878,17 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
         )}
       >
         Mentorías del programa
+      </Link>
+      <Link
+        href="/dashboard/mentorias/comprar"
+        className={clsx(
+          'rounded-[12px] px-4 py-2 text-sm font-semibold',
+          activeSection === 'comprar'
+            ? 'bg-[var(--brand-primary)] font-bold text-white'
+            : 'text-[var(--app-muted)]',
+        )}
+      >
+        Comprar sesiones
       </Link>
     </div>
   );
@@ -1793,6 +1805,205 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
     );
   }
 
+  if (activeSection === 'comprar') {
+    return (
+      <div className="space-y-8">
+        <PageTitle
+          title="Mentorías"
+          subtitle="Reserva sesiones individuales con nuestros Advisers especializados."
+        />
+        {sectionTabs}
+
+        {overview.additionalOrders.length > 0 && (
+          <section className="app-panel p-5 sm:p-6">
+            <div className="mb-4 flex items-center gap-2">
+              <CheckCircle2 size={16} className="text-[var(--brand-primary)]" />
+              <p className="app-section-kicker">Mis sesiones adicionales</p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {overview.additionalOrders.map((order: AdditionalMentorshipOrderRecord) => (
+                <article key={order.orderId} className="rounded-[18px] border border-[var(--app-border)] bg-white/84 px-4 py-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate font-bold text-[var(--app-ink)]">{order.title}</p>
+                      <p className="mt-1 text-sm text-[var(--app-muted)]">
+                        {order.mentorName} · {formatDateTime(order.scheduledStartsAt, tz)}
+                      </p>
+                      {order.topic && <p className="mt-1 text-xs text-[var(--app-muted)]">{order.topic}</p>}
+                    </div>
+                    <span className={clsx('shrink-0 rounded-full px-3 py-1 text-xs font-bold', ORDER_STATUS_META[order.status].tone)}>
+                      {ORDER_STATUS_META[order.status].label}
+                    </span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {overview.mentorCatalog.length === 0 ? (
+          <section className="app-panel p-5 sm:p-6">
+            <EmptyState message="Aún no hay Advisers disponibles para reserva. Pronto encontrarás aquí los especialistas del programa." />
+          </section>
+        ) : (
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+            {overview.mentorCatalog.map((mentor) => {
+              const isActive = activeAdviserId === mentor.mentorUserId;
+              const primaryOffer = mentor.offers[0];
+
+              return (
+                <article key={mentor.mentorUserId} className="app-panel flex flex-col p-5 sm:p-6">
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[var(--app-chip)] text-xl font-black text-[var(--brand-primary)]">
+                      {mentor.avatarInitial}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-lg font-black text-[var(--app-ink)]">{mentor.name}</p>
+                      <p className="mt-0.5 text-sm text-[var(--app-muted)]">{mentor.specialty}</p>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-[var(--app-muted)]">
+                        <span className="inline-flex items-center gap-1">
+                          <Star size={11} className="text-[var(--brand-accent,#f6b74c)]" />
+                          {mentor.ratingAvg.toFixed(1)}
+                          {mentor.ratingCount > 0 && <span>({mentor.ratingCount})</span>}
+                        </span>
+                        <span>·</span>
+                        <span className="uppercase tracking-[0.12em]">{mentor.sector}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {primaryOffer && (
+                    <div className="mt-4 rounded-[16px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-3">
+                      <p className="text-sm font-semibold text-[var(--app-ink)]">{primaryOffer.title}</p>
+                      {primaryOffer.description && (
+                        <p className="mt-1 text-xs leading-relaxed text-[var(--app-muted)]">{primaryOffer.description}</p>
+                      )}
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--app-muted)]">
+                          {primaryOffer.durationMinutes} min
+                        </span>
+                        <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--app-muted)]">
+                          {formatCurrency(primaryOffer.priceAmount, primaryOffer.currencyCode)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {mentor.availability.length > 0 && (
+                    <div className="mt-4">
+                      <p className="mb-2 text-xs font-extrabold uppercase tracking-[0.18em] text-[var(--app-muted)]">Próximos espacios</p>
+                      <div className="flex flex-wrap gap-2">
+                        {mentor.availability.slice(0, 3).map((slot) => (
+                          <button
+                            key={slot.startsAt}
+                            type="button"
+                            className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--app-ink)] transition hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)]"
+                            onClick={() => {
+                              setAdditionalForm((prev) => ({
+                                ...prev,
+                                offerId: primaryOffer?.offerId ?? prev.offerId,
+                                startsAt: toDatetimeLocalInput(slot.startsAt),
+                              }));
+                              setActiveAdviserId(mentor.mentorUserId);
+                            }}
+                          >
+                            {formatDateTime(slot.startsAt, tz)}
+                          </button>
+                        ))}
+                        {mentor.availability.length > 3 && (
+                          <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--app-muted)]">
+                            +{mentor.availability.length - 3} más
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {mentor.availability.length === 0 && (
+                    <p className="mt-4 text-xs text-[var(--app-muted)]">Disponibilidad por coordinar directamente.</p>
+                  )}
+
+                  <div className="mt-auto pt-5">
+                    {!isActive ? (
+                      <button
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-[14px] bg-[var(--brand-primary)] px-5 py-3 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-50"
+                        type="button"
+                        disabled={!primaryOffer}
+                        onClick={() => {
+                          if (!primaryOffer) return;
+                          setAdditionalForm((prev) => ({ ...prev, offerId: primaryOffer.offerId }));
+                          setActiveAdviserId(mentor.mentorUserId);
+                        }}
+                      >
+                        <ShoppingBag size={15} />
+                        Reservar sesión
+                      </button>
+                    ) : (
+                      <form className="space-y-3 border-t border-[var(--app-border)] pt-4" onSubmit={handleAdditionalPurchase}>
+                        {mentor.offers.length > 1 && (
+                          <select
+                            className="w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
+                            value={additionalForm.offerId}
+                            onChange={(e) => setAdditionalForm((prev) => ({ ...prev, offerId: e.target.value }))}
+                            required
+                          >
+                            <option value="">Selecciona una oferta</option>
+                            {mentor.offers.map((offer) => (
+                              <option key={offer.offerId} value={offer.offerId}>
+                                {offer.title} · {offer.durationMinutes} min · {formatCurrency(offer.priceAmount, offer.currencyCode)}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                        <input
+                          className="w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
+                          type="datetime-local"
+                          value={additionalForm.startsAt}
+                          onChange={(e) => setAdditionalForm((prev) => ({ ...prev, startsAt: e.target.value }))}
+                          required
+                        />
+                        <input
+                          className="w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
+                          placeholder="Tema o reto que quieres trabajar"
+                          value={additionalForm.topic}
+                          onChange={(e) => setAdditionalForm((prev) => ({ ...prev, topic: e.target.value }))}
+                        />
+                        <textarea
+                          className="min-h-[80px] w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
+                          placeholder="Notas adicionales para orientar la sesión."
+                          value={additionalForm.note}
+                          onChange={(e) => setAdditionalForm((prev) => ({ ...prev, note: e.target.value }))}
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            className="rounded-[12px] border border-[var(--app-border)] px-4 py-2.5 text-sm font-semibold text-[var(--app-ink)]"
+                            onClick={() => {
+                              setActiveAdviserId(null);
+                              setAdditionalForm((prev) => ({ ...prev, offerId: '' }));
+                            }}
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            type="submit"
+                            className="flex-1 rounded-[12px] bg-[var(--brand-primary)] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+                            disabled={submittingAdditional || !additionalForm.offerId}
+                          >
+                            {submittingAdditional ? 'Procesando…' : 'Confirmar reserva'}
+                          </button>
+                        </div>
+                      </form>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       <PageTitle
@@ -2033,256 +2244,20 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
         )}
       </section>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(340px,0.9fr)]">
-        <section className="app-panel p-5 sm:p-6">
-          <div className="flex items-center gap-2">
-            <BriefcaseBusiness size={16} className="text-[var(--brand-primary)]" />
-            <p className="app-section-kicker">Advisers disponibles</p>
-          </div>
-          <div className="mt-5 grid gap-4 md:grid-cols-2">
-            {overview.mentorCatalog.length === 0 ? (
-              <div className="md:col-span-2">
-                <EmptyState message="Aún no hay Advisers visibles para compra adicional." />
-              </div>
-            ) : (
-              overview.mentorCatalog.map((mentor) => {
-                const primaryOffer = mentor.offers[0];
-
-                return (
-                  <article
-                    key={mentor.mentorUserId}
-                    className="rounded-[22px] border border-[var(--app-border)] bg-white/86 px-5 py-5"
-                  >
-                    <div className="flex items-start gap-4">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--app-chip)] text-sm font-black text-[var(--brand-primary)]">
-                        {mentor.avatarInitial}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="truncate font-black text-[var(--app-ink)]">{mentor.name}</p>
-                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--app-muted)]">
-                            <Star size={12} className="text-[var(--brand-accent,#f6b74c)]" />
-                            {mentor.ratingAvg.toFixed(1)}
-                          </span>
-                        </div>
-                        <p className="mt-1 text-sm text-[var(--app-muted)]">{mentor.specialty}</p>
-                        <p className="mt-1 text-xs uppercase tracking-[0.14em] text-[var(--app-muted)]">{mentor.sector}</p>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {mentor.availability.slice(0, 3).map((slot) => (
-                        <button
-                          key={slot.startsAt}
-                          className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--app-muted)]"
-                          type="button"
-                          onClick={() =>
-                            setAdditionalForm((prev) => ({
-                              ...prev,
-                              offerId: primaryOffer?.offerId ?? prev.offerId,
-                              startsAt: toDatetimeLocalInput(slot.startsAt),
-                            }))
-                          }
-                        >
-                          {formatDateTime(slot.startsAt, tz)}
-                        </button>
-                      ))}
-                      {mentor.availability.length === 0 && (
-                        <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--app-muted)]">
-                          Disponibilidad por coordinar
-                        </span>
-                      )}
-                    </div>
-
-                    {primaryOffer ? (
-                      <div className="mt-4 rounded-[18px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-4">
-                        <p className="font-semibold text-[var(--app-ink)]">{primaryOffer.title}</p>
-                        <p className="mt-1 text-sm text-[var(--app-muted)]">{primaryOffer.description}</p>
-                        <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-[var(--app-muted)]">
-                          <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1">
-                            {primaryOffer.durationMinutes} min
-                          </span>
-                          <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1">
-                            {formatCurrency(primaryOffer.priceAmount, primaryOffer.currencyCode)}
-                          </span>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="mt-4 rounded-[18px] border border-dashed border-[var(--app-border)] px-4 py-4 text-sm text-[var(--app-muted)]">
-                        Este Adviser aún no tiene una oferta activa cargada.
-                      </div>
-                    )}
-
-                    <button
-                      className="mt-5 inline-flex items-center gap-2 text-sm font-extrabold text-[var(--brand-primary)] disabled:opacity-50"
-                      type="button"
-                      disabled={!primaryOffer}
-                      onClick={() =>
-                        primaryOffer &&
-                        setAdditionalForm((prev) => ({
-                          ...prev,
-                          offerId: primaryOffer.offerId,
-                        }))
-                      }
-                    >
-                      Comprar sesión adicional
-                      <ShoppingBag size={16} />
-                    </button>
-                  </article>
-                );
-              })
-            )}
-          </div>
-        </section>
-
-        <div className="space-y-6">
-          <section className="app-panel p-5 sm:p-6">
-            <div className="flex items-center gap-2">
-              <CircleDollarSign size={16} className="text-[var(--brand-primary)]" />
-              <p className="app-section-kicker">Asistente · Comprar sesión adicional</p>
-            </div>
-            {overview.mentorCatalog.length === 0 && (
-              <div className="mt-5 rounded-[18px] border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-800">
-                La compra de sesiones adicionales quedará activa cuando existan Advisers disponibles en la plataforma.
-              </div>
-            )}
-            <form className="mt-5 space-y-3" onSubmit={handleAdditionalPurchase}>
-              <p className="text-xs text-[var(--app-muted)]">Paso {additionalWizardStep} de 3</p>
-              <select
-                className="w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
-                value={additionalForm.offerId}
-                onChange={(event) => setAdditionalForm((prev) => ({ ...prev, offerId: event.target.value }))}
-                required
-              >
-                <option value="">Selecciona una oferta</option>
-                {overview.mentorCatalog.flatMap((mentor) =>
-                  mentor.offers.map((offer) => (
-                    <option key={offer.offerId} value={offer.offerId}>
-                      {mentor.name} · {offer.title}
-                    </option>
-                  )),
-                )}
-              </select>
-
-              <input
-                className="w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
-                type="datetime-local"
-                value={additionalForm.startsAt}
-                onChange={(event) => setAdditionalForm((prev) => ({ ...prev, startsAt: event.target.value }))}
-                required
-              />
-
-              <input
-                className="w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
-                placeholder="Tema o reto que quieres trabajar"
-                value={additionalForm.topic}
-                onChange={(event) => setAdditionalForm((prev) => ({ ...prev, topic: event.target.value }))}
-              />
-
-              <textarea
-                className="min-h-[120px] w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
-                placeholder="Notas para orientar la compra y la sesión."
-                value={additionalForm.note}
-                onChange={(event) => setAdditionalForm((prev) => ({ ...prev, note: event.target.value }))}
-              />
-
-              {selectedOffer && (
-                <div className="rounded-[18px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-4 text-sm text-[var(--app-muted)]">
-                  <p className="font-semibold text-[var(--app-ink)]">
-                    {selectedOffer.mentor.name} · {selectedOffer.offer.title}
-                  </p>
-                  <p className="mt-1">
-                    {selectedOffer.offer.durationMinutes} min ·{' '}
-                    {formatCurrency(selectedOffer.offer.priceAmount, selectedOffer.offer.currencyCode)}
-                  </p>
-                </div>
-              )}
-
-              <button
-                className="w-full rounded-[16px] bg-[var(--brand-primary)] px-4 py-3 text-sm font-bold text-white disabled:opacity-50"
-                type="submit"
-                disabled={
-                  submittingAdditional ||
-                  additionalWizardStep !== 3 ||
-                  !additionalForm.offerId ||
-                  overview.mentorCatalog.length === 0
-                }
-              >
-                {additionalWizardStep === 3 ? 'Comprar y reservar sesión' : 'Completa el asistente para continuar'}
-              </button>
-              <div className="flex items-center justify-between">
-                <button
-                  type="button"
-                  className="rounded-[12px] border border-[var(--app-border)] px-3 py-2 text-xs font-semibold disabled:opacity-50"
-                  disabled={additionalWizardStep === 1}
-                  onClick={() =>
-                    setAdditionalWizardStep((prev) => (prev > 1 ? ((prev - 1) as WizardStep) : prev))
-                  }
-                >
-                  Atrás
-                </button>
-                <button
-                  type="button"
-                  className="rounded-[12px] border border-[var(--app-border)] px-3 py-2 text-xs font-semibold disabled:opacity-50"
-                  disabled={additionalWizardStep === 3}
-                  onClick={() =>
-                    setAdditionalWizardStep((prev) => (prev < 3 ? ((prev + 1) as WizardStep) : prev))
-                  }
-                >
-                  Siguiente
-                </button>
-              </div>
-
-              <p className="text-xs leading-relaxed text-[var(--app-muted)]">
-                La compra adicional queda registrada en plataforma con estado comercial para seguimiento y puede conectarse luego a checkout real sin perder la trazabilidad.
-              </p>
-            </form>
-          </section>
-
-          <section className="app-panel p-5 sm:p-6">
-            <div className="flex items-center gap-2">
-              <Video size={16} className="text-[var(--brand-primary)]" />
-              <p className="app-section-kicker">Sesiones adicionales</p>
-            </div>
-            <div className="mt-5 space-y-3">
-              {overview.additionalOrders.length === 0 ? (
-                <EmptyState message="Todavía no has comprado sesiones adicionales." />
-              ) : (
-                overview.additionalOrders.map((order: AdditionalMentorshipOrderRecord) => (
-                  <article
-                    key={order.orderId}
-                    className="rounded-[18px] border border-[var(--app-border)] bg-white/86 px-4 py-4"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="font-bold text-[var(--app-ink)]">{order.title}</p>
-                        <p className="mt-1 text-sm text-[var(--app-muted)]">
-                          {order.mentorName} · {formatDateTime(order.scheduledStartsAt, tz)}
-                        </p>
-                        {order.topic && (
-                          <p className="mt-1 text-sm text-[var(--app-muted)]">{order.topic}</p>
-                        )}
-                      </div>
-                      <span className={clsx('rounded-full px-3 py-1 text-xs font-bold', ORDER_STATUS_META[order.status].tone)}>
-                        {ORDER_STATUS_META[order.status].label}
-                      </span>
-                    </div>
-                    <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold text-[var(--app-muted)]">
-                      <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1">
-                        {formatCurrency(order.priceAmount, order.currencyCode)}
-                      </span>
-                      {order.offerTitle && (
-                        <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1">
-                          {order.offerTitle}
-                        </span>
-                      )}
-                    </div>
-                  </article>
-                ))
-              )}
-            </div>
-          </section>
+      <div className="flex items-center justify-between gap-4 rounded-[20px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-5 py-4">
+        <div>
+          <p className="font-bold text-[var(--app-ink)]">¿Necesitas más acompañamiento?</p>
+          <p className="mt-0.5 text-sm text-[var(--app-muted)]">
+            Explora los Advisers disponibles y reserva sesiones individuales adicionales.
+          </p>
         </div>
+        <Link
+          href="/dashboard/mentorias/comprar"
+          className="shrink-0 inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-4 py-2 text-sm font-bold text-white transition hover:opacity-90"
+        >
+          <ShoppingBag size={14} />
+          Comprar sesiones
+        </Link>
       </div>
 
       <section className="app-panel p-5 sm:p-6">
