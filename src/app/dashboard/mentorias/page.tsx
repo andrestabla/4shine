@@ -13,14 +13,18 @@ import {
   CheckCircle2,
   CircleDollarSign,
   Clock3,
+  Heart,
   Image as ImageIcon,
+  Lightbulb,
   Lock,
+  PartyPopper,
   Pencil,
   Play,
   Search,
   ShoppingBag,
   Sparkles,
   Star,
+  ThumbsUp,
   Trash2,
   Video,
   X,
@@ -1419,7 +1423,16 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                               )}
                               onClick={() => void handleReactRecording(recording, reaction)}
                             >
-                              {reaction === 'like' ? '👍' : reaction === 'celebrate' ? '🎉' : reaction === 'insightful' ? '💡' : '❤️'} {recording.reactionTotals[reaction]}
+                              {reaction === 'like' ? (
+                                <ThumbsUp size={12} className="inline-block" />
+                              ) : reaction === 'celebrate' ? (
+                                <PartyPopper size={12} className="inline-block" />
+                              ) : reaction === 'insightful' ? (
+                                <Lightbulb size={12} className="inline-block" />
+                              ) : (
+                                <Heart size={12} className="inline-block" />
+                              )}{' '}
+                              {recording.reactionTotals[reaction]}
                             </button>
                           ))}
                         </div>
@@ -1584,8 +1597,8 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
               <X size={16} />
             </button>
             <div className="flex flex-col items-center gap-4 text-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-4xl">
-                ✅
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+                <CheckCircle2 size={36} className="text-green-600" />
               </div>
               <div>
                 <p className="text-lg font-extrabold text-[var(--app-ink)]">¡Participación confirmada!</p>
@@ -2139,7 +2152,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[0.75rem]"
             style={{ background: "linear-gradient(135deg, #e8d8f8 0%, #f4d0ee 100%)" }}
           >
-            <span className="text-lg">💡</span>
+            <Lightbulb size={20} className="text-[#5b2d8a]" />
           </div>
           <div className="flex-1">
             <p className="text-sm font-extrabold text-[#5b2d8a]">Sesiones adicionales disponibles para tu cuenta</p>
