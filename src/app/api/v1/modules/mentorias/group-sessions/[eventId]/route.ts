@@ -42,17 +42,20 @@ export async function PATCH(request: Request, context: ContextParams) {
 
   const { eventId } = await context.params;
 
-  // If time is changing, sync the Zoom meeting
+  // If time is changing, sync the Zoom meeting.
+  // Must run inside withRoleContext so RLS policy on integration_configs is satisfied.
   if (body.startsAt) {
     try {
       const { zoomMeetingId, endsAt } = await getZoomMeetingIdForEvent(eventId);
       if (zoomMeetingId) {
         const effectiveEndsAt = body.endsAt ?? endsAt ?? body.startsAt;
         await withClient((client) =>
-          updateZoomMeetingTime(client, identity.userId, zoomMeetingId, {
-            startsAt: body.startsAt!,
-            durationMinutes: durationMinutes(body.startsAt!, effectiveEndsAt),
-          }),
+          withRoleContext(client, identity.userId, identity.role, () =>
+            updateZoomMeetingTime(client, identity.userId, zoomMeetingId, {
+              startsAt: body.startsAt!,
+              durationMinutes: durationMinutes(body.startsAt!, effectiveEndsAt),
+            }),
+          ),
         );
       }
     } catch (zoomError) {

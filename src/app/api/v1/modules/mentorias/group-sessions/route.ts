@@ -20,16 +20,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  // Auto-create Zoom meeting if no URLs were provided manually
+  // Auto-create Zoom meeting if no URLs were provided manually.
+  // Must run inside withRoleContext so RLS policy on integration_configs is satisfied.
   let enrichedBody = body;
   if (!body.zoomJoinUrl && !body.zoomHostUrl) {
     try {
       const meeting = await withClient((client) =>
-        createZoomMeeting(client, identity.userId, {
-          topic: body.title,
-          startsAt: body.startsAt,
-          durationMinutes: durationMinutes(body.startsAt, body.endsAt),
-        }),
+        withRoleContext(client, identity.userId, identity.role, () =>
+          createZoomMeeting(client, identity.userId, {
+            topic: body.title,
+            startsAt: body.startsAt,
+            durationMinutes: durationMinutes(body.startsAt, body.endsAt),
+          }),
+        ),
       );
       if (meeting) {
         enrichedBody = {
