@@ -1135,6 +1135,9 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
           </div>
         </div>
         <div className="mt-4 grid grid-cols-7 gap-2 text-[11px]">
+          {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((d) => (
+            <div key={d} className="pb-1 text-center text-[10px] font-extrabold uppercase tracking-wider text-[var(--app-muted)]">{d}</div>
+          ))}
           {monthDays.map((day) => {
             const isCurrentMonth = day.getMonth() === selectedMonthStart.getMonth();
             const dayEvents = groupSessions.filter((item) => {
