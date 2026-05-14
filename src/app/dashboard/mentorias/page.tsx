@@ -2084,13 +2084,35 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                             ))}
                           </select>
                         )}
-                        <input
-                          className="w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
-                          type="datetime-local"
-                          value={additionalForm.startsAt}
-                          onChange={(e) => setAdditionalForm((prev) => ({ ...prev, startsAt: e.target.value }))}
-                          required
-                        />
+                        {mentor.availability.length === 0 ? (
+                          <p className="rounded-[14px] border border-[var(--app-border)] px-4 py-3 text-sm text-[var(--app-muted)]">
+                            Este adviser no tiene horarios disponibles en este momento.
+                          </p>
+                        ) : (
+                          <div>
+                            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--app-muted)]">Horarios disponibles</p>
+                            <div className="flex flex-wrap gap-2">
+                              {mentor.availability.map((slot) => {
+                                const val = toDatetimeLocalInput(slot.startsAt);
+                                return (
+                                  <button
+                                    key={slot.startsAt}
+                                    type="button"
+                                    className={clsx(
+                                      'rounded-full border px-3 py-1.5 text-xs font-semibold transition',
+                                      additionalForm.startsAt === val
+                                        ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)] text-white'
+                                        : 'border-[var(--app-border)] text-[var(--app-ink)] hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)]',
+                                    )}
+                                    onClick={() => setAdditionalForm((prev) => ({ ...prev, startsAt: val }))}
+                                  >
+                                    {formatDateTime(slot.startsAt, tz)}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
                         <input
                           className="w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
                           placeholder="Tema o reto que quieres trabajar"
@@ -2326,7 +2348,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                       <select
                         className="w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
                         value={programForm.mentorUserId}
-                        onChange={(e) => setProgramForm((prev) => ({ ...prev, mentorUserId: e.target.value }))}
+                        onChange={(e) => setProgramForm((prev) => ({ ...prev, mentorUserId: e.target.value, startsAt: '' }))}
                         required
                       >
                         <option value="">Selecciona un Adviser</option>
@@ -2336,13 +2358,38 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                           </option>
                         ))}
                       </select>
-                      <input
-                        className="w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
-                        type="datetime-local"
-                        value={programForm.startsAt}
-                        onChange={(e) => setProgramForm((prev) => ({ ...prev, startsAt: e.target.value }))}
-                        required
-                      />
+                      {programForm.mentorUserId && (() => {
+                        const slots = overview.mentorCatalog.find(m => m.mentorUserId === programForm.mentorUserId)?.availability ?? [];
+                        return slots.length === 0 ? (
+                          <p className="rounded-[14px] border border-[var(--app-border)] px-4 py-3 text-sm text-[var(--app-muted)]">
+                            Este adviser no tiene horarios disponibles en este momento.
+                          </p>
+                        ) : (
+                          <div>
+                            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--app-muted)]">Horarios disponibles</p>
+                            <div className="flex flex-wrap gap-2">
+                              {slots.map((slot) => {
+                                const val = toDatetimeLocalInput(slot.startsAt);
+                                return (
+                                  <button
+                                    key={slot.startsAt}
+                                    type="button"
+                                    className={clsx(
+                                      'rounded-full border px-3 py-1.5 text-xs font-semibold transition',
+                                      programForm.startsAt === val
+                                        ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)] text-white'
+                                        : 'border-[var(--app-border)] text-[var(--app-ink)] hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)]',
+                                    )}
+                                    onClick={() => setProgramForm((prev) => ({ ...prev, startsAt: val }))}
+                                  >
+                                    {formatDateTime(slot.startsAt, tz)}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })()}
                       <textarea
                         className="min-h-[100px] w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
                         placeholder="Contexto o foco que quieres trabajar en esta sesión."
@@ -2360,7 +2407,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                         <button
                           className="flex-1 rounded-[14px] bg-[var(--brand-primary)] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
                           type="submit"
-                          disabled={submittingProgram || !programForm.mentorUserId || overview.mentorCatalog.length === 0}
+                          disabled={submittingProgram || !programForm.mentorUserId || !programForm.startsAt || overview.mentorCatalog.length === 0}
                         >
                           {submittingProgram ? 'Guardando…' : 'Confirmar mentoría'}
                         </button>
