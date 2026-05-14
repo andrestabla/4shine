@@ -2294,24 +2294,18 @@ export async function scheduleProgramMentorship(
   await bookAvailabilitySlot(client, input.mentorUserId, input.startsAt, endsAt);
   const fallbackMeetingUrl = await getMentorOfficeHoursUrl(client, input.mentorUserId);
 
-  let session: MentorshipRecord;
-  try {
-    session = await createSessionWithParticipants(client, actor, {
-      mentorUserId: input.mentorUserId,
-      title: entitlement.title,
-      description,
-      startsAt: input.startsAt,
-      endsAt,
-      sessionType: 'individual',
-      status: 'scheduled',
-      meetingUrl: input.meetingUrl ?? fallbackMeetingUrl ?? null,
-      menteeUserIds: [actor.userId],
-      sessionOrigin: 'program_included',
-    });
-  } catch (error) {
-    await releaseAvailabilitySlot(client, input.mentorUserId, input.startsAt, endsAt);
-    throw error;
-  }
+  const session = await createSessionWithParticipants(client, actor, {
+    mentorUserId: input.mentorUserId,
+    title: entitlement.title,
+    description,
+    startsAt: input.startsAt,
+    endsAt,
+    sessionType: 'individual',
+    status: 'scheduled',
+    meetingUrl: input.meetingUrl ?? fallbackMeetingUrl ?? null,
+    menteeUserIds: [actor.userId],
+    sessionOrigin: 'program_included',
+  });
 
   await client.query(
     `
