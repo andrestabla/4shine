@@ -461,17 +461,15 @@ function mapProgramEntitlement(
       : row.scheduled_session_status && row.scheduled_session_status !== 'cancelled' && row.scheduled_session_status !== 'no_show'
         ? 'scheduled'
         : row.stored_status;
-  const isLockedByWeek = derivedStatus === 'available' && currentProgramWeek < Number(row.suggested_week);
+  const isLockedByWeek = false;
   const isLockedByOrder =
     derivedStatus === 'available' &&
     options?.firstPendingSequence != null &&
     Number(row.sequence_no) !== options.firstPendingSequence;
-  const status: ProgramMentorshipStatus = isLockedByWeek || isLockedByOrder ? 'locked' : derivedStatus;
-  const scheduleBlockedReason = isLockedByWeek
-    ? `Disponible a partir de la semana ${row.suggested_week}. Semana actual: ${currentProgramWeek}.`
-    : isLockedByOrder
-      ? 'Debes consumir primero la mentoría pendiente anterior según el orden temático.'
-      : null;
+  const status: ProgramMentorshipStatus = isLockedByOrder ? 'locked' : derivedStatus;
+  const scheduleBlockedReason = isLockedByOrder
+    ? 'Debes consumir primero la mentoría pendiente anterior según el orden temático.'
+    : null;
 
   return {
     entitlementId: row.entitlement_id,
@@ -2270,12 +2268,6 @@ export async function scheduleProgramMentorship(
   if (firstPending && firstPending.entitlementId !== entitlement.entitlementId) {
     throw new Error('Debes consumir primero la mentoría pendiente anterior según el orden del programa.');
   }
-  if (entitlement.currentProgramWeek < entitlement.suggestedWeek) {
-    throw new Error(
-      `Esta mentoría se habilita en la semana ${entitlement.suggestedWeek}. Semana actual: ${entitlement.currentProgramWeek}.`,
-    );
-  }
-
   const endsAt = addMinutes(input.startsAt, entitlement.defaultDurationMinutes);
   const description = input.note?.trim()
     ? `${entitlement.description ?? ''}\n\nNota del líder:\n${input.note.trim()}`.trim()
