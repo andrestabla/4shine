@@ -82,9 +82,7 @@ interface OpsCreateFormState {
 interface GroupSessionFormState {
   title: string;
   startsAt: string;
-  endsAt: string;
-  zoomJoinUrl: string;
-  zoomHostUrl: string;
+  durationMinutes: string;
   hostUserId: string;
   externalExpertName: string;
   externalExpertBio: string;
@@ -309,9 +307,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
   const [groupSessionForm, setGroupSessionForm] = React.useState<GroupSessionFormState>({
     title: '',
     startsAt: nextSlotValue(),
-    endsAt: nextSlotValue(),
-    zoomJoinUrl: '',
-    zoomHostUrl: '',
+    durationMinutes: '60',
     hostUserId: '',
     externalExpertName: '',
     externalExpertBio: '',
@@ -620,17 +616,19 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
 
   const handleCreateGroupSession = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!groupSessionForm.title.trim() || !groupSessionForm.startsAt || !groupSessionForm.endsAt) return;
+    if (!groupSessionForm.title.trim() || !groupSessionForm.startsAt) return;
+
+    const startsAt = toIso(groupSessionForm.startsAt);
+    const durationMs = Math.max(15, parseInt(groupSessionForm.durationMinutes, 10)) * 60000;
+    const endsAt = new Date(new Date(startsAt).getTime() + durationMs).toISOString();
 
     setSubmittingGroupSession(true);
     try {
       await createGroupSession({
         title: groupSessionForm.title.trim(),
         description: groupSessionForm.description.trim() || null,
-        startsAt: toIso(groupSessionForm.startsAt),
-        endsAt: toIso(groupSessionForm.endsAt),
-        zoomJoinUrl: groupSessionForm.zoomJoinUrl.trim() || null,
-        zoomHostUrl: groupSessionForm.zoomHostUrl.trim() || null,
+        startsAt,
+        endsAt,
         hostUserId: groupSessionForm.hostUserId || null,
         externalExpertName: groupSessionForm.externalExpertName.trim() || null,
         externalExpertBio: groupSessionForm.externalExpertBio.trim() || null,
@@ -639,11 +637,10 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
         ...prev,
         title: '',
         description: '',
-        zoomJoinUrl: '',
-        zoomHostUrl: '',
         externalExpertName: '',
         externalExpertBio: '',
       }));
+      setGroupWizardStep(1);
       await load();
     } catch (error) {
       await showError('No se pudo crear la sesión grupal.', error);
@@ -841,75 +838,106 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
       )}
       {(currentRole === 'admin' || currentRole === 'gestor') && (
         <section className="app-panel p-5 sm:p-6">
-          {wizardHeader('Asistente · Crear sesión grupal', groupWizardStep)}
-          <form className="mt-4 grid gap-3 md:grid-cols-2" onSubmit={handleCreateGroupSession}>
-            <input
-              className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm md:col-span-2"
-              placeholder="Título de la sesión grupal"
-              value={groupSessionForm.title}
-              onChange={(event) => setGroupSessionForm((prev) => ({ ...prev, title: event.target.value }))}
-              required
-            />
-            <input
-              className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
-              type="datetime-local"
-              value={groupSessionForm.startsAt}
-              onChange={(event) => setGroupSessionForm((prev) => ({ ...prev, startsAt: event.target.value }))}
-              required
-            />
-            <input
-              className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
-              type="datetime-local"
-              value={groupSessionForm.endsAt}
-              onChange={(event) => setGroupSessionForm((prev) => ({ ...prev, endsAt: event.target.value }))}
-              required
-            />
-            <input
-              className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
-              placeholder="URL Zoom participantes"
-              value={groupSessionForm.zoomJoinUrl}
-              onChange={(event) => setGroupSessionForm((prev) => ({ ...prev, zoomJoinUrl: event.target.value }))}
-            />
-            <input
-              className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
-              placeholder="URL Zoom anfitrión"
-              value={groupSessionForm.zoomHostUrl}
-              onChange={(event) => setGroupSessionForm((prev) => ({ ...prev, zoomHostUrl: event.target.value }))}
-            />
-            <select
-              className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
-              value={groupSessionForm.hostUserId}
-              onChange={(event) => setGroupSessionForm((prev) => ({ ...prev, hostUserId: event.target.value }))}
-            >
-              <option value="">Adviser anfitrión (opcional)</option>
-              {mentorCatalog.map((mentor) => (
-                <option key={mentor.mentorUserId} value={mentor.mentorUserId}>
-                  {mentor.name}
-                </option>
-              ))}
-            </select>
-            <input
-              className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
-              placeholder="Experto externo (opcional)"
-              value={groupSessionForm.externalExpertName}
-              onChange={(event) =>
-                setGroupSessionForm((prev) => ({ ...prev, externalExpertName: event.target.value }))
-              }
-            />
-            <textarea
-              className="min-h-[96px] rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm md:col-span-2"
-              placeholder="Descripción de la sesión"
-              value={groupSessionForm.description}
-              onChange={(event) => setGroupSessionForm((prev) => ({ ...prev, description: event.target.value }))}
-            />
-            <button
-              type="submit"
-              className="rounded-[16px] bg-[var(--brand-primary)] px-4 py-3 text-sm font-bold text-white disabled:opacity-50 md:col-span-2"
-              disabled={submittingGroupSession || groupWizardStep !== 3}
-            >
-              {groupWizardStep === 3 ? 'Crear evento grupal' : 'Completa el asistente para continuar'}
-            </button>
-            <div className="md:col-span-2 flex items-center justify-between">
+          {wizardHeader('Nueva sesión grupal', groupWizardStep)}
+          <form className="mt-4 grid gap-3" onSubmit={handleCreateGroupSession}>
+            {groupWizardStep === 1 && (
+              <>
+                <input
+                  className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
+                  placeholder="Tema de la sesión"
+                  value={groupSessionForm.title}
+                  onChange={(event) => setGroupSessionForm((prev) => ({ ...prev, title: event.target.value }))}
+                  required
+                />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="grid gap-1">
+                    <label className="px-1 text-xs font-semibold text-[var(--app-muted)]">Fecha y hora de inicio</label>
+                    <input
+                      className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
+                      type="datetime-local"
+                      value={groupSessionForm.startsAt}
+                      onChange={(event) => setGroupSessionForm((prev) => ({ ...prev, startsAt: event.target.value }))}
+                      required
+                    />
+                  </div>
+                  <div className="grid gap-1">
+                    <label className="px-1 text-xs font-semibold text-[var(--app-muted)]">Duración</label>
+                    <select
+                      className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
+                      value={groupSessionForm.durationMinutes}
+                      onChange={(event) => setGroupSessionForm((prev) => ({ ...prev, durationMinutes: event.target.value }))}
+                    >
+                      <option value="30">30 minutos</option>
+                      <option value="45">45 minutos</option>
+                      <option value="60">1 hora</option>
+                      <option value="90">1 hora 30 min</option>
+                      <option value="120">2 horas</option>
+                      <option value="180">3 horas</option>
+                    </select>
+                  </div>
+                </div>
+              </>
+            )}
+            {groupWizardStep === 2 && (
+              <>
+                <select
+                  className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
+                  value={groupSessionForm.hostUserId}
+                  onChange={(event) => setGroupSessionForm((prev) => ({ ...prev, hostUserId: event.target.value }))}
+                >
+                  <option value="">Sin Adviser anfitrión</option>
+                  {mentorCatalog.map((mentor) => (
+                    <option key={mentor.mentorUserId} value={mentor.mentorUserId}>
+                      {mentor.name}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
+                  placeholder="Nombre de experto externo (opcional)"
+                  value={groupSessionForm.externalExpertName}
+                  onChange={(event) =>
+                    setGroupSessionForm((prev) => ({ ...prev, externalExpertName: event.target.value }))
+                  }
+                />
+                {groupSessionForm.externalExpertName.trim() && (
+                  <textarea
+                    className="min-h-[80px] rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
+                    placeholder="Bio del experto externo"
+                    value={groupSessionForm.externalExpertBio}
+                    onChange={(event) =>
+                      setGroupSessionForm((prev) => ({ ...prev, externalExpertBio: event.target.value }))
+                    }
+                  />
+                )}
+              </>
+            )}
+            {groupWizardStep === 3 && (
+              <>
+                <textarea
+                  className="min-h-[96px] rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
+                  placeholder="Descripción de la sesión (opcional)"
+                  value={groupSessionForm.description}
+                  onChange={(event) => setGroupSessionForm((prev) => ({ ...prev, description: event.target.value }))}
+                />
+                <div className="flex items-center gap-2 rounded-[14px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-3">
+                  <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 fill-[#2D8CFF]" aria-hidden="true">
+                    <path d="M12.002 2a10 10 0 1 0 10 10 10.011 10.011 0 0 0-10-10Zm4.93 6.81-2 4a.999.999 0 0 1-.894.553H9.964a1 1 0 0 1 0-2h3.618l1.764-3.528a1 1 0 0 1 1.788.895ZM17 15.36a4.645 4.645 0 0 1-10 0V13a1 1 0 0 1 2 0v2.36a2.645 2.645 0 0 0 5.29 0V13a1 1 0 0 1 2 0v2.36Z" />
+                  </svg>
+                  <p className="text-xs text-[var(--app-muted)]">
+                    La reunión de <strong className="text-[var(--app-ink)]">Zoom se crea automáticamente</strong> — los participantes recibirán el enlace de acceso.
+                  </p>
+                </div>
+                <button
+                  type="submit"
+                  className="rounded-[16px] bg-[var(--brand-primary)] px-4 py-3 text-sm font-bold text-white disabled:opacity-50"
+                  disabled={submittingGroupSession || !groupSessionForm.title.trim() || !groupSessionForm.startsAt}
+                >
+                  {submittingGroupSession ? 'Creando sesión…' : 'Crear sesión grupal'}
+                </button>
+              </>
+            )}
+            <div className="flex items-center justify-between">
               <button
                 type="button"
                 className="rounded-[12px] border border-[var(--app-border)] px-3 py-2 text-xs font-semibold disabled:opacity-50"
@@ -918,14 +946,16 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
               >
                 Atrás
               </button>
-              <button
-                type="button"
-                className="rounded-[12px] border border-[var(--app-border)] px-3 py-2 text-xs font-semibold disabled:opacity-50"
-                disabled={groupWizardStep === 3}
-                onClick={() => setGroupWizardStep((prev) => (prev < 3 ? ((prev + 1) as WizardStep) : prev))}
-              >
-                Siguiente
-              </button>
+              {groupWizardStep < 3 && (
+                <button
+                  type="button"
+                  className="rounded-[12px] bg-[var(--brand-primary)] px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
+                  disabled={groupWizardStep === 1 && (!groupSessionForm.title.trim() || !groupSessionForm.startsAt)}
+                  onClick={() => setGroupWizardStep((prev) => (prev < 3 ? ((prev + 1) as WizardStep) : prev))}
+                >
+                  Siguiente
+                </button>
+              )}
             </div>
           </form>
         </section>
