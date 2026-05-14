@@ -156,6 +156,7 @@ export interface GroupSessionEventRecord {
   meetingUrl: string | null;
   zoomJoinUrl: string | null;
   zoomHostUrl: string | null;
+  zoomMeetingId: string | null;
   hostUserId: string | null;
   hostName: string | null;
   externalExpertName: string | null;
@@ -213,6 +214,7 @@ export interface CreateGroupSessionInput {
   endsAt: string;
   zoomJoinUrl?: string | null;
   zoomHostUrl?: string | null;
+  zoomMeetingId?: string | null;
   hostUserId?: string | null;
   externalExpertName?: string | null;
   externalExpertBio?: string | null;
@@ -225,6 +227,7 @@ export interface UpdateGroupSessionInput {
   endsAt?: string;
   zoomJoinUrl?: string | null;
   zoomHostUrl?: string | null;
+  zoomMeetingId?: string | null;
   hostUserId?: string | null;
   externalExpertName?: string | null;
   externalExpertBio?: string | null;
@@ -369,6 +372,7 @@ interface GroupSessionEventRow {
   meeting_url: string | null;
   zoom_join_url: string | null;
   zoom_host_url: string | null;
+  zoom_meeting_id: string | null;
   host_user_id: string | null;
   host_name: string | null;
   external_expert_name: string | null;
@@ -519,6 +523,7 @@ function mapGroupSessionEvent(row: GroupSessionEventRow): GroupSessionEventRecor
     meetingUrl: row.meeting_url,
     zoomJoinUrl: row.zoom_join_url,
     zoomHostUrl: row.zoom_host_url,
+    zoomMeetingId: row.zoom_meeting_id,
     hostUserId: row.host_user_id,
     hostName: row.host_name,
     externalExpertName: row.external_expert_name,
@@ -1216,6 +1221,7 @@ async function listGroupSessionEvents(
         ms.meeting_url,
         gse.zoom_join_url,
         gse.zoom_host_url,
+        gse.zoom_meeting_id,
         gse.host_user_id::text,
         host_user.display_name AS host_name,
         gse.external_expert_name,
@@ -1501,9 +1507,10 @@ export async function createGroupSession(
         external_expert_bio,
         zoom_join_url,
         zoom_host_url,
+        zoom_meeting_id,
         created_by
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     `,
     [
       session.sessionId,
@@ -1512,6 +1519,7 @@ export async function createGroupSession(
       input.externalExpertBio?.trim() || null,
       input.zoomJoinUrl?.trim() || null,
       input.zoomHostUrl?.trim() || null,
+      input.zoomMeetingId?.trim() || null,
       actor.userId,
     ],
   );
@@ -1573,6 +1581,7 @@ export async function updateGroupSession(
         external_expert_bio = COALESCE($4, external_expert_bio),
         zoom_join_url = COALESCE($5, zoom_join_url),
         zoom_host_url = COALESCE($6, zoom_host_url),
+        zoom_meeting_id = COALESCE($7, zoom_meeting_id),
         updated_at = now()
       WHERE event_id = $1
     `,
@@ -1583,6 +1592,7 @@ export async function updateGroupSession(
       input.externalExpertBio?.trim() || null,
       input.zoomJoinUrl?.trim() || null,
       input.zoomHostUrl?.trim() || null,
+      input.zoomMeetingId?.trim() || null,
     ],
   );
 
