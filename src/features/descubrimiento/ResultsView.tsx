@@ -78,7 +78,7 @@ const EMPTY_REPORTS: Record<DiscoveryReportFilter, string> = {
   up: "",
   beyond: "",
 };
-const ANALYSIS_MAX_RETRIES = 2;
+const ANALYSIS_MAX_RETRIES = 3;
 const ALL_REPORT_FILTERS: DiscoveryReportFilter[] = ["all", "within", "out", "up", "beyond"];
 const PILLAR_REPORT_FILTERS: DiscoveryReportFilter[] = ["within", "out", "up", "beyond"];
 const ANALYSIS_CONCURRENCY = 4;
@@ -370,28 +370,20 @@ export function ResultsView({
               syncReports({ [target]: response.report.trim() });
               return;
             }
-          } catch (error) {
-            const message =
-              error instanceof Error ? error.message.toLowerCase() : "";
-            const isRetryable =
-              message.includes("ai_final_analysis_pending") ||
-              message.includes("openai request failed") ||
-              message.includes("failed to analyze diagnostics") ||
-              message.includes("request timeout");
-            if (!isRetryable || attempt >= ANALYSIS_MAX_RETRIES) {
-              setFailedFilters((current) => ({ ...current, [target]: true }));
-              return;
-            }
+          } catch {
+            if (attempt >= ANALYSIS_MAX_RETRIES) break;
           }
 
-          if (attempt < ANALYSIS_MAX_RETRIES) {
-            await new Promise((resolve) =>
-              window.setTimeout(resolve, Math.min(1200 * attempt, 3200)),
-            );
-          }
+          await new Promise((resolve) =>
+            window.setTimeout(resolve, Math.min(1500 * attempt, 4000)),
+          );
         }
-        setFailedFilters((current) => ({ ...current, [target]: true }));
-        return;
+        // All attempts exhausted — use static fallback so the error message never shows
+        if (fallbackReport?.trim()) {
+          syncReports({ [target]: fallbackReport });
+        } else {
+          setFailedFilters((current) => ({ ...current, [target]: true }));
+        }
       } finally {
         analysisInFlightRef.current.delete(target);
         setAnalysisActiveCount((current) => Math.max(0, current - 1));
@@ -405,7 +397,6 @@ export function ResultsView({
       state.name,
       state.profile.jobRole,
       staticFallbackReports,
-      failedFilters,
       syncReports,
     ],
   );
