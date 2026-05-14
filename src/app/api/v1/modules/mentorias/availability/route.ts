@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
 import { authenticateRequest } from '@/server/auth/request-auth';
 import { withClient, withRoleContext } from '@/server/db/pool';
-import { upsertMentorAvailabilitySlot, type UpsertMentorAvailabilityInput } from '@/features/mentorias/service';
+import {
+  upsertMentorAvailabilitySlot,
+  deleteAvailabilitySlot,
+  type UpsertMentorAvailabilityInput,
+} from '@/features/mentorias/service';
 import { errorResponse, logModuleAudit, parseJsonBody, unauthorizedResponse } from '../../_utils';
 
 export async function POST(request: Request) {
@@ -26,5 +30,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, data }, { status: 200 });
   } catch (error) {
     return errorResponse(error, 'Failed to upsert mentor availability');
+  }
+}
+
+export async function DELETE(request: Request) {
+  const identity = await authenticateRequest(request);
+  if (!identity) return unauthorizedResponse();
+  const body = await parseJsonBody<{ mentorUserId: string; startsAt: string }>(request);
+  if (!body) return NextResponse.json({ ok: false, error: 'Invalid JSON body' }, { status: 400 });
+
+  try {
+    await withClient((client) =>
+      withRoleContext(client, identity.userId, identity.role, () =>
+        deleteAvailabilitySlot(client, identity, body),
+      ),
+    );
+    return NextResponse.json({ ok: true }, { status: 200 });
+  } catch (error) {
+    return errorResponse(error, 'Failed to delete availability slot');
   }
 }

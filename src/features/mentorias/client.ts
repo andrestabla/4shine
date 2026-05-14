@@ -208,6 +208,16 @@ export async function bulkCreateMentorAvailability(
   });
 }
 
+export async function deleteAvailabilitySlot(input: {
+  mentorUserId: string;
+  startsAt: string;
+}): Promise<void> {
+  await requestApi('/api/v1/modules/mentorias/availability', {
+    method: 'DELETE',
+    body: JSON.stringify(input),
+  });
+}
+
 export async function dispatchProgramMentorshipReminders(): Promise<{ notified: number }> {
   return requestApi<{ notified: number }>('/api/v1/modules/mentorias/program-reminders/dispatch', {
     method: 'POST',

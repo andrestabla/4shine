@@ -41,6 +41,7 @@ import { useUser } from '@/context/UserContext';
 import { filterCommercialProducts } from '@/features/access/catalog';
 import {
   bulkCreateMentorAvailability,
+  deleteAvailabilitySlot,
   createAdditionalMentorshipOrder,
   createGroupSession,
   createGroupSessionRecording,
@@ -117,7 +118,6 @@ interface GroupRecordingFormState {
 interface AvailabilitySlotFormState {
   mentorUserId: string;
   startsAt: string;
-  endsAt: string;
 }
 
 interface AvailabilityBulkFormState {
@@ -125,7 +125,7 @@ interface AvailabilityBulkFormState {
   fromDate: string;
   toDate: string;
   startHour: string;
-  weekdays: string;
+  weekdays: number[];
   numberOfSlots: string;
 }
 
@@ -354,15 +354,15 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
   const [availabilitySlotForm, setAvailabilitySlotForm] = React.useState<AvailabilitySlotFormState>({
     mentorUserId: '',
     startsAt: nextSlotValue(),
-    endsAt: nextSlotValue(),
   });
+  const [availabilityTab, setAvailabilityTab] = React.useState<'single' | 'bulk'>('single');
   const [availabilityBulkForm, setAvailabilityBulkForm] = React.useState<AvailabilityBulkFormState>({
     mentorUserId: '',
     fromDate: new Date().toISOString().slice(0, 10),
     toDate: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
-    startHour: '8',
-    weekdays: '1,2,3,4,5',
-    numberOfSlots: '3',
+    startHour: '9',
+    weekdays: [1, 2, 3, 4, 5],
+    numberOfSlots: '1',
   });
 
   const showError = React.useCallback(
@@ -807,13 +807,16 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
 
   const handleUpsertAvailabilitySlot = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!availabilitySlotForm.mentorUserId || !availabilitySlotForm.startsAt || !availabilitySlotForm.endsAt) return;
+    if (!availabilitySlotForm.mentorUserId || !availabilitySlotForm.startsAt) return;
     try {
+      const startsAt = toIso(availabilitySlotForm.startsAt);
+      const endsAt = new Date(new Date(startsAt).getTime() + 90 * 60000).toISOString();
       await upsertMentorAvailabilitySlot({
         mentorUserId: availabilitySlotForm.mentorUserId,
-        startsAt: toIso(availabilitySlotForm.startsAt),
-        endsAt: toIso(availabilitySlotForm.endsAt),
+        startsAt,
+        endsAt,
       });
+      setAvailabilitySlotForm((prev) => ({ ...prev, startsAt: nextSlotValue() }));
       await load();
     } catch (error) {
       await showError('No se pudo guardar la franja de disponibilidad.', error);
@@ -829,15 +832,21 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
         fromDate: availabilityBulkForm.fromDate,
         toDate: availabilityBulkForm.toDate,
         startHour: Number(availabilityBulkForm.startHour),
-        weekdays: availabilityBulkForm.weekdays
-          .split(',')
-          .map((item) => Number(item.trim()))
-          .filter((item) => Number.isFinite(item) && item >= 1 && item <= 7),
+        weekdays: availabilityBulkForm.weekdays,
         numberOfSlots: Number(availabilityBulkForm.numberOfSlots),
       });
       await load();
     } catch (error) {
       await showError('No se pudo crear la disponibilidad masiva.', error);
+    }
+  };
+
+  const handleDeleteAvailabilitySlot = async (mentorUserId: string, startsAt: string) => {
+    try {
+      await deleteAvailabilitySlot({ mentorUserId, startsAt });
+      await load();
+    } catch (error) {
+      await showError('No se pudo eliminar la franja.', error);
     }
   };
 
@@ -1752,36 +1761,232 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
           </section>
         )}
 
-        {(currentRole === 'admin' || currentRole === 'gestor' || currentRole === 'mentor') && (
-          <section className="app-panel p-5 sm:p-6">
-            <p className="app-section-kicker">Disponibilidad Adviser (90 min)</p>
-            <form className="mt-4 grid gap-3 md:grid-cols-4" onSubmit={handleUpsertAvailabilitySlot}>
-              <select
-                className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
-                value={availabilitySlotForm.mentorUserId}
-                onChange={(event) => setAvailabilitySlotForm((prev) => ({ ...prev, mentorUserId: event.target.value }))}
-                required
-              >
-                <option value="">Selecciona Adviser</option>
-                {overview.mentorCatalog.map((mentor) => (
-                  <option key={mentor.mentorUserId} value={mentor.mentorUserId}>{mentor.name}</option>
-                ))}
-              </select>
-              <input className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm" type="datetime-local" value={availabilitySlotForm.startsAt} onChange={(event) => setAvailabilitySlotForm((prev) => ({ ...prev, startsAt: event.target.value }))} required />
-              <input className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm" type="datetime-local" value={availabilitySlotForm.endsAt} onChange={(event) => setAvailabilitySlotForm((prev) => ({ ...prev, endsAt: event.target.value }))} required />
-              <button className="rounded-[16px] bg-[var(--brand-primary)] px-4 py-3 text-sm font-bold text-white" type="submit">Guardar franja</button>
-            </form>
+        {(currentRole === 'admin' || currentRole === 'gestor' || currentRole === 'mentor') && (() => {
+          const HOUR_OPTIONS = Array.from({ length: 30 }, (_, i) => {
+            const totalMinutes = 7 * 60 + i * 30;
+            const h = Math.floor(totalMinutes / 60);
+            const m = totalMinutes % 60;
+            const hh = h.toString().padStart(2, '0');
+            const mm = m === 0 ? '00' : '30';
+            const period = h < 12 ? 'am' : 'pm';
+            const displayH = h > 12 ? h - 12 : h === 0 ? 12 : h;
+            return { value: `${hh}:${mm}`, label: `${displayH}:${mm} ${period}` };
+          });
+          const WEEKDAYS = [
+            { value: 1, label: 'Lun' },
+            { value: 2, label: 'Mar' },
+            { value: 3, label: 'Mié' },
+            { value: 4, label: 'Jue' },
+            { value: 5, label: 'Vie' },
+            { value: 6, label: 'Sáb' },
+            { value: 7, label: 'Dom' },
+          ];
+          const activeMentorId = availabilitySlotForm.mentorUserId;
+          const activeMentorSlots = overview.mentorCatalog.find(m => m.mentorUserId === activeMentorId)?.availability ?? [];
+          const slotDate = availabilitySlotForm.startsAt.split('T')[0] ?? '';
+          const slotTime = availabilitySlotForm.startsAt.includes('T') ? availabilitySlotForm.startsAt.split('T')[1] : '09:00';
+          return (
+            <section className="app-panel p-5 sm:p-6">
+              <p className="app-section-kicker mb-4">Agenda del Adviser</p>
 
-            <form className="mt-4 grid gap-3 md:grid-cols-6" onSubmit={handleBulkAvailability}>
-              <input className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm" type="date" value={availabilityBulkForm.fromDate} onChange={(event) => setAvailabilityBulkForm((prev) => ({ ...prev, fromDate: event.target.value }))} />
-              <input className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm" type="date" value={availabilityBulkForm.toDate} onChange={(event) => setAvailabilityBulkForm((prev) => ({ ...prev, toDate: event.target.value }))} />
-              <input className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm" placeholder="Hora inicio (0-23)" value={availabilityBulkForm.startHour} onChange={(event) => setAvailabilityBulkForm((prev) => ({ ...prev, startHour: event.target.value }))} />
-              <input className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm" placeholder="Días 1-7 (ej 1,2,3,4,5)" value={availabilityBulkForm.weekdays} onChange={(event) => setAvailabilityBulkForm((prev) => ({ ...prev, weekdays: event.target.value }))} />
-              <input className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm" placeholder="Slots por día" value={availabilityBulkForm.numberOfSlots} onChange={(event) => setAvailabilityBulkForm((prev) => ({ ...prev, numberOfSlots: event.target.value }))} />
-              <button className="rounded-[16px] border border-[var(--app-border)] px-4 py-3 text-sm font-semibold text-[var(--app-ink)]" type="submit">Carga masiva</button>
-            </form>
-          </section>
-        )}
+              {currentRole !== 'mentor' && (
+                <select
+                  className="mb-5 w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
+                  value={activeMentorId}
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    setAvailabilitySlotForm((prev) => ({ ...prev, mentorUserId: id }));
+                    setAvailabilityBulkForm((prev) => ({ ...prev, mentorUserId: id }));
+                  }}
+                >
+                  <option value="">Selecciona un Adviser</option>
+                  {overview.mentorCatalog.map((mentor) => (
+                    <option key={mentor.mentorUserId} value={mentor.mentorUserId}>
+                      {mentor.name} · {mentor.specialty}
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              <div className="mb-5 flex gap-1 rounded-[14px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-1">
+                {(['single', 'bulk'] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    className={clsx(
+                      'flex-1 rounded-[12px] py-2 text-sm font-semibold transition',
+                      availabilityTab === tab
+                        ? 'bg-white text-[var(--app-ink)] shadow-sm'
+                        : 'text-[var(--app-muted)] hover:text-[var(--app-ink)]',
+                    )}
+                    onClick={() => setAvailabilityTab(tab)}
+                  >
+                    {tab === 'single' ? 'Franja única' : 'Carga semanal'}
+                  </button>
+                ))}
+              </div>
+
+              {availabilityTab === 'single' && (
+                <form className="space-y-4" onSubmit={handleUpsertAvailabilitySlot}>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1.5 block text-xs font-semibold text-[var(--app-muted)]">Fecha</label>
+                      <input
+                        type="date"
+                        className="w-full rounded-[14px] border border-[var(--app-border)] bg-white px-4 py-2.5 text-sm"
+                        value={slotDate}
+                        onChange={(e) => setAvailabilitySlotForm((prev) => ({ ...prev, startsAt: `${e.target.value}T${slotTime}` }))}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-xs font-semibold text-[var(--app-muted)]">Hora inicio</label>
+                      <select
+                        className="w-full rounded-[14px] border border-[var(--app-border)] bg-white px-4 py-2.5 text-sm"
+                        value={slotTime}
+                        onChange={(e) => setAvailabilitySlotForm((prev) => ({ ...prev, startsAt: `${slotDate || new Date().toISOString().split('T')[0]}T${e.target.value}` }))}
+                      >
+                        {HOUR_OPTIONS.map(({ value, label }) => (
+                          <option key={value} value={value}>{label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  {slotDate && (
+                    <p className="text-xs text-[var(--app-muted)]">
+                      Franja de 90 min: {formatDateTime(toIso(availabilitySlotForm.startsAt), tz)} – {formatTime(new Date(new Date(toIso(availabilitySlotForm.startsAt)).getTime() + 90 * 60000).toISOString(), tz)}
+                    </p>
+                  )}
+                  <button
+                    type="submit"
+                    className="rounded-[14px] bg-[var(--brand-primary)] px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+                    disabled={!activeMentorId || !slotDate}
+                  >
+                    Agregar franja
+                  </button>
+                </form>
+              )}
+
+              {availabilityTab === 'bulk' && (
+                <form className="space-y-4" onSubmit={handleBulkAvailability}>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1.5 block text-xs font-semibold text-[var(--app-muted)]">Fecha inicio</label>
+                      <input
+                        type="date"
+                        className="w-full rounded-[14px] border border-[var(--app-border)] bg-white px-4 py-2.5 text-sm"
+                        value={availabilityBulkForm.fromDate}
+                        onChange={(e) => setAvailabilityBulkForm((prev) => ({ ...prev, fromDate: e.target.value }))}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-xs font-semibold text-[var(--app-muted)]">Fecha fin</label>
+                      <input
+                        type="date"
+                        className="w-full rounded-[14px] border border-[var(--app-border)] bg-white px-4 py-2.5 text-sm"
+                        value={availabilityBulkForm.toDate}
+                        onChange={(e) => setAvailabilityBulkForm((prev) => ({ ...prev, toDate: e.target.value }))}
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1.5 block text-xs font-semibold text-[var(--app-muted)]">Hora inicio</label>
+                      <select
+                        className="w-full rounded-[14px] border border-[var(--app-border)] bg-white px-4 py-2.5 text-sm"
+                        value={HOUR_OPTIONS.find(o => o.value.startsWith(availabilityBulkForm.startHour.padStart(2,'0')))?.value ?? '09:00'}
+                        onChange={(e) => setAvailabilityBulkForm((prev) => ({ ...prev, startHour: String(parseInt(e.target.value, 10)) }))}
+                      >
+                        {HOUR_OPTIONS.filter(o => o.value.endsWith(':00')).map(({ value, label }) => (
+                          <option key={value} value={value}>{label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-xs font-semibold text-[var(--app-muted)]">Sesiones por día</label>
+                      <select
+                        className="w-full rounded-[14px] border border-[var(--app-border)] bg-white px-4 py-2.5 text-sm"
+                        value={availabilityBulkForm.numberOfSlots}
+                        onChange={(e) => setAvailabilityBulkForm((prev) => ({ ...prev, numberOfSlots: e.target.value }))}
+                      >
+                        <option value="1">1 sesión</option>
+                        <option value="2">2 sesiones consecutivas</option>
+                        <option value="3">3 sesiones consecutivas</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-xs font-semibold text-[var(--app-muted)]">Días de la semana</label>
+                    <div className="flex flex-wrap gap-2">
+                      {WEEKDAYS.map(({ value, label }) => {
+                        const selected = availabilityBulkForm.weekdays.includes(value);
+                        return (
+                          <button
+                            key={value}
+                            type="button"
+                            className={clsx(
+                              'rounded-full border px-3 py-1.5 text-xs font-semibold transition',
+                              selected
+                                ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)] text-white'
+                                : 'border-[var(--app-border)] text-[var(--app-ink)] hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)]',
+                            )}
+                            onClick={() =>
+                              setAvailabilityBulkForm((prev) => ({
+                                ...prev,
+                                weekdays: selected
+                                  ? prev.weekdays.filter((d) => d !== value)
+                                  : [...prev.weekdays, value].sort((a, b) => a - b),
+                              }))
+                            }
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <button
+                    type="submit"
+                    className="rounded-[14px] bg-[var(--brand-primary)] px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+                    disabled={!activeMentorId || !availabilityBulkForm.fromDate || !availabilityBulkForm.toDate || availabilityBulkForm.weekdays.length === 0}
+                  >
+                    Crear agenda semanal
+                  </button>
+                </form>
+              )}
+
+              {activeMentorId && activeMentorSlots.length > 0 && (
+                <div className="mt-5 border-t border-[var(--app-border)] pt-4">
+                  <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-[var(--app-muted)]">
+                    Próximos horarios ({activeMentorSlots.length})
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {activeMentorSlots.map((slot) => (
+                      <div
+                        key={slot.startsAt}
+                        className="flex items-center gap-1.5 rounded-full border border-[var(--app-border)] bg-white py-1.5 pl-3 pr-2 text-xs font-medium text-[var(--app-ink)]"
+                      >
+                        <span>{formatDateTime(slot.startsAt, tz)}</span>
+                        <button
+                          type="button"
+                          className="flex h-4 w-4 items-center justify-center rounded-full text-[var(--app-muted)] hover:bg-rose-100 hover:text-rose-600 transition"
+                          onClick={() => void handleDeleteAvailabilitySlot(activeMentorId, slot.startsAt)}
+                        >
+                          <X size={10} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {activeMentorId && activeMentorSlots.length === 0 && (
+                <p className="mt-4 text-sm text-[var(--app-muted)]">No hay horarios próximos registrados.</p>
+              )}
+            </section>
+          );
+        })()}
 
         {(currentRole === 'admin' || currentRole === 'gestor') && (
           <section className="app-panel p-5 sm:p-6">

@@ -2102,6 +2102,24 @@ export async function upsertMentorAvailabilitySlot(
   return { ok: true };
 }
 
+export async function deleteAvailabilitySlot(
+  client: PoolClient,
+  actor: AuthUser,
+  input: { mentorUserId: string; startsAt: string },
+): Promise<void> {
+  if (!['admin', 'gestor', 'mentor'].includes(actor.role)) {
+    throw new Error('Sin permiso para eliminar disponibilidad.');
+  }
+  if (actor.role === 'mentor' && actor.userId !== input.mentorUserId) {
+    throw new Error('Un Adviser solo puede editar su propia disponibilidad.');
+  }
+  await client.query(
+    `DELETE FROM app_mentoring.mentor_availability
+     WHERE mentor_user_id = $1::uuid AND starts_at = $2::timestamptz AND is_booked = false`,
+    [input.mentorUserId, input.startsAt],
+  );
+}
+
 export async function bulkCreateMentorAvailability(
   client: PoolClient,
   actor: AuthUser,
