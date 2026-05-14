@@ -38,7 +38,7 @@ import {
   analyzeInvitationDiscoveryReport,
 } from "./client";
 import { downloadDiscoveryPdfReport } from "./pdf-export";
-import { buildDiscoveryReport, getDiscoveryStatus, scoreDiscoveryAnswers } from "./reporting";
+import { getDiscoveryStatus, scoreDiscoveryAnswers } from "./reporting";
 import type {
   DiscoveryAiReports,
   DiscoveryExperienceSurvey,
@@ -78,7 +78,6 @@ const EMPTY_REPORTS: Record<DiscoveryReportFilter, string> = {
   up: "",
   beyond: "",
 };
-const ANALYSIS_MAX_RETRIES = 3;
 const ALL_REPORT_FILTERS: DiscoveryReportFilter[] = ["all", "within", "out", "up", "beyond"];
 const PILLAR_REPORT_FILTERS: DiscoveryReportFilter[] = ["within", "out", "up", "beyond"];
 const ANALYSIS_CONCURRENCY = 4;
@@ -170,16 +169,6 @@ export function ResultsView({
     () => scoreDiscoveryAnswers(state.answers),
     [state.answers],
   );
-  const staticFallbackReports = React.useMemo<Record<DiscoveryReportFilter, string>>(
-    () => ({
-      all: buildDiscoveryReport("all", state, scoring),
-      within: buildDiscoveryReport("within", state, scoring),
-      out: buildDiscoveryReport("out", state, scoring),
-      up: buildDiscoveryReport("up", state, scoring),
-      beyond: buildDiscoveryReport("beyond", state, scoring),
-    }),
-    [state, scoring],
-  );
   const isInvitationExperience =
     isPublic && (Boolean(invitationCredentials) || enablePublicAnalysis);
   const initialReports = React.useMemo(
@@ -197,7 +186,6 @@ export function ResultsView({
     [initialAiReports],
   );
   const [reports, setReports] = React.useState(initialReports);
-  const [failedFilters, setFailedFilters] = React.useState<Partial<Record<DiscoveryReportFilter, true>>>({});
   const [filter, setFilter] = React.useState<DiscoveryReportFilter>("all");
   const [isExporting, setIsExporting] = React.useState(false);
   const [isSharing, setIsSharing] = React.useState(false);
@@ -223,6 +211,7 @@ export function ResultsView({
   const analysisCacheRef = React.useRef<Set<DiscoveryReportFilter>>(new Set());
   const analysisInFlightRef = React.useRef<Set<DiscoveryReportFilter>>(new Set());
   const analysisBatchStartedRef = React.useRef(false);
+  const analysisAliveRef = React.useRef(true);
   const [analysisCompletedCount, setAnalysisCompletedCount] = React.useState(0);
   const [analysisBatchPending, setAnalysisBatchPending] = React.useState(false);
   const [analysisActiveCount, setAnalysisActiveCount] = React.useState(0);
@@ -237,7 +226,7 @@ export function ResultsView({
     setAnalysisCompletedCount(initiallyCachedFilters.length);
     setAnalysisActiveCount(0);
     setAnalysisBatchPending(false);
-    setFailedFilters({});
+    analysisAliveRef.current = true;
     analysisBatchStartedRef.current = false;
   }, [initialReports, initiallyCachedFilters, isInvitationExperience]);
 
@@ -329,26 +318,21 @@ export function ResultsView({
       known.add(target);
     }
     analysisCacheRef.current = known;
-    setAnalysisCompletedCount(Math.min(5, known.size + Object.keys(failedFilters).length));
-  }, [failedFilters]);
+    setAnalysisCompletedCount(Math.min(5, known.size));
+  }, []);
 
   const generateAnalysisForFilter = React.useCallback(
     async (target: DiscoveryReportFilter) => {
       if (isPublic && !invitationCredentials && !enablePublicAnalysis) return;
       if (analysisCacheRef.current.has(target)) return;
       if (analysisInFlightRef.current.has(target)) return;
-      setFailedFilters((current) => {
-        if (!current[target]) return current;
-        const next = { ...current };
-        delete next[target];
-        return next;
-      });
 
       analysisInFlightRef.current.add(target);
       setAnalysisActiveCount((current) => current + 1);
       try {
-        const fallbackReport = staticFallbackReports[target];
-        for (let attempt = 1; attempt <= ANALYSIS_MAX_RETRIES; attempt += 1) {
+        let attempt = 0;
+        while (analysisAliveRef.current && !analysisCacheRef.current.has(target)) {
+          attempt += 1;
           try {
             const response = invitationCredentials
               ? await analyzeInvitationDiscoveryReport({
@@ -358,14 +342,12 @@ export function ResultsView({
                   role: state.profile.jobRole || "Invitado",
                   scores: scoring,
                   pillar: target,
-                  fallbackReport,
                 })
               : await analyzeDiscoveryReport({
                   username: state.name,
                   role: state.profile.jobRole || "Lider",
                   scores: scoring,
                   pillar: target,
-                  fallbackReport,
                 });
 
             if (response.report?.trim()) {
@@ -373,18 +355,13 @@ export function ResultsView({
               return;
             }
           } catch {
-            if (attempt >= ANALYSIS_MAX_RETRIES) break;
+            // transient error — will retry
           }
 
-          await new Promise((resolve) =>
-            window.setTimeout(resolve, Math.min(1500 * attempt, 4000)),
-          );
-        }
-        // All attempts exhausted — use static fallback so the error message never shows
-        if (fallbackReport?.trim()) {
-          syncReports({ [target]: fallbackReport });
-        } else {
-          setFailedFilters((current) => ({ ...current, [target]: true }));
+          if (!analysisAliveRef.current || analysisCacheRef.current.has(target)) break;
+          // Exponential backoff capped at 20 s: 3 s, 6 s, 12 s, 20 s, 20 s, …
+          const delay = Math.min(3000 * Math.pow(1.6, attempt - 1), 20000);
+          await new Promise((resolve) => window.setTimeout(resolve, delay));
         }
       } finally {
         analysisInFlightRef.current.delete(target);
@@ -398,7 +375,6 @@ export function ResultsView({
       scoring,
       state.name,
       state.profile.jobRole,
-      staticFallbackReports,
       syncReports,
     ],
   );
@@ -439,10 +415,7 @@ export function ResultsView({
     isPublic,
   ]);
 
-  React.useEffect(() => {
-    const completed = analysisCacheRef.current.size + Object.keys(failedFilters).length;
-    setAnalysisCompletedCount(Math.min(5, completed));
-  }, [failedFilters]);
+  React.useEffect(() => () => { analysisAliveRef.current = false; }, []);
 
   const radarData = React.useMemo(
     () => [
@@ -683,8 +656,7 @@ export function ResultsView({
   };
 
   const currentReport = reports[filter]?.trim() ?? "";
-  const currentFilterFailed = Boolean(failedFilters[filter]);
-  const shouldMaskAnalysis = currentReport.length === 0 && !currentFilterFailed;
+  const shouldMaskAnalysis = currentReport.length === 0;
 
   return (
     <div className="space-y-6">
@@ -1044,23 +1016,6 @@ export function ResultsView({
               </div>
             )}
             <div className="prose prose-slate max-w-none text-[15px] leading-relaxed md:text-sm md:leading-7">
-              {currentFilterFailed && currentReport.length === 0 && (
-                <div className="mb-4 rounded-[14px] border border-amber-200 bg-amber-50 px-4 py-3 not-prose">
-                  <p className="text-sm font-semibold text-amber-900">
-                    Este análisis tardó más de lo esperado.
-                  </p>
-                  <p className="mt-1 text-xs text-amber-800">
-                    Puedes reintentar esta vista ahora. El resto de resultados ya disponibles no se perderán.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => void generateAnalysisForFilter(filter)}
-                    className="mt-3 inline-flex items-center gap-2 rounded-full border border-amber-300 bg-white px-3 py-1.5 text-xs font-extrabold uppercase tracking-[0.12em] text-amber-900 hover:bg-amber-100"
-                  >
-                    Reintentar análisis
-                  </button>
-                </div>
-              )}
               <ReactMarkdown
                 components={{
                   h2: ({ children }) => (

@@ -3948,7 +3948,7 @@ async function requestOpenAiReport(
       response = await fetch(endpoint, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${context.openAiConfig.secretValue}`,
+          Authorization: `Bearer ${(context.openAiConfig.wizardData.apiKey || context.openAiConfig.secretValue).trim()}`,
           "Content-Type": "application/json",
         },
         signal: controller.signal,
@@ -4806,9 +4806,8 @@ async function runDiscoveryAnalysisWithContext(
     }
 
     return { report, source: "ai" };
-  } catch {
-    if (fallback) return { report: fallback, source: "fallback" };
-    throw new Error("No se pudo generar el análisis con IA y no existe fallback.");
+  } catch (err) {
+    throw err instanceof Error ? err : new Error("No se pudo generar el análisis con IA.");
   }
 }
 
@@ -5359,8 +5358,8 @@ export async function generateDiscoveryAnalysisContract(
     }
   }
   const openAiIntegration = await getIntegrationConfigForActor(client, actor.userId, "openai");
-  if (!openAiIntegration?.enabled || !openAiIntegration.secretValue) {
-    if (fallback) return { report: fallback, source: "fallback" };
+  const openAiApiKey = openAiIntegration?.wizardData?.apiKey || openAiIntegration?.secretValue || "";
+  if (!openAiIntegration?.enabled || !openAiApiKey) {
     throw new Error("OpenAI integration is not configured for this organization.");
   }
 
@@ -5690,9 +5689,8 @@ export async function generateDiscoveryGuestSessionAnalysisContract(
   }
 
   const openAiConfig = await resolveOpenAiConfigByOrganization(client, organizationId);
-  if (!openAiConfig?.enabled || !openAiConfig.secretValue) {
-    const fallback = input.fallbackReport?.trim() || "";
-    if (fallback) return { report: fallback, source: "fallback" };
+  const openAiApiKeyGuest = openAiConfig?.wizardData?.apiKey || openAiConfig?.secretValue || "";
+  if (!openAiConfig?.enabled || !openAiApiKeyGuest) {
     throw new Error("OpenAI integration is not configured for this organization.");
   }
 

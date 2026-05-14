@@ -258,7 +258,6 @@ export async function analyzeDiscoveryReport(input: {
   role: string;
   scores: DiscoveryScoreResult;
   pillar: DiscoveryReportFilter;
-  fallbackReport?: string;
   force?: boolean;
 }): Promise<{ report: string; source: "ai" | "fallback" }> {
   return requestApi<{ report: string; source: "ai" | "fallback" }>(
@@ -293,9 +292,8 @@ export async function analyzeInvitationDiscoveryReport(input: {
   role: string;
   scores: DiscoveryScoreResult;
   pillar: DiscoveryReportFilter;
-  fallbackReport?: string;
 }): Promise<{ report: string; source: "ai" | "fallback" }> {
-  const { inviteToken, accessCode, username, role, scores, pillar, fallbackReport } = input;
+  const { inviteToken, accessCode, username, role, scores, pillar } = input;
   return requestApi<{ report: string; source: "ai" | "fallback" }>(
     "/api/diagnostics/analyze",
     {
@@ -307,7 +305,6 @@ export async function analyzeInvitationDiscoveryReport(input: {
         role,
         scores,
         pillar,
-        fallbackReport,
       }),
       timeoutMs: 160000,
     },
