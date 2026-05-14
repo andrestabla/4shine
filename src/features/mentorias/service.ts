@@ -1742,6 +1742,51 @@ export async function createGroupSessionRecording(
   return found;
 }
 
+export interface ZoomRecordingPayload {
+  meetingId: string;
+  topic: string;
+  playUrl: string;
+  durationMinutes: number;
+  recordedAt: string | null;
+}
+
+export async function ingestZoomRecording(
+  client: PoolClient,
+  payload: ZoomRecordingPayload,
+): Promise<void> {
+  const { rows: eventRows } = await client.query<{ event_id: string; created_by: string }>(
+    `SELECT gse.event_id::text, gse.created_by::text
+     FROM app_mentoring.group_session_events gse
+     WHERE gse.zoom_meeting_id = $1
+     LIMIT 1`,
+    [payload.meetingId],
+  );
+  const event = eventRows[0];
+  if (!event) return;
+
+  const { rows: existing } = await client.query<{ recording_id: string }>(
+    `SELECT recording_id FROM app_mentoring.group_session_recordings
+     WHERE event_id = $1 AND source_type = 'zoom'
+     LIMIT 1`,
+    [event.event_id],
+  );
+  if (existing.length > 0) return;
+
+  await client.query(
+    `INSERT INTO app_mentoring.group_session_recordings
+       (event_id, source_type, title, recording_url, duration_minutes, recorded_at, published_at, created_by)
+     VALUES ($1, 'zoom', $2, $3, $4, $5::timestamptz, now(), $6::uuid)`,
+    [
+      event.event_id,
+      payload.topic || 'Grabación Zoom',
+      payload.playUrl,
+      payload.durationMinutes,
+      payload.recordedAt,
+      event.created_by,
+    ],
+  );
+}
+
 export async function reactToGroupSessionRecording(
   client: PoolClient,
   actor: AuthUser,

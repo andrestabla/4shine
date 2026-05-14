@@ -1,6 +1,7 @@
 import { createHmac } from 'crypto';
 import { NextResponse } from 'next/server';
 import { withClient } from '@/server/db/pool';
+import { ingestZoomRecording } from '@/features/mentorias/service';
 
 export const runtime = 'nodejs';
 
@@ -8,7 +9,7 @@ async function getZoomWebhookSecret(client: import('pg').PoolClient): Promise<st
   const { rows } = await client.query<{ wizard_data: Record<string, string> | null }>(
     `SELECT ic.wizard_data
      FROM app_admin.integration_configs ic
-     JOIN organizations o ON o.organization_id = ic.organization_id
+     JOIN app_core.organizations o ON o.organization_id = ic.organization_id
      WHERE ic.integration_key = 'zoom'
      LIMIT 1`,
   );
@@ -55,6 +56,47 @@ export async function POST(request: Request) {
     }
   }
 
-  // Events are received here — extend this handler as Zoom features are built out
+  if (body.event === 'recording.completed') {
+    const obj = (body.payload as Record<string, unknown>)?.object as Record<string, unknown> | undefined;
+    if (obj) {
+      const meetingId = String(obj.id ?? '');
+      const topic = String(obj.topic ?? '');
+      const files = (obj.recording_files ?? []) as Array<Record<string, unknown>>;
+
+      const PRIORITY = [
+        'shared_screen_with_speaker_view',
+        'active_speaker',
+        'shared_screen_with_gallery_view',
+        'shared_screen',
+      ];
+      const mp4 = files
+        .filter((f) => f.file_type === 'MP4' && f.status === 'completed' && f.play_url)
+        .sort((a, b) => {
+          const pa = PRIORITY.indexOf(String(a.recording_type ?? ''));
+          const pb = PRIORITY.indexOf(String(b.recording_type ?? ''));
+          return (pa < 0 ? 99 : pa) - (pb < 0 ? 99 : pb);
+        })[0];
+
+      if (mp4 && meetingId) {
+        const start = mp4.recording_start ? String(mp4.recording_start) : null;
+        const end = mp4.recording_end ? String(mp4.recording_end) : null;
+        const durationMinutes =
+          start && end
+            ? Math.max(0, Math.round((new Date(end).getTime() - new Date(start).getTime()) / 60000))
+            : 0;
+
+        withClient((client) =>
+          ingestZoomRecording(client, {
+            meetingId,
+            topic,
+            playUrl: String(mp4.play_url),
+            durationMinutes,
+            recordedAt: start,
+          }),
+        ).catch((err) => console.error('[zoom webhook] recording ingest failed:', err));
+      }
+    }
+  }
+
   return NextResponse.json({ ok: true }, { status: 200 });
 }
