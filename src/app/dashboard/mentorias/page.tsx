@@ -14,6 +14,7 @@ import {
   CircleDollarSign,
   Clock3,
   Image as ImageIcon,
+  Lock,
   Pencil,
   ShoppingBag,
   Sparkles,
@@ -1829,120 +1830,128 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
         </div>
       )}
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(340px,0.8fr)]">
-        <section className="rounded-[28px] border border-[var(--app-border)] bg-[linear-gradient(135deg,rgba(88,45,115,0.96),rgba(148,87,136,0.92),rgba(244,191,232,0.78))] px-6 py-6 text-white shadow-[0_30px_60px_rgba(63,35,84,0.18)]">
-          <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-white/70">Acompañamiento ejecutivo</p>
-          <h2
-            className="mt-3 text-[2.2rem] font-semibold leading-[0.95] text-white md:text-[3rem]"
-            data-display-font="true"
-          >
-            {leaderName}, tu ruta de mentorías vive aquí.
-          </h2>
-          <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/84 md:text-base">
-            {isOpenLeader
-              ? 'Desde aquí puedes comprar sesiones adicionales con los Advisers disponibles. Cuando actives el programa 4Shine, también aparecerán tus mentorías incluidas del journey.'
-              : 'Tienes sesiones incluidas por pertenecer al programa y también puedes activar espacios adicionales con los Advisers disponibles cuando necesites profundizar un reto puntual.'}
-          </p>
-
-          <div className="mt-6 flex flex-wrap gap-3 text-xs font-semibold text-white/88">
-            <span className="rounded-full border border-white/20 bg-white/10 px-3 py-2">
-              {isOpenLeader
-                ? 'Programa requerido para incluidas'
-                : `${overview.programEntitlements.filter((item) => item.canSchedule).length} incluidas por agendar`}
-            </span>
-            <span className="rounded-full border border-white/20 bg-white/10 px-3 py-2">
-              {overview.additionalOrders.filter((item) => item.status !== 'cancelled').length} adicionales registradas
-            </span>
-            <span className="rounded-full border border-white/20 bg-white/10 px-3 py-2">
-              {nextSessions.length} próximas sesiones visibles
-            </span>
-          </div>
-        </section>
-
+      {nextSessions.length > 0 && (
         <section className="app-panel p-5 sm:p-6">
-          <div className="flex items-center gap-2">
+          <div className="mb-4 flex items-center gap-2">
             <CalendarDays size={16} className="text-[var(--brand-primary)]" />
             <p className="app-section-kicker">Próximas sesiones</p>
           </div>
-          <div className="mt-5 space-y-3">
-            {nextSessions.length === 0 ? (
-              <EmptyState message="Aún no tienes mentorías próximas en agenda." />
-            ) : (
-              nextSessions.map((session) => (
-                <article
-                  key={session.sessionId}
-                  className="rounded-[18px] border border-[var(--app-border)] bg-white/84 px-4 py-4"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="font-bold text-[var(--app-ink)]">{session.title}</p>
-                      <p className="mt-1 text-sm text-[var(--app-muted)]">
-                        {session.mentorName} · {formatDateTime(session.startsAt, tz)}
-                      </p>
-                    </div>
-                    <span className={clsx('rounded-full px-3 py-1 text-xs font-bold', SESSION_STATUS_META[session.status].tone)}>
-                      {SESSION_STATUS_META[session.status].label}
-                    </span>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {nextSessions.map((session) => (
+              <article
+                key={session.sessionId}
+                className="rounded-[18px] border border-[var(--app-border)] bg-white/84 px-4 py-4"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <p className="font-bold text-[var(--app-ink)]">{session.title}</p>
+                    <p className="mt-1 text-sm text-[var(--app-muted)]">
+                      {session.mentorName} · {formatDateTime(session.startsAt, tz)}
+                    </p>
                   </div>
-                </article>
-              ))
-            )}
+                  <span className={clsx('rounded-full px-3 py-1 text-xs font-bold', SESSION_STATUS_META[session.status].tone)}>
+                    {SESSION_STATUS_META[session.status].label}
+                  </span>
+                </div>
+              </article>
+            ))}
           </div>
         </section>
-      </div>
+      )}
 
       <StatGrid stats={leaderStats} />
 
-      <div className="grid gap-6 2xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
-        <section className="app-panel p-5 sm:p-6">
-          <div className="flex items-center gap-2">
-            <BadgeCheck size={16} className="text-[var(--brand-primary)]" />
-            <p className="app-section-kicker">Mentorías incluidas</p>
+      <section className="app-panel p-5 sm:p-6">
+        <div className="flex items-center gap-2">
+          <BadgeCheck size={16} className="text-[var(--brand-primary)]" />
+          <p className="app-section-kicker">Mentorías del programa</p>
+        </div>
+
+        {overview.programEntitlements.length === 0 ? (
+          <div className="mt-5">
+            <EmptyState
+              message={
+                isOpenLeader
+                  ? 'Esta cuenta no tiene mentorías incluidas activas. Puedes activar el programa 4Shine para desbloquearlas.'
+                  : 'No encontramos derechos de mentoría configurados para este líder todavía.'
+              }
+            />
           </div>
-          <div className="mt-5 grid gap-4">
-            {overview.programEntitlements.length === 0 ? (
-              <EmptyState
-                message={
-                  isOpenLeader
-                    ? 'Esta cuenta no tiene mentorías incluidas activas. Puedes comprar sesiones adicionales o activar el programa 4Shine para desbloquearlas.'
-                    : 'No encontramos derechos de mentoría configurados para este líder todavía.'
-                }
-              />
-            ) : (
-              overview.programEntitlements.map((item) => (
+        ) : (
+          <div className="mt-5 space-y-3">
+            {overview.programEntitlements.map((item, idx) => {
+              const isFormOpen = programForm.entitlementId === item.entitlementId;
+              const isCompleted = item.status === 'completed';
+              const isLocked = !isCompleted && !item.canSchedule;
+
+              if (isCompleted) {
+                return (
+                  <article key={item.entitlementId} className="flex items-center gap-4 rounded-[20px] border border-emerald-200 bg-emerald-50/80 px-5 py-4">
+                    <CheckCircle2 size={20} className="shrink-0 text-emerald-500" />
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold text-emerald-800">{item.title}</p>
+                      {item.mentorName && item.scheduledStartsAt && (
+                        <p className="mt-0.5 text-sm text-emerald-700">
+                          {item.mentorName} · {formatDateTime(item.scheduledStartsAt, tz)}
+                        </p>
+                      )}
+                    </div>
+                    <span className="shrink-0 rounded-full border border-emerald-200 bg-emerald-100 px-3 py-1 text-xs font-extrabold uppercase tracking-[0.14em] text-emerald-700">
+                      Completada
+                    </span>
+                  </article>
+                );
+              }
+
+              if (isLocked) {
+                return (
+                  <article key={item.entitlementId} className="rounded-[20px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-5 py-4 opacity-55">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[var(--app-border)] bg-white">
+                        <Lock size={13} className="text-[var(--app-muted)]" />
+                      </div>
+                      <div>
+                        <p className="font-bold text-[var(--app-ink)]">{item.title}</p>
+                        <p className="mt-0.5 text-sm text-[var(--app-muted)]">
+                          {item.scheduleBlockedReason ?? 'Se desbloquea cuando completes la mentoría anterior.'}
+                        </p>
+                      </div>
+                    </div>
+                  </article>
+                );
+              }
+
+              return (
                 <article
                   key={item.entitlementId}
                   className={clsx(
                     'rounded-[22px] border px-5 py-5',
-                    item.status === 'completed' && 'border-emerald-200 bg-emerald-50/80',
-                    item.status === 'scheduled' && 'border-amber-200 bg-amber-50/80',
-                    item.status === 'available' && 'border-[var(--app-border)] bg-white/86',
+                    item.status === 'scheduled'
+                      ? 'border-amber-200 bg-amber-50/80'
+                      : 'border-[var(--brand-primary)]/25 bg-white shadow-[0_2px_12px_rgba(91,45,138,0.08)]',
                   )}
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[var(--app-muted)]">
-                        Semana sugerida {item.suggestedWeek} · {phaseLabel(item.phaseCode)}
+                        Mentoría {idx + 1} · {phaseLabel(item.phaseCode)}
                       </p>
-                      <h3 className="mt-2 text-xl font-black text-[var(--app-ink)]">{item.title}</h3>
-                      <p className="mt-2 text-sm leading-relaxed text-[var(--app-muted)]">
-                        {item.description}
-                      </p>
-                    </div>
-                    <span
-                      className={clsx(
-                        'rounded-full border px-3 py-1 text-xs font-extrabold uppercase tracking-[0.16em]',
-                        PROGRAM_STATUS_META[item.status].tone,
+                      <h3 className="mt-1.5 text-lg font-black text-[var(--app-ink)]">{item.title}</h3>
+                      {item.description && (
+                        <p className="mt-1.5 max-w-prose text-sm leading-relaxed text-[var(--app-muted)]">
+                          {item.description}
+                        </p>
                       )}
-                    >
+                    </div>
+                    <span className={clsx('rounded-full border px-3 py-1 text-xs font-extrabold uppercase tracking-[0.16em]', PROGRAM_STATUS_META[item.status].tone)}>
                       {PROGRAM_STATUS_META[item.status].label}
                     </span>
                   </div>
 
-                  <div className="mt-4 flex flex-wrap gap-2">
+                  <div className="mt-3 flex flex-wrap gap-2">
                     {item.workbookCode && (
                       <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--app-muted)]">
-                        Vinculada a {item.workbookCode.toUpperCase()}
+                        Workbook {item.workbookCode.toUpperCase()}
                       </span>
                     )}
                     <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--app-muted)]">
@@ -1950,244 +1959,79 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                     </span>
                   </div>
 
-                  {(item.scheduledStartsAt || item.mentorName) && (
-                    <div className="mt-4 rounded-[18px] border border-[var(--app-border)] bg-white/88 px-4 py-4 text-sm text-[var(--app-muted)]">
-                      <p>
-                        <span className="font-semibold text-[var(--app-ink)]">Adviser actual:</span>{' '}
-                        {item.mentorName ?? 'Por asignar'}
-                      </p>
-                      <p className="mt-1">
-                        <span className="font-semibold text-[var(--app-ink)]">Fecha:</span>{' '}
-                        {formatDateTime(item.scheduledStartsAt, tz)}
-                      </p>
+                  {item.scheduledStartsAt && item.mentorName && (
+                    <div className="mt-4 rounded-[16px] border border-[var(--app-border)] bg-white/80 px-4 py-3 text-sm">
+                      <span className="font-semibold text-[var(--app-ink)]">{item.mentorName}</span>
+                      <span className="text-[var(--app-muted)]"> · {formatDateTime(item.scheduledStartsAt, tz)}</span>
                     </div>
                   )}
 
-                  {item.status !== 'completed' && (
+                  {!isFormOpen ? (
                     <button
-                      className="mt-5 inline-flex items-center gap-2 text-sm font-extrabold text-[var(--brand-primary)]"
+                      className="mt-4 inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-5 py-2.5 text-sm font-bold text-white transition hover:opacity-90"
                       type="button"
-                      disabled={!item.canSchedule}
-                      onClick={() =>
-                        setProgramForm((prev) => ({
-                          ...prev,
-                          entitlementId: item.entitlementId,
-                        }))
-                      }
+                      onClick={() => setProgramForm((prev) => ({ ...prev, entitlementId: item.entitlementId }))}
                     >
-                      {item.status === 'scheduled' ? 'Reagendar incluida' : item.canSchedule ? 'Programar incluida' : 'Bloqueada por secuencia/semana'}
-                      <ArrowRight size={16} />
+                      {item.status === 'scheduled' ? 'Reagendar mentoría' : 'Programar mentoría'}
+                      <ArrowRight size={14} />
                     </button>
-                  )}
-                  {!item.canSchedule && item.scheduleBlockedReason && (
-                    <p className="mt-2 text-xs text-[var(--app-muted)]">{item.scheduleBlockedReason}</p>
+                  ) : (
+                    <form className="mt-5 space-y-3 border-t border-[var(--app-border)] pt-5" onSubmit={handleProgramSchedule}>
+                      {overview.mentorCatalog.length === 0 && (
+                        <div className="rounded-[14px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                          Necesitamos activar al menos un Adviser para poder reservar esta mentoría.
+                        </div>
+                      )}
+                      <select
+                        className="w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
+                        value={programForm.mentorUserId}
+                        onChange={(e) => setProgramForm((prev) => ({ ...prev, mentorUserId: e.target.value }))}
+                        required
+                      >
+                        <option value="">Selecciona un Adviser</option>
+                        {overview.mentorCatalog.map((mentor) => (
+                          <option key={mentor.mentorUserId} value={mentor.mentorUserId}>
+                            {mentor.name} · {mentor.specialty}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        className="w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
+                        type="datetime-local"
+                        value={programForm.startsAt}
+                        onChange={(e) => setProgramForm((prev) => ({ ...prev, startsAt: e.target.value }))}
+                        required
+                      />
+                      <textarea
+                        className="min-h-[100px] w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
+                        placeholder="Contexto o foco que quieres trabajar en esta sesión."
+                        value={programForm.note}
+                        onChange={(e) => setProgramForm((prev) => ({ ...prev, note: e.target.value }))}
+                      />
+                      <div className="flex gap-3">
+                        <button
+                          className="rounded-[14px] border border-[var(--app-border)] px-4 py-2.5 text-sm font-semibold text-[var(--app-ink)]"
+                          type="button"
+                          onClick={() => setProgramForm((prev) => ({ ...prev, entitlementId: '' }))}
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          className="flex-1 rounded-[14px] bg-[var(--brand-primary)] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+                          type="submit"
+                          disabled={submittingProgram || !programForm.mentorUserId || overview.mentorCatalog.length === 0}
+                        >
+                          {submittingProgram ? 'Guardando…' : 'Confirmar mentoría'}
+                        </button>
+                      </div>
+                    </form>
                   )}
                 </article>
-              ))
-            )}
+              );
+            })}
           </div>
-        </section>
-
-        <div className="space-y-6">
-          <section className="app-panel p-5 sm:p-6">
-            <div className="flex items-center gap-2">
-              <BookOpen size={16} className="text-[var(--brand-primary)]" />
-              <p className="app-section-kicker">Asistente · Programar incluida</p>
-            </div>
-            {isOpenLeader && (
-              <div className="mt-5 rounded-[18px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-4 text-sm text-[var(--app-muted)]">
-                Las mentorías incluidas no están disponibles para esta cuenta todavía. Puedes activar el programa 4Shine o reservar sesiones adicionales en la sección de compra.
-              </div>
-            )}
-            {overview.mentorCatalog.length === 0 && (
-              <div className="mt-5 rounded-[18px] border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-800">
-                Tus mentorías incluidas ya están cargadas. Para poder reservarlas necesitamos activar al menos un Adviser en la base de datos.
-              </div>
-            )}
-            {!isOpenLeader && (
-              <form className="mt-5 space-y-3" onSubmit={handleProgramSchedule}>
-                <p className="text-xs text-[var(--app-muted)]">Paso {programWizardStep} de 3</p>
-                <select
-                  className="w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
-                  value={programForm.entitlementId}
-                  onChange={(event) => setProgramForm((prev) => ({ ...prev, entitlementId: event.target.value }))}
-                  required
-                >
-                  <option value="">Selecciona una mentoría incluida</option>
-                  {overview.programEntitlements
-                    .filter((item) => item.status !== 'completed' && item.canSchedule)
-                    .map((item) => (
-                      <option key={item.entitlementId} value={item.entitlementId}>
-                        {item.title}
-                      </option>
-                    ))}
-                </select>
-
-                <select
-                  className="w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
-                  value={programForm.mentorUserId}
-                  onChange={(event) => setProgramForm((prev) => ({ ...prev, mentorUserId: event.target.value }))}
-                  required
-                >
-                  <option value="">Selecciona un Adviser</option>
-                  {overview.mentorCatalog.map((mentor) => (
-                    <option key={mentor.mentorUserId} value={mentor.mentorUserId}>
-                      {mentor.name} · {mentor.specialty}
-                    </option>
-                  ))}
-                </select>
-
-                <input
-                  className="w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
-                  type="datetime-local"
-                  value={programForm.startsAt}
-                  onChange={(event) => setProgramForm((prev) => ({ ...prev, startsAt: event.target.value }))}
-                  required
-                />
-
-                <textarea
-                  className="min-h-[120px] w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
-                  placeholder="Contexto para el Adviser o foco que quieres trabajar."
-                  value={programForm.note}
-                  onChange={(event) => setProgramForm((prev) => ({ ...prev, note: event.target.value }))}
-                />
-
-                {selectedEntitlement && (
-                  <div className="rounded-[18px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-4 text-sm text-[var(--app-muted)]">
-                    <p className="font-semibold text-[var(--app-ink)]">{selectedEntitlement.title}</p>
-                    <p className="mt-1">Duración sugerida: {selectedEntitlement.defaultDurationMinutes} minutos.</p>
-                  </div>
-                )}
-
-                <button
-                  className="w-full rounded-[16px] bg-[var(--brand-primary)] px-4 py-3 text-sm font-bold text-white disabled:opacity-50"
-                  type="submit"
-                  disabled={
-                    submittingProgram ||
-                    programWizardStep !== 3 ||
-                    !programForm.entitlementId ||
-                    !programForm.mentorUserId ||
-                    overview.mentorCatalog.length === 0
-                  }
-                >
-                  {programWizardStep === 3 ? 'Programar mentoría incluida' : 'Completa el asistente para continuar'}
-                </button>
-                <div className="flex items-center justify-between">
-                  <button
-                    type="button"
-                    className="rounded-[12px] border border-[var(--app-border)] px-3 py-2 text-xs font-semibold disabled:opacity-50"
-                    disabled={programWizardStep === 1}
-                    onClick={() => setProgramWizardStep((prev) => (prev > 1 ? ((prev - 1) as WizardStep) : prev))}
-                  >
-                    Atrás
-                  </button>
-                  <button
-                    type="button"
-                    className="rounded-[12px] border border-[var(--app-border)] px-3 py-2 text-xs font-semibold disabled:opacity-50"
-                    disabled={programWizardStep === 3}
-                    onClick={() => setProgramWizardStep((prev) => (prev < 3 ? ((prev + 1) as WizardStep) : prev))}
-                  >
-                    Siguiente
-                  </button>
-                </div>
-              </form>
-            )}
-          </section>
-
-          <section className="app-panel p-5 sm:p-6">
-            <div className="flex items-center gap-2">
-              <Clock3 size={16} className="text-[var(--brand-primary)]" />
-              <p className="app-section-kicker">Semana activa</p>
-            </div>
-            <div className="mt-4 flex items-center justify-between gap-3">
-              <p className="text-sm text-[var(--app-muted)]">
-                {selectedWeekStart.toLocaleDateString('es-CO', { dateStyle: 'medium' })} -{' '}
-                {addDays(selectedWeekStart, 6).toLocaleDateString('es-CO', { dateStyle: 'medium' })}
-              </p>
-              <div className="flex items-center gap-2">
-                <button
-                  className="rounded-full border border-[var(--app-border)] bg-white p-2 text-[var(--app-ink)]"
-                  type="button"
-                  onClick={() => setSelectedWeekStart((prev) => addDays(prev, -7))}
-                >
-                  <ArrowLeft size={16} />
-                </button>
-                <button
-                  className="rounded-full border border-[var(--app-border)] bg-white p-2 text-[var(--app-ink)]"
-                  type="button"
-                  onClick={() => setSelectedWeekStart(startOfWeek(new Date()))}
-                >
-                  <CalendarDays size={16} />
-                </button>
-                <button
-                  className="rounded-full border border-[var(--app-border)] bg-white p-2 text-[var(--app-ink)]"
-                  type="button"
-                  onClick={() => setSelectedWeekStart((prev) => addDays(prev, 7))}
-                >
-                  <ArrowRight size={16} />
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-5 grid gap-3">
-              {weekSessions.length === 0 ? (
-                <EmptyState message="No tienes mentorías programadas en esta semana." />
-              ) : (
-                days.map((day) => {
-                  const daySessions = weekSessions.filter((session) => {
-                    const sessionDate = new Date(session.startsAt);
-                    return (
-                      sessionDate.getFullYear() === day.getFullYear() &&
-                      sessionDate.getMonth() === day.getMonth() &&
-                      sessionDate.getDate() === day.getDate()
-                    );
-                  });
-
-                  return (
-                    <div
-                      key={day.toISOString()}
-                      className="rounded-[18px] border border-[var(--app-border)] bg-white/86 px-4 py-4"
-                    >
-                      <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--app-muted)]">
-                        {formatWeekday(day)}
-                      </p>
-                      <div className="mt-3 space-y-3">
-                        {daySessions.length === 0 ? (
-                          <p className="text-sm text-[var(--app-muted)]">Sin sesiones programadas.</p>
-                        ) : (
-                          daySessions.map((session) => (
-                            <article
-                              key={session.sessionId}
-                              className="rounded-[16px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-4"
-                            >
-                              <div className="flex flex-wrap items-start justify-between gap-3">
-                                <div>
-                                  <p className="font-bold text-[var(--app-ink)]">{session.title}</p>
-                                  <p className="mt-1 text-sm text-[var(--app-muted)]">
-                                    {session.mentorName} · {formatTime(session.startsAt, tz)}
-                                  </p>
-                                </div>
-                                <div className="flex flex-wrap gap-2">
-                                  <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--app-muted)]">
-                                    {sessionOriginLabel(session)}
-                                  </span>
-                                  <span className={clsx('rounded-full px-3 py-1 text-xs font-bold', SESSION_STATUS_META[session.status].tone)}>
-                                    {SESSION_STATUS_META[session.status].label}
-                                  </span>
-                                </div>
-                              </div>
-                            </article>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </section>
-        </div>
-      </div>
+        )}
+      </section>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(340px,0.9fr)]">
         <section className="app-panel p-5 sm:p-6">
