@@ -1819,7 +1819,7 @@ export async function inviteGroupSessionByRoles(
           'info',
           'Invitación a sesión grupal',
           $2,
-          jsonb_build_object('eventId', $3, 'zoomJoinUrl', $4, 'type', 'group_session_invitation')
+          jsonb_build_object('eventId', $3::text, 'zoomJoinUrl', $4::text, 'type', 'group_session_invitation')
         )
       `,
       [
