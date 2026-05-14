@@ -320,6 +320,8 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
   });
   const [editingEventId, setEditingEventId] = React.useState<string | null>(null);
   const [selectedGroupSession, setSelectedGroupSession] = React.useState<GroupSessionEventRecord | null>(null);
+  const [confirmedSession, setConfirmedSession] = React.useState<GroupSessionEventRecord | null>(null);
+  const [participatingInId, setParticipatingInId] = React.useState<string | null>(null);
   const [groupSessionForm, setGroupSessionForm] = React.useState<GroupSessionFormState>({
     title: '',
     startsAt: nextSlotValue(),
@@ -711,11 +713,16 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
   };
 
   const handleParticipate = async (eventItem: GroupSessionEventRecord, status: GroupSessionParticipationStatus) => {
+    setParticipatingInId(eventItem.eventId);
     try {
-      await participateInGroupSession(eventItem.eventId, status);
+      const updated = await participateInGroupSession(eventItem.eventId, status);
+      setSelectedGroupSession(null);
+      if (status === 'joined') setConfirmedSession(updated);
       await load();
     } catch (error) {
       await showError('No se pudo actualizar tu participación.', error);
+    } finally {
+      setParticipatingInId(null);
     }
   };
 
@@ -1097,9 +1104,9 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                   type="button"
                   className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--app-ink)] disabled:opacity-50"
                   onClick={() => void handleParticipate(upcomingGroupSession, 'joined')}
-                  disabled={currentRole === 'lider' && isOpenLeader}
+                  disabled={(currentRole === 'lider' && isOpenLeader) || participatingInId === upcomingGroupSession.eventId}
                 >
-                  Confirmar participación
+                  {participatingInId === upcomingGroupSession.eventId ? 'Confirmando…' : 'Confirmar participación'}
                 </button>
               )}
             </div>
@@ -1374,10 +1381,10 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                   <button
                     type="button"
                     className="rounded-full bg-[var(--brand-primary)] px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
-                    disabled={currentRole === 'lider' && isOpenLeader}
-                    onClick={() => { void handleParticipate(selectedGroupSession, 'joined'); setSelectedGroupSession(null); }}
+                    disabled={(currentRole === 'lider' && isOpenLeader) || participatingInId === selectedGroupSession.eventId}
+                    onClick={() => void handleParticipate(selectedGroupSession, 'joined')}
                   >
-                    Asistir
+                    {participatingInId === selectedGroupSession.eventId ? 'Confirmando…' : 'Asistir'}
                   </button>
                 )}
                 {(currentRole === 'admin' || currentRole === 'gestor') && (
@@ -1401,6 +1408,57 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                   </>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmedSession && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setConfirmedSession(null)}
+        >
+          <div
+            className="relative w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl dark:bg-[var(--app-surface)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="absolute right-4 top-4 rounded-full border border-[var(--app-border)] p-2 text-[var(--app-muted)]"
+              onClick={() => setConfirmedSession(null)}
+            >
+              <X size={16} />
+            </button>
+            <div className="flex flex-col items-center gap-4 text-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-4xl">
+                ✅
+              </div>
+              <div>
+                <p className="text-lg font-extrabold text-[var(--app-ink)]">¡Participación confirmada!</p>
+                <p className="mt-1 text-sm font-semibold text-[var(--app-muted)]">{confirmedSession.title}</p>
+                <p className="mt-1 text-sm text-[var(--app-muted)]">{formatDateTime(confirmedSession.startsAt, tz)}</p>
+              </div>
+              <p className="text-sm text-[var(--app-muted)]">
+                Recibirás un correo de confirmación con los detalles de la sesión.
+              </p>
+              {confirmedSession.zoomJoinUrl && (
+                <a
+                  href={confirmedSession.zoomJoinUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 rounded-full bg-[#2D8CFF] px-6 py-2.5 text-sm font-bold text-white"
+                >
+                  <Video size={14} />
+                  Unirse a Zoom
+                </a>
+              )}
+              <button
+                type="button"
+                className="mt-1 rounded-full border border-[var(--app-border)] px-6 py-2 text-sm font-semibold text-[var(--app-ink)]"
+                onClick={() => setConfirmedSession(null)}
+              >
+                Cerrar
+              </button>
             </div>
           </div>
         </div>
