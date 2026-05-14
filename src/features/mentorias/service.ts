@@ -897,7 +897,7 @@ async function bookAvailabilitySlot(
   const { rowCount } = await client.query(
     `
       UPDATE app_mentoring.mentor_availability
-      SET is_booked = true, updated_at = now()
+      SET is_booked = true
       WHERE mentor_user_id = $1::uuid
         AND starts_at = $2::timestamptz
         AND ends_at = $3::timestamptz
@@ -919,7 +919,7 @@ async function releaseAvailabilitySlot(
   await client.query(
     `
       UPDATE app_mentoring.mentor_availability
-      SET is_booked = false, updated_at = now()
+      SET is_booked = false
       WHERE mentor_user_id = $1::uuid
         AND starts_at = $2::timestamptz
         AND ends_at = $3::timestamptz
