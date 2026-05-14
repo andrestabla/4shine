@@ -424,14 +424,16 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
       note: prev.note,
     }));
     if (currentRole !== 'lider') {
-      const firstMentor = overview.mentorCatalog[0];
+      const defaultMentorId = currentRole === 'mentor'
+        ? (currentUser?.id ?? '')
+        : (overview.mentorCatalog[0]?.mentorUserId ?? '');
       setAvailabilitySlotForm((prev) => ({
         ...prev,
-        mentorUserId: prev.mentorUserId || firstMentor?.mentorUserId || '',
+        mentorUserId: prev.mentorUserId || defaultMentorId,
       }));
       setAvailabilityBulkForm((prev) => ({
         ...prev,
-        mentorUserId: prev.mentorUserId || firstMentor?.mentorUserId || '',
+        mentorUserId: prev.mentorUserId || defaultMentorId,
       }));
     }
   }, [overview, currentRole]);
