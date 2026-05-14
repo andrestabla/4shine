@@ -544,7 +544,7 @@ const INTEGRATION_ASSISTANTS: Record<IntegrationKey, AssistantDefinition> = {
         id: 'defaults',
         title: 'Configuración por defecto de reuniones',
         description:
-          'Valores usados cuando la plataforma crea reuniones de forma automática. El adviser puede ajustarlos por sesión.',
+          'Valores usados cuando la plataforma crea reuniones de forma automática. La zona horaria se toma de Branding → Zona horaria de la plataforma.',
         fields: [
           {
             key: 'defaultDurationMinutes',
@@ -552,13 +552,6 @@ const INTEGRATION_ASSISTANTS: Record<IntegrationKey, AssistantDefinition> = {
             type: 'number',
             defaultValue: '60',
             helpText: 'Duración en minutos para nuevas sesiones de mentoría y sesiones grupales.',
-          },
-          {
-            key: 'defaultTimezone',
-            label: 'Zona horaria por defecto',
-            type: 'text',
-            defaultValue: 'America/Bogota',
-            helpText: 'Zona horaria IANA usada para programar reuniones. Debe coincidir con la zona de tu organización.',
           },
           {
             key: 'waitingRoom',

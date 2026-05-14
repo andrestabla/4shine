@@ -22,13 +22,14 @@ import {
   Video,
   X,
 } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
 import { AccessOfferPanel } from '@/components/access/AccessOfferPanel';
 import { R2UploadButton } from '@/components/ui/R2UploadButton';
+import { RichTextEditor } from '@/components/ui/RichTextEditor';
 import { EmptyState } from '@/components/dashboard/EmptyState';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { StatGrid } from '@/components/dashboard/StatGrid';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
+import { useBranding } from '@/context/BrandingContext';
 import { useUser } from '@/context/UserContext';
 import { filterCommercialProducts } from '@/features/access/catalog';
 import {
@@ -182,18 +183,20 @@ function nextSlotValue(): string {
   return toDatetimeLocalInput(date.toISOString());
 }
 
-function formatDateTime(value: string | null): string {
+function formatDateTime(value: string | null, timezone?: string): string {
   if (!value) return 'Sin fecha';
   return new Date(value).toLocaleString('es-CO', {
     dateStyle: 'medium',
     timeStyle: 'short',
+    timeZone: timezone || undefined,
   });
 }
 
-function formatTime(value: string): string {
+function formatTime(value: string, timezone?: string): string {
   return new Date(value).toLocaleTimeString('es-CO', {
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: timezone || undefined,
   });
 }
 
@@ -279,6 +282,8 @@ function monthLabel(input: Date): string {
 
 export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
   const { alert, confirm } = useAppDialog();
+  const { tokens: brandingTokens } = useBranding();
+  const tz = brandingTokens.layout.timezone || undefined;
   const { can, currentRole, currentUser, refreshBootstrap, viewerAccess } = useUser();
   const [overview, setOverview] = React.useState<MentorshipOverviewRecord | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -315,7 +320,6 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
   });
   const [editingEventId, setEditingEventId] = React.useState<string | null>(null);
   const [selectedGroupSession, setSelectedGroupSession] = React.useState<GroupSessionEventRecord | null>(null);
-  const [descriptionTab, setDescriptionTab] = React.useState<'write' | 'preview'>('write');
   const [groupSessionForm, setGroupSessionForm] = React.useState<GroupSessionFormState>({
     title: '',
     startsAt: nextSlotValue(),
@@ -688,7 +692,6 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
       bannerImageUrl: session.bannerImageUrl ?? '',
     });
     setGroupWizardStep(1);
-    setDescriptionTab('write');
   };
 
   const handleDeleteGroupSession = async (session: GroupSessionEventRecord) => {
@@ -999,41 +1002,13 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                     />
                   )}
                 </div>
-                {/* Description with markdown preview */}
-                <div>
-                  <div className="mb-1 flex gap-2 px-1">
-                    <button
-                      type="button"
-                      className={clsx('text-xs font-semibold', descriptionTab === 'write' ? 'text-[var(--app-ink)]' : 'text-[var(--app-muted)]')}
-                      onClick={() => setDescriptionTab('write')}
-                    >
-                      Escribir
-                    </button>
-                    <button
-                      type="button"
-                      className={clsx('text-xs font-semibold', descriptionTab === 'preview' ? 'text-[var(--app-ink)]' : 'text-[var(--app-muted)]')}
-                      onClick={() => setDescriptionTab('preview')}
-                    >
-                      Vista previa
-                    </button>
-                  </div>
-                  {descriptionTab === 'write' ? (
-                    <textarea
-                      className="min-h-[96px] w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
-                      placeholder="Descripción de la sesión. Puedes usar **negritas**, *cursivas*, listas y más (Markdown)."
-                      value={groupSessionForm.description}
-                      onChange={(event) => setGroupSessionForm((prev) => ({ ...prev, description: event.target.value }))}
-                    />
-                  ) : (
-                    <div className="min-h-[96px] rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm prose prose-sm max-w-none">
-                      {groupSessionForm.description.trim() ? (
-                        <ReactMarkdown>{groupSessionForm.description}</ReactMarkdown>
-                      ) : (
-                        <p className="text-[var(--app-muted)]">Sin descripción.</p>
-                      )}
-                    </div>
-                  )}
-                </div>
+                {/* Description — rich text editor */}
+                <RichTextEditor
+                  value={groupSessionForm.description}
+                  onChange={(html) => setGroupSessionForm((prev) => ({ ...prev, description: html }))}
+                  placeholder="Descripción de la sesión. Usa la barra de herramientas para dar formato."
+                  minHeight="120px"
+                />
                 <div className="flex items-center gap-2 rounded-[14px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-3">
                   <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 fill-[#2D8CFF]" aria-hidden="true">
                     <path d="M12.002 2a10 10 0 1 0 10 10 10.011 10.011 0 0 0-10-10Zm4.93 6.81-2 4a.999.999 0 0 1-.894.553H9.964a1 1 0 0 1 0-2h3.618l1.764-3.528a1 1 0 0 1 1.788.895ZM17 15.36a4.645 4.645 0 0 1-10 0V13a1 1 0 0 1 2 0v2.36a2.645 2.645 0 0 0 5.29 0V13a1 1 0 0 1 2 0v2.36Z" />
@@ -1103,7 +1078,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
           <article className="mt-4 rounded-[16px] border border-[var(--app-border)] bg-white p-4">
             <p className="font-bold text-[var(--app-ink)]">{upcomingGroupSession.title}</p>
             <p className="mt-1 text-sm text-[var(--app-muted)]">
-              {formatDateTime(upcomingGroupSession.startsAt)} ·{' '}
+              {formatDateTime(upcomingGroupSession.startsAt, tz)} ·{' '}
               {upcomingGroupSession.hostName ?? upcomingGroupSession.externalExpertName ?? 'Anfitrión por definir'}
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
@@ -1162,7 +1137,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                     className="mt-1 w-full truncate rounded bg-[var(--app-surface-muted)] px-1 py-0.5 text-left text-[10px] font-semibold text-[var(--app-ink)] hover:bg-[var(--brand-primary)]/10"
                     onClick={() => setSelectedGroupSession(item)}
                   >
-                    {formatTime(item.startsAt)} {item.title}
+                    {formatTime(item.startsAt, tz)} {item.title}
                   </button>
                 ))}
               </div>
@@ -1199,7 +1174,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                 {groupAnalytics.map((row) => (
                   <tr key={row.eventId} className="border-b border-[var(--app-border)]">
                     <td className="py-2 pr-3 font-semibold text-[var(--app-ink)]">{row.title}</td>
-                    <td className="py-2 pr-3 text-[var(--app-muted)]">{formatDateTime(row.startsAt)}</td>
+                    <td className="py-2 pr-3 text-[var(--app-muted)]">{formatDateTime(row.startsAt, tz)}</td>
                     <td className="py-2 pr-3">{row.interestedCount}</td>
                     <td className="py-2 pr-3">{row.joinedCount}</td>
                     <td className="py-2 pr-3">{row.declinedCount}</td>
@@ -1223,7 +1198,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                   <div>
                     <p className="font-bold text-[var(--app-ink)]">{eventItem.title}</p>
                     <p className="text-sm text-[var(--app-muted)]">
-                      {formatDateTime(eventItem.startsAt)} · {eventItem.hostName ?? eventItem.externalExpertName ?? 'Anfitrión por definir'}
+                      {formatDateTime(eventItem.startsAt, tz)} · {eventItem.hostName ?? eventItem.externalExpertName ?? 'Anfitrión por definir'}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -1288,7 +1263,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
               <option value="">Selecciona sesión grupal</option>
               {groupSessions.map((item) => (
                 <option key={item.eventId} value={item.eventId}>
-                  {item.title} · {formatDateTime(item.startsAt)}
+                  {item.title} · {formatDateTime(item.startsAt, tz)}
                 </option>
               ))}
             </select>
@@ -1357,7 +1332,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                 <div>
                   <p className="text-lg font-extrabold text-[var(--app-ink)]">{selectedGroupSession.title}</p>
                   <p className="mt-1 text-sm text-[var(--app-muted)]">
-                    {formatDateTime(selectedGroupSession.startsAt)}
+                    {formatDateTime(selectedGroupSession.startsAt, tz)}
                     {' · '}
                     {selectedGroupSession.hostName ?? selectedGroupSession.externalExpertName ?? 'Anfitrión por definir'}
                   </p>
@@ -1376,9 +1351,11 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
               )}
 
               {selectedGroupSession.description && (
-                <div className="prose prose-sm mt-4 max-w-none text-sm">
-                  <ReactMarkdown>{selectedGroupSession.description}</ReactMarkdown>
-                </div>
+                <div
+                  className="prose prose-sm mt-4 max-w-none text-sm"
+                  // eslint-disable-next-line react/no-danger
+                  dangerouslySetInnerHTML={{ __html: selectedGroupSession.description }}
+                />
               )}
 
               <div className="mt-5 flex flex-wrap gap-3">
@@ -1646,7 +1623,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                       dayItems.map((session) => (
                         <div key={session.sessionId} className="rounded-[14px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-2">
                           <p className="text-xs font-bold text-[var(--app-ink)]">{session.title}</p>
-                          <p className="mt-1 text-[11px] text-[var(--app-muted)]">{formatTime(session.startsAt)}</p>
+                          <p className="mt-1 text-[11px] text-[var(--app-muted)]">{formatTime(session.startsAt, tz)}</p>
                         </div>
                       ))
                     )}
@@ -1676,7 +1653,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                     <td className="px-4 py-3 font-semibold text-[var(--app-ink)]">{session.title}</td>
                     <td className="px-4 py-3 text-[var(--app-muted)]">{sessionOriginLabel(session)}</td>
                     <td className="px-4 py-3 text-[var(--app-muted)]">{session.mentorName}</td>
-                    <td className="px-4 py-3 text-[var(--app-muted)]">{formatDateTime(session.startsAt)}</td>
+                    <td className="px-4 py-3 text-[var(--app-muted)]">{formatDateTime(session.startsAt, tz)}</td>
                     <td className="px-4 py-3">
                       {can('mentorias', 'update') ? (
                         <select
@@ -1818,7 +1795,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                     <div>
                       <p className="font-bold text-[var(--app-ink)]">{session.title}</p>
                       <p className="mt-1 text-sm text-[var(--app-muted)]">
-                        {session.mentorName} · {formatDateTime(session.startsAt)}
+                        {session.mentorName} · {formatDateTime(session.startsAt, tz)}
                       </p>
                     </div>
                     <span className={clsx('rounded-full px-3 py-1 text-xs font-bold', SESSION_STATUS_META[session.status].tone)}>
@@ -1899,7 +1876,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                       </p>
                       <p className="mt-1">
                         <span className="font-semibold text-[var(--app-ink)]">Fecha:</span>{' '}
-                        {formatDateTime(item.scheduledStartsAt)}
+                        {formatDateTime(item.scheduledStartsAt, tz)}
                       </p>
                     </div>
                   )}
@@ -2105,7 +2082,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                                 <div>
                                   <p className="font-bold text-[var(--app-ink)]">{session.title}</p>
                                   <p className="mt-1 text-sm text-[var(--app-muted)]">
-                                    {session.mentorName} · {formatTime(session.startsAt)}
+                                    {session.mentorName} · {formatTime(session.startsAt, tz)}
                                   </p>
                                 </div>
                                 <div className="flex flex-wrap gap-2">
@@ -2181,7 +2158,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                             }))
                           }
                         >
-                          {formatDateTime(slot.startsAt)}
+                          {formatDateTime(slot.startsAt, tz)}
                         </button>
                       ))}
                       {mentor.availability.length === 0 && (
@@ -2354,7 +2331,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                       <div>
                         <p className="font-bold text-[var(--app-ink)]">{order.title}</p>
                         <p className="mt-1 text-sm text-[var(--app-muted)]">
-                          {order.mentorName} · {formatDateTime(order.scheduledStartsAt)}
+                          {order.mentorName} · {formatDateTime(order.scheduledStartsAt, tz)}
                         </p>
                         {order.topic && (
                           <p className="mt-1 text-sm text-[var(--app-muted)]">{order.topic}</p>
@@ -2403,7 +2380,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                   <div>
                     <p className="font-black text-[var(--app-ink)]">{session.title}</p>
                     <p className="mt-1 text-sm text-[var(--app-muted)]">
-                      {session.mentorName} · {formatDateTime(session.startsAt)}
+                      {session.mentorName} · {formatDateTime(session.startsAt, tz)}
                     </p>
                   </div>
                   <span className={clsx('rounded-full px-3 py-1 text-xs font-bold', SESSION_STATUS_META[session.status].tone)}>
