@@ -478,6 +478,115 @@ const INTEGRATION_ASSISTANTS: Record<IntegrationKey, AssistantDefinition> = {
       },
     ],
   },
+  zoom: {
+    intro:
+      'Configura Zoom como proveedor de videollamadas para mentorías y sesiones grupales. Usa Server-to-Server OAuth (recomendado por Zoom desde 2023) para crear reuniones programáticamente sin intervención manual.',
+    primarySecretField: 'clientSecret',
+    steps: [
+      {
+        id: 'credentials',
+        title: 'Credenciales Server-to-Server OAuth',
+        description:
+          'Crea una app de tipo "Server-to-Server OAuth" en Zoom Marketplace (marketplace.zoom.us) y copia las credenciales aquí. Este flujo no requiere login de usuario.',
+        fields: [
+          {
+            key: 'accountId',
+            label: 'Account ID',
+            type: 'text',
+            required: true,
+            placeholder: 'xxxxxxxxxxxxxxxx',
+            helpText:
+              'Se encuentra en Zoom Marketplace > tu app > App Credentials. Identifica la cuenta Zoom que firma las llamadas.',
+          },
+          {
+            key: 'clientId',
+            label: 'Client ID',
+            type: 'text',
+            required: true,
+            placeholder: 'xxxxxxxxxxxxxxxxxxxx',
+            helpText: 'Visible en la misma sección App Credentials de tu app Server-to-Server OAuth.',
+          },
+          {
+            key: 'clientSecret',
+            label: 'Client Secret',
+            type: 'password',
+            required: true,
+            placeholder: '••••••••••••',
+            helpText: 'Genera o regenera el secret en App Credentials. Guárdalo aquí para persistirlo cifrado.',
+          },
+        ],
+      },
+      {
+        id: 'webhooks',
+        title: 'Webhooks (opcional)',
+        description:
+          'Configura el Webhook Secret Token para validar eventos enviados por Zoom (inicio/fin de reunión, grabación disponible, etc.).',
+        fields: [
+          {
+            key: 'webhookSecretToken',
+            label: 'Webhook Secret Token',
+            type: 'password',
+            placeholder: '••••••••••••',
+            helpText:
+              'Disponible en Zoom Marketplace > tu app > Feature > Event Subscriptions. Déjalo vacío si no usas webhooks por ahora.',
+          },
+          {
+            key: 'webhookEndpointUrl',
+            label: 'Endpoint URL de webhooks',
+            type: 'url',
+            defaultValue: `${DEFAULT_PUBLIC_APP_URL}/api/v1/integrations/zoom/webhook`,
+            helpText:
+              'Copia esta URL en "Event notification endpoint URL" de tu app Zoom para recibir notificaciones.',
+          },
+        ],
+      },
+      {
+        id: 'defaults',
+        title: 'Configuración por defecto de reuniones',
+        description:
+          'Valores usados cuando la plataforma crea reuniones de forma automática. El adviser puede ajustarlos por sesión.',
+        fields: [
+          {
+            key: 'defaultDurationMinutes',
+            label: 'Duración por defecto (min)',
+            type: 'number',
+            defaultValue: '60',
+            helpText: 'Duración en minutos para nuevas sesiones de mentoría y sesiones grupales.',
+          },
+          {
+            key: 'defaultTimezone',
+            label: 'Zona horaria por defecto',
+            type: 'text',
+            defaultValue: 'America/Bogota',
+            helpText: 'Zona horaria IANA usada para programar reuniones. Debe coincidir con la zona de tu organización.',
+          },
+          {
+            key: 'waitingRoom',
+            label: 'Sala de espera',
+            type: 'select',
+            defaultValue: 'true',
+            options: [
+              { value: 'true', label: 'Habilitada' },
+              { value: 'false', label: 'Deshabilitada' },
+            ],
+            helpText: 'Con sala de espera activa, el anfitrión debe admitir manualmente a cada participante.',
+          },
+          {
+            key: 'autoRecording',
+            label: 'Grabación automática',
+            type: 'select',
+            defaultValue: 'none',
+            options: [
+              { value: 'none', label: 'Sin grabación automática' },
+              { value: 'local', label: 'Local (en el equipo del anfitrión)' },
+              { value: 'cloud', label: 'En la nube de Zoom' },
+            ],
+            helpText: 'Grabación en la nube requiere plan Zoom que incluya Cloud Recording.',
+          },
+        ],
+      },
+    ],
+  },
 };
 
 const OUTBOUND_EMAIL_ASSISTANT: AssistantDefinition = {

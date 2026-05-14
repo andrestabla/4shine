@@ -6,6 +6,7 @@ export const INTEGRATION_CATALOG = [
   { key: 'google_sso', label: 'SSO Google', provider: 'Google OAuth' },
   { key: 'openai', label: 'OpenAI', provider: 'OpenAI' },
   { key: 'youtube_data_api', label: 'YouTube Data API', provider: 'Google APIs' },
+  { key: 'zoom', label: 'Zoom', provider: 'Zoom Video Communications' },
 ] as const;
 
 export type IntegrationKey = (typeof INTEGRATION_CATALOG)[number]['key'];
