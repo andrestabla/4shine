@@ -13,12 +13,18 @@ import {
   CheckCircle2,
   CircleDollarSign,
   Clock3,
+  Image as ImageIcon,
+  Pencil,
   ShoppingBag,
   Sparkles,
   Star,
+  Trash2,
   Video,
+  X,
 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 import { AccessOfferPanel } from '@/components/access/AccessOfferPanel';
+import { R2UploadButton } from '@/components/ui/R2UploadButton';
 import { EmptyState } from '@/components/dashboard/EmptyState';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { StatGrid } from '@/components/dashboard/StatGrid';
@@ -31,6 +37,7 @@ import {
   createGroupSession,
   createGroupSessionRecording,
   createMentorship,
+  deleteGroupSession,
   deleteMentorship,
   dispatchGroupSessionReminders,
   dispatchProgramMentorshipReminders,
@@ -42,6 +49,7 @@ import {
   scheduleProgramMentorship,
   commentGroupSessionRecording,
   upsertMentorAvailabilitySlot,
+  updateGroupSession,
   updateMentorship,
   type AdditionalMentorshipOrderRecord,
   type GroupSessionAnalyticsRecord,
@@ -87,6 +95,7 @@ interface GroupSessionFormState {
   externalExpertName: string;
   externalExpertBio: string;
   description: string;
+  bannerImageUrl: string;
 }
 
 interface GroupRecordingFormState {
@@ -304,6 +313,9 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
     sessionType: 'individual',
     meetingUrl: '',
   });
+  const [editingEventId, setEditingEventId] = React.useState<string | null>(null);
+  const [selectedGroupSession, setSelectedGroupSession] = React.useState<GroupSessionEventRecord | null>(null);
+  const [descriptionTab, setDescriptionTab] = React.useState<'write' | 'preview'>('write');
   const [groupSessionForm, setGroupSessionForm] = React.useState<GroupSessionFormState>({
     title: '',
     startsAt: nextSlotValue(),
@@ -312,6 +324,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
     externalExpertName: '',
     externalExpertBio: '',
     description: '',
+    bannerImageUrl: '',
   });
   const [groupRecordingForm, setGroupRecordingForm] = React.useState<GroupRecordingFormState>({
     eventId: '',
@@ -621,31 +634,76 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
     const startsAt = toIso(groupSessionForm.startsAt);
     const durationMs = Math.max(15, parseInt(groupSessionForm.durationMinutes, 10)) * 60000;
     const endsAt = new Date(new Date(startsAt).getTime() + durationMs).toISOString();
+    const payload = {
+      title: groupSessionForm.title.trim(),
+      description: groupSessionForm.description.trim() || null,
+      startsAt,
+      endsAt,
+      hostUserId: groupSessionForm.hostUserId || null,
+      externalExpertName: groupSessionForm.externalExpertName.trim() || null,
+      externalExpertBio: groupSessionForm.externalExpertBio.trim() || null,
+      bannerImageUrl: groupSessionForm.bannerImageUrl.trim() || null,
+    };
 
     setSubmittingGroupSession(true);
     try {
-      await createGroupSession({
-        title: groupSessionForm.title.trim(),
-        description: groupSessionForm.description.trim() || null,
-        startsAt,
-        endsAt,
-        hostUserId: groupSessionForm.hostUserId || null,
-        externalExpertName: groupSessionForm.externalExpertName.trim() || null,
-        externalExpertBio: groupSessionForm.externalExpertBio.trim() || null,
-      });
+      if (editingEventId) {
+        await updateGroupSession(editingEventId, payload);
+        setEditingEventId(null);
+      } else {
+        await createGroupSession(payload);
+      }
       setGroupSessionForm((prev) => ({
         ...prev,
         title: '',
         description: '',
         externalExpertName: '',
         externalExpertBio: '',
+        bannerImageUrl: '',
       }));
       setGroupWizardStep(1);
       await load();
     } catch (error) {
-      await showError('No se pudo crear la sesión grupal.', error);
+      await showError(editingEventId ? 'No se pudo actualizar la sesión.' : 'No se pudo crear la sesión grupal.', error);
     } finally {
       setSubmittingGroupSession(false);
+    }
+  };
+
+  const handleEditGroupSession = (session: GroupSessionEventRecord) => {
+    const durationMs = new Date(session.endsAt).getTime() - new Date(session.startsAt).getTime();
+    const mins = Math.max(15, Math.round(durationMs / 60000));
+    const closestOption = [30, 45, 60, 90, 120, 180].reduce((a, b) =>
+      Math.abs(b - mins) < Math.abs(a - mins) ? b : a,
+    );
+    setEditingEventId(session.eventId);
+    setGroupSessionForm({
+      title: session.title,
+      startsAt: toDatetimeLocalInput(session.startsAt),
+      durationMinutes: String(closestOption),
+      hostUserId: session.hostUserId ?? '',
+      externalExpertName: session.externalExpertName ?? '',
+      externalExpertBio: session.externalExpertBio ?? '',
+      description: session.description ?? '',
+      bannerImageUrl: session.bannerImageUrl ?? '',
+    });
+    setGroupWizardStep(1);
+    setDescriptionTab('write');
+  };
+
+  const handleDeleteGroupSession = async (session: GroupSessionEventRecord) => {
+    const confirmed = await confirm({
+      title: 'Eliminar sesión',
+      message: `¿Estás seguro de que deseas eliminar "${session.title}"? Esta acción también cancelará la reunión en Zoom.`,
+      confirmText: 'Eliminar',
+      tone: 'warning',
+    });
+    if (!confirmed) return;
+    try {
+      await deleteGroupSession(session.eventId);
+      await load();
+    } catch (error) {
+      await showError('No se pudo eliminar la sesión.', error);
     }
   };
 
@@ -838,7 +896,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
       )}
       {(currentRole === 'admin' || currentRole === 'gestor') && (
         <section className="app-panel p-5 sm:p-6">
-          {wizardHeader('Nueva sesión grupal', groupWizardStep)}
+          {wizardHeader(editingEventId ? 'Editar sesión grupal' : 'Nueva sesión grupal', groupWizardStep)}
           <form className="mt-4 grid gap-3" onSubmit={handleCreateGroupSession}>
             {groupWizardStep === 1 && (
               <>
@@ -914,18 +972,78 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
             )}
             {groupWizardStep === 3 && (
               <>
-                <textarea
-                  className="min-h-[96px] rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
-                  placeholder="Descripción de la sesión (opcional)"
-                  value={groupSessionForm.description}
-                  onChange={(event) => setGroupSessionForm((prev) => ({ ...prev, description: event.target.value }))}
-                />
+                {/* Banner image */}
+                <div className="grid gap-2">
+                  {groupSessionForm.bannerImageUrl ? (
+                    <div className="relative">
+                      <img src={groupSessionForm.bannerImageUrl} alt="Banner" className="h-32 w-full rounded-[16px] object-cover" />
+                      <button
+                        type="button"
+                        className="absolute right-2 top-2 rounded-full bg-black/50 p-1 text-white"
+                        onClick={() => setGroupSessionForm((prev) => ({ ...prev, bannerImageUrl: '' }))}
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ) : (
+                    <R2UploadButton
+                      moduleCode="mentorias"
+                      action="update"
+                      pathPrefix="group-sessions/banners"
+                      entityTable="app_mentoring.group_session_events"
+                      fieldName="banner_image_url"
+                      accept="image/*"
+                      buttonLabel="Subir imagen de portada"
+                      className="flex w-full items-center justify-center gap-2 rounded-[16px] border border-dashed border-[var(--app-border)] bg-white px-4 py-4 text-sm text-[var(--app-muted)]"
+                      onUploaded={(url) => setGroupSessionForm((prev) => ({ ...prev, bannerImageUrl: url }))}
+                    />
+                  )}
+                </div>
+                {/* Description with markdown preview */}
+                <div>
+                  <div className="mb-1 flex gap-2 px-1">
+                    <button
+                      type="button"
+                      className={clsx('text-xs font-semibold', descriptionTab === 'write' ? 'text-[var(--app-ink)]' : 'text-[var(--app-muted)]')}
+                      onClick={() => setDescriptionTab('write')}
+                    >
+                      Escribir
+                    </button>
+                    <button
+                      type="button"
+                      className={clsx('text-xs font-semibold', descriptionTab === 'preview' ? 'text-[var(--app-ink)]' : 'text-[var(--app-muted)]')}
+                      onClick={() => setDescriptionTab('preview')}
+                    >
+                      Vista previa
+                    </button>
+                  </div>
+                  {descriptionTab === 'write' ? (
+                    <textarea
+                      className="min-h-[96px] w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
+                      placeholder="Descripción de la sesión. Puedes usar **negritas**, *cursivas*, listas y más (Markdown)."
+                      value={groupSessionForm.description}
+                      onChange={(event) => setGroupSessionForm((prev) => ({ ...prev, description: event.target.value }))}
+                    />
+                  ) : (
+                    <div className="min-h-[96px] rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm prose prose-sm max-w-none">
+                      {groupSessionForm.description.trim() ? (
+                        <ReactMarkdown>{groupSessionForm.description}</ReactMarkdown>
+                      ) : (
+                        <p className="text-[var(--app-muted)]">Sin descripción.</p>
+                      )}
+                    </div>
+                  )}
+                </div>
                 <div className="flex items-center gap-2 rounded-[14px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-3">
                   <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 fill-[#2D8CFF]" aria-hidden="true">
                     <path d="M12.002 2a10 10 0 1 0 10 10 10.011 10.011 0 0 0-10-10Zm4.93 6.81-2 4a.999.999 0 0 1-.894.553H9.964a1 1 0 0 1 0-2h3.618l1.764-3.528a1 1 0 0 1 1.788.895ZM17 15.36a4.645 4.645 0 0 1-10 0V13a1 1 0 0 1 2 0v2.36a2.645 2.645 0 0 0 5.29 0V13a1 1 0 0 1 2 0v2.36Z" />
                   </svg>
                   <p className="text-xs text-[var(--app-muted)]">
-                    La reunión de <strong className="text-[var(--app-ink)]">Zoom se crea automáticamente</strong> — los participantes recibirán el enlace de acceso.
+                    {editingEventId
+                      ? 'Los cambios se sincronizarán con Zoom automáticamente si modificas la hora.'
+                      : 'La reunión de '}
+                    {!editingEventId && <strong className="text-[var(--app-ink)]">Zoom se crea automáticamente</strong>}
+                    {!editingEventId && ' — los participantes recibirán el enlace de acceso.'}
                   </p>
                 </div>
                 <button
@@ -933,8 +1051,19 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                   className="rounded-[16px] bg-[var(--brand-primary)] px-4 py-3 text-sm font-bold text-white disabled:opacity-50"
                   disabled={submittingGroupSession || !groupSessionForm.title.trim() || !groupSessionForm.startsAt}
                 >
-                  {submittingGroupSession ? 'Creando sesión…' : 'Crear sesión grupal'}
+                  {submittingGroupSession
+                    ? (editingEventId ? 'Guardando…' : 'Creando sesión…')
+                    : (editingEventId ? 'Guardar cambios' : 'Crear sesión grupal')}
                 </button>
+                {editingEventId && (
+                  <button
+                    type="button"
+                    className="rounded-[16px] border border-[var(--app-border)] px-4 py-3 text-sm font-semibold text-[var(--app-muted)]"
+                    onClick={() => { setEditingEventId(null); setGroupSessionForm({ title: '', startsAt: nextSlotValue(), durationMinutes: '60', hostUserId: '', externalExpertName: '', externalExpertBio: '', description: '', bannerImageUrl: '' }); setGroupWizardStep(1); }}
+                  >
+                    Cancelar edición
+                  </button>
+                )}
               </>
             )}
             <div className="flex items-center justify-between">
@@ -1027,9 +1156,14 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
               <div key={day.toISOString()} className={clsx('min-h-[72px] rounded-[12px] border p-2', isCurrentMonth ? 'border-[var(--app-border)] bg-white' : 'border-transparent bg-transparent')}>
                 <p className="font-semibold text-[var(--app-muted)]">{day.getDate()}</p>
                 {dayEvents.slice(0, 2).map((item) => (
-                  <p key={item.eventId} className="mt-1 truncate rounded bg-[var(--app-surface-muted)] px-1 py-0.5 text-[10px] font-semibold text-[var(--app-ink)]">
+                  <button
+                    key={item.eventId}
+                    type="button"
+                    className="mt-1 w-full truncate rounded bg-[var(--app-surface-muted)] px-1 py-0.5 text-left text-[10px] font-semibold text-[var(--app-ink)] hover:bg-[var(--brand-primary)]/10"
+                    onClick={() => setSelectedGroupSession(item)}
+                  >
                     {formatTime(item.startsAt)} {item.title}
-                  </p>
+                  </button>
                 ))}
               </div>
             );
@@ -1104,13 +1238,31 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                       </button>
                     )}
                     {(currentRole === 'admin' || currentRole === 'gestor') && (
-                      <button
-                        type="button"
-                        className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--app-ink)]"
-                        onClick={() => void handleInviteByRoles(eventItem)}
-                      >
-                        Invitar líderes
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--app-ink)]"
+                          onClick={() => void handleInviteByRoles(eventItem)}
+                        >
+                          Invitar líderes
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded-full border border-[var(--app-border)] bg-white p-1.5 text-[var(--app-muted)] hover:text-[var(--app-ink)]"
+                          title="Editar sesión"
+                          onClick={() => handleEditGroupSession(eventItem)}
+                        >
+                          <Pencil size={13} />
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded-full border border-rose-200 bg-white p-1.5 text-rose-400 hover:text-rose-600"
+                          title="Eliminar sesión"
+                          onClick={() => void handleDeleteGroupSession(eventItem)}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -1185,6 +1337,97 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
           )}
         </div>
       </section>
+
+      {selectedGroupSession && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center"
+          onClick={() => setSelectedGroupSession(null)}
+        >
+          <div
+            className="w-full max-h-[90vh] overflow-y-auto rounded-t-[2rem] bg-white sm:max-w-lg sm:rounded-[2rem]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {selectedGroupSession.bannerImageUrl ? (
+              <div className="relative h-40 w-full overflow-hidden rounded-t-[2rem] sm:rounded-t-[2rem]">
+                <img src={selectedGroupSession.bannerImageUrl} alt="Banner" className="h-full w-full object-cover" />
+              </div>
+            ) : null}
+            <div className="p-6">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-lg font-extrabold text-[var(--app-ink)]">{selectedGroupSession.title}</p>
+                  <p className="mt-1 text-sm text-[var(--app-muted)]">
+                    {formatDateTime(selectedGroupSession.startsAt)}
+                    {' · '}
+                    {selectedGroupSession.hostName ?? selectedGroupSession.externalExpertName ?? 'Anfitrión por definir'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="shrink-0 rounded-full border border-[var(--app-border)] p-2 text-[var(--app-muted)]"
+                  onClick={() => setSelectedGroupSession(null)}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              {selectedGroupSession.externalExpertBio && (
+                <p className="mt-3 text-sm text-[var(--app-muted)]">{selectedGroupSession.externalExpertBio}</p>
+              )}
+
+              {selectedGroupSession.description && (
+                <div className="prose prose-sm mt-4 max-w-none text-sm">
+                  <ReactMarkdown>{selectedGroupSession.description}</ReactMarkdown>
+                </div>
+              )}
+
+              <div className="mt-5 flex flex-wrap gap-3">
+                {selectedGroupSession.zoomJoinUrl && (
+                  <a
+                    href={selectedGroupSession.zoomJoinUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 rounded-full bg-[#2D8CFF] px-4 py-2 text-sm font-bold text-white"
+                  >
+                    <Video size={14} />
+                    Entrar a Zoom
+                  </a>
+                )}
+                {(currentRole === 'lider' || currentRole === 'mentor') && (
+                  <button
+                    type="button"
+                    className="rounded-full bg-[var(--brand-primary)] px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+                    disabled={currentRole === 'lider' && isOpenLeader}
+                    onClick={() => { void handleParticipate(selectedGroupSession, 'joined'); setSelectedGroupSession(null); }}
+                  >
+                    Asistir
+                  </button>
+                )}
+                {(currentRole === 'admin' || currentRole === 'gestor') && (
+                  <>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] px-4 py-2 text-sm font-semibold text-[var(--app-ink)]"
+                      onClick={() => { handleEditGroupSession(selectedGroupSession); setSelectedGroupSession(null); }}
+                    >
+                      <Pencil size={14} />
+                      Editar
+                    </button>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-2 rounded-full border border-rose-200 px-4 py-2 text-sm font-semibold text-rose-500"
+                      onClick={() => { void handleDeleteGroupSession(selectedGroupSession); setSelectedGroupSession(null); }}
+                    >
+                      <Trash2 size={14} />
+                      Eliminar
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 

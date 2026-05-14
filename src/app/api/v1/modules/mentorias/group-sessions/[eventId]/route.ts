@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import { authenticateRequest } from '@/server/auth/request-auth';
 import { withClient, withRoleContext } from '@/server/db/pool';
 import type { UpdateGroupSessionInput } from '@/features/mentorias/service';
-import { updateGroupSession } from '@/features/mentorias/service';
-import { updateZoomMeetingTime } from '@/server/integrations/zoom';
+import { deleteGroupSession, updateGroupSession } from '@/features/mentorias/service';
+import { deleteZoomMeeting, updateZoomMeetingTime } from '@/server/integrations/zoom';
 import { errorResponse, logModuleAudit, parseJsonBody, unauthorizedResponse } from '../../../_utils';
 
 interface ContextParams {
@@ -82,4 +82,45 @@ export async function PATCH(request: Request, context: ContextParams) {
   } catch (error) {
     return errorResponse(error, 'Failed to update group session');
   }
+}
+
+export async function DELETE(request: Request, context: ContextParams) {
+  const identity = await authenticateRequest(request);
+  if (!identity) return unauthorizedResponse();
+
+  const { eventId } = await context.params;
+
+  let zoomMeetingId: string | null = null;
+  try {
+    const result = await withClient((client) =>
+      withRoleContext(client, identity.userId, identity.role, async () => {
+        const deleted = await deleteGroupSession(client, identity, eventId);
+        await logModuleAudit(client, request, identity, {
+          moduleCode: 'mentorias',
+          action: 'delete_group_session',
+          entityTable: 'app_mentoring.group_session_events',
+          entityId: eventId,
+          changeSummary: { zoomMeetingId: deleted.zoomMeetingId ?? null },
+        });
+        return deleted;
+      }),
+    );
+    zoomMeetingId = result.zoomMeetingId;
+  } catch (error) {
+    return errorResponse(error, 'Failed to delete group session');
+  }
+
+  if (zoomMeetingId) {
+    try {
+      await withClient((client) =>
+        withRoleContext(client, identity.userId, identity.role, () =>
+          deleteZoomMeeting(client, identity.userId, zoomMeetingId!),
+        ),
+      );
+    } catch (zoomError) {
+      console.error('[zoom] delete meeting failed:', zoomError);
+    }
+  }
+
+  return NextResponse.json({ ok: true }, { status: 200 });
 }

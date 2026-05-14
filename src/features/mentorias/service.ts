@@ -157,6 +157,7 @@ export interface GroupSessionEventRecord {
   zoomJoinUrl: string | null;
   zoomHostUrl: string | null;
   zoomMeetingId: string | null;
+  bannerImageUrl: string | null;
   hostUserId: string | null;
   hostName: string | null;
   externalExpertName: string | null;
@@ -215,6 +216,7 @@ export interface CreateGroupSessionInput {
   zoomJoinUrl?: string | null;
   zoomHostUrl?: string | null;
   zoomMeetingId?: string | null;
+  bannerImageUrl?: string | null;
   hostUserId?: string | null;
   externalExpertName?: string | null;
   externalExpertBio?: string | null;
@@ -228,6 +230,7 @@ export interface UpdateGroupSessionInput {
   zoomJoinUrl?: string | null;
   zoomHostUrl?: string | null;
   zoomMeetingId?: string | null;
+  bannerImageUrl?: string | null;
   hostUserId?: string | null;
   externalExpertName?: string | null;
   externalExpertBio?: string | null;
@@ -373,6 +376,7 @@ interface GroupSessionEventRow {
   zoom_join_url: string | null;
   zoom_host_url: string | null;
   zoom_meeting_id: string | null;
+  banner_image_url: string | null;
   host_user_id: string | null;
   host_name: string | null;
   external_expert_name: string | null;
@@ -524,6 +528,7 @@ function mapGroupSessionEvent(row: GroupSessionEventRow): GroupSessionEventRecor
     zoomJoinUrl: row.zoom_join_url,
     zoomHostUrl: row.zoom_host_url,
     zoomMeetingId: row.zoom_meeting_id,
+    bannerImageUrl: row.banner_image_url,
     hostUserId: row.host_user_id,
     hostName: row.host_name,
     externalExpertName: row.external_expert_name,
@@ -1222,6 +1227,7 @@ async function listGroupSessionEvents(
         gse.zoom_join_url,
         gse.zoom_host_url,
         gse.zoom_meeting_id,
+        gse.banner_image_url,
         gse.host_user_id::text,
         host_user.display_name AS host_name,
         gse.external_expert_name,
@@ -1508,9 +1514,10 @@ export async function createGroupSession(
         zoom_join_url,
         zoom_host_url,
         zoom_meeting_id,
+        banner_image_url,
         created_by
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
     `,
     [
       session.sessionId,
@@ -1520,6 +1527,7 @@ export async function createGroupSession(
       input.zoomJoinUrl?.trim() || null,
       input.zoomHostUrl?.trim() || null,
       input.zoomMeetingId?.trim() || null,
+      input.bannerImageUrl?.trim() || null,
       actor.userId,
     ],
   );
@@ -1582,6 +1590,7 @@ export async function updateGroupSession(
         zoom_join_url = COALESCE($5, zoom_join_url),
         zoom_host_url = COALESCE($6, zoom_host_url),
         zoom_meeting_id = COALESCE($7, zoom_meeting_id),
+        banner_image_url = COALESCE($8, banner_image_url),
         updated_at = now()
       WHERE event_id = $1
     `,
@@ -1593,6 +1602,7 @@ export async function updateGroupSession(
       input.zoomJoinUrl?.trim() || null,
       input.zoomHostUrl?.trim() || null,
       input.zoomMeetingId?.trim() || null,
+      input.bannerImageUrl?.trim() || null,
     ],
   );
 
@@ -1600,6 +1610,28 @@ export async function updateGroupSession(
   const updated = events.find((item) => item.eventId === eventId);
   if (!updated) throw new Error('Group session not found after update');
   return updated;
+}
+
+export async function deleteGroupSession(
+  client: PoolClient,
+  actor: AuthUser,
+  eventId: string,
+): Promise<{ zoomMeetingId: string | null }> {
+  if (actor.role !== 'admin' && actor.role !== 'gestor') {
+    throw new Error('Only admin or gestor can delete group sessions');
+  }
+  await requireModulePermission(client, 'mentorias', 'delete');
+
+  const { rows } = await client.query<{ session_id: string; zoom_meeting_id: string | null }>(
+    `SELECT session_id::text, zoom_meeting_id FROM app_mentoring.group_session_events WHERE event_id = $1 LIMIT 1`,
+    [eventId],
+  );
+  const row = rows[0];
+  if (!row) throw new Error('Group session not found');
+
+  await client.query(`DELETE FROM app_mentoring.mentorship_sessions WHERE session_id = $1`, [row.session_id]);
+
+  return { zoomMeetingId: row.zoom_meeting_id };
 }
 
 export async function participateInGroupSession(

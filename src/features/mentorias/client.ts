@@ -120,6 +120,10 @@ export async function updateGroupSession(
   });
 }
 
+export async function deleteGroupSession(eventId: string): Promise<void> {
+  await requestApi<void>(`/api/v1/modules/mentorias/group-sessions/${eventId}`, { method: 'DELETE' });
+}
+
 export async function participateInGroupSession(
   eventId: string,
   status: GroupSessionParticipationStatus,
