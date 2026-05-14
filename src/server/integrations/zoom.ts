@@ -74,7 +74,8 @@ export async function createZoomMeeting(
 
   const accountId = config.wizardData.accountId?.trim();
   const clientId = config.wizardData.clientId?.trim();
-  const clientSecret = config.secretValue?.trim();
+  // wizard_data.clientSecret is the canonical location; secret_value is a secondary store
+  const clientSecret = (config.wizardData.clientSecret?.trim() || config.secretValue?.trim());
   if (!accountId || !clientId || !clientSecret) return null;
 
   const timezone = params.timezone ?? await getInstitutionTimezone(client, actorUserId);
@@ -132,7 +133,7 @@ export async function updateZoomMeetingTime(
 
   const accountId = config.wizardData.accountId?.trim();
   const clientId = config.wizardData.clientId?.trim();
-  const clientSecret = config.secretValue?.trim();
+  const clientSecret = config.wizardData.clientSecret?.trim() || config.secretValue?.trim();
   if (!accountId || !clientId || !clientSecret) return;
 
   const token = await getAccessToken(accountId, clientId, clientSecret);
@@ -166,7 +167,7 @@ export async function deleteZoomMeeting(
 
   const accountId = config.wizardData.accountId?.trim();
   const clientId = config.wizardData.clientId?.trim();
-  const clientSecret = config.secretValue?.trim();
+  const clientSecret = config.wizardData.clientSecret?.trim() || config.secretValue?.trim();
   if (!accountId || !clientId || !clientSecret) return;
 
   const token = await getAccessToken(accountId, clientId, clientSecret);
