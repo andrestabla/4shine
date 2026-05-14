@@ -2,7 +2,7 @@ import nodemailer from 'nodemailer';
 import type { PoolClient } from 'pg';
 import { buildBrandedEmailHtml } from '@/lib/email-template';
 import type { AuthUser } from '@/server/auth/types';
-import type { GroupSessionEventRecord } from './service';
+import type { GroupSessionEventRecord, MentorshipRecord } from './service';
 
 interface OutboundConfigRow {
   organization_id: string;
@@ -210,6 +210,104 @@ export async function sendGroupSessionJoinedEmail(
   await sendEmail(config, {
     to: user.email,
     subject: `${platformName} · Participación confirmada: ${event.title}`,
+    text: textBody,
+    html: buildBrandedEmailHtml(bodyHtml, branding),
+    replyTo: config.reply_to.trim() || undefined,
+  });
+}
+
+export async function sendMentorshipScheduledEmail(
+  client: PoolClient,
+  actor: AuthUser,
+  session: MentorshipRecord,
+): Promise<void> {
+  const { rows: userRows } = await client.query<{
+    email: string;
+    display_name: string;
+    organization_id: string;
+  }>(
+    `SELECT email::text, display_name, organization_id::text FROM app_core.users WHERE user_id = $1 LIMIT 1`,
+    [actor.userId],
+  );
+  const user = userRows[0];
+  if (!user) return;
+
+  const config = await resolveOutboundConfig(client, user.organization_id);
+  if (!config) return;
+
+  const { rows: brandingRows } = await client.query<{ platform_name: string; logo_url: string | null }>(
+    `SELECT platform_name, logo_url FROM app_admin.branding_settings
+     WHERE organization_id = $1 LIMIT 1`,
+    [user.organization_id],
+  );
+  const branding = {
+    platformName: brandingRows[0]?.platform_name || '4Shine',
+    logoUrl: brandingRows[0]?.logo_url ?? null,
+  };
+
+  const firstName = user.display_name.split(' ')[0] || 'Líder';
+  const platformName = branding.platformName;
+  const sessionDate = new Date(session.startsAt).toLocaleString('es-CO', {
+    dateStyle: 'full',
+    timeStyle: 'short',
+  });
+
+  const gcalStart = new Date(session.startsAt).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+  const gcalEnd = new Date(session.endsAt).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+  const gcalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(session.title)}&dates=${gcalStart}/${gcalEnd}${session.meetingUrl ? `&location=${encodeURIComponent(session.meetingUrl)}` : ''}`;
+
+  const calendarSection = `
+    <p style="margin:16px 0 8px;font-size:13px;color:#64748b;">Agregar a tu calendario:</p>
+    <table cellpadding="0" cellspacing="0" border="0"><tr>
+      <td style="padding-right:8px;">
+        <a href="${gcalUrl}" style="display:inline-block;background-color:#ffffff;color:#334155;font-weight:600;font-size:13px;padding:8px 16px;border-radius:8px;text-decoration:none;border:1px solid #e2e8f0;">Google Calendar</a>
+      </td>
+    </tr></table>`;
+
+  const meetingSection = session.meetingUrl
+    ? `<p style="margin:0 0 8px;font-size:14px;color:#334155;">Tu enlace de acceso:</p>
+       <a href="${session.meetingUrl}" style="display:inline-block;background-color:#2D8CFF;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:8px;text-decoration:none;">Unirse a la sesión</a>${calendarSection}`
+    : `<p style="margin:0;font-size:14px;color:#64748b;">El enlace de conexión estará disponible pronto.</p>${calendarSection}`;
+
+  const bodyHtml = `
+    <p style="margin:0 0 16px;font-size:15px;color:#0f172a;">Hola <strong>${firstName}</strong>,</p>
+    <p style="margin:0 0 20px;font-size:15px;color:#334155;line-height:1.6;">
+      Tu mentoría ha sido agendada exitosamente.
+    </p>
+    <table width="100%" cellpadding="0" cellspacing="0" border="0"
+           style="background-color:#f8fafc;border-radius:12px;padding:20px 24px;margin-bottom:24px;">
+      <tr>
+        <td>
+          <p style="margin:0 0 4px;font-size:13px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">Sesión</p>
+          <p style="margin:0 0 12px;font-size:16px;font-weight:700;color:#0f172a;">${session.title}</p>
+          <p style="margin:0 0 4px;font-size:13px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">Adviser</p>
+          <p style="margin:0 0 12px;font-size:15px;color:#1e293b;">${session.mentorName}</p>
+          <p style="margin:0 0 4px;font-size:13px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">Fecha y hora</p>
+          <p style="margin:0;font-size:15px;color:#1e293b;">${sessionDate}</p>
+        </td>
+      </tr>
+    </table>
+    <div style="margin-bottom:24px;">${meetingSection}</div>
+    <p style="margin:0;font-size:13px;color:#94a3b8;">
+      Puedes ver y gestionar tus mentorías en la plataforma de ${platformName}.
+    </p>
+  `;
+
+  const textBody = [
+    `Hola ${firstName},`,
+    '',
+    `Tu mentoría "${session.title}" ha sido agendada.`,
+    `Adviser: ${session.mentorName}`,
+    `Fecha: ${sessionDate}`,
+    '',
+    session.meetingUrl ? `Enlace de sesión: ${session.meetingUrl}` : 'El enlace de conexión estará disponible pronto.',
+    '',
+    `Accede a la plataforma de ${platformName} para más detalles.`,
+  ].join('\n');
+
+  await sendEmail(config, {
+    to: user.email,
+    subject: `${platformName} · Mentoría agendada: ${session.title}`,
     text: textBody,
     html: buildBrandedEmailHtml(bodyHtml, branding),
     replyTo: config.reply_to.trim() || undefined,

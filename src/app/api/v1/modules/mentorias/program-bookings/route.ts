@@ -3,6 +3,7 @@ import { authenticateRequest } from '@/server/auth/request-auth';
 import { withClient, withRoleContext } from '@/server/db/pool';
 import type { ScheduleProgramMentorshipInput } from '@/features/mentorias/service';
 import { scheduleProgramMentorship } from '@/features/mentorias/service';
+import { sendMentorshipScheduledEmail } from '@/features/mentorias/email';
 import { errorResponse, logModuleAudit, parseJsonBody, unauthorizedResponse } from '../../_utils';
 
 export async function POST(request: Request) {
@@ -29,6 +30,9 @@ export async function POST(request: Request) {
             sessionId: result.sessionId,
           },
         });
+        sendMentorshipScheduledEmail(client, identity, result).catch((err) =>
+          console.error('[email] mentorship scheduled email failed:', err),
+        );
         return result;
       }),
     );
