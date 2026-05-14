@@ -1,11 +1,20 @@
 import type { PoolClient } from 'pg';
 import { getIntegrationConfigForActor } from './config';
 
-async function getInstitutionTimezone(client: PoolClient): Promise<string> {
-  const { rows } = await client.query<{ institution_timezone: string }>(
-    `SELECT institution_timezone FROM app_admin.branding_settings ORDER BY updated_at DESC LIMIT 1`,
-  );
-  return rows[0]?.institution_timezone || 'America/Bogota';
+async function getInstitutionTimezone(client: PoolClient, actorUserId: string): Promise<string> {
+  try {
+    const { rows } = await client.query<{ institution_timezone: string }>(
+      `SELECT bs.institution_timezone
+       FROM app_admin.branding_settings bs
+       JOIN app_core.users u ON u.organization_id = bs.organization_id
+       WHERE u.user_id = $1::uuid
+       LIMIT 1`,
+      [actorUserId],
+    );
+    return rows[0]?.institution_timezone || 'America/Bogota';
+  } catch {
+    return 'America/Bogota';
+  }
 }
 
 export interface ZoomMeetingResult {
@@ -68,7 +77,7 @@ export async function createZoomMeeting(
   const clientSecret = config.secretValue?.trim();
   if (!accountId || !clientId || !clientSecret) return null;
 
-  const timezone = params.timezone ?? await getInstitutionTimezone(client);
+  const timezone = params.timezone ?? await getInstitutionTimezone(client, actorUserId);
   const waitingRoom = params.waitingRoom ?? config.wizardData.waitingRoom !== 'false';
   const autoRecording = (params.autoRecording ?? config.wizardData.autoRecording ?? 'none') as
     | 'none'
@@ -127,7 +136,7 @@ export async function updateZoomMeetingTime(
   if (!accountId || !clientId || !clientSecret) return;
 
   const token = await getAccessToken(accountId, clientId, clientSecret);
-  const timezone = await getInstitutionTimezone(client);
+  const timezone = await getInstitutionTimezone(client, actorUserId);
 
   const res = await fetch(`https://api.zoom.us/v2/meetings/${encodeURIComponent(meetingId)}`, {
     method: 'PATCH',
