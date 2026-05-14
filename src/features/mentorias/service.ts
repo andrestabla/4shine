@@ -184,6 +184,7 @@ export interface GroupSessionRecordingRecord {
   description: string | null;
   recordingUrl: string;
   thumbnailUrl: string | null;
+  bannerImageUrl: string | null;
   durationMinutes: number;
   recordedAt: string | null;
   publishedAt: string | null;
@@ -395,6 +396,7 @@ interface GroupSessionRecordingRow {
   description: string | null;
   recording_url: string;
   thumbnail_url: string | null;
+  banner_image_url: string | null;
   duration_minutes: number | null;
   recorded_at: string | null;
   published_at: string | null;
@@ -1282,6 +1284,7 @@ async function listGroupSessionRecordings(
         gsr.description,
         gsr.recording_url,
         gsr.thumbnail_url,
+        gse.banner_image_url,
         gsr.duration_minutes,
         gsr.recorded_at::text,
         gsr.published_at::text,
@@ -1364,6 +1367,7 @@ async function listGroupSessionRecordings(
     description: row.description,
     recordingUrl: row.recording_url,
     thumbnailUrl: row.thumbnail_url,
+    bannerImageUrl: row.banner_image_url,
     durationMinutes: Number(row.duration_minutes ?? 0),
     recordedAt: row.recorded_at,
     publishedAt: row.published_at,

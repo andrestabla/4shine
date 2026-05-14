@@ -16,6 +16,8 @@ import {
   Image as ImageIcon,
   Lock,
   Pencil,
+  Play,
+  Search,
   ShoppingBag,
   Sparkles,
   Star,
@@ -342,6 +344,8 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
     description: '',
   });
   const [recordingCommentDrafts, setRecordingCommentDrafts] = React.useState<Record<string, string>>({});
+  const [recordingSearch, setRecordingSearch] = React.useState('');
+  const [recordingTopicFilter, setRecordingTopicFilter] = React.useState<string | null>(null);
   const [groupAnalytics, setGroupAnalytics] = React.useState<GroupSessionAnalyticsRecord[]>([]);
   const [availabilitySlotForm, setAvailabilitySlotForm] = React.useState<AvailabilitySlotFormState>({
     mentorUserId: '',
@@ -1315,39 +1319,152 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
 
       <section className="app-panel p-5 sm:p-6">
         <p className="app-section-kicker">Grabaciones de sesiones pasadas</p>
-        <div className="mt-4 space-y-4">
-          {groupRecordings.length === 0 ? (
-            <EmptyState message="Aún no hay grabaciones publicadas." />
-          ) : (
-            groupRecordings.map((recording) => (
-              <article key={recording.recordingId} className="rounded-[16px] border border-[var(--app-border)] bg-white p-4">
-                <p className="font-bold text-[var(--app-ink)]">{recording.title}</p>
-                <p className="text-sm text-[var(--app-muted)]">{recording.eventTitle} · {recording.hostName ?? 'Experto invitado'}</p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <a href={recording.recordingUrl} target="_blank" rel="noreferrer" className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--brand-primary)]">Ver grabación</a>
-                  {(['like', 'celebrate', 'insightful', 'love'] as GroupSessionReaction[]).map((reaction) => (
-                    <button key={reaction} type="button" className={clsx('rounded-full border px-3 py-1 text-xs font-semibold', recording.myReaction === reaction ? 'border-[var(--brand-primary)] text-[var(--brand-primary)]' : 'border-[var(--app-border)] text-[var(--app-muted)]')} onClick={() => void handleReactRecording(recording, reaction)}>
-                      {reaction} · {recording.reactionTotals[reaction]}
+
+        {groupRecordings.length > 0 && (() => {
+          const uniqueTopics = Array.from(new Set(groupRecordings.map((r) => r.eventTitle))).sort();
+          const q = recordingSearch.toLowerCase().trim();
+          const filtered = groupRecordings.filter((r) => {
+            const matchesTopic = !recordingTopicFilter || r.eventTitle === recordingTopicFilter;
+            const matchesSearch = !q || r.title.toLowerCase().includes(q) || r.eventTitle.toLowerCase().includes(q);
+            return matchesTopic && matchesSearch;
+          });
+
+          return (
+            <div className="mt-4 space-y-4">
+              {/* Search + topic filters */}
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="relative flex-1 min-w-[200px]">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--app-muted)]" />
+                  <input
+                    className="w-full rounded-[14px] border border-[var(--app-border)] bg-white py-2.5 pl-9 pr-4 text-sm"
+                    placeholder="Buscar grabación…"
+                    value={recordingSearch}
+                    onChange={(e) => setRecordingSearch(e.target.value)}
+                  />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className={clsx('rounded-full border px-3 py-1.5 text-xs font-semibold transition', !recordingTopicFilter ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)] text-white' : 'border-[var(--app-border)] text-[var(--app-muted)]')}
+                    onClick={() => setRecordingTopicFilter(null)}
+                  >
+                    Todos
+                  </button>
+                  {uniqueTopics.map((topic) => (
+                    <button
+                      key={topic}
+                      type="button"
+                      className={clsx('rounded-full border px-3 py-1.5 text-xs font-semibold transition', recordingTopicFilter === topic ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)] text-white' : 'border-[var(--app-border)] text-[var(--app-muted)]')}
+                      onClick={() => setRecordingTopicFilter((prev) => prev === topic ? null : topic)}
+                    >
+                      {topic}
                     </button>
                   ))}
                 </div>
-                <div className="mt-3 flex gap-2">
-                  <input className="flex-1 rounded-[12px] border border-[var(--app-border)] px-3 py-2 text-xs" placeholder="Agregar comentario" value={recordingCommentDrafts[recording.recordingId] ?? ''} onChange={(event) => setRecordingCommentDrafts((prev) => ({ ...prev, [recording.recordingId]: event.target.value }))} />
-                  <button type="button" className="rounded-[12px] border border-[var(--app-border)] px-3 py-2 text-xs font-semibold" onClick={() => void handleCommentRecording(recording)}>Comentar</button>
+              </div>
+
+              {/* Cards grid */}
+              {filtered.length === 0 ? (
+                <EmptyState message="Ninguna grabación coincide con tu búsqueda." />
+              ) : (
+                <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                  {filtered.map((recording) => (
+                    <article key={recording.recordingId} className="flex flex-col overflow-hidden rounded-[20px] border border-[var(--app-border)] bg-white">
+                      {/* Cover */}
+                      <a href={recording.recordingUrl} target="_blank" rel="noreferrer" className="group relative block aspect-video w-full overflow-hidden bg-[var(--app-surface-muted)]">
+                        {recording.bannerImageUrl ? (
+                          <img
+                            src={recording.bannerImageUrl}
+                            alt={recording.title}
+                            className="h-full w-full object-cover transition group-hover:scale-[1.02]"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#e8d8f8] to-[#f4d0ee]">
+                            <Play size={32} className="text-[var(--brand-primary)]/60" />
+                          </div>
+                        )}
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition group-hover:bg-black/20">
+                          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/90 opacity-0 shadow-lg transition group-hover:opacity-100">
+                            <Play size={18} className="translate-x-0.5 text-[var(--brand-primary)]" />
+                          </div>
+                        </div>
+                        {recording.durationMinutes > 0 && (
+                          <span className="absolute bottom-2 right-2 rounded-[8px] bg-black/70 px-2 py-0.5 text-[11px] font-semibold text-white">
+                            {recording.durationMinutes} min
+                          </span>
+                        )}
+                      </a>
+
+                      {/* Body */}
+                      <div className="flex flex-1 flex-col gap-3 p-4">
+                        <div>
+                          <p className="font-bold leading-snug text-[var(--app-ink)]">{recording.title}</p>
+                          <p className="mt-0.5 text-sm text-[var(--app-muted)]">
+                            {recording.eventTitle}
+                            {recording.hostName ? ` · ${recording.hostName}` : ''}
+                          </p>
+                        </div>
+
+                        {/* Reactions */}
+                        <div className="flex flex-wrap gap-1.5">
+                          {(['like', 'celebrate', 'insightful', 'love'] as GroupSessionReaction[]).map((reaction) => (
+                            <button
+                              key={reaction}
+                              type="button"
+                              className={clsx(
+                                'rounded-full border px-2.5 py-1 text-xs font-semibold transition',
+                                recording.myReaction === reaction
+                                  ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)]/8 text-[var(--brand-primary)]'
+                                  : 'border-[var(--app-border)] text-[var(--app-muted)] hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)]',
+                              )}
+                              onClick={() => void handleReactRecording(recording, reaction)}
+                            >
+                              {reaction === 'like' ? '👍' : reaction === 'celebrate' ? '🎉' : reaction === 'insightful' ? '💡' : '❤️'} {recording.reactionTotals[reaction]}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Comment input */}
+                        <div className="mt-auto flex gap-2">
+                          <input
+                            className="flex-1 rounded-[12px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-2 text-xs"
+                            placeholder="Agregar comentario…"
+                            value={recordingCommentDrafts[recording.recordingId] ?? ''}
+                            onChange={(e) => setRecordingCommentDrafts((prev) => ({ ...prev, [recording.recordingId]: e.target.value }))}
+                            onKeyDown={(e) => { if (e.key === 'Enter') void handleCommentRecording(recording); }}
+                          />
+                          <button
+                            type="button"
+                            className="rounded-[12px] border border-[var(--app-border)] bg-white px-3 py-2 text-xs font-semibold"
+                            onClick={() => void handleCommentRecording(recording)}
+                          >
+                            Enviar
+                          </button>
+                        </div>
+
+                        {recording.comments.length > 0 && (
+                          <div className="space-y-1.5">
+                            {recording.comments.slice(0, 3).map((comment) => (
+                              <p key={comment.commentId} className="rounded-[10px] bg-[var(--app-surface-muted)] px-3 py-2 text-xs text-[var(--app-muted)]">
+                                <span className="font-semibold text-[var(--app-ink)]">{comment.authorName}:</span> {comment.commentText}
+                              </p>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </article>
+                  ))}
                 </div>
-                {recording.comments.length > 0 && (
-                  <div className="mt-3 space-y-2">
-                    {recording.comments.slice(0, 3).map((comment) => (
-                      <p key={comment.commentId} className="rounded-[10px] bg-[var(--app-surface-muted)] px-3 py-2 text-xs text-[var(--app-muted)]">
-                        <span className="font-semibold text-[var(--app-ink)]">{comment.authorName}:</span> {comment.commentText}
-                      </p>
-                    ))}
-                  </div>
-                )}
-              </article>
-            ))
-          )}
-        </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {groupRecordings.length === 0 && (
+          <div className="mt-4">
+            <EmptyState message="Aún no hay grabaciones publicadas." />
+          </div>
+        )}
       </section>
 
       {selectedGroupSession && (
