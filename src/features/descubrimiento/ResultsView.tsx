@@ -290,13 +290,15 @@ export function ResultsView({
     const seenTour = window.localStorage.getItem("discovery-results-tour-seen") === "1";
     if (!seenTour) {
       setIsTourOpen(true);
+    } else {
+      setAnalysisReady(true);
     }
-    setAnalysisReady(true);
   }, []);
 
   const closeTour = React.useCallback(() => {
     setIsTourOpen(false);
     window.localStorage.setItem("discovery-results-tour-seen", "1");
+    setAnalysisReady(true);
   }, []);
 
   const handleNextTourStep = () => {
