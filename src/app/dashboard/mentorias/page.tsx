@@ -1100,14 +1100,21 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                 </a>
               ) : null}
               {(currentRole === 'lider' || currentRole === 'mentor') && (
-                <button
-                  type="button"
-                  className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--app-ink)] disabled:opacity-50"
-                  onClick={() => void handleParticipate(upcomingGroupSession, 'joined')}
-                  disabled={(currentRole === 'lider' && isOpenLeader) || participatingInId === upcomingGroupSession.eventId}
-                >
-                  {participatingInId === upcomingGroupSession.eventId ? 'Confirmando…' : 'Confirmar participación'}
-                </button>
+                upcomingGroupSession.participationStatus === 'joined' ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-semibold text-green-700">
+                    <CheckCircle2 size={12} />
+                    Inscrito
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--app-ink)] disabled:opacity-50"
+                    onClick={() => void handleParticipate(upcomingGroupSession, 'joined')}
+                    disabled={(currentRole === 'lider' && isOpenLeader) || participatingInId === upcomingGroupSession.eventId}
+                  >
+                    {participatingInId === upcomingGroupSession.eventId ? 'Confirmando…' : 'Confirmar participación'}
+                  </button>
+                )
               )}
             </div>
           </article>
@@ -1215,9 +1222,16 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                       </a>
                     ) : null}
                     {(currentRole === 'lider' || currentRole === 'mentor') && (
-                      <button type="button" className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--app-ink)] disabled:opacity-50" onClick={() => void handleParticipate(eventItem, 'joined')} disabled={currentRole === 'lider' && isOpenLeader}>
-                        Participar
-                      </button>
+                      eventItem.participationStatus === 'joined' ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-semibold text-green-700">
+                          <CheckCircle2 size={12} />
+                          Inscrito
+                        </span>
+                      ) : (
+                        <button type="button" className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--app-ink)] disabled:opacity-50" onClick={() => void handleParticipate(eventItem, 'joined')} disabled={currentRole === 'lider' && isOpenLeader}>
+                          Participar
+                        </button>
+                      )
                     )}
                     {(currentRole === 'admin' || currentRole === 'gestor') && (
                       <>
@@ -1378,14 +1392,21 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                   </a>
                 )}
                 {(currentRole === 'lider' || currentRole === 'mentor') && (
-                  <button
-                    type="button"
-                    className="rounded-full bg-[var(--brand-primary)] px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
-                    disabled={(currentRole === 'lider' && isOpenLeader) || participatingInId === selectedGroupSession.eventId}
-                    onClick={() => void handleParticipate(selectedGroupSession, 'joined')}
-                  >
-                    {participatingInId === selectedGroupSession.eventId ? 'Confirmando…' : 'Asistir'}
-                  </button>
+                  selectedGroupSession.participationStatus === 'joined' ? (
+                    <span className="inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-4 py-2 text-sm font-semibold text-green-700">
+                      <CheckCircle2 size={14} />
+                      Ya estás inscrito
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      className="rounded-full bg-[var(--brand-primary)] px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+                      disabled={(currentRole === 'lider' && isOpenLeader) || participatingInId === selectedGroupSession.eventId}
+                      onClick={() => void handleParticipate(selectedGroupSession, 'joined')}
+                    >
+                      {participatingInId === selectedGroupSession.eventId ? 'Confirmando…' : 'Asistir'}
+                    </button>
+                  )
                 )}
                 {(currentRole === 'admin' || currentRole === 'gestor') && (
                   <>

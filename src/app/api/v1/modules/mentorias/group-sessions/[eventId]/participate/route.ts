@@ -38,7 +38,7 @@ export async function POST(request: Request, context: ContextParams) {
 
     if (body.status === 'joined') {
       withClient((client) =>
-        withRoleContext(client, identity.userId, identity.role, () =>
+        withRoleContext(client, identity.userId, 'gestor', () =>
           sendGroupSessionJoinedEmail(client, identity, data),
         ),
       ).catch((err) => console.error('[email] group session confirmation failed:', err));

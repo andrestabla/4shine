@@ -6,17 +6,20 @@ import {
   ArrowRight,
   BookOpen,
   CalendarDays,
-  Check,
+  CheckCircle2,
   Compass,
   MessageSquare,
   Settings,
   ShieldCheck,
   Sparkles,
   Users,
+  Video,
 } from "lucide-react";
 import { AccessOfferPanel } from "@/components/access/AccessOfferPanel";
 import { useUser } from "@/context/UserContext";
+import { useBranding } from "@/context/BrandingContext";
 import { filterCommercialProducts } from "@/features/access/catalog";
+import { getMentorshipOverview, type GroupSessionEventRecord } from "@/features/mentorias/client";
 import { PageTitle } from "@/components/dashboard/PageTitle";
 import { StatGrid, type StatItem } from "@/components/dashboard/StatGrid";
 import type { UserStats } from "@/server/bootstrap/types";
@@ -194,8 +197,35 @@ function buildRoleStats(params: {
   ];
 }
 
+function formatUpcomingDate(isoString: string, timezone?: string): string {
+  return new Date(isoString).toLocaleString('es-CO', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: timezone || undefined,
+  });
+}
+
 export default function DashboardHomePage() {
   const { currentUser, currentRole, bootstrapData, can, viewerAccess } = useUser();
+  const { tokens: brandingTokens } = useBranding();
+  const tz = brandingTokens.layout.timezone || undefined;
+
+  const [upcomingJoinedSessions, setUpcomingJoinedSessions] = React.useState<GroupSessionEventRecord[]>([]);
+
+  React.useEffect(() => {
+    if (currentRole !== 'lider' && currentRole !== 'mentor') return;
+    if (currentRole === 'lider' && viewerAccess?.viewerTier === 'open_leader') return;
+    getMentorshipOverview()
+      .then((overview) => {
+        const now = new Date();
+        const joined = (overview.groupSessions ?? []).filter(
+          (s) => s.participationStatus === 'joined' && new Date(s.startsAt) > now,
+        );
+        joined.sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+        setUpcomingJoinedSessions(joined.slice(0, 3));
+      })
+      .catch(() => {/* silent */});
+  }, [currentRole, viewerAccess?.viewerTier]);
 
   if (!currentUser || !currentRole || !bootstrapData) return null;
 
@@ -502,6 +532,46 @@ export default function DashboardHomePage() {
               {quote?.author ?? "4Shine"}
             </p>
           </section>
+
+          {upcomingJoinedSessions.length > 0 && (
+            <section className="app-panel p-5 sm:p-6">
+              <div className="flex items-center justify-between gap-2">
+                <p className="app-section-kicker">Próximas sesiones</p>
+                <Link href="/dashboard/mentorias" className="text-[11px] font-semibold text-[var(--brand-primary)]">
+                  Ver todas
+                </Link>
+              </div>
+              <div className="mt-4 space-y-3">
+                {upcomingJoinedSessions.map((session) => (
+                  <article
+                    key={session.eventId}
+                    className="rounded-[14px] border border-green-100 bg-green-50/60 px-4 py-3"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold text-[var(--app-ink)]">{session.title}</p>
+                        <p className="mt-0.5 text-xs text-[var(--app-muted)]">
+                          {formatUpcomingDate(session.startsAt, tz)}
+                        </p>
+                      </div>
+                      <CheckCircle2 size={15} className="mt-0.5 shrink-0 text-green-600" />
+                    </div>
+                    {session.zoomJoinUrl && (
+                      <a
+                        href={session.zoomJoinUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-2.5 inline-flex items-center gap-1.5 rounded-full bg-[#2D8CFF] px-3 py-1 text-[11px] font-bold text-white"
+                      >
+                        <Video size={11} />
+                        Unirse a Zoom
+                      </a>
+                    )}
+                  </article>
+                ))}
+              </div>
+            </section>
+          )}
 
           <section className="app-panel p-5 sm:p-6">
             <p className="app-section-kicker">Novedades</p>
