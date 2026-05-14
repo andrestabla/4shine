@@ -1680,7 +1680,7 @@ export async function participateInGroupSession(
         VALUES (
           $1, 'info', 'Participación confirmada',
           $2,
-          jsonb_build_object('eventId', $3, 'zoomJoinUrl', $4)
+          jsonb_build_object('eventId', $3::text, 'zoomJoinUrl', $4::text)
         )
       `,
       [
