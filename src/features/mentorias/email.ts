@@ -151,10 +151,28 @@ export async function sendGroupSessionJoinedEmail(
     timeStyle: 'short',
   });
 
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL ?? 'https://www.4shine.co').replace(/\/$/, '');
+  const icsUrl = `${appUrl}/api/v1/modules/mentorias/group-sessions/${event.eventId}/ics`;
+
+  const gcalStart = new Date(event.startsAt).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+  const gcalEnd = new Date(event.endsAt).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+  const gcalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(event.title)}&dates=${gcalStart}/${gcalEnd}${event.zoomJoinUrl ? `&location=${encodeURIComponent(event.zoomJoinUrl)}` : ''}`;
+
+  const calendarSection = `
+    <p style="margin:16px 0 8px;font-size:13px;color:#64748b;">Agregar a tu calendario:</p>
+    <table cellpadding="0" cellspacing="0" border="0"><tr>
+      <td style="padding-right:8px;">
+        <a href="${gcalUrl}" style="display:inline-block;background-color:#ffffff;color:#334155;font-weight:600;font-size:13px;padding:8px 16px;border-radius:8px;text-decoration:none;border:1px solid #e2e8f0;">Google Calendar</a>
+      </td>
+      <td>
+        <a href="${icsUrl}" style="display:inline-block;background-color:#ffffff;color:#334155;font-weight:600;font-size:13px;padding:8px 16px;border-radius:8px;text-decoration:none;border:1px solid #e2e8f0;">Apple / Outlook (.ics)</a>
+      </td>
+    </tr></table>`;
+
   const zoomSection = event.zoomJoinUrl
     ? `<p style="margin:0 0 8px;font-size:14px;color:#334155;">Tu enlace de acceso a la sesión:</p>
-       <a href="${event.zoomJoinUrl}" style="display:inline-block;background-color:#2D8CFF;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:8px;text-decoration:none;">Unirse a Zoom</a>`
-    : `<p style="margin:0;font-size:14px;color:#64748b;">El enlace de conexión estará disponible pronto.</p>`;
+       <a href="${event.zoomJoinUrl}" style="display:inline-block;background-color:#2D8CFF;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:8px;text-decoration:none;">Unirse a Zoom</a>${calendarSection}`
+    : `<p style="margin:0;font-size:14px;color:#64748b;">El enlace de conexión estará disponible pronto.</p>${calendarSection}`;
 
   const bodyHtml = `
     <p style="margin:0 0 16px;font-size:15px;color:#0f172a;">Hola <strong>${firstName}</strong>,</p>
