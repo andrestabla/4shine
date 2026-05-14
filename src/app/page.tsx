@@ -203,7 +203,6 @@ export default async function HomeMarketingPage() {
         <div className="absolute inset-0 bg-[linear-gradient(108deg,rgba(20,9,36,0.92)_10%,rgba(28,14,45,0.80)_55%,rgba(46,23,62,0.74)_100%)]" />
 
         <div className="relative mx-auto flex max-w-[1240px] flex-col px-6 pb-20 pt-6 md:px-10 lg:px-14">
-          {/* Nav */}
           <header className="mb-14 flex items-center justify-between">
             <Link href="/" className="inline-flex items-center gap-2.5">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -220,7 +219,6 @@ export default async function HomeMarketingPage() {
             <Link href="/acceso" className="rounded-full bg-[#f2b24b] px-5 py-2 text-sm font-extrabold text-[#2a1b3f] hover:bg-[#f6c56d] transition">Ingresar</Link>
           </header>
 
-          {/* Content */}
           <div className="grid items-center gap-12 lg:grid-cols-[1.1fr_0.9fr]">
             <div>
               <p className="mb-5 text-xs font-bold uppercase tracking-[0.32em] text-[#c9b8ff]">Plataforma de liderazgo</p>
@@ -324,9 +322,9 @@ export default async function HomeMarketingPage() {
             </div>
           </div>
 
-          <div className="mx-auto mt-12 grid max-w-[900px] gap-6 sm:grid-cols-3">
+          <div className="mx-auto mt-14 grid max-w-[900px] gap-10 sm:grid-cols-3">
             {platformFeatures.map(({ Icon, title, text }) => (
-              <div key={title} className="rounded-2xl border border-[#d6cced] bg-white p-6">
+              <div key={title}>
                 <Icon size={20} color="#5b2d8a" strokeWidth={1.6} />
                 <h3 className="mt-4 text-base font-black text-[#1c0f32]">{title}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-[#5d4a78]">{text}</p>
@@ -383,13 +381,13 @@ export default async function HomeMarketingPage() {
             </Link>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-3">
+          <div className="grid gap-10 md:grid-cols-3">
             {stories.map((s) => (
-              <article key={s.name} className="flex flex-col rounded-3xl border border-white/10 bg-white/5 p-7">
-                <p className="flex-1 text-[15px] leading-relaxed text-[#e8e0fc]">{s.text}</p>
-                <div className="mt-7 flex items-center gap-3">
+              <div key={s.name} className="border-l-2 pl-6" style={{ borderColor: s.color }}>
+                <p className="text-[15px] leading-relaxed text-[#e8e0fc]">{s.text}</p>
+                <div className="mt-6 flex items-center gap-3">
                   <div
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-base font-black text-white"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-black text-white"
                     style={{ background: s.color }}
                   >
                     {s.initial}
@@ -399,7 +397,7 @@ export default async function HomeMarketingPage() {
                     <p className="text-xs text-[#c9b8ff]">{s.role}</p>
                   </div>
                 </div>
-              </article>
+              </div>
             ))}
           </div>
         </div>
@@ -477,7 +475,7 @@ export default async function HomeMarketingPage() {
       {/* ── 8. NUESTROS ADVISERS ── */}
       <section className="bg-white">
         <div className="mx-auto max-w-[1240px] px-6 py-20 md:px-10 lg:px-14">
-          <div className="grid items-center gap-16 lg:grid-cols-[1fr_1fr]">
+          <div className="grid items-start gap-16 lg:grid-cols-[1fr_1fr]">
             <div>
               <h2 className="max-w-[20ch] text-4xl font-black leading-[1.05] tracking-tight md:text-5xl">
                 Aprende de quienes ya lo han vivido.
@@ -496,19 +494,21 @@ export default async function HomeMarketingPage() {
               </Link>
             </div>
 
-            <div className="grid gap-5 sm:grid-cols-3">
+            <div className="grid gap-8 sm:grid-cols-3">
               {advisers.map((a) => (
-                <article key={a.name} className="flex flex-col items-center rounded-2xl border border-[#e8e0f8] bg-[#faf8ff] p-5 text-center">
+                <div key={a.name} className="flex items-start gap-3">
                   <div
-                    className="mb-4 flex h-14 w-14 items-center justify-center rounded-full text-xl font-black text-white"
+                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-base font-black text-white"
                     style={{ background: a.color }}
                   >
                     {a.initial}
                   </div>
-                  <p className="text-sm font-black text-[#1c0f32]">{a.name}</p>
-                  <p className="mt-1 text-xs font-semibold text-[#5b2d8a]">{a.specialty}</p>
-                  <p className="mt-1 text-xs text-[#8b75a8]">{a.years}</p>
-                </article>
+                  <div>
+                    <p className="text-sm font-black text-[#1c0f32]">{a.name}</p>
+                    <p className="mt-0.5 text-xs font-semibold text-[#5b2d8a]">{a.specialty}</p>
+                    <p className="mt-0.5 text-xs text-[#8b75a8]">{a.years}</p>
+                  </div>
+                </div>
               ))}
             </div>
           </div>

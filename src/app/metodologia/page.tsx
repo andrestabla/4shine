@@ -134,7 +134,6 @@ export default function MetodologiaPage() {
               </Link>
             </div>
 
-            {/* Video panel */}
             <div className="overflow-hidden rounded-3xl bg-[#1c102d] shadow-[0_32px_72px_rgba(28,16,45,0.22)]">
               <div className="aspect-video flex items-center justify-center">
                 <div className="flex flex-col items-center gap-5">
@@ -225,7 +224,7 @@ export default function MetodologiaPage() {
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-0 sm:grid-cols-2">
             {workbooks.map((wb) => (
               <div
                 key={wb.n}
@@ -247,78 +246,70 @@ export default function MetodologiaPage() {
         </div>
       </section>
 
-      {/* ── 5. PLATAFORMA ── */}
+      {/* ── 5. PLATAFORMA — filas con divisores, sin contenedores ── */}
       <section className="bg-[#f4f2fa]">
         <div className="mx-auto max-w-[1240px] px-6 py-20 md:px-10 lg:px-14">
-          <h2 className="mb-14 max-w-[28ch] text-4xl font-black tracking-tight text-[#1c0f32] md:text-5xl">
+          <h2 className="mb-2 max-w-[28ch] text-4xl font-black tracking-tight text-[#1c0f32] md:text-5xl">
             Todo lo que necesitas para crecer, en un solo lugar.
           </h2>
+          <p className="mb-16 max-w-[54ch] text-base text-[#5e4b78]">
+            Diagnóstico, ruta, contenido, mentoría y comunidad. Sin dispersión.
+          </p>
 
-          {/* Row A: Contenido exclusivo */}
-          <div className="grid items-start gap-10 rounded-3xl border border-[#ddd5f2] bg-white p-8 lg:grid-cols-[220px_1fr] lg:p-10">
-            <div>
-              <h3 className="text-xl font-black text-[#1c0f32]">Contenido exclusivo</h3>
-              <p className="mt-2 text-sm leading-relaxed text-[#5e4b78]">
-                Clases, masterclasses y material de apoyo diseñados para aplicar en tu realidad profesional inmediata.
-              </p>
-            </div>
-            <div className="grid gap-6 sm:grid-cols-3">
-              {[
+          {[
+            {
+              n: '01',
+              title: 'Contenido exclusivo',
+              summary: 'Clases, masterclasses y material de apoyo diseñados para aplicar en tu realidad profesional inmediata.',
+              items: [
                 { title: 'Video-clases por fase', text: 'Lecciones cortas y accionables alineadas a cada workbook.' },
                 { title: 'Masterclasses de Advisers', text: 'Sesiones de expertos sobre temas de liderazgo de alto impacto.' },
                 { title: 'Biblioteca de recursos', text: 'Lecturas, frameworks y herramientas curadas por especialistas.' },
-              ].map(({ title, text }) => (
-                <div key={title}>
-                  <p className="text-sm font-black text-[#1c0f32]">{title}</p>
-                  <p className="mt-1.5 text-sm leading-relaxed text-[#7557a1]">{text}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Row B: Mentorías (dark) */}
-          <div className="mt-4 grid items-start gap-10 rounded-3xl bg-[#1c102d] p-8 text-white lg:grid-cols-[220px_1fr] lg:p-10">
-            <div>
-              <h3 className="text-xl font-black">Sesiones de mentoría con expertos</h3>
-              <p className="mt-2 text-sm leading-relaxed text-[#c9b8ff]">
-                Acompañamiento 1:1 y grupal con Advisers especializados que te ayudan a tomar decisiones con mayor claridad y velocidad.
-              </p>
-            </div>
-            <div className="grid gap-6 sm:grid-cols-3">
-              {[
+              ],
+              dark: false,
+            },
+            {
+              n: '02',
+              title: 'Sesiones de mentoría con expertos',
+              summary: 'Acompañamiento 1:1 y grupal con Advisers especializados que te ayudan a tomar decisiones con mayor claridad y velocidad.',
+              items: [
                 { title: 'Adviser Guía', text: 'Acompañamiento continuo a lo largo de tu ruta. Seguimiento semanal, retroalimentación y accountability.' },
                 { title: 'Adviser Experto', text: 'Sesiones focalizadas con especialistas según la fase que estés transitando en el programa.' },
                 { title: 'Estructura probada', text: 'Cada sesión tiene un marco de preparación, conversación y compromisos que aceleran el avance real.' },
-              ].map(({ title, text }) => (
-                <div key={title}>
-                  <p className="text-sm font-black">{title}</p>
-                  <p className="mt-1.5 text-sm leading-relaxed text-[#c9b8ff]">{text}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Row C: Comunidad */}
-          <div className="mt-4 grid items-start gap-10 rounded-3xl border border-[#ddd5f2] bg-white p-8 lg:grid-cols-[220px_1fr] lg:p-10">
-            <div>
-              <h3 className="text-xl font-black text-[#1c0f32]">Comunidad · Networking</h3>
-              <p className="mt-2 text-sm leading-relaxed text-[#5e4b78]">
-                Una red de líderes con el mismo nivel de ambición y compromiso. Colaboración real, no solo contactos.
-              </p>
-            </div>
-            <div className="grid gap-6 sm:grid-cols-3">
-              {[
+              ],
+              dark: true,
+            },
+            {
+              n: '03',
+              title: 'Comunidad · Networking',
+              summary: 'Una red de líderes con el mismo nivel de ambición y compromiso. Colaboración real, no solo contactos.',
+              items: [
                 { title: 'Sesiones grupales en vivo', text: 'Encuentros semanales con el grupo del programa para compartir avances y desafíos reales.' },
                 { title: 'Workshops y convocatorias', text: 'Eventos de profundización, talleres temáticos y encuentros presenciales o virtuales.' },
                 { title: 'Red de líderes 4Shine', text: 'Acceso permanente a la comunidad: más de 1.000 líderes activos en distintas industrias.' },
-              ].map(({ title, text }) => (
-                <div key={title}>
-                  <p className="text-sm font-black text-[#1c0f32]">{title}</p>
-                  <p className="mt-1.5 text-sm leading-relaxed text-[#7557a1]">{text}</p>
-                </div>
-              ))}
+              ],
+              dark: false,
+            },
+          ].map(({ n, title, summary, items, dark }) => (
+            <div
+              key={n}
+              className={`grid items-start gap-8 border-t py-12 lg:grid-cols-[220px_1fr] ${dark ? 'border-[#2e1b49]' : 'border-[#d8d0ea]'}`}
+            >
+              <div>
+                <span className={`text-xs font-bold ${dark ? 'text-[#9b88c8]' : 'text-[#9b88c8]'}`}>{n}</span>
+                <h3 className={`mt-1 text-xl font-black ${dark ? 'text-[#1c0f32]' : 'text-[#1c0f32]'}`}>{title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-[#5e4b78]">{summary}</p>
+              </div>
+              <div className="grid gap-8 sm:grid-cols-3">
+                {items.map(({ title: t, text }) => (
+                  <div key={t}>
+                    <p className="text-sm font-black text-[#1c0f32]">{t}</p>
+                    <p className="mt-1.5 text-sm leading-relaxed text-[#6b5487]">{text}</p>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          ))}
         </div>
       </section>
 
@@ -334,13 +325,13 @@ export default function MetodologiaPage() {
             </Link>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-3">
+          <div className="grid gap-10 md:grid-cols-3">
             {stories.map((s) => (
-              <article key={s.name} className="flex flex-col rounded-3xl border border-white/10 bg-white/5 p-7">
-                <p className="flex-1 text-[15px] leading-relaxed text-[#e8e0fc]">{s.text}</p>
-                <div className="mt-7 flex items-center gap-3">
+              <div key={s.name} className="border-l-2 pl-6" style={{ borderColor: s.color }}>
+                <p className="text-[15px] leading-relaxed text-[#e8e0fc]">{s.text}</p>
+                <div className="mt-6 flex items-center gap-3">
                   <div
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-base font-black text-white"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-black text-white"
                     style={{ background: s.color }}
                   >
                     {s.initial}
@@ -350,7 +341,7 @@ export default function MetodologiaPage() {
                     <p className="text-xs text-[#c9b8ff]">{s.role}</p>
                   </div>
                 </div>
-              </article>
+              </div>
             ))}
           </div>
 
