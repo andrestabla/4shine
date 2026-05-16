@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { TemplateBuilder } from '@/components/dashboard/notificaciones/TemplateBuilder';
 import { TemplatePreviewModal } from '@/components/dashboard/notificaciones/TemplatePreviewModal';
-import { getTemplate, updateTemplate, previewTemplate } from '@/features/notificaciones/client';
+import { getTemplate, updateTemplate, previewTemplate, sendTestTemplate } from '@/features/notificaciones/client';
 import type { NotificationTemplateRecord } from '@/features/notificaciones/types';
 import { EVENTS_BY_KEY } from '@/features/notificaciones/events-catalog';
 import { ChevronLeft, Loader2 } from 'lucide-react';
@@ -46,6 +46,10 @@ export default function EditarPlantillaPage() {
   async function fetchPreview(_id: string, vars: Record<string, string>) {
     const res = await previewTemplate(id, vars);
     return res.ok ? res.data ?? null : null;
+  }
+
+  async function handleSendTest(toEmail: string) {
+    return await sendTestTemplate(id, toEmail);
   }
 
   if (loading) {
@@ -100,6 +104,7 @@ export default function EditarPlantillaPage() {
         initial={template}
         onSave={handleSave}
         onPreview={(vars) => setPreviewVars(vars)}
+        onSendTest={handleSendTest}
         saving={saving}
       />
 

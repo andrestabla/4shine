@@ -11,7 +11,7 @@ import type { NotificationEventDef, VariableKey } from '@/features/notificacione
 import { VARIABLE_DEFS } from '@/features/notificaciones/events-catalog';
 import {
   Mail, Bell, Eye, Save, CheckCircle, AlertCircle, Info,
-  MessageSquare, Layers, Zap,
+  MessageSquare, Layers, Zap, Send,
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -41,6 +41,7 @@ interface Props {
   initial?: NotificationTemplateRecord | null;
   onSave: (data: CreateTemplateInput) => Promise<void>;
   onPreview: (sampleVars: Record<string, string>) => void;
+  onSendTest?: (toEmail: string) => Promise<{ ok: boolean; error?: string }>;
   saving?: boolean;
 }
 
@@ -222,7 +223,7 @@ function InAppPreview({
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export function TemplateBuilder({ eventDef, initial, onSave, onPreview, saving = false }: Props) {
+export function TemplateBuilder({ eventDef, initial, onSave, onPreview, onSendTest, saving = false }: Props) {
   const [form, setForm] = useState<TemplateForm>({
     name: initial?.name ?? `${eventDef.label} · Plantilla`,
     description: initial?.description ?? '',
@@ -242,6 +243,10 @@ export function TemplateBuilder({ eventDef, initial, onSave, onPreview, saving =
   const [activeTab, setActiveTab] = useState<'email' | 'inapp'>('email');
   const [rightTab, setRightTab] = useState<RightTab>('variables');
   const [previewChannel, setPreviewChannel] = useState<PreviewChannel>('email');
+  const [showTestPanel, setShowTestPanel] = useState(false);
+  const [testEmail, setTestEmail] = useState('');
+  const [testSending, setTestSending] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; error?: string } | null>(null);
 
   const subjectRef = useRef<HTMLInputElement>(null);
   const inAppTitleRef = useRef<HTMLInputElement>(null);
@@ -333,6 +338,15 @@ export function TemplateBuilder({ eventDef, initial, onSave, onPreview, saving =
       inAppActionUrlTemplate: form.inAppActionUrlTemplate,
       isActive: form.isActive,
     });
+  }
+
+  async function handleSendTest() {
+    if (!onSendTest || !testEmail.trim()) return;
+    setTestSending(true);
+    setTestResult(null);
+    const result = await onSendTest(testEmail.trim());
+    setTestResult(result);
+    setTestSending(false);
   }
 
   return (
@@ -658,8 +672,41 @@ export function TemplateBuilder({ eventDef, initial, onSave, onPreview, saving =
           </button>
         </div>
 
+        {/* ── Test email panel ── */}
+        {onSendTest && showTestPanel && (
+          <div className="rounded-[1rem] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4 space-y-3">
+            <p className="text-xs font-semibold text-[var(--app-ink)]">Enviar email de prueba</p>
+            <p className="text-[11px] text-[var(--app-muted)]">
+              Se usarán valores de ejemplo para las variables. Asegúrate de que la configuración de email esté activa.
+            </p>
+            <div className="flex gap-2">
+              <input
+                type="email"
+                value={testEmail}
+                onChange={(e) => { setTestEmail(e.target.value); setTestResult(null); }}
+                className="app-input flex-1 text-sm"
+                placeholder="destinatario@ejemplo.com"
+              />
+              <button
+                type="button"
+                disabled={testSending || !testEmail.trim()}
+                onClick={() => void handleSendTest()}
+                className="flex items-center gap-1.5 rounded-[0.875rem] bg-[var(--brand-primary)] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+              >
+                <Send size={13} />
+                {testSending ? 'Enviando…' : 'Enviar'}
+              </button>
+            </div>
+            {testResult && (
+              <p className={clsx('text-xs font-semibold', testResult.ok ? 'text-emerald-600' : 'text-red-500')}>
+                {testResult.ok ? '✓ Email enviado correctamente' : `Error: ${testResult.error}`}
+              </p>
+            )}
+          </div>
+        )}
+
         {/* ── Actions ── */}
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
           <button
             type="button"
             onClick={() => onPreview(sampleVars)}
@@ -668,10 +715,25 @@ export function TemplateBuilder({ eventDef, initial, onSave, onPreview, saving =
             <Eye size={15} />
             Vista previa completa
           </button>
+          {onSendTest && (
+            <button
+              type="button"
+              onClick={() => { setShowTestPanel(!showTestPanel); setTestResult(null); }}
+              className={clsx(
+                'flex items-center gap-2 rounded-[0.875rem] border px-4 py-2.5 text-sm font-semibold transition',
+                showTestPanel
+                  ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)]/10 text-[var(--brand-primary)]'
+                  : 'border-[var(--app-border)] bg-white text-[var(--app-ink)] hover:bg-[var(--app-surface-muted)]',
+              )}
+            >
+              <Send size={15} />
+              Enviar prueba
+            </button>
+          )}
           <button
             type="submit"
             disabled={saving || !emailFilled || !inAppFilled}
-            className="app-button-primary flex items-center gap-2 px-6 py-2.5 text-sm disabled:opacity-50"
+            className="app-button-primary ml-auto flex items-center gap-2 px-6 py-2.5 text-sm disabled:opacity-50"
           >
             <Save size={15} />
             {saving ? 'Guardando…' : 'Guardar plantilla'}

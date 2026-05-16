@@ -67,6 +67,15 @@ export function deleteTemplate(templateId: string) {
   );
 }
 
+export function sendTestTemplate(templateId: string, toEmail: string) {
+  return safe(() =>
+    requestApi<{ sent: true }>(`${BASE}/templates/${templateId}/test`, {
+      method: 'POST',
+      body: JSON.stringify({ toEmail }),
+    }),
+  );
+}
+
 export function previewTemplate(templateId: string, sampleVars: Record<string, string>) {
   return safe(() =>
     requestApi<{

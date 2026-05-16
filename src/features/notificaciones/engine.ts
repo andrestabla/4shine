@@ -180,6 +180,31 @@ export async function dispatchNotification(
   }
 }
 
+// ─── Test email sender (uses sample vars, no dispatch context needed) ─────────
+
+export async function sendEmailToAddress(
+  client: PoolClient,
+  organizationId: string,
+  toEmail: string,
+  subject: string,
+  bodyHtml: string,
+  bodyText: string,
+): Promise<void> {
+  const [emailConfig, branding] = await Promise.all([
+    fetchOutboundConfig(client, organizationId),
+    fetchBranding(client, organizationId),
+  ]);
+  const fullHtml = buildBrandedEmailHtml(bodyHtml, branding);
+  await sendTemplateEmail(
+    emailConfig,
+    toEmail,
+    subject,
+    fullHtml,
+    bodyText,
+    emailConfig?.reply_to?.trim() || undefined,
+  );
+}
+
 // ─── Preview rendering (no DB side-effects) ───────────────────────────────────
 
 export function renderTemplatePreview(
