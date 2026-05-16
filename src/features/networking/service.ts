@@ -44,6 +44,11 @@ export interface FollowRecord {
   followedAt: string;
 }
 
+export interface CommunityLink {
+  title: string;
+  url: string;
+}
+
 export interface CommunityRecord {
   groupId: string;
   name: string;
@@ -56,6 +61,9 @@ export interface CommunityRecord {
   createdByName: string | null;
   isMember: boolean;
   membershipRole: 'owner' | 'moderator' | 'member' | null;
+  isGeneral: boolean;
+  coverImageUrl: string | null;
+  links: CommunityLink[];
   createdAt: string;
   updatedAt: string;
 }
@@ -70,8 +78,20 @@ export interface CommunityPostRecord {
   body: string;
   resourceUrl: string | null;
   isPinned: boolean;
+  reactionCount: number;
+  hasReacted: boolean;
+  commentCount: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface CommentRecord {
+  commentId: string;
+  postId: string;
+  authorUserId: string;
+  authorName: string;
+  body: string;
+  createdAt: string;
 }
 
 export interface ConnectedLeaderProfileRecord {
@@ -111,6 +131,8 @@ export interface UpdateCommunityInput {
   category?: string | null;
   visibility?: CommunityVisibility;
   isActive?: boolean;
+  coverImageUrl?: string | null;
+  links?: CommunityLink[];
 }
 
 export interface CreateCommunityPostInput {
@@ -119,6 +141,12 @@ export interface CreateCommunityPostInput {
   resourceUrl?: string | null;
   isPinned?: boolean;
 }
+
+export interface CreateCommentInput {
+  body: string;
+}
+
+// ─── DB row types ─────────────────────────────────────────────────────────────
 
 interface ConnectionRow {
   connection_id: string;
@@ -157,6 +185,9 @@ interface CommunityRow {
   created_by_name: string | null;
   is_member: boolean;
   membership_role: 'owner' | 'moderator' | 'member' | null;
+  is_general: boolean;
+  cover_image_url: string | null;
+  links: CommunityLink[];
   created_at: string;
   updated_at: string;
 }
@@ -171,8 +202,20 @@ interface CommunityPostRow {
   body: string;
   resource_url: string | null;
   is_pinned: boolean;
+  reaction_count: number;
+  has_reacted: boolean;
+  comment_count: number;
   created_at: string;
   updated_at: string;
+}
+
+interface CommentRow {
+  comment_id: string;
+  post_id: string;
+  author_user_id: string;
+  author_name: string;
+  body: string;
+  created_at: string;
 }
 
 interface ConnectedLeaderProfileRow {
@@ -191,9 +234,7 @@ interface ConnectedLeaderProfileRow {
   website_url: string | null;
 }
 
-interface InterestRow {
-  name: string;
-}
+interface InterestRow { name: string }
 
 interface ProjectRow {
   project_id: string;
@@ -202,6 +243,8 @@ interface ProjectRow {
   project_role: string | null;
   image_url: string | null;
 }
+
+// ─── Mappers ──────────────────────────────────────────────────────────────────
 
 function mapRow(row: ConnectionRow): ConnectionRecord {
   return {
@@ -245,6 +288,9 @@ function mapCommunity(row: CommunityRow): CommunityRecord {
     createdByName: row.created_by_name,
     isMember: row.is_member,
     membershipRole: row.membership_role,
+    isGeneral: row.is_general ?? false,
+    coverImageUrl: row.cover_image_url ?? null,
+    links: Array.isArray(row.links) ? row.links : [],
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -261,10 +307,26 @@ function mapCommunityPost(row: CommunityPostRow): CommunityPostRecord {
     body: row.body,
     resourceUrl: row.resource_url,
     isPinned: row.is_pinned,
+    reactionCount: Number(row.reaction_count ?? 0),
+    hasReacted: row.has_reacted ?? false,
+    commentCount: Number(row.comment_count ?? 0),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
 }
+
+function mapComment(row: CommentRow): CommentRecord {
+  return {
+    commentId: row.comment_id,
+    postId: row.post_id,
+    authorUserId: row.author_user_id,
+    authorName: row.author_name,
+    body: row.body,
+    createdAt: row.created_at,
+  };
+}
+
+// ─── Connections ──────────────────────────────────────────────────────────────
 
 const BASE_SELECT = `
   SELECT
@@ -361,33 +423,19 @@ export async function getConnectedLeaderProfile(
   );
 
   const row = profile.rows[0];
-  if (!row) {
-    throw new Error('Perfil no disponible.');
-  }
+  if (!row) throw new Error('Perfil no disponible.');
 
   const [interests, projects] = await Promise.all([
     client.query<InterestRow>(
-      `
-        SELECT i.name
-        FROM app_core.user_interests ui
-        JOIN app_core.interests i ON i.interest_id = ui.interest_id
-        WHERE ui.user_id = $1::uuid
-        ORDER BY i.name
-      `,
+      `SELECT i.name FROM app_core.user_interests ui
+       JOIN app_core.interests i ON i.interest_id = ui.interest_id
+       WHERE ui.user_id = $1::uuid ORDER BY i.name`,
       [targetUserId],
     ),
     client.query<ProjectRow>(
-      `
-        SELECT
-          up.project_id::text,
-          up.title,
-          up.description,
-          up.project_role,
-          up.image_url
-        FROM app_core.user_projects up
-        WHERE up.user_id = $1::uuid
-        ORDER BY up.created_at DESC
-      `,
+      `SELECT up.project_id::text, up.title, up.description, up.project_role, up.image_url
+       FROM app_core.user_projects up
+       WHERE up.user_id = $1::uuid ORDER BY up.created_at DESC`,
       [targetUserId],
     ),
   ]);
@@ -417,11 +465,7 @@ export async function getConnectedLeaderProfile(
   };
 }
 
-export async function listNetworkPeople(
-  client: PoolClient,
-  actor: AuthUser,
-  limit = 100,
-): Promise<NetworkPersonRecord[]> {
+export async function listNetworkPeople(client: PoolClient, actor: AuthUser, limit = 100): Promise<NetworkPersonRecord[]> {
   await requireModulePermission(client, 'networking', 'view');
   await requireCommunityAccess(client, actor, 'Networking');
 
@@ -441,17 +485,15 @@ export async function listNetworkPeople(
         EXISTS (
           SELECT 1
           FROM app_networking.user_follows f
-          WHERE f.follower_user_id = $1::uuid
-            AND f.followed_user_id = u.user_id
+          WHERE f.follower_user_id = $1::uuid AND f.followed_user_id = u.user_id
         ) AS is_following
       FROM app_core.users u
       LEFT JOIN app_core.organizations o ON o.organization_id = u.organization_id
       LEFT JOIN app_core.user_profiles p ON p.user_id = u.user_id
-      LEFT JOIN app_networking.connections c
-        ON (
-          (c.requester_user_id = $1::uuid AND c.addressee_user_id = u.user_id)
-          OR (c.requester_user_id = u.user_id AND c.addressee_user_id = $1::uuid)
-        )
+      LEFT JOIN app_networking.connections c ON (
+        (c.requester_user_id = $1::uuid AND c.addressee_user_id = u.user_id)
+        OR (c.requester_user_id = u.user_id AND c.addressee_user_id = $1::uuid)
+      )
       WHERE u.user_id <> $1::uuid
         AND u.is_active = true
         AND u.primary_role = 'lider'
@@ -469,42 +511,27 @@ export async function followUser(client: PoolClient, actor: AuthUser, followedUs
   await requireModulePermission(client, 'networking', 'create');
   await requireCommunityAccess(client, actor, 'Networking');
 
-  if (followedUserId === actor.userId) {
-    throw new Error('No puedes seguir tu propio perfil.');
-  }
+  if (followedUserId === actor.userId) throw new Error('No puedes seguir tu propio perfil.');
 
   const existsTarget = await client.query<{ user_id: string }>(
-    `
-      SELECT u.user_id::text
-      FROM app_core.users u
-      WHERE u.user_id = $1::uuid
-        AND u.is_active = true
-        AND u.primary_role = 'lider'
-        AND app_mentoring.user_has_program_access(u.user_id)
-      LIMIT 1
-    `,
+    `SELECT u.user_id::text FROM app_core.users u
+     WHERE u.user_id = $1::uuid AND u.is_active = true AND u.primary_role = 'lider'
+       AND app_mentoring.user_has_program_access(u.user_id) LIMIT 1`,
     [followedUserId],
   );
 
-  if (!existsTarget.rows[0]?.user_id) {
-    throw new Error('Solo puedes seguir perfiles públicos de líderes con suscripción.');
-  }
+  if (!existsTarget.rows[0]?.user_id) throw new Error('Solo puedes seguir perfiles públicos de líderes con suscripción.');
 
   const { rows } = await client.query<{ followed_user_id: string; followed_at: string }>(
-    `
-      INSERT INTO app_networking.user_follows (follower_user_id, followed_user_id)
-      VALUES ($1::uuid, $2::uuid)
-      ON CONFLICT (follower_user_id, followed_user_id)
-      DO UPDATE SET followed_at = now()
-      RETURNING followed_user_id::text, followed_at::text
-    `,
+    `INSERT INTO app_networking.user_follows (follower_user_id, followed_user_id)
+     VALUES ($1::uuid, $2::uuid)
+     ON CONFLICT (follower_user_id, followed_user_id)
+     DO UPDATE SET followed_at = now()
+     RETURNING followed_user_id::text, followed_at::text`,
     [actor.userId, followedUserId],
   );
 
-  return {
-    followedUserId: rows[0].followed_user_id,
-    followedAt: rows[0].followed_at,
-  };
+  return { followedUserId: rows[0].followed_user_id, followedAt: rows[0].followed_at };
 }
 
 export async function unfollowUser(client: PoolClient, actor: AuthUser, followedUserId: string): Promise<{ followedUserId: string }> {
@@ -512,176 +539,123 @@ export async function unfollowUser(client: PoolClient, actor: AuthUser, followed
   await requireCommunityAccess(client, actor, 'Networking');
 
   const { rowCount } = await client.query(
-    `
-      DELETE FROM app_networking.user_follows
-      WHERE follower_user_id = $1::uuid
-        AND followed_user_id = $2::uuid
-    `,
+    `DELETE FROM app_networking.user_follows
+     WHERE follower_user_id = $1::uuid AND followed_user_id = $2::uuid`,
     [actor.userId, followedUserId],
   );
 
-  if (!rowCount) {
-    throw new Error('Seguimiento no encontrado.');
-  }
-
+  if (!rowCount) throw new Error('Seguimiento no encontrado.');
   return { followedUserId };
 }
 
-export async function createConnection(
-  client: PoolClient,
-  actor: AuthUser,
-  input: CreateConnectionInput,
-): Promise<ConnectionRecord> {
+export async function createConnection(client: PoolClient, actor: AuthUser, input: CreateConnectionInput): Promise<ConnectionRecord> {
   await requireModulePermission(client, 'networking', 'create');
   await requireCommunityAccess(client, actor, 'Networking');
 
-  if (input.addresseeUserId === actor.userId) {
-    throw new Error('Cannot connect with yourself');
-  }
+  if (input.addresseeUserId === actor.userId) throw new Error('Cannot connect with yourself');
 
   const { rows } = await client.query<{ connection_id: string }>(
-    `
-      INSERT INTO app_networking.connections (
-        requester_user_id,
-        addressee_user_id,
-        status,
-        requested_at,
-        responded_at
-      )
-      VALUES ($1, $2, 'pending', now(), NULL)
-      ON CONFLICT ((LEAST(requester_user_id, addressee_user_id)), (GREATEST(requester_user_id, addressee_user_id)))
-      DO UPDATE
-      SET
-        requester_user_id = EXCLUDED.requester_user_id,
-        addressee_user_id = EXCLUDED.addressee_user_id,
-        status = 'pending',
-        requested_at = now(),
-        responded_at = NULL
-      RETURNING connection_id::text
-    `,
+    `INSERT INTO app_networking.connections (requester_user_id, addressee_user_id, status, requested_at, responded_at)
+     VALUES ($1, $2, 'pending', now(), NULL)
+     ON CONFLICT ((LEAST(requester_user_id, addressee_user_id)), (GREATEST(requester_user_id, addressee_user_id)))
+     DO UPDATE SET
+       requester_user_id = EXCLUDED.requester_user_id,
+       addressee_user_id = EXCLUDED.addressee_user_id,
+       status = 'pending',
+       requested_at = now(),
+       responded_at = NULL
+     RETURNING connection_id::text`,
     [actor.userId, input.addresseeUserId],
   );
 
   const connectionId = rows[0]?.connection_id;
-  if (!connectionId) {
-    throw new Error('Failed to create connection');
-  }
+  if (!connectionId) throw new Error('Failed to create connection');
 
   const full = await client.query<ConnectionRow>(
-    `${BASE_SELECT}
-     WHERE c.connection_id = $2::uuid
-     LIMIT 1`,
+    `${BASE_SELECT} WHERE c.connection_id = $2::uuid LIMIT 1`,
     [actor.userId, connectionId],
   );
 
   return mapRow(full.rows[0]);
 }
 
-export async function updateConnection(
-  client: PoolClient,
-  actor: AuthUser,
-  connectionId: string,
-  input: UpdateConnectionInput,
-): Promise<ConnectionRecord> {
+export async function updateConnection(client: PoolClient, actor: AuthUser, connectionId: string, input: UpdateConnectionInput): Promise<ConnectionRecord> {
   await requireModulePermission(client, 'networking', 'update');
   await requireCommunityAccess(client, actor, 'Networking');
 
   const { rowCount } = await client.query(
-    `
-      UPDATE app_networking.connections
-      SET
-        status = $2,
-        responded_at = CASE WHEN $2 = 'pending' THEN NULL ELSE now() END
-      WHERE connection_id = $1
-        AND (
-          requester_user_id = $3
-          OR addressee_user_id = $3
-          OR app_auth.has_permission('networking', 'manage')
-        )
-    `,
+    `UPDATE app_networking.connections
+     SET status = $2, responded_at = CASE WHEN $2 = 'pending' THEN NULL ELSE now() END
+     WHERE connection_id = $1
+       AND (requester_user_id = $3 OR addressee_user_id = $3 OR app_auth.has_permission('networking', 'manage'))`,
     [connectionId, input.status, actor.userId],
   );
 
-  if (!rowCount) {
-    throw new Error('Connection not found');
-  }
+  if (!rowCount) throw new Error('Connection not found');
 
   const { rows } = await client.query<ConnectionRow>(
-    `${BASE_SELECT}
-     WHERE c.connection_id = $2::uuid
-     LIMIT 1`,
+    `${BASE_SELECT} WHERE c.connection_id = $2::uuid LIMIT 1`,
     [actor.userId, connectionId],
   );
 
   return mapRow(rows[0]);
 }
 
-export async function deleteConnection(
-  client: PoolClient,
-  actor: AuthUser,
-  connectionId: string,
-): Promise<{ connectionId: string }> {
+export async function deleteConnection(client: PoolClient, actor: AuthUser, connectionId: string): Promise<{ connectionId: string }> {
   await requireModulePermission(client, 'networking', 'delete');
   await requireCommunityAccess(client, actor, 'Networking');
 
   const { rows } = await client.query<{ connection_id: string }>(
-    `
-      DELETE FROM app_networking.connections
-      WHERE connection_id = $1
-        AND (
-          requester_user_id = $2
-          OR addressee_user_id = $2
-          OR app_auth.has_permission('networking', 'manage')
-        )
-      RETURNING connection_id::text
-    `,
+    `DELETE FROM app_networking.connections
+     WHERE connection_id = $1
+       AND (requester_user_id = $2 OR addressee_user_id = $2 OR app_auth.has_permission('networking', 'manage'))
+     RETURNING connection_id::text`,
     [connectionId, actor.userId],
   );
 
-  const deleted = rows[0];
-  if (!deleted) {
-    throw new Error('Connection not found');
-  }
-
-  return {
-    connectionId: deleted.connection_id,
-  };
+  if (!rows[0]) throw new Error('Connection not found');
+  return { connectionId: rows[0].connection_id };
 }
+
+// ─── Communities ──────────────────────────────────────────────────────────────
+
+const COMMUNITY_SELECT = `
+  SELECT
+    g.group_id::text,
+    g.name,
+    g.description,
+    g.category,
+    COALESCE(g.visibility, 'open')::text AS visibility,
+    g.is_active,
+    COALESCE(m.member_count, 0) AS member_count,
+    g.created_by::text AS created_by_user_id,
+    owner.display_name AS created_by_name,
+    gm.user_id IS NOT NULL AS is_member,
+    gm.membership_role,
+    COALESCE(g.is_general, false) AS is_general,
+    g.cover_image_url,
+    COALESCE(g.links, '[]'::jsonb) AS links,
+    g.created_at::text,
+    g.updated_at::text
+  FROM app_networking.interest_groups g
+  LEFT JOIN (
+    SELECT group_id, COUNT(*)::int AS member_count
+    FROM app_networking.group_memberships GROUP BY group_id
+  ) m ON m.group_id = g.group_id
+  LEFT JOIN app_networking.group_memberships gm
+    ON gm.group_id = g.group_id AND gm.user_id = $1::uuid
+  LEFT JOIN app_core.users owner ON owner.user_id = g.created_by
+`;
 
 export async function listCommunities(client: PoolClient, actor: AuthUser, limit = 100): Promise<CommunityRecord[]> {
   await requireModulePermission(client, 'networking', 'view');
   await requireCommunityAccess(client, actor, 'Networking');
 
   const { rows } = await client.query<CommunityRow>(
-    `
-      SELECT
-        g.group_id::text,
-        g.name,
-        g.description,
-        g.category,
-        COALESCE(g.visibility, 'open')::text AS visibility,
-        g.is_active,
-        COALESCE(m.member_count, 0) AS member_count,
-        g.created_by::text AS created_by_user_id,
-        owner.display_name AS created_by_name,
-        gm.user_id IS NOT NULL AS is_member,
-        gm.membership_role,
-        g.created_at::text,
-        g.updated_at::text
-      FROM app_networking.interest_groups g
-      LEFT JOIN (
-        SELECT group_id, COUNT(*)::int AS member_count
-        FROM app_networking.group_memberships
-        GROUP BY group_id
-      ) m ON m.group_id = g.group_id
-      LEFT JOIN app_networking.group_memberships gm
-        ON gm.group_id = g.group_id
-       AND gm.user_id = $1::uuid
-      LEFT JOIN app_core.users owner ON owner.user_id = g.created_by
-      WHERE g.is_active = true OR app_auth.has_permission('networking', 'manage')
-      ORDER BY g.created_at DESC
-      LIMIT $2
-    `,
+    `${COMMUNITY_SELECT}
+     WHERE g.is_active = true OR app_auth.has_permission('networking', 'manage')
+     ORDER BY g.is_general DESC, g.created_at DESC
+     LIMIT $2`,
     [actor.userId, Math.min(Math.max(limit, 1), 500)],
   );
 
@@ -698,18 +672,9 @@ export async function createCommunity(client: PoolClient, actor: AuthUser, input
   const visibility = input.visibility === 'closed' ? 'closed' : 'open';
 
   const created = await client.query<{ group_id: string }>(
-    `
-      INSERT INTO app_networking.interest_groups (
-        name,
-        description,
-        category,
-        visibility,
-        created_by,
-        is_active
-      )
-      VALUES ($1, NULLIF(BTRIM($2), ''), NULLIF(BTRIM($3), ''), $4, $5::uuid, true)
-      RETURNING group_id::text
-    `,
+    `INSERT INTO app_networking.interest_groups (name, description, category, visibility, created_by, is_active)
+     VALUES ($1, NULLIF(BTRIM($2), ''), NULLIF(BTRIM($3), ''), $4, $5::uuid, true)
+     RETURNING group_id::text`,
     [name, input.description ?? null, input.category ?? null, visibility, actor.userId],
   );
 
@@ -717,11 +682,8 @@ export async function createCommunity(client: PoolClient, actor: AuthUser, input
   if (!groupId) throw new Error('No se pudo crear la comunidad.');
 
   await client.query(
-    `
-      INSERT INTO app_networking.group_memberships (group_id, user_id, membership_role)
-      VALUES ($1::uuid, $2::uuid, 'owner')
-      ON CONFLICT (group_id, user_id) DO NOTHING
-    `,
+    `INSERT INTO app_networking.group_memberships (group_id, user_id, membership_role)
+     VALUES ($1::uuid, $2::uuid, 'owner') ON CONFLICT (group_id, user_id) DO NOTHING`,
     [groupId, actor.userId],
   );
 
@@ -731,27 +693,22 @@ export async function createCommunity(client: PoolClient, actor: AuthUser, input
   return found;
 }
 
-export async function updateCommunity(
-  client: PoolClient,
-  actor: AuthUser,
-  groupId: string,
-  input: UpdateCommunityInput,
-): Promise<CommunityRecord> {
+export async function updateCommunity(client: PoolClient, actor: AuthUser, groupId: string, input: UpdateCommunityInput): Promise<CommunityRecord> {
   await requireModulePermission(client, 'networking', 'update');
   await requireModulePermission(client, 'networking', 'manage');
 
   const { rowCount } = await client.query(
-    `
-      UPDATE app_networking.interest_groups
-      SET
-        name = COALESCE(NULLIF(BTRIM($2), ''), name),
-        description = CASE WHEN $3::text IS NULL THEN description ELSE NULLIF(BTRIM($3), '') END,
-        category = CASE WHEN $4::text IS NULL THEN category ELSE NULLIF(BTRIM($4), '') END,
-        visibility = COALESCE($5, visibility),
-        is_active = COALESCE($6, is_active),
-        updated_at = now()
-      WHERE group_id = $1::uuid
-    `,
+    `UPDATE app_networking.interest_groups
+     SET
+       name             = COALESCE(NULLIF(BTRIM($2), ''), name),
+       description      = CASE WHEN $3::text IS NULL THEN description ELSE NULLIF(BTRIM($3), '') END,
+       category         = CASE WHEN $4::text IS NULL THEN category ELSE NULLIF(BTRIM($4), '') END,
+       visibility       = COALESCE($5, visibility),
+       is_active        = COALESCE($6, is_active),
+       cover_image_url  = CASE WHEN $7::text IS NULL THEN cover_image_url ELSE NULLIF(BTRIM($7), '') END,
+       links            = CASE WHEN $8::text IS NULL THEN links ELSE $8::jsonb END,
+       updated_at       = now()
+     WHERE group_id = $1::uuid`,
     [
       groupId,
       input.name ?? null,
@@ -759,6 +716,8 @@ export async function updateCommunity(
       input.category ?? null,
       input.visibility ?? null,
       input.isActive ?? null,
+      input.coverImageUrl ?? null,
+      input.links !== undefined ? JSON.stringify(input.links) : null,
     ],
   );
 
@@ -775,10 +734,7 @@ export async function deleteCommunity(client: PoolClient, actor: AuthUser, group
   await requireModulePermission(client, 'networking', 'manage');
 
   const { rowCount } = await client.query(
-    `
-      DELETE FROM app_networking.interest_groups
-      WHERE group_id = $1::uuid
-    `,
+    `DELETE FROM app_networking.interest_groups WHERE group_id = $1::uuid`,
     [groupId],
   );
 
@@ -791,12 +747,8 @@ export async function joinCommunity(client: PoolClient, actor: AuthUser, groupId
   await requireCommunityAccess(client, actor, 'Networking');
 
   const group = await client.query<{ group_id: string; visibility: CommunityVisibility; is_active: boolean }>(
-    `
-      SELECT group_id::text, COALESCE(visibility, 'open')::text AS visibility, is_active
-      FROM app_networking.interest_groups
-      WHERE group_id = $1::uuid
-      LIMIT 1
-    `,
+    `SELECT group_id::text, COALESCE(visibility, 'open')::text AS visibility, is_active
+     FROM app_networking.interest_groups WHERE group_id = $1::uuid LIMIT 1`,
     [groupId],
   );
 
@@ -807,13 +759,11 @@ export async function joinCommunity(client: PoolClient, actor: AuthUser, groupId
   }
 
   const joined = await client.query<{ membership_role: 'owner' | 'moderator' | 'member' }>(
-    `
-      INSERT INTO app_networking.group_memberships (group_id, user_id, membership_role)
-      VALUES ($1::uuid, $2::uuid, 'member')
-      ON CONFLICT (group_id, user_id)
-      DO UPDATE SET membership_role = app_networking.group_memberships.membership_role
-      RETURNING membership_role
-    `,
+    `INSERT INTO app_networking.group_memberships (group_id, user_id, membership_role)
+     VALUES ($1::uuid, $2::uuid, 'member')
+     ON CONFLICT (group_id, user_id)
+     DO UPDATE SET membership_role = app_networking.group_memberships.membership_role
+     RETURNING membership_role`,
     [groupId, actor.userId],
   );
 
@@ -825,18 +775,16 @@ export async function leaveCommunity(client: PoolClient, actor: AuthUser, groupI
   await requireCommunityAccess(client, actor, 'Networking');
 
   const { rowCount } = await client.query(
-    `
-      DELETE FROM app_networking.group_memberships
-      WHERE group_id = $1::uuid
-        AND user_id = $2::uuid
-        AND membership_role <> 'owner'
-    `,
+    `DELETE FROM app_networking.group_memberships
+     WHERE group_id = $1::uuid AND user_id = $2::uuid AND membership_role <> 'owner'`,
     [groupId, actor.userId],
   );
 
   if (!rowCount) throw new Error('No puedes salir de esta comunidad o no eres miembro.');
   return { groupId };
 }
+
+// ─── Community posts ──────────────────────────────────────────────────────────
 
 export async function listCommunityPosts(client: PoolClient, actor: AuthUser, limit = 100): Promise<CommunityPostRecord[]> {
   await requireModulePermission(client, 'networking', 'view');
@@ -854,14 +802,27 @@ export async function listCommunityPosts(client: PoolClient, actor: AuthUser, li
         p.body,
         p.resource_url,
         p.is_pinned,
+        COALESCE(rc.reaction_count, 0)::int AS reaction_count,
+        EXISTS (
+          SELECT 1 FROM app_networking.post_reactions pr
+          WHERE pr.post_id = p.post_id AND pr.user_id = $1::uuid
+        ) AS has_reacted,
+        COALESCE(cc.comment_count, 0)::int AS comment_count,
         p.created_at::text,
         p.updated_at::text
       FROM app_networking.community_posts p
       JOIN app_networking.interest_groups g ON g.group_id = p.group_id
       JOIN app_core.users u ON u.user_id = p.author_user_id
       LEFT JOIN app_networking.group_memberships gm
-        ON gm.group_id = p.group_id
-       AND gm.user_id = $1::uuid
+        ON gm.group_id = p.group_id AND gm.user_id = $1::uuid
+      LEFT JOIN (
+        SELECT post_id, COUNT(*)::int AS reaction_count
+        FROM app_networking.post_reactions GROUP BY post_id
+      ) rc ON rc.post_id = p.post_id
+      LEFT JOIN (
+        SELECT post_id, COUNT(*)::int AS comment_count
+        FROM app_networking.post_comments GROUP BY post_id
+      ) cc ON cc.post_id = p.post_id
       WHERE g.is_active = true
         AND (
           COALESCE(g.visibility, 'open') = 'open'
@@ -892,38 +853,31 @@ export async function createCommunityPost(
   if (!title) throw new Error('El título del recurso es obligatorio.');
   if (!body) throw new Error('La descripción del recurso es obligatoria.');
 
-  const membership = await client.query<{ allowed: boolean }>(
-    `
-      SELECT (
-        EXISTS (
-          SELECT 1
-          FROM app_networking.group_memberships gm
-          WHERE gm.group_id = $1::uuid
-            AND gm.user_id = $2::uuid
-        )
-        OR app_auth.has_permission('networking', 'manage')
-      ) AS allowed
-    `,
-    [groupId, actor.userId],
+  // General communities bypass membership requirement
+  const groupInfo = await client.query<{ is_general: boolean }>(
+    `SELECT COALESCE(is_general, false) AS is_general FROM app_networking.interest_groups WHERE group_id = $1::uuid LIMIT 1`,
+    [groupId],
   );
 
-  if (!membership.rows[0]?.allowed) {
-    throw new Error('Debes unirte a la comunidad antes de compartir recursos.');
+  if (!groupInfo.rows[0]) throw new Error('Comunidad no encontrada.');
+  const isGeneral = groupInfo.rows[0].is_general;
+
+  if (!isGeneral) {
+    const membership = await client.query<{ allowed: boolean }>(
+      `SELECT (
+        EXISTS (SELECT 1 FROM app_networking.group_memberships gm WHERE gm.group_id = $1::uuid AND gm.user_id = $2::uuid)
+        OR app_auth.has_permission('networking', 'manage')
+      ) AS allowed`,
+      [groupId, actor.userId],
+    );
+
+    if (!membership.rows[0]?.allowed) throw new Error('Debes unirte a la comunidad antes de compartir recursos.');
   }
 
   const created = await client.query<{ post_id: string }>(
-    `
-      INSERT INTO app_networking.community_posts (
-        group_id,
-        author_user_id,
-        title,
-        body,
-        resource_url,
-        is_pinned
-      )
-      VALUES ($1::uuid, $2::uuid, $3, $4, NULLIF(BTRIM($5), ''), COALESCE($6, false))
-      RETURNING post_id::text
-    `,
+    `INSERT INTO app_networking.community_posts (group_id, author_user_id, title, body, resource_url, is_pinned)
+     VALUES ($1::uuid, $2::uuid, $3, $4, NULLIF(BTRIM($5), ''), COALESCE($6, false))
+     RETURNING post_id::text`,
     [groupId, actor.userId, title, body, input.resourceUrl ?? null, input.isPinned ?? false],
   );
 
@@ -942,6 +896,9 @@ export async function createCommunityPost(
         p.body,
         p.resource_url,
         p.is_pinned,
+        0::int AS reaction_count,
+        false AS has_reacted,
+        0::int AS comment_count,
         p.created_at::text,
         p.updated_at::text
       FROM app_networking.community_posts p
@@ -954,4 +911,113 @@ export async function createCommunityPost(
   );
 
   return mapCommunityPost(post.rows[0]);
+}
+
+// ─── Post reactions ───────────────────────────────────────────────────────────
+
+export async function toggleReaction(
+  client: PoolClient,
+  actor: AuthUser,
+  postId: string,
+): Promise<{ postId: string; hasReacted: boolean; reactionCount: number }> {
+  await requireModulePermission(client, 'networking', 'create');
+  await requireCommunityAccess(client, actor, 'Networking');
+
+  const current = await client.query<{ has_reacted: boolean }>(
+    `SELECT EXISTS (
+       SELECT 1 FROM app_networking.post_reactions
+       WHERE post_id = $1::uuid AND user_id = $2::uuid
+     ) AS has_reacted`,
+    [postId, actor.userId],
+  );
+
+  const hasReacted = current.rows[0]?.has_reacted ?? false;
+
+  if (hasReacted) {
+    await client.query(
+      `DELETE FROM app_networking.post_reactions WHERE post_id = $1::uuid AND user_id = $2::uuid`,
+      [postId, actor.userId],
+    );
+  } else {
+    await client.query(
+      `INSERT INTO app_networking.post_reactions (post_id, user_id)
+       VALUES ($1::uuid, $2::uuid) ON CONFLICT DO NOTHING`,
+      [postId, actor.userId],
+    );
+  }
+
+  const count = await client.query<{ reaction_count: number }>(
+    `SELECT COUNT(*)::int AS reaction_count FROM app_networking.post_reactions WHERE post_id = $1::uuid`,
+    [postId],
+  );
+
+  return { postId, hasReacted: !hasReacted, reactionCount: count.rows[0]?.reaction_count ?? 0 };
+}
+
+// ─── Post comments ────────────────────────────────────────────────────────────
+
+export async function listComments(client: PoolClient, actor: AuthUser, postId: string): Promise<CommentRecord[]> {
+  await requireModulePermission(client, 'networking', 'view');
+  await requireCommunityAccess(client, actor, 'Networking');
+
+  const { rows } = await client.query<CommentRow>(
+    `
+      SELECT
+        c.comment_id::text,
+        c.post_id::text,
+        c.author_user_id::text,
+        u.display_name AS author_name,
+        c.body,
+        c.created_at::text
+      FROM app_networking.post_comments c
+      JOIN app_core.users u ON u.user_id = c.author_user_id
+      WHERE c.post_id = $1::uuid
+      ORDER BY c.created_at ASC
+      LIMIT 200
+    `,
+    [postId],
+  );
+
+  return rows.map(mapComment);
+}
+
+export async function createComment(
+  client: PoolClient,
+  actor: AuthUser,
+  postId: string,
+  input: CreateCommentInput,
+): Promise<CommentRecord> {
+  await requireModulePermission(client, 'networking', 'create');
+  await requireCommunityAccess(client, actor, 'Networking');
+
+  const body = input.body.trim();
+  if (!body || body.length > 2000) throw new Error('Comentario inválido (1–2000 caracteres).');
+
+  const { rows } = await client.query<{ comment_id: string }>(
+    `INSERT INTO app_networking.post_comments (post_id, author_user_id, body)
+     VALUES ($1::uuid, $2::uuid, $3)
+     RETURNING comment_id::text`,
+    [postId, actor.userId, body],
+  );
+
+  const commentId = rows[0]?.comment_id;
+  if (!commentId) throw new Error('No se pudo crear el comentario.');
+
+  const comment = await client.query<CommentRow>(
+    `
+      SELECT
+        c.comment_id::text,
+        c.post_id::text,
+        c.author_user_id::text,
+        u.display_name AS author_name,
+        c.body,
+        c.created_at::text
+      FROM app_networking.post_comments c
+      JOIN app_core.users u ON u.user_id = c.author_user_id
+      WHERE c.comment_id = $1::uuid LIMIT 1
+    `,
+    [commentId],
+  );
+
+  return mapComment(comment.rows[0]);
 }

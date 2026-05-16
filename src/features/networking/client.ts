@@ -28,6 +28,11 @@ export interface NetworkPersonRecord {
   connectionStatus: ConnectionStatus | 'none';
 }
 
+export interface CommunityLink {
+  title: string;
+  url: string;
+}
+
 export interface CommunityRecord {
   groupId: string;
   name: string;
@@ -40,6 +45,9 @@ export interface CommunityRecord {
   createdByName: string | null;
   isMember: boolean;
   membershipRole: 'owner' | 'moderator' | 'member' | null;
+  isGeneral: boolean;
+  coverImageUrl: string | null;
+  links: CommunityLink[];
   createdAt: string;
   updatedAt: string;
 }
@@ -54,8 +62,20 @@ export interface CommunityPostRecord {
   body: string;
   resourceUrl: string | null;
   isPinned: boolean;
+  reactionCount: number;
+  hasReacted: boolean;
+  commentCount: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface CommentRecord {
+  commentId: string;
+  postId: string;
+  authorUserId: string;
+  authorName: string;
+  body: string;
+  createdAt: string;
 }
 
 export interface ConnectedLeaderProfileRecord {
@@ -103,6 +123,8 @@ export interface UpdateCommunityInput {
   category?: string | null;
   visibility?: CommunityVisibility;
   isActive?: boolean;
+  coverImageUrl?: string | null;
+  links?: CommunityLink[];
 }
 
 export interface CreateCommunityPostInput {
@@ -111,6 +133,8 @@ export interface CreateCommunityPostInput {
   resourceUrl?: string | null;
   isPinned?: boolean;
 }
+
+// ─── Connections ──────────────────────────────────────────────────────────────
 
 export async function listConnections(): Promise<ConnectionRecord[]> {
   return requestApi<ConnectionRecord[]>('/api/v1/modules/networking/connections');
@@ -127,10 +151,7 @@ export async function createConnection(input: CreateConnectionInput): Promise<Co
   });
 }
 
-export async function updateConnection(
-  connectionId: string,
-  input: UpdateConnectionInput,
-): Promise<ConnectionRecord> {
+export async function updateConnection(connectionId: string, input: UpdateConnectionInput): Promise<ConnectionRecord> {
   return requestApi<ConnectionRecord>(`/api/v1/modules/networking/connections/${connectionId}`, {
     method: 'PATCH',
     body: JSON.stringify(input),
@@ -142,6 +163,8 @@ export async function deleteConnection(connectionId: string): Promise<{ connecti
     method: 'DELETE',
   });
 }
+
+// ─── Follows ──────────────────────────────────────────────────────────────────
 
 export async function followUser(followedUserId: string): Promise<{ followedUserId: string; followedAt: string }> {
   return requestApi<{ followedUserId: string; followedAt: string }>('/api/v1/modules/networking/follows', {
@@ -155,6 +178,8 @@ export async function unfollowUser(followedUserId: string): Promise<{ followedUs
     method: 'DELETE',
   });
 }
+
+// ─── Communities ──────────────────────────────────────────────────────────────
 
 export async function listCommunities(): Promise<CommunityRecord[]> {
   return requestApi<CommunityRecord[]>('/api/v1/modules/networking/communities');
@@ -183,9 +208,7 @@ export async function deleteCommunity(groupId: string): Promise<{ groupId: strin
 export async function joinCommunity(groupId: string): Promise<{ groupId: string; membershipRole: 'owner' | 'moderator' | 'member' }> {
   return requestApi<{ groupId: string; membershipRole: 'owner' | 'moderator' | 'member' }>(
     `/api/v1/modules/networking/communities/${groupId}/memberships`,
-    {
-      method: 'POST',
-    },
+    { method: 'POST' },
   );
 }
 
@@ -195,17 +218,41 @@ export async function leaveCommunity(groupId: string): Promise<{ groupId: string
   });
 }
 
+// ─── Community posts ──────────────────────────────────────────────────────────
+
 export async function listCommunityPosts(): Promise<CommunityPostRecord[]> {
   return requestApi<CommunityPostRecord[]>('/api/v1/modules/networking/community-posts');
-}
-
-export async function getConnectedLeaderProfile(userId: string): Promise<ConnectedLeaderProfileRecord> {
-  return requestApi<ConnectedLeaderProfileRecord>(`/api/v1/modules/networking/people/${userId}/profile`);
 }
 
 export async function createCommunityPost(groupId: string, input: CreateCommunityPostInput): Promise<CommunityPostRecord> {
   return requestApi<CommunityPostRecord>(`/api/v1/modules/networking/communities/${groupId}/posts`, {
     method: 'POST',
     body: JSON.stringify(input),
+  });
+}
+
+export async function getConnectedLeaderProfile(userId: string): Promise<ConnectedLeaderProfileRecord> {
+  return requestApi<ConnectedLeaderProfileRecord>(`/api/v1/modules/networking/people/${userId}/profile`);
+}
+
+// ─── Reactions ────────────────────────────────────────────────────────────────
+
+export async function toggleReaction(postId: string): Promise<{ postId: string; hasReacted: boolean; reactionCount: number }> {
+  return requestApi<{ postId: string; hasReacted: boolean; reactionCount: number }>(
+    `/api/v1/modules/networking/community-posts/${postId}/reactions`,
+    { method: 'POST' },
+  );
+}
+
+// ─── Comments ─────────────────────────────────────────────────────────────────
+
+export async function listComments(postId: string): Promise<CommentRecord[]> {
+  return requestApi<CommentRecord[]>(`/api/v1/modules/networking/community-posts/${postId}/comments`);
+}
+
+export async function createComment(postId: string, body: string): Promise<CommentRecord> {
+  return requestApi<CommentRecord>(`/api/v1/modules/networking/community-posts/${postId}/comments`, {
+    method: 'POST',
+    body: JSON.stringify({ body }),
   });
 }
