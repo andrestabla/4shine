@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { RichTextEditor, type RichTextEditorHandle } from '@/components/ui/RichTextEditor';
 import type {
   NotificationTemplateRecord,
@@ -9,6 +9,7 @@ import type {
 } from '@/features/notificaciones/types';
 import type { NotificationEventDef, VariableKey } from '@/features/notificaciones/types';
 import { VARIABLE_DEFS } from '@/features/notificaciones/events-catalog';
+import { getNotificationSettings } from '@/features/notificaciones/client';
 import {
   Mail, Bell, Eye, Save, CheckCircle, AlertCircle, Info,
   MessageSquare, Layers, Zap, Send,
@@ -70,9 +71,16 @@ function renderVars(template: string, sampleVars: Record<string, string>): strin
   return template.replace(/\{\{(\w+)\}\}/g, (_, key) => sampleVars[key] ?? `[${key}]`);
 }
 
-function buildSampleVars(eventDef: NotificationEventDef): Record<string, string> {
+function buildSampleVars(
+  eventDef: NotificationEventDef,
+  globalOverrides?: { plataforma?: string; enlace_plataforma?: string },
+): Record<string, string> {
   return Object.fromEntries(
-    eventDef.variables.map((key) => [key, VARIABLE_DEFS[key]?.example ?? key]),
+    eventDef.variables.map((key) => {
+      if (key === 'plataforma' && globalOverrides?.plataforma) return [key, globalOverrides.plataforma];
+      if (key === 'enlace_plataforma' && globalOverrides?.enlace_plataforma) return [key, globalOverrides.enlace_plataforma];
+      return [key, VARIABLE_DEFS[key]?.example ?? key];
+    }),
   );
 }
 
@@ -247,6 +255,18 @@ export function TemplateBuilder({ eventDef, initial, onSave, onPreview, onSendTe
   const [testEmail, setTestEmail] = useState('');
   const [testSending, setTestSending] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; error?: string } | null>(null);
+  const [globalVars, setGlobalVars] = useState<{ plataforma?: string; enlace_plataforma?: string }>({});
+
+  useEffect(() => {
+    void getNotificationSettings().then((res) => {
+      if (res.ok && res.data) {
+        setGlobalVars({
+          plataforma: res.data.varPlatformName || undefined,
+          enlace_plataforma: res.data.varPlatformUrl || undefined,
+        });
+      }
+    });
+  }, []);
 
   const subjectRef = useRef<HTMLInputElement>(null);
   const inAppTitleRef = useRef<HTMLInputElement>(null);
@@ -258,7 +278,7 @@ export function TemplateBuilder({ eventDef, initial, onSave, onPreview, onSendTe
     setForm((prev) => ({ ...prev, [key]: val }));
   }, []);
 
-  const sampleVars = buildSampleVars(eventDef);
+  const sampleVars = buildSampleVars(eventDef, globalVars);
 
   // ── Completion status ───────────────────────────────────────────────────────
 

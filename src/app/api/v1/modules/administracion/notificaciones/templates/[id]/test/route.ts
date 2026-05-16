@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { authenticateRequest } from '@/server/auth/request-auth';
 import { withClient, withRoleContext } from '@/server/db/pool';
-import { getTemplate } from '@/features/notificaciones/service';
+import { getTemplate, getNotificationSettingsByOrg } from '@/features/notificaciones/service';
 import { renderTemplatePreview, sendEmailToAddress } from '@/features/notificaciones/engine';
 import { EVENTS_BY_KEY, VARIABLE_DEFS } from '@/features/notificaciones/events-catalog';
 import type { VariableKey } from '@/features/notificaciones/types';
@@ -26,8 +26,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         const eventDef = EVENTS_BY_KEY[tmpl.eventKey];
         if (!eventDef) throw new Error(`Event "${tmpl.eventKey}" not found in catalog`);
 
+        const globalSettings = await getNotificationSettingsByOrg(client, tmpl.organizationId);
+
         const sampleVars: Partial<Record<VariableKey, string>> = Object.fromEntries(
-          eventDef.variables.map((key) => [key, VARIABLE_DEFS[key]?.example ?? key]),
+          eventDef.variables.map((key) => {
+            if (key === 'plataforma' && globalSettings.varPlatformName) return [key, globalSettings.varPlatformName];
+            if (key === 'enlace_plataforma' && globalSettings.varPlatformUrl) return [key, globalSettings.varPlatformUrl];
+            return [key, VARIABLE_DEFS[key]?.example ?? key];
+          }),
         );
 
         const rendered = renderTemplatePreview(
