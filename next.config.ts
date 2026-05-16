@@ -21,11 +21,21 @@ const securityHeaders = [
   { key: "X-XSS-Protection", value: "1; mode=block" },
 ];
 
+// SCORM serve proxy must be embeddable in our own iframe — omit X-Frame-Options
+const scormServeHeaders = securityHeaders.filter(
+  (h) => h.key !== "X-Frame-Options",
+);
+
 const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        // Apply security headers to all routes
+        // SCORM content served by the proxy must be frameable by our own page
+        source: "/api/v1/scorm/serve/:path*",
+        headers: scormServeHeaders,
+      },
+      {
+        // Apply security headers to all other routes
         source: "/(.*)",
         headers: securityHeaders,
       },
