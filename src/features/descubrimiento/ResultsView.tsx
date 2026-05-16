@@ -127,6 +127,14 @@ function buildShareUrl(publicId: string): string {
   return `${window.location.origin}/descubrimiento/share/${publicId}`;
 }
 
+function buildPdfUrl(publicId: string): string {
+  if (typeof window === "undefined") {
+    return `/descubrimiento/pdf/${publicId}`;
+  }
+
+  return `${window.location.origin}/descubrimiento/pdf/${publicId}`;
+}
+
 function parseEmailList(raw: string): string[] {
   const seen = new Set<string>();
   const output: string[] = [];
@@ -442,6 +450,7 @@ export function ResultsView({
           invitationProgressPercent + (analysisBatchPending && analysisActiveCount > 0 ? 8 : 0),
         );
   const shareUrl = sharedPublicId ? buildShareUrl(sharedPublicId) : "";
+  const pdfUrl = sharedPublicId ? buildPdfUrl(sharedPublicId) : "";
 
   const ensureSurveyBeforeAction = React.useCallback(
     (action: "download" | "shareLink") => {
@@ -481,8 +490,8 @@ export function ResultsView({
       const nextSession = await onShare();
       setSharedPublicId(nextSession.publicId);
       await alert({
-        title: "Enlace listo",
-        message: "Ya puedes compartir esta lectura ejecutiva con quien lo necesites.",
+        title: "Informe listo para compartir",
+        message: "El informe PDF quedó generado y cerrado. Ya puedes compartirlo con quien lo necesites.",
         tone: "success",
       });
     } catch (error) {
@@ -515,12 +524,12 @@ export function ResultsView({
 
 
   const copyToClipboard = async () => {
-    if (!shareUrl) return;
+    if (!pdfUrl) return;
     try {
-      await navigator.clipboard.writeText(shareUrl);
+      await navigator.clipboard.writeText(pdfUrl);
       await alert({
         title: "Enlace copiado",
-        message: "El enlace público quedó copiado en tu portapapeles.",
+        message: "El enlace del informe quedó copiado en tu portapapeles.",
         tone: "success",
       });
     } catch {
@@ -697,7 +706,7 @@ export function ResultsView({
                 ) : (
                   <Share2 size={18} />
                 )}
-                {sharedPublicId ? "Copiar enlace" : "Compartir link"}
+                Compartir informe
               </button>
             )}
 
@@ -757,9 +766,9 @@ export function ResultsView({
           <div className="mt-4 flex flex-col gap-3 rounded-[18px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-4 md:flex-row md:items-center md:justify-between">
             <div className="min-w-0">
               <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-[var(--app-muted)]">
-                Enlace público
+                Informe público
               </p>
-              <p className="mt-1 truncate text-sm text-[var(--app-ink)]">{shareUrl}</p>
+              <p className="mt-1 truncate text-sm text-[var(--app-ink)]">{pdfUrl}</p>
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -771,7 +780,7 @@ export function ResultsView({
                 Copiar
               </button>
               <Link
-                href={shareUrl}
+                href={pdfUrl}
                 target="_blank"
                 className="inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-4 py-2 text-xs font-extrabold uppercase tracking-[0.16em] text-[var(--app-ink)] transition hover:bg-[var(--app-surface-strong)]"
               >
