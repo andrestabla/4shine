@@ -853,6 +853,7 @@ export function DiscoveryExperience() {
       ...current,
       currentIdx: Math.max(0, current.currentIdx - DISCOVERY_ITEMS_PER_PAGE),
     }));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleNextPage = async () => {
@@ -899,6 +900,7 @@ export function DiscoveryExperience() {
       ...current,
       currentIdx: end,
     }));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleReset = async () => {
@@ -2363,7 +2365,7 @@ export function DiscoveryExperience() {
               </h4>
 
               {question.type === "likert" ? (
-                <div className="mt-6 grid grid-cols-5 gap-3">
+                <div className="mt-6 grid grid-cols-5 gap-1.5 sm:gap-3">
                   {[1, 2, 3, 4, 5].map((value) => {
                     const label = SCALES[question.scale ?? "freq"][value - 1];
                     const selected = answer === value;
@@ -2373,13 +2375,13 @@ export function DiscoveryExperience() {
                         type="button"
                         onClick={() => handleAnswer(question.id, value)}
                         className={clsx(
-                          "min-h-28 rounded-[18px] border px-3 py-4 text-center text-[11px] font-extrabold leading-tight transition md:text-sm",
+                          "min-h-20 rounded-[14px] border px-1 py-3 text-center text-[10px] font-extrabold leading-tight transition sm:min-h-28 sm:rounded-[18px] sm:px-3 sm:py-4 sm:text-[11px] md:text-sm",
                           selected
                             ? "border-[var(--brand-primary)] bg-[var(--brand-primary)] text-white"
                             : "border-[var(--app-border)] bg-white/80 text-[var(--app-ink)]",
                         )}
                       >
-                        <span className="mt-1 block text-sm md:text-base">{label}</span>
+                        <span className="mt-1 block text-xs sm:text-sm md:text-base">{label}</span>
                       </button>
                     );
                   })}
@@ -2424,7 +2426,7 @@ export function DiscoveryExperience() {
           type="button"
           onClick={handlePrevPage}
           disabled={start === 0}
-          className="inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-5 py-3 text-sm font-semibold text-[var(--app-ink)] disabled:opacity-40"
+          className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-5 py-3.5 text-sm font-semibold text-[var(--app-ink)] disabled:opacity-40 sm:flex-none"
         >
           <ChevronLeft size={16} />
           Anterior
@@ -2433,7 +2435,7 @@ export function DiscoveryExperience() {
         <button
           type="button"
           onClick={() => void handleNextPage()}
-          className="inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-5 py-3 text-sm font-extrabold text-white"
+          className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-[var(--brand-primary)] px-5 py-3.5 text-sm font-extrabold text-white sm:flex-none"
         >
           {end >= DB.length ? "Ver resultados" : "Continuar"}
           <ChevronRight size={16} />

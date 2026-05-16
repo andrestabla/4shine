@@ -674,51 +674,58 @@ export function ResultsView({
             <p className="mt-2 text-sm text-[var(--app-muted)]">{state.name}</p>
           </div>
 
-          <div id="action-buttons" className="flex flex-wrap items-center gap-2">
-            <span
-              className="rounded-full px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em]"
-              style={{
-                color: currentStatus.color,
-                backgroundColor: currentStatus.softColor,
-              }}
-            >
-              Avance {currentScore}%
-            </span>
+          <div id="action-buttons" className="flex flex-col gap-2">
+            {/* Row 1: badge + help (icon-only on mobile) */}
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className="rounded-full px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em]"
+                style={{
+                  color: currentStatus.color,
+                  backgroundColor: currentStatus.softColor,
+                }}
+              >
+                Avance {currentScore}%
+              </span>
 
-            <button
-              type="button"
-              onClick={() => setIsHelpOpen(true)}
-              className="inline-flex h-11 items-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-4 text-sm font-semibold text-[var(--app-muted)] transition hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)]"
-            >
-              <HelpCircle size={16} />
-              ¿Cómo leer mis resultados?
-            </button>
-
-            {!isPublic && onShare && (
               <button
                 type="button"
-                onClick={handleShare}
-                disabled={isSharing}
-                className="inline-flex h-11 items-center gap-2.5 rounded-full border border-[var(--app-border)] bg-white px-5 text-sm font-black text-[var(--app-ink)] transition hover:border-[var(--brand-primary)] hover:bg-[var(--app-surface-muted)] hover:text-[var(--brand-primary)] disabled:opacity-40"
+                onClick={() => setIsHelpOpen(true)}
+                className="inline-flex h-9 items-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-3 text-sm font-semibold text-[var(--app-muted)] transition hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)] sm:h-11 sm:px-4"
+                title="¿Cómo leer mis resultados?"
               >
-                {isSharing ? (
-                  <Loader2 size={18} className="animate-spin" />
-                ) : (
-                  <Share2 size={18} />
-                )}
-                Compartir informe
+                <HelpCircle size={16} />
+                <span className="hidden sm:inline">¿Cómo leer mis resultados?</span>
               </button>
-            )}
+            </div>
 
-            <button
-              type="button"
-              onClick={() => void handleDownloadPdf()}
-              disabled={isExporting}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em] text-[var(--app-ink)] transition hover:bg-[var(--app-surface-muted)] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-            >
-              {isExporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-              Descargar PDF
-            </button>
+            {/* Row 2: primary action buttons — always full-width on mobile */}
+            <div className="flex gap-2">
+              {!isPublic && onShare && (
+                <button
+                  type="button"
+                  onClick={handleShare}
+                  disabled={isSharing}
+                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-4 py-2.5 text-sm font-black text-[var(--app-ink)] transition hover:border-[var(--brand-primary)] hover:bg-[var(--app-surface-muted)] hover:text-[var(--brand-primary)] disabled:opacity-40 sm:flex-none sm:px-5"
+                >
+                  {isSharing ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Share2 size={16} />
+                  )}
+                  Compartir informe
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => void handleDownloadPdf()}
+                disabled={isExporting}
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-4 py-2.5 text-xs font-extrabold uppercase tracking-[0.18em] text-[var(--app-ink)] transition hover:bg-[var(--app-surface-muted)] disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none"
+              >
+                {isExporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                Descargar PDF
+              </button>
+            </div>
 
             {!isPublic && onReset && (
               <button
