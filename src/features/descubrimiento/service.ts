@@ -14,6 +14,7 @@ import { resolveOrganizationIdForActor } from "@/server/integrations/config";
 import type { AuthUser } from "@/server/auth/types";
 import { USER_COUNTRY_SET, USER_GENDER_SET, USER_JOB_ROLE_SET } from "@/lib/user-demographics";
 import { buildBrandedEmailHtml } from "@/lib/email-template";
+import { getNotificationSettingsByOrg } from "@/features/notificaciones/service";
 import { COMP_DEFINITIONS } from "./DiagnosticsData";
 import {
   DISCOVERY_TOTAL_ITEMS,
@@ -690,6 +691,28 @@ function defaultInviteEmailHtml(
     `</div>`,
     `</div>`,
     `</div>`,
+  ].join("");
+}
+
+function defaultInviteEmailBodyHtml(
+  primaryColor: string,
+  accentColor: string,
+): string {
+  return [
+    `<p style="margin:0 0 14px;font-size:15px;line-height:1.65;color:#0f172a;">`,
+    `Ya puedes ingresar a la prueba diagnóstica del programa. Usa tu código único y el botón de acceso.</p>`,
+    `<p style="margin:0 0 10px;font-size:14px;line-height:1.65;color:#475569;">`,
+    `Este acceso está vinculado exclusivamente a tu correo de invitación: <strong>{{recipient_email}}</strong>.</p>`,
+    `<p style="margin:0 0 24px;font-size:14px;line-height:1.65;color:#475569;">`,
+    `Cuando ingreses, podrás completar el diagnóstico, ver y descargar tus resultados y el análisis correspondiente.</p>`,
+    `<div style="margin:0 0 24px;padding:18px 20px;border:2px dashed ${accentColor};border-radius:14px;background:#fff7ed;">`,
+    `<p style="margin:0 0 8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;">Código único</p>`,
+    `<p style="margin:0;font-size:30px;font-weight:800;letter-spacing:.2em;color:${primaryColor};">{{access_code}}</p>`,
+    `</div>`,
+    `<p style="margin:0 0 18px;">`,
+    `<a href="{{invite_url}}" style="display:inline-block;background:${primaryColor};color:#fff;text-decoration:none;padding:13px 26px;border-radius:999px;font-weight:700;font-size:15px;">Abrir diagnóstico</a></p>`,
+    `<p style="margin:22px 0 0;font-size:13px;color:#94a3b8;">Correo: {{recipient_email}}</p>`,
+    `<p style="margin:4px 0 0;font-size:13px;color:#94a3b8;">ID Diagnóstico: {{diagnostic_id}}</p>`,
   ].join("");
 }
 
@@ -2040,20 +2063,33 @@ export async function createDiscoveryInvitations(
   }
   const organizationId = await resolveOrganizationIdForActor(client, actor.userId);
   const settings = await ensureFeedbackSettings(client, actor);
-  const branding = await getBrandingForOrganization(client, organizationId);
+  const [branding, notifSettings] = await Promise.all([
+    getBrandingForOrganization(client, organizationId),
+    getNotificationSettingsByOrg(client, organizationId),
+  ]);
 
   const subjectTemplate =
     sanitizeText(input.emailSubject, settings.inviteEmailSubject, 240) ||
-    "Diagnostico 4Shine: acceso personalizado";
+    "Diagnóstico 4Shine: acceso personalizado";
 
-  const htmlTemplate =
-    sanitizeText(input.emailHtml, settings.inviteEmailHtml, 20000) ||
-    defaultInviteEmailHtml(branding.platform_name, branding.primary_color, branding.accent_color);
-  const htmlTemplateWithLogo = ensureInviteTemplateHasLogo(htmlTemplate);
+  // Custom HTML (from API input or feedback settings) is used as a full email document.
+  // When absent, we build only the body and wrap it with the shared branded frame.
+  const customHtml = sanitizeText(input.emailHtml, settings.inviteEmailHtml, 20000);
+  const customHtmlWithLogo = customHtml ? ensureInviteTemplateHasLogo(customHtml) : null;
 
   const textTemplate =
     sanitizeText(input.emailText, settings.inviteEmailText, 10000) ||
     defaultInviteEmailText(branding.platform_name);
+
+  // Branding passed to buildBrandedEmailHtml — merges global notification settings with org branding.
+  const emailBranding = {
+    platformName: notifSettings.varPlatformName || branding.platform_name,
+    logoUrl: branding.logo_url ?? null,
+    headerBg: notifSettings.emailHeaderBg || undefined,
+    footerTagline: notifSettings.emailFooterTagline || undefined,
+    footerSupport: notifSettings.emailFooterSupport || undefined,
+    footerLegal: notifSettings.emailFooterLegal || undefined,
+  };
 
   const baseUrl = resolveAppBaseUrl();
   const outboundConfig = await resolveOutboundConfig(client, organizationId);
@@ -2144,12 +2180,18 @@ export async function createDiscoveryInvitations(
       platform_logo_url: platformLogoUrl,
     };
 
-    await sendOutboundEmail(outboundConfig, {
-      to: email,
-      subject: fillTemplate(subjectTemplate, params),
-      html: fillTemplate(htmlTemplateWithLogo, params),
-      text: fillTemplate(textTemplate, params),
-    });
+    const filledSubject = fillTemplate(subjectTemplate, params);
+    const filledText = fillTemplate(textTemplate, params);
+
+    let fullHtml: string;
+    if (customHtmlWithLogo) {
+      fullHtml = fillTemplate(customHtmlWithLogo, params);
+    } else {
+      const bodyHtml = fillTemplate(defaultInviteEmailBodyHtml(branding.primary_color, branding.accent_color), params);
+      fullHtml = buildBrandedEmailHtml(bodyHtml, emailBranding);
+    }
+
+    await sendOutboundEmail(outboundConfig, { to: email, subject: filledSubject, html: fullHtml, text: filledText });
   }
 
   return {
