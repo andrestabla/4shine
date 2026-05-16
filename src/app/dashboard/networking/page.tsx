@@ -1138,9 +1138,16 @@ export default function NetworkingPage() {
       <section className="app-panel overflow-hidden p-0">
         <div className="h-16 bg-gradient-to-r from-[#2c136e] via-[#45208f] to-[#25124f]" />
         <div className="-mt-7 px-4 pb-4">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl border-4 border-white text-lg font-black text-white"
-            style={{ background: 'linear-gradient(135deg, #4f2360 0%, #7c3aed 100%)' }}>
-            {(currentUser?.name?.[0] ?? 'U').toUpperCase()}
+          <div className="h-14 w-14 rounded-2xl border-4 border-white overflow-hidden">
+            {currentUser?.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={currentUser.avatarUrl} alt={currentUser.name ?? ''} className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-lg font-black text-white"
+                style={{ background: 'linear-gradient(135deg, #4f2360 0%, #7c3aed 100%)' }}>
+                {(currentUser?.name?.[0] ?? 'U').toUpperCase()}
+              </div>
+            )}
           </div>
           <h3 className="mt-2 text-base font-bold text-[var(--app-ink)] leading-tight">{currentUser?.name ?? 'Usuario'}</h3>
           <p className="text-xs text-[var(--app-muted)]">{currentUser?.profession ?? 'Perfil profesional'}</p>
@@ -1238,7 +1245,7 @@ export default function NetworkingPage() {
               </button>
             </section>
 
-            {communities.length > 0 && (
+            {communities.filter((c) => !c.isGeneral).length > 0 && (
               <section className="app-panel p-4">
                 <div className="mb-3 flex items-center justify-between">
                   <h3 className="text-sm font-bold text-[var(--app-ink)]">Comunidades</h3>
@@ -1248,7 +1255,7 @@ export default function NetworkingPage() {
                   </button>
                 </div>
                 <div className="space-y-2">
-                  {communities.slice(0, 4).map((community) => (
+                  {communities.filter((c) => !c.isGeneral).slice(0, 4).map((community) => (
                     <div key={community.groupId} className="flex items-center gap-2.5">
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-black text-white"
                         style={{ background: 'linear-gradient(135deg, #4f2360, #7c3aed)' }}>
