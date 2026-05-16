@@ -66,6 +66,7 @@ import {
   resetDiscoveryOverviewAttempt,
   resetDiscoverySessionRequest,
   sendDiscoveryReportEmail,
+  shareDiscoverySessionRequest,
   updateDiscoveryFeedbackSettings,
   updateDiscoverySessionRequest,
 } from "./client";
@@ -2264,6 +2265,7 @@ export function DiscoveryExperience() {
         <ResultsView
           state={state}
           publicId={session?.publicId}
+          onShare={() => shareDiscoverySessionRequest({})}
           onReset={isManager ? handleReset : undefined}
           initialSurvey={session?.experienceSurvey ?? null}
           onSurveySubmit={handleSurveySubmit}
