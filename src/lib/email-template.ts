@@ -7,6 +7,23 @@ export interface EmailBranding {
   footerLegal?: string;
 }
 
+// Directive: every <a> link in a template body is rendered as a pill button.
+function applyButtonStylesToLinks(html: string, color: string): string {
+  const style =
+    `display:inline-block;background-color:${color};color:#ffffff;` +
+    `text-decoration:none;padding:12px 24px;border-radius:999px;` +
+    `font-weight:700;font-size:14px;line-height:1;margin:4px 0;`;
+
+  return html.replace(/<a(\s[^>]*)?>/gi, (_, rawAttrs) => {
+    const attrs = rawAttrs ?? '';
+    if (/\bstyle\s*=/i.test(attrs)) {
+      // Append to existing style attribute
+      return `<a${attrs.replace(/(\bstyle\s*=\s*["'])([^"']*)/i, `$1$2;${style}`)}>`;
+    }
+    return `<a${attrs} style="${style}">`;
+  });
+}
+
 export function buildBrandedEmailHtml(bodyHtml: string, branding: EmailBranding): string {
   const platformName = branding.platformName || '4Shine';
   const headerBg = branding.headerBg || '#1e293b';
@@ -17,6 +34,8 @@ export function buildBrandedEmailHtml(bodyHtml: string, branding: EmailBranding)
   const headerContent = branding.logoUrl
     ? `<img src="${branding.logoUrl}" alt="${platformName}" style="height:48px;width:auto;display:block;margin:0 auto;" />`
     : `<span style="color:#ffffff;font-size:22px;font-weight:700;letter-spacing:0.5px;">${platformName}</span>`;
+
+  const processedBody = applyButtonStylesToLinks(bodyHtml, headerBg);
 
   return `<!DOCTYPE html>
 <html lang="es">
@@ -33,7 +52,7 @@ export function buildBrandedEmailHtml(bodyHtml: string, branding: EmailBranding)
         </tr>
         <tr>
           <td style="padding:36px 40px;">
-            ${bodyHtml}
+            ${processedBody}
           </td>
         </tr>
         <tr>
