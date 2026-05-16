@@ -23,11 +23,12 @@ const GROUPED_EVENTS = NOTIFICATION_EVENTS.reduce<Record<string, NotificationEve
   (acc, ev) => { (acc[ev.moduleCode] ??= []).push(ev); return acc; },
   {},
 );
-const MODULE_ORDER = ['usuarios', 'mentorias', 'aprendizaje', 'convocatorias', 'networking', 'mensajes', 'workshops'];
+const MODULE_ORDER = ['usuarios', 'mentorias', 'descubrimiento', 'aprendizaje', 'convocatorias', 'networking', 'mensajes', 'workshops'];
 
 const MODULE_BORDER_COLORS: Record<string, string> = {
   usuarios: 'border-l-blue-400',
   mentorias: 'border-l-purple-400',
+  descubrimiento: 'border-l-violet-500',
   aprendizaje: 'border-l-green-400',
   convocatorias: 'border-l-amber-400',
   networking: 'border-l-teal-400',
