@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Lock,
@@ -640,6 +641,10 @@ function CommunityCard({ community, onToggleMembership, canManage, onToggleStatu
 
         {/* Actions */}
         <div className="mt-3 flex flex-wrap items-center gap-2">
+          <Link href={`/dashboard/networking/comunidades/${community.groupId}`}
+            className="rounded-full border border-[#4f2360] px-3 py-1.5 text-xs font-bold text-[#4f2360] transition hover:bg-[#4f2360] hover:text-white">
+            Ver comunidad
+          </Link>
           {!community.isGeneral && (
             <button type="button" onClick={onToggleMembership}
               className={`rounded-full px-4 py-1.5 text-xs font-bold transition ${
@@ -1256,7 +1261,8 @@ export default function NetworkingPage() {
                 </div>
                 <div className="space-y-2">
                   {communities.filter((c) => !c.isGeneral).slice(0, 4).map((community) => (
-                    <div key={community.groupId} className="flex items-center gap-2.5">
+                    <Link key={community.groupId} href={`/dashboard/networking/comunidades/${community.groupId}`}
+                      className="flex items-center gap-2.5 rounded-xl p-1 transition hover:bg-[var(--app-surface-muted)]">
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-black text-white"
                         style={{ background: 'linear-gradient(135deg, #4f2360, #7c3aed)' }}>
                         {(community.name[0] ?? 'C').toUpperCase()}
@@ -1266,12 +1272,12 @@ export default function NetworkingPage() {
                         <p className="text-[11px] text-[var(--app-muted)]">{community.memberCount} miembros</p>
                       </div>
                       {!community.isMember && !community.isGeneral && (
-                        <button type="button" onClick={() => void onToggleMembership(community)}
+                        <button type="button" onClick={(e) => { e.preventDefault(); void onToggleMembership(community); }}
                           className="shrink-0 rounded-full border border-[#4f2360] px-2.5 py-0.5 text-[11px] font-bold text-[#4f2360] hover:bg-[#4f2360] hover:text-white">
                           +
                         </button>
                       )}
-                    </div>
+                    </Link>
                   ))}
                 </div>
               </section>

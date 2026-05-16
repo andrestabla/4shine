@@ -136,6 +136,16 @@ export interface CreateCommunityPostInput {
   isPinned?: boolean;
 }
 
+export interface CommunityMemberRecord {
+  userId: string;
+  displayName: string;
+  primaryRole: string;
+  avatarUrl: string | null;
+  profession: string | null;
+  membershipRole: 'owner' | 'moderator' | 'member';
+  joinedAt: string;
+}
+
 // ─── Connections ──────────────────────────────────────────────────────────────
 
 export async function listConnections(): Promise<ConnectionRecord[]> {
@@ -257,4 +267,25 @@ export async function createComment(postId: string, body: string): Promise<Comme
     method: 'POST',
     body: JSON.stringify({ body }),
   });
+}
+
+// ─── Community detail ─────────────────────────────────────────────────────────
+
+export async function getCommunity(groupId: string): Promise<CommunityRecord> {
+  return requestApi<CommunityRecord>(`/api/v1/modules/networking/communities/${groupId}`);
+}
+
+export async function listCommunityMembers(groupId: string): Promise<CommunityMemberRecord[]> {
+  return requestApi<CommunityMemberRecord[]>(`/api/v1/modules/networking/communities/${groupId}/members`);
+}
+
+export async function updateMemberRole(groupId: string, userId: string, role: 'moderator' | 'member'): Promise<CommunityMemberRecord> {
+  return requestApi<CommunityMemberRecord>(`/api/v1/modules/networking/communities/${groupId}/members/${userId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ role }),
+  });
+}
+
+export async function listCommunityPostsForGroup(groupId: string): Promise<CommunityPostRecord[]> {
+  return requestApi<CommunityPostRecord[]>(`/api/v1/modules/networking/communities/${groupId}/posts`);
 }

@@ -148,6 +148,26 @@ export interface CreateCommentInput {
   body: string;
 }
 
+export interface CommunityMemberRecord {
+  userId: string;
+  displayName: string;
+  primaryRole: string;
+  avatarUrl: string | null;
+  profession: string | null;
+  membershipRole: 'owner' | 'moderator' | 'member';
+  joinedAt: string;
+}
+
+interface CommunityMemberRow {
+  user_id: string;
+  display_name: string;
+  primary_role: string;
+  avatar_url: string | null;
+  profession: string | null;
+  membership_role: 'owner' | 'moderator' | 'member';
+  joined_at: string;
+}
+
 // ─── DB row types ─────────────────────────────────────────────────────────────
 
 interface ConnectionRow {
@@ -329,6 +349,18 @@ function mapComment(row: CommentRow): CommentRecord {
     authorAvatarUrl: row.author_avatar_url ?? null,
     body: row.body,
     createdAt: row.created_at,
+  };
+}
+
+function mapMember(row: CommunityMemberRow): CommunityMemberRecord {
+  return {
+    userId: row.user_id,
+    displayName: row.display_name,
+    primaryRole: row.primary_role,
+    avatarUrl: row.avatar_url ?? null,
+    profession: row.profession ?? null,
+    membershipRole: row.membership_role,
+    joinedAt: row.joined_at,
   };
 }
 
@@ -792,7 +824,7 @@ export async function leaveCommunity(client: PoolClient, actor: AuthUser, groupI
 
 // ─── Community posts ──────────────────────────────────────────────────────────
 
-export async function listCommunityPosts(client: PoolClient, actor: AuthUser, limit = 100): Promise<CommunityPostRecord[]> {
+export async function listCommunityPosts(client: PoolClient, actor: AuthUser, limit = 100, groupId?: string): Promise<CommunityPostRecord[]> {
   await requireModulePermission(client, 'networking', 'view');
   await requireCommunityAccess(client, actor, 'Networking');
 
@@ -836,10 +868,11 @@ export async function listCommunityPosts(client: PoolClient, actor: AuthUser, li
           OR gm.user_id IS NOT NULL
           OR app_auth.has_permission('networking', 'manage')
         )
+        AND ($3::uuid IS NULL OR p.group_id = $3::uuid)
       ORDER BY p.is_pinned DESC, p.created_at DESC
       LIMIT $2
     `,
-    [actor.userId, Math.min(Math.max(limit, 1), 500)],
+    [actor.userId, Math.min(Math.max(limit, 1), 500), groupId ?? null],
   );
 
   return rows.map(mapCommunityPost);
@@ -1030,4 +1063,92 @@ export async function createComment(
   );
 
   return mapComment(comment.rows[0]);
+}
+
+// ─── Community detail ─────────────────────────────────────────────────────────
+
+export async function getCommunity(client: PoolClient, actor: AuthUser, groupId: string): Promise<CommunityRecord> {
+  await requireModulePermission(client, 'networking', 'view');
+  await requireCommunityAccess(client, actor, 'Networking');
+
+  const { rows } = await client.query<CommunityRow>(
+    `${COMMUNITY_SELECT}
+     WHERE g.group_id = $2::uuid
+     LIMIT 1`,
+    [actor.userId, groupId],
+  );
+
+  if (!rows[0]) throw new Error('Comunidad no encontrada.');
+  return mapCommunity(rows[0]);
+}
+
+export async function listCommunityMembers(client: PoolClient, actor: AuthUser, groupId: string): Promise<CommunityMemberRecord[]> {
+  await requireModulePermission(client, 'networking', 'view');
+  await requireCommunityAccess(client, actor, 'Networking');
+
+  // Only members or managers can see the member list
+  const access = await client.query<{ allowed: boolean }>(
+    `SELECT (
+       app_auth.has_permission('networking', 'manage')
+       OR EXISTS (SELECT 1 FROM app_networking.group_memberships WHERE group_id = $1::uuid AND user_id = $2::uuid)
+     ) AS allowed`,
+    [groupId, actor.userId],
+  );
+  if (!access.rows[0]?.allowed) throw new Error('No tienes acceso a esta comunidad.');
+
+  const { rows } = await client.query<CommunityMemberRow>(
+    `
+      SELECT
+        u.user_id::text,
+        u.display_name,
+        u.primary_role,
+        u.avatar_url,
+        p.profession,
+        gm.membership_role,
+        gm.joined_at::text
+      FROM app_networking.group_memberships gm
+      JOIN app_core.users u ON u.user_id = gm.user_id
+      LEFT JOIN app_core.user_profiles p ON p.user_id = gm.user_id
+      WHERE gm.group_id = $1::uuid
+      ORDER BY
+        CASE gm.membership_role WHEN 'owner' THEN 0 WHEN 'moderator' THEN 1 ELSE 2 END,
+        u.display_name
+    `,
+    [groupId],
+  );
+
+  return rows.map(mapMember);
+}
+
+export async function updateMemberRole(
+  client: PoolClient,
+  actor: AuthUser,
+  groupId: string,
+  targetUserId: string,
+  role: 'moderator' | 'member',
+): Promise<CommunityMemberRecord> {
+  // Only platform managers or community owners can change roles
+  const perm = await client.query<{ allowed: boolean }>(
+    `SELECT (
+       app_auth.has_permission('networking', 'manage')
+       OR EXISTS (
+         SELECT 1 FROM app_networking.group_memberships
+         WHERE group_id = $1::uuid AND user_id = $2::uuid AND membership_role = 'owner'
+       )
+     ) AS allowed`,
+    [groupId, actor.userId],
+  );
+  if (!perm.rows[0]?.allowed) throw new Error('No tienes permisos para cambiar roles en esta comunidad.');
+
+  await client.query(
+    `UPDATE app_networking.group_memberships
+     SET membership_role = $3
+     WHERE group_id = $1::uuid AND user_id = $2::uuid AND membership_role != 'owner'`,
+    [groupId, targetUserId, role],
+  );
+
+  const members = await listCommunityMembers(client, actor, groupId);
+  const updated = members.find((m) => m.userId === targetUserId);
+  if (!updated) throw new Error('Miembro no encontrado.');
+  return updated;
 }
