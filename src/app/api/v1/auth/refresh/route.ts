@@ -28,16 +28,18 @@ export async function POST(request: Request) {
   const lastActivityAt = typeof body.lastActivityAt === 'number' ? body.lastActivityAt : null;
   const refreshToken = body.refreshToken ?? parseCookieValue(request, REFRESH_COOKIE);
 
+  // If lastActivityAt is provided, enforce the idle window; if absent (initial restore), skip the check.
   const isActivityValid =
-    lastActivityAt !== null &&
-    Number.isFinite(lastActivityAt) &&
-    lastActivityAt > 0 &&
-    Date.now() - lastActivityAt < SESSION_IDLE_LIMIT_MS;
+    lastActivityAt === null ||
+    (Number.isFinite(lastActivityAt) &&
+      lastActivityAt > 0 &&
+      Date.now() - lastActivityAt < SESSION_IDLE_LIMIT_MS);
 
   if (!refreshToken || !isActivityValid) {
+    const auditAction = !refreshToken ? 'auth_refresh_missing_token' : 'auth_refresh_idle_expired';
     try {
       await recordAuditEvent({
-        action: !refreshToken ? 'auth_refresh_missing_token' : 'auth_refresh_idle_expired',
+        action: auditAction,
         entityTable: 'app_auth.refresh_sessions',
         changeSummary: buildRequestSummary(request),
       });

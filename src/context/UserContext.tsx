@@ -9,12 +9,11 @@ import { PrivacyPolicyModal } from '@/components/ui/PrivacyPolicyModal';
 import { SESSION_IDLE_LIMIT_MS } from '@/lib/session-timeout';
 import {
   clearTrackedSessionActivity,
-  hasTrackedSessionActivity,
   isSessionIdleExpired,
   readLastSessionActivity,
   redirectToLoginAfterSessionTimeout,
   trackSessionActivity,
-  tryRefreshSessionFromActivity,
+  tryRestoreSession,
 } from '@/lib/session-timeout-client';
 import {
   canModuleAction,
@@ -204,16 +203,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         let response = await makeAuthMeRequest();
 
         if (!response.ok && response.status === 401) {
-          if (hasTrackedSessionActivity() && isSessionIdleExpired()) {
-            if (!cancelled) {
-              clearSession();
-              setIsHydrating(false);
-            }
-            await redirectToLoginAfterSessionTimeout();
-            return;
-          }
-
-          const refreshed = await tryRefreshSessionFromActivity();
+          const refreshed = await tryRestoreSession();
           if (!refreshed) {
             if (!cancelled) {
               clearSession();

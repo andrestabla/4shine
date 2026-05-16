@@ -1,5 +1,6 @@
 import {
   hasTrackedSessionActivity,
+  isSessionIdleExpired,
   redirectToLoginAfterSessionTimeout,
   tryRefreshSessionFromActivity,
 } from '@/lib/session-timeout-client';
@@ -68,7 +69,7 @@ export async function requestApi<T>(input: string, init: RequestApiInit = {}): P
     const refreshed = await tryRefreshSessionFromActivity();
     if (refreshed) {
       response = await makeRequest();
-    } else {
+    } else if (isSessionIdleExpired()) {
       await redirectToLoginAfterSessionTimeout();
     }
   }

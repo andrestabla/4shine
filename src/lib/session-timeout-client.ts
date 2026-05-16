@@ -52,6 +52,27 @@ export function clearTrackedSessionActivity(): void {
   window.sessionStorage.removeItem(SESSION_MARKER_KEY);
 }
 
+export async function tryRestoreSession(): Promise<boolean> {
+  if (!hasBrowserContext()) return false;
+
+  try {
+    const response = await fetch('/api/v1/auth/refresh', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+
+    if (!response.ok) return false;
+
+    trackSessionActivity();
+    return true;
+  } catch (error) {
+    console.error('Session restore failed', error);
+    return false;
+  }
+}
+
 export async function tryRefreshSessionFromActivity(): Promise<boolean> {
   if (!hasBrowserContext()) return false;
 
