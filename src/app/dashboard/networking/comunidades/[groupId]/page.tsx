@@ -542,28 +542,29 @@ function MemberRow({
   onRoleChange: (userId: string, role: 'moderator' | 'member') => void;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-[var(--app-border)] bg-white p-3">
+    <div className="flex items-center gap-3 rounded-2xl border border-[var(--app-border)] bg-white px-4 py-3">
       <Avatar name={member.displayName} avatarUrl={member.avatarUrl} size="md" />
+
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-bold text-[var(--app-ink)] leading-tight">{member.displayName}</p>
-        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-          {member.profession && (
-            <span className="text-[11px] text-[var(--app-muted)]">{member.profession}</span>
-          )}
-          {member.profession && <span className="text-[var(--app-border)] text-[11px]">·</span>}
-          <RoleBadge role={member.membershipRole} />
-        </div>
+        <p className="truncate text-sm font-bold text-[var(--app-ink)]">{member.displayName}</p>
+        <p className="truncate text-[11px] text-[var(--app-muted)]">
+          {member.profession ?? member.primaryRole}
+        </p>
       </div>
-      {canChangeRole && member.membershipRole !== 'owner' && (
-        <select
-          className="app-select py-1 text-xs"
-          value={member.membershipRole}
-          onChange={(e) => onRoleChange(member.userId, e.target.value as 'moderator' | 'member')}
-        >
-          <option value="member">Miembro</option>
-          <option value="moderator">Gestor</option>
-        </select>
-      )}
+
+      <div className="flex shrink-0 items-center gap-2">
+        <RoleBadge role={member.membershipRole} />
+        {canChangeRole && member.membershipRole !== 'owner' && (
+          <select
+            className="rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-2 py-1 text-[11px] font-semibold text-[var(--app-ink)] focus:outline-none"
+            value={member.membershipRole}
+            onChange={(e) => onRoleChange(member.userId, e.target.value as 'moderator' | 'member')}
+          >
+            <option value="member">Miembro</option>
+            <option value="moderator">Gestor</option>
+          </select>
+        )}
+      </div>
     </div>
   );
 }
@@ -908,8 +909,8 @@ export default function CommunityDetailPage() {
               Miembros · {members.length}
             </p>
             {canChangeRoles && (
-              <span className="flex items-center gap-1 text-[10px] text-[var(--app-muted)]">
-                <MapPin size={10} />Puedes cambiar roles con el selector
+              <span className="text-[10px] text-[var(--app-muted)]">
+                Cambia el rol con el selector
               </span>
             )}
           </div>
