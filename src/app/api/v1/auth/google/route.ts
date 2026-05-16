@@ -14,6 +14,7 @@ interface GoogleTokenInfo {
   given_name?: string;
   family_name?: string;
   name?: string;
+  picture?: string;
   aud?: string;
   exp?: string;
 }
@@ -89,9 +90,11 @@ export async function POST(request: Request) {
           is_active: boolean;
           email_verified_at: string | null;
           privacy_policy_accepted_at: string | null;
+          avatar_url: string | null;
         }>(
           `
             SELECT u.user_id, u.email, u.display_name, u.primary_role, u.is_active,
+                   u.avatar_url,
                    uc.email_verified_at::text,
                    lpa.accepted_at::text AS privacy_policy_accepted_at
             FROM app_core.users u
@@ -148,6 +151,15 @@ export async function POST(request: Request) {
           'app.current_role',
           userRow.primary_role,
         ]);
+
+        // Save Google profile picture if the user has accepted the privacy policy and has no avatar yet
+        const googlePicture = tokenInfo.picture?.trim() || null;
+        if (googlePicture && userRow.privacy_policy_accepted_at && !userRow.avatar_url) {
+          await client.query(
+            `UPDATE app_core.users SET avatar_url = $2, updated_at = now() WHERE user_id = $1::uuid`,
+            [userRow.user_id, googlePicture],
+          );
+        }
 
         const authUser: AuthUser = {
           userId: userRow.user_id,

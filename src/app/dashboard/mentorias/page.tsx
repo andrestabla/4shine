@@ -329,6 +329,9 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
   const [editingEventId, setEditingEventId] = React.useState<string | null>(null);
   const [selectedGroupSession, setSelectedGroupSession] = React.useState<GroupSessionEventRecord | null>(null);
   const [confirmedSession, setConfirmedSession] = React.useState<GroupSessionEventRecord | null>(null);
+  const [confirmedProgramBooking, setConfirmedProgramBooking] = React.useState<MentorshipRecord | null>(null);
+  const [cancellingSession, setCancellingSession] = React.useState<MentorshipRecord | null>(null);
+  const [cancelForm, setCancelForm] = React.useState({ reason: '', proposedStartsAt: '' });
   const [participatingInId, setParticipatingInId] = React.useState<string | null>(null);
   const [groupSessionForm, setGroupSessionForm] = React.useState<GroupSessionFormState>({
     title: '',
@@ -532,7 +535,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
 
     setSubmittingProgram(true);
     try {
-      await scheduleProgramMentorship({
+      const booked = await scheduleProgramMentorship({
         entitlementId: programForm.entitlementId,
         mentorUserId: programForm.mentorUserId,
         startsAt: toIso(programForm.startsAt),
@@ -540,10 +543,12 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
       });
       setProgramForm((prev) => ({
         ...prev,
+        entitlementId: '',
         startsAt: nextSlotValue(),
         note: '',
       }));
       await Promise.all([load(), refreshBootstrap()]);
+      setConfirmedProgramBooking(booked);
     } catch (error) {
       await showError('No se pudo programar la mentoría incluida.', error);
     } finally {
@@ -631,17 +636,32 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
   };
 
   const handleStatusChange = async (session: MentorshipRecord, status: MentorshipStatus) => {
+    if (status === 'cancelled') {
+      setCancellingSession(session);
+      setCancelForm({ reason: '', proposedStartsAt: '' });
+      return;
+    }
     try {
-      await updateMentorship(session.sessionId, {
-        status,
-        changeReason:
-          status === 'cancelled'
-            ? 'Cambio de agenda y reprogramación operativa.'
-            : undefined,
-      });
+      await updateMentorship(session.sessionId, { status });
       await Promise.all([load(), refreshBootstrap()]);
     } catch (error) {
       await showError('No se pudo actualizar el estado de la sesión.', error);
+    }
+  };
+
+  const handleCancelSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!cancellingSession || !cancelForm.reason.trim() || !cancelForm.proposedStartsAt) return;
+    try {
+      await updateMentorship(cancellingSession.sessionId, {
+        status: 'cancelled',
+        changeReason: cancelForm.reason.trim(),
+        proposedStartsAt: toIso(cancelForm.proposedStartsAt),
+      });
+      setCancellingSession(null);
+      await Promise.all([load(), refreshBootstrap()]);
+    } catch (error) {
+      await showError('No se pudo cancelar la mentoría.', error);
     }
   };
 
@@ -1591,6 +1611,143 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
         </div>
       )}
 
+      {cancellingSession && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setCancellingSession(null)}
+        >
+          <div
+            className="relative w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl dark:bg-[var(--app-surface)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="absolute right-4 top-4 rounded-full border border-[var(--app-border)] p-2 text-[var(--app-muted)]"
+              onClick={() => setCancellingSession(null)}
+            >
+              <X size={16} />
+            </button>
+            <div className="mb-6">
+              <p className="text-lg font-extrabold text-[var(--app-ink)]">Cancelar mentoría</p>
+              <p className="mt-1 text-sm text-[var(--app-muted)]">{cancellingSession.title}</p>
+            </div>
+            <form className="space-y-4" onSubmit={handleCancelSubmit}>
+              <div>
+                <label className="mb-1.5 block text-xs font-extrabold uppercase tracking-wide text-[var(--app-muted)]">
+                  Motivo de cancelación *
+                </label>
+                <textarea
+                  className="min-h-[100px] w-full rounded-[16px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-3 text-sm"
+                  placeholder="Explica brevemente el motivo de la cancelación..."
+                  required
+                  value={cancelForm.reason}
+                  onChange={(e) => setCancelForm((prev) => ({ ...prev, reason: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-extrabold uppercase tracking-wide text-[var(--app-muted)]">
+                  Proponer nuevo horario *
+                </label>
+                <input
+                  type="datetime-local"
+                  className="w-full rounded-[16px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-3 text-sm"
+                  required
+                  value={cancelForm.proposedStartsAt}
+                  onChange={(e) => setCancelForm((prev) => ({ ...prev, proposedStartsAt: e.target.value }))}
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  className="rounded-[14px] border border-[var(--app-border)] px-4 py-2.5 text-sm font-semibold text-[var(--app-ink)]"
+                  onClick={() => setCancellingSession(null)}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={!cancelForm.reason.trim() || !cancelForm.proposedStartsAt}
+                  className="flex-1 rounded-[14px] bg-rose-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+                >
+                  Confirmar cancelación
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {confirmedProgramBooking && (() => {
+        const booking = confirmedProgramBooking;
+        const gcalStart = new Date(booking.startsAt).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+        const gcalEnd = new Date(booking.endsAt).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+        const gcalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(booking.title)}&dates=${gcalStart}/${gcalEnd}${booking.meetingUrl ? `&location=${encodeURIComponent(booking.meetingUrl)}` : ''}`;
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+            onClick={() => setConfirmedProgramBooking(null)}
+          >
+            <div
+              className="relative w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl dark:bg-[var(--app-surface)]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                className="absolute right-4 top-4 rounded-full border border-[var(--app-border)] p-2 text-[var(--app-muted)]"
+                onClick={() => setConfirmedProgramBooking(null)}
+              >
+                <X size={16} />
+              </button>
+              <div className="flex flex-col items-center gap-4 text-center">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+                  <CheckCircle2 size={36} className="text-green-600" />
+                </div>
+                <div>
+                  <p className="text-lg font-extrabold text-[var(--app-ink)]">¡Mentoría agendada!</p>
+                  <p className="mt-1 text-sm font-semibold text-[var(--app-ink)]">{booking.title}</p>
+                  <p className="mt-0.5 text-sm text-[var(--app-muted)]">{booking.mentorName}</p>
+                  <p className="mt-0.5 text-sm text-[var(--app-muted)]">{formatDateTime(booking.startsAt, tz)}</p>
+                </div>
+                <p className="text-sm text-[var(--app-muted)]">
+                  Recibirás un correo de confirmación con los detalles y el enlace de acceso.
+                </p>
+                <div className="flex w-full flex-col gap-2">
+                  {booking.meetingUrl ? (
+                    <a
+                      href={booking.meetingUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center justify-center gap-2 rounded-full bg-[#2D8CFF] px-6 py-2.5 text-sm font-bold text-white"
+                    >
+                      <Video size={14} />
+                      Unirse a la sesión
+                    </a>
+                  ) : (
+                    <p className="text-xs text-[var(--app-muted)]">El enlace de conexión estará disponible pronto.</p>
+                  )}
+                  <a
+                    href={gcalUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center justify-center gap-2 rounded-full border border-[var(--app-border)] px-6 py-2.5 text-sm font-semibold text-[var(--app-ink)]"
+                  >
+                    <CalendarDays size={14} />
+                    Agregar a Google Calendar
+                  </a>
+                </div>
+                <button
+                  type="button"
+                  className="mt-1 rounded-full border border-[var(--app-border)] px-6 py-2 text-sm font-semibold text-[var(--app-muted)]"
+                  onClick={() => setConfirmedProgramBooking(null)}
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {confirmedSession && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
@@ -2191,8 +2348,12 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
               return (
                 <article key={mentor.mentorUserId} className="app-panel flex flex-col p-5 sm:p-6">
                   <div className="flex items-start gap-4">
-                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[var(--app-chip)] text-xl font-black text-[var(--brand-primary)]">
-                      {mentor.avatarInitial}
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--app-chip)] text-xl font-black text-[var(--brand-primary)]">
+                      {mentor.avatarUrl ? (
+                        <img src={mentor.avatarUrl} alt={mentor.name} className="h-full w-full object-cover" />
+                      ) : (
+                        mentor.avatarInitial
+                      )}
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-lg font-black text-[var(--app-ink)]">{mentor.name}</p>
@@ -2452,12 +2613,13 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
             {overview.programEntitlements.map((item, idx) => {
               const isFormOpen = programForm.entitlementId === item.entitlementId;
               const isCompleted = item.status === 'completed';
-              const isLocked = !isCompleted && !item.canSchedule;
+              const isScheduled = item.status === 'scheduled';
+              const isLocked = item.status === 'locked';
 
               if (isCompleted) {
                 return (
-                  <article key={item.entitlementId} className="flex items-center gap-4 rounded-[20px] border border-emerald-200 bg-emerald-50/80 px-5 py-4">
-                    <CheckCircle2 size={20} className="shrink-0 text-emerald-500" />
+                  <article key={item.entitlementId} className="flex items-start gap-4 rounded-[20px] border border-emerald-200 bg-emerald-50/80 px-5 py-4">
+                    <CheckCircle2 size={20} className="mt-0.5 shrink-0 text-emerald-500" />
                     <div className="min-w-0 flex-1">
                       <p className="font-bold text-emerald-800">{item.title}</p>
                       {item.mentorName && item.scheduledStartsAt && (
@@ -2465,10 +2627,55 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                           {item.mentorName} · {formatDateTime(item.scheduledStartsAt, tz)}
                         </p>
                       )}
+                      {item.scheduledMeetingUrl && (
+                        <a
+                          href={item.scheduledMeetingUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-emerald-300 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50"
+                        >
+                          <Play size={11} />
+                          Ver grabación
+                        </a>
+                      )}
                     </div>
                     <span className="shrink-0 rounded-full border border-emerald-200 bg-emerald-100 px-3 py-1 text-xs font-extrabold uppercase tracking-[0.14em] text-emerald-700">
                       Completada
                     </span>
+                  </article>
+                );
+              }
+
+              if (isScheduled) {
+                return (
+                  <article key={item.entitlementId} className="rounded-[20px] border border-amber-200 bg-amber-50/80 px-5 py-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-amber-600/70">
+                          Mentoría {idx + 1} · {phaseLabel(item.phaseCode)}
+                        </p>
+                        <p className="mt-1 font-bold text-amber-900">{item.title}</p>
+                        {item.mentorName && item.scheduledStartsAt && (
+                          <p className="mt-0.5 text-sm text-amber-700">
+                            {item.mentorName} · {formatDateTime(item.scheduledStartsAt, tz)}
+                          </p>
+                        )}
+                      </div>
+                      <span className="shrink-0 rounded-full border border-amber-300 bg-amber-100 px-3 py-1 text-xs font-extrabold uppercase tracking-[0.14em] text-amber-700">
+                        Programada
+                      </span>
+                    </div>
+                    {item.scheduledMeetingUrl && (
+                      <a
+                        href={item.scheduledMeetingUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-3 inline-flex items-center gap-2 rounded-full bg-[#2D8CFF] px-4 py-2 text-xs font-bold text-white hover:opacity-90"
+                      >
+                        <Video size={12} />
+                        Unirse a la sesión
+                      </a>
+                    )}
                   </article>
                 );
               }
@@ -2483,7 +2690,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                       <div>
                         <p className="font-bold text-[var(--app-ink)]">{item.title}</p>
                         <p className="mt-0.5 text-sm text-[var(--app-muted)]">
-                          {item.scheduleBlockedReason ?? 'Se desbloquea cuando completes la mentoría anterior.'}
+                          {item.scheduleBlockedReason ?? 'Se habilita 10 días después de que se desarrolle la mentoría anterior.'}
                         </p>
                       </div>
                     </div>
@@ -2565,6 +2772,27 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                           </option>
                         ))}
                       </select>
+                      {programForm.mentorUserId && (() => {
+                        const selectedAdviser = overview.mentorCatalog.find(m => m.mentorUserId === programForm.mentorUserId);
+                        if (selectedAdviser) {
+                          return (
+                            <div className="flex items-center gap-3 rounded-[16px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-3">
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--app-chip)] text-base font-black text-[var(--brand-primary)]">
+                                {selectedAdviser.avatarUrl ? (
+                                  <img src={selectedAdviser.avatarUrl} alt={selectedAdviser.name} className="h-full w-full object-cover" />
+                                ) : (
+                                  selectedAdviser.avatarInitial
+                                )}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold text-[var(--app-ink)]">{selectedAdviser.name}</p>
+                                <p className="text-xs text-[var(--app-muted)]">{selectedAdviser.specialty}</p>
+                              </div>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
                       {programForm.mentorUserId && (() => {
                         const slots = overview.mentorCatalog.find(m => m.mentorUserId === programForm.mentorUserId)?.availability ?? [];
                         return slots.length === 0 ? (

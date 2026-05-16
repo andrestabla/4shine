@@ -2,6 +2,7 @@ import type { PoolClient } from 'pg';
 import { getViewerAccessState, requireProgramSubscriptionAccess } from '@/features/access/service';
 import type { AuthUser } from '@/server/auth/types';
 import { requireModulePermission } from '@/server/auth/module-permissions';
+import { createZoomMeeting } from '@/server/integrations/zoom';
 
 export type MentorshipSessionType = 'individual' | 'grupal';
 export type MentorshipStatus =
@@ -84,6 +85,7 @@ export interface ProgramMentorshipEntitlementRecord {
   scheduledSessionId: string | null;
   scheduledStartsAt: string | null;
   scheduledEndsAt: string | null;
+  scheduledMeetingUrl: string | null;
   mentorUserId: string | null;
   mentorName: string | null;
 }
@@ -113,6 +115,7 @@ export interface MentorCatalogRecord {
   ratingAvg: number;
   ratingCount: number;
   avatarInitial: string;
+  avatarUrl: string | null;
   availability: MentorAvailabilitySlot[];
   offers: MentorOfferingRecord[];
 }
@@ -316,6 +319,7 @@ interface ProgramEntitlementRow {
   scheduled_session_id: string | null;
   scheduled_starts_at: string | null;
   scheduled_ends_at: string | null;
+  scheduled_meeting_url: string | null;
   scheduled_session_status: MentorshipStatus | null;
   mentor_user_id: string | null;
   mentor_name: string | null;
@@ -329,6 +333,7 @@ interface MentorCatalogRow {
   rating_avg: string | number | null;
   rating_count: number | null;
   avatar_initial: string | null;
+  avatar_url: string | null;
   availability: unknown;
   offers: unknown;
 }
@@ -468,7 +473,7 @@ function mapProgramEntitlement(
     Number(row.sequence_no) !== options.firstPendingSequence;
   const status: ProgramMentorshipStatus = isLockedByOrder ? 'locked' : derivedStatus;
   const scheduleBlockedReason = isLockedByOrder
-    ? 'Debes consumir primero la mentoría pendiente anterior según el orden temático.'
+    ? 'Se habilita 10 días después de que se desarrolle la mentoría anterior.'
     : null;
 
   return {
@@ -489,6 +494,7 @@ function mapProgramEntitlement(
     scheduledSessionId: row.scheduled_session_id,
     scheduledStartsAt: row.scheduled_starts_at,
     scheduledEndsAt: row.scheduled_ends_at,
+    scheduledMeetingUrl: row.scheduled_meeting_url,
     mentorUserId: row.mentor_user_id,
     mentorName: row.mentor_name,
   };
@@ -618,6 +624,7 @@ function mapMentorCatalog(row: MentorCatalogRow): MentorCatalogRecord {
     ratingAvg: Number(row.rating_avg ?? 0),
     ratingCount: Number(row.rating_count ?? 0),
     avatarInitial: row.avatar_initial ?? row.name.charAt(0).toUpperCase() ?? 'I',
+    avatarUrl: row.avatar_url ?? null,
     availability: parseAvailability(row.availability),
     offers: parseOffers(row.offers),
   };
@@ -823,6 +830,7 @@ async function getProgramEntitlement(
         upm.scheduled_session_id::text,
         ms.starts_at::text AS scheduled_starts_at,
         ms.ends_at::text AS scheduled_ends_at,
+        ms.meeting_url AS scheduled_meeting_url,
         ms.status AS scheduled_session_status,
         ms.mentor_user_id::text AS mentor_user_id,
         mentor.display_name AS mentor_name
@@ -1028,6 +1036,7 @@ async function listProgramEntitlements(
         upm.scheduled_session_id::text,
         ms.starts_at::text AS scheduled_starts_at,
         ms.ends_at::text AS scheduled_ends_at,
+        ms.meeting_url AS scheduled_meeting_url,
         ms.status AS scheduled_session_status,
         ms.mentor_user_id::text AS mentor_user_id,
         mentor.display_name AS mentor_name
@@ -1041,8 +1050,18 @@ async function listProgramEntitlements(
     [ownerUserId],
   );
   const mappedBase = rows.map((row) => mapProgramEntitlement(row, { currentProgramWeek }));
+  const now = new Date();
+  const TEN_DAYS_MS = 10 * 24 * 60 * 60 * 1000;
   const firstPending = mappedBase
-    .filter((item) => item.status === 'available' || item.status === 'locked')
+    .filter((item) => {
+      if (item.status === 'available' || item.status === 'locked') return true;
+      // A scheduled session blocks subsequent ones until 10 days after its start time
+      if (item.status === 'scheduled' && item.scheduledStartsAt) {
+        const unlockAt = new Date(new Date(item.scheduledStartsAt).getTime() + TEN_DAYS_MS);
+        if (unlockAt > now) return true;
+      }
+      return false;
+    })
     .sort((a, b) => a.sequenceNo - b.sequenceNo)[0];
   return rows.map((row) =>
     mapProgramEntitlement(row, {
@@ -1063,6 +1082,7 @@ async function listMentorCatalog(client: PoolClient): Promise<MentorCatalogRecor
         COALESCE(m.rating_avg, 0) AS rating_avg,
         m.rating_count,
         COALESCE(u.avatar_initial, SUBSTRING(u.display_name FROM 1 FOR 1)) AS avatar_initial,
+        u.avatar_url,
         COALESCE(availability.availability, '[]'::json) AS availability,
         COALESCE(offers.offers, '[]'::json) AS offers
       FROM app_mentoring.mentors m
@@ -1756,6 +1776,7 @@ export async function ingestZoomRecording(
   client: PoolClient,
   payload: ZoomRecordingPayload,
 ): Promise<void> {
+  // Try group session first
   const { rows: eventRows } = await client.query<{ event_id: string; created_by: string }>(
     `SELECT gse.event_id::text, gse.created_by::text
      FROM app_mentoring.group_session_events gse
@@ -1764,28 +1785,41 @@ export async function ingestZoomRecording(
     [payload.meetingId],
   );
   const event = eventRows[0];
-  if (!event) return;
 
-  const { rows: existing } = await client.query<{ recording_id: string }>(
-    `SELECT recording_id FROM app_mentoring.group_session_recordings
-     WHERE event_id = $1 AND source_type = 'zoom'
+  if (event) {
+    const { rows: existing } = await client.query<{ recording_id: string }>(
+      `SELECT recording_id FROM app_mentoring.group_session_recordings
+       WHERE event_id = $1 AND source_type = 'zoom'
+       LIMIT 1`,
+      [event.event_id],
+    );
+    if (existing.length === 0) {
+      await client.query(
+        `INSERT INTO app_mentoring.group_session_recordings
+           (event_id, source_type, title, recording_url, duration_minutes, recorded_at, published_at, created_by)
+         VALUES ($1, 'zoom', $2, $3, $4, $5::timestamptz, now(), $6::uuid)`,
+        [event.event_id, payload.topic || 'Grabación Zoom', payload.playUrl, payload.durationMinutes, payload.recordedAt, event.created_by],
+      );
+    }
+    return;
+  }
+
+  // Fall back to individual mentorship session — store the recording URL as the meeting_url
+  const { rows: sessionRows } = await client.query<{ session_id: string }>(
+    `SELECT ms.session_id::text
+     FROM app_mentoring.mentorship_sessions ms
+     WHERE ms.zoom_meeting_id = $1
      LIMIT 1`,
-    [event.event_id],
+    [payload.meetingId],
   );
-  if (existing.length > 0) return;
+  const individualSession = sessionRows[0];
+  if (!individualSession) return;
 
   await client.query(
-    `INSERT INTO app_mentoring.group_session_recordings
-       (event_id, source_type, title, recording_url, duration_minutes, recorded_at, published_at, created_by)
-     VALUES ($1, 'zoom', $2, $3, $4, $5::timestamptz, now(), $6::uuid)`,
-    [
-      event.event_id,
-      payload.topic || 'Grabación Zoom',
-      payload.playUrl,
-      payload.durationMinutes,
-      payload.recordedAt,
-      event.created_by,
-    ],
+    `UPDATE app_mentoring.mentorship_sessions
+     SET meeting_url = $2, updated_at = now()
+     WHERE session_id = $1::uuid AND (meeting_url IS NULL OR meeting_url NOT LIKE 'https://zoom.us/rec/%')`,
+    [individualSession.session_id, payload.playUrl],
   );
 }
 
@@ -2272,8 +2306,17 @@ export async function scheduleProgramMentorship(
 
   const entitlement = await getProgramEntitlement(client, input.entitlementId, actor.userId);
   const entitlementList = await listProgramEntitlements(client, actor.userId);
+  const nowSchedule = new Date();
+  const TEN_DAYS_MS_S = 10 * 24 * 60 * 60 * 1000;
   const firstPending = entitlementList
-    .filter((item) => item.status === 'available' || item.status === 'locked')
+    .filter((item) => {
+      if (item.status === 'available' || item.status === 'locked') return true;
+      if (item.status === 'scheduled' && item.scheduledStartsAt) {
+        const unlockAt = new Date(new Date(item.scheduledStartsAt).getTime() + TEN_DAYS_MS_S);
+        if (unlockAt > nowSchedule) return true;
+      }
+      return false;
+    })
     .sort((a, b) => a.sequenceNo - b.sequenceNo)[0];
 
   if (entitlement.status === 'completed') {
@@ -2294,6 +2337,27 @@ export async function scheduleProgramMentorship(
   await bookAvailabilitySlot(client, input.mentorUserId, input.startsAt, endsAt);
   const fallbackMeetingUrl = await getMentorOfficeHoursUrl(client, input.mentorUserId);
 
+  let resolvedMeetingUrl = input.meetingUrl ?? null;
+  let zoomMeetingId: string | null = null;
+  let zoomHostUrl: string | null = null;
+  if (!resolvedMeetingUrl) {
+    try {
+      const zoom = await createZoomMeeting(client, actor.userId, {
+        topic: entitlement.title,
+        startsAt: input.startsAt,
+        durationMinutes: entitlement.defaultDurationMinutes,
+      });
+      if (zoom) {
+        resolvedMeetingUrl = zoom.joinUrl;
+        zoomMeetingId = zoom.meetingId;
+        zoomHostUrl = zoom.hostUrl;
+      }
+    } catch (zoomErr) {
+      console.error('[zoom] program mentorship meeting creation failed:', zoomErr);
+    }
+  }
+  if (!resolvedMeetingUrl) resolvedMeetingUrl = fallbackMeetingUrl ?? null;
+
   const session = await createSessionWithParticipants(client, actor, {
     mentorUserId: input.mentorUserId,
     title: entitlement.title,
@@ -2302,10 +2366,19 @@ export async function scheduleProgramMentorship(
     endsAt,
     sessionType: 'individual',
     status: 'scheduled',
-    meetingUrl: input.meetingUrl ?? fallbackMeetingUrl ?? null,
+    meetingUrl: resolvedMeetingUrl,
     menteeUserIds: [actor.userId],
     sessionOrigin: 'program_included',
   });
+
+  if (zoomMeetingId) {
+    await client.query(
+      `UPDATE app_mentoring.mentorship_sessions
+       SET zoom_meeting_id = $2, zoom_host_url = $3, updated_at = now()
+       WHERE session_id = $1::uuid`,
+      [session.sessionId, zoomMeetingId, zoomHostUrl],
+    );
+  }
 
   await client.query(
     `

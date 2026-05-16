@@ -3,6 +3,7 @@ export const MODULE_CODES = [
   'aprendizaje',
   'contenido',
   'convocatorias',
+  'notificaciones',
   'dashboard',
   'descubrimiento',
   'formacion_mentores',

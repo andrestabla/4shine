@@ -3,6 +3,8 @@ import { authenticateRequest } from '@/server/auth/request-auth';
 import { withClient, withRoleContext } from '@/server/db/pool';
 import type { UpdateMentorshipInput } from '@/features/mentorias/service';
 import { deleteMentorship, updateMentorship } from '@/features/mentorias/service';
+import { deleteZoomMeeting } from '@/server/integrations/zoom';
+import { sendMentorshipCancelledEmail } from '@/features/mentorias/email';
 import { errorResponse, logModuleAudit, parseJsonBody, unauthorizedResponse } from '../../_utils';
 
 interface ContextParams {
@@ -19,6 +21,21 @@ export async function PATCH(request: Request, context: ContextParams) {
   }
 
   const { sessionId } = await context.params;
+  const isCancellation = body.status === 'cancelled';
+
+  // Grab zoom_meeting_id before the update (it gets used after the session is cancelled)
+  let zoomMeetingId: string | null = null;
+  if (isCancellation) {
+    zoomMeetingId = await withClient((client) =>
+      withRoleContext(client, identity.userId, identity.role, async () => {
+        const { rows } = await client.query<{ zoom_meeting_id: string | null }>(
+          `SELECT zoom_meeting_id FROM app_mentoring.mentorship_sessions WHERE session_id = $1::uuid LIMIT 1`,
+          [sessionId],
+        );
+        return rows[0]?.zoom_meeting_id ?? null;
+      }),
+    );
+  }
 
   try {
     const data = await withClient((client) =>
@@ -34,6 +51,27 @@ export async function PATCH(request: Request, context: ContextParams) {
         return result;
       }),
     );
+
+    if (isCancellation) {
+      // Delete Zoom meeting (fire-and-forget)
+      if (zoomMeetingId) {
+        withClient((c) =>
+          withRoleContext(c, identity.userId, identity.role, () =>
+            deleteZoomMeeting(c, identity.userId, zoomMeetingId!),
+          ),
+        ).catch((err) => console.error('[zoom] delete meeting failed:', err));
+      }
+
+      // Notify lider (fire-and-forget, dedicated client)
+      withClient((emailClient) =>
+        withRoleContext(emailClient, identity.userId, identity.role, () =>
+          sendMentorshipCancelledEmail(emailClient, identity, data, {
+            reason: body.changeReason ?? '',
+            proposedStartsAt: body.proposedStartsAt ?? null,
+          }),
+        ),
+      ).catch((err) => console.error('[email] cancellation email failed:', err));
+    }
 
     return NextResponse.json({ ok: true, data }, { status: 200 });
   } catch (error) {

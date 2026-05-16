@@ -30,12 +30,16 @@ export async function POST(request: Request) {
             sessionId: result.sessionId,
           },
         });
-        sendMentorshipScheduledEmail(client, identity, result).catch((err) =>
-          console.error('[email] mentorship scheduled email failed:', err),
-        );
         return result;
       }),
     );
+
+    // Send emails with a dedicated client so the main transaction is already committed
+    withClient((emailClient) =>
+      withRoleContext(emailClient, identity.userId, identity.role, () =>
+        sendMentorshipScheduledEmail(emailClient, identity, data),
+      ),
+    ).catch((err) => console.error('[email] mentorship scheduled email failed:', err));
 
     return NextResponse.json({ ok: true, data }, { status: 201 });
   } catch (error) {

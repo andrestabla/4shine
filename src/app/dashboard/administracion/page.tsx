@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { PageTitle } from '@/components/dashboard/PageTitle';
-import { Settings, Palette, PlugZap, Users, ShieldCheck, Globe } from 'lucide-react';
+import { Settings, Palette, PlugZap, Users, ShieldCheck, Globe, Bell } from 'lucide-react';
 
 const ADMIN_CARDS = [
   {
@@ -16,6 +16,12 @@ const ADMIN_CARDS = [
     description: 'Configurar identidad visual de la plataforma: colores, logo, loader, tipografía y favicon.',
     href: '/dashboard/administracion/branding',
     icon: Palette,
+  },
+  {
+    title: 'Mensajes y Notificaciones',
+    description: 'Crear plantillas de email e in-app con variables dinámicas y configurar qué eventos disparan cada notificación.',
+    href: '/dashboard/administracion/notificaciones',
+    icon: Bell,
   },
   {
     title: 'Integraciones',

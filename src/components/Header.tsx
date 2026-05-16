@@ -35,6 +35,9 @@ const PATH_TITLES: Record<string, string> = {
   "/dashboard/administracion": "Administración",
   "/dashboard/administracion/branding": "Branding y Marca",
   "/dashboard/administracion/integraciones": "Integraciones",
+  "/dashboard/administracion/notificaciones": "Mensajes y Notificaciones",
+  "/dashboard/administracion/notificaciones/plantillas": "Plantillas de mensajes",
+  "/dashboard/administracion/notificaciones/eventos": "Configuración de eventos",
   "/dashboard/contenido": "Gestión Contenido",
   "/dashboard/analitica": "Analítica",
 };
