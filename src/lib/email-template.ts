@@ -1,10 +1,19 @@
 export interface EmailBranding {
   platformName: string;
   logoUrl: string | null;
+  headerBg?: string;
+  footerTagline?: string;
+  footerSupport?: string;
+  footerLegal?: string;
 }
 
 export function buildBrandedEmailHtml(bodyHtml: string, branding: EmailBranding): string {
   const platformName = branding.platformName || '4Shine';
+  const headerBg = branding.headerBg || '#1e293b';
+  const footerTagline = branding.footerTagline || 'Plataforma de desarrollo de equipos';
+  const footerSupport = branding.footerSupport || 'soporte@4shine.co';
+  const footerLegal = branding.footerLegal || '';
+
   const headerContent = branding.logoUrl
     ? `<img src="${branding.logoUrl}" alt="${platformName}" style="height:48px;width:auto;display:block;margin:0 auto;" />`
     : `<span style="color:#ffffff;font-size:22px;font-weight:700;letter-spacing:0.5px;">${platformName}</span>`;
@@ -18,7 +27,7 @@ export function buildBrandedEmailHtml(bodyHtml: string, branding: EmailBranding)
     <td align="center" style="padding:32px 16px;">
       <table width="560" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;width:100%;background-color:#ffffff;border-radius:16px;overflow:hidden;">
         <tr>
-          <td style="background-color:#1e293b;padding:28px 40px;text-align:center;">
+          <td style="background-color:${headerBg};padding:28px 40px;text-align:center;">
             ${headerContent}
           </td>
         </tr>
@@ -29,8 +38,9 @@ export function buildBrandedEmailHtml(bodyHtml: string, branding: EmailBranding)
         </tr>
         <tr>
           <td style="background-color:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 40px;text-align:center;">
-            <p style="margin:0 0 4px;font-size:12px;color:#94a3b8;">${platformName} &middot; Plataforma de desarrollo de equipos</p>
-            <p style="margin:0;font-size:12px;color:#cbd5e1;">soporte@4shine.co</p>
+            <p style="margin:0 0 4px;font-size:12px;color:#94a3b8;">${platformName} &middot; ${footerTagline}</p>
+            <p style="margin:0;font-size:12px;color:#cbd5e1;">${footerSupport}</p>
+            ${footerLegal ? `<p style="margin:4px 0 0;font-size:11px;color:#cbd5e1;">${footerLegal}</p>` : ''}
           </td>
         </tr>
       </table>

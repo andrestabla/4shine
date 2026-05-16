@@ -8,6 +8,7 @@ import type {
   UpdateTemplateInput,
   UpdateEventConfigInput,
   NotificationInAppType,
+  NotificationGlobalSettings,
 } from './types';
 
 // ─── Internal row types ───────────────────────────────────────────────────────
@@ -392,4 +393,93 @@ export async function resolveEventConfig(
     channelInApp: config.channel_in_app,
     template,
   };
+}
+
+// ─── Global Settings ─────────────────────────────────────────────────────────
+
+interface GlobalSettingsRow {
+  var_platform_name: string;
+  var_platform_url: string;
+  email_header_bg: string;
+  email_footer_tagline: string;
+  email_footer_support: string;
+  email_footer_legal: string;
+}
+
+function toGlobalSettings(row: GlobalSettingsRow | undefined): NotificationGlobalSettings {
+  return {
+    varPlatformName: row?.var_platform_name ?? '',
+    varPlatformUrl: row?.var_platform_url ?? '',
+    emailHeaderBg: row?.email_header_bg ?? '#1e293b',
+    emailFooterTagline: row?.email_footer_tagline ?? '',
+    emailFooterSupport: row?.email_footer_support ?? '',
+    emailFooterLegal: row?.email_footer_legal ?? '',
+  };
+}
+
+const GLOBAL_SETTINGS_SELECT = `
+  var_platform_name, var_platform_url, email_header_bg,
+  email_footer_tagline, email_footer_support, email_footer_legal
+`;
+
+export async function getNotificationSettings(
+  client: PoolClient,
+  actor: AuthUser,
+): Promise<NotificationGlobalSettings> {
+  await requireModulePermission(client, 'usuarios', 'manage');
+  const orgId = await resolveOrgId(client, actor.userId);
+  const { rows } = await client.query<GlobalSettingsRow>(
+    `SELECT ${GLOBAL_SETTINGS_SELECT}
+     FROM app_admin.notification_global_settings
+     WHERE organization_id = $1 LIMIT 1`,
+    [orgId],
+  );
+  return toGlobalSettings(rows[0]);
+}
+
+export async function upsertNotificationSettings(
+  client: PoolClient,
+  actor: AuthUser,
+  input: NotificationGlobalSettings,
+): Promise<NotificationGlobalSettings> {
+  await requireModulePermission(client, 'usuarios', 'manage');
+  const orgId = await resolveOrgId(client, actor.userId);
+  const { rows } = await client.query<GlobalSettingsRow>(
+    `INSERT INTO app_admin.notification_global_settings
+       (organization_id, var_platform_name, var_platform_url, email_header_bg,
+        email_footer_tagline, email_footer_support, email_footer_legal)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     ON CONFLICT (organization_id) DO UPDATE SET
+       var_platform_name    = EXCLUDED.var_platform_name,
+       var_platform_url     = EXCLUDED.var_platform_url,
+       email_header_bg      = EXCLUDED.email_header_bg,
+       email_footer_tagline = EXCLUDED.email_footer_tagline,
+       email_footer_support = EXCLUDED.email_footer_support,
+       email_footer_legal   = EXCLUDED.email_footer_legal,
+       updated_at           = NOW()
+     RETURNING ${GLOBAL_SETTINGS_SELECT}`,
+    [
+      orgId,
+      input.varPlatformName.trim(),
+      input.varPlatformUrl.trim(),
+      input.emailHeaderBg.trim() || '#1e293b',
+      input.emailFooterTagline.trim(),
+      input.emailFooterSupport.trim(),
+      input.emailFooterLegal.trim(),
+    ],
+  );
+  return toGlobalSettings(rows[0]);
+}
+
+export async function getNotificationSettingsByOrg(
+  client: PoolClient,
+  organizationId: string,
+): Promise<NotificationGlobalSettings> {
+  const { rows } = await client.query<GlobalSettingsRow>(
+    `SELECT ${GLOBAL_SETTINGS_SELECT}
+     FROM app_admin.notification_global_settings
+     WHERE organization_id = $1 LIMIT 1`,
+    [organizationId],
+  );
+  return toGlobalSettings(rows[0]);
 }

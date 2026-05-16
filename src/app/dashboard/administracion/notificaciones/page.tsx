@@ -1,7 +1,6 @@
-'use client';
-
 import Link from 'next/link';
 import { PageTitle } from '@/components/dashboard/PageTitle';
+import { NotificationSettingsPanel } from '@/components/dashboard/notificaciones/NotificationSettingsPanel';
 import { LayoutTemplate, ListChecks, Bell } from 'lucide-react';
 
 const CARDS = [
@@ -41,14 +40,16 @@ export default function NotificacionesAdminPage() {
         ))}
       </div>
 
+      <NotificationSettingsPanel />
+
       <div className="rounded-[1rem] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-3 text-sm text-[var(--app-muted)] flex gap-3 items-start">
         <Bell size={15} className="mt-0.5 shrink-0 text-[var(--app-ink)]" />
         <div>
           <p className="font-medium text-[var(--app-ink)] mb-1">¿Cómo funciona?</p>
           <p>
-            Primero crea una <strong>plantilla</strong> con el asunto, cuerpo y variables para cada tipo de mensaje.
-            Luego en <strong>Eventos</strong>, asigna esa plantilla al evento de plataforma correspondiente (ej. "Mentoría agendada")
-            y define si se entrega por email, notificación in-app o ambos.
+            Primero define los <strong>valores globales</strong> arriba (nombre y URL de la plataforma, apariencia del email).
+            Luego crea una <strong>plantilla</strong> con el asunto, cuerpo y variables para cada tipo de mensaje.
+            Finalmente en <strong>Eventos</strong>, asigna esa plantilla al evento correspondiente y define los canales de envío.
           </p>
         </div>
       </div>

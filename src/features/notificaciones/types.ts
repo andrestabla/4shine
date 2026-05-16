@@ -131,6 +131,17 @@ export interface NotificationEventDef {
   defaultInAppType: NotificationInAppType;
 }
 
+// ─── Global Settings ─────────────────────────────────────────────────────────
+
+export interface NotificationGlobalSettings {
+  varPlatformName: string;
+  varPlatformUrl: string;
+  emailHeaderBg: string;
+  emailFooterTagline: string;
+  emailFooterSupport: string;
+  emailFooterLegal: string;
+}
+
 // ─── Dispatch Context (passed to engine) ─────────────────────────────────────
 
 export interface DispatchContext {

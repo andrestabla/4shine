@@ -5,6 +5,7 @@ import type {
   CreateTemplateInput,
   UpdateTemplateInput,
   UpdateEventConfigInput,
+  NotificationGlobalSettings,
 } from './types';
 
 export type {
@@ -13,6 +14,7 @@ export type {
   CreateTemplateInput,
   UpdateTemplateInput,
   UpdateEventConfigInput,
+  NotificationGlobalSettings,
 } from './types';
 
 // Safe response envelope (requestApi throws on error; we catch and wrap)
@@ -87,6 +89,21 @@ export function previewTemplate(templateId: string, sampleVars: Record<string, s
     }>(`${BASE}/templates/${templateId}/preview`, {
       method: 'POST',
       body: JSON.stringify({ sampleVars }),
+    }),
+  );
+}
+
+// ─── Global Settings ──────────────────────────────────────────────────────────
+
+export function getNotificationSettings() {
+  return safe(() => requestApi<NotificationGlobalSettings>(`${BASE}/settings`));
+}
+
+export function updateNotificationSettings(input: NotificationGlobalSettings) {
+  return safe(() =>
+    requestApi<NotificationGlobalSettings>(`${BASE}/settings`, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
     }),
   );
 }

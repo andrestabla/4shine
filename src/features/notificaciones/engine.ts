@@ -18,7 +18,7 @@ import type { PoolClient } from 'pg';
 import { buildBrandedEmailHtml } from '@/lib/email-template';
 import type { DispatchContext, VariableKey } from './types';
 import { EVENTS_BY_KEY } from './events-catalog';
-import { resolveEventConfig, insertUserNotification } from './service';
+import { resolveEventConfig, insertUserNotification, getNotificationSettingsByOrg } from './service';
 
 // ─── Template rendering ───────────────────────────────────────────────────────
 
@@ -59,6 +59,21 @@ async function fetchBranding(client: PoolClient, organizationId: string) {
     [organizationId],
   );
   return { platformName: rows[0]?.platform_name ?? '4Shine', logoUrl: rows[0]?.logo_url ?? null };
+}
+
+async function fetchEmailBranding(client: PoolClient, organizationId: string) {
+  const [base, settings] = await Promise.all([
+    fetchBranding(client, organizationId),
+    getNotificationSettingsByOrg(client, organizationId),
+  ]);
+  return {
+    platformName: settings.varPlatformName || base.platformName,
+    logoUrl: base.logoUrl,
+    headerBg: settings.emailHeaderBg || undefined,
+    footerTagline: settings.emailFooterTagline || undefined,
+    footerSupport: settings.emailFooterSupport || undefined,
+    footerLegal: settings.emailFooterLegal || undefined,
+  };
 }
 
 async function sendTemplateEmail(
@@ -136,7 +151,14 @@ export async function dispatchNotification(
   if (!resolved.isEnabled || !resolved.template) return;
 
   const tmpl = resolved.template;
-  const vars = ctx.variables;
+
+  // Merge global variable defaults with dispatch-provided vars (dispatch vars win)
+  const globalSettings = await getNotificationSettingsByOrg(client, ctx.organizationId);
+  const vars: Partial<Record<VariableKey, string>> = {
+    ...(globalSettings.varPlatformName ? { plataforma: globalSettings.varPlatformName } : {}),
+    ...(globalSettings.varPlatformUrl ? { enlace_plataforma: globalSettings.varPlatformUrl } : {}),
+    ...ctx.variables,
+  };
 
   // ── In-app notification ──────────────────────────────────────────────────
   if (resolved.channelInApp && tmpl.channelInApp && tmpl.inAppTitleTemplate) {
@@ -165,7 +187,7 @@ export async function dispatchNotification(
 
     const [emailConfig, branding] = await Promise.all([
       fetchOutboundConfig(client, ctx.organizationId),
-      fetchBranding(client, ctx.organizationId),
+      fetchEmailBranding(client, ctx.organizationId),
     ]);
 
     const fullHtml = buildBrandedEmailHtml(bodyHtml, branding);
@@ -192,7 +214,7 @@ export async function sendEmailToAddress(
 ): Promise<void> {
   const [emailConfig, branding] = await Promise.all([
     fetchOutboundConfig(client, organizationId),
-    fetchBranding(client, organizationId),
+    fetchEmailBranding(client, organizationId),
   ]);
   const fullHtml = buildBrandedEmailHtml(bodyHtml, branding);
   await sendTemplateEmail(
