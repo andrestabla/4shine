@@ -11,6 +11,7 @@ import {
   ExternalLink,
   Frown,
   Gauge,
+  HelpCircle,
   Laugh,
   Loader2,
   Mail,
@@ -91,34 +92,28 @@ const FACE_SCALE = [
   { value: 5, icon: Laugh, label: "Excelente" },
 ] as const;
 
-const TOUR_STEPS = [
+const HOW_TO_READ_SECTIONS = [
   {
-    targetId: "results-header",
-    title: "¡Bienvenido a tus resultados!",
-    text: "Has completado tu diagnóstico 4Shine. Vamos a orientarte para que aproveches al máximo esta lectura estratégica.",
+    title: "Tus resultados de un vistazo",
+    text: "Has completado tu diagnóstico 4Shine. Esta pantalla reúne toda la lectura estratégica de tu liderazgo en un solo lugar.",
   },
   {
-    targetId: "action-buttons",
     title: "Documentación y compartido",
     text: "En la parte superior puedes compartir tu informe o descargarlo en PDF. Ambos documentos incluyen el desglose detallado de tu liderazgo.",
   },
   {
-    targetId: "pillar-tabs",
     title: "Navegación por pilares",
     text: "Tu liderazgo se analiza en 4 pilares: Within, Out, Up y Beyond. Cámbialos para profundizar en las brechas y fortalezas de cada área.",
   },
   {
-    targetId: "radar-container",
     title: "Mapa de radar",
     text: "Esta gráfica es tu huella dactilar de liderazgo. Los picos hacia afuera indican tus mayores talentos y los valles señalan tus oportunidades de mejora.",
   },
   {
-    targetId: "competencies-breakdown",
     title: "Desglose de competencias",
     text: "Para cada pilar, listamos las competencias específicas, su resultado porcentual y una descripción conceptual para tu reflexión.",
   },
   {
-    targetId: "executive-summary",
     title: "Informe narrativo",
     text: "Lee el análisis personalizado generado por IA. Encontrarás tu perfil de liderazgo, lo que hoy te impulsa y un plan de acción sugerido.",
   },
@@ -190,9 +185,8 @@ export function ResultsView({
   const [isExporting, setIsExporting] = React.useState(false);
   const [isSharing, setIsSharing] = React.useState(false);
   const [sharedPublicId, setSharedPublicId] = React.useState(publicId ?? null);
-  const [isTourOpen, setIsTourOpen] = React.useState(false);
-  const [tourStepIdx, setTourStepIdx] = React.useState(0);
-  const [analysisReady, setAnalysisReady] = React.useState(false);
+  const [isHelpOpen, setIsHelpOpen] = React.useState(false);
+  const [analysisReady, setAnalysisReady] = React.useState(true);
   const [maximizedChart, setMaximizedChart] = React.useState<"global" | "pillar" | null>(null);
   const [isSurveyOpen, setIsSurveyOpen] = React.useState(false);
   const [isSurveySubmitting, setIsSurveySubmitting] = React.useState(false);
@@ -273,30 +267,6 @@ export function ResultsView({
   React.useEffect(() => {
     setSurveyAnswers(initialSurvey?.answers ?? {});
   }, [initialSurvey]);
-
-  React.useEffect(() => {
-    if (typeof window === "undefined") return;
-    const seenTour = window.localStorage.getItem("discovery-results-tour-seen") === "1";
-    if (!seenTour) {
-      setIsTourOpen(true);
-    } else {
-      setAnalysisReady(true);
-    }
-  }, []);
-
-  const closeTour = React.useCallback(() => {
-    setIsTourOpen(false);
-    window.localStorage.setItem("discovery-results-tour-seen", "1");
-    setAnalysisReady(true);
-  }, []);
-
-  const handleNextTourStep = () => {
-    if (tourStepIdx < TOUR_STEPS.length - 1) {
-      setTourStepIdx((prev) => prev + 1);
-    } else {
-      closeTour();
-    }
-  };
 
   const syncReports = React.useCallback((nextReports: Partial<Record<DiscoveryReportFilter, string>>) => {
     const trimmedEntries = (Object.entries(nextReports) as Array<[DiscoveryReportFilter, string | undefined]>)
@@ -706,6 +676,15 @@ export function ResultsView({
               Avance {currentScore}%
             </span>
 
+            <button
+              type="button"
+              onClick={() => setIsHelpOpen(true)}
+              className="inline-flex h-11 items-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-4 text-sm font-semibold text-[var(--app-muted)] transition hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)]"
+            >
+              <HelpCircle size={16} />
+              ¿Cómo leer mis resultados?
+            </button>
+
             {!isPublic && onShare && (
               <button
                 type="button"
@@ -1048,31 +1027,39 @@ export function ResultsView({
         </aside>
       </div>
 
-      {isTourOpen && (
-        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-[rgba(15,23,42,0.48)] px-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-[22px] border border-[var(--app-border)] bg-white p-6 shadow-2xl">
+      {isHelpOpen && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-[rgba(15,23,42,0.48)] px-4 backdrop-blur-sm" onClick={() => setIsHelpOpen(false)}>
+          <div className="w-full max-w-lg rounded-[22px] border border-[var(--app-border)] bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
-              <p className="app-section-kicker">Tour 4Shine</p>
-              <p className="text-xs font-bold text-[var(--app-muted)]">Paso {tourStepIdx + 1} de {TOUR_STEPS.length}</p>
-            </div>
-            
-            <h3 className="mt-3 text-2xl font-black text-[var(--app-ink)]">{TOUR_STEPS[tourStepIdx].title}</h3>
-            <p className="mt-3 text-sm leading-relaxed text-[var(--app-muted)]">{TOUR_STEPS[tourStepIdx].text}</p>
-            
-            <div className="mt-6 flex items-center justify-between gap-3">
-              <button
-                type="button"
-                onClick={closeTour}
-                className="text-xs font-semibold text-[var(--app-muted)] underline underline-offset-4"
-              >
-                Saltar tour
+              <p className="app-section-kicker">Guía de lectura</p>
+              <button type="button" onClick={() => setIsHelpOpen(false)} className="text-[var(--app-muted)] transition hover:text-[var(--app-ink)]" aria-label="Cerrar">
+                ✕
               </button>
+            </div>
+
+            <h3 className="mt-3 text-xl font-black text-[var(--app-ink)]">¿Cómo leer mis resultados?</h3>
+
+            <div className="mt-4 space-y-4">
+              {HOW_TO_READ_SECTIONS.map((section) => (
+                <div key={section.title} className="flex gap-3">
+                  <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--brand-primary)]/10">
+                    <HelpCircle size={11} className="text-[var(--brand-primary)]" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-[var(--app-ink)]">{section.title}</p>
+                    <p className="mt-0.5 text-sm leading-relaxed text-[var(--app-muted)]">{section.text}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-6 flex justify-end">
               <button
                 type="button"
-                onClick={handleNextTourStep}
+                onClick={() => setIsHelpOpen(false)}
                 className="inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-6 py-2.5 text-xs font-extrabold uppercase tracking-[0.18em] text-white"
               >
-                {tourStepIdx === TOUR_STEPS.length - 1 ? "Finalizar" : "Siguiente"}
+                Entendido
               </button>
             </div>
           </div>
