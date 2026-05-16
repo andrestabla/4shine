@@ -14,7 +14,7 @@ import { resolveOrganizationIdForActor } from "@/server/integrations/config";
 import type { AuthUser } from "@/server/auth/types";
 import { USER_COUNTRY_SET, USER_GENDER_SET, USER_JOB_ROLE_SET } from "@/lib/user-demographics";
 import { buildBrandedEmailHtml } from "@/lib/email-template";
-import { getNotificationSettingsByOrg } from "@/features/notificaciones/service";
+import { getNotificationSettingsByOrg, resolveEventConfig } from "@/features/notificaciones/service";
 import { COMP_DEFINITIONS } from "./DiagnosticsData";
 import {
   DISCOVERY_TOTAL_ITEMS,
@@ -2091,6 +2091,13 @@ export async function createDiscoveryInvitations(
     footerLegal: notifSettings.emailFooterLegal || undefined,
   };
 
+  // Check if a notification template is configured for this event — it takes priority.
+  const notifEventConfig = await resolveEventConfig(client, organizationId, 'descubrimiento.invitation');
+  const notifTemplate =
+    notifEventConfig.isEnabled && notifEventConfig.channelEmail && notifEventConfig.template?.subjectTemplate && notifEventConfig.template?.bodyHtmlTemplate
+      ? notifEventConfig.template
+      : null;
+
   const baseUrl = resolveAppBaseUrl();
   const outboundConfig = await resolveOutboundConfig(client, organizationId);
   if (!outboundConfig) {
@@ -2180,15 +2187,39 @@ export async function createDiscoveryInvitations(
       platform_logo_url: platformLogoUrl,
     };
 
-    const filledSubject = fillTemplate(subjectTemplate, params);
-    const filledText = fillTemplate(textTemplate, params);
+    // Variables for the notification template engine (Spanish keys match the events catalog).
+    const notifVars: Record<string, string> = {
+      nombre: sharedSession ? `${sharedSession.firstName} ${sharedSession.lastName}`.trim() : email,
+      plataforma: notifSettings.varPlatformName || branding.platform_name,
+      enlace_plataforma: notifSettings.varPlatformUrl || '',
+      enlace_invitacion: inviteUrl,
+      codigo_acceso: accessCode,
+      // Extra keys used by the built-in body template:
+      recipient_email: email,
+      diagnostic_id: sharedSession?.diagnosticIdentifier ?? 'N/A',
+    };
 
+    let filledSubject: string;
     let fullHtml: string;
-    if (customHtmlWithLogo) {
+    let filledText: string;
+
+    if (notifTemplate) {
+      // Notification template configured — central governance via Plantillas module.
+      filledSubject = fillTemplate(notifTemplate.subjectTemplate, notifVars);
+      const bodyHtml = fillTemplate(notifTemplate.bodyHtmlTemplate, notifVars);
+      filledText = fillTemplate(notifTemplate.bodyTextTemplate, notifVars);
+      fullHtml = buildBrandedEmailHtml(bodyHtml, emailBranding);
+    } else if (customHtmlWithLogo) {
+      // Legacy custom HTML override (feedback settings or API input).
+      filledSubject = fillTemplate(subjectTemplate, params);
       fullHtml = fillTemplate(customHtmlWithLogo, params);
+      filledText = fillTemplate(textTemplate, params);
     } else {
+      // Built-in default body.
+      filledSubject = fillTemplate(subjectTemplate, params);
       const bodyHtml = fillTemplate(defaultInviteEmailBodyHtml(branding.primary_color, branding.accent_color), params);
       fullHtml = buildBrandedEmailHtml(bodyHtml, emailBranding);
+      filledText = fillTemplate(textTemplate, params);
     }
 
     await sendOutboundEmail(outboundConfig, { to: email, subject: filledSubject, html: fullHtml, text: filledText });
