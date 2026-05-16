@@ -11,7 +11,7 @@ import { createTemplate, previewTemplate } from '@/features/notificaciones/clien
 import { ChevronDown, ChevronLeft } from 'lucide-react';
 import clsx from 'clsx';
 
-const MODULE_ORDER = ['usuarios', 'mentorias', 'aprendizaje', 'convocatorias', 'networking', 'mensajes', 'workshops'];
+const MODULE_ORDER = ['usuarios', 'descubrimiento', 'mentorias', 'aprendizaje', 'convocatorias', 'networking', 'mensajes', 'workshops'];
 
 function groupByModule() {
   const groups: Record<string, typeof NOTIFICATION_EVENTS> = {};

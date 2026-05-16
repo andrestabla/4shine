@@ -110,7 +110,9 @@ export type VariableKey =
   | 'categoria'
   | 'grupo'
   | 'solicitante_nombre'
-  | 'conexion_nombre';
+  | 'conexion_nombre'
+  | 'codigo_acceso'
+  | 'enlace_invitacion';
 
 export interface VariableDef {
   key: VariableKey;

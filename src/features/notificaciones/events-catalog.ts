@@ -129,6 +129,18 @@ export const VARIABLE_DEFS: Record<VariableKey, VariableDef> = {
     description: 'Nombre de la persona con quien se estableció la conexión',
     example: 'Roberto Silva',
   },
+  codigo_acceso: {
+    key: 'codigo_acceso',
+    label: 'Código de acceso',
+    description: 'Código único de acceso al diagnóstico',
+    example: 'JEXK',
+  },
+  enlace_invitacion: {
+    key: 'enlace_invitacion',
+    label: 'Enlace de invitación',
+    description: 'URL directa para acceder al diagnóstico',
+    example: 'https://app.4shine.co/descubrimiento?inv=...',
+  },
 };
 
 // ─── Event Catalog ────────────────────────────────────────────────────────────
@@ -308,6 +320,26 @@ export const NOTIFICATION_EVENTS: NotificationEventDef[] = [
     defaultInAppType: 'message',
   },
 
+  // ── DESCUBRIMIENTO ────────────────────────────────────────────────────────
+  {
+    key: 'descubrimiento.invitation',
+    moduleCode: 'descubrimiento',
+    moduleLabel: 'Descubrimiento',
+    label: 'Invitación al diagnóstico',
+    description: 'Se envía cuando el administrador invita a alguien a completar el diagnóstico de liderazgo.',
+    variables: ['nombre', 'plataforma', 'enlace_invitacion', 'codigo_acceso'],
+    defaultInAppType: 'info',
+  },
+  {
+    key: 'descubrimiento.completed',
+    moduleCode: 'descubrimiento',
+    moduleLabel: 'Descubrimiento',
+    label: 'Diagnóstico completado',
+    description: 'Se envía al participante cuando finaliza el diagnóstico y sus resultados están listos.',
+    variables: ['nombre', 'plataforma', 'enlace_plataforma'],
+    defaultInAppType: 'success',
+  },
+
   // ── WORKSHOPS ─────────────────────────────────────────────────────────────
   {
     key: 'workshops.published',
@@ -344,6 +376,7 @@ export const EVENTS_BY_MODULE: Record<string, NotificationEventDef[]> = NOTIFICA
 
 export const MODULE_LABELS: Record<string, string> = {
   usuarios: 'Usuarios',
+  descubrimiento: 'Descubrimiento',
   mentorias: 'Mentorías',
   aprendizaje: 'Aprendizaje',
   convocatorias: 'Convocatorias',

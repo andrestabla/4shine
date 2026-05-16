@@ -201,7 +201,7 @@ function parseNumber(value: string): number | undefined {
 function buildManagerTabs() {
   return [
     { key: "preview" as const, label: "Vista previa del diagnóstico" },
-    { key: "mailing" as const, label: "Configuración de mailing y envío" },
+    { key: "mailing" as const, label: "Envío de invitaciones" },
     { key: "rag" as const, label: "Configuración RAG" },
     { key: "results" as const, label: "Resultados generales" },
   ];
@@ -1456,222 +1456,26 @@ export function DiscoveryExperience() {
           </div>
         )}
 
-        {managerTab === "mailing" && currentSettings && (
-          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-            <section className="app-panel p-5 space-y-3">
-              <h3 className="text-lg font-black text-[var(--app-ink)]">Configuración de mailing</h3>
-
-              <div className="rounded-[12px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4">
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--app-muted)]">
-                  Constructor visual (componentes, estilos y colores)
-                </p>
-
-                <div className="mt-3 grid gap-3 md:grid-cols-2">
-                  <input
-                    value={mailingBuilder.headerLogoUrl}
-                    onChange={(event) =>
-                      setMailingBuilder((prev) => ({ ...prev, headerLogoUrl: event.target.value }))
-                    }
-                    placeholder="URL logo del cabezote"
-                    className="h-10 rounded-[10px] border border-[var(--app-border)] bg-white px-3 text-sm md:col-span-2"
-                  />
-                  <input
-                    value={mailingBuilder.headerTitle}
-                    onChange={(event) =>
-                      setMailingBuilder((prev) => ({ ...prev, headerTitle: event.target.value }))
-                    }
-                    placeholder="Titulo del cabezote"
-                    className="h-10 rounded-[10px] border border-[var(--app-border)] bg-white px-3 text-sm"
-                  />
-                  <input
-                    value={mailingBuilder.preheader}
-                    onChange={(event) =>
-                      setMailingBuilder((prev) => ({ ...prev, preheader: event.target.value }))
-                    }
-                    placeholder="Subtitulo del cabezote"
-                    className="h-10 rounded-[10px] border border-[var(--app-border)] bg-white px-3 text-sm"
-                  />
-                  <input
-                    value={mailingBuilder.buttonLabel}
-                    onChange={(event) =>
-                      setMailingBuilder((prev) => ({ ...prev, buttonLabel: event.target.value }))
-                    }
-                    placeholder="Texto del boton"
-                    className="h-10 rounded-[10px] border border-[var(--app-border)] bg-white px-3 text-sm"
-                  />
-                  <input
-                    value={mailingBuilder.footerText}
-                    onChange={(event) =>
-                      setMailingBuilder((prev) => ({ ...prev, footerText: event.target.value }))
-                    }
-                    placeholder="Texto del footer"
-                    className="h-10 rounded-[10px] border border-[var(--app-border)] bg-white px-3 text-sm"
-                  />
-                </div>
-
-                <textarea
-                  value={mailingBuilder.introText}
-                  onChange={(event) =>
-                    setMailingBuilder((prev) => ({ ...prev, introText: event.target.value }))
-                  }
-                  placeholder="Texto introductorio"
-                  className="mt-3 min-h-20 w-full rounded-[10px] border border-[var(--app-border)] bg-white p-3 text-sm"
-                />
-
-                <div className="mt-3 space-y-2">
-                  {mailingBuilder.bodyBlocks.map((block, index) => (
-                    <div key={index} className="flex items-start gap-2">
-                      <textarea
-                        value={block}
-                        onChange={(event) =>
-                          setMailingBuilder((prev) => {
-                            const nextBlocks = [...prev.bodyBlocks];
-                            nextBlocks[index] = event.target.value;
-                            return { ...prev, bodyBlocks: nextBlocks };
-                          })
-                        }
-                        placeholder={`Bloque de contenido ${index + 1}`}
-                        className="min-h-16 w-full rounded-[10px] border border-[var(--app-border)] bg-white p-2 text-sm"
-                      />
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setMailingBuilder((prev) => ({
-                            ...prev,
-                            bodyBlocks: prev.bodyBlocks.filter((_, i) => i !== index),
-                          }))
-                        }
-                        className="rounded-full border border-[var(--app-border)] bg-white px-3 py-2 text-xs font-semibold text-rose-700"
-                      >
-                        Quitar
-                      </button>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setMailingBuilder((prev) => ({
-                        ...prev,
-                        bodyBlocks: [...prev.bodyBlocks, ""],
-                      }))
-                    }
-                    className="rounded-full border border-[var(--app-border)] bg-white px-3 py-2 text-xs font-semibold text-[var(--app-ink)]"
-                  >
-                    Agregar bloque
-                  </button>
-                </div>
-
-                <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-5">
-                  {[
-                    ["headerBg", "Header"],
-                    ["buttonBg", "Boton"],
-                    ["pageBg", "Fondo"],
-                    ["cardBg", "Tarjeta"],
-                    ["footerBg", "Footer"],
-                  ].map(([key, label]) => (
-                    <label key={key} className="flex items-center gap-2 rounded-[10px] border border-[var(--app-border)] bg-white px-2 py-2 text-xs">
-                      <input
-                        type="color"
-                        value={
-                          mailingBuilder.colors[key as keyof MailingBuilderState["colors"]]
-                        }
-                        onChange={(event) =>
-                          setMailingBuilder((prev) => ({
-                            ...prev,
-                            colors: {
-                              ...prev.colors,
-                              [key]: event.target.value,
-                            },
-                          }))
-                        }
-                      />
-                      {label}
-                    </label>
-                  ))}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={applyBuilderToMailing}
-                  className="mt-3 inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-4 py-2 text-xs font-extrabold uppercase tracking-[0.14em] text-[var(--app-ink)]"
-                >
-                  Aplicar constructor a HTML/TXT
-                </button>
-              </div>
-
-              <label className="block text-sm font-semibold text-[var(--app-ink)]">
-                Asunto
-                <input
-                  value={currentSettings.inviteEmailSubject}
-                  onChange={(event) =>
-                    setSettings((prev) =>
-                      prev ? { ...prev, inviteEmailSubject: event.target.value } : prev,
-                    )
-                  }
-                  className="mt-2 h-10 w-full rounded-[12px] border border-[var(--app-border)] bg-white px-3 text-sm"
-                />
-              </label>
-
-              <label className="block text-sm font-semibold text-[var(--app-ink)]">
-                HTML (altamente editable)
-                <textarea
-                  value={currentSettings.inviteEmailHtml}
-                  onChange={(event) =>
-                    setSettings((prev) =>
-                      prev ? { ...prev, inviteEmailHtml: event.target.value } : prev,
-                    )
-                  }
-                  className="mt-2 min-h-56 w-full rounded-[12px] border border-[var(--app-border)] bg-white p-3 font-mono text-xs"
-                />
-              </label>
-
-              <label className="block text-sm font-semibold text-[var(--app-ink)]">
-                Texto plano
-                <textarea
-                  value={currentSettings.inviteEmailText}
-                  onChange={(event) =>
-                    setSettings((prev) =>
-                      prev ? { ...prev, inviteEmailText: event.target.value } : prev,
-                    )
-                  }
-                  className="mt-2 min-h-32 w-full rounded-[12px] border border-[var(--app-border)] bg-white p-3 text-sm"
-                />
-              </label>
-
-              <p className="text-xs text-[var(--app-muted)]">
-                Placeholders disponibles: <code>{"{{access_code}}"}</code>, <code>{"{{invite_url}}"}</code>, <code>{"{{recipient_email}}"}</code>, <code>{"{{diagnostic_id}}"}</code>, <code>{"{{participant_name}}"}</code>, <code>{"{{platform_logo_url}}"}</code>
-              </p>
-
-              <button
-                type="button"
-                disabled={isSavingSettings}
-                onClick={() =>
-                  void saveSettings(
-                    currentSettings,
-                    "Plantilla de mailing actualizada correctamente.",
-                  )
-                }
-                className="inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-4 py-2 text-xs font-extrabold uppercase tracking-[0.14em] text-white disabled:opacity-60"
-              >
-                {isSavingSettings ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
-                Guardar mailing
-              </button>
-            </section>
-
+        {managerTab === "mailing" && (
+          <div className="max-w-2xl space-y-6">
             <section className="app-panel p-5">
               <div className="flex items-center gap-2">
                 <Mail size={16} className="text-[var(--brand-primary)]" />
-                <h3 className="text-lg font-black text-[var(--app-ink)]">Envio masivo</h3>
+                <h3 className="text-lg font-black text-[var(--app-ink)]">Envío masivo</h3>
               </div>
+              <p className="mt-1 text-sm text-[var(--app-muted)]">
+                El contenido del email de invitación se gestiona desde{" "}
+                <a href="/dashboard/administracion/notificaciones/plantillas" className="font-semibold text-[var(--brand-primary)] underline underline-offset-2">
+                  Plantillas de mensajes → Descubrimiento
+                </a>
+                .
+              </p>
 
               <textarea
                 value={managerEmails}
                 onChange={(event) => setManagerEmails(event.target.value)}
                 placeholder="correo1@empresa.com\ncorreo2@empresa.com"
-                className="mt-3 min-h-32 w-full rounded-[12px] border border-[var(--app-border)] bg-white p-3 text-sm"
+                className="mt-4 min-h-32 w-full rounded-[12px] border border-[var(--app-border)] bg-white p-3 text-sm"
               />
 
               <div className="mt-3 flex flex-wrap items-center gap-2">
