@@ -705,14 +705,15 @@ export function ResultsView({
                   type="button"
                   onClick={handleShare}
                   disabled={isSharing}
-                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-4 py-2.5 text-sm font-black text-[var(--app-ink)] transition hover:border-[var(--brand-primary)] hover:bg-[var(--app-surface-muted)] hover:text-[var(--brand-primary)] disabled:opacity-40 sm:flex-none sm:px-5"
+                  title="Compartir informe"
+                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--app-border)] bg-white text-[var(--app-ink)] transition hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)] disabled:opacity-40 sm:h-auto sm:w-auto sm:gap-2 sm:px-5 sm:py-2.5"
                 >
                   {isSharing ? (
                     <Loader2 size={16} className="animate-spin" />
                   ) : (
                     <Share2 size={16} />
                   )}
-                  Compartir informe
+                  <span className="hidden text-sm font-black sm:inline">Compartir informe</span>
                 </button>
               )}
 
@@ -1044,36 +1045,42 @@ export function ResultsView({
       </div>
 
       {isHelpOpen && (
-        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-[rgba(15,23,42,0.48)] px-4 backdrop-blur-sm" onClick={() => setIsHelpOpen(false)}>
-          <div className="w-full max-w-lg rounded-[22px] border border-[var(--app-border)] bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between">
-              <p className="app-section-kicker">Guía de lectura</p>
-              <button type="button" onClick={() => setIsHelpOpen(false)} className="text-[var(--app-muted)] transition hover:text-[var(--app-ink)]" aria-label="Cerrar">
+        <div className="fixed inset-0 z-[130] flex items-end justify-center bg-[rgba(15,23,42,0.48)] px-4 pb-4 backdrop-blur-sm sm:items-center" onClick={() => setIsHelpOpen(false)}>
+          <div className="flex w-full max-w-lg flex-col overflow-hidden rounded-[22px] border border-[var(--app-border)] bg-white shadow-2xl" style={{ maxHeight: 'min(85vh, 640px)' }} onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex shrink-0 items-center justify-between border-b border-[var(--app-border)] px-6 py-4">
+              <div>
+                <p className="app-section-kicker">Guía de lectura</p>
+                <h3 className="mt-1 text-lg font-black text-[var(--app-ink)] sm:text-xl">¿Cómo leer mis resultados?</h3>
+              </div>
+              <button type="button" onClick={() => setIsHelpOpen(false)} className="ml-4 shrink-0 text-[var(--app-muted)] transition hover:text-[var(--app-ink)]" aria-label="Cerrar">
                 ✕
               </button>
             </div>
 
-            <h3 className="mt-3 text-xl font-black text-[var(--app-ink)]">¿Cómo leer mis resultados?</h3>
-
-            <div className="mt-4 space-y-4">
-              {HOW_TO_READ_SECTIONS.map((section) => (
-                <div key={section.title} className="flex gap-3">
-                  <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--brand-primary)]/10">
-                    <HelpCircle size={11} className="text-[var(--brand-primary)]" />
+            {/* Scrollable content */}
+            <div className="flex-1 overflow-y-auto px-6 py-4">
+              <div className="space-y-4">
+                {HOW_TO_READ_SECTIONS.map((section) => (
+                  <div key={section.title} className="flex gap-3">
+                    <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--brand-primary)]/10">
+                      <HelpCircle size={11} className="text-[var(--brand-primary)]" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-[var(--app-ink)]">{section.title}</p>
+                      <p className="mt-0.5 text-sm leading-relaxed text-[var(--app-muted)]">{section.text}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-bold text-[var(--app-ink)]">{section.title}</p>
-                    <p className="mt-0.5 text-sm leading-relaxed text-[var(--app-muted)]">{section.text}</p>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
 
-            <div className="mt-6 flex justify-end">
+            {/* Footer */}
+            <div className="shrink-0 border-t border-[var(--app-border)] px-6 py-4">
               <button
                 type="button"
                 onClick={() => setIsHelpOpen(false)}
-                className="inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-6 py-2.5 text-xs font-extrabold uppercase tracking-[0.18em] text-white"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[var(--brand-primary)] px-6 py-3 text-xs font-extrabold uppercase tracking-[0.18em] text-white sm:w-auto"
               >
                 Entendido
               </button>
