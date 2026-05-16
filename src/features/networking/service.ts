@@ -74,6 +74,7 @@ export interface CommunityPostRecord {
   groupName: string;
   authorUserId: string;
   authorName: string;
+  authorAvatarUrl: string | null;
   title: string;
   body: string;
   resourceUrl: string | null;
@@ -90,6 +91,7 @@ export interface CommentRecord {
   postId: string;
   authorUserId: string;
   authorName: string;
+  authorAvatarUrl: string | null;
   body: string;
   createdAt: string;
 }
@@ -198,6 +200,7 @@ interface CommunityPostRow {
   group_name: string;
   author_user_id: string;
   author_name: string;
+  author_avatar_url: string | null;
   title: string;
   body: string;
   resource_url: string | null;
@@ -214,6 +217,7 @@ interface CommentRow {
   post_id: string;
   author_user_id: string;
   author_name: string;
+  author_avatar_url: string | null;
   body: string;
   created_at: string;
 }
@@ -303,6 +307,7 @@ function mapCommunityPost(row: CommunityPostRow): CommunityPostRecord {
     groupName: row.group_name,
     authorUserId: row.author_user_id,
     authorName: row.author_name,
+    authorAvatarUrl: row.author_avatar_url ?? null,
     title: row.title,
     body: row.body,
     resourceUrl: row.resource_url,
@@ -321,6 +326,7 @@ function mapComment(row: CommentRow): CommentRecord {
     postId: row.post_id,
     authorUserId: row.author_user_id,
     authorName: row.author_name,
+    authorAvatarUrl: row.author_avatar_url ?? null,
     body: row.body,
     createdAt: row.created_at,
   };
@@ -798,6 +804,7 @@ export async function listCommunityPosts(client: PoolClient, actor: AuthUser, li
         g.name AS group_name,
         p.author_user_id::text,
         u.display_name AS author_name,
+        u.avatar_url AS author_avatar_url,
         p.title,
         p.body,
         p.resource_url,
@@ -892,6 +899,7 @@ export async function createCommunityPost(
         g.name AS group_name,
         p.author_user_id::text,
         u.display_name AS author_name,
+        u.avatar_url AS author_avatar_url,
         p.title,
         p.body,
         p.resource_url,
@@ -967,6 +975,7 @@ export async function listComments(client: PoolClient, actor: AuthUser, postId: 
         c.post_id::text,
         c.author_user_id::text,
         u.display_name AS author_name,
+        u.avatar_url AS author_avatar_url,
         c.body,
         c.created_at::text
       FROM app_networking.post_comments c
@@ -1010,6 +1019,7 @@ export async function createComment(
         c.post_id::text,
         c.author_user_id::text,
         u.display_name AS author_name,
+        u.avatar_url AS author_avatar_url,
         c.body,
         c.created_at::text
       FROM app_networking.post_comments c

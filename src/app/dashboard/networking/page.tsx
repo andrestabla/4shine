@@ -270,15 +270,54 @@ function UrlPreviewCard({ url }: { url: string }) {
 
 // ─── PostCard ─────────────────────────────────────────────────────────────────
 
+const URL_REGEX = /https?:\/\/[^\s<>"']+/g;
+
+function CommentBody({ body }: { body: string }) {
+  const parts: { type: 'text' | 'url'; value: string }[] = [];
+  let last = 0;
+  for (const m of body.matchAll(URL_REGEX)) {
+    if (m.index! > last) parts.push({ type: 'text', value: body.slice(last, m.index) });
+    parts.push({ type: 'url', value: m[0] });
+    last = m.index! + m[0].length;
+  }
+  if (last < body.length) parts.push({ type: 'text', value: body.slice(last) });
+
+  const urls = parts.filter((p) => p.type === 'url').map((p) => p.value);
+
+  return (
+    <div>
+      <p className="mt-0.5 text-xs leading-relaxed text-[var(--app-muted)] whitespace-pre-wrap">
+        {parts.map((p, i) =>
+          p.type === 'url' ? (
+            <a key={i} href={p.value} target="_blank" rel="noreferrer"
+              className="text-[#4f2360] underline underline-offset-2 break-all">
+              {p.value}
+            </a>
+          ) : (
+            <span key={i}>{p.value}</span>
+          ),
+        )}
+      </p>
+      {urls.map((url) => (
+        <div key={url} className="mt-2">
+          <UrlPreviewCard url={url} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function PostCard({
   post,
   currentUserId,
   currentUserName,
+  currentUserAvatarUrl,
   onToggleReaction,
 }: {
   post: CommunityPostRecord;
   currentUserId: string;
   currentUserName: string;
+  currentUserAvatarUrl?: string | null;
   onToggleReaction: (postId: string) => void;
 }) {
   const [showComments, setShowComments] = React.useState(false);
@@ -324,7 +363,7 @@ function PostCard({
     <article className="app-panel overflow-hidden p-0">
       <div className="p-4">
         <div className="flex items-start gap-3">
-          <Avatar name={post.authorName} size="md" />
+          <Avatar name={post.authorName} avatarUrl={post.authorAvatarUrl} size="md" />
           <div className="min-w-0 flex-1">
             <p className="text-sm font-bold text-[var(--app-ink)] leading-tight">{post.authorName}</p>
             <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
@@ -391,7 +430,7 @@ function PostCard({
               )}
               {comments.map((c) => (
                 <div key={c.commentId} className="flex items-start gap-2">
-                  <Avatar name={c.authorName} size="sm" />
+                  <Avatar name={c.authorName} avatarUrl={c.authorAvatarUrl} size="sm" />
                   <div className="min-w-0 flex-1 rounded-2xl bg-white px-3 py-2 border border-[var(--app-border)]">
                     <p className="text-xs font-bold text-[var(--app-ink)]">
                       {c.authorName}
@@ -399,7 +438,7 @@ function PostCard({
                         <span className="ml-1.5 font-normal text-[var(--app-muted)]">· Tú</span>
                       )}
                     </p>
-                    <p className="mt-0.5 text-xs leading-relaxed text-[var(--app-muted)] whitespace-pre-wrap">{c.body}</p>
+                    <CommentBody body={c.body} />
                     <p className="mt-1 text-[10px] text-[var(--app-muted)]">{toRelativeTime(c.createdAt)}</p>
                   </div>
                 </div>
@@ -409,7 +448,7 @@ function PostCard({
 
           {/* Comment input */}
           <form className="flex items-center gap-2" onSubmit={(e) => void handleSubmitComment(e)}>
-            <Avatar name={currentUserName} size="sm" />
+            <Avatar name={currentUserName} avatarUrl={currentUserAvatarUrl} size="sm" />
             <input
               className="flex-1 rounded-full border border-[var(--app-border)] bg-white px-3 py-1.5 text-xs text-[var(--app-ink)] placeholder:text-[var(--app-muted)] focus:outline-none focus:border-[var(--app-border-strong)]"
               placeholder="Agrega un comentario..."
@@ -777,13 +816,14 @@ function ConnectionCard({ connection, isInbound, onAccept, onReject, onDelete, o
 
 // ─── PostComposer ─────────────────────────────────────────────────────────────
 
-function PostComposer({ communities, postForm, onFormChange, onSubmit, canCreate, currentUserName }: {
+function PostComposer({ communities, postForm, onFormChange, onSubmit, canCreate, currentUserName, currentUserAvatarUrl }: {
   communities: CommunityRecord[];
   postForm: { groupId: string; title: string; body: string; resourceUrl: string };
   onFormChange: (updates: Partial<typeof postForm>) => void;
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
   canCreate: boolean;
   currentUserName: string;
+  currentUserAvatarUrl?: string | null;
 }) {
   const [open, setOpen] = React.useState(false);
 
@@ -794,7 +834,7 @@ function PostComposer({ communities, postForm, onFormChange, onSubmit, canCreate
     <section className="app-panel p-4">
       {!open ? (
         <div className="flex items-center gap-3">
-          <Avatar name={currentUserName} size="sm" />
+          <Avatar name={currentUserName} avatarUrl={currentUserAvatarUrl} size="sm" />
           <button type="button" onClick={() => setOpen(true)}
             className="flex-1 rounded-full border border-[var(--app-border)] px-4 py-2.5 text-left text-sm text-[var(--app-muted)] transition hover:border-[var(--app-border-strong)] hover:bg-[var(--app-surface-muted)]">
             Comparte algo con tu comunidad...
@@ -803,7 +843,7 @@ function PostComposer({ communities, postForm, onFormChange, onSubmit, canCreate
       ) : (
         <form className="space-y-3" onSubmit={onSubmit}>
           <div className="flex items-center gap-3">
-            <Avatar name={currentUserName} size="sm" />
+            <Avatar name={currentUserName} avatarUrl={currentUserAvatarUrl} size="sm" />
             <select className="app-select flex-1 py-2 text-sm" value={postForm.groupId}
               onChange={(e) => onFormChange({ groupId: e.target.value })}>
               <option value="">Selecciona una comunidad…</option>
@@ -1158,7 +1198,8 @@ export default function NetworkingPage() {
             <PostComposer communities={communities} postForm={postForm}
               onFormChange={(updates) => setPostForm((prev) => ({ ...prev, ...updates }))}
               onSubmit={onCreatePost} canCreate={canCreate}
-              currentUserName={currentUser?.name ?? 'U'} />
+              currentUserName={currentUser?.name ?? 'U'}
+              currentUserAvatarUrl={currentUser?.avatarUrl} />
 
             <section className="space-y-3">
               {communityPosts.length === 0 ? (
@@ -1168,6 +1209,7 @@ export default function NetworkingPage() {
                   <PostCard key={post.postId} post={post}
                     currentUserId={myCurrentUserId}
                     currentUserName={currentUser?.name ?? 'U'}
+                    currentUserAvatarUrl={currentUser?.avatarUrl}
                     onToggleReaction={onToggleReaction} />
                 ))
               )}

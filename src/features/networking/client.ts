@@ -58,6 +58,7 @@ export interface CommunityPostRecord {
   groupName: string;
   authorUserId: string;
   authorName: string;
+  authorAvatarUrl: string | null;
   title: string;
   body: string;
   resourceUrl: string | null;
@@ -74,6 +75,7 @@ export interface CommentRecord {
   postId: string;
   authorUserId: string;
   authorName: string;
+  authorAvatarUrl: string | null;
   body: string;
   createdAt: string;
 }
