@@ -195,6 +195,79 @@ function NetworkSubNav({ activeSubTab, onSubTabChange, pendingCount }: { activeS
   );
 }
 
+// ─── UrlPreviewCard ───────────────────────────────────────────────────────────
+
+interface UrlPreview { url: string; title?: string | null; description?: string | null; image?: string | null; siteName?: string | null }
+
+function isImageUrl(url: string): boolean {
+  return /\.(jpe?g|png|gif|webp|svg|avif)(\?.*)?$/i.test(url);
+}
+
+function UrlPreviewCard({ url }: { url: string }) {
+  const [preview, setPreview] = React.useState<UrlPreview | null>(null);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    if (isImageUrl(url)) { setPreview({ url, image: url }); setLoading(false); return; }
+    let cancelled = false;
+    void fetch(`/api/v1/url-preview?url=${encodeURIComponent(url)}`)
+      .then((r) => r.json() as Promise<{ ok: boolean; data: UrlPreview }>)
+      .then(({ data }) => { if (!cancelled) { setPreview(data); setLoading(false); } })
+      .catch(() => { if (!cancelled) { setPreview({ url }); setLoading(false); } });
+    return () => { cancelled = true; };
+  }, [url]);
+
+  if (loading) {
+    return (
+      <a href={url} target="_blank" rel="noreferrer"
+        className="flex items-center gap-2 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-2.5 text-sm font-semibold text-[#4f2360] transition hover:bg-white">
+        <Link2 size={14} />
+        <span className="truncate">{url}</span>
+      </a>
+    );
+  }
+
+  if (preview?.image && isImageUrl(preview.image)) {
+    return (
+      <a href={url} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-xl border border-[var(--app-border)] transition hover:opacity-90">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={preview.image} alt={preview.title ?? ''} className="w-full max-h-80 object-cover" />
+        {preview.title && (
+          <div className="border-t border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-2">
+            <p className="text-xs font-semibold text-[var(--app-ink)] leading-snug line-clamp-1">{preview.title}</p>
+            {preview.siteName && <p className="mt-0.5 text-[10px] text-[var(--app-muted)]">{preview.siteName}</p>}
+          </div>
+        )}
+      </a>
+    );
+  }
+
+  if (preview?.image && !isImageUrl(preview.image)) {
+    return (
+      <a href={url} target="_blank" rel="noreferrer"
+        className="flex overflow-hidden rounded-xl border border-[var(--app-border)] transition hover:shadow-sm">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={preview.image} alt={preview.title ?? ''} className="h-24 w-24 shrink-0 object-cover" />
+        <div className="min-w-0 flex-1 p-3">
+          {preview.siteName && <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--app-muted)]">{preview.siteName}</p>}
+          <p className="mt-0.5 text-sm font-bold text-[var(--app-ink)] line-clamp-2 leading-snug">{preview.title ?? url}</p>
+          {preview.description && <p className="mt-1 text-[11px] text-[var(--app-muted)] line-clamp-2 leading-relaxed">{preview.description}</p>}
+        </div>
+      </a>
+    );
+  }
+
+  return (
+    <a href={url} target="_blank" rel="noreferrer"
+      className="flex flex-col overflow-hidden rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-2.5 transition hover:bg-white">
+      {preview?.siteName && <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--app-muted)]">{preview.siteName}</p>}
+      <p className="text-sm font-bold text-[#4f2360] line-clamp-1 leading-snug">{preview?.title ?? url}</p>
+      {preview?.description && <p className="mt-0.5 text-[11px] text-[var(--app-muted)] line-clamp-2">{preview.description}</p>}
+      <p className="mt-1 flex items-center gap-1 text-[10px] text-[var(--app-muted)]"><Link2 size={10} />{url}</p>
+    </a>
+  );
+}
+
 // ─── PostCard ─────────────────────────────────────────────────────────────────
 
 function PostCard({
@@ -279,11 +352,7 @@ function PostCard({
                 referrerPolicy="strict-origin-when-cross-origin" allowFullScreen />
             </div>
           ) : normalizedUrl && /^https?:\/\//i.test(normalizedUrl) ? (
-            <a href={normalizedUrl} target="_blank" rel="noreferrer"
-              className="flex items-center gap-2 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-2.5 text-sm font-semibold text-[#4f2360] transition hover:bg-white">
-              <Link2 size={14} />
-              <span className="truncate">{normalizedUrl}</span>
-            </a>
+            <UrlPreviewCard url={normalizedUrl} />
           ) : (
             <p className="text-xs text-[var(--app-muted)]">{post.resourceUrl}</p>
           )}
@@ -708,14 +777,12 @@ function ConnectionCard({ connection, isInbound, onAccept, onReject, onDelete, o
 
 // ─── PostComposer ─────────────────────────────────────────────────────────────
 
-function PostComposer({ communities, postForm, onFormChange, onSubmit, canCreate, uploadedResourceName, onUploaded, currentUserName }: {
+function PostComposer({ communities, postForm, onFormChange, onSubmit, canCreate, currentUserName }: {
   communities: CommunityRecord[];
   postForm: { groupId: string; title: string; body: string; resourceUrl: string };
   onFormChange: (updates: Partial<typeof postForm>) => void;
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
   canCreate: boolean;
-  uploadedResourceName: string | null;
-  onUploaded: (url: string, payload: { fileName: string }) => void;
   currentUserName: string;
 }) {
   const [open, setOpen] = React.useState(false);
@@ -752,13 +819,7 @@ function PostComposer({ communities, postForm, onFormChange, onSubmit, canCreate
           <textarea className="app-textarea min-h-28 text-sm" placeholder="Comparte una idea, aprendizaje o recurso con tu comunidad…"
             value={postForm.body} onChange={(e) => onFormChange({ body: e.target.value })} required autoFocus />
           <div className="flex flex-wrap items-center gap-2 border-t border-[var(--app-border)] pt-3">
-            <R2UploadButton moduleCode="networking" action="create" pathPrefix="networking/posts"
-              entityTable="app_networking.community_posts" fieldName="resource_url"
-              accept="video/*,image/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.txt,.csv"
-              buttonLabel="Adjuntar" disabled={!canCreate}
-              className="flex items-center gap-1.5 rounded-full border border-[var(--app-border)] px-3 py-1.5 text-xs font-semibold text-[var(--app-muted)] hover:border-[var(--app-border-strong)] hover:text-[var(--app-ink)]"
-              onUploaded={(url, payload) => onUploaded(url, payload)} />
-            <input className="app-input flex-1 py-1.5 text-xs" placeholder="O pega una URL…" value={postForm.resourceUrl}
+            <input className="app-input flex-1 py-1.5 text-xs" placeholder="Pega una URL (imagen, video, enlace)…" value={postForm.resourceUrl}
               onChange={(e) => onFormChange({ resourceUrl: e.target.value })} />
             <div className="ml-auto flex gap-2">
               <button type="button" onClick={() => setOpen(false)}
@@ -771,11 +832,6 @@ function PostComposer({ communities, postForm, onFormChange, onSubmit, canCreate
               </button>
             </div>
           </div>
-          {uploadedResourceName && (
-            <p className="text-[11px] text-[var(--app-muted)]">
-              Archivo: <span className="font-semibold text-[var(--app-ink)]">{uploadedResourceName}</span>
-            </p>
-          )}
         </form>
       )}
     </section>
@@ -797,7 +853,7 @@ export default function NetworkingPage() {
   const [query, setQuery] = React.useState('');
   const [postForm, setPostForm] = React.useState({ groupId: '', title: '', body: '', resourceUrl: '' });
   const [communityForm, setCommunityForm] = React.useState({ name: '', description: '', category: '', visibility: 'open' as CommunityVisibility });
-  const [uploadedResourceName, setUploadedResourceName] = React.useState<string | null>(null);
+
   const [activeTab, setActiveTab] = React.useState<MainTab>('inicio');
   const [networkSubTab, setNetworkSubTab] = React.useState<NetworkSubTab>('contactos');
 
@@ -884,7 +940,6 @@ export default function NetworkingPage() {
     try {
       await createCommunityPost(postForm.groupId, { title: postForm.title, body: postForm.body, resourceUrl: postForm.resourceUrl || null });
       setPostForm((prev) => ({ ...prev, title: '', body: '', resourceUrl: '' }));
-      setUploadedResourceName(null);
       await load();
     } catch (error) { await showError('No se pudo compartir el recurso', error); }
   };
@@ -1103,8 +1158,6 @@ export default function NetworkingPage() {
             <PostComposer communities={communities} postForm={postForm}
               onFormChange={(updates) => setPostForm((prev) => ({ ...prev, ...updates }))}
               onSubmit={onCreatePost} canCreate={canCreate}
-              uploadedResourceName={uploadedResourceName}
-              onUploaded={(url, payload) => { setPostForm((prev) => ({ ...prev, resourceUrl: url })); setUploadedResourceName(payload.fileName); }}
               currentUserName={currentUser?.name ?? 'U'} />
 
             <section className="space-y-3">
