@@ -204,12 +204,8 @@ export function ResultsView({
   >(null);
   const [surveyAnswers, setSurveyAnswers] = React.useState<Record<string, number>>(initialSurvey?.answers ?? {});
   const [justSubmitted, setJustSubmitted] = React.useState(false);
-  const shouldUseStickyHeader = !isPublic;
-  const stickyClass = shouldUseStickyHeader
-    ? embedded
-      ? "top-[4.5rem] sm:top-[5rem] md:top-[5.5rem]"
-      : "top-0"
-    : "";
+  const shouldUseStickyHeader = false;
+  const stickyClass = "";
   const analysisCacheRef = React.useRef<Set<DiscoveryReportFilter>>(new Set());
   const analysisInFlightRef = React.useRef<Set<DiscoveryReportFilter>>(new Set());
   const analysisBatchStartedRef = React.useRef(false);
