@@ -7,6 +7,8 @@ export interface ThreadRecord {
   lastMessage: string | null;
   lastMessageAt: string | null;
   unreadCount: number;
+  otherParticipantName: string | null;
+  otherParticipantAvatarUrl: string | null;
 }
 
 export interface MessageRecord {
@@ -14,6 +16,7 @@ export interface MessageRecord {
   threadId: string;
   senderUserId: string;
   senderName: string;
+  senderAvatarUrl: string | null;
   messageText: string;
   createdAt: string;
   editedAt: string | null;
@@ -25,6 +28,7 @@ export interface MessageParticipantRecord {
   displayName: string;
   primaryRole: string;
   organizationName: string | null;
+  avatarUrl: string | null;
 }
 
 export interface CreateDirectThreadInput {

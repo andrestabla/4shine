@@ -10,6 +10,8 @@ export interface ThreadRecord {
   lastMessage: string | null;
   lastMessageAt: string | null;
   unreadCount: number;
+  otherParticipantName: string | null;
+  otherParticipantAvatarUrl: string | null;
 }
 
 export interface MessageRecord {
@@ -17,6 +19,7 @@ export interface MessageRecord {
   threadId: string;
   senderUserId: string;
   senderName: string;
+  senderAvatarUrl: string | null;
   messageText: string;
   createdAt: string;
   editedAt: string | null;
@@ -42,6 +45,7 @@ export interface MessageParticipantRecord {
   displayName: string;
   primaryRole: string;
   organizationName: string | null;
+  avatarUrl: string | null;
 }
 
 interface ThreadRow {
@@ -51,6 +55,8 @@ interface ThreadRow {
   last_message: string | null;
   last_message_at: string | null;
   unread_count: number;
+  other_participant_name: string | null;
+  other_participant_avatar_url: string | null;
 }
 
 interface MessageRow {
@@ -58,6 +64,7 @@ interface MessageRow {
   thread_id: string;
   sender_user_id: string;
   sender_name: string;
+  sender_avatar_url: string | null;
   message_text: string;
   created_at: string;
   edited_at: string | null;
@@ -69,6 +76,7 @@ interface ParticipantRow {
   display_name: string;
   primary_role: string;
   organization_name: string | null;
+  avatar_url: string | null;
 }
 
 function mapThread(row: ThreadRow): ThreadRecord {
@@ -79,6 +87,8 @@ function mapThread(row: ThreadRow): ThreadRecord {
     lastMessage: row.last_message,
     lastMessageAt: row.last_message_at,
     unreadCount: Number(row.unread_count ?? 0),
+    otherParticipantName: row.other_participant_name,
+    otherParticipantAvatarUrl: row.other_participant_avatar_url,
   };
 }
 
@@ -88,6 +98,7 @@ function mapMessage(row: MessageRow): MessageRecord {
     threadId: row.thread_id,
     senderUserId: row.sender_user_id,
     senderName: row.sender_name,
+    senderAvatarUrl: row.sender_avatar_url ?? null,
     messageText: row.message_text,
     createdAt: row.created_at,
     editedAt: row.edited_at,
@@ -101,6 +112,7 @@ function mapParticipant(row: ParticipantRow): MessageParticipantRecord {
     displayName: row.display_name,
     primaryRole: row.primary_role,
     organizationName: row.organization_name,
+    avatarUrl: row.avatar_url ?? null,
   };
 }
 
@@ -141,7 +153,9 @@ export async function listThreads(client: PoolClient, actor: AuthUser, limit = 1
             AND m.deleted_at IS NULL
             AND m.sender_user_id <> $1
             AND m.created_at > COALESCE(tp.last_read_at, 'epoch'::timestamptz)
-        ) AS unread_count
+        ) AS unread_count,
+        other_p.display_name AS other_participant_name,
+        other_p.avatar_url AS other_participant_avatar_url
       FROM app_networking.thread_participants tp
       JOIN app_networking.chat_threads ct ON ct.thread_id = tp.thread_id
       LEFT JOIN LATERAL (
@@ -152,6 +166,14 @@ export async function listThreads(client: PoolClient, actor: AuthUser, limit = 1
         ORDER BY m.created_at DESC
         LIMIT 1
       ) last_msg ON true
+      LEFT JOIN LATERAL (
+        SELECT u.display_name, u.avatar_url
+        FROM app_networking.thread_participants tp2
+        JOIN app_core.users u ON u.user_id = tp2.user_id
+        WHERE tp2.thread_id = ct.thread_id
+          AND tp2.user_id <> $1
+        LIMIT 1
+      ) other_p ON true
       WHERE tp.user_id = $1
       ORDER BY COALESCE(last_msg.created_at, ct.created_at) DESC
       LIMIT $2
@@ -176,7 +198,8 @@ export async function listMessageParticipants(
         u.user_id::text,
         u.display_name,
         u.primary_role,
-        o.name AS organization_name
+        o.name AS organization_name,
+        u.avatar_url
       FROM app_core.users u
       LEFT JOIN app_core.organizations o ON o.organization_id = u.organization_id
       WHERE u.user_id <> $1::uuid
@@ -272,6 +295,7 @@ export async function listMessages(
         m.thread_id::text,
         m.sender_user_id::text,
         u.display_name AS sender_name,
+        u.avatar_url AS sender_avatar_url,
         m.message_text,
         m.created_at::text,
         m.edited_at::text,
@@ -310,10 +334,7 @@ export async function sendMessage(
   const { rows } = await client.query<MessageRow>(
     `
       INSERT INTO app_networking.messages (thread_id, sender_user_id, message_text)
-      SELECT
-        $1,
-        $2,
-        $3
+      SELECT $1, $2, $3
       FROM app_networking.thread_participants tp
       JOIN app_core.users u ON u.user_id = $2
       WHERE tp.thread_id = $1
@@ -324,6 +345,7 @@ export async function sendMessage(
         thread_id::text,
         sender_user_id::text,
         (SELECT display_name FROM app_core.users WHERE user_id = sender_user_id) AS sender_name,
+        (SELECT avatar_url FROM app_core.users WHERE user_id = sender_user_id) AS sender_avatar_url,
         message_text,
         created_at::text,
         edited_at::text,
@@ -365,6 +387,7 @@ export async function updateMessage(
         m.thread_id::text,
         m.sender_user_id::text,
         u.display_name AS sender_name,
+        u.avatar_url AS sender_avatar_url,
         m.message_text,
         m.created_at::text,
         m.edited_at::text,
@@ -406,7 +429,5 @@ export async function deleteMessage(
     throw new Error('Message not found');
   }
 
-  return {
-    messageId: row.message_id,
-  };
+  return { messageId: row.message_id };
 }

@@ -1,10 +1,20 @@
 'use client';
 
 import React from 'react';
-import { Lock, MessageCircle } from 'lucide-react';
+import {
+  ArrowLeft,
+  Check,
+  Lock,
+  MessageCircle,
+  Pencil,
+  Plus,
+  Search,
+  Send,
+  Smile,
+  Trash2,
+  X,
+} from 'lucide-react';
 import { AccessOfferPanel } from '@/components/access/AccessOfferPanel';
-import { PageTitle } from '@/components/dashboard/PageTitle';
-import { EmptyState } from '@/components/dashboard/EmptyState';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useUser } from '@/context/UserContext';
 import { filterCommercialProducts } from '@/features/access/catalog';
@@ -21,94 +31,171 @@ import {
   type ThreadRecord,
 } from '@/features/mensajes/client';
 
-function toTime(value: string | null): string {
-  if (!value) return '--:--';
-  return new Date(value).toLocaleTimeString('es-CO', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
+function toThreadTime(value: string | null): string {
+  if (!value) return '';
+  const d = new Date(value);
+  const now = new Date();
+  if (d.toDateString() === now.toDateString()) {
+    return d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+  }
+  const diff = Math.floor((now.getTime() - d.getTime()) / 86_400_000);
+  if (diff < 7) return d.toLocaleDateString('es-CO', { weekday: 'short' });
+  return d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short' });
 }
 
-function toDateTime(value: string): string {
-  return new Date(value).toLocaleString('es-CO', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-  });
+function toMsgTime(value: string): string {
+  return new Date(value).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
 }
+
+function toDayLabel(value: string): string {
+  const d = new Date(value);
+  const now = new Date();
+  if (d.toDateString() === now.toDateString()) return 'Hoy';
+  const diff = Math.floor((now.getTime() - d.getTime()) / 86_400_000);
+  if (diff === 1) return 'Ayer';
+  return d.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' });
+}
+
+function renderText(text: string): React.ReactNode {
+  const parts = text.split(/(https?:\/\/[^\s]+)/g);
+  return parts.map((part, i) =>
+    /^https?:\/\//.test(part) ? (
+      <a
+        key={i}
+        href={part}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="underline underline-offset-2 break-all hover:opacity-80"
+      >
+        {part}
+      </a>
+    ) : (
+      part
+    ),
+  );
+}
+
+const ROLE_LABELS: Record<string, string> = {
+  lider: 'Líder',
+  mentor: 'Adviser',
+  gestor: 'Gestor',
+  admin: 'Admin',
+};
+
+const EMOJIS = ['😊', '👍', '🎉', '❤️', '🙌', '💪', '✅', '🔥', '🤝', '👏', '😂', '🙏', '💡', '⭐', '🚀', '👀'];
+
+// ── Avatar ─────────────────────────────────────────────────────────────────────
+
+function Avatar({
+  name,
+  avatarUrl,
+  size = 'md',
+}: {
+  name: string;
+  avatarUrl?: string | null;
+  size?: 'sm' | 'md' | 'lg';
+}) {
+  const cls =
+    size === 'sm'
+      ? 'h-8 w-8 text-xs'
+      : size === 'lg'
+        ? 'h-11 w-11 text-base'
+        : 'h-9 w-9 text-sm';
+  return (
+    <div
+      className={`${cls} shrink-0 rounded-full overflow-hidden flex items-center justify-center font-bold text-white`}
+      style={{ backgroundColor: '#5b2d8a' }}
+    >
+      {avatarUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={avatarUrl} alt={name} className="h-full w-full object-cover" />
+      ) : (
+        name.charAt(0).toUpperCase()
+      )}
+    </div>
+  );
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function MensajesPage() {
   const { can, currentRole, refreshBootstrap, sessionUser, viewerAccess } = useUser();
-  const { alert, confirm, prompt } = useAppDialog();
+  const { alert, confirm } = useAppDialog();
+
   const [threads, setThreads] = React.useState<ThreadRecord[]>([]);
   const [participants, setParticipants] = React.useState<MessageParticipantRecord[]>([]);
   const [messages, setMessages] = React.useState<MessageRecord[]>([]);
   const [selectedThreadId, setSelectedThreadId] = React.useState('');
-  const [selectedParticipantId, setSelectedParticipantId] = React.useState('');
   const [messageText, setMessageText] = React.useState('');
   const [loading, setLoading] = React.useState(true);
   const [messagesLoading, setMessagesLoading] = React.useState(false);
-  const isCommunityLocked =
-    currentRole === 'lider' && viewerAccess?.viewerTier === 'open_leader';
-  const programOffers = filterCommercialProducts(viewerAccess?.catalog, {
-    codes: ['program_4shine'],
-  });
+  const [threadSearch, setThreadSearch] = React.useState('');
+  const [showContacts, setShowContacts] = React.useState(false);
+  const [contactSearch, setContactSearch] = React.useState('');
+  const [showEmoji, setShowEmoji] = React.useState(false);
+  const [editingId, setEditingId] = React.useState<string | null>(null);
+  const [editText, setEditText] = React.useState('');
+  const [showChatOnMobile, setShowChatOnMobile] = React.useState(false);
+
+  const messagesEndRef = React.useRef<HTMLDivElement>(null);
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const emojiRef = React.useRef<HTMLDivElement>(null);
+
+  const isCommunityLocked = currentRole === 'lider' && viewerAccess?.viewerTier === 'open_leader';
+  const programOffers = filterCommercialProducts(viewerAccess?.catalog, { codes: ['program_4shine'] });
 
   const showError = React.useCallback(
-    async (fallbackMessage: string, cause: unknown) => {
-      await alert({
-        title: 'Error',
-        message: cause instanceof Error ? cause.message : fallbackMessage,
-        tone: 'error',
-      });
+    async (msg: string, err: unknown) => {
+      await alert({ title: 'Error', message: err instanceof Error ? err.message : msg, tone: 'error' });
     },
     [alert],
   );
 
-  const loadThreadsAndParticipants = React.useCallback(async () => {
+  const loadAll = React.useCallback(async () => {
     setLoading(true);
     try {
-      const [threadData, participantData] = await Promise.all([listThreads(), listParticipants()]);
-      setThreads(threadData);
-      setParticipants(participantData);
-      setSelectedThreadId((current) => {
-        if (current && threadData.some((thread) => thread.threadId === current)) return current;
-        return threadData[0]?.threadId ?? '';
+      const [ts, ps] = await Promise.all([listThreads(), listParticipants()]);
+      setThreads(ts);
+      setParticipants(ps);
+      setSelectedThreadId((cur) => {
+        if (cur && ts.some((t) => t.threadId === cur)) return cur;
+        return ts[0]?.threadId ?? '';
       });
-      setSelectedParticipantId((current) => {
-        if (current && participantData.some((participant) => participant.userId === current)) return current;
-        return participantData[0]?.userId ?? '';
-      });
-    } catch (loadError) {
-      await showError('No se pudieron cargar los mensajes', loadError);
+    } catch (err) {
+      await showError('No se pudieron cargar los mensajes', err);
     } finally {
       setLoading(false);
     }
   }, [showError]);
 
-  const loadMessages = React.useCallback(async (threadId: string) => {
-    if (!threadId) {
-      setMessages([]);
-      return;
-    }
-
-    setMessagesLoading(true);
-    try {
-      const data = await listMessages(threadId);
-      setMessages(data);
-    } catch (loadError) {
-      await showError('No se pudieron cargar los mensajes del chat', loadError);
-    } finally {
-      setMessagesLoading(false);
-    }
-  }, [showError]);
+  const loadMessages = React.useCallback(
+    async (threadId: string) => {
+      if (!threadId) {
+        setMessages([]);
+        return;
+      }
+      setMessagesLoading(true);
+      try {
+        const data = await listMessages(threadId);
+        setMessages(data);
+      } catch (err) {
+        await showError('No se pudieron cargar los mensajes', err);
+      } finally {
+        setMessagesLoading(false);
+      }
+    },
+    [showError],
+  );
 
   React.useEffect(() => {
     if (isCommunityLocked) {
       setLoading(false);
       return;
     }
-    void loadThreadsAndParticipants();
-  }, [isCommunityLocked, loadThreadsAndParticipants]);
+    void loadAll();
+  }, [isCommunityLocked, loadAll]);
 
   React.useEffect(() => {
     if (isCommunityLocked) {
@@ -118,71 +205,129 @@ export default function MensajesPage() {
     void loadMessages(selectedThreadId);
   }, [isCommunityLocked, loadMessages, selectedThreadId]);
 
-  const onCreateThread = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!selectedParticipantId) return;
+  React.useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
+  React.useEffect(() => {
+    if (!showEmoji) return;
+    const handler = (e: MouseEvent) => {
+      if (emojiRef.current && !emojiRef.current.contains(e.target as Node)) {
+        setShowEmoji(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showEmoji]);
+
+  // ── Derived ────────────────────────────────────────────────────────────────
+
+  const selectedThread = threads.find((t) => t.threadId === selectedThreadId);
+
+  const filteredThreads = threadSearch
+    ? threads.filter((t) =>
+        (t.otherParticipantName ?? t.title ?? '')
+          .toLowerCase()
+          .includes(threadSearch.toLowerCase()),
+      )
+    : threads;
+
+  const filteredContacts = contactSearch
+    ? participants.filter((p) =>
+        p.displayName.toLowerCase().includes(contactSearch.toLowerCase()),
+      )
+    : participants;
+
+  const messagesByDay = messages.reduce<{ day: string; msgs: MessageRecord[] }[]>((acc, msg) => {
+    const day = new Date(msg.createdAt).toDateString();
+    if (acc[acc.length - 1]?.day === day) {
+      acc[acc.length - 1].msgs.push(msg);
+    } else {
+      acc.push({ day, msgs: [msg] });
+    }
+    return acc;
+  }, []);
+
+  // ── Actions ────────────────────────────────────────────────────────────────
+
+  const onSelectThread = (threadId: string) => {
+    setSelectedThreadId(threadId);
+    setShowChatOnMobile(true);
+  };
+
+  const onStartThread = async (participantId: string) => {
+    setShowContacts(false);
+    setContactSearch('');
     try {
-      const thread = await createDirectThread({ participantUserId: selectedParticipantId });
-      await Promise.all([loadThreadsAndParticipants(), refreshBootstrap()]);
+      const thread = await createDirectThread({ participantUserId: participantId });
+      await Promise.all([loadAll(), refreshBootstrap()]);
       setSelectedThreadId(thread.threadId);
-    } catch (createError) {
-      await showError('No se pudo crear el chat', createError);
+      setShowChatOnMobile(true);
+    } catch (err) {
+      await showError('No se pudo iniciar la conversación', err);
     }
   };
 
-  const onSendMessage = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const onSend = async () => {
     if (!selectedThreadId || !messageText.trim()) return;
-
+    const text = messageText.trim();
+    setMessageText('');
     try {
-      await sendMessage(selectedThreadId, { messageText: messageText.trim() });
-      setMessageText('');
-      await Promise.all([loadMessages(selectedThreadId), loadThreadsAndParticipants(), refreshBootstrap()]);
-    } catch (sendError) {
-      await showError('No se pudo enviar el mensaje', sendError);
+      await sendMessage(selectedThreadId, { messageText: text });
+      await Promise.all([loadMessages(selectedThreadId), loadAll(), refreshBootstrap()]);
+      inputRef.current?.focus();
+    } catch (err) {
+      setMessageText(text);
+      await showError('No se pudo enviar el mensaje', err);
     }
   };
 
-  const onDeleteMessage = async (message: MessageRecord) => {
-    const isConfirmed = await confirm({
+  const onDelete = async (msg: MessageRecord) => {
+    const ok = await confirm({
       title: 'Eliminar mensaje',
       message: '¿Deseas eliminar este mensaje?',
       confirmText: 'Eliminar',
       cancelText: 'Cancelar',
       tone: 'warning',
     });
-    if (!isConfirmed) return;
-
+    if (!ok) return;
     try {
-      await deleteMessage(message.messageId);
-      await Promise.all([loadMessages(selectedThreadId), loadThreadsAndParticipants(), refreshBootstrap()]);
-    } catch (deleteError) {
-      await showError('No se pudo eliminar el mensaje', deleteError);
+      await deleteMessage(msg.messageId);
+      await Promise.all([loadMessages(selectedThreadId), loadAll(), refreshBootstrap()]);
+    } catch (err) {
+      await showError('No se pudo eliminar el mensaje', err);
     }
   };
 
-  const onEditMessage = async (message: MessageRecord) => {
-    const nextText = await prompt({
-      title: 'Editar mensaje',
-      message: 'Actualiza el contenido del mensaje.',
-      label: 'Mensaje',
-      defaultValue: message.messageText,
-      placeholder: 'Escribe el nuevo mensaje',
-      confirmText: 'Guardar',
-      cancelText: 'Cancelar',
-      multiline: true,
-    });
+  const onStartEdit = (msg: MessageRecord) => {
+    setEditingId(msg.messageId);
+    setEditText(msg.messageText);
+  };
 
-    if (!nextText || !nextText.trim() || nextText.trim() === message.messageText) return;
-
+  const onSaveEdit = async () => {
+    if (!editingId || !editText.trim()) return;
     try {
-      await updateMessage(message.messageId, { messageText: nextText.trim() });
-      await Promise.all([loadMessages(selectedThreadId), loadThreadsAndParticipants()]);
-    } catch (updateError) {
-      await showError('No se pudo editar el mensaje', updateError);
+      await updateMessage(editingId, { messageText: editText.trim() });
+      setEditingId(null);
+      setEditText('');
+      await loadMessages(selectedThreadId);
+    } catch (err) {
+      await showError('No se pudo editar el mensaje', err);
     }
   };
+
+  const onCancelEdit = () => {
+    setEditingId(null);
+    setEditText('');
+  };
+
+  const insertEmoji = (emoji: string) => {
+    setMessageText((t) => t + emoji);
+    setShowEmoji(false);
+    inputRef.current?.focus();
+  };
+
+  // ── Locked ─────────────────────────────────────────────────────────────────
 
   if (isCommunityLocked) {
     return (
@@ -190,15 +335,15 @@ export default function MensajesPage() {
         <section className="rounded-[1.5rem] border border-[var(--app-border)] bg-white px-7 py-10 text-center sm:py-12">
           <div
             className="mx-auto flex h-14 w-14 items-center justify-center rounded-[1.1rem]"
-            style={{ background: "linear-gradient(135deg, #e8f4ff 0%, #dceeff 100%)" }}
+            style={{ background: 'linear-gradient(135deg, #e8f4ff 0%, #dceeff 100%)' }}
           >
-            <MessageCircle size={22} style={{ color: "#3f6fa8" }} />
+            <MessageCircle size={22} style={{ color: '#3f6fa8' }} />
           </div>
           <h1 className="mt-5 text-[1.6rem] font-black leading-tight text-[var(--app-ink)] sm:text-[1.9rem]">
             Mensajes se activa<br />con el programa.
           </h1>
           <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-[var(--app-muted)]">
-            Aquí conversa con tu Adviser, tu red de líderes y el equipo del programa en tiempo real.
+            Aquí conversas con tu Adviser, tu red de líderes y el equipo del programa en tiempo real.
           </p>
           <a
             href="https://www.4shine.co/planes-precios"
@@ -211,15 +356,22 @@ export default function MensajesPage() {
         </section>
 
         <section className="rounded-[1.5rem] border border-[var(--app-border)] bg-white p-5 sm:p-6">
-          <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[var(--app-muted)]">Qué incluye Mensajes</p>
-          <h2 className="mt-1 text-base font-extrabold text-[var(--app-ink)]">Comunicación en tiempo real con tu red.</h2>
+          <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[var(--app-muted)]">
+            Qué incluye Mensajes
+          </p>
+          <h2 className="mt-1 text-base font-extrabold text-[var(--app-ink)]">
+            Comunicación en tiempo real con tu red.
+          </h2>
           <div className="mt-4 space-y-2 opacity-60">
             {[
-              { label: "Chat con tu Adviser", desc: "Conversaciones directas con tu mentor asignado." },
-              { label: "Red de líderes", desc: "Mensajería con otros líderes del programa." },
-              { label: "Equipo 4Shine", desc: "Comunicación con el equipo de acompañamiento." },
+              { label: 'Chat con tu Adviser', desc: 'Conversaciones directas con tu mentor asignado.' },
+              { label: 'Red de líderes', desc: 'Mensajería con otros líderes del programa.' },
+              { label: 'Equipo 4Shine', desc: 'Comunicación con el equipo de acompañamiento.' },
             ].map((f) => (
-              <div key={f.label} className="flex items-center gap-3.5 rounded-[1rem] bg-[var(--app-surface-muted)] px-4 py-3">
+              <div
+                key={f.label}
+                className="flex items-center gap-3.5 rounded-[1rem] bg-[var(--app-surface-muted)] px-4 py-3"
+              >
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[0.7rem] bg-white">
                   <Lock size={12} className="text-[var(--app-muted)]" />
                 </div>
@@ -244,145 +396,380 @@ export default function MensajesPage() {
     );
   }
 
-  return (
-    <div className="space-y-4">
-      <PageTitle title="Mensajes" subtitle="Conversaciones en tiempo real con operaciones CRUD." />
+  // ── Contact picker left panel ──────────────────────────────────────────────
 
-      {can('mensajes', 'create') && (
-        <form className="app-panel flex flex-wrap gap-2 p-4" onSubmit={onCreateThread}>
-          <select
-            className="app-select min-w-72"
-            value={selectedParticipantId}
-            onChange={(event) => setSelectedParticipantId(event.target.value)}
-            disabled={participants.length === 0}
-          >
-            {participants.length === 0 && <option value="">Sin participantes disponibles</option>}
-            {participants.map((participant) => (
-              <option key={participant.userId} value={participant.userId}>
-                {participant.displayName} · {participant.primaryRole}
-              </option>
-            ))}
-          </select>
+  const leftContacts = (
+    <div className="flex h-full flex-col">
+      <div className="flex items-center gap-2 border-b border-[var(--app-border)] px-4 py-3">
+        <button
+          onClick={() => {
+            setShowContacts(false);
+            setContactSearch('');
+          }}
+          className="rounded-full p-1.5 text-[var(--app-muted)] hover:bg-[var(--app-surface-muted)] transition"
+        >
+          <ArrowLeft size={16} />
+        </button>
+        <h3 className="text-sm font-bold text-[var(--app-ink)]">Nueva conversación</h3>
+      </div>
+      <div className="border-b border-[var(--app-border)] px-3 py-2.5">
+        <div className="flex items-center gap-2 rounded-xl bg-[var(--app-surface-muted)] px-3 py-2">
+          <Search size={14} className="shrink-0 text-[var(--app-muted)]" />
+          <input
+            autoFocus
+            value={contactSearch}
+            onChange={(e) => setContactSearch(e.target.value)}
+            placeholder="Buscar contacto..."
+            className="flex-1 bg-transparent text-sm text-[var(--app-ink)] outline-none placeholder:text-[var(--app-muted)]"
+          />
+        </div>
+      </div>
+      <div className="flex-1 divide-y divide-[var(--app-border)] overflow-y-auto">
+        {filteredContacts.length === 0 ? (
+          <p className="px-4 py-8 text-center text-sm text-[var(--app-muted)]">Sin resultados.</p>
+        ) : (
+          filteredContacts.map((p) => (
+            <button
+              key={p.userId}
+              onClick={() => void onStartThread(p.userId)}
+              className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-[var(--app-surface-muted)]"
+            >
+              <Avatar name={p.displayName} avatarUrl={p.avatarUrl} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-[var(--app-ink)]">{p.displayName}</p>
+                <p className="text-xs text-[var(--app-muted)]">
+                  {ROLE_LABELS[p.primaryRole] ?? p.primaryRole}
+                </p>
+              </div>
+            </button>
+          ))
+        )}
+      </div>
+    </div>
+  );
+
+  // ── Thread list left panel ─────────────────────────────────────────────────
+
+  const leftThreads = (
+    <div className="flex h-full flex-col">
+      <div className="flex items-center gap-2 border-b border-[var(--app-border)] px-3 py-3">
+        <div className="flex flex-1 items-center gap-2 rounded-xl bg-[var(--app-surface-muted)] px-3 py-2">
+          <Search size={14} className="shrink-0 text-[var(--app-muted)]" />
+          <input
+            value={threadSearch}
+            onChange={(e) => setThreadSearch(e.target.value)}
+            placeholder="Buscar..."
+            className="flex-1 bg-transparent text-sm text-[var(--app-ink)] outline-none placeholder:text-[var(--app-muted)]"
+          />
+          {threadSearch && (
+            <button onClick={() => setThreadSearch('')} className="text-[var(--app-muted)] hover:text-[var(--app-ink)]">
+              <X size={13} />
+            </button>
+          )}
+        </div>
+        {can('mensajes', 'create') && (
           <button
-            className="app-button-primary disabled:opacity-50"
-            type="submit"
-            disabled={!selectedParticipantId || participants.length === 0}
+            onClick={() => setShowContacts(true)}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#5b2d8a] text-white transition hover:opacity-90"
+            title="Nueva conversación"
           >
-            Nuevo chat directo
+            <Plus size={16} />
           </button>
-        </form>
-      )}
-      {loading ? (
-        <div className="app-panel px-4 py-5 text-sm text-[var(--app-muted)]">Cargando...</div>
-      ) : threads.length === 0 ? (
-        <EmptyState message="No hay chats activos." />
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <section className="app-panel max-h-[72vh] overflow-y-auto p-3">
-            <h3 className="px-2 py-1 text-sm font-semibold text-[var(--app-ink)]">Chats</h3>
-            <div className="space-y-2 mt-2">
-              {threads.map((thread) => (
-                <button
-                  key={thread.threadId}
-                  type="button"
-                  className={`w-full text-left rounded-lg border p-3 transition ${
-                    selectedThreadId === thread.threadId
-                      ? 'border-[var(--app-border-strong)] bg-[var(--app-surface-muted)]'
-                      : 'border-[rgba(91,52,117,0.08)] hover:border-[var(--app-border)] hover:bg-white/88'
-                  }`}
-                  onClick={() => setSelectedThreadId(thread.threadId)}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="truncate font-medium text-[var(--app-ink)]">{thread.title ?? `Chat ${thread.threadId.slice(0, 8)}`}</p>
-                    {thread.unreadCount > 0 && (
-                      <span className="app-badge border-red-200 bg-red-50 text-red-700">{thread.unreadCount}</span>
-                    )}
-                  </div>
-                  <p className="mt-1 truncate text-xs text-[var(--app-muted)]">{thread.lastMessage ?? 'Sin mensajes'}</p>
-                  <p className="mt-1 text-xs text-[var(--app-muted)]/74">{toTime(thread.lastMessageAt)}</p>
-                </button>
-              ))}
+        )}
+      </div>
+
+      <div className="flex-1 divide-y divide-[var(--app-border)] overflow-y-auto">
+        {loading ? (
+          <p className="px-4 py-8 text-center text-sm text-[var(--app-muted)]">Cargando...</p>
+        ) : filteredThreads.length === 0 ? (
+          <div className="flex h-full flex-col items-center justify-center gap-3 px-4 py-12 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#f3e8ff]">
+              <MessageCircle size={20} style={{ color: '#5b2d8a' }} />
             </div>
-          </section>
-
-          <section className="app-panel lg:col-span-2 flex max-h-[72vh] flex-col">
-            <div className="border-b border-[rgba(91,52,117,0.08)] px-4 py-3">
-              <h3 className="font-semibold text-[var(--app-ink)]">
-                {threads.find((thread) => thread.threadId === selectedThreadId)?.title ?? 'Conversación'}
-              </h3>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {messagesLoading ? (
-                <p className="text-sm text-[var(--app-muted)]">Cargando mensajes...</p>
-              ) : messages.length === 0 ? (
-                <p className="text-sm text-[var(--app-muted)]">Sin mensajes en este chat.</p>
-              ) : (
-                messages.map((message) => {
-                  const isMine = message.senderUserId === sessionUser?.id;
-
-                  return (
-                    <article
-                      key={message.messageId}
-                      className={`rounded-lg p-3 border ${
-                        isMine
-                          ? 'ml-12 border-[var(--app-ink)] bg-[var(--app-ink)] text-white'
-                          : 'mr-12 border-[rgba(91,52,117,0.08)] bg-[var(--app-surface-muted)] text-[var(--app-ink)]'
+            <p className="text-sm text-[var(--app-muted)]">
+              {threadSearch ? 'Sin resultados.' : 'Inicia tu primera conversación.'}
+            </p>
+          </div>
+        ) : (
+          filteredThreads.map((thread) => {
+            const name = thread.otherParticipantName ?? thread.title ?? 'Chat';
+            const isSelected = thread.threadId === selectedThreadId;
+            return (
+              <button
+                key={thread.threadId}
+                onClick={() => onSelectThread(thread.threadId)}
+                className={`flex w-full items-center gap-3 px-4 py-3.5 text-left transition ${
+                  isSelected ? 'bg-[#f3e8ff]' : 'hover:bg-[var(--app-surface-muted)]'
+                }`}
+              >
+                <div className="relative shrink-0">
+                  <Avatar name={name} avatarUrl={thread.otherParticipantAvatarUrl} />
+                  {thread.unreadCount > 0 && (
+                    <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-[#5b2d8a] px-0.5 text-[10px] font-black text-white">
+                      {thread.unreadCount}
+                    </span>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline justify-between gap-1">
+                    <p
+                      className={`truncate text-sm ${
+                        isSelected ? 'font-bold text-[#5b2d8a]' : 'font-semibold text-[var(--app-ink)]'
                       }`}
                     >
-                      <div className="flex items-center justify-between gap-2">
-                        <p className={`text-xs ${isMine ? 'text-white/72' : 'text-[var(--app-muted)]'}`}>{message.senderName}</p>
-                        <p className={`text-xs ${isMine ? 'text-white/62' : 'text-[var(--app-muted)]/76'}`}>{toDateTime(message.createdAt)}</p>
-                      </div>
-                      <p className="text-sm mt-1 whitespace-pre-wrap">{message.messageText}</p>
-                      {isMine && (
-                        <div className="flex items-center gap-2 mt-2">
-                          {can('mensajes', 'update') && (
-                            <button
-                              className={`text-xs ${isMine ? 'text-amber-200' : 'text-slate-600'}`}
-                              type="button"
-                              onClick={() => void onEditMessage(message)}
-                            >
-                              Editar
-                            </button>
-                          )}
-                          {can('mensajes', 'delete') && (
-                            <button
-                              className={`text-xs ${isMine ? 'text-red-200' : 'text-red-600'}`}
-                              type="button"
-                              onClick={() => void onDeleteMessage(message)}
-                            >
-                              Eliminar
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </article>
-                  );
-                })
-              )}
-            </div>
+                      {name}
+                    </p>
+                    <span className="shrink-0 text-[11px] text-[var(--app-muted)]">
+                      {toThreadTime(thread.lastMessageAt)}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 truncate text-xs text-[var(--app-muted)]">
+                    {thread.lastMessage ?? 'Sin mensajes aún'}
+                  </p>
+                </div>
+              </button>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
 
-            {can('mensajes', 'create') && (
-              <form className="flex gap-2 border-t border-[rgba(91,52,117,0.08)] p-3" onSubmit={onSendMessage}>
-                <input
-                  className="app-input flex-1"
-                  placeholder="Escribe un mensaje..."
-                  value={messageText}
-                  onChange={(event) => setMessageText(event.target.value)}
-                />
-                <button
-                  className="app-button-primary disabled:opacity-50"
-                  type="submit"
-                  disabled={!selectedThreadId || !messageText.trim()}
-                >
-                  Enviar
-                </button>
-              </form>
-            )}
-          </section>
+  // ── Render ─────────────────────────────────────────────────────────────────
+
+  return (
+    <div className="flex h-[calc(100dvh-9rem)] min-h-[520px] flex-col">
+      <div className="grid flex-1 overflow-hidden rounded-2xl border border-[var(--app-border)] bg-white shadow-sm lg:grid-cols-[20rem_1fr]">
+
+        {/* Left panel */}
+        <div
+          className={`flex flex-col border-r border-[var(--app-border)] ${
+            showChatOnMobile ? 'hidden lg:flex' : 'flex'
+          }`}
+        >
+          {showContacts ? leftContacts : leftThreads}
         </div>
-      )}
+
+        {/* Right panel: chat */}
+        <div
+          className={`flex flex-col ${showChatOnMobile ? 'flex' : 'hidden lg:flex'}`}
+        >
+          {!selectedThread ? (
+            <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#f3e8ff]">
+                <MessageCircle size={28} style={{ color: '#5b2d8a' }} />
+              </div>
+              <p className="max-w-[16rem] text-sm text-[var(--app-muted)]">
+                Selecciona una conversación o inicia una nueva con el botón +
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* Chat header */}
+              <div className="flex items-center gap-3 border-b border-[var(--app-border)] bg-white px-4 py-3">
+                <button
+                  onClick={() => setShowChatOnMobile(false)}
+                  className="rounded-full p-1.5 text-[var(--app-muted)] transition hover:bg-[var(--app-surface-muted)] lg:hidden"
+                >
+                  <ArrowLeft size={16} />
+                </button>
+                <Avatar
+                  name={selectedThread.otherParticipantName ?? selectedThread.title ?? 'Chat'}
+                  avatarUrl={selectedThread.otherParticipantAvatarUrl}
+                  size="md"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-bold text-[var(--app-ink)]">
+                    {selectedThread.otherParticipantName ?? selectedThread.title ?? 'Chat'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Messages area */}
+              <div className="flex-1 overflow-y-auto px-4 py-5 space-y-5">
+                {messagesLoading ? (
+                  <p className="text-center text-sm text-[var(--app-muted)]">Cargando mensajes...</p>
+                ) : messagesByDay.length === 0 ? (
+                  <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
+                    <p className="text-sm text-[var(--app-muted)]">Sé el primero en escribir algo.</p>
+                  </div>
+                ) : (
+                  messagesByDay.map(({ day, msgs }) => (
+                    <div key={day} className="space-y-3">
+                      {/* Day separator */}
+                      <div className="flex items-center gap-3">
+                        <div className="h-px flex-1 bg-[var(--app-border)]" />
+                        <span className="shrink-0 rounded-full bg-[var(--app-surface-muted)] px-3 py-0.5 text-[11px] font-semibold text-[var(--app-muted)]">
+                          {toDayLabel(msgs[0].createdAt)}
+                        </span>
+                        <div className="h-px flex-1 bg-[var(--app-border)]" />
+                      </div>
+
+                      {msgs.map((msg) => {
+                        const isMine = msg.senderUserId === sessionUser?.id;
+                        const isDeleted = !!msg.deletedAt;
+                        const isEditing = editingId === msg.messageId;
+
+                        return (
+                          <div
+                            key={msg.messageId}
+                            className={`group flex gap-2.5 ${isMine ? 'flex-row-reverse' : 'flex-row'}`}
+                          >
+                            {!isMine && (
+                              <Avatar name={msg.senderName} avatarUrl={msg.senderAvatarUrl} size="sm" />
+                            )}
+
+                            <div
+                              className={`flex flex-col ${isMine ? 'items-end' : 'items-start'} max-w-[70%]`}
+                            >
+                              {!isMine && (
+                                <span className="mb-1 px-1 text-[11px] font-semibold text-[var(--app-muted)]">
+                                  {msg.senderName}
+                                </span>
+                              )}
+
+                              {isDeleted ? (
+                                <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-2.5">
+                                  <p className="text-xs italic text-[var(--app-muted)]">Mensaje eliminado</p>
+                                </div>
+                              ) : isEditing ? (
+                                <div className="w-full min-w-[16rem]">
+                                  <textarea
+                                    autoFocus
+                                    rows={3}
+                                    value={editText}
+                                    onChange={(e) => setEditText(e.target.value)}
+                                    className="w-full resize-none rounded-xl border border-[var(--app-border-strong)] px-3 py-2 text-sm text-[var(--app-ink)] outline-none focus:ring-2 ring-[#c9b0e1]/30"
+                                  />
+                                  <div className="mt-1.5 flex justify-end gap-1.5">
+                                    <button
+                                      onClick={onCancelEdit}
+                                      className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs text-[var(--app-muted)] hover:bg-[var(--app-surface-muted)]"
+                                    >
+                                      <X size={11} /> Cancelar
+                                    </button>
+                                    <button
+                                      onClick={() => void onSaveEdit()}
+                                      className="flex items-center gap-1 rounded-full bg-[#5b2d8a] px-2.5 py-1 text-xs font-semibold text-white hover:opacity-90"
+                                    >
+                                      <Check size={11} /> Guardar
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="relative">
+                                  <div
+                                    className={`px-4 py-2.5 ${
+                                      isMine
+                                        ? 'rounded-2xl rounded-tr-sm bg-[#5b2d8a] text-white'
+                                        : 'rounded-2xl rounded-tl-sm bg-[var(--app-surface-muted)] text-[var(--app-ink)]'
+                                    }`}
+                                  >
+                                    <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+                                      {renderText(msg.messageText)}
+                                    </p>
+                                  </div>
+
+                                  {/* Edit / Delete — appears on hover, left of sent bubble */}
+                                  {isMine && (
+                                    <div className="absolute right-full top-1 mr-2 hidden items-center gap-1 group-hover:flex">
+                                      {can('mensajes', 'update') && (
+                                        <button
+                                          onClick={() => onStartEdit(msg)}
+                                          className="rounded-full border border-[var(--app-border)] bg-white p-1.5 text-[var(--app-muted)] shadow-sm transition hover:text-[var(--app-ink)]"
+                                        >
+                                          <Pencil size={12} />
+                                        </button>
+                                      )}
+                                      {can('mensajes', 'delete') && (
+                                        <button
+                                          onClick={() => void onDelete(msg)}
+                                          className="rounded-full border border-[var(--app-border)] bg-white p-1.5 text-rose-400 shadow-sm transition hover:text-rose-600"
+                                        >
+                                          <Trash2 size={12} />
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              <div className="mt-1 flex items-center gap-1 px-1">
+                                <span className="text-[10px] text-[var(--app-muted)]">
+                                  {toMsgTime(msg.createdAt)}
+                                </span>
+                                {msg.editedAt && !isDeleted && (
+                                  <span className="text-[10px] italic text-[var(--app-muted)]">· editado</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+
+              {/* Input bar */}
+              {can('mensajes', 'create') && (
+                <div className="flex items-end gap-2 border-t border-[var(--app-border)] px-4 py-3">
+                  {/* Emoji picker */}
+                  <div ref={emojiRef} className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setShowEmoji((v) => !v)}
+                      className="rounded-full p-2 text-[var(--app-muted)] transition hover:bg-[var(--app-surface-muted)] hover:text-[var(--app-ink)]"
+                    >
+                      <Smile size={20} />
+                    </button>
+                    {showEmoji && (
+                      <div className="absolute bottom-12 left-0 z-20 animate-fade-in rounded-2xl border border-[var(--app-border)] bg-white p-3 shadow-lg">
+                        <div className="grid grid-cols-8 gap-1">
+                          {EMOJIS.map((emoji) => (
+                            <button
+                              key={emoji}
+                              type="button"
+                              onClick={() => insertEmoji(emoji)}
+                              className="rounded-lg p-1 text-xl transition hover:bg-[var(--app-surface-muted)]"
+                            >
+                              {emoji}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <input
+                    ref={inputRef}
+                    value={messageText}
+                    onChange={(e) => setMessageText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        void onSend();
+                      }
+                    }}
+                    placeholder="Escribe un mensaje..."
+                    className="flex-1 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-2.5 text-sm text-[var(--app-ink)] outline-none transition placeholder:text-[var(--app-muted)] focus:border-[var(--app-border-strong)] focus:bg-white"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => void onSend()}
+                    disabled={!messageText.trim()}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#5b2d8a] text-white transition hover:opacity-90 disabled:opacity-40"
+                  >
+                    <Send size={16} />
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
