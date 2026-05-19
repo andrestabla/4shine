@@ -148,7 +148,7 @@ Ver convocatoria: {{enlace_plataforma}}
 — {{plataforma}}',
       'Postulación no seleccionada',
       'Tu postulación a «{{titulo}}» no fue seleccionada esta vez.',
-      'warning',
+      'alert',
       '{{enlace_plataforma}}',
       true, true
     )
