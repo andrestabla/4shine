@@ -565,18 +565,18 @@ export default function ConvocatoriasPage() {
 
       {/* Notification interest toggle — non-managers only */}
       {!canManage && (
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--app-border)] bg-white px-5 py-3.5">
-          <div>
+        <div className="flex items-center gap-4 rounded-xl border border-[var(--app-border)] bg-white px-5 py-3.5">
+          <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-[var(--app-ink)]">Notificaciones de nuevas convocatorias</p>
             <p className="text-xs text-[var(--app-muted)]">Recibe un correo cuando se publique una nueva convocatoria.</p>
           </div>
           <button
             onClick={() => void onToggleInterest(!notifInterest)}
-            className={`relative h-6 w-11 rounded-full transition-colors ${notifInterest ? 'bg-[#5b2d8a]' : 'bg-gray-300'}`}
             role="switch"
             aria-checked={notifInterest}
+            className={`relative shrink-0 h-7 w-12 rounded-full transition-colors duration-200 focus:outline-none ${notifInterest ? 'bg-[#5b2d8a]' : 'bg-gray-300'}`}
           >
-            <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${notifInterest ? 'translate-x-5' : 'translate-x-0.5'}`} />
+            <span className={`absolute top-1 left-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 ${notifInterest ? 'translate-x-5' : 'translate-x-0'}`} />
           </button>
         </div>
       )}
