@@ -551,7 +551,7 @@ export default function MensajesPage() {
   // ── Contact picker left panel ──────────────────────────────────────────────
 
   const leftContacts = (
-    <div className="flex h-full flex-col">
+    <div className="flex flex-1 min-h-0 flex-col">
       {/* Header fijo: título + buscador + aviso (nunca se pierde al scrollear) */}
       <div className="shrink-0 border-b border-[var(--app-border)] px-3 pt-3 pb-2.5 space-y-2.5">
         <div className="flex items-center gap-2">
@@ -598,7 +598,7 @@ export default function MensajesPage() {
       </div>
 
       {/* Lista scrollable */}
-      <div className="flex-1 divide-y divide-[var(--app-border)] overflow-y-auto">
+      <div className="flex-1 min-h-0 divide-y divide-[var(--app-border)] overflow-y-auto">
         {filteredContacts.length === 0 ? (
           currentRole === 'lider' ? (
             <div className="flex flex-col items-center gap-3 px-4 py-8 text-center">
@@ -643,7 +643,7 @@ export default function MensajesPage() {
   // ── Thread list left panel ─────────────────────────────────────────────────
 
   const leftThreads = (
-    <div className="flex h-full flex-col">
+    <div className="flex flex-1 min-h-0 flex-col">
       <div className="flex items-center gap-2 border-b border-[var(--app-border)] px-3 py-3">
         <div className="flex flex-1 items-center gap-2 rounded-xl bg-[var(--app-surface-muted)] px-3 py-2">
           <Search size={14} className="shrink-0 text-[var(--app-muted)]" />
@@ -670,7 +670,7 @@ export default function MensajesPage() {
         )}
       </div>
 
-      <div className="flex-1 divide-y divide-[var(--app-border)] overflow-y-auto">
+      <div className="flex-1 min-h-0 divide-y divide-[var(--app-border)] overflow-y-auto">
         {loading ? (
           <p className="px-4 py-8 text-center text-sm text-[var(--app-muted)]">Cargando...</p>
         ) : filteredThreads.length === 0 ? (
@@ -735,7 +735,7 @@ export default function MensajesPage() {
 
         {/* Left panel */}
         <div
-          className={`flex flex-col border-r border-[var(--app-border)] ${
+          className={`flex flex-col overflow-hidden border-r border-[var(--app-border)] ${
             showChatOnMobile ? 'hidden lg:flex' : 'flex'
           }`}
         >
@@ -778,7 +778,7 @@ export default function MensajesPage() {
               </div>
 
               {/* Messages area */}
-              <div className="flex-1 overflow-y-auto px-4 py-5 space-y-5">
+              <div className="flex-1 min-h-0 overflow-y-auto px-4 py-5 space-y-5">
                 {messagesLoading ? (
                   <p className="text-center text-sm text-[var(--app-muted)]">Cargando mensajes...</p>
                 ) : messagesByDay.length === 0 ? (
