@@ -552,19 +552,18 @@ export default function MensajesPage() {
 
   const leftContacts = (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-2 border-b border-[var(--app-border)] px-4 py-3">
-        <button
-          onClick={() => {
-            setShowContacts(false);
-            setContactSearch('');
-          }}
-          className="rounded-full p-1.5 text-[var(--app-muted)] hover:bg-[var(--app-surface-muted)] transition"
-        >
-          <ArrowLeft size={16} />
-        </button>
-        <h3 className="text-sm font-bold text-[var(--app-ink)]">Nueva conversación</h3>
-      </div>
-      <div className="border-b border-[var(--app-border)] px-3 py-2.5">
+      {/* Header fijo: título + buscador + aviso (nunca se pierde al scrollear) */}
+      <div className="shrink-0 border-b border-[var(--app-border)] px-3 pt-3 pb-2.5 space-y-2.5">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => { setShowContacts(false); setContactSearch(''); }}
+            className="rounded-full p-1.5 text-[var(--app-muted)] hover:bg-[var(--app-surface-muted)] transition"
+          >
+            <ArrowLeft size={16} />
+          </button>
+          <h3 className="text-sm font-bold text-[var(--app-ink)]">Nueva conversación</h3>
+        </div>
+
         <div className="flex items-center gap-2 rounded-xl bg-[var(--app-surface-muted)] px-3 py-2">
           <Search size={14} className="shrink-0 text-[var(--app-muted)]" />
           <input
@@ -574,21 +573,32 @@ export default function MensajesPage() {
             placeholder="Buscar contacto..."
             className="flex-1 bg-transparent text-sm text-[var(--app-ink)] outline-none placeholder:text-[var(--app-muted)]"
           />
+          {contactSearch && (
+            <button onClick={() => setContactSearch('')} className="text-[var(--app-muted)] hover:text-[var(--app-ink)]">
+              <X size={13} />
+            </button>
+          )}
         </div>
-      </div>
-      <div className="flex-1 divide-y divide-[var(--app-border)] overflow-y-auto">
-        {/* Aviso para líderes: solo ven conexiones aceptadas */}
+
+        {/* Aviso líderes — fijo en header, siempre visible */}
         {currentRole === 'lider' && (
-          <div className="flex items-start gap-3 bg-[#f3e8ff]/60 px-4 py-3 text-xs text-[#5b2d8a]">
-            <Users size={14} className="mt-0.5 shrink-0" />
-            <span>
-              Solo ves tus conexiones aceptadas de Networking.{' '}
-              <a href="/dashboard/networking" className="font-bold underline">
-                Conectar con más personas →
-              </a>
-            </span>
+          <div className="flex items-center gap-2 rounded-lg bg-[#f3e8ff] px-3 py-2">
+            <Users size={13} className="shrink-0 text-[#5b2d8a]" />
+            <p className="min-w-0 flex-1 text-[11px] leading-snug text-[#5b2d8a]">
+              Solo ves tus conexiones de Networking.
+            </p>
+            <a
+              href="/dashboard/networking"
+              className="shrink-0 rounded-full bg-[#5b2d8a] px-2.5 py-1 text-[11px] font-bold text-white hover:opacity-90 transition"
+            >
+              Conectar
+            </a>
           </div>
         )}
+      </div>
+
+      {/* Lista scrollable */}
+      <div className="flex-1 divide-y divide-[var(--app-border)] overflow-y-auto">
         {filteredContacts.length === 0 ? (
           currentRole === 'lider' ? (
             <div className="flex flex-col items-center gap-3 px-4 py-8 text-center">
