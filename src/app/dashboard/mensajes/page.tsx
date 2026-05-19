@@ -5,6 +5,7 @@ import ReactDOM from 'react-dom';
 import {
   ArrowLeft,
   Check,
+  CheckCheck,
   Lock,
   MessageCircle,
   Pencil,
@@ -378,6 +379,10 @@ export default function MensajesPage() {
       )
     : participants;
 
+  const lastMyMessageId = [...messages]
+    .reverse()
+    .find((m) => m.senderUserId === sessionUser?.id && !m.deletedAt)?.messageId ?? null;
+
   const messagesByDay = messages.reduce<{ day: string; msgs: MessageRecord[] }[]>((acc, msg) => {
     const day = new Date(msg.createdAt).toDateString();
     if (acc[acc.length - 1]?.day === day) {
@@ -744,7 +749,7 @@ export default function MensajesPage() {
 
         {/* Right panel: chat */}
         <div
-          className={`flex flex-col ${showChatOnMobile ? 'flex' : 'hidden lg:flex'}`}
+          className={`flex flex-col overflow-hidden ${showChatOnMobile ? 'flex' : 'hidden lg:flex'}`}
         >
           {!selectedThread ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
@@ -806,6 +811,11 @@ export default function MensajesPage() {
                         const textOnly = msg.messageText.replace(/https?:\/\/[^\s]+/g, '').trim();
                         const hasText = textOnly.length > 0;
 
+                        const isSeen =
+                          isMine &&
+                          selectedThread?.otherParticipantLastReadAt != null &&
+                          msg.createdAt <= selectedThread.otherParticipantLastReadAt;
+
                         return (
                           <div
                             key={msg.messageId}
@@ -825,7 +835,8 @@ export default function MensajesPage() {
                               )}
 
                               {isDeleted ? (
-                                <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-2.5">
+                                <div className="flex items-center gap-1.5 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-2.5">
+                                  <Trash2 size={11} className="shrink-0 text-[var(--app-muted)]" />
                                   <p className="text-xs italic text-[var(--app-muted)]">Mensaje eliminado</p>
                                 </div>
                               ) : isEditing ? (
@@ -903,7 +914,15 @@ export default function MensajesPage() {
                                   {toMsgTime(msg.createdAt)}
                                 </span>
                                 {msg.editedAt && !isDeleted && (
-                                  <span className="text-[10px] italic text-[var(--app-muted)]">· editado</span>
+                                  <>
+                                    <Pencil size={9} className="text-[var(--app-muted)]" />
+                                    <span className="text-[10px] italic text-[var(--app-muted)]">editado</span>
+                                  </>
+                                )}
+                                {isMine && !isDeleted && msg.messageId === lastMyMessageId && (
+                                  isSeen
+                                    ? <CheckCheck size={13} className="text-[#5b2d8a]" />
+                                    : <Check size={13} className="text-[var(--app-muted)]" />
                                 )}
                               </div>
                             </div>

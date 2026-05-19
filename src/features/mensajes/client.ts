@@ -9,6 +9,7 @@ export interface ThreadRecord {
   unreadCount: number;
   otherParticipantName: string | null;
   otherParticipantAvatarUrl: string | null;
+  otherParticipantLastReadAt: string | null;
 }
 
 export interface MessageRecord {

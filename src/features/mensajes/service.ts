@@ -12,6 +12,7 @@ export interface ThreadRecord {
   unreadCount: number;
   otherParticipantName: string | null;
   otherParticipantAvatarUrl: string | null;
+  otherParticipantLastReadAt: string | null;
 }
 
 export interface MessageRecord {
@@ -57,6 +58,7 @@ interface ThreadRow {
   unread_count: number;
   other_participant_name: string | null;
   other_participant_avatar_url: string | null;
+  other_participant_last_read_at: string | null;
 }
 
 interface MessageRow {
@@ -89,6 +91,7 @@ function mapThread(row: ThreadRow): ThreadRecord {
     unreadCount: Number(row.unread_count ?? 0),
     otherParticipantName: row.other_participant_name,
     otherParticipantAvatarUrl: row.other_participant_avatar_url,
+    otherParticipantLastReadAt: row.other_participant_last_read_at,
   };
 }
 
@@ -155,7 +158,8 @@ export async function listThreads(client: PoolClient, actor: AuthUser, limit = 1
             AND m.created_at > COALESCE(tp.last_read_at, 'epoch'::timestamptz)
         ) AS unread_count,
         other_p.display_name AS other_participant_name,
-        other_p.avatar_url AS other_participant_avatar_url
+        other_p.avatar_url AS other_participant_avatar_url,
+        other_p.last_read_at::text AS other_participant_last_read_at
       FROM app_networking.thread_participants tp
       JOIN app_networking.chat_threads ct ON ct.thread_id = tp.thread_id
       LEFT JOIN LATERAL (
@@ -167,7 +171,7 @@ export async function listThreads(client: PoolClient, actor: AuthUser, limit = 1
         LIMIT 1
       ) last_msg ON true
       LEFT JOIN LATERAL (
-        SELECT u.display_name, u.avatar_url
+        SELECT u.display_name, u.avatar_url, tp2.last_read_at
         FROM app_networking.thread_participants tp2
         JOIN app_core.users u ON u.user_id = tp2.user_id
         WHERE tp2.thread_id = ct.thread_id
