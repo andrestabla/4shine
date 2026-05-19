@@ -23,7 +23,6 @@ import { useUser } from '@/context/UserContext';
 import { filterCommercialProducts } from '@/features/access/catalog';
 import {
   createConvocatoria,
-  createRequest,
   getNotificationInterest,
   listConvocatorias,
   listRequests,
@@ -32,9 +31,14 @@ import {
   type ConvocatoriaRequest,
   type ConvocatoriaSummary,
   type ConvocatoriaStatus,
+  type ConvocatoriaTipo,
 } from '@/features/convocatorias/client';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+function shortId(uuid: string, prefix: string) {
+  return `${prefix}-${uuid.replace(/-/g, '').slice(0, 8).toUpperCase()}`;
+}
 
 function toDateLabel(value: string): string {
   return new Date(value).toLocaleDateString('es-CO', { dateStyle: 'medium' });
@@ -48,6 +52,14 @@ function toRelativeDate(value: string): string {
   if (days < 7) return `hace ${days} días`;
   return new Date(value).toLocaleDateString('es-CO', { dateStyle: 'medium' });
 }
+
+const TIPO_LABELS: Record<string, string> = {
+  laboral: 'Laboral',
+  proyecto_social: 'Proyecto Social',
+  proveedor: 'Proveedor',
+  convenio: 'Convenio',
+  otra: 'Otra',
+};
 
 const STATUS_CONFIG: Record<ConvocatoriaStatus, { label: string; classes: string }> = {
   draft:     { label: 'Borrador',   classes: 'bg-gray-100 text-gray-600 border-gray-200' },
@@ -201,7 +213,8 @@ function RequestsPanel({ requests, onReview }: RequestsPanelProps) {
                         <span className="text-sm font-bold text-[var(--app-ink)] truncate">{req.title}</span>
                         <RequestStatusBadge status={req.status} />
                       </div>
-                      <p className="text-xs text-[var(--app-muted)]">
+                      <span className="font-mono text-[10px] text-[var(--app-muted)]">{shortId(req.requestId, 'SOL')}</span>
+                      <p className="text-xs text-[var(--app-muted)] mt-0.5">
                         Solicitado por <span className="font-semibold">{req.requesterName}</span> · {toRelativeDate(req.createdAt)}
                       </p>
                       {req.description && (
@@ -295,6 +308,7 @@ function MyRequestsPanel({ requests }: { requests: ConvocatoriaRequest[] }) {
             <div key={req.requestId} className="flex items-center gap-3 px-5 py-3">
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-[var(--app-ink)] truncate">{req.title}</p>
+                <span className="font-mono text-[10px] text-[var(--app-muted)]">{shortId(req.requestId, 'SOL')}</span>
                 <p className="text-xs text-[var(--app-muted)]">{toRelativeDate(req.createdAt)}</p>
                 {req.reviewerNotes && (
                   <p className="mt-0.5 text-xs italic text-[var(--app-muted)]">{req.reviewerNotes}</p>
@@ -315,6 +329,14 @@ interface CreateState {
   open: boolean;
   title: string;
   description: string;
+  objetivo: string;
+  tipo: ConvocatoriaTipo;
+  fechaInicio: string;
+  fechaFin: string;
+  requisitos: string;
+  enlacesComplementarios: string;
+  contactoTelefono: string;
+  contactoEmail: string;
   location: string;
   externalUrl: string;
   status: ConvocatoriaStatus;
@@ -322,35 +344,10 @@ interface CreateState {
 }
 
 const INITIAL_CREATE: CreateState = {
-  open: false,
-  title: '',
-  description: '',
-  location: '',
-  externalUrl: '',
-  status: 'draft',
-  loading: false,
-};
-
-// ── Request modal (líder) ─────────────────────────────────────────────────────
-
-interface RequestState {
-  open: boolean;
-  title: string;
-  objetivo: string;
-  tipo: 'laboral' | 'proyecto_social' | 'proveedor' | 'convenio' | 'otra';
-  description: string;
-  fechaInicio: string;
-  fechaFin: string;
-  requisitos: string;
-  enlacesComplementarios: string;
-  numeroContacto: string;
-  loading: boolean;
-}
-
-const INITIAL_REQUEST: RequestState = {
-  open: false, title: '', objetivo: '', tipo: 'otra', description: '',
+  open: false, title: '', description: '', objetivo: '', tipo: 'otra',
   fechaInicio: '', fechaFin: '', requisitos: '', enlacesComplementarios: '',
-  numeroContacto: '', loading: false,
+  contactoTelefono: '', contactoEmail: '', location: '', externalUrl: '',
+  status: 'draft', loading: false,
 };
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -366,7 +363,6 @@ export default function ConvocatoriasPage() {
   const [loading, setLoading] = React.useState(true);
   const [filter, setFilter] = React.useState<FilterTab>('all');
   const [create, setCreate] = React.useState<CreateState>(INITIAL_CREATE);
-  const [requestForm, setRequestForm] = React.useState<RequestState>(INITIAL_REQUEST);
   const [notifInterest, setNotifInterest] = React.useState<boolean>(false);
 
   const isCommunityLocked = currentRole === 'lider' && viewerAccess?.viewerTier === 'open_leader';
@@ -417,6 +413,14 @@ export default function ConvocatoriasPage() {
       await createConvocatoria({
         title: create.title.trim(),
         description: create.description.trim(),
+        objetivo: create.objetivo.trim(),
+        tipo: create.tipo,
+        fechaInicio: create.fechaInicio || null,
+        fechaFin: create.fechaFin || null,
+        requisitos: create.requisitos.trim(),
+        enlacesComplementarios: create.enlacesComplementarios.trim(),
+        contactoTelefono: create.contactoTelefono.trim(),
+        contactoEmail: create.contactoEmail.trim(),
         location: create.location.trim() || null,
         externalUrl: create.externalUrl.trim() || null,
         status: create.status,
@@ -437,37 +441,6 @@ export default function ConvocatoriasPage() {
       await setNotificationInterest(v);
     } catch {
       setNotifInterest(!v); // revert on error
-    }
-  };
-
-  // ── Solicitar publicación (líder) ───────────────────────────────────────────
-
-  const onSendRequest = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!requestForm.title.trim()) return;
-    setRequestForm((s) => ({ ...s, loading: true }));
-    try {
-      await createRequest({
-        title: requestForm.title.trim(),
-        objetivo: requestForm.objetivo.trim(),
-        tipo: requestForm.tipo,
-        description: requestForm.description.trim(),
-        fechaInicio: requestForm.fechaInicio || null,
-        fechaFin: requestForm.fechaFin || null,
-        requisitos: requestForm.requisitos.trim(),
-        enlacesComplementarios: requestForm.enlacesComplementarios.trim(),
-        numeroContacto: requestForm.numeroContacto.trim(),
-      });
-      setRequestForm(INITIAL_REQUEST);
-      await alert({
-        title: '¡Solicitud enviada!',
-        message: 'Tu solicitud fue recibida. El equipo 4Shine la revisará y te notificará.',
-        tone: 'success',
-      });
-      await load();
-    } catch (err) {
-      await showError('No se pudo enviar la solicitud', err);
-      setRequestForm((s) => ({ ...s, loading: false }));
     }
   };
 
@@ -570,13 +543,13 @@ export default function ConvocatoriasPage() {
               Nueva
             </button>
           ) : (
-            <button
-              onClick={() => setRequestForm((s) => ({ ...s, open: true }))}
+            <Link
+              href="/dashboard/convocatorias/solicitar"
               className="inline-flex items-center gap-2 rounded-full border border-[#7c3aed] px-4 py-2 text-sm font-bold text-[#5b2d8a] hover:bg-[#f3e8ff] transition"
             >
               <Send size={14} />
               Solicitar publicación
-            </button>
+            </Link>
           )}
         </div>
       </div>
@@ -652,162 +625,171 @@ export default function ConvocatoriasPage() {
       {/* Modal: nueva convocatoria (admin/gestor) */}
       {create.open && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
-            <h2 className="mb-4 text-lg font-black text-[var(--app-ink)]">Nueva convocatoria</h2>
-            <form onSubmit={onCreate} className="space-y-3">
-              <input
-                className="app-input"
-                placeholder="Título *"
-                value={create.title}
-                onChange={(e) => setCreate((s) => ({ ...s, title: e.target.value }))}
-                required
-                autoFocus
-              />
-              <textarea
-                className="app-textarea"
-                placeholder="Descripción"
-                rows={3}
-                value={create.description}
-                onChange={(e) => setCreate((s) => ({ ...s, description: e.target.value }))}
-              />
-              <div className="grid grid-cols-2 gap-3">
+          <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white px-6 pt-6 pb-4 border-b border-[var(--app-border)]">
+              <h2 className="text-lg font-black text-[var(--app-ink)]">Nueva convocatoria</h2>
+            </div>
+            <form onSubmit={onCreate} className="px-6 py-4 space-y-4">
+              {/* Título */}
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">Título *</label>
                 <input
                   className="app-input"
-                  placeholder="Ubicación"
-                  value={create.location}
-                  onChange={(e) => setCreate((s) => ({ ...s, location: e.target.value }))}
-                />
-                <input
-                  className="app-input"
-                  placeholder="URL externa (opcional)"
-                  value={create.externalUrl}
-                  onChange={(e) => setCreate((s) => ({ ...s, externalUrl: e.target.value }))}
+                  placeholder="Nombre de la convocatoria"
+                  value={create.title}
+                  onChange={(e) => setCreate((s) => ({ ...s, title: e.target.value }))}
+                  required
+                  autoFocus
                 />
               </div>
-              <select
-                className="app-select"
-                value={create.status}
-                onChange={(e) => setCreate((s) => ({ ...s, status: e.target.value as ConvocatoriaStatus }))}
-              >
-                <option value="draft">Guardar como borrador</option>
-                <option value="open">Publicar abierta</option>
-              </select>
+
+              {/* Tipo */}
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">Tipo</label>
+                <select
+                  className="app-select"
+                  value={create.tipo}
+                  onChange={(e) => setCreate((s) => ({ ...s, tipo: e.target.value as ConvocatoriaTipo }))}
+                >
+                  {Object.entries(TIPO_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Objetivo */}
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">Objetivo</label>
+                <textarea
+                  className="app-textarea"
+                  rows={2}
+                  placeholder="Objetivo principal de la convocatoria"
+                  value={create.objetivo}
+                  onChange={(e) => setCreate((s) => ({ ...s, objetivo: e.target.value }))}
+                />
+              </div>
+
+              {/* Descripción */}
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">Descripción</label>
+                <textarea
+                  className="app-textarea"
+                  rows={3}
+                  placeholder="¿Qué es? ¿A quién va dirigida? ¿Cuál es el alcance?"
+                  value={create.description}
+                  onChange={(e) => setCreate((s) => ({ ...s, description: e.target.value }))}
+                />
+              </div>
+
+              {/* Fechas */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">Fecha inicio</label>
+                  <input
+                    className="app-input"
+                    type="date"
+                    value={create.fechaInicio}
+                    onChange={(e) => setCreate((s) => ({ ...s, fechaInicio: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">Fecha fin</label>
+                  <input
+                    className="app-input"
+                    type="date"
+                    value={create.fechaFin}
+                    onChange={(e) => setCreate((s) => ({ ...s, fechaFin: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              {/* Requisitos */}
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">Requisitos</label>
+                <textarea
+                  className="app-textarea"
+                  rows={2}
+                  placeholder="Requisitos para aplicar (opcional)"
+                  value={create.requisitos}
+                  onChange={(e) => setCreate((s) => ({ ...s, requisitos: e.target.value }))}
+                />
+              </div>
+
+              {/* Enlaces complementarios */}
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">Enlaces complementarios</label>
+                <input
+                  className="app-input"
+                  placeholder="https://... (opcional)"
+                  value={create.enlacesComplementarios}
+                  onChange={(e) => setCreate((s) => ({ ...s, enlacesComplementarios: e.target.value }))}
+                />
+              </div>
+
+              {/* Teléfono + Email contacto */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">Teléfono contacto</label>
+                  <input
+                    className="app-input"
+                    placeholder="+57 300 000 0000"
+                    value={create.contactoTelefono}
+                    onChange={(e) => setCreate((s) => ({ ...s, contactoTelefono: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">Email contacto</label>
+                  <input
+                    className="app-input"
+                    type="email"
+                    placeholder="contacto@ejemplo.com"
+                    value={create.contactoEmail}
+                    onChange={(e) => setCreate((s) => ({ ...s, contactoEmail: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              {/* Ubicación + URL externa */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">Ubicación</label>
+                  <input
+                    className="app-input"
+                    placeholder="Ciudad, País o Remoto"
+                    value={create.location}
+                    onChange={(e) => setCreate((s) => ({ ...s, location: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">URL externa</label>
+                  <input
+                    className="app-input"
+                    placeholder="https://..."
+                    value={create.externalUrl}
+                    onChange={(e) => setCreate((s) => ({ ...s, externalUrl: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              {/* Estado */}
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">Estado</label>
+                <select
+                  className="app-select"
+                  value={create.status}
+                  onChange={(e) => setCreate((s) => ({ ...s, status: e.target.value as ConvocatoriaStatus }))}
+                >
+                  <option value="draft">Guardar como borrador</option>
+                  <option value="open">Publicar abierta</option>
+                </select>
+              </div>
+
               <div className="flex justify-end gap-2 pt-1">
                 <button type="button" className="app-button-secondary" onClick={() => setCreate(INITIAL_CREATE)} disabled={create.loading}>
                   Cancelar
                 </button>
                 <button type="submit" className="app-button-primary" disabled={create.loading || !create.title.trim()}>
                   {create.loading ? 'Creando...' : 'Crear convocatoria'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal: solicitar publicación (líder) */}
-      {requestForm.open && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
-          <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl max-h-[90vh] flex flex-col">
-            <div className="px-6 pt-6 pb-4 border-b border-[var(--app-border)]">
-              <div className="flex items-center gap-2">
-                <Send size={18} className="text-[#7c3aed]" />
-                <h2 className="text-lg font-black text-[var(--app-ink)]">Solicitar publicación</h2>
-              </div>
-              <p className="mt-1 text-sm text-[var(--app-muted)]">
-                Cuéntanos qué convocatoria quieres publicar. El equipo 4Shine la revisará y te contactará.
-              </p>
-            </div>
-            <form onSubmit={onSendRequest} className="flex flex-col flex-1 overflow-hidden">
-              <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
-                <input
-                  className="app-input"
-                  placeholder="Título de la convocatoria *"
-                  value={requestForm.title}
-                  onChange={(e) => setRequestForm((s) => ({ ...s, title: e.target.value }))}
-                  required
-                  autoFocus
-                />
-                <select
-                  className="app-select"
-                  value={requestForm.tipo}
-                  onChange={(e) => setRequestForm((s) => ({ ...s, tipo: e.target.value as RequestState['tipo'] }))}
-                >
-                  <option value="otra">Tipo: Otra</option>
-                  <option value="laboral">Laboral</option>
-                  <option value="proyecto_social">Proyecto Social</option>
-                  <option value="proveedor">Proveedor</option>
-                  <option value="convenio">Convenio</option>
-                </select>
-                <textarea
-                  className="app-textarea"
-                  placeholder="Objetivo de la convocatoria"
-                  rows={2}
-                  value={requestForm.objetivo}
-                  onChange={(e) => setRequestForm((s) => ({ ...s, objetivo: e.target.value }))}
-                />
-                <textarea
-                  className="app-textarea"
-                  placeholder="Descripción breve — qué es, a quién va dirigida..."
-                  rows={3}
-                  value={requestForm.description}
-                  onChange={(e) => setRequestForm((s) => ({ ...s, description: e.target.value }))}
-                />
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="mb-1 block text-xs font-bold text-[var(--app-muted)] uppercase tracking-wide">Fecha inicio</label>
-                    <input
-                      className="app-input"
-                      type="date"
-                      value={requestForm.fechaInicio}
-                      onChange={(e) => setRequestForm((s) => ({ ...s, fechaInicio: e.target.value }))}
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-bold text-[var(--app-muted)] uppercase tracking-wide">Fecha fin</label>
-                    <input
-                      className="app-input"
-                      type="date"
-                      value={requestForm.fechaFin}
-                      onChange={(e) => setRequestForm((s) => ({ ...s, fechaFin: e.target.value }))}
-                    />
-                  </div>
-                </div>
-                <textarea
-                  className="app-textarea"
-                  placeholder="Requisitos para aplicar (opcional)"
-                  rows={2}
-                  value={requestForm.requisitos}
-                  onChange={(e) => setRequestForm((s) => ({ ...s, requisitos: e.target.value }))}
-                />
-                <input
-                  className="app-input"
-                  placeholder="Enlaces complementarios (opcional)"
-                  value={requestForm.enlacesComplementarios}
-                  onChange={(e) => setRequestForm((s) => ({ ...s, enlacesComplementarios: e.target.value }))}
-                />
-                <input
-                  className="app-input"
-                  placeholder="Número de contacto (opcional)"
-                  value={requestForm.numeroContacto}
-                  onChange={(e) => setRequestForm((s) => ({ ...s, numeroContacto: e.target.value }))}
-                />
-              </div>
-              <div className="flex justify-end gap-2 px-6 py-4 border-t border-[var(--app-border)]">
-                <button
-                  type="button"
-                  className="app-button-secondary"
-                  onClick={() => setRequestForm(INITIAL_REQUEST)}
-                  disabled={requestForm.loading}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="inline-flex items-center gap-2 rounded-full bg-[#5b2d8a] px-5 py-2.5 text-sm font-bold text-white hover:opacity-90 disabled:opacity-50"
-                  disabled={requestForm.loading || !requestForm.title.trim()}
-                >
-                  {requestForm.loading ? 'Enviando...' : <><Send size={14} />Enviar solicitud</>}
                 </button>
               </div>
             </form>

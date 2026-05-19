@@ -9,11 +9,14 @@ import {
   ChevronUp,
   ExternalLink,
   FileText,
+  Link2,
+  Mail,
   MapPin,
   Megaphone,
   MessageSquare,
   Paperclip,
   Pencil,
+  Phone,
   Plus,
   Send,
   Trash2,
@@ -47,11 +50,24 @@ import {
   type ConvocatoriaForumPost,
   type ConvocatoriaImage,
   type ConvocatoriaStatus,
+  type ConvocatoriaTipo,
   type SetDatesInput,
   type SetFaqsInput,
 } from '@/features/convocatorias/client';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+function shortId(uuid: string, prefix: string) {
+  return `${prefix}-${uuid.replace(/-/g, '').slice(0, 8).toUpperCase()}`;
+}
+
+const TIPO_LABELS: Record<string, string> = {
+  laboral: 'Laboral',
+  proyecto_social: 'Proyecto Social',
+  proveedor: 'Proveedor',
+  convenio: 'Convenio',
+  otra: 'Otra',
+};
 
 const STATUS_CONFIG: Record<ConvocatoriaStatus, { label: string; classes: string }> = {
   draft:     { label: 'Borrador',   classes: 'bg-gray-100 text-gray-600 border-gray-200' },
@@ -125,6 +141,14 @@ function FaqItem({ faq }: { faq: ConvocatoriaFaq }) {
 interface EditFormState {
   title: string;
   description: string;
+  objetivo: string;
+  tipo: ConvocatoriaTipo;
+  fechaInicio: string;
+  fechaFin: string;
+  requisitos: string;
+  enlacesComplementarios: string;
+  contactoTelefono: string;
+  contactoEmail: string;
   location: string;
   externalUrl: string;
   status: ConvocatoriaStatus;
@@ -140,6 +164,14 @@ function EditModal({ item, onSave, onClose }: EditModalProps) {
   const [form, setForm] = React.useState<EditFormState>({
     title: item.title,
     description: item.description,
+    objetivo: item.objetivo ?? '',
+    tipo: item.tipo ?? 'otra',
+    fechaInicio: item.fechaInicio ?? '',
+    fechaFin: item.fechaFin ?? '',
+    requisitos: item.requisitos ?? '',
+    enlacesComplementarios: item.enlacesComplementarios ?? '',
+    contactoTelefono: item.contactoTelefono ?? '',
+    contactoEmail: item.contactoEmail ?? '',
     location: item.location ?? '',
     externalUrl: item.externalUrl ?? '',
     status: item.status,
@@ -158,14 +190,17 @@ function EditModal({ item, onSave, onClose }: EditModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
-      <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-black text-[var(--app-ink)]">Editar convocatoria</h2>
-          <button onClick={onClose} className="text-[var(--app-muted)] hover:text-[var(--app-ink)]">
-            <X size={20} />
-          </button>
+      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 bg-white px-6 pt-6 pb-4 border-b border-[var(--app-border)]">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-black text-[var(--app-ink)]">Editar convocatoria</h2>
+            <button onClick={onClose} className="text-[var(--app-muted)] hover:text-[var(--app-ink)]">
+              <X size={20} />
+            </button>
+          </div>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-3">
+        <form onSubmit={handleSubmit} className="px-6 py-4 space-y-4">
+          {/* Título */}
           <div>
             <label className="mb-1 block text-xs font-bold text-[var(--app-muted)] uppercase tracking-wide">Título *</label>
             <input
@@ -175,6 +210,34 @@ function EditModal({ item, onSave, onClose }: EditModalProps) {
               required
             />
           </div>
+
+          {/* Tipo */}
+          <div>
+            <label className="mb-1 block text-xs font-bold text-[var(--app-muted)] uppercase tracking-wide">Tipo</label>
+            <select
+              className="app-select"
+              value={form.tipo}
+              onChange={(e) => setForm((s) => ({ ...s, tipo: e.target.value as ConvocatoriaTipo }))}
+            >
+              {Object.entries(TIPO_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Objetivo */}
+          <div>
+            <label className="mb-1 block text-xs font-bold text-[var(--app-muted)] uppercase tracking-wide">Objetivo</label>
+            <textarea
+              className="app-textarea"
+              rows={2}
+              value={form.objetivo}
+              onChange={(e) => setForm((s) => ({ ...s, objetivo: e.target.value }))}
+              placeholder="Objetivo principal de la convocatoria"
+            />
+          </div>
+
+          {/* Descripción */}
           <div>
             <label className="mb-1 block text-xs font-bold text-[var(--app-muted)] uppercase tracking-wide">Descripción</label>
             <textarea
@@ -185,6 +248,76 @@ function EditModal({ item, onSave, onClose }: EditModalProps) {
               placeholder="Descripción de la convocatoria..."
             />
           </div>
+
+          {/* Fechas */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-bold text-[var(--app-muted)] uppercase tracking-wide">Fecha inicio</label>
+              <input
+                className="app-input"
+                type="date"
+                value={form.fechaInicio}
+                onChange={(e) => setForm((s) => ({ ...s, fechaInicio: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-bold text-[var(--app-muted)] uppercase tracking-wide">Fecha fin</label>
+              <input
+                className="app-input"
+                type="date"
+                value={form.fechaFin}
+                onChange={(e) => setForm((s) => ({ ...s, fechaFin: e.target.value }))}
+              />
+            </div>
+          </div>
+
+          {/* Requisitos */}
+          <div>
+            <label className="mb-1 block text-xs font-bold text-[var(--app-muted)] uppercase tracking-wide">Requisitos</label>
+            <textarea
+              className="app-textarea"
+              rows={2}
+              value={form.requisitos}
+              onChange={(e) => setForm((s) => ({ ...s, requisitos: e.target.value }))}
+              placeholder="Requisitos para aplicar (opcional)"
+            />
+          </div>
+
+          {/* Enlaces complementarios */}
+          <div>
+            <label className="mb-1 block text-xs font-bold text-[var(--app-muted)] uppercase tracking-wide">Enlaces complementarios</label>
+            <input
+              className="app-input"
+              value={form.enlacesComplementarios}
+              onChange={(e) => setForm((s) => ({ ...s, enlacesComplementarios: e.target.value }))}
+              placeholder="https://... (opcional)"
+            />
+          </div>
+
+          {/* Teléfono + Email contacto */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-bold text-[var(--app-muted)] uppercase tracking-wide">Teléfono contacto</label>
+              <input
+                className="app-input"
+                value={form.contactoTelefono}
+                onChange={(e) => setForm((s) => ({ ...s, contactoTelefono: e.target.value }))}
+                placeholder="+57 300 000 0000"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-bold text-[var(--app-muted)] uppercase tracking-wide">Email contacto</label>
+              <input
+                className="app-input"
+                type="email"
+                value={form.contactoEmail}
+                onChange={(e) => setForm((s) => ({ ...s, contactoEmail: e.target.value }))}
+                placeholder="contacto@ejemplo.com"
+              />
+            </div>
+          </div>
+
+          {/* Ubicación + URL */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-xs font-bold text-[var(--app-muted)] uppercase tracking-wide">Ubicación</label>
@@ -205,6 +338,8 @@ function EditModal({ item, onSave, onClose }: EditModalProps) {
               />
             </div>
           </div>
+
+          {/* Estado */}
           <div>
             <label className="mb-1 block text-xs font-bold text-[var(--app-muted)] uppercase tracking-wide">Estado</label>
             <select
@@ -218,6 +353,7 @@ function EditModal({ item, onSave, onClose }: EditModalProps) {
               <option value="suspended">Suspendida</option>
             </select>
           </div>
+
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" className="app-button-secondary" onClick={onClose} disabled={saving}>Cancelar</button>
             <button type="submit" className="app-button-primary" disabled={saving || !form.title.trim()}>
@@ -492,10 +628,18 @@ export default function ConvocatoriaDetailPage() {
 
   // ── Admin: edit ───────────────────────────────────────────────────────────
 
-  const onSaveEdit = async (form: { title: string; description: string; location: string; externalUrl: string; status: ConvocatoriaStatus }) => {
+  const onSaveEdit = async (form: EditFormState) => {
     await updateConvocatoria(id, {
       title: form.title,
       description: form.description,
+      objetivo: form.objetivo,
+      tipo: form.tipo,
+      fechaInicio: form.fechaInicio || null,
+      fechaFin: form.fechaFin || null,
+      requisitos: form.requisitos,
+      enlacesComplementarios: form.enlacesComplementarios,
+      contactoTelefono: form.contactoTelefono,
+      contactoEmail: form.contactoEmail,
       location: form.location || null,
       externalUrl: form.externalUrl || null,
       status: form.status,
@@ -657,12 +801,20 @@ export default function ConvocatoriaDetailPage() {
         <div className="p-6 sm:p-8">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="flex-1">
-              <span className={`inline-block rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${cfg.classes}`}>
-                {cfg.label}
-              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className={`inline-block rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${cfg.classes}`}>
+                  {cfg.label}
+                </span>
+                {TIPO_LABELS[item.tipo] && item.tipo !== 'otra' && (
+                  <span className="inline-block rounded-full border border-purple-200 bg-purple-50 px-2.5 py-0.5 text-[11px] font-bold text-purple-700">
+                    {TIPO_LABELS[item.tipo]}
+                  </span>
+                )}
+              </div>
               <h1 className="mt-2 text-2xl font-black leading-tight text-[var(--app-ink)] sm:text-3xl">
                 {item.title}
               </h1>
+              <p className="mt-1 font-mono text-xs text-[var(--app-muted)]">{shortId(item.convocatoriaId, 'CONV')}</p>
             </div>
 
             {/* Admin controls */}
@@ -718,6 +870,74 @@ export default function ConvocatoriaDetailPage() {
           {item.description && (
             <div className="mt-5 text-sm leading-relaxed text-[var(--app-ink)]/80 whitespace-pre-wrap">
               {item.description}
+            </div>
+          )}
+
+          {/* Objetivo */}
+          {item.objetivo && (
+            <p className="mt-4 text-sm leading-relaxed text-[var(--app-ink)]/80">
+              <span className="font-bold">Objetivo: </span>{item.objetivo}
+            </p>
+          )}
+
+          {/* Requisitos */}
+          {item.requisitos && (
+            <p className="mt-4 text-sm leading-relaxed text-[var(--app-ink)]/80">
+              <span className="font-bold">Requisitos: </span>{item.requisitos}
+            </p>
+          )}
+
+          {/* Fechas de la convocatoria */}
+          {(item.fechaInicio || item.fechaFin) && (
+            <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-[var(--app-muted)]">
+              {item.fechaInicio && (
+                <span className="flex items-center gap-1.5">
+                  <Calendar size={14} />
+                  <span className="font-semibold">Inicio:</span> {toDateLabel(item.fechaInicio)}
+                </span>
+              )}
+              {item.fechaFin && (
+                <span className="flex items-center gap-1.5">
+                  <Calendar size={14} />
+                  <span className="font-semibold">Cierre:</span> {toDateLabel(item.fechaFin)}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Contacto */}
+          {(item.contactoTelefono || item.contactoEmail) && (
+            <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-[var(--app-muted)]">
+              {item.contactoTelefono && (
+                <a
+                  href={`tel:${item.contactoTelefono}`}
+                  className="flex items-center gap-1.5 hover:text-[#5b2d8a] transition"
+                >
+                  <Phone size={14} />{item.contactoTelefono}
+                </a>
+              )}
+              {item.contactoEmail && (
+                <a
+                  href={`mailto:${item.contactoEmail}`}
+                  className="flex items-center gap-1.5 hover:text-[#5b2d8a] transition"
+                >
+                  <Mail size={14} />{item.contactoEmail}
+                </a>
+              )}
+            </div>
+          )}
+
+          {/* Enlace complementario */}
+          {item.enlacesComplementarios && (
+            <div className="mt-4">
+              <a
+                href={item.enlacesComplementarios}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-sm text-[#5b2d8a] hover:underline"
+              >
+                <Link2 size={14} />Enlace complementario
+              </a>
             </div>
           )}
 
