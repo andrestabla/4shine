@@ -50,7 +50,6 @@ import {
   type ConvocatoriaForumPost,
   type ConvocatoriaImage,
   type ConvocatoriaStatus,
-  type ConvocatoriaTipo,
   type SetDatesInput,
   type SetFaqsInput,
 } from '@/features/convocatorias/client';
@@ -132,236 +131,6 @@ function FaqItem({ faq }: { faq: ConvocatoriaFaq }) {
       {open && (
         <p className="pb-4 pl-1 pr-6 text-sm leading-relaxed text-[var(--app-muted)]">{faq.answer}</p>
       )}
-    </div>
-  );
-}
-
-// ── Edit modal ────────────────────────────────────────────────────────────────
-
-interface EditFormState {
-  title: string;
-  description: string;
-  objetivo: string;
-  tipo: ConvocatoriaTipo;
-  fechaInicio: string;
-  fechaFin: string;
-  requisitos: string;
-  enlacesComplementarios: string;
-  contactoTelefono: string;
-  contactoEmail: string;
-  location: string;
-  externalUrl: string;
-  status: ConvocatoriaStatus;
-}
-
-interface EditModalProps {
-  item: ConvocatoriaDetail;
-  onSave: (data: EditFormState) => Promise<void>;
-  onClose: () => void;
-}
-
-function EditModal({ item, onSave, onClose }: EditModalProps) {
-  const [form, setForm] = React.useState<EditFormState>({
-    title: item.title,
-    description: item.description,
-    objetivo: item.objetivo ?? '',
-    tipo: item.tipo ?? 'otra',
-    fechaInicio: item.fechaInicio ?? '',
-    fechaFin: item.fechaFin ?? '',
-    requisitos: item.requisitos ?? '',
-    enlacesComplementarios: item.enlacesComplementarios ?? '',
-    contactoTelefono: item.contactoTelefono ?? '',
-    contactoEmail: item.contactoEmail ?? '',
-    location: item.location ?? '',
-    externalUrl: item.externalUrl ?? '',
-    status: item.status,
-  });
-  const [saving, setSaving] = React.useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      await onSave(form);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
-      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white px-6 pt-6 pb-4 border-b border-[var(--app-border)]">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-black text-[var(--app-ink)]">Editar convocatoria</h2>
-            <button onClick={onClose} className="text-[var(--app-muted)] hover:text-[var(--app-ink)]">
-              <X size={20} />
-            </button>
-          </div>
-        </div>
-        <form onSubmit={handleSubmit} className="px-6 py-4 space-y-4">
-          {/* Título */}
-          <div>
-            <label className="mb-1 block text-xs font-bold text-[var(--app-muted)] uppercase tracking-wide">Título *</label>
-            <input
-              className="app-input"
-              value={form.title}
-              onChange={(e) => setForm((s) => ({ ...s, title: e.target.value }))}
-              required
-            />
-          </div>
-
-          {/* Tipo */}
-          <div>
-            <label className="mb-1 block text-xs font-bold text-[var(--app-muted)] uppercase tracking-wide">Tipo</label>
-            <select
-              className="app-select"
-              value={form.tipo}
-              onChange={(e) => setForm((s) => ({ ...s, tipo: e.target.value as ConvocatoriaTipo }))}
-            >
-              {Object.entries(TIPO_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Objetivo */}
-          <div>
-            <label className="mb-1 block text-xs font-bold text-[var(--app-muted)] uppercase tracking-wide">Objetivo</label>
-            <textarea
-              className="app-textarea"
-              rows={2}
-              value={form.objetivo}
-              onChange={(e) => setForm((s) => ({ ...s, objetivo: e.target.value }))}
-              placeholder="Objetivo principal de la convocatoria"
-            />
-          </div>
-
-          {/* Descripción */}
-          <div>
-            <label className="mb-1 block text-xs font-bold text-[var(--app-muted)] uppercase tracking-wide">Descripción</label>
-            <textarea
-              className="app-textarea"
-              rows={5}
-              value={form.description}
-              onChange={(e) => setForm((s) => ({ ...s, description: e.target.value }))}
-              placeholder="Descripción de la convocatoria..."
-            />
-          </div>
-
-          {/* Fechas */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-xs font-bold text-[var(--app-muted)] uppercase tracking-wide">Fecha inicio</label>
-              <input
-                className="app-input"
-                type="date"
-                value={form.fechaInicio}
-                onChange={(e) => setForm((s) => ({ ...s, fechaInicio: e.target.value }))}
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-bold text-[var(--app-muted)] uppercase tracking-wide">Fecha fin</label>
-              <input
-                className="app-input"
-                type="date"
-                value={form.fechaFin}
-                onChange={(e) => setForm((s) => ({ ...s, fechaFin: e.target.value }))}
-              />
-            </div>
-          </div>
-
-          {/* Requisitos */}
-          <div>
-            <label className="mb-1 block text-xs font-bold text-[var(--app-muted)] uppercase tracking-wide">Requisitos</label>
-            <textarea
-              className="app-textarea"
-              rows={2}
-              value={form.requisitos}
-              onChange={(e) => setForm((s) => ({ ...s, requisitos: e.target.value }))}
-              placeholder="Requisitos para aplicar (opcional)"
-            />
-          </div>
-
-          {/* Enlaces complementarios */}
-          <div>
-            <label className="mb-1 block text-xs font-bold text-[var(--app-muted)] uppercase tracking-wide">Enlaces complementarios</label>
-            <input
-              className="app-input"
-              value={form.enlacesComplementarios}
-              onChange={(e) => setForm((s) => ({ ...s, enlacesComplementarios: e.target.value }))}
-              placeholder="https://... (opcional)"
-            />
-          </div>
-
-          {/* Teléfono + Email contacto */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-xs font-bold text-[var(--app-muted)] uppercase tracking-wide">Teléfono contacto</label>
-              <input
-                className="app-input"
-                value={form.contactoTelefono}
-                onChange={(e) => setForm((s) => ({ ...s, contactoTelefono: e.target.value }))}
-                placeholder="+57 300 000 0000"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-bold text-[var(--app-muted)] uppercase tracking-wide">Email contacto</label>
-              <input
-                className="app-input"
-                type="email"
-                value={form.contactoEmail}
-                onChange={(e) => setForm((s) => ({ ...s, contactoEmail: e.target.value }))}
-                placeholder="contacto@ejemplo.com"
-              />
-            </div>
-          </div>
-
-          {/* Ubicación + URL */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-xs font-bold text-[var(--app-muted)] uppercase tracking-wide">Ubicación</label>
-              <input
-                className="app-input"
-                value={form.location}
-                onChange={(e) => setForm((s) => ({ ...s, location: e.target.value }))}
-                placeholder="Ciudad, País o Remoto"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-bold text-[var(--app-muted)] uppercase tracking-wide">URL externa</label>
-              <input
-                className="app-input"
-                value={form.externalUrl}
-                onChange={(e) => setForm((s) => ({ ...s, externalUrl: e.target.value }))}
-                placeholder="https://..."
-              />
-            </div>
-          </div>
-
-          {/* Estado */}
-          <div>
-            <label className="mb-1 block text-xs font-bold text-[var(--app-muted)] uppercase tracking-wide">Estado</label>
-            <select
-              className="app-select"
-              value={form.status}
-              onChange={(e) => setForm((s) => ({ ...s, status: e.target.value as ConvocatoriaStatus }))}
-            >
-              <option value="draft">Borrador</option>
-              <option value="open">Abierta</option>
-              <option value="closed">Cerrada</option>
-              <option value="suspended">Suspendida</option>
-            </select>
-          </div>
-
-          <div className="flex justify-end gap-2 pt-2">
-            <button type="button" className="app-button-secondary" onClick={onClose} disabled={saving}>Cancelar</button>
-            <button type="submit" className="app-button-primary" disabled={saving || !form.title.trim()}>
-              {saving ? 'Guardando...' : 'Guardar cambios'}
-            </button>
-          </div>
-        </form>
-      </div>
     </div>
   );
 }
@@ -503,7 +272,6 @@ export default function ConvocatoriaDetailPage() {
   const [applyLoading, setApplyLoading] = React.useState(false);
   const [forumMsg, setForumMsg] = React.useState('');
   const [forumLoading, setForumLoading] = React.useState(false);
-  const [editOpen, setEditOpen] = React.useState(false);
   const [adminTab, setAdminTab] = React.useState<'images' | 'attachments' | 'dates' | 'faqs'>('images');
   const [imageGalleryIdx, setImageGalleryIdx] = React.useState(0);
   const [notifyLoading, setNotifyLoading] = React.useState(false);
@@ -624,28 +392,6 @@ export default function ConvocatoriaDetailPage() {
     } catch (err) {
       await showError('No se pudo eliminar el mensaje', err);
     }
-  };
-
-  // ── Admin: edit ───────────────────────────────────────────────────────────
-
-  const onSaveEdit = async (form: EditFormState) => {
-    await updateConvocatoria(id, {
-      title: form.title,
-      description: form.description,
-      objetivo: form.objetivo,
-      tipo: form.tipo,
-      fechaInicio: form.fechaInicio || null,
-      fechaFin: form.fechaFin || null,
-      requisitos: form.requisitos,
-      enlacesComplementarios: form.enlacesComplementarios,
-      contactoTelefono: form.contactoTelefono,
-      contactoEmail: form.contactoEmail,
-      location: form.location || null,
-      externalUrl: form.externalUrl || null,
-      status: form.status,
-    });
-    setEditOpen(false);
-    await load();
   };
 
   // ── Admin: delete ─────────────────────────────────────────────────────────
@@ -829,7 +575,7 @@ export default function ConvocatoriaDetailPage() {
                   {notifyLoading ? 'Enviando...' : notifyCount !== null ? `Notificado (${notifyCount})` : 'Notificar interesados'}
                 </button>
                 <button
-                  onClick={() => setEditOpen(true)}
+                  onClick={() => router.push(`/dashboard/convocatorias/${id}/editar`)}
                   className="app-button-secondary inline-flex items-center gap-1.5 text-sm"
                 >
                   <Pencil size={14} />Editar
@@ -1282,10 +1028,6 @@ export default function ConvocatoriaDetailPage() {
         </div>
       )}
 
-      {/* Edit modal */}
-      {editOpen && (
-        <EditModal item={item} onSave={onSaveEdit} onClose={() => setEditOpen(false)} />
-      )}
     </div>
   );
 }

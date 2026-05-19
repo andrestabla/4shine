@@ -22,7 +22,6 @@ import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useUser } from '@/context/UserContext';
 import { filterCommercialProducts } from '@/features/access/catalog';
 import {
-  createConvocatoria,
   getNotificationInterest,
   listConvocatorias,
   listRequests,
@@ -323,46 +322,18 @@ function MyRequestsPanel({ requests }: { requests: ConvocatoriaRequest[] }) {
   );
 }
 
-// ── Create modal (admin/gestor) ───────────────────────────────────────────────
-
-interface CreateState {
-  open: boolean;
-  title: string;
-  description: string;
-  objetivo: string;
-  tipo: ConvocatoriaTipo;
-  fechaInicio: string;
-  fechaFin: string;
-  requisitos: string;
-  enlacesComplementarios: string;
-  contactoTelefono: string;
-  contactoEmail: string;
-  location: string;
-  externalUrl: string;
-  status: ConvocatoriaStatus;
-  loading: boolean;
-}
-
-const INITIAL_CREATE: CreateState = {
-  open: false, title: '', description: '', objetivo: '', tipo: 'otra',
-  fechaInicio: '', fechaFin: '', requisitos: '', enlacesComplementarios: '',
-  contactoTelefono: '', contactoEmail: '', location: '', externalUrl: '',
-  status: 'draft', loading: false,
-};
-
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 type FilterTab = 'all' | ConvocatoriaStatus;
 
 export default function ConvocatoriasPage() {
-  const { can, currentRole, refreshBootstrap, viewerAccess } = useUser();
+  const { can, currentRole, viewerAccess } = useUser();
   const { alert } = useAppDialog();
 
   const [items, setItems] = React.useState<ConvocatoriaSummary[]>([]);
   const [requests, setRequests] = React.useState<ConvocatoriaRequest[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [filter, setFilter] = React.useState<FilterTab>('all');
-  const [create, setCreate] = React.useState<CreateState>(INITIAL_CREATE);
   const [notifInterest, setNotifInterest] = React.useState<boolean>(false);
 
   const isCommunityLocked = currentRole === 'lider' && viewerAccess?.viewerTier === 'open_leader';
@@ -402,36 +373,6 @@ export default function ConvocatoriasPage() {
   }, [isCommunityLocked, load, canManage]);
 
   const filtered = filter === 'all' ? items : items.filter((i) => i.status === filter);
-
-  // ── Crear convocatoria (admin/gestor) ───────────────────────────────────────
-
-  const onCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!create.title.trim()) return;
-    setCreate((s) => ({ ...s, loading: true }));
-    try {
-      await createConvocatoria({
-        title: create.title.trim(),
-        description: create.description.trim(),
-        objetivo: create.objetivo.trim(),
-        tipo: create.tipo,
-        fechaInicio: create.fechaInicio || null,
-        fechaFin: create.fechaFin || null,
-        requisitos: create.requisitos.trim(),
-        enlacesComplementarios: create.enlacesComplementarios.trim(),
-        contactoTelefono: create.contactoTelefono.trim(),
-        contactoEmail: create.contactoEmail.trim(),
-        location: create.location.trim() || null,
-        externalUrl: create.externalUrl.trim() || null,
-        status: create.status,
-      });
-      setCreate(INITIAL_CREATE);
-      await Promise.all([load(), refreshBootstrap()]);
-    } catch (err) {
-      await showError('No se pudo crear la convocatoria', err);
-      setCreate((s) => ({ ...s, loading: false }));
-    }
-  };
 
   // ── Toggle notification interest ────────────────────────────────────────────
 
@@ -535,13 +476,13 @@ export default function ConvocatoriasPage() {
         </div>
         <div className="flex items-center gap-2">
           {canManage ? (
-            <button
-              onClick={() => setCreate((s) => ({ ...s, open: true }))}
+            <Link
+              href="/dashboard/convocatorias/nueva"
               className="app-button-primary inline-flex items-center gap-2"
             >
               <Plus size={16} />
               Nueva
-            </button>
+            </Link>
           ) : (
             <Link
               href="/dashboard/convocatorias/solicitar"
@@ -622,180 +563,6 @@ export default function ConvocatoriasPage() {
         </div>
       )}
 
-      {/* Modal: nueva convocatoria (admin/gestor) */}
-      {create.open && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
-          <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white px-6 pt-6 pb-4 border-b border-[var(--app-border)]">
-              <h2 className="text-lg font-black text-[var(--app-ink)]">Nueva convocatoria</h2>
-            </div>
-            <form onSubmit={onCreate} className="px-6 py-4 space-y-4">
-              {/* Título */}
-              <div>
-                <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">Título *</label>
-                <input
-                  className="app-input"
-                  placeholder="Nombre de la convocatoria"
-                  value={create.title}
-                  onChange={(e) => setCreate((s) => ({ ...s, title: e.target.value }))}
-                  required
-                  autoFocus
-                />
-              </div>
-
-              {/* Tipo */}
-              <div>
-                <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">Tipo</label>
-                <select
-                  className="app-select"
-                  value={create.tipo}
-                  onChange={(e) => setCreate((s) => ({ ...s, tipo: e.target.value as ConvocatoriaTipo }))}
-                >
-                  {Object.entries(TIPO_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>{label}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Objetivo */}
-              <div>
-                <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">Objetivo</label>
-                <textarea
-                  className="app-textarea"
-                  rows={2}
-                  placeholder="Objetivo principal de la convocatoria"
-                  value={create.objetivo}
-                  onChange={(e) => setCreate((s) => ({ ...s, objetivo: e.target.value }))}
-                />
-              </div>
-
-              {/* Descripción */}
-              <div>
-                <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">Descripción</label>
-                <textarea
-                  className="app-textarea"
-                  rows={3}
-                  placeholder="¿Qué es? ¿A quién va dirigida? ¿Cuál es el alcance?"
-                  value={create.description}
-                  onChange={(e) => setCreate((s) => ({ ...s, description: e.target.value }))}
-                />
-              </div>
-
-              {/* Fechas */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">Fecha inicio</label>
-                  <input
-                    className="app-input"
-                    type="date"
-                    value={create.fechaInicio}
-                    onChange={(e) => setCreate((s) => ({ ...s, fechaInicio: e.target.value }))}
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">Fecha fin</label>
-                  <input
-                    className="app-input"
-                    type="date"
-                    value={create.fechaFin}
-                    onChange={(e) => setCreate((s) => ({ ...s, fechaFin: e.target.value }))}
-                  />
-                </div>
-              </div>
-
-              {/* Requisitos */}
-              <div>
-                <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">Requisitos</label>
-                <textarea
-                  className="app-textarea"
-                  rows={2}
-                  placeholder="Requisitos para aplicar (opcional)"
-                  value={create.requisitos}
-                  onChange={(e) => setCreate((s) => ({ ...s, requisitos: e.target.value }))}
-                />
-              </div>
-
-              {/* Enlaces complementarios */}
-              <div>
-                <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">Enlaces complementarios</label>
-                <input
-                  className="app-input"
-                  placeholder="https://... (opcional)"
-                  value={create.enlacesComplementarios}
-                  onChange={(e) => setCreate((s) => ({ ...s, enlacesComplementarios: e.target.value }))}
-                />
-              </div>
-
-              {/* Teléfono + Email contacto */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">Teléfono contacto</label>
-                  <input
-                    className="app-input"
-                    placeholder="+57 300 000 0000"
-                    value={create.contactoTelefono}
-                    onChange={(e) => setCreate((s) => ({ ...s, contactoTelefono: e.target.value }))}
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">Email contacto</label>
-                  <input
-                    className="app-input"
-                    type="email"
-                    placeholder="contacto@ejemplo.com"
-                    value={create.contactoEmail}
-                    onChange={(e) => setCreate((s) => ({ ...s, contactoEmail: e.target.value }))}
-                  />
-                </div>
-              </div>
-
-              {/* Ubicación + URL externa */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">Ubicación</label>
-                  <input
-                    className="app-input"
-                    placeholder="Ciudad, País o Remoto"
-                    value={create.location}
-                    onChange={(e) => setCreate((s) => ({ ...s, location: e.target.value }))}
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">URL externa</label>
-                  <input
-                    className="app-input"
-                    placeholder="https://..."
-                    value={create.externalUrl}
-                    onChange={(e) => setCreate((s) => ({ ...s, externalUrl: e.target.value }))}
-                  />
-                </div>
-              </div>
-
-              {/* Estado */}
-              <div>
-                <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">Estado</label>
-                <select
-                  className="app-select"
-                  value={create.status}
-                  onChange={(e) => setCreate((s) => ({ ...s, status: e.target.value as ConvocatoriaStatus }))}
-                >
-                  <option value="draft">Guardar como borrador</option>
-                  <option value="open">Publicar abierta</option>
-                </select>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-1">
-                <button type="button" className="app-button-secondary" onClick={() => setCreate(INITIAL_CREATE)} disabled={create.loading}>
-                  Cancelar
-                </button>
-                <button type="submit" className="app-button-primary" disabled={create.loading || !create.title.trim()}>
-                  {create.loading ? 'Creando...' : 'Crear convocatoria'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
