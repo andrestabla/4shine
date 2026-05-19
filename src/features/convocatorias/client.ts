@@ -1,64 +1,198 @@
 import { requestApi } from '@/lib/api-client';
 
-export type WorkMode = 'presencial' | 'hibrido' | 'remoto' | 'voluntariado';
+// ── Types ─────────────────────────────────────────────────────────────────────
 
-export interface JobPostRecord {
-  jobPostId: string;
+export type ConvocatoriaStatus = 'draft' | 'open' | 'closed' | 'suspended';
+
+export interface ConvocatoriaDate {
+  dateId: string;
+  label: string;
+  dateValue: string;
+  sortOrder: number;
+}
+
+export interface ConvocatoriaFaq {
+  faqId: string;
+  question: string;
+  answer: string;
+  sortOrder: number;
+}
+
+export interface ConvocatoriaImage {
+  imageId: string;
+  url: string;
+  sortOrder: number;
+}
+
+export interface ConvocatoriaAttachment {
+  attachmentId: string;
+  fileUrl: string;
+  fileName: string;
+}
+
+export interface ConvocatoriaSummary {
+  convocatoriaId: string;
   title: string;
-  companyName: string;
-  organizationId: string | null;
+  description: string;
+  coverImageUrl: string | null;
+  externalUrl: string | null;
   location: string | null;
-  workMode: WorkMode | null;
-  description: string;
-  postedBy: string | null;
-  postedAt: string;
-  expiresAt: string | null;
-  isActive: boolean;
-  applicants: number;
+  status: ConvocatoriaStatus;
+  applicationsCount: number;
+  hasApplied: boolean;
+  nextDate: string | null;
+  nextDateLabel: string | null;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export interface CreateJobPostInput {
+export interface ConvocatoriaDetail extends ConvocatoriaSummary {
+  images: ConvocatoriaImage[];
+  attachments: ConvocatoriaAttachment[];
+  dates: ConvocatoriaDate[];
+  faqs: ConvocatoriaFaq[];
+}
+
+export interface ConvocatoriaForumPost {
+  postId: string;
+  convocatoriaId: string;
+  authorUserId: string;
+  authorName: string;
+  body: string;
+  isPinned: boolean;
+  createdAt: string;
+}
+
+export interface CreateConvocatoriaInput {
   title: string;
-  companyName: string;
-  organizationId?: string | null;
-  location?: string | null;
-  workMode?: WorkMode | null;
-  description: string;
-  expiresAt?: string | null;
-  isActive?: boolean;
-}
-
-export interface UpdateJobPostInput {
-  title?: string;
-  companyName?: string;
-  organizationId?: string | null;
-  location?: string | null;
-  workMode?: WorkMode | null;
   description?: string;
-  expiresAt?: string | null;
-  isActive?: boolean;
+  coverImageUrl?: string | null;
+  externalUrl?: string | null;
+  location?: string | null;
+  status?: ConvocatoriaStatus;
 }
 
-export async function listJobPosts(): Promise<JobPostRecord[]> {
-  return requestApi<JobPostRecord[]>('/api/v1/modules/convocatorias');
+export interface UpdateConvocatoriaInput {
+  title?: string;
+  description?: string;
+  coverImageUrl?: string | null;
+  externalUrl?: string | null;
+  location?: string | null;
+  status?: ConvocatoriaStatus;
 }
 
-export async function createJobPost(input: CreateJobPostInput): Promise<JobPostRecord> {
-  return requestApi<JobPostRecord>('/api/v1/modules/convocatorias', {
+export interface SetDatesInput {
+  label: string;
+  dateValue: string;
+  sortOrder?: number;
+}
+
+export interface SetFaqsInput {
+  question: string;
+  answer: string;
+  sortOrder?: number;
+}
+
+// ── CRUD ──────────────────────────────────────────────────────────────────────
+
+const BASE = '/api/v1/modules/convocatorias';
+
+export function listConvocatorias(): Promise<ConvocatoriaSummary[]> {
+  return requestApi<ConvocatoriaSummary[]>(BASE);
+}
+
+export function getConvocatoria(id: string): Promise<ConvocatoriaDetail> {
+  return requestApi<ConvocatoriaDetail>(`${BASE}/${id}`);
+}
+
+export function createConvocatoria(input: CreateConvocatoriaInput): Promise<ConvocatoriaSummary> {
+  return requestApi<ConvocatoriaSummary>(BASE, {
     method: 'POST',
     body: JSON.stringify(input),
   });
 }
 
-export async function updateJobPost(jobPostId: string, input: UpdateJobPostInput): Promise<JobPostRecord> {
-  return requestApi<JobPostRecord>(`/api/v1/modules/convocatorias/${jobPostId}`, {
+export function updateConvocatoria(id: string, input: UpdateConvocatoriaInput): Promise<ConvocatoriaSummary> {
+  return requestApi<ConvocatoriaSummary>(`${BASE}/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(input),
   });
 }
 
-export async function deleteJobPost(jobPostId: string): Promise<{ jobPostId: string }> {
-  return requestApi<{ jobPostId: string }>(`/api/v1/modules/convocatorias/${jobPostId}`, {
+export function deleteConvocatoria(id: string): Promise<{ convocatoriaId: string }> {
+  return requestApi<{ convocatoriaId: string }>(`${BASE}/${id}`, { method: 'DELETE' });
+}
+
+// ── Images ────────────────────────────────────────────────────────────────────
+
+export function addImage(id: string, url: string): Promise<ConvocatoriaImage> {
+  return requestApi<ConvocatoriaImage>(`${BASE}/${id}/images`, {
+    method: 'POST',
+    body: JSON.stringify({ url }),
+  });
+}
+
+export function removeImage(id: string, imageId: string): Promise<{ imageId: string }> {
+  return requestApi<{ imageId: string }>(`${BASE}/${id}/images/${imageId}`, { method: 'DELETE' });
+}
+
+// ── Attachments ───────────────────────────────────────────────────────────────
+
+export function addAttachment(id: string, fileUrl: string, fileName: string): Promise<ConvocatoriaAttachment> {
+  return requestApi<ConvocatoriaAttachment>(`${BASE}/${id}/attachments`, {
+    method: 'POST',
+    body: JSON.stringify({ fileUrl, fileName }),
+  });
+}
+
+export function removeAttachment(id: string, attachmentId: string): Promise<{ attachmentId: string }> {
+  return requestApi<{ attachmentId: string }>(`${BASE}/${id}/attachments/${attachmentId}`, {
     method: 'DELETE',
   });
+}
+
+// ── Dates ─────────────────────────────────────────────────────────────────────
+
+export function setDates(id: string, dates: SetDatesInput[]): Promise<ConvocatoriaDate[]> {
+  return requestApi<ConvocatoriaDate[]>(`${BASE}/${id}/dates`, {
+    method: 'PUT',
+    body: JSON.stringify({ dates }),
+  });
+}
+
+// ── FAQs ──────────────────────────────────────────────────────────────────────
+
+export function setFaqs(id: string, faqs: SetFaqsInput[]): Promise<ConvocatoriaFaq[]> {
+  return requestApi<ConvocatoriaFaq[]>(`${BASE}/${id}/faqs`, {
+    method: 'PUT',
+    body: JSON.stringify({ faqs }),
+  });
+}
+
+// ── Applications ──────────────────────────────────────────────────────────────
+
+export function applyToConvocatoria(id: string): Promise<{ applicationId: string }> {
+  return requestApi<{ applicationId: string }>(`${BASE}/${id}/apply`, { method: 'POST' });
+}
+
+export function withdrawApplication(id: string): Promise<{ convocatoriaId: string }> {
+  return requestApi<{ convocatoriaId: string }>(`${BASE}/${id}/apply`, { method: 'DELETE' });
+}
+
+// ── Forum ─────────────────────────────────────────────────────────────────────
+
+export function listForumPosts(id: string): Promise<ConvocatoriaForumPost[]> {
+  return requestApi<ConvocatoriaForumPost[]>(`${BASE}/${id}/forum`);
+}
+
+export function createForumPost(id: string, body: string, isPinned?: boolean): Promise<ConvocatoriaForumPost> {
+  return requestApi<ConvocatoriaForumPost>(`${BASE}/${id}/forum`, {
+    method: 'POST',
+    body: JSON.stringify({ body, isPinned }),
+  });
+}
+
+export function deleteForumPost(id: string, postId: string): Promise<{ postId: string }> {
+  return requestApi<{ postId: string }>(`${BASE}/${id}/forum/${postId}`, { method: 'DELETE' });
 }

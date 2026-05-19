@@ -3,237 +3,725 @@ import type { AuthUser } from '@/server/auth/types';
 import { requireCommunityAccess } from '@/features/access/service';
 import { requireModulePermission } from '@/server/auth/module-permissions';
 
-export type WorkMode = 'presencial' | 'hibrido' | 'remoto' | 'voluntariado';
+// ── Types ─────────────────────────────────────────────────────────────────────
 
-export interface JobPostRecord {
-  jobPostId: string;
+export type ConvocatoriaStatus = 'draft' | 'open' | 'closed' | 'suspended';
+
+export interface ConvocatoriaDate {
+  dateId: string;
+  label: string;
+  dateValue: string;
+  sortOrder: number;
+}
+
+export interface ConvocatoriaFaq {
+  faqId: string;
+  question: string;
+  answer: string;
+  sortOrder: number;
+}
+
+export interface ConvocatoriaImage {
+  imageId: string;
+  url: string;
+  sortOrder: number;
+}
+
+export interface ConvocatoriaAttachment {
+  attachmentId: string;
+  fileUrl: string;
+  fileName: string;
+}
+
+export interface ConvocatoriaSummary {
+  convocatoriaId: string;
   title: string;
-  companyName: string;
-  organizationId: string | null;
+  description: string;
+  coverImageUrl: string | null;
+  externalUrl: string | null;
   location: string | null;
-  workMode: WorkMode | null;
-  description: string;
-  postedBy: string | null;
-  postedAt: string;
-  expiresAt: string | null;
-  isActive: boolean;
-  applicants: number;
+  status: ConvocatoriaStatus;
+  applicationsCount: number;
+  hasApplied: boolean;
+  nextDate: string | null;
+  nextDateLabel: string | null;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export interface CreateJobPostInput {
+export interface ConvocatoriaDetail extends ConvocatoriaSummary {
+  images: ConvocatoriaImage[];
+  attachments: ConvocatoriaAttachment[];
+  dates: ConvocatoriaDate[];
+  faqs: ConvocatoriaFaq[];
+}
+
+export interface ConvocatoriaForumPost {
+  postId: string;
+  convocatoriaId: string;
+  authorUserId: string;
+  authorName: string;
+  body: string;
+  isPinned: boolean;
+  createdAt: string;
+}
+
+export interface CreateConvocatoriaInput {
   title: string;
-  companyName: string;
-  organizationId?: string | null;
-  location?: string | null;
-  workMode?: WorkMode | null;
-  description: string;
-  expiresAt?: string | null;
-  isActive?: boolean;
-}
-
-export interface UpdateJobPostInput {
-  title?: string;
-  companyName?: string;
-  organizationId?: string | null;
-  location?: string | null;
-  workMode?: WorkMode | null;
   description?: string;
-  expiresAt?: string | null;
-  isActive?: boolean;
+  coverImageUrl?: string | null;
+  externalUrl?: string | null;
+  location?: string | null;
+  status?: ConvocatoriaStatus;
 }
 
-interface JobPostRow {
-  job_post_id: string;
+export interface UpdateConvocatoriaInput {
+  title?: string;
+  description?: string;
+  coverImageUrl?: string | null;
+  externalUrl?: string | null;
+  location?: string | null;
+  status?: ConvocatoriaStatus;
+}
+
+export interface SetDatesInput {
+  label: string;
+  dateValue: string;
+  sortOrder?: number;
+}
+
+export interface SetFaqsInput {
+  question: string;
+  answer: string;
+  sortOrder?: number;
+}
+
+// ── Row types ─────────────────────────────────────────────────────────────────
+
+interface ConvocatoriaSummaryRow {
+  convocatoria_id: string;
   title: string;
-  company_name: string;
-  organization_id: string | null;
-  location: string | null;
-  work_mode: WorkMode | null;
   description: string;
-  posted_by: string | null;
-  posted_at: string;
-  expires_at: string | null;
-  is_active: boolean;
-  applicants: number;
+  cover_image_url: string | null;
+  external_url: string | null;
+  location: string | null;
+  status: ConvocatoriaStatus;
+  applications_count: number;
+  has_applied: boolean;
+  next_date: string | null;
+  next_date_label: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
-function mapRow(row: JobPostRow): JobPostRecord {
+interface ConvocatoriaImageRow {
+  image_id: string;
+  url: string;
+  sort_order: number;
+}
+
+interface ConvocatoriaAttachmentRow {
+  attachment_id: string;
+  file_url: string;
+  file_name: string;
+}
+
+interface ConvocatoriaDateRow {
+  date_id: string;
+  label: string;
+  date_value: string;
+  sort_order: number;
+}
+
+interface ConvocatoriaFaqRow {
+  faq_id: string;
+  question: string;
+  answer: string;
+  sort_order: number;
+}
+
+interface ForumPostRow {
+  post_id: string;
+  convocatoria_id: string;
+  author_user_id: string;
+  author_name: string;
+  body: string;
+  is_pinned: boolean;
+  created_at: string;
+}
+
+// ── Mappers ───────────────────────────────────────────────────────────────────
+
+function mapSummary(row: ConvocatoriaSummaryRow): ConvocatoriaSummary {
   return {
-    jobPostId: row.job_post_id,
+    convocatoriaId: row.convocatoria_id,
     title: row.title,
-    companyName: row.company_name,
-    organizationId: row.organization_id,
-    location: row.location,
-    workMode: row.work_mode,
     description: row.description,
-    postedBy: row.posted_by,
-    postedAt: row.posted_at,
-    expiresAt: row.expires_at,
-    isActive: row.is_active,
-    applicants: Number(row.applicants ?? 0),
+    coverImageUrl: row.cover_image_url,
+    externalUrl: row.external_url,
+    location: row.location,
+    status: row.status,
+    applicationsCount: Number(row.applications_count ?? 0),
+    hasApplied: row.has_applied === true,
+    nextDate: row.next_date,
+    nextDateLabel: row.next_date_label,
+    createdBy: row.created_by,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 }
 
-const BASE_SELECT = `
-  SELECT
-    jp.job_post_id::text,
-    jp.title,
-    jp.company_name,
-    jp.organization_id::text,
-    jp.location,
-    jp.work_mode,
-    jp.description,
-    jp.posted_by::text,
-    jp.posted_at::text,
-    jp.expires_at::text,
-    jp.is_active,
-    COUNT(ja.application_id)::int AS applicants
-  FROM app_networking.job_posts jp
-  LEFT JOIN app_networking.job_applications ja ON ja.job_post_id = jp.job_post_id
-`;
+function mapImage(row: ConvocatoriaImageRow): ConvocatoriaImage {
+  return { imageId: row.image_id, url: row.url, sortOrder: row.sort_order };
+}
 
-export async function listJobPosts(
+function mapAttachment(row: ConvocatoriaAttachmentRow): ConvocatoriaAttachment {
+  return { attachmentId: row.attachment_id, fileUrl: row.file_url, fileName: row.file_name };
+}
+
+function mapDate(row: ConvocatoriaDateRow): ConvocatoriaDate {
+  return { dateId: row.date_id, label: row.label, dateValue: row.date_value, sortOrder: row.sort_order };
+}
+
+function mapFaq(row: ConvocatoriaFaqRow): ConvocatoriaFaq {
+  return { faqId: row.faq_id, question: row.question, answer: row.answer, sortOrder: row.sort_order };
+}
+
+function mapForumPost(row: ForumPostRow): ConvocatoriaForumPost {
+  return {
+    postId: row.post_id,
+    convocatoriaId: row.convocatoria_id,
+    authorUserId: row.author_user_id,
+    authorName: row.author_name,
+    body: row.body,
+    isPinned: row.is_pinned,
+    createdAt: row.created_at,
+  };
+}
+
+// ── Summary select ────────────────────────────────────────────────────────────
+
+function summarySelect(actorId: string) {
+  return `
+    SELECT
+      c.convocatoria_id::text,
+      c.title,
+      c.description,
+      c.cover_image_url,
+      c.external_url,
+      c.location,
+      c.status,
+      COUNT(DISTINCT ca.application_id)::int AS applications_count,
+      EXISTS(
+        SELECT 1 FROM app_networking.convocatoria_applications ca2
+        WHERE ca2.convocatoria_id = c.convocatoria_id
+          AND ca2.applicant_user_id = '${actorId}'::uuid
+      ) AS has_applied,
+      (
+        SELECT cd.date_value::text
+        FROM app_networking.convocatoria_dates cd
+        WHERE cd.convocatoria_id = c.convocatoria_id
+          AND cd.date_value >= CURRENT_DATE
+        ORDER BY cd.date_value ASC
+        LIMIT 1
+      ) AS next_date,
+      (
+        SELECT cd.label
+        FROM app_networking.convocatoria_dates cd
+        WHERE cd.convocatoria_id = c.convocatoria_id
+          AND cd.date_value >= CURRENT_DATE
+        ORDER BY cd.date_value ASC
+        LIMIT 1
+      ) AS next_date_label,
+      c.created_by::text,
+      c.created_at::text,
+      c.updated_at::text
+    FROM app_networking.convocatorias c
+    LEFT JOIN app_networking.convocatoria_applications ca
+      ON ca.convocatoria_id = c.convocatoria_id
+  `;
+}
+
+// ── List ──────────────────────────────────────────────────────────────────────
+
+export async function listConvocatorias(
   client: PoolClient,
   actor: AuthUser,
   limit = 100,
-): Promise<JobPostRecord[]> {
+): Promise<ConvocatoriaSummary[]> {
   await requireModulePermission(client, 'convocatorias', 'view');
   await requireCommunityAccess(client, actor, 'Convocatorias');
 
-  const { rows } = await client.query<JobPostRow>(
-    `${BASE_SELECT}
-     GROUP BY jp.job_post_id
-     ORDER BY jp.posted_at DESC
+  const { rows } = await client.query<ConvocatoriaSummaryRow>(
+    `${summarySelect(actor.userId)}
+     GROUP BY c.convocatoria_id
+     ORDER BY c.created_at DESC
      LIMIT $1`,
     [Math.min(Math.max(limit, 1), 500)],
   );
 
-  return rows.map(mapRow);
+  return rows.map(mapSummary);
 }
 
-export async function createJobPost(
+// ── Get one ───────────────────────────────────────────────────────────────────
+
+export async function getConvocatoria(
   client: PoolClient,
   actor: AuthUser,
-  input: CreateJobPostInput,
-): Promise<JobPostRecord> {
+  convocatoriaId: string,
+): Promise<ConvocatoriaDetail> {
+  await requireModulePermission(client, 'convocatorias', 'view');
+  await requireCommunityAccess(client, actor, 'Convocatorias');
+
+  const summaryResult = await client.query<ConvocatoriaSummaryRow>(
+    `${summarySelect(actor.userId)}
+     WHERE c.convocatoria_id = $1
+     GROUP BY c.convocatoria_id`,
+    [convocatoriaId],
+  );
+
+  const summaryRow = summaryResult.rows[0];
+  if (!summaryRow) throw new Error('Convocatoria not found');
+
+  const [imagesResult, attachmentsResult, datesResult, faqsResult] = await Promise.all([
+    client.query<ConvocatoriaImageRow>(
+      `SELECT image_id::text, url, sort_order
+       FROM app_networking.convocatoria_images
+       WHERE convocatoria_id = $1
+       ORDER BY sort_order ASC, created_at ASC`,
+      [convocatoriaId],
+    ),
+    client.query<ConvocatoriaAttachmentRow>(
+      `SELECT attachment_id::text, file_url, file_name
+       FROM app_networking.convocatoria_attachments
+       WHERE convocatoria_id = $1
+       ORDER BY created_at ASC`,
+      [convocatoriaId],
+    ),
+    client.query<ConvocatoriaDateRow>(
+      `SELECT date_id::text, label, date_value::text, sort_order
+       FROM app_networking.convocatoria_dates
+       WHERE convocatoria_id = $1
+       ORDER BY sort_order ASC, date_value ASC`,
+      [convocatoriaId],
+    ),
+    client.query<ConvocatoriaFaqRow>(
+      `SELECT faq_id::text, question, answer, sort_order
+       FROM app_networking.convocatoria_faqs
+       WHERE convocatoria_id = $1
+       ORDER BY sort_order ASC`,
+      [convocatoriaId],
+    ),
+  ]);
+
+  return {
+    ...mapSummary(summaryRow),
+    images: imagesResult.rows.map(mapImage),
+    attachments: attachmentsResult.rows.map(mapAttachment),
+    dates: datesResult.rows.map(mapDate),
+    faqs: faqsResult.rows.map(mapFaq),
+  };
+}
+
+// ── Create ────────────────────────────────────────────────────────────────────
+
+export async function createConvocatoria(
+  client: PoolClient,
+  actor: AuthUser,
+  input: CreateConvocatoriaInput,
+): Promise<ConvocatoriaSummary> {
   await requireModulePermission(client, 'convocatorias', 'create');
   await requireCommunityAccess(client, actor, 'Convocatorias');
 
-  const { rows } = await client.query<{ job_post_id: string }>(
-    `
-      INSERT INTO app_networking.job_posts (
-        title,
-        company_name,
-        organization_id,
-        location,
-        work_mode,
-        description,
-        posted_by,
-        expires_at,
-        is_active
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8::timestamptz, $9)
-      RETURNING job_post_id::text
-    `,
+  const { rows } = await client.query<{ convocatoria_id: string }>(
+    `INSERT INTO app_networking.convocatorias
+       (title, description, cover_image_url, external_url, location, status, created_by)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     RETURNING convocatoria_id::text`,
     [
       input.title,
-      input.companyName,
-      input.organizationId ?? null,
+      input.description ?? '',
+      input.coverImageUrl ?? null,
+      input.externalUrl ?? null,
       input.location ?? null,
-      input.workMode ?? null,
-      input.description,
+      input.status ?? 'draft',
       actor.userId,
-      input.expiresAt ?? null,
-      input.isActive ?? true,
     ],
   );
 
-  const jobPostId = rows[0]?.job_post_id;
-  if (!jobPostId) {
-    throw new Error('Failed to create job post');
-  }
+  const id = rows[0]?.convocatoria_id;
+  if (!id) throw new Error('Failed to create convocatoria');
 
-  const all = await listJobPosts(client, actor, 500);
-  const created = all.find((item) => item.jobPostId === jobPostId);
-  if (!created) {
-    throw new Error('Created job post not found');
-  }
-
-  return created;
+  const detail = await getConvocatoria(client, actor, id);
+  return detail;
 }
 
-export async function updateJobPost(
+// ── Update ────────────────────────────────────────────────────────────────────
+
+export async function updateConvocatoria(
   client: PoolClient,
   actor: AuthUser,
-  jobPostId: string,
-  input: UpdateJobPostInput,
-): Promise<JobPostRecord> {
+  convocatoriaId: string,
+  input: UpdateConvocatoriaInput,
+): Promise<ConvocatoriaSummary> {
   await requireModulePermission(client, 'convocatorias', 'update');
   await requireCommunityAccess(client, actor, 'Convocatorias');
 
   const { rowCount } = await client.query(
-    `
-      UPDATE app_networking.job_posts
-      SET
-        title = COALESCE($2, title),
-        company_name = COALESCE($3, company_name),
-        organization_id = COALESCE($4, organization_id),
-        location = COALESCE($5, location),
-        work_mode = COALESCE($6, work_mode),
-        description = COALESCE($7, description),
-        expires_at = COALESCE($8::timestamptz, expires_at),
-        is_active = COALESCE($9, is_active)
-      WHERE job_post_id = $1
-    `,
+    `UPDATE app_networking.convocatorias
+     SET
+       title           = COALESCE($2, title),
+       description     = COALESCE($3, description),
+       cover_image_url = CASE WHEN $4::text IS NOT NULL THEN $4 ELSE cover_image_url END,
+       external_url    = CASE WHEN $5::text IS NOT NULL THEN $5 ELSE external_url END,
+       location        = CASE WHEN $6::text IS NOT NULL THEN $6 ELSE location END,
+       status          = COALESCE($7, status)
+     WHERE convocatoria_id = $1`,
     [
-      jobPostId,
+      convocatoriaId,
       input.title ?? null,
-      input.companyName ?? null,
-      input.organizationId ?? null,
-      input.location ?? null,
-      input.workMode ?? null,
       input.description ?? null,
-      input.expiresAt ?? null,
-      input.isActive ?? null,
+      input.coverImageUrl !== undefined ? (input.coverImageUrl ?? '') : null,
+      input.externalUrl !== undefined ? (input.externalUrl ?? '') : null,
+      input.location !== undefined ? (input.location ?? '') : null,
+      input.status ?? null,
     ],
   );
 
-  if (!rowCount) {
-    throw new Error('Job post not found');
-  }
+  if (!rowCount) throw new Error('Convocatoria not found');
 
-  const all = await listJobPosts(client, actor, 500);
-  const updated = all.find((item) => item.jobPostId === jobPostId);
-  if (!updated) {
-    throw new Error('Job post not found');
-  }
-
-  return updated;
+  const detail = await getConvocatoria(client, actor, convocatoriaId);
+  return detail;
 }
 
-export async function deleteJobPost(
+// ── Delete ────────────────────────────────────────────────────────────────────
+
+export async function deleteConvocatoria(
   client: PoolClient,
   actor: AuthUser,
-  jobPostId: string,
-): Promise<{ jobPostId: string }> {
+  convocatoriaId: string,
+): Promise<{ convocatoriaId: string }> {
   await requireModulePermission(client, 'convocatorias', 'delete');
   await requireCommunityAccess(client, actor, 'Convocatorias');
 
-  const { rows } = await client.query<{ job_post_id: string }>(
-    `
-      DELETE FROM app_networking.job_posts
-      WHERE job_post_id = $1
-      RETURNING job_post_id::text
-    `,
-    [jobPostId],
+  const { rows } = await client.query<{ convocatoria_id: string }>(
+    `DELETE FROM app_networking.convocatorias
+     WHERE convocatoria_id = $1
+     RETURNING convocatoria_id::text`,
+    [convocatoriaId],
   );
 
-  const deleted = rows[0];
-  if (!deleted) {
-    throw new Error('Job post not found');
-  }
+  if (!rows[0]) throw new Error('Convocatoria not found');
+  return { convocatoriaId: rows[0].convocatoria_id };
+}
 
-  return {
-    jobPostId: deleted.job_post_id,
-  };
+// ── Images ────────────────────────────────────────────────────────────────────
+
+export async function addImage(
+  client: PoolClient,
+  actor: AuthUser,
+  convocatoriaId: string,
+  url: string,
+): Promise<ConvocatoriaImage> {
+  await requireModulePermission(client, 'convocatorias', 'update');
+  await requireCommunityAccess(client, actor, 'Convocatorias');
+
+  const { rows } = await client.query<ConvocatoriaImageRow>(
+    `INSERT INTO app_networking.convocatoria_images (convocatoria_id, url, sort_order)
+     SELECT $1, $2,
+       COALESCE((SELECT MAX(sort_order) + 1 FROM app_networking.convocatoria_images WHERE convocatoria_id = $1), 0)
+     RETURNING image_id::text, url, sort_order`,
+    [convocatoriaId, url],
+  );
+
+  if (!rows[0]) throw new Error('Failed to add image');
+  return mapImage(rows[0]);
+}
+
+export async function removeImage(
+  client: PoolClient,
+  actor: AuthUser,
+  convocatoriaId: string,
+  imageId: string,
+): Promise<{ imageId: string }> {
+  await requireModulePermission(client, 'convocatorias', 'update');
+  await requireCommunityAccess(client, actor, 'Convocatorias');
+
+  const { rows } = await client.query<{ image_id: string }>(
+    `DELETE FROM app_networking.convocatoria_images
+     WHERE image_id = $1 AND convocatoria_id = $2
+     RETURNING image_id::text`,
+    [imageId, convocatoriaId],
+  );
+
+  if (!rows[0]) throw new Error('Image not found');
+  return { imageId: rows[0].image_id };
+}
+
+// ── Attachments ───────────────────────────────────────────────────────────────
+
+export async function addAttachment(
+  client: PoolClient,
+  actor: AuthUser,
+  convocatoriaId: string,
+  fileUrl: string,
+  fileName: string,
+): Promise<ConvocatoriaAttachment> {
+  await requireModulePermission(client, 'convocatorias', 'update');
+  await requireCommunityAccess(client, actor, 'Convocatorias');
+
+  const { rows } = await client.query<ConvocatoriaAttachmentRow>(
+    `INSERT INTO app_networking.convocatoria_attachments (convocatoria_id, file_url, file_name)
+     VALUES ($1, $2, $3)
+     RETURNING attachment_id::text, file_url, file_name`,
+    [convocatoriaId, fileUrl, fileName],
+  );
+
+  if (!rows[0]) throw new Error('Failed to add attachment');
+  return mapAttachment(rows[0]);
+}
+
+export async function removeAttachment(
+  client: PoolClient,
+  actor: AuthUser,
+  convocatoriaId: string,
+  attachmentId: string,
+): Promise<{ attachmentId: string }> {
+  await requireModulePermission(client, 'convocatorias', 'update');
+  await requireCommunityAccess(client, actor, 'Convocatorias');
+
+  const { rows } = await client.query<{ attachment_id: string }>(
+    `DELETE FROM app_networking.convocatoria_attachments
+     WHERE attachment_id = $1 AND convocatoria_id = $2
+     RETURNING attachment_id::text`,
+    [attachmentId, convocatoriaId],
+  );
+
+  if (!rows[0]) throw new Error('Attachment not found');
+  return { attachmentId: rows[0].attachment_id };
+}
+
+// ── Dates ─────────────────────────────────────────────────────────────────────
+
+export async function setDates(
+  client: PoolClient,
+  actor: AuthUser,
+  convocatoriaId: string,
+  dates: SetDatesInput[],
+): Promise<ConvocatoriaDate[]> {
+  await requireModulePermission(client, 'convocatorias', 'update');
+  await requireCommunityAccess(client, actor, 'Convocatorias');
+
+  await client.query(
+    `DELETE FROM app_networking.convocatoria_dates WHERE convocatoria_id = $1`,
+    [convocatoriaId],
+  );
+
+  if (dates.length === 0) return [];
+
+  const values = dates.map((d, i) => {
+    const base = i * 4;
+    return `($${base + 1}, $${base + 2}, $${base + 3}::date, $${base + 4})`;
+  });
+
+  const params: unknown[] = dates.flatMap((d, i) => [
+    convocatoriaId,
+    d.label,
+    d.dateValue,
+    d.sortOrder ?? i,
+  ]);
+
+  const { rows } = await client.query<ConvocatoriaDateRow>(
+    `INSERT INTO app_networking.convocatoria_dates (convocatoria_id, label, date_value, sort_order)
+     VALUES ${values.join(', ')}
+     RETURNING date_id::text, label, date_value::text, sort_order
+     ORDER BY sort_order ASC`,
+    params,
+  );
+
+  return rows.map(mapDate);
+}
+
+// ── FAQs ──────────────────────────────────────────────────────────────────────
+
+export async function setFaqs(
+  client: PoolClient,
+  actor: AuthUser,
+  convocatoriaId: string,
+  faqs: SetFaqsInput[],
+): Promise<ConvocatoriaFaq[]> {
+  await requireModulePermission(client, 'convocatorias', 'update');
+  await requireCommunityAccess(client, actor, 'Convocatorias');
+
+  await client.query(
+    `DELETE FROM app_networking.convocatoria_faqs WHERE convocatoria_id = $1`,
+    [convocatoriaId],
+  );
+
+  if (faqs.length === 0) return [];
+
+  const values = faqs.map((_, i) => {
+    const base = i * 4;
+    return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4})`;
+  });
+
+  const params: unknown[] = faqs.flatMap((f, i) => [
+    convocatoriaId,
+    f.question,
+    f.answer,
+    f.sortOrder ?? i,
+  ]);
+
+  const { rows } = await client.query<ConvocatoriaFaqRow>(
+    `INSERT INTO app_networking.convocatoria_faqs (convocatoria_id, question, answer, sort_order)
+     VALUES ${values.join(', ')}
+     RETURNING faq_id::text, question, answer, sort_order
+     ORDER BY sort_order ASC`,
+    params,
+  );
+
+  return rows.map(mapFaq);
+}
+
+// ── Applications ──────────────────────────────────────────────────────────────
+
+export async function applyToConvocatoria(
+  client: PoolClient,
+  actor: AuthUser,
+  convocatoriaId: string,
+): Promise<{ applicationId: string }> {
+  await requireModulePermission(client, 'convocatorias', 'view');
+  await requireCommunityAccess(client, actor, 'Convocatorias');
+
+  const open = await client.query<{ status: string }>(
+    `SELECT status FROM app_networking.convocatorias WHERE convocatoria_id = $1`,
+    [convocatoriaId],
+  );
+
+  if (!open.rows[0]) throw new Error('Convocatoria not found');
+  if (open.rows[0].status !== 'open') throw new Error('Esta convocatoria no está abierta');
+
+  const { rows } = await client.query<{ application_id: string }>(
+    `INSERT INTO app_networking.convocatoria_applications (convocatoria_id, applicant_user_id)
+     VALUES ($1, $2)
+     ON CONFLICT (convocatoria_id, applicant_user_id) DO NOTHING
+     RETURNING application_id::text`,
+    [convocatoriaId, actor.userId],
+  );
+
+  const id = rows[0]?.application_id;
+  if (!id) throw new Error('Ya aplicaste a esta convocatoria');
+
+  return { applicationId: id };
+}
+
+export async function withdrawApplication(
+  client: PoolClient,
+  actor: AuthUser,
+  convocatoriaId: string,
+): Promise<{ convocatoriaId: string }> {
+  await requireModulePermission(client, 'convocatorias', 'view');
+  await requireCommunityAccess(client, actor, 'Convocatorias');
+
+  await client.query(
+    `DELETE FROM app_networking.convocatoria_applications
+     WHERE convocatoria_id = $1 AND applicant_user_id = $2`,
+    [convocatoriaId, actor.userId],
+  );
+
+  return { convocatoriaId };
+}
+
+// ── Forum ─────────────────────────────────────────────────────────────────────
+
+export async function listForumPosts(
+  client: PoolClient,
+  actor: AuthUser,
+  convocatoriaId: string,
+  limit = 50,
+): Promise<ConvocatoriaForumPost[]> {
+  await requireModulePermission(client, 'convocatorias', 'view');
+  await requireCommunityAccess(client, actor, 'Convocatorias');
+
+  const { rows } = await client.query<ForumPostRow>(
+    `SELECT
+       fp.post_id::text,
+       fp.convocatoria_id::text,
+       fp.author_user_id::text,
+       COALESCE(u.first_name || ' ' || u.last_name, u.email, 'Miembro') AS author_name,
+       fp.body,
+       fp.is_pinned,
+       fp.created_at::text
+     FROM app_networking.convocatoria_forum_posts fp
+     JOIN app_core.users u ON u.user_id = fp.author_user_id
+     WHERE fp.convocatoria_id = $1
+     ORDER BY fp.is_pinned DESC, fp.created_at ASC
+     LIMIT $2`,
+    [convocatoriaId, Math.min(Math.max(limit, 1), 200)],
+  );
+
+  return rows.map(mapForumPost);
+}
+
+export async function createForumPost(
+  client: PoolClient,
+  actor: AuthUser,
+  convocatoriaId: string,
+  body: string,
+  isPinned = false,
+): Promise<ConvocatoriaForumPost> {
+  await requireModulePermission(client, 'convocatorias', 'view');
+  await requireCommunityAccess(client, actor, 'Convocatorias');
+
+  const trimmed = body.trim();
+  if (!trimmed) throw new Error('El mensaje no puede estar vacío');
+
+  const { rows } = await client.query<{ post_id: string }>(
+    `INSERT INTO app_networking.convocatoria_forum_posts (convocatoria_id, author_user_id, body, is_pinned)
+     VALUES ($1, $2, $3, $4)
+     RETURNING post_id::text`,
+    [convocatoriaId, actor.userId, trimmed, isPinned],
+  );
+
+  const postId = rows[0]?.post_id;
+  if (!postId) throw new Error('Failed to create forum post');
+
+  const all = await listForumPosts(client, actor, convocatoriaId, 200);
+  const post = all.find((p) => p.postId === postId);
+  if (!post) throw new Error('Post not found after creation');
+  return post;
+}
+
+export async function deleteForumPost(
+  client: PoolClient,
+  actor: AuthUser,
+  convocatoriaId: string,
+  postId: string,
+): Promise<{ postId: string }> {
+  await requireModulePermission(client, 'convocatorias', 'view');
+  await requireCommunityAccess(client, actor, 'Convocatorias');
+
+  const canModerate = await client.query<{ can_moderate: boolean }>(
+    `SELECT can_moderate FROM app_core.module_permissions
+     WHERE module_code = 'convocatorias' AND role_id = (
+       SELECT role_id FROM app_core.roles WHERE role_name = $1
+     )`,
+    [actor.role],
+  );
+
+  const isModerator = canModerate.rows[0]?.can_moderate === true;
+
+  const { rows } = await client.query<{ post_id: string }>(
+    `DELETE FROM app_networking.convocatoria_forum_posts
+     WHERE post_id = $1
+       AND convocatoria_id = $2
+       AND ($3 OR author_user_id = $4::uuid)
+     RETURNING post_id::text`,
+    [postId, convocatoriaId, isModerator, actor.userId],
+  );
+
+  if (!rows[0]) throw new Error('Post not found or no permission to delete');
+  return { postId: rows[0].post_id };
 }

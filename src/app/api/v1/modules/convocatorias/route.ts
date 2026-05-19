@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { authenticateRequest } from '@/server/auth/request-auth';
 import { withClient, withRoleContext } from '@/server/db/pool';
-import type { CreateJobPostInput } from '@/features/convocatorias/service';
-import { createJobPost, listJobPosts } from '@/features/convocatorias/service';
+import type { CreateConvocatoriaInput } from '@/features/convocatorias/service';
+import { createConvocatoria, listConvocatorias } from '@/features/convocatorias/service';
 import { errorResponse, logModuleAudit, parseJsonBody, unauthorizedResponse } from '../_utils';
 
 export async function GET(request: Request) {
@@ -15,11 +15,11 @@ export async function GET(request: Request) {
 
     const data = await withClient((client) =>
       withRoleContext(client, identity.userId, identity.role, async () => {
-        const result = await listJobPosts(client, identity, limit);
+        const result = await listConvocatorias(client, identity, limit);
         await logModuleAudit(client, request, identity, {
           moduleCode: 'convocatorias',
-          action: 'query_job_posts',
-          entityTable: 'app_networking.job_posts',
+          action: 'list_convocatorias',
+          entityTable: 'app_networking.convocatorias',
           changeSummary: { limit },
         });
         return result;
@@ -28,7 +28,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ ok: true, data }, { status: 200 });
   } catch (error) {
-    return errorResponse(error, 'Failed to list job posts');
+    return errorResponse(error, 'Failed to list convocatorias');
   }
 }
 
@@ -36,21 +36,19 @@ export async function POST(request: Request) {
   const identity = await authenticateRequest(request);
   if (!identity) return unauthorizedResponse();
 
-  const body = await parseJsonBody<CreateJobPostInput>(request);
-  if (!body) {
-    return NextResponse.json({ ok: false, error: 'Invalid JSON body' }, { status: 400 });
-  }
+  const body = await parseJsonBody<CreateConvocatoriaInput>(request);
+  if (!body) return NextResponse.json({ ok: false, error: 'Invalid JSON body' }, { status: 400 });
 
   try {
     const data = await withClient((client) =>
       withRoleContext(client, identity.userId, identity.role, async () => {
-        const result = await createJobPost(client, identity, body);
+        const result = await createConvocatoria(client, identity, body);
         await logModuleAudit(client, request, identity, {
           moduleCode: 'convocatorias',
-          action: 'create_job_post',
-          entityTable: 'app_networking.job_posts',
-          entityId: result.jobPostId,
-          changeSummary: { workMode: result.workMode, isActive: result.isActive },
+          action: 'create_convocatoria',
+          entityTable: 'app_networking.convocatorias',
+          entityId: result.convocatoriaId,
+          changeSummary: { title: result.title, status: result.status },
         });
         return result;
       }),
@@ -58,6 +56,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ ok: true, data }, { status: 201 });
   } catch (error) {
-    return errorResponse(error, 'Failed to create job post');
+    return errorResponse(error, 'Failed to create convocatoria');
   }
 }
