@@ -61,10 +61,35 @@ function toDayLabel(value: string): string {
   return d.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' });
 }
 
+// ── YouTube helpers ────────────────────────────────────────────────────────────
+
+function extractYouTubeId(url: string): string | null {
+  try {
+    const u = new URL(url);
+    if (u.hostname === 'youtu.be') return u.pathname.slice(1).split('?')[0] || null;
+    if (u.hostname.includes('youtube.com')) {
+      const v = u.searchParams.get('v');
+      if (v) return v;
+      const m = u.pathname.match(/\/(?:embed|shorts)\/([^/?]+)/);
+      if (m) return m[1];
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function getYouTubeIds(text: string): string[] {
+  const urls = text.match(/https?:\/\/[^\s]+/g) ?? [];
+  return urls.map(extractYouTubeId).filter(Boolean) as string[];
+}
+
 function renderText(text: string): React.ReactNode {
   const parts = text.split(/(https?:\/\/[^\s]+)/g);
-  return parts.map((part, i) =>
-    /^https?:\/\//.test(part) ? (
+  return parts.map((part, i) => {
+    if (!/^https?:\/\//.test(part)) return part;
+    if (extractYouTubeId(part)) return null; // shown as preview card
+    return (
       <a
         key={i}
         href={part}
@@ -74,9 +99,58 @@ function renderText(text: string): React.ReactNode {
       >
         {part}
       </a>
-    ) : (
-      part
-    ),
+    );
+  });
+}
+
+// ── YouTube preview card ───────────────────────────────────────────────────────
+
+function YouTubePreview({ videoId }: { videoId: string }) {
+  const [showEmbed, setShowEmbed] = React.useState(false);
+  return (
+    <div className="w-64 overflow-hidden rounded-xl border border-[var(--app-border)] bg-white shadow-sm">
+      {showEmbed ? (
+        <div className="aspect-video">
+          <iframe
+            src={`https://www.youtube.com/embed/${videoId}?autoplay=1`}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+            className="h-full w-full"
+          />
+        </div>
+      ) : (
+        <button onClick={() => setShowEmbed(true)} className="group relative block w-full">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`}
+            alt="YouTube video"
+            className="aspect-video w-full object-cover"
+          />
+          <div className="absolute inset-0 flex items-center justify-center rounded-t-xl bg-black/20 transition group-hover:bg-black/35">
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-red-600 shadow-lg">
+              <svg viewBox="0 0 24 24" fill="white" className="ml-0.5 h-5 w-5">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            </div>
+          </div>
+        </button>
+      )}
+      <div className="flex items-center gap-2 px-3 py-2">
+        <svg viewBox="0 0 24 24" fill="#FF0000" className="h-3.5 w-3.5 shrink-0">
+          <path d="M21.8 8a2.75 2.75 0 0 0-1.94-1.95C18.2 5.6 12 5.6 12 5.6s-6.2 0-7.86.45A2.75 2.75 0 0 0 2.2 8 28.6 28.6 0 0 0 1.8 12a28.6 28.6 0 0 0 .4 4 2.75 2.75 0 0 0 1.94 1.95C5.8 18.4 12 18.4 12 18.4s6.2 0 7.86-.45A2.75 2.75 0 0 0 21.8 16a28.6 28.6 0 0 0 .4-4 28.6 28.6 0 0 0-.4-4zM9.75 14.85V9.15L15.5 12l-5.75 2.85z" />
+        </svg>
+        <span className="truncate text-[11px] text-[var(--app-muted)]">YouTube</span>
+        <a
+          href={`https://www.youtube.com/watch?v=${videoId}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="ml-auto shrink-0 text-[11px] text-[var(--app-muted)] underline hover:text-[var(--app-ink)]"
+        >
+          Abrir ↗
+        </a>
+      </div>
+    </div>
   );
 }
 
@@ -718,6 +792,10 @@ export default function MensajesPage() {
                         const isDeleted = !!msg.deletedAt;
                         const isEditing = editingId === msg.messageId;
 
+                        const ytIds = getYouTubeIds(msg.messageText);
+                        const textOnly = msg.messageText.replace(/https?:\/\/[^\s]+/g, '').trim();
+                        const hasText = textOnly.length > 0;
+
                         return (
                           <div
                             key={msg.messageId}
@@ -728,10 +806,10 @@ export default function MensajesPage() {
                             )}
 
                             <div
-                              className={`flex flex-col ${isMine ? 'items-end' : 'items-start'} max-w-[70%]`}
+                              className={`flex flex-col gap-1 ${isMine ? 'items-end' : 'items-start'} max-w-[75%]`}
                             >
                               {!isMine && (
-                                <span className="mb-1 px-1 text-[11px] font-semibold text-[var(--app-muted)]">
+                                <span className="px-1 text-[11px] font-semibold text-[var(--app-muted)]">
                                   {msg.senderName}
                                 </span>
                               )}
@@ -766,19 +844,27 @@ export default function MensajesPage() {
                                 </div>
                               ) : (
                                 <div className="relative">
-                                  <div
-                                    className={`px-4 py-2.5 ${
-                                      isMine
-                                        ? 'rounded-2xl rounded-tr-sm bg-[#5b2d8a] text-white'
-                                        : 'rounded-2xl rounded-tl-sm bg-[var(--app-surface-muted)] text-[var(--app-ink)]'
-                                    }`}
-                                  >
-                                    <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
-                                      {renderText(msg.messageText)}
-                                    </p>
-                                  </div>
+                                  {/* Text bubble — solo si hay texto además de la URL */}
+                                  {hasText && (
+                                    <div
+                                      className={`px-4 py-2.5 ${
+                                        isMine
+                                          ? 'rounded-2xl rounded-tr-sm bg-[#5b2d8a] text-white'
+                                          : 'rounded-2xl rounded-tl-sm bg-[var(--app-surface-muted)] text-[var(--app-ink)]'
+                                      }`}
+                                    >
+                                      <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+                                        {renderText(msg.messageText)}
+                                      </p>
+                                    </div>
+                                  )}
 
-                                  {/* Edit / Delete — appears on hover, left of sent bubble */}
+                                  {/* YouTube previews */}
+                                  {ytIds.map((id, idx) => (
+                                    <YouTubePreview key={idx} videoId={id} />
+                                  ))}
+
+                                  {/* Edit / Delete — aparece en hover a la izquierda de la burbuja enviada */}
                                   {isMine && (
                                     <div className="absolute right-full top-1 mr-2 hidden items-center gap-1 group-hover:flex">
                                       {can('mensajes', 'update') && (
