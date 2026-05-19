@@ -897,7 +897,7 @@ export async function reviewApplication(
         titulo: convTitle,
         motivo: notes,
         plataforma: '4Shine',
-        enlace_plataforma: 'https://app.4shine.co',
+        enlace_plataforma: `https://app.4shine.co/dashboard/convocatorias/${convocatoriaId}`,
       },
     });
   }
@@ -1008,7 +1008,7 @@ export async function applyToConvocatoria(
         nombre: actor.name.split(' ')[0] ?? actor.name,
         titulo: open.rows[0].title ?? '',
         fecha_cierre: '',
-        enlace_plataforma: 'https://app.4shine.co',
+        enlace_plataforma: `https://app.4shine.co/dashboard/convocatorias/${convocatoriaId}`,
         plataforma: '4Shine',
       },
     });

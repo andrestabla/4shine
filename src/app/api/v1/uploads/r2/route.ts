@@ -8,7 +8,7 @@ import { getR2StorageConfig, uploadFileToR2 } from '@/server/storage/r2-upload';
 
 const VALID_MODULE_CODES = new Set<string>(MODULE_CODES);
 const VALID_ACTIONS = new Set<string>(PERMISSION_ACTIONS);
-const VALID_UPLOAD_ACTIONS = new Set<PermissionAction>(['create', 'update', 'manage']);
+const VALID_UPLOAD_ACTIONS = new Set<PermissionAction>(['view', 'create', 'update', 'manage']);
 
 export const runtime = 'nodejs';
 
