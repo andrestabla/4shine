@@ -4,6 +4,7 @@ import { withClient, withRoleContext } from '@/server/db/pool';
 import type { UpdateMessageInput } from '@/features/mensajes/service';
 import { deleteMessage, updateMessage } from '@/features/mensajes/service';
 import { errorResponse, logModuleAudit, parseJsonBody, unauthorizedResponse } from '../../../_utils';
+import { getPusherServer } from '@/lib/pusher-server';
 
 interface ContextParams {
   params: Promise<{ messageId: string }>;
@@ -34,6 +35,11 @@ export async function PATCH(request: Request, context: ContextParams) {
       }),
     );
 
+    if (process.env.PUSHER_APP_ID) {
+      const pusher = getPusherServer();
+      void pusher.trigger(`private-thread-${data.threadId}`, 'message-updated', data).catch(() => {});
+    }
+
     return NextResponse.json({ ok: true, data }, { status: 200 });
   } catch (error) {
     return errorResponse(error, 'Failed to update message');
@@ -59,6 +65,13 @@ export async function DELETE(request: Request, context: ContextParams) {
         return result;
       }),
     );
+
+    if (process.env.PUSHER_APP_ID) {
+      const pusher = getPusherServer();
+      void pusher
+        .trigger(`private-thread-${data.threadId}`, 'message-deleted', { messageId: data.messageId })
+        .catch(() => {});
+    }
 
     return NextResponse.json({ ok: true, data }, { status: 200 });
   } catch (error) {

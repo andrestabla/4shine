@@ -4,6 +4,7 @@ import { withClient, withRoleContext } from '@/server/db/pool';
 import type { SendMessageInput } from '@/features/mensajes/service';
 import { listMessages, sendMessage } from '@/features/mensajes/service';
 import { errorResponse, logModuleAudit, parseJsonBody, unauthorizedResponse } from '../../../../_utils';
+import { getPusherServer } from '@/lib/pusher-server';
 
 interface ContextParams {
   params: Promise<{ threadId: string }>;
@@ -51,24 +52,48 @@ export async function POST(request: Request, context: ContextParams) {
   const { threadId } = await context.params;
 
   try {
-    const data = await withClient((client) =>
+    const { message, participantIds } = await withClient((client) =>
       withRoleContext(client, identity.userId, identity.role, async () => {
-        const result = await sendMessage(client, identity, {
+        const message = await sendMessage(client, identity, {
           threadId,
           messageText: body.messageText,
         });
+
+        const { rows } = await client.query<{ user_id: string }>(
+          `SELECT user_id::text FROM app_networking.thread_participants WHERE thread_id = $1`,
+          [threadId],
+        );
+
         await logModuleAudit(client, request, identity, {
           moduleCode: 'mensajes',
           action: 'send_message',
           entityTable: 'app_networking.messages',
-          entityId: result.messageId,
+          entityId: message.messageId,
           changeSummary: { threadId },
         });
-        return result;
+
+        return { message, participantIds: rows.map((r) => r.user_id) };
       }),
     );
 
-    return NextResponse.json({ ok: true, data }, { status: 201 });
+    // Fire Pusher events — non-blocking
+    if (process.env.PUSHER_APP_ID) {
+      const pusher = getPusherServer();
+      void pusher.trigger(`private-thread-${threadId}`, 'new-message', message).catch(() => {});
+      if (participantIds.length > 0) {
+        void pusher
+          .triggerBatch(
+            participantIds.map((uid) => ({
+              channel: `private-user-${uid}`,
+              name: 'thread-updated',
+              data: { threadId },
+            })),
+          )
+          .catch(() => {});
+      }
+    }
+
+    return NextResponse.json({ ok: true, data: message }, { status: 201 });
   } catch (error) {
     return errorResponse(error, 'Failed to send message');
   }

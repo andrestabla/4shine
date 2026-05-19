@@ -408,18 +408,18 @@ export async function deleteMessage(
   client: PoolClient,
   actor: AuthUser,
   messageId: string,
-): Promise<{ messageId: string }> {
+): Promise<{ messageId: string; threadId: string }> {
   await requireModulePermission(client, 'mensajes', 'delete');
   await requireCommunityAccess(client, actor, 'Mensajes');
 
-  const { rows } = await client.query<{ message_id: string }>(
+  const { rows } = await client.query<{ message_id: string; thread_id: string }>(
     `
       UPDATE app_networking.messages
       SET deleted_at = now()
       WHERE message_id = $1
         AND sender_user_id = $2
         AND deleted_at IS NULL
-      RETURNING message_id::text
+      RETURNING message_id::text, thread_id::text
     `,
     [messageId, actor.userId],
   );
@@ -429,5 +429,5 @@ export async function deleteMessage(
     throw new Error('Message not found');
   }
 
-  return { messageId: row.message_id };
+  return { messageId: row.message_id, threadId: row.thread_id };
 }

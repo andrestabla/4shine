@@ -77,8 +77,8 @@ export async function updateMessage(messageId: string, input: UpdateMessageInput
   });
 }
 
-export async function deleteMessage(messageId: string): Promise<{ messageId: string }> {
-  return requestApi<{ messageId: string }>(`/api/v1/modules/mensajes/messages/${messageId}`, {
+export async function deleteMessage(messageId: string): Promise<{ messageId: string; threadId: string }> {
+  return requestApi<{ messageId: string; threadId: string }>(`/api/v1/modules/mensajes/messages/${messageId}`, {
     method: 'DELETE',
   });
 }

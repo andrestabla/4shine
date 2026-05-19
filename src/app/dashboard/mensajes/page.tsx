@@ -18,6 +18,7 @@ import { AccessOfferPanel } from '@/components/access/AccessOfferPanel';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useUser } from '@/context/UserContext';
 import { filterCommercialProducts } from '@/features/access/catalog';
+import { getPusherClient } from '@/lib/pusher-client';
 import {
   createDirectThread,
   deleteMessage,
@@ -208,6 +209,63 @@ export default function MensajesPage() {
   React.useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // ── Pusher: suscripción al thread activo ───────────────────────────────────
+  React.useEffect(() => {
+    if (!selectedThreadId || isCommunityLocked) return;
+    const pusher = getPusherClient();
+    if (!pusher) return;
+
+    const channel = pusher.subscribe(`private-thread-${selectedThreadId}`);
+
+    channel.bind('new-message', (data: MessageRecord) => {
+      setMessages((prev) =>
+        prev.some((m) => m.messageId === data.messageId) ? prev : [...prev, data],
+      );
+    });
+
+    channel.bind('message-updated', (data: MessageRecord) => {
+      setMessages((prev) => prev.map((m) => (m.messageId === data.messageId ? data : m)));
+    });
+
+    channel.bind('message-deleted', (data: { messageId: string }) => {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.messageId === data.messageId ? { ...m, deletedAt: new Date().toISOString() } : m,
+        ),
+      );
+    });
+
+    return () => {
+      pusher.unsubscribe(`private-thread-${selectedThreadId}`);
+    };
+  }, [selectedThreadId, isCommunityLocked]);
+
+  // ── Pusher: canal personal para actualizar lista de threads ────────────────
+  React.useEffect(() => {
+    if (!sessionUser?.id || isCommunityLocked) return;
+    const pusher = getPusherClient();
+    if (!pusher) return;
+
+    const channel = pusher.subscribe(`private-user-${sessionUser.id}`);
+    channel.bind('thread-updated', () => {
+      void loadAll();
+    });
+
+    return () => {
+      pusher.unsubscribe(`private-user-${sessionUser.id}`);
+    };
+  }, [sessionUser?.id, isCommunityLocked, loadAll]);
+
+  // ── Polling fallback cuando Pusher no está configurado ─────────────────────
+  React.useEffect(() => {
+    if (isCommunityLocked || !selectedThreadId || getPusherClient()) return;
+    const interval = setInterval(() => {
+      void loadMessages(selectedThreadId);
+      void loadAll();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [isCommunityLocked, selectedThreadId, loadMessages, loadAll]);
 
   React.useEffect(() => {
     if (!showEmoji) return;
