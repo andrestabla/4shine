@@ -222,6 +222,9 @@ export default function MensajesPage() {
   const emojiRef = React.useRef<HTMLDivElement>(null);
   const emojiBtnRef = React.useRef<HTMLButtonElement>(null);
   const [emojiAnchor, setEmojiAnchor] = React.useState<{ bottom: number; left: number } | null>(null);
+  const [isOtherTyping, setIsOtherTyping] = React.useState(false);
+  const typingTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTypingSentRef = React.useRef(0);
 
   const isCommunityLocked = currentRole === 'lider' && viewerAccess?.viewerTier === 'open_leader';
   const programOffers = filterCommercialProducts(viewerAccess?.catalog, { codes: ['program_4shine'] });
@@ -315,8 +318,16 @@ export default function MensajesPage() {
       );
     });
 
+    channel.bind('client-typing', () => {
+      setIsOtherTyping(true);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = setTimeout(() => setIsOtherTyping(false), 3000);
+    });
+
     return () => {
       pusher.unsubscribe(`private-thread-${selectedThreadId}`);
+      setIsOtherTyping(false);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     };
   }, [selectedThreadId, isCommunityLocked]);
 
@@ -465,6 +476,23 @@ export default function MensajesPage() {
     setEditingId(null);
     setEditText('');
   };
+
+  const sendTypingEvent = React.useCallback(() => {
+    if (!selectedThreadId) return;
+    const now = Date.now();
+    if (now - lastTypingSentRef.current < 2000) return;
+    const pusher = getPusherClient();
+    if (!pusher) return;
+    const ch = pusher.channel(`private-thread-${selectedThreadId}`);
+    if (!ch) return;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (ch as any).trigger('client-typing', {});
+      lastTypingSentRef.current = now;
+    } catch {
+      // client events not enabled in Pusher dashboard — silently ignore
+    }
+  }, [selectedThreadId]);
 
   const insertEmoji = (emoji: string) => {
     setMessageText((t) => t + emoji);
@@ -932,6 +960,20 @@ export default function MensajesPage() {
                     </div>
                   ))
                 )}
+                {isOtherTyping && selectedThread && (
+                  <div className="flex gap-2.5">
+                    <Avatar
+                      name={selectedThread.otherParticipantName ?? '?'}
+                      avatarUrl={selectedThread.otherParticipantAvatarUrl}
+                      size="sm"
+                    />
+                    <div className="flex items-center gap-1 rounded-2xl rounded-tl-sm bg-[var(--app-surface-muted)] px-4 py-3">
+                      <span className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--app-muted)]" style={{ animationDelay: '0ms' }} />
+                      <span className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--app-muted)]" style={{ animationDelay: '160ms' }} />
+                      <span className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--app-muted)]" style={{ animationDelay: '320ms' }} />
+                    </div>
+                  </div>
+                )}
                 <div ref={messagesEndRef} />
               </div>
 
@@ -976,7 +1018,7 @@ export default function MensajesPage() {
                   <input
                     ref={inputRef}
                     value={messageText}
-                    onChange={(e) => setMessageText(e.target.value)}
+                    onChange={(e) => { setMessageText(e.target.value); if (e.target.value) sendTypingEvent(); }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
