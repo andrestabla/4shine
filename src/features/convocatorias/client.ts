@@ -43,6 +43,7 @@ export interface ConvocatoriaSummary {
   enlacesComplementarios: string;
   contactoTelefono: string;
   contactoEmail: string;
+  empresaSolicitante: string;
   coverImageUrl: string | null;
   externalUrl: string | null;
   location: string | null;
@@ -84,6 +85,7 @@ export interface CreateConvocatoriaInput {
   enlacesComplementarios?: string;
   contactoTelefono?: string;
   contactoEmail?: string;
+  empresaSolicitante?: string;
   coverImageUrl?: string | null;
   externalUrl?: string | null;
   location?: string | null;
@@ -101,6 +103,7 @@ export interface UpdateConvocatoriaInput {
   enlacesComplementarios?: string;
   contactoTelefono?: string;
   contactoEmail?: string;
+  empresaSolicitante?: string;
   coverImageUrl?: string | null;
   externalUrl?: string | null;
   location?: string | null;

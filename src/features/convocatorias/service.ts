@@ -48,6 +48,7 @@ export interface ConvocatoriaSummary {
   enlacesComplementarios: string;
   contactoTelefono: string;
   contactoEmail: string;
+  empresaSolicitante: string;
   coverImageUrl: string | null;
   externalUrl: string | null;
   location: string | null;
@@ -89,6 +90,7 @@ export interface CreateConvocatoriaInput {
   enlacesComplementarios?: string;
   contactoTelefono?: string;
   contactoEmail?: string;
+  empresaSolicitante?: string;
   coverImageUrl?: string | null;
   externalUrl?: string | null;
   location?: string | null;
@@ -106,6 +108,7 @@ export interface UpdateConvocatoriaInput {
   enlacesComplementarios?: string;
   contactoTelefono?: string;
   contactoEmail?: string;
+  empresaSolicitante?: string;
   coverImageUrl?: string | null;
   externalUrl?: string | null;
   location?: string | null;
@@ -138,6 +141,7 @@ interface ConvocatoriaSummaryRow {
   enlaces_complementarios: string;
   contacto_telefono: string;
   contacto_email: string;
+  empresa_solicitante: string;
   cover_image_url: string | null;
   external_url: string | null;
   location: string | null;
@@ -202,6 +206,7 @@ function mapSummary(row: ConvocatoriaSummaryRow): ConvocatoriaSummary {
     enlacesComplementarios: row.enlaces_complementarios ?? '',
     contactoTelefono: row.contacto_telefono ?? '',
     contactoEmail: row.contacto_email ?? '',
+    empresaSolicitante: row.empresa_solicitante ?? '',
     coverImageUrl: row.cover_image_url,
     externalUrl: row.external_url,
     location: row.location,
@@ -260,6 +265,7 @@ function summarySelect(actorId: string) {
       c.enlaces_complementarios,
       c.contacto_telefono,
       c.contacto_email,
+      c.empresa_solicitante,
       COALESCE(
         c.cover_image_url,
         (SELECT ci.url FROM app_networking.convocatoria_images ci
@@ -414,8 +420,8 @@ export async function createConvocatoria(
     `INSERT INTO app_networking.convocatorias
        (title, description, objetivo, tipo, fecha_inicio, fecha_fin,
         requisitos, enlaces_complementarios, contacto_telefono, contacto_email,
-        cover_image_url, external_url, location, status, created_by)
-     VALUES ($1,$2,$3,$4,$5::date,$6::date,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+        empresa_solicitante, cover_image_url, external_url, location, status, created_by)
+     VALUES ($1,$2,$3,$4,$5::date,$6::date,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
      RETURNING convocatoria_id::text`,
     [
       input.title,
@@ -428,6 +434,7 @@ export async function createConvocatoria(
       input.enlacesComplementarios ?? '',
       input.contactoTelefono ?? '',
       input.contactoEmail ?? '',
+      input.empresaSolicitante ?? '',
       input.coverImageUrl ?? null,
       input.externalUrl ?? null,
       input.location ?? null,
@@ -467,10 +474,11 @@ export async function updateConvocatoria(
        enlaces_complementarios = COALESCE($9, enlaces_complementarios),
        contacto_telefono       = COALESCE($10, contacto_telefono),
        contacto_email          = COALESCE($11, contacto_email),
-       cover_image_url         = CASE WHEN $12::text IS NOT NULL THEN $12 ELSE cover_image_url END,
-       external_url            = CASE WHEN $13::text IS NOT NULL THEN $13 ELSE external_url END,
-       location                = CASE WHEN $14::text IS NOT NULL THEN $14 ELSE location END,
-       status                  = COALESCE($15, status)
+       empresa_solicitante     = COALESCE($12, empresa_solicitante),
+       cover_image_url         = CASE WHEN $13::text IS NOT NULL THEN $13 ELSE cover_image_url END,
+       external_url            = CASE WHEN $14::text IS NOT NULL THEN $14 ELSE external_url END,
+       location                = CASE WHEN $15::text IS NOT NULL THEN $15 ELSE location END,
+       status                  = COALESCE($16, status)
      WHERE convocatoria_id = $1`,
     [
       convocatoriaId,
@@ -484,6 +492,7 @@ export async function updateConvocatoria(
       input.enlacesComplementarios ?? null,
       input.contactoTelefono ?? null,
       input.contactoEmail ?? null,
+      input.empresaSolicitante ?? null,
       input.coverImageUrl !== undefined ? (input.coverImageUrl ?? '') : null,
       input.externalUrl !== undefined ? (input.externalUrl ?? '') : null,
       input.location !== undefined ? (input.location ?? '') : null,

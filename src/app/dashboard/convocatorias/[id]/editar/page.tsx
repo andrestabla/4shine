@@ -31,6 +31,7 @@ interface FormState {
   enlacesComplementarios: string;
   contactoTelefono: string;
   contactoEmail: string;
+  empresaSolicitante: string;
   location: string;
   externalUrl: string;
   status: ConvocatoriaStatus;
@@ -66,6 +67,7 @@ export default function EditarConvocatoriaPage() {
           enlacesComplementarios: item.enlacesComplementarios,
           contactoTelefono: item.contactoTelefono,
           contactoEmail: item.contactoEmail,
+          empresaSolicitante: item.empresaSolicitante,
           location: item.location ?? '',
           externalUrl: item.externalUrl ?? '',
           status: item.status,
@@ -93,6 +95,7 @@ export default function EditarConvocatoriaPage() {
         enlacesComplementarios: form.enlacesComplementarios.trim(),
         contactoTelefono: form.contactoTelefono.trim(),
         contactoEmail: form.contactoEmail.trim(),
+        empresaSolicitante: form.empresaSolicitante.trim(),
         location: form.location.trim() || null,
         externalUrl: form.externalUrl.trim() || null,
         status: form.status,
@@ -224,6 +227,11 @@ export default function EditarConvocatoriaPage() {
               {label('Correo de contacto')}
               <input className="app-input" type="email" placeholder="contacto@ejemplo.com (opcional)" value={form.contactoEmail} onChange={(e) => set({ contactoEmail: e.target.value })} />
             </div>
+          </div>
+
+          <div>
+            {label('Empresa solicitante')}
+            <input className="app-input" placeholder="Nombre de la empresa u organización (opcional)" value={form.empresaSolicitante} onChange={(e) => set({ empresaSolicitante: e.target.value })} />
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

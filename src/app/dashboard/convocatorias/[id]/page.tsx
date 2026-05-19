@@ -651,6 +651,13 @@ export default function ConvocatoriaDetailPage() {
             </div>
           )}
 
+          {/* Empresa solicitante */}
+          {item.empresaSolicitante && (
+            <p className="mt-4 text-sm text-[var(--app-ink)]/80">
+              <span className="font-bold">Empresa solicitante: </span>{item.empresaSolicitante}
+            </p>
+          )}
+
           {/* Contacto */}
           {(item.contactoTelefono || item.contactoEmail) && (
             <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-[var(--app-muted)]">
