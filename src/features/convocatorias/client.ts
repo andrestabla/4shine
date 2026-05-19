@@ -196,3 +196,51 @@ export function createForumPost(id: string, body: string, isPinned?: boolean): P
 export function deleteForumPost(id: string, postId: string): Promise<{ postId: string }> {
   return requestApi<{ postId: string }>(`${BASE}/${id}/forum/${postId}`, { method: 'DELETE' });
 }
+
+// ── Requests (líder solicita publicación) ─────────────────────────────────────
+
+export type RequestStatus = 'pending' | 'approved' | 'rejected';
+
+export interface ConvocatoriaRequest {
+  requestId: string;
+  title: string;
+  description: string;
+  requesterUserId: string;
+  requesterName: string;
+  status: RequestStatus;
+  reviewerUserId: string | null;
+  reviewerName: string | null;
+  reviewerNotes: string | null;
+  convocatoriaId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateRequestInput {
+  title: string;
+  description?: string;
+}
+
+export interface ReviewRequestInput {
+  status: 'approved' | 'rejected';
+  reviewerNotes?: string;
+}
+
+export function listRequests(filter?: 'all' | 'pending' | 'mine'): Promise<ConvocatoriaRequest[]> {
+  const q = filter ? `?filter=${filter}` : '';
+  return requestApi<ConvocatoriaRequest[]>(`${BASE}/requests${q}`);
+}
+
+export function createRequest(input: CreateRequestInput): Promise<ConvocatoriaRequest> {
+  return requestApi<ConvocatoriaRequest>(`${BASE}/requests`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function reviewRequest(requestId: string, input: ReviewRequestInput): Promise<ConvocatoriaRequest> {
+  return requestApi<ConvocatoriaRequest>(`${BASE}/requests/${requestId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+}

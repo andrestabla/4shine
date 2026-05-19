@@ -725,3 +725,174 @@ export async function deleteForumPost(
   if (!rows[0]) throw new Error('Post not found or no permission to delete');
   return { postId: rows[0].post_id };
 }
+
+// ── Convocatoria requests (lider → gestor/admin) ──────────────────────────────
+
+export type RequestStatus = 'pending' | 'approved' | 'rejected';
+
+export interface ConvocatoriaRequest {
+  requestId: string;
+  title: string;
+  description: string;
+  requesterUserId: string;
+  requesterName: string;
+  status: RequestStatus;
+  reviewerUserId: string | null;
+  reviewerName: string | null;
+  reviewerNotes: string | null;
+  convocatoriaId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateRequestInput {
+  title: string;
+  description?: string;
+}
+
+export interface ReviewRequestInput {
+  status: 'approved' | 'rejected';
+  reviewerNotes?: string;
+}
+
+interface RequestRow {
+  request_id: string;
+  title: string;
+  description: string;
+  requester_user_id: string;
+  requester_name: string;
+  status: RequestStatus;
+  reviewer_user_id: string | null;
+  reviewer_name: string | null;
+  reviewer_notes: string | null;
+  convocatoria_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+function mapRequest(row: RequestRow): ConvocatoriaRequest {
+  return {
+    requestId: row.request_id,
+    title: row.title,
+    description: row.description,
+    requesterUserId: row.requester_user_id,
+    requesterName: row.requester_name,
+    status: row.status,
+    reviewerUserId: row.reviewer_user_id,
+    reviewerName: row.reviewer_name,
+    reviewerNotes: row.reviewer_notes,
+    convocatoriaId: row.convocatoria_id,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+const REQUEST_SELECT = `
+  SELECT
+    r.request_id::text,
+    r.title,
+    r.description,
+    r.requester_user_id::text,
+    COALESCE(ru.first_name || ' ' || ru.last_name, ru.email, 'Miembro') AS requester_name,
+    r.status,
+    r.reviewer_user_id::text,
+    COALESCE(rv.first_name || ' ' || rv.last_name, rv.email) AS reviewer_name,
+    r.reviewer_notes,
+    r.convocatoria_id::text,
+    r.created_at::text,
+    r.updated_at::text
+  FROM app_networking.convocatoria_requests r
+  JOIN app_core.users ru ON ru.user_id = r.requester_user_id
+  LEFT JOIN app_core.users rv ON rv.user_id = r.reviewer_user_id
+`;
+
+export async function listRequests(
+  client: PoolClient,
+  actor: AuthUser,
+  filter: 'all' | 'pending' | 'mine' = 'pending',
+): Promise<ConvocatoriaRequest[]> {
+  await requireModulePermission(client, 'convocatorias', 'view');
+  await requireCommunityAccess(client, actor, 'Convocatorias');
+
+  const canManage = await client.query<{ can_manage: boolean }>(
+    `SELECT can_manage FROM app_auth.role_module_permissions
+     WHERE role_code = $1 AND module_code = 'convocatorias'`,
+    [actor.role],
+  );
+
+  const isManager = canManage.rows[0]?.can_manage === true;
+
+  let where: string;
+  let params: unknown[];
+
+  if (isManager && filter !== 'mine') {
+    where = filter === 'pending' ? `WHERE r.status = 'pending'` : '';
+    params = [];
+  } else {
+    where = `WHERE r.requester_user_id = $1`;
+    params = [actor.userId];
+  }
+
+  const { rows } = await client.query<RequestRow>(
+    `${REQUEST_SELECT} ${where} ORDER BY r.created_at DESC LIMIT 100`,
+    params,
+  );
+
+  return rows.map(mapRequest);
+}
+
+export async function createRequest(
+  client: PoolClient,
+  actor: AuthUser,
+  input: CreateRequestInput,
+): Promise<ConvocatoriaRequest> {
+  await requireModulePermission(client, 'convocatorias', 'view');
+  await requireCommunityAccess(client, actor, 'Convocatorias');
+
+  if (!input.title.trim()) throw new Error('El título es requerido');
+
+  const { rows } = await client.query<{ request_id: string }>(
+    `INSERT INTO app_networking.convocatoria_requests (title, description, requester_user_id)
+     VALUES ($1, $2, $3)
+     RETURNING request_id::text`,
+    [input.title.trim(), input.description?.trim() ?? '', actor.userId],
+  );
+
+  const id = rows[0]?.request_id;
+  if (!id) throw new Error('Failed to create request');
+
+  const all = await listRequests(client, actor, 'mine');
+  const created = all.find((r) => r.requestId === id);
+  if (!created) throw new Error('Request not found after creation');
+  return created;
+}
+
+export async function reviewRequest(
+  client: PoolClient,
+  actor: AuthUser,
+  requestId: string,
+  input: ReviewRequestInput,
+): Promise<ConvocatoriaRequest> {
+  await requireModulePermission(client, 'convocatorias', 'manage');
+  await requireCommunityAccess(client, actor, 'Convocatorias');
+
+  const { rowCount } = await client.query(
+    `UPDATE app_networking.convocatoria_requests
+     SET
+       status           = $2,
+       reviewer_user_id = $3,
+       reviewer_notes   = $4
+     WHERE request_id = $1`,
+    [requestId, input.status, actor.userId, input.reviewerNotes ?? null],
+  );
+
+  if (!rowCount) throw new Error('Request not found');
+
+  const { rows } = await client.query<RequestRow>(
+    `${REQUEST_SELECT} WHERE r.request_id = $1`,
+    [requestId],
+  );
+
+  if (!rows[0]) throw new Error('Request not found');
+  return mapRequest(rows[0]);
+}

@@ -4,12 +4,17 @@ import React from 'react';
 import Link from 'next/link';
 import {
   Calendar,
-  ExternalLink,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  Clock,
   Lock,
   MapPin,
   Megaphone,
   Plus,
+  Send,
   Users,
+  X,
 } from 'lucide-react';
 import { AccessOfferPanel } from '@/components/access/AccessOfferPanel';
 import { EmptyState } from '@/components/dashboard/EmptyState';
@@ -18,7 +23,11 @@ import { useUser } from '@/context/UserContext';
 import { filterCommercialProducts } from '@/features/access/catalog';
 import {
   createConvocatoria,
+  createRequest,
   listConvocatorias,
+  listRequests,
+  reviewRequest,
+  type ConvocatoriaRequest,
   type ConvocatoriaSummary,
   type ConvocatoriaStatus,
 } from '@/features/convocatorias/client';
@@ -29,6 +38,15 @@ function toDateLabel(value: string): string {
   return new Date(value).toLocaleDateString('es-CO', { dateStyle: 'medium' });
 }
 
+function toRelativeDate(value: string): string {
+  const diff = Date.now() - new Date(value).getTime();
+  const days = Math.floor(diff / 86_400_000);
+  if (days === 0) return 'Hoy';
+  if (days === 1) return 'Ayer';
+  if (days < 7) return `hace ${days} días`;
+  return new Date(value).toLocaleDateString('es-CO', { dateStyle: 'medium' });
+}
+
 const STATUS_CONFIG: Record<ConvocatoriaStatus, { label: string; classes: string }> = {
   draft:     { label: 'Borrador',   classes: 'bg-gray-100 text-gray-600 border-gray-200' },
   open:      { label: 'Abierta',    classes: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
@@ -36,14 +54,7 @@ const STATUS_CONFIG: Record<ConvocatoriaStatus, { label: string; classes: string
   suspended: { label: 'Suspendida', classes: 'bg-amber-50 text-amber-700 border-amber-200' },
 };
 
-function StatusBadge({ status }: { status: ConvocatoriaStatus }) {
-  const cfg = STATUS_CONFIG[status];
-  return (
-    <span className={`inline-block rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${cfg.classes}`}>
-      {cfg.label}
-    </span>
-  );
-}
+// ── Convocatoria card ─────────────────────────────────────────────────────────
 
 function ConvocatoriaCard({ item }: { item: ConvocatoriaSummary }) {
   return (
@@ -51,11 +62,7 @@ function ConvocatoriaCard({ item }: { item: ConvocatoriaSummary }) {
       <article className="flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--app-border)] bg-white transition hover:shadow-md hover:-translate-y-0.5">
         {item.coverImageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={item.coverImageUrl}
-            alt={item.title}
-            className="h-44 w-full object-cover"
-          />
+          <img src={item.coverImageUrl} alt={item.title} className="h-44 w-full object-cover" />
         ) : (
           <div
             className="flex h-44 w-full items-center justify-center"
@@ -64,27 +71,23 @@ function ConvocatoriaCard({ item }: { item: ConvocatoriaSummary }) {
             <Megaphone size={32} style={{ color: '#7c3aed' }} className="opacity-40" />
           </div>
         )}
-
         <div className="flex flex-1 flex-col gap-3 p-5">
           <div className="flex items-start justify-between gap-2">
             <h3 className="text-base font-bold leading-tight text-[var(--app-ink)] group-hover:text-[#5b2d8a] transition-colors line-clamp-2">
               {item.title}
             </h3>
-            <StatusBadge status={item.status} />
+            <span className={`shrink-0 inline-block rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${STATUS_CONFIG[item.status].classes}`}>
+              {STATUS_CONFIG[item.status].label}
+            </span>
           </div>
-
           {item.description && (
             <p className="text-sm leading-relaxed text-[var(--app-muted)] line-clamp-2">
               {item.description.replace(/<[^>]*>/g, '')}
             </p>
           )}
-
           <div className="mt-auto flex flex-wrap items-center gap-3 pt-1 text-xs text-[var(--app-muted)]">
             {item.location && (
-              <span className="flex items-center gap-1">
-                <MapPin size={12} />
-                {item.location}
-              </span>
+              <span className="flex items-center gap-1"><MapPin size={12} />{item.location}</span>
             )}
             {item.nextDate && (
               <span className="flex items-center gap-1">
@@ -93,8 +96,7 @@ function ConvocatoriaCard({ item }: { item: ConvocatoriaSummary }) {
               </span>
             )}
             <span className="flex items-center gap-1 ml-auto">
-              <Users size={12} />
-              {item.applicationsCount}
+              <Users size={12} />{item.applicationsCount}
             </span>
             {item.hasApplied && (
               <span className="rounded-full bg-[#f3e8ff] px-2 py-0.5 text-[10px] font-bold text-[#5b2d8a]">
@@ -108,7 +110,177 @@ function ConvocatoriaCard({ item }: { item: ConvocatoriaSummary }) {
   );
 }
 
-// ── Create modal state ────────────────────────────────────────────────────────
+// ── Requests panel (admin/gestor) ─────────────────────────────────────────────
+
+function RequestStatusBadge({ status }: { status: ConvocatoriaRequest['status'] }) {
+  if (status === 'pending') return (
+    <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[11px] font-bold text-amber-700">
+      <Clock size={10} />Pendiente
+    </span>
+  );
+  if (status === 'approved') return (
+    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700">
+      <Check size={10} />Aprobada
+    </span>
+  );
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-[11px] font-bold text-rose-600">
+      <X size={10} />Rechazada
+    </span>
+  );
+}
+
+interface RequestsPanelProps {
+  requests: ConvocatoriaRequest[];
+  onReview: (req: ConvocatoriaRequest, status: 'approved' | 'rejected', notes?: string) => Promise<void>;
+}
+
+function RequestsPanel({ requests, onReview }: RequestsPanelProps) {
+  const [open, setOpen] = React.useState(true);
+  const [reviewing, setReviewing] = React.useState<string | null>(null);
+  const [notes, setNotes] = React.useState('');
+
+  const pending = requests.filter((r) => r.status === 'pending');
+
+  if (requests.length === 0) return null;
+
+  return (
+    <div className="rounded-2xl border border-amber-200 bg-amber-50/40">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex w-full items-center justify-between gap-2 px-5 py-4"
+      >
+        <div className="flex items-center gap-2">
+          <Send size={15} className="text-amber-600" />
+          <span className="text-sm font-extrabold text-[var(--app-ink)]">
+            Solicitudes de publicación
+          </span>
+          {pending.length > 0 && (
+            <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[11px] font-black text-white">
+              {pending.length} pendiente{pending.length !== 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
+        {open ? <ChevronUp size={16} className="text-[var(--app-muted)]" /> : <ChevronDown size={16} className="text-[var(--app-muted)]" />}
+      </button>
+
+      {open && (
+        <div className="border-t border-amber-200 divide-y divide-amber-100">
+          {requests.map((req) => (
+            <div key={req.requestId} className="px-5 py-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                    <span className="text-sm font-bold text-[var(--app-ink)] truncate">{req.title}</span>
+                    <RequestStatusBadge status={req.status} />
+                  </div>
+                  <p className="text-xs text-[var(--app-muted)]">
+                    Solicitado por <span className="font-semibold">{req.requesterName}</span> · {toRelativeDate(req.createdAt)}
+                  </p>
+                  {req.description && (
+                    <p className="mt-1.5 text-sm text-[var(--app-ink)]/70 line-clamp-2">{req.description}</p>
+                  )}
+                  {req.reviewerNotes && (
+                    <p className="mt-1 text-xs italic text-[var(--app-muted)]">Nota: {req.reviewerNotes}</p>
+                  )}
+                </div>
+
+                {req.status === 'pending' && (
+                  <div className="shrink-0">
+                    {reviewing === req.requestId ? (
+                      <div className="space-y-2">
+                        <input
+                          className="app-input text-xs"
+                          placeholder="Nota opcional..."
+                          value={notes}
+                          onChange={(e) => setNotes(e.target.value)}
+                          autoFocus
+                        />
+                        <div className="flex gap-1.5">
+                          <button
+                            onClick={async () => {
+                              await onReview(req, 'approved', notes || undefined);
+                              setReviewing(null);
+                              setNotes('');
+                            }}
+                            className="flex-1 rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700"
+                          >
+                            Aprobar
+                          </button>
+                          <button
+                            onClick={async () => {
+                              await onReview(req, 'rejected', notes || undefined);
+                              setReviewing(null);
+                              setNotes('');
+                            }}
+                            className="flex-1 rounded-full border border-rose-200 px-3 py-1.5 text-xs font-bold text-rose-600 hover:bg-rose-50"
+                          >
+                            Rechazar
+                          </button>
+                          <button
+                            onClick={() => { setReviewing(null); setNotes(''); }}
+                            className="rounded-full border border-[var(--app-border)] px-3 py-1.5 text-xs text-[var(--app-muted)] hover:bg-white"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setReviewing(req.requestId)}
+                        className="rounded-full border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-50 transition"
+                      >
+                        Revisar
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── My requests panel (líder) ─────────────────────────────────────────────────
+
+function MyRequestsPanel({ requests }: { requests: ConvocatoriaRequest[] }) {
+  const [open, setOpen] = React.useState(false);
+  if (requests.length === 0) return null;
+  return (
+    <div className="rounded-2xl border border-[var(--app-border)] bg-white">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex w-full items-center justify-between gap-2 px-5 py-3.5"
+      >
+        <span className="text-sm font-bold text-[var(--app-ink)]">
+          Mis solicitudes ({requests.length})
+        </span>
+        {open ? <ChevronUp size={15} className="text-[var(--app-muted)]" /> : <ChevronDown size={15} className="text-[var(--app-muted)]" />}
+      </button>
+      {open && (
+        <div className="border-t border-[var(--app-border)] divide-y divide-[var(--app-border)]">
+          {requests.map((req) => (
+            <div key={req.requestId} className="flex items-center gap-3 px-5 py-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-[var(--app-ink)] truncate">{req.title}</p>
+                <p className="text-xs text-[var(--app-muted)]">{toRelativeDate(req.createdAt)}</p>
+                {req.reviewerNotes && (
+                  <p className="mt-0.5 text-xs italic text-[var(--app-muted)]">{req.reviewerNotes}</p>
+                )}
+              </div>
+              <RequestStatusBadge status={req.status} />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Create modal (admin/gestor) ───────────────────────────────────────────────
 
 interface CreateState {
   open: boolean;
@@ -130,6 +302,17 @@ const INITIAL_CREATE: CreateState = {
   loading: false,
 };
 
+// ── Request modal (líder) ─────────────────────────────────────────────────────
+
+interface RequestState {
+  open: boolean;
+  title: string;
+  description: string;
+  loading: boolean;
+}
+
+const INITIAL_REQUEST: RequestState = { open: false, title: '', description: '', loading: false };
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 type FilterTab = 'all' | ConvocatoriaStatus;
@@ -139,20 +322,20 @@ export default function ConvocatoriasPage() {
   const { alert } = useAppDialog();
 
   const [items, setItems] = React.useState<ConvocatoriaSummary[]>([]);
+  const [requests, setRequests] = React.useState<ConvocatoriaRequest[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [filter, setFilter] = React.useState<FilterTab>('all');
   const [create, setCreate] = React.useState<CreateState>(INITIAL_CREATE);
+  const [requestForm, setRequestForm] = React.useState<RequestState>(INITIAL_REQUEST);
 
   const isCommunityLocked = currentRole === 'lider' && viewerAccess?.viewerTier === 'open_leader';
   const programOffers = filterCommercialProducts(viewerAccess?.catalog, { codes: ['program_4shine'] });
 
+  const canManage = can('convocatorias', 'create'); // solo gestor/admin
+
   const showError = React.useCallback(
     async (fallback: string, cause: unknown) => {
-      await alert({
-        title: 'Error',
-        message: cause instanceof Error ? cause.message : fallback,
-        tone: 'error',
-      });
+      await alert({ title: 'Error', message: cause instanceof Error ? cause.message : fallback, tone: 'error' });
     },
     [alert],
   );
@@ -160,14 +343,18 @@ export default function ConvocatoriasPage() {
   const load = React.useCallback(async () => {
     setLoading(true);
     try {
-      const data = await listConvocatorias();
-      setItems(data);
+      const [convs, reqs] = await Promise.all([
+        listConvocatorias(),
+        listRequests(canManage ? 'pending' : 'mine').catch(() => []),
+      ]);
+      setItems(convs);
+      setRequests(reqs);
     } catch (err) {
       await showError('No se pudieron cargar las convocatorias', err);
     } finally {
       setLoading(false);
     }
-  }, [showError]);
+  }, [canManage, showError]);
 
   React.useEffect(() => {
     if (isCommunityLocked) { setLoading(false); return; }
@@ -175,6 +362,8 @@ export default function ConvocatoriasPage() {
   }, [isCommunityLocked, load]);
 
   const filtered = filter === 'all' ? items : items.filter((i) => i.status === filter);
+
+  // ── Crear convocatoria (admin/gestor) ───────────────────────────────────────
 
   const onCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -193,6 +382,41 @@ export default function ConvocatoriasPage() {
     } catch (err) {
       await showError('No se pudo crear la convocatoria', err);
       setCreate((s) => ({ ...s, loading: false }));
+    }
+  };
+
+  // ── Solicitar publicación (líder) ───────────────────────────────────────────
+
+  const onSendRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!requestForm.title.trim()) return;
+    setRequestForm((s) => ({ ...s, loading: true }));
+    try {
+      await createRequest({
+        title: requestForm.title.trim(),
+        description: requestForm.description.trim(),
+      });
+      setRequestForm(INITIAL_REQUEST);
+      await alert({
+        title: '¡Solicitud enviada!',
+        message: 'Tu solicitud fue recibida. El equipo 4Shine la revisará y te notificará.',
+        tone: 'success',
+      });
+      await load();
+    } catch (err) {
+      await showError('No se pudo enviar la solicitud', err);
+      setRequestForm((s) => ({ ...s, loading: false }));
+    }
+  };
+
+  // ── Revisar solicitud (gestor/admin) ────────────────────────────────────────
+
+  const onReview = async (req: ConvocatoriaRequest, status: 'approved' | 'rejected', notes?: string) => {
+    try {
+      await reviewRequest(req.requestId, { status, reviewerNotes: notes });
+      await load();
+    } catch (err) {
+      await showError('No se pudo procesar la solicitud', err);
     }
   };
 
@@ -223,7 +447,6 @@ export default function ConvocatoriasPage() {
             Activar programa · $3,000 USD
           </a>
         </section>
-
         <section className="rounded-[1.5rem] border border-[var(--app-border)] bg-white p-5 sm:p-6">
           <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[var(--app-muted)]">Qué incluye Convocatorias</p>
           <h2 className="mt-1 text-base font-extrabold text-[var(--app-ink)]">Accede a oportunidades alineadas a tu momento.</h2>
@@ -245,11 +468,10 @@ export default function ConvocatoriasPage() {
             ))}
           </div>
         </section>
-
         <AccessOfferPanel
           badge="Acceso bloqueado"
           title="Desbloquea Convocatorias con el plan 4Shine."
-          description="Con tu suscripción activa tienes acceso a todas las convocatorias abiertas del ecosistema, puedes aplicar, participar en el foro y recibir notificaciones."
+          description="Con tu suscripción activa tienes acceso a todas las convocatorias abiertas del ecosistema."
           products={programOffers}
           primaryAction={{ href: '/dashboard', label: 'Ver plan 4Shine' }}
           note="Cuando actives el programa, Convocatorias se integra con tu Trayectoria."
@@ -276,22 +498,41 @@ export default function ConvocatoriasPage() {
           <h1 className="text-xl font-black text-[var(--app-ink)]">Convocatorias</h1>
           <p className="text-sm text-[var(--app-muted)]">Proyectos y oportunidades del ecosistema</p>
         </div>
-        {can('convocatorias', 'create') && (
-          <button
-            onClick={() => setCreate((s) => ({ ...s, open: true }))}
-            className="app-button-primary inline-flex items-center gap-2"
-          >
-            <Plus size={16} />
-            Nueva
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {canManage ? (
+            <button
+              onClick={() => setCreate((s) => ({ ...s, open: true }))}
+              className="app-button-primary inline-flex items-center gap-2"
+            >
+              <Plus size={16} />
+              Nueva
+            </button>
+          ) : (
+            <button
+              onClick={() => setRequestForm((s) => ({ ...s, open: true }))}
+              className="inline-flex items-center gap-2 rounded-full border border-[#7c3aed] px-4 py-2 text-sm font-bold text-[#5b2d8a] hover:bg-[#f3e8ff] transition"
+            >
+              <Send size={14} />
+              Solicitar publicación
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* Requests panel — solo gestor/admin ve pendientes; líder ve las suyas */}
+      {canManage && requests.length > 0 && (
+        <RequestsPanel requests={requests} onReview={onReview} />
+      )}
+
+      {!canManage && requests.length > 0 && (
+        <MyRequestsPanel requests={requests} />
+      )}
 
       {/* Filter tabs */}
       <div className="flex gap-1.5 overflow-x-auto">
         {TABS.map((tab) => {
           const count = tab.key === 'all' ? items.length : items.filter((i) => i.status === tab.key).length;
-          if (tab.key !== 'all' && count === 0 && !can('convocatorias', 'create')) return null;
+          if (tab.key !== 'all' && count === 0 && !canManage) return null;
           return (
             <button
               key={tab.key}
@@ -328,7 +569,7 @@ export default function ConvocatoriasPage() {
         </div>
       )}
 
-      {/* Create modal */}
+      {/* Modal: nueva convocatoria (admin/gestor) */}
       {create.open && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
           <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
@@ -372,16 +613,60 @@ export default function ConvocatoriasPage() {
                 <option value="open">Publicar abierta</option>
               </select>
               <div className="flex justify-end gap-2 pt-1">
-                <button
-                  type="button"
-                  className="app-button-secondary"
-                  onClick={() => setCreate(INITIAL_CREATE)}
-                  disabled={create.loading}
-                >
+                <button type="button" className="app-button-secondary" onClick={() => setCreate(INITIAL_CREATE)} disabled={create.loading}>
                   Cancelar
                 </button>
                 <button type="submit" className="app-button-primary" disabled={create.loading || !create.title.trim()}>
                   {create.loading ? 'Creando...' : 'Crear convocatoria'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: solicitar publicación (líder) */}
+      {requestForm.open && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="mb-1 flex items-center gap-2">
+              <Send size={18} className="text-[#7c3aed]" />
+              <h2 className="text-lg font-black text-[var(--app-ink)]">Solicitar publicación</h2>
+            </div>
+            <p className="mb-4 text-sm text-[var(--app-muted)]">
+              Cuéntanos qué convocatoria quieres publicar. El equipo 4Shine la revisará y te contactará.
+            </p>
+            <form onSubmit={onSendRequest} className="space-y-3">
+              <input
+                className="app-input"
+                placeholder="Título de la convocatoria *"
+                value={requestForm.title}
+                onChange={(e) => setRequestForm((s) => ({ ...s, title: e.target.value }))}
+                required
+                autoFocus
+              />
+              <textarea
+                className="app-textarea"
+                placeholder="Descripción breve — qué es, a quién va dirigida, fechas tentativas..."
+                rows={4}
+                value={requestForm.description}
+                onChange={(e) => setRequestForm((s) => ({ ...s, description: e.target.value }))}
+              />
+              <div className="flex justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  className="app-button-secondary"
+                  onClick={() => setRequestForm(INITIAL_REQUEST)}
+                  disabled={requestForm.loading}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-2 rounded-full bg-[#5b2d8a] px-5 py-2.5 text-sm font-bold text-white hover:opacity-90 disabled:opacity-50"
+                  disabled={requestForm.loading || !requestForm.title.trim()}
+                >
+                  {requestForm.loading ? 'Enviando...' : <><Send size={14} />Enviar solicitud</>}
                 </button>
               </div>
             </form>
