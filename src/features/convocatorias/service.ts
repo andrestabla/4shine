@@ -701,6 +701,220 @@ export async function setFaqs(
 
 // ── Applications ──────────────────────────────────────────────────────────────
 
+export type ApplicationStatus = 'pending' | 'approved' | 'rejected';
+
+export interface ConvocatoriaApplication {
+  applicationId: string;
+  convocatoriaId: string;
+  applicantUserId: string;
+  applicantName: string;
+  applicantEmail: string;
+  applicationStatus: ApplicationStatus;
+  reviewerNotes: string;
+  reviewedAt: string | null;
+  reviewedBy: string | null;
+  createdAt: string;
+}
+
+export interface ReviewApplicationInput {
+  status: 'approved' | 'rejected';
+  reviewerNotes?: string;
+}
+
+export interface MessageApplicantsInput {
+  applicationId?: string; // if absent → all applicants
+  subject: string;
+  message: string;
+}
+
+interface ApplicationRow {
+  application_id: string;
+  convocatoria_id: string;
+  applicant_user_id: string;
+  applicant_name: string;
+  applicant_email: string;
+  application_status: ApplicationStatus;
+  reviewer_notes: string;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
+  created_at: string;
+}
+
+function mapApplication(row: ApplicationRow): ConvocatoriaApplication {
+  return {
+    applicationId: row.application_id,
+    convocatoriaId: row.convocatoria_id,
+    applicantUserId: row.applicant_user_id,
+    applicantName: row.applicant_name,
+    applicantEmail: row.applicant_email,
+    applicationStatus: row.application_status,
+    reviewerNotes: row.reviewer_notes ?? '',
+    reviewedAt: row.reviewed_at,
+    reviewedBy: row.reviewed_by,
+    createdAt: row.created_at,
+  };
+}
+
+export async function listApplications(
+  client: PoolClient,
+  actor: AuthUser,
+  convocatoriaId: string,
+): Promise<ConvocatoriaApplication[]> {
+  await requireModulePermission(client, 'convocatorias', 'update');
+  await requireCommunityAccess(client, actor, 'Convocatorias');
+
+  const { rows } = await client.query<ApplicationRow>(
+    `SELECT
+       ca.application_id::text,
+       ca.convocatoria_id::text,
+       ca.applicant_user_id::text,
+       COALESCE(u.first_name || ' ' || u.last_name, u.email, 'Miembro') AS applicant_name,
+       u.email AS applicant_email,
+       ca.application_status,
+       ca.reviewer_notes,
+       ca.reviewed_at::text,
+       ca.reviewed_by::text,
+       ca.created_at::text
+     FROM app_networking.convocatoria_applications ca
+     JOIN app_core.users u ON u.user_id = ca.applicant_user_id
+     WHERE ca.convocatoria_id = $1
+     ORDER BY ca.created_at DESC`,
+    [convocatoriaId],
+  );
+
+  return rows.map(mapApplication);
+}
+
+export async function reviewApplication(
+  client: PoolClient,
+  actor: AuthUser,
+  convocatoriaId: string,
+  applicationId: string,
+  input: ReviewApplicationInput,
+): Promise<ConvocatoriaApplication> {
+  await requireModulePermission(client, 'convocatorias', 'update');
+  await requireCommunityAccess(client, actor, 'Convocatorias');
+
+  const notes = input.reviewerNotes?.trim() ?? '';
+
+  const { rows } = await client.query<ApplicationRow>(
+    `UPDATE app_networking.convocatoria_applications
+     SET
+       application_status = $3,
+       reviewer_notes     = $4,
+       reviewed_at        = now(),
+       reviewed_by        = $5
+     WHERE application_id = $1
+       AND convocatoria_id = $2
+     RETURNING
+       application_id::text,
+       convocatoria_id::text,
+       applicant_user_id::text,
+       '' AS applicant_name,
+       '' AS applicant_email,
+       application_status,
+       reviewer_notes,
+       reviewed_at::text,
+       reviewed_by::text,
+       created_at::text`,
+    [applicationId, convocatoriaId, input.status, notes, actor.userId],
+  );
+
+  if (!rows[0]) throw new Error('Application not found');
+
+  // Fetch full row with user info
+  const all = await listApplications(client, actor, convocatoriaId);
+  const updated = all.find((a) => a.applicationId === applicationId);
+  if (!updated) throw new Error('Application not found after update');
+
+  // Get org + convocatoria title for notification
+  const [convRow, orgRow] = await Promise.all([
+    client.query<{ title: string }>(`SELECT title FROM app_networking.convocatorias WHERE convocatoria_id = $1`, [convocatoriaId]),
+    client.query<{ organization_id: string }>(`SELECT organization_id::text FROM app_core.users WHERE user_id = $1 LIMIT 1`, [actor.userId]),
+  ]);
+  const convTitle = convRow.rows[0]?.title ?? '';
+  const organizationId = orgRow.rows[0]?.organization_id;
+
+  if (organizationId) {
+    const eventKey = input.status === 'approved'
+      ? 'convocatorias.application_approved'
+      : 'convocatorias.application_rejected';
+    void dispatchNotification(client, {
+      organizationId,
+      recipientUserId: updated.applicantUserId,
+      recipientEmail: updated.applicantEmail,
+      eventKey,
+      variables: {
+        nombre: updated.applicantName.split(' ')[0] ?? updated.applicantName,
+        titulo: convTitle,
+        motivo: notes,
+        plataforma: '4Shine',
+        enlace_plataforma: 'https://app.4shine.co',
+      },
+    });
+  }
+
+  return updated;
+}
+
+export async function messageApplicants(
+  client: PoolClient,
+  actor: AuthUser,
+  convocatoriaId: string,
+  input: MessageApplicantsInput,
+): Promise<{ sent: number }> {
+  await requireModulePermission(client, 'convocatorias', 'update');
+  await requireCommunityAccess(client, actor, 'Convocatorias');
+
+  const [convRow, orgRow] = await Promise.all([
+    client.query<{ title: string }>(`SELECT title FROM app_networking.convocatorias WHERE convocatoria_id = $1`, [convocatoriaId]),
+    client.query<{ organization_id: string }>(`SELECT organization_id::text FROM app_core.users WHERE user_id = $1 LIMIT 1`, [actor.userId]),
+  ]);
+  const convTitle = convRow.rows[0]?.title ?? '';
+  const organizationId = orgRow.rows[0]?.organization_id;
+  if (!organizationId) return { sent: 0 };
+
+  const { rows: applicants } = input.applicationId
+    ? await client.query<{ user_id: string; email: string; first_name: string | null }>(
+        `SELECT ca.applicant_user_id AS user_id, u.email, u.first_name
+         FROM app_networking.convocatoria_applications ca
+         JOIN app_core.users u ON u.user_id = ca.applicant_user_id
+         WHERE ca.application_id = $1 AND ca.convocatoria_id = $2`,
+        [input.applicationId, convocatoriaId],
+      )
+    : await client.query<{ user_id: string; email: string; first_name: string | null }>(
+        `SELECT ca.applicant_user_id AS user_id, u.email, u.first_name
+         FROM app_networking.convocatoria_applications ca
+         JOIN app_core.users u ON u.user_id = ca.applicant_user_id
+         WHERE ca.convocatoria_id = $1 AND u.is_active = true`,
+        [convocatoriaId],
+      );
+
+  const { sendEmailToAddress } = await import('@/features/notificaciones/engine');
+
+  for (const app of applicants) {
+    const nombre = app.first_name ?? app.email;
+    const bodyHtml = `<p style="margin:0 0 16px;font-size:15px;color:#1a1a1a;">Hola <strong>${nombre}</strong>,</p>
+<p style="margin:0 0 16px;font-size:15px;color:#444;line-height:1.6;"><strong>Convocatoria:</strong> ${convTitle}</p>
+<p style="margin:0 0 24px;font-size:15px;color:#444;line-height:1.6;white-space:pre-wrap;">${input.message}</p>
+<p style="margin:0;"><a href="https://app.4shine.co/dashboard/convocatorias/${convocatoriaId}">Ver convocatoria</a></p>`;
+    const bodyText = `Hola ${nombre},\n\nConvocatoria: ${convTitle}\n\n${input.message}\n\nVer convocatoria: https://app.4shine.co/dashboard/convocatorias/${convocatoriaId}`;
+
+    void sendEmailToAddress(client, organizationId, app.email, input.subject, bodyHtml, bodyText);
+    void (await import('@/features/notificaciones/service')).insertUserNotification(client, {
+      organizationId,
+      userId: app.user_id,
+      type: 'info',
+      title: input.subject,
+      message: input.message,
+      eventKey: 'convocatorias.applicant_message',
+      actionUrl: `https://app.4shine.co/dashboard/convocatorias/${convocatoriaId}`,
+    });
+  }
+
+  return { sent: applicants.length };
+}
+
 export async function applyToConvocatoria(
   client: PoolClient,
   actor: AuthUser,

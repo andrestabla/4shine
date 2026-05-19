@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import {
   ArrowLeft,
   Calendar,
+  Check,
   ChevronDown,
   ChevronUp,
   ExternalLink,
@@ -21,6 +22,7 @@ import {
   Send,
   Trash2,
   Upload,
+  UserCheck,
   Users,
   X,
 } from 'lucide-react';
@@ -35,14 +37,19 @@ import {
   deleteConvocatoria,
   deleteForumPost,
   getConvocatoria,
+  listApplications,
   listForumPosts,
+  messageApplicants,
   notifyInterestedUsers,
   removeAttachment,
   removeImage,
+  reviewApplication,
   setDates,
   setFaqs,
   updateConvocatoria,
   withdrawApplication,
+  type ApplicationStatus,
+  type ConvocatoriaApplication,
   type ConvocatoriaAttachment,
   type ConvocatoriaDate,
   type ConvocatoriaDetail,
@@ -130,6 +137,229 @@ function FaqItem({ faq }: { faq: ConvocatoriaFaq }) {
       </button>
       {open && (
         <p className="pb-4 pl-1 pr-6 text-sm leading-relaxed text-[var(--app-muted)]">{faq.answer}</p>
+      )}
+    </div>
+  );
+}
+
+// ── Applications panel (admin/gestor) ────────────────────────────────────────
+
+const APP_STATUS_CONFIG: Record<ApplicationStatus, { label: string; classes: string }> = {
+  pending:  { label: 'Pendiente', classes: 'bg-amber-50 text-amber-700 border-amber-200' },
+  approved: { label: 'Aprobada',  classes: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  rejected: { label: 'No seleccionada', classes: 'bg-rose-50 text-rose-600 border-rose-200' },
+};
+
+interface ApplicationsPanelProps {
+  convocatoriaId: string;
+  onError: (msg: string, cause: unknown) => Promise<void>;
+}
+
+function ApplicationsPanel({ convocatoriaId, onError }: ApplicationsPanelProps) {
+  const { alert } = useAppDialog();
+  const [apps, setApps] = React.useState<ConvocatoriaApplication[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [reviewing, setReviewing] = React.useState<string | null>(null);
+  const [reviewNotes, setReviewNotes] = React.useState('');
+  const [msgTarget, setMsgTarget] = React.useState<'all' | string>('all');
+  const [msgSubject, setMsgSubject] = React.useState('');
+  const [msgBody, setMsgBody] = React.useState('');
+  const [msgSending, setMsgSending] = React.useState(false);
+  const [showMsg, setShowMsg] = React.useState(false);
+
+  const load = React.useCallback(async () => {
+    setLoading(true);
+    try {
+      setApps(await listApplications(convocatoriaId));
+    } catch (e) {
+      await onError('No se pudieron cargar las aplicaciones', e);
+    } finally {
+      setLoading(false);
+    }
+  }, [convocatoriaId, onError]);
+
+  React.useEffect(() => { void load(); }, [load]);
+
+  const onReview = async (app: ConvocatoriaApplication, status: 'approved' | 'rejected') => {
+    try {
+      await reviewApplication(convocatoriaId, app.applicationId, { status, reviewerNotes: reviewNotes || undefined });
+      setReviewing(null);
+      setReviewNotes('');
+      await load();
+    } catch (e) {
+      await onError('No se pudo procesar la aplicación', e);
+    }
+  };
+
+  const onSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!msgSubject.trim() || !msgBody.trim()) return;
+    setMsgSending(true);
+    try {
+      const result = await messageApplicants(convocatoriaId, {
+        applicationId: msgTarget === 'all' ? undefined : msgTarget,
+        subject: msgSubject.trim(),
+        message: msgBody.trim(),
+      });
+      await alert({ title: 'Mensaje enviado', message: `Se envió a ${result.sent} destinatario${result.sent !== 1 ? 's' : ''}.`, tone: 'success' });
+      setMsgSubject('');
+      setMsgBody('');
+      setShowMsg(false);
+    } catch (e) {
+      await onError('No se pudo enviar el mensaje', e);
+    } finally {
+      setMsgSending(false);
+    }
+  };
+
+  if (loading) return <p className="text-sm text-[var(--app-muted)]">Cargando aplicaciones...</p>;
+
+  return (
+    <div className="space-y-5">
+      {/* Header + send message toggle */}
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm text-[var(--app-muted)]">
+          {apps.length} aplicación{apps.length !== 1 ? 'es' : ''} ·&nbsp;
+          {apps.filter((a) => a.applicationStatus === 'pending').length} pendiente{apps.filter((a) => a.applicationStatus === 'pending').length !== 1 ? 's' : ''}
+        </p>
+        <button
+          onClick={() => setShowMsg(!showMsg)}
+          className="inline-flex items-center gap-1.5 rounded-full border border-[#7c3aed] px-3 py-1.5 text-xs font-semibold text-[#5b2d8a] hover:bg-[#f3e8ff] transition"
+        >
+          <Send size={12} />
+          Enviar mensaje
+        </button>
+      </div>
+
+      {/* Message composer */}
+      {showMsg && (
+        <form onSubmit={onSendMessage} className="rounded-xl border border-[#e9d5ff] bg-[#faf5ff] p-4 space-y-3">
+          <p className="text-xs font-bold uppercase tracking-wide text-[#7c3aed]">Enviar mensaje a postulantes</p>
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-[var(--app-muted)]">Destinatario</label>
+            <select
+              className="app-select"
+              value={msgTarget}
+              onChange={(e) => setMsgTarget(e.target.value)}
+            >
+              <option value="all">Todos los postulantes ({apps.length})</option>
+              {apps.map((a) => (
+                <option key={a.applicationId} value={a.applicationId}>{a.applicantName}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-[var(--app-muted)]">Asunto</label>
+            <input
+              className="app-input"
+              placeholder="Asunto del mensaje"
+              value={msgSubject}
+              onChange={(e) => setMsgSubject(e.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-[var(--app-muted)]">Mensaje</label>
+            <textarea
+              className="app-textarea"
+              rows={4}
+              placeholder="Escribe el mensaje para los postulantes..."
+              value={msgBody}
+              onChange={(e) => setMsgBody(e.target.value)}
+              required
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <button type="button" className="app-button-secondary text-xs" onClick={() => setShowMsg(false)}>Cancelar</button>
+            <button type="submit" className="app-button-primary text-xs" disabled={msgSending || !msgSubject.trim() || !msgBody.trim()}>
+              {msgSending ? 'Enviando...' : 'Enviar'}
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* Applications list */}
+      {apps.length === 0 ? (
+        <p className="py-6 text-center text-sm text-[var(--app-muted)]">No hay postulantes aún.</p>
+      ) : (
+        <div className="divide-y divide-[var(--app-border)]">
+          {apps.map((app) => {
+            const cfg = APP_STATUS_CONFIG[app.applicationStatus];
+            const isReviewing = reviewing === app.applicationId;
+            return (
+              <div key={app.applicationId} className="py-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-0.5">
+                      <span className="text-sm font-bold text-[var(--app-ink)] truncate">{app.applicantName}</span>
+                      <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-bold ${cfg.classes}`}>
+                        {cfg.label}
+                      </span>
+                    </div>
+                    <p className="text-xs text-[var(--app-muted)]">{app.applicantEmail}</p>
+                    {app.reviewerNotes && (
+                      <p className="mt-1 text-xs italic text-[var(--app-muted)]">Motivo: {app.reviewerNotes}</p>
+                    )}
+                  </div>
+
+                  {/* Review controls */}
+                  {app.applicationStatus === 'pending' && (
+                    <div className="shrink-0">
+                      {isReviewing ? (
+                        <div className="space-y-2 min-w-[200px]">
+                          <input
+                            className="app-input text-xs"
+                            placeholder="Motivo (opcional)"
+                            value={reviewNotes}
+                            onChange={(e) => setReviewNotes(e.target.value)}
+                            autoFocus
+                          />
+                          <div className="flex gap-1.5">
+                            <button
+                              onClick={() => void onReview(app, 'approved')}
+                              className="flex-1 inline-flex items-center justify-center gap-1 rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700"
+                            >
+                              <Check size={11} />Aprobar
+                            </button>
+                            <button
+                              onClick={() => void onReview(app, 'rejected')}
+                              className="flex-1 rounded-full border border-rose-200 px-3 py-1.5 text-xs font-bold text-rose-600 hover:bg-rose-50"
+                            >
+                              Rechazar
+                            </button>
+                            <button
+                              onClick={() => { setReviewing(null); setReviewNotes(''); }}
+                              className="rounded-full border border-[var(--app-border)] px-2 py-1.5 text-xs text-[var(--app-muted)] hover:bg-white"
+                            >
+                              <X size={12} />
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => { setReviewing(app.applicationId); setReviewNotes(''); }}
+                          className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--app-muted)] hover:text-[var(--app-ink)] hover:border-[var(--app-ink)] transition"
+                        >
+                          Revisar
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Already reviewed: show action */}
+                  {app.applicationStatus !== 'pending' && (
+                    <button
+                      onClick={() => { setReviewing(app.applicationId); setReviewNotes(app.reviewerNotes); }}
+                      className="shrink-0 rounded-full border border-[var(--app-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--app-muted)] hover:text-[var(--app-ink)] transition"
+                    >
+                      Cambiar
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );
@@ -272,7 +502,7 @@ export default function ConvocatoriaDetailPage() {
   const [applyLoading, setApplyLoading] = React.useState(false);
   const [forumMsg, setForumMsg] = React.useState('');
   const [forumLoading, setForumLoading] = React.useState(false);
-  const [adminTab, setAdminTab] = React.useState<'images' | 'attachments' | 'dates' | 'faqs'>('images');
+  const [adminTab, setAdminTab] = React.useState<'applications' | 'images' | 'attachments' | 'dates' | 'faqs'>('applications');
   const [imageGalleryIdx, setImageGalleryIdx] = React.useState(0);
   const [notifyLoading, setNotifyLoading] = React.useState(false);
   const [notifyCount, setNotifyCount] = React.useState<number | null>(null);
@@ -879,12 +1109,13 @@ export default function ConvocatoriaDetailPage() {
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-1 border-b border-[var(--app-border)] px-4">
+          <div className="flex gap-1 border-b border-[var(--app-border)] px-4 overflow-x-auto">
             {([
-              { key: 'images' as const,      label: 'Imágenes',   icon: Upload },
-              { key: 'attachments' as const, label: 'Archivos',   icon: Paperclip },
-              { key: 'dates' as const,        label: 'Fechas',     icon: Calendar },
-              { key: 'faqs' as const,         label: 'FAQ',        icon: MessageSquare },
+              { key: 'applications' as const, label: 'Aplicaciones', icon: UserCheck },
+              { key: 'images' as const,       label: 'Imágenes',     icon: Upload },
+              { key: 'attachments' as const,  label: 'Archivos',     icon: Paperclip },
+              { key: 'dates' as const,        label: 'Fechas',       icon: Calendar },
+              { key: 'faqs' as const,         label: 'FAQ',          icon: MessageSquare },
             ] as const).map(({ key, label, icon: Icon }) => (
               <button
                 key={key}
@@ -901,6 +1132,14 @@ export default function ConvocatoriaDetailPage() {
           </div>
 
           <div className="p-6">
+            {/* Applications tab */}
+            {adminTab === 'applications' && (
+              <ApplicationsPanel
+                convocatoriaId={id}
+                onError={showError}
+              />
+            )}
+
             {/* Images tab */}
             {adminTab === 'images' && (
               <div className="space-y-4">

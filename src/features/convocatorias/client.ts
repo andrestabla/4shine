@@ -200,6 +200,59 @@ export function setFaqs(id: string, faqs: SetFaqsInput[]): Promise<ConvocatoriaF
 
 // ── Applications ──────────────────────────────────────────────────────────────
 
+// ── Application management ────────────────────────────────────────────────────
+
+export type ApplicationStatus = 'pending' | 'approved' | 'rejected';
+
+export interface ConvocatoriaApplication {
+  applicationId: string;
+  convocatoriaId: string;
+  applicantUserId: string;
+  applicantName: string;
+  applicantEmail: string;
+  applicationStatus: ApplicationStatus;
+  reviewerNotes: string;
+  reviewedAt: string | null;
+  reviewedBy: string | null;
+  createdAt: string;
+}
+
+export interface ReviewApplicationInput {
+  status: 'approved' | 'rejected';
+  reviewerNotes?: string;
+}
+
+export interface MessageApplicantsInput {
+  applicationId?: string;
+  subject: string;
+  message: string;
+}
+
+export function listApplications(id: string): Promise<ConvocatoriaApplication[]> {
+  return requestApi<ConvocatoriaApplication[]>(`${BASE}/${id}/applications`);
+}
+
+export function reviewApplication(
+  id: string,
+  applicationId: string,
+  input: ReviewApplicationInput,
+): Promise<ConvocatoriaApplication> {
+  return requestApi<ConvocatoriaApplication>(`${BASE}/${id}/applications/${applicationId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+}
+
+export function messageApplicants(
+  id: string,
+  input: MessageApplicantsInput,
+): Promise<{ sent: number }> {
+  return requestApi<{ sent: number }>(`${BASE}/${id}/applications/message`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
 export function applyToConvocatoria(id: string): Promise<{ applicationId: string }> {
   return requestApi<{ applicationId: string }>(`${BASE}/${id}/apply`, { method: 'POST' });
 }
