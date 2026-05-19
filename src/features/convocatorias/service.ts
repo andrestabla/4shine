@@ -644,10 +644,12 @@ export async function setDates(
   ]);
 
   const { rows } = await client.query<ConvocatoriaDateRow>(
-    `INSERT INTO app_networking.convocatoria_dates (convocatoria_id, label, date_value, sort_order)
-     VALUES ${values.join(', ')}
-     RETURNING date_id::text, label, date_value::text, sort_order
-     ORDER BY sort_order ASC`,
+    `WITH ins AS (
+       INSERT INTO app_networking.convocatoria_dates (convocatoria_id, label, date_value, sort_order)
+       VALUES ${values.join(', ')}
+       RETURNING date_id::text, label, date_value::text, sort_order
+     )
+     SELECT * FROM ins ORDER BY sort_order ASC`,
     params,
   );
 
@@ -685,10 +687,12 @@ export async function setFaqs(
   ]);
 
   const { rows } = await client.query<ConvocatoriaFaqRow>(
-    `INSERT INTO app_networking.convocatoria_faqs (convocatoria_id, question, answer, sort_order)
-     VALUES ${values.join(', ')}
-     RETURNING faq_id::text, question, answer, sort_order
-     ORDER BY sort_order ASC`,
+    `WITH ins AS (
+       INSERT INTO app_networking.convocatoria_faqs (convocatoria_id, question, answer, sort_order)
+       VALUES ${values.join(', ')}
+       RETURNING faq_id::text, question, answer, sort_order
+     )
+     SELECT * FROM ins ORDER BY sort_order ASC`,
     params,
   );
 
