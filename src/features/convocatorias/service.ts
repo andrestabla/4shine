@@ -34,10 +34,20 @@ export interface ConvocatoriaAttachment {
   fileName: string;
 }
 
+export type ConvocatoriaTipo = 'laboral' | 'proyecto_social' | 'proveedor' | 'convenio' | 'otra';
+
 export interface ConvocatoriaSummary {
   convocatoriaId: string;
   title: string;
   description: string;
+  objetivo: string;
+  tipo: ConvocatoriaTipo;
+  fechaInicio: string | null;
+  fechaFin: string | null;
+  requisitos: string;
+  enlacesComplementarios: string;
+  contactoTelefono: string;
+  contactoEmail: string;
   coverImageUrl: string | null;
   externalUrl: string | null;
   location: string | null;
@@ -71,6 +81,14 @@ export interface ConvocatoriaForumPost {
 export interface CreateConvocatoriaInput {
   title: string;
   description?: string;
+  objetivo?: string;
+  tipo?: ConvocatoriaTipo;
+  fechaInicio?: string | null;
+  fechaFin?: string | null;
+  requisitos?: string;
+  enlacesComplementarios?: string;
+  contactoTelefono?: string;
+  contactoEmail?: string;
   coverImageUrl?: string | null;
   externalUrl?: string | null;
   location?: string | null;
@@ -80,6 +98,14 @@ export interface CreateConvocatoriaInput {
 export interface UpdateConvocatoriaInput {
   title?: string;
   description?: string;
+  objetivo?: string;
+  tipo?: ConvocatoriaTipo;
+  fechaInicio?: string | null;
+  fechaFin?: string | null;
+  requisitos?: string;
+  enlacesComplementarios?: string;
+  contactoTelefono?: string;
+  contactoEmail?: string;
   coverImageUrl?: string | null;
   externalUrl?: string | null;
   location?: string | null;
@@ -104,6 +130,14 @@ interface ConvocatoriaSummaryRow {
   convocatoria_id: string;
   title: string;
   description: string;
+  objetivo: string;
+  tipo: ConvocatoriaTipo;
+  fecha_inicio: string | null;
+  fecha_fin: string | null;
+  requisitos: string;
+  enlaces_complementarios: string;
+  contacto_telefono: string;
+  contacto_email: string;
   cover_image_url: string | null;
   external_url: string | null;
   location: string | null;
@@ -160,6 +194,14 @@ function mapSummary(row: ConvocatoriaSummaryRow): ConvocatoriaSummary {
     convocatoriaId: row.convocatoria_id,
     title: row.title,
     description: row.description,
+    objetivo: row.objetivo ?? '',
+    tipo: row.tipo ?? 'otra',
+    fechaInicio: row.fecha_inicio,
+    fechaFin: row.fecha_fin,
+    requisitos: row.requisitos ?? '',
+    enlacesComplementarios: row.enlaces_complementarios ?? '',
+    contactoTelefono: row.contacto_telefono ?? '',
+    contactoEmail: row.contacto_email ?? '',
     coverImageUrl: row.cover_image_url,
     externalUrl: row.external_url,
     location: row.location,
@@ -210,6 +252,14 @@ function summarySelect(actorId: string) {
       c.convocatoria_id::text,
       c.title,
       c.description,
+      c.objetivo,
+      c.tipo,
+      c.fecha_inicio::text,
+      c.fecha_fin::text,
+      c.requisitos,
+      c.enlaces_complementarios,
+      c.contacto_telefono,
+      c.contacto_email,
       COALESCE(
         c.cover_image_url,
         (SELECT ci.url FROM app_networking.convocatoria_images ci
@@ -362,12 +412,22 @@ export async function createConvocatoria(
 
   const { rows } = await client.query<{ convocatoria_id: string }>(
     `INSERT INTO app_networking.convocatorias
-       (title, description, cover_image_url, external_url, location, status, created_by)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
+       (title, description, objetivo, tipo, fecha_inicio, fecha_fin,
+        requisitos, enlaces_complementarios, contacto_telefono, contacto_email,
+        cover_image_url, external_url, location, status, created_by)
+     VALUES ($1,$2,$3,$4,$5::date,$6::date,$7,$8,$9,$10,$11,$12,$13,$14,$15)
      RETURNING convocatoria_id::text`,
     [
       input.title,
       input.description ?? '',
+      input.objetivo ?? '',
+      input.tipo ?? 'otra',
+      input.fechaInicio ?? null,
+      input.fechaFin ?? null,
+      input.requisitos ?? '',
+      input.enlacesComplementarios ?? '',
+      input.contactoTelefono ?? '',
+      input.contactoEmail ?? '',
       input.coverImageUrl ?? null,
       input.externalUrl ?? null,
       input.location ?? null,
@@ -397,17 +457,33 @@ export async function updateConvocatoria(
   const { rowCount } = await client.query(
     `UPDATE app_networking.convocatorias
      SET
-       title           = COALESCE($2, title),
-       description     = COALESCE($3, description),
-       cover_image_url = CASE WHEN $4::text IS NOT NULL THEN $4 ELSE cover_image_url END,
-       external_url    = CASE WHEN $5::text IS NOT NULL THEN $5 ELSE external_url END,
-       location        = CASE WHEN $6::text IS NOT NULL THEN $6 ELSE location END,
-       status          = COALESCE($7, status)
+       title                   = COALESCE($2, title),
+       description             = COALESCE($3, description),
+       objetivo                = COALESCE($4, objetivo),
+       tipo                    = COALESCE($5, tipo),
+       fecha_inicio            = CASE WHEN $6::text IS NOT NULL THEN $6::date ELSE fecha_inicio END,
+       fecha_fin               = CASE WHEN $7::text IS NOT NULL THEN $7::date ELSE fecha_fin END,
+       requisitos              = COALESCE($8, requisitos),
+       enlaces_complementarios = COALESCE($9, enlaces_complementarios),
+       contacto_telefono       = COALESCE($10, contacto_telefono),
+       contacto_email          = COALESCE($11, contacto_email),
+       cover_image_url         = CASE WHEN $12::text IS NOT NULL THEN $12 ELSE cover_image_url END,
+       external_url            = CASE WHEN $13::text IS NOT NULL THEN $13 ELSE external_url END,
+       location                = CASE WHEN $14::text IS NOT NULL THEN $14 ELSE location END,
+       status                  = COALESCE($15, status)
      WHERE convocatoria_id = $1`,
     [
       convocatoriaId,
       input.title ?? null,
       input.description ?? null,
+      input.objetivo ?? null,
+      input.tipo ?? null,
+      input.fechaInicio !== undefined ? (input.fechaInicio ?? '') : null,
+      input.fechaFin !== undefined ? (input.fechaFin ?? '') : null,
+      input.requisitos ?? null,
+      input.enlacesComplementarios ?? null,
+      input.contactoTelefono ?? null,
+      input.contactoEmail ?? null,
       input.coverImageUrl !== undefined ? (input.coverImageUrl ?? '') : null,
       input.externalUrl !== undefined ? (input.externalUrl ?? '') : null,
       input.location !== undefined ? (input.location ?? '') : null,

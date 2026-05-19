@@ -3,6 +3,7 @@ import { requestApi } from '@/lib/api-client';
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type ConvocatoriaStatus = 'draft' | 'open' | 'closed' | 'suspended';
+export type ConvocatoriaTipo = 'laboral' | 'proyecto_social' | 'proveedor' | 'convenio' | 'otra';
 
 export interface ConvocatoriaDate {
   dateId: string;
@@ -34,6 +35,14 @@ export interface ConvocatoriaSummary {
   convocatoriaId: string;
   title: string;
   description: string;
+  objetivo: string;
+  tipo: ConvocatoriaTipo;
+  fechaInicio: string | null;
+  fechaFin: string | null;
+  requisitos: string;
+  enlacesComplementarios: string;
+  contactoTelefono: string;
+  contactoEmail: string;
   coverImageUrl: string | null;
   externalUrl: string | null;
   location: string | null;
@@ -67,6 +76,14 @@ export interface ConvocatoriaForumPost {
 export interface CreateConvocatoriaInput {
   title: string;
   description?: string;
+  objetivo?: string;
+  tipo?: ConvocatoriaTipo;
+  fechaInicio?: string | null;
+  fechaFin?: string | null;
+  requisitos?: string;
+  enlacesComplementarios?: string;
+  contactoTelefono?: string;
+  contactoEmail?: string;
   coverImageUrl?: string | null;
   externalUrl?: string | null;
   location?: string | null;
@@ -76,6 +93,14 @@ export interface CreateConvocatoriaInput {
 export interface UpdateConvocatoriaInput {
   title?: string;
   description?: string;
+  objetivo?: string;
+  tipo?: ConvocatoriaTipo;
+  fechaInicio?: string | null;
+  fechaFin?: string | null;
+  requisitos?: string;
+  enlacesComplementarios?: string;
+  contactoTelefono?: string;
+  contactoEmail?: string;
   coverImageUrl?: string | null;
   externalUrl?: string | null;
   location?: string | null;
