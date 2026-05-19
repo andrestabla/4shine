@@ -120,12 +120,12 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
         </div>
 
         <div className="flex items-center gap-2 md:gap-4">
-          <div className="relative hidden md:flex">
-            <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--app-muted)] transition-colors" />
+          <div className="hidden md:flex items-center gap-2 rounded-[calc(var(--brand-radius-rem)*1rem)] border border-[var(--app-border)] bg-white/92 px-3.5 h-12 w-56 lg:w-72 focus-within:border-[var(--app-border-strong)] focus-within:shadow-[0_0_0_4px_rgba(201,176,225,0.18)] transition-all">
+            <Search size={15} className="shrink-0 text-[var(--app-muted)]" />
             <input
               type="text"
               placeholder="Buscar..."
-              className="app-input h-12 w-56 pl-11 pr-4 lg:w-72"
+              className="flex-1 bg-transparent text-[0.94rem] text-[var(--app-ink)] placeholder:text-[color-mix(in_srgb,var(--app-muted)_72%,white)] outline-none"
             />
           </div>
 

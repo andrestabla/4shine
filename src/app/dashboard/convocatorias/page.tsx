@@ -334,6 +334,7 @@ export default function ConvocatoriasPage() {
   const [requests, setRequests] = React.useState<ConvocatoriaRequest[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [filter, setFilter] = React.useState<FilterTab>('all');
+  const [tipoFilter, setTipoFilter] = React.useState<ConvocatoriaTipo | 'all'>('all');
   const [notifInterest, setNotifInterest] = React.useState<boolean>(false);
 
   const isCommunityLocked = currentRole === 'lider' && viewerAccess?.viewerTier === 'open_leader';
@@ -372,7 +373,10 @@ export default function ConvocatoriasPage() {
     }
   }, [isCommunityLocked, load, canManage]);
 
-  const filtered = filter === 'all' ? items : items.filter((i) => i.status === filter);
+  const statusFiltered = filter === 'all' ? items : items.filter((i) => i.status === filter);
+  const filtered = tipoFilter === 'all' ? statusFiltered : statusFiltered.filter((i) => i.tipo === tipoFilter);
+
+  const availableTipos = Array.from(new Set(statusFiltered.map((i) => i.tipo).filter(Boolean))) as ConvocatoriaTipo[];
 
   // ── Toggle notification interest ────────────────────────────────────────────
 
@@ -522,7 +526,7 @@ export default function ConvocatoriasPage() {
         </div>
       )}
 
-      {/* Filter tabs */}
+      {/* Status filter tabs */}
       <div className="flex gap-1.5 overflow-x-auto">
         {TABS.map((tab) => {
           const count = tab.key === 'all' ? items.length : items.filter((i) => i.status === tab.key).length;
@@ -530,7 +534,7 @@ export default function ConvocatoriasPage() {
           return (
             <button
               key={tab.key}
-              onClick={() => setFilter(tab.key)}
+              onClick={() => { setFilter(tab.key); setTipoFilter('all'); }}
               className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-semibold transition ${
                 filter === tab.key
                   ? 'bg-[#5b2d8a] text-white'
@@ -548,13 +552,46 @@ export default function ConvocatoriasPage() {
         })}
       </div>
 
+      {/* Tipo filter chips */}
+      {availableTipos.length > 1 && (
+        <div className="flex flex-wrap gap-1.5">
+          <button
+            onClick={() => setTipoFilter('all')}
+            className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+              tipoFilter === 'all'
+                ? 'border-[#7c3aed] bg-[#f3e8ff] text-[#5b2d8a]'
+                : 'border-[var(--app-border)] bg-white text-[var(--app-muted)] hover:text-[var(--app-ink)]'
+            }`}
+          >
+            Todos los tipos
+          </button>
+          {availableTipos.map((tipo) => (
+            <button
+              key={tipo}
+              onClick={() => setTipoFilter(tipo)}
+              className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                tipoFilter === tipo
+                  ? 'border-[#7c3aed] bg-[#f3e8ff] text-[#5b2d8a]'
+                  : 'border-[var(--app-border)] bg-white text-[var(--app-muted)] hover:text-[var(--app-ink)]'
+              }`}
+            >
+              {TIPO_LABELS[tipo] ?? tipo}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Grid */}
       {loading ? (
         <div className="rounded-2xl border border-[var(--app-border)] bg-white px-4 py-8 text-center text-sm text-[var(--app-muted)]">
           Cargando convocatorias...
         </div>
       ) : filtered.length === 0 ? (
-        <EmptyState message={filter === 'all' ? 'No hay convocatorias aún.' : `No hay convocatorias con estado "${TABS.find(t => t.key === filter)?.label}".`} />
+        <EmptyState message={
+          tipoFilter !== 'all'
+            ? `No hay convocatorias de tipo "${TIPO_LABELS[tipoFilter]}" ${filter !== 'all' ? `con estado "${TABS.find(t => t.key === filter)?.label}"` : ''}.`.trim()
+            : filter === 'all' ? 'No hay convocatorias aún.' : `No hay convocatorias con estado "${TABS.find(t => t.key === filter)?.label}".`
+        } />
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((item) => (

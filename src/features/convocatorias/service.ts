@@ -78,6 +78,7 @@ export interface ConvocatoriaForumPost {
   convocatoriaId: string;
   authorUserId: string;
   authorName: string;
+  authorAvatarUrl: string | null;
   body: string;
   isPinned: boolean;
   createdAt: string;
@@ -202,6 +203,7 @@ interface ForumPostRow {
   convocatoria_id: string;
   author_user_id: string;
   author_name: string;
+  author_avatar_url: string | null;
   body: string;
   is_pinned: boolean;
   created_at: string;
@@ -263,6 +265,7 @@ function mapForumPost(row: ForumPostRow): ConvocatoriaForumPost {
     convocatoriaId: row.convocatoria_id,
     authorUserId: row.author_user_id,
     authorName: row.author_name,
+    authorAvatarUrl: row.author_avatar_url ?? null,
     body: row.body,
     isPinned: row.is_pinned,
     createdAt: row.created_at,
@@ -747,6 +750,7 @@ export interface ConvocatoriaApplication {
   applicantUserId: string;
   applicantName: string;
   applicantEmail: string;
+  applicantAvatarUrl: string | null;
   applicationStatus: ApplicationStatus;
   reviewerNotes: string;
   reviewedAt: string | null;
@@ -773,6 +777,7 @@ interface ApplicationRow {
   applicant_user_id: string;
   applicant_name: string;
   applicant_email: string;
+  applicant_avatar_url: string | null;
   application_status: ApplicationStatus;
   reviewer_notes: string;
   reviewed_at: string | null;
@@ -789,6 +794,7 @@ function mapApplication(row: ApplicationRow): ConvocatoriaApplication {
     applicantUserId: row.applicant_user_id,
     applicantName: row.applicant_name,
     applicantEmail: row.applicant_email,
+    applicantAvatarUrl: row.applicant_avatar_url ?? null,
     applicationStatus: row.application_status,
     reviewerNotes: row.reviewer_notes ?? '',
     reviewedAt: row.reviewed_at,
@@ -814,6 +820,7 @@ export async function listApplications(
        ca.applicant_user_id::text,
        COALESCE(u.first_name || ' ' || u.last_name, u.email, 'Miembro') AS applicant_name,
        u.email AS applicant_email,
+       u.avatar_url AS applicant_avatar_url,
        ca.application_status,
        ca.reviewer_notes,
        ca.reviewed_at::text,
@@ -1051,6 +1058,7 @@ export async function listForumPosts(
        fp.convocatoria_id::text,
        fp.author_user_id::text,
        COALESCE(u.first_name || ' ' || u.last_name, u.email, 'Miembro') AS author_name,
+       u.avatar_url AS author_avatar_url,
        fp.body,
        fp.is_pinned,
        fp.created_at::text

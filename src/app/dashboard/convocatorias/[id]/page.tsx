@@ -113,7 +113,11 @@ function getInitials(name: string): string {
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function Avatar({ name }: { name: string }) {
+function Avatar({ name, avatarUrl }: { name: string; avatarUrl?: string | null }) {
+  if (avatarUrl) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={avatarUrl} alt={name} className="h-9 w-9 shrink-0 rounded-2xl object-cover" />;
+  }
   return (
     <div
       className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl text-xs font-black text-white"
@@ -289,6 +293,8 @@ function ApplicationsPanel({ convocatoriaId, onError }: ApplicationsPanelProps) 
             return (
               <div key={app.applicationId} className="py-4">
                 <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3 flex-1 min-w-0">
+                    <Avatar name={app.applicantName} avatarUrl={app.applicantAvatarUrl} />
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-0.5">
                       <span className="text-sm font-bold text-[var(--app-ink)] truncate">{app.applicantName}</span>
@@ -320,6 +326,7 @@ function ApplicationsPanel({ convocatoriaId, onError }: ApplicationsPanelProps) 
                     {app.reviewerNotes && (
                       <p className="mt-1 text-xs italic text-[var(--app-muted)]">Motivo: {app.reviewerNotes}</p>
                     )}
+                  </div>
                   </div>
 
                   {/* Review controls */}
@@ -1129,7 +1136,7 @@ export default function ConvocatoriaDetailPage() {
               <ul className="space-y-4 mb-5">
                 {posts.map((post) => (
                   <li key={post.postId} className={`flex gap-3 ${post.isPinned ? 'rounded-xl bg-[#faf5ff] p-3' : ''}`}>
-                    <Avatar name={post.authorName} />
+                    <Avatar name={post.authorName} avatarUrl={post.authorAvatarUrl} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-baseline gap-2">
                         <span className="text-sm font-bold text-[var(--app-ink)]">{post.authorName}</span>

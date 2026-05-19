@@ -73,6 +73,7 @@ export interface ConvocatoriaForumPost {
   convocatoriaId: string;
   authorUserId: string;
   authorName: string;
+  authorAvatarUrl: string | null;
   body: string;
   isPinned: boolean;
   createdAt: string;
@@ -222,6 +223,7 @@ export interface ConvocatoriaApplication {
   applicantUserId: string;
   applicantName: string;
   applicantEmail: string;
+  applicantAvatarUrl: string | null;
   applicationStatus: ApplicationStatus;
   reviewerNotes: string;
   reviewedAt: string | null;
