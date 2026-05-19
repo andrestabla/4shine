@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { authenticateRequest } from '@/server/auth/request-auth';
 import { withClient, withRoleContext } from '@/server/db/pool';
 import { listApplications } from '@/features/convocatorias/service';
-import { errorResponse, unauthorizedResponse } from '../../../../_utils';
+import { errorResponse, unauthorizedResponse } from '../../../_utils';
 
 interface ContextParams {
   params: Promise<{ id: string }>;

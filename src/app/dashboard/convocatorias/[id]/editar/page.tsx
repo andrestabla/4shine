@@ -32,6 +32,10 @@ interface FormState {
   contactoTelefono: string;
   contactoEmail: string;
   empresaSolicitante: string;
+  solicitudArchivoLabel: string;
+  solicitudArchivoRequerido: boolean;
+  solicitudUrlLabel: string;
+  solicitudUrlRequerido: boolean;
   location: string;
   externalUrl: string;
   status: ConvocatoriaStatus;
@@ -68,6 +72,10 @@ export default function EditarConvocatoriaPage() {
           contactoTelefono: item.contactoTelefono,
           contactoEmail: item.contactoEmail,
           empresaSolicitante: item.empresaSolicitante,
+          solicitudArchivoLabel: item.solicitudArchivoLabel,
+          solicitudArchivoRequerido: item.solicitudArchivoRequerido,
+          solicitudUrlLabel: item.solicitudUrlLabel,
+          solicitudUrlRequerido: item.solicitudUrlRequerido,
           location: item.location ?? '',
           externalUrl: item.externalUrl ?? '',
           status: item.status,
@@ -96,6 +104,10 @@ export default function EditarConvocatoriaPage() {
         contactoTelefono: form.contactoTelefono.trim(),
         contactoEmail: form.contactoEmail.trim(),
         empresaSolicitante: form.empresaSolicitante.trim(),
+        solicitudArchivoLabel: form.solicitudArchivoLabel.trim(),
+        solicitudArchivoRequerido: form.solicitudArchivoRequerido,
+        solicitudUrlLabel: form.solicitudUrlLabel.trim(),
+        solicitudUrlRequerido: form.solicitudUrlRequerido,
         location: form.location.trim() || null,
         externalUrl: form.externalUrl.trim() || null,
         status: form.status,
@@ -243,6 +255,62 @@ export default function EditarConvocatoriaPage() {
               {label('URL externa')}
               <input className="app-input" placeholder="https://... (opcional)" value={form.externalUrl} onChange={(e) => set({ externalUrl: e.target.value })} />
             </div>
+          </div>
+        </div>
+
+        {/* Requisitos de postulación */}
+        <div className="rounded-2xl border border-[var(--app-border)] bg-white p-5 sm:p-6 space-y-5">
+          <div>
+            <h2 className="text-sm font-extrabold uppercase tracking-wide text-[var(--app-muted)]">Requisitos de postulación</h2>
+            <p className="mt-1 text-xs text-[var(--app-muted)]">Si necesitas que el postulante adjunte un archivo o proporcione una URL al aplicar, configúralo aquí.</p>
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <input
+                id="solicitud-archivo-req"
+                type="checkbox"
+                className="h-4 w-4 rounded border-[var(--app-border)] accent-[#5b2d8a]"
+                checked={form.solicitudArchivoRequerido}
+                onChange={(e) => set({ solicitudArchivoRequerido: e.target.checked })}
+              />
+              <label htmlFor="solicitud-archivo-req" className="text-sm font-semibold text-[var(--app-ink)]">Solicitar archivo adjunto</label>
+            </div>
+            {form.solicitudArchivoRequerido && (
+              <div className="ml-7">
+                {label('Etiqueta del campo de archivo')}
+                <input
+                  className="app-input"
+                  placeholder="ej. Hoja de vida (PDF)"
+                  value={form.solicitudArchivoLabel}
+                  onChange={(e) => set({ solicitudArchivoLabel: e.target.value })}
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <input
+                id="solicitud-url-req"
+                type="checkbox"
+                className="h-4 w-4 rounded border-[var(--app-border)] accent-[#5b2d8a]"
+                checked={form.solicitudUrlRequerido}
+                onChange={(e) => set({ solicitudUrlRequerido: e.target.checked })}
+              />
+              <label htmlFor="solicitud-url-req" className="text-sm font-semibold text-[var(--app-ink)]">Solicitar URL</label>
+            </div>
+            {form.solicitudUrlRequerido && (
+              <div className="ml-7">
+                {label('Etiqueta del campo de URL')}
+                <input
+                  className="app-input"
+                  placeholder="ej. Portafolio o LinkedIn"
+                  value={form.solicitudUrlLabel}
+                  onChange={(e) => set({ solicitudUrlLabel: e.target.value })}
+                />
+              </div>
+            )}
           </div>
         </div>
 

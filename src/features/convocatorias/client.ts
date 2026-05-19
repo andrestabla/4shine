@@ -44,6 +44,10 @@ export interface ConvocatoriaSummary {
   contactoTelefono: string;
   contactoEmail: string;
   empresaSolicitante: string;
+  solicitudArchivoLabel: string;
+  solicitudArchivoRequerido: boolean;
+  solicitudUrlLabel: string;
+  solicitudUrlRequerido: boolean;
   coverImageUrl: string | null;
   externalUrl: string | null;
   location: string | null;
@@ -86,6 +90,10 @@ export interface CreateConvocatoriaInput {
   contactoTelefono?: string;
   contactoEmail?: string;
   empresaSolicitante?: string;
+  solicitudArchivoLabel?: string;
+  solicitudArchivoRequerido?: boolean;
+  solicitudUrlLabel?: string;
+  solicitudUrlRequerido?: boolean;
   coverImageUrl?: string | null;
   externalUrl?: string | null;
   location?: string | null;
@@ -104,6 +112,10 @@ export interface UpdateConvocatoriaInput {
   contactoTelefono?: string;
   contactoEmail?: string;
   empresaSolicitante?: string;
+  solicitudArchivoLabel?: string;
+  solicitudArchivoRequerido?: boolean;
+  solicitudUrlLabel?: string;
+  solicitudUrlRequerido?: boolean;
   coverImageUrl?: string | null;
   externalUrl?: string | null;
   location?: string | null;
@@ -214,6 +226,8 @@ export interface ConvocatoriaApplication {
   reviewerNotes: string;
   reviewedAt: string | null;
   reviewedBy: string | null;
+  attachmentFileUrl: string | null;
+  attachmentUrl: string | null;
   createdAt: string;
 }
 
@@ -253,8 +267,14 @@ export function messageApplicants(
   });
 }
 
-export function applyToConvocatoria(id: string): Promise<{ applicationId: string }> {
-  return requestApi<{ applicationId: string }>(`${BASE}/${id}/apply`, { method: 'POST' });
+export function applyToConvocatoria(
+  id: string,
+  attachments?: { attachmentFileUrl?: string; attachmentUrl?: string },
+): Promise<{ applicationId: string }> {
+  return requestApi<{ applicationId: string }>(`${BASE}/${id}/apply`, {
+    method: 'POST',
+    body: attachments ? JSON.stringify(attachments) : undefined,
+  });
 }
 
 export function withdrawApplication(id: string): Promise<{ convocatoriaId: string }> {

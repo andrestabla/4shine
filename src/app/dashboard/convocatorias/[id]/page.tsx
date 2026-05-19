@@ -297,6 +297,26 @@ function ApplicationsPanel({ convocatoriaId, onError }: ApplicationsPanelProps) 
                       </span>
                     </div>
                     <p className="text-xs text-[var(--app-muted)]">{app.applicantEmail}</p>
+                    {app.attachmentFileUrl && (
+                      <a
+                        href={app.attachmentFileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-1 inline-flex items-center gap-1 text-xs text-[#5b2d8a] hover:underline"
+                      >
+                        <FileText size={11} />Ver archivo adjunto
+                      </a>
+                    )}
+                    {app.attachmentUrl && (
+                      <a
+                        href={app.attachmentUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-1 ml-3 inline-flex items-center gap-1 text-xs text-[#5b2d8a] hover:underline"
+                      >
+                        <Link2 size={11} />{app.attachmentUrl.length > 40 ? app.attachmentUrl.slice(0, 40) + '…' : app.attachmentUrl}
+                      </a>
+                    )}
                     {app.reviewerNotes && (
                       <p className="mt-1 text-xs italic text-[var(--app-muted)]">Motivo: {app.reviewerNotes}</p>
                     )}
@@ -500,6 +520,8 @@ export default function ConvocatoriaDetailPage() {
   const [posts, setPosts] = React.useState<ConvocatoriaForumPost[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [applyLoading, setApplyLoading] = React.useState(false);
+  const [applyFileUrl, setApplyFileUrl] = React.useState('');
+  const [applyUrl, setApplyUrl] = React.useState('');
   const [forumMsg, setForumMsg] = React.useState('');
   const [forumLoading, setForumLoading] = React.useState(false);
   const [adminTab, setAdminTab] = React.useState<'applications' | 'images' | 'attachments' | 'dates' | 'faqs'>('applications');
@@ -573,7 +595,11 @@ export default function ConvocatoriaDetailPage() {
     } else {
       setApplyLoading(true);
       try {
-        await applyToConvocatoria(id);
+        const attachments = {
+          attachmentFileUrl: applyFileUrl || undefined,
+          attachmentUrl: applyUrl || undefined,
+        };
+        await applyToConvocatoria(id, attachments);
         await alert({
           title: '¡Aplicación enviada!',
           message: 'Tu aplicación fue registrada. Recibirás información por correo y en la plataforma.',
@@ -926,27 +952,83 @@ export default function ConvocatoriaDetailPage() {
 
           {/* Apply CTA */}
           {item.status === 'open' && !isAdmin && (
-            <div className="mt-6 flex items-center gap-3">
-              <button
-                onClick={onApply}
-                disabled={applyLoading}
-                className={`rounded-full px-6 py-3 text-sm font-bold shadow-sm transition hover:-translate-y-0.5 disabled:opacity-60 ${
-                  item.hasApplied
-                    ? 'border border-[var(--app-border)] bg-white text-[var(--app-ink)] hover:bg-[var(--app-surface-muted)]'
-                    : 'bg-[#5b2d8a] text-white hover:opacity-90'
-                }`}
-              >
-                {applyLoading
-                  ? 'Procesando...'
-                  : item.hasApplied
-                  ? '✓ Aplicaste — Retirar aplicación'
-                  : 'Aplicar a esta convocatoria'}
-              </button>
-              {item.hasApplied && (
-                <span className="rounded-full bg-[#f3e8ff] px-3 py-1.5 text-xs font-bold text-[#5b2d8a]">
-                  Tu aplicación fue enviada
-                </span>
+            <div className="mt-6 space-y-4">
+              {/* Attachment requirements (only shown before applying) */}
+              {!item.hasApplied && (item.solicitudArchivoRequerido || item.solicitudUrlRequerido) && (
+                <div className="rounded-xl border border-[#e9d5ff] bg-[#faf5ff] p-4 space-y-3">
+                  <p className="text-xs font-bold uppercase tracking-wide text-[#7c3aed]">Requisitos para postular</p>
+                  {item.solicitudArchivoRequerido && (
+                    <div>
+                      <p className="mb-2 text-sm font-semibold text-[var(--app-ink)]">
+                        {item.solicitudArchivoLabel || 'Archivo adjunto'}
+                      </p>
+                      {applyFileUrl ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-emerald-700 font-semibold">✓ Archivo cargado</span>
+                          <button
+                            type="button"
+                            onClick={() => setApplyFileUrl('')}
+                            className="text-xs text-[var(--app-muted)] hover:text-red-500"
+                          >
+                            Quitar
+                          </button>
+                        </div>
+                      ) : (
+                        <R2UploadButton
+                          moduleCode="convocatorias"
+                          action="view"
+                          pathPrefix="convocatorias/applications"
+                          entityTable="app_networking.convocatoria_applications"
+                          fieldName="attachment_file_url"
+                          buttonLabel="Subir archivo"
+                          onUploaded={(url) => setApplyFileUrl(url)}
+                        />
+                      )}
+                    </div>
+                  )}
+                  {item.solicitudUrlRequerido && (
+                    <div>
+                      <p className="mb-1.5 text-sm font-semibold text-[var(--app-ink)]">
+                        {item.solicitudUrlLabel || 'URL'}
+                      </p>
+                      <input
+                        className="app-input"
+                        type="url"
+                        placeholder="https://..."
+                        value={applyUrl}
+                        onChange={(e) => setApplyUrl(e.target.value)}
+                      />
+                    </div>
+                  )}
+                </div>
               )}
+
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={onApply}
+                  disabled={
+                    applyLoading ||
+                    (!item.hasApplied && item.solicitudArchivoRequerido && !applyFileUrl) ||
+                    (!item.hasApplied && item.solicitudUrlRequerido && !applyUrl.trim())
+                  }
+                  className={`rounded-full px-6 py-3 text-sm font-bold shadow-sm transition hover:-translate-y-0.5 disabled:opacity-60 ${
+                    item.hasApplied
+                      ? 'border border-[var(--app-border)] bg-white text-[var(--app-ink)] hover:bg-[var(--app-surface-muted)]'
+                      : 'bg-[#5b2d8a] text-white hover:opacity-90'
+                  }`}
+                >
+                  {applyLoading
+                    ? 'Procesando...'
+                    : item.hasApplied
+                    ? '✓ Aplicaste — Retirar aplicación'
+                    : 'Aplicar a esta convocatoria'}
+                </button>
+                {item.hasApplied && (
+                  <span className="rounded-full bg-[#f3e8ff] px-3 py-1.5 text-xs font-bold text-[#5b2d8a]">
+                    Tu aplicación fue enviada
+                  </span>
+                )}
+              </div>
             </div>
           )}
 

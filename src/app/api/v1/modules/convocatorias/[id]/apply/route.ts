@@ -14,10 +14,17 @@ export async function POST(request: Request, context: ContextParams) {
 
   const { id } = await context.params;
 
+  let body: { attachmentFileUrl?: string; attachmentUrl?: string } = {};
+  try {
+    body = await request.json() as typeof body;
+  } catch {
+    // body is optional
+  }
+
   try {
     const data = await withClient((client) =>
       withRoleContext(client, identity.userId, identity.role, async () => {
-        const result = await applyToConvocatoria(client, identity, id);
+        const result = await applyToConvocatoria(client, identity, id, body);
         await logModuleAudit(client, request, identity, {
           moduleCode: 'convocatorias',
           action: 'apply_convocatoria',

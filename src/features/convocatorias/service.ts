@@ -49,6 +49,10 @@ export interface ConvocatoriaSummary {
   contactoTelefono: string;
   contactoEmail: string;
   empresaSolicitante: string;
+  solicitudArchivoLabel: string;
+  solicitudArchivoRequerido: boolean;
+  solicitudUrlLabel: string;
+  solicitudUrlRequerido: boolean;
   coverImageUrl: string | null;
   externalUrl: string | null;
   location: string | null;
@@ -91,6 +95,10 @@ export interface CreateConvocatoriaInput {
   contactoTelefono?: string;
   contactoEmail?: string;
   empresaSolicitante?: string;
+  solicitudArchivoLabel?: string;
+  solicitudArchivoRequerido?: boolean;
+  solicitudUrlLabel?: string;
+  solicitudUrlRequerido?: boolean;
   coverImageUrl?: string | null;
   externalUrl?: string | null;
   location?: string | null;
@@ -109,6 +117,10 @@ export interface UpdateConvocatoriaInput {
   contactoTelefono?: string;
   contactoEmail?: string;
   empresaSolicitante?: string;
+  solicitudArchivoLabel?: string;
+  solicitudArchivoRequerido?: boolean;
+  solicitudUrlLabel?: string;
+  solicitudUrlRequerido?: boolean;
   coverImageUrl?: string | null;
   externalUrl?: string | null;
   location?: string | null;
@@ -142,6 +154,10 @@ interface ConvocatoriaSummaryRow {
   contacto_telefono: string;
   contacto_email: string;
   empresa_solicitante: string;
+  solicitud_archivo_label: string;
+  solicitud_archivo_requerido: boolean;
+  solicitud_url_label: string;
+  solicitud_url_requerido: boolean;
   cover_image_url: string | null;
   external_url: string | null;
   location: string | null;
@@ -207,6 +223,10 @@ function mapSummary(row: ConvocatoriaSummaryRow): ConvocatoriaSummary {
     contactoTelefono: row.contacto_telefono ?? '',
     contactoEmail: row.contacto_email ?? '',
     empresaSolicitante: row.empresa_solicitante ?? '',
+    solicitudArchivoLabel: row.solicitud_archivo_label ?? '',
+    solicitudArchivoRequerido: row.solicitud_archivo_requerido ?? false,
+    solicitudUrlLabel: row.solicitud_url_label ?? '',
+    solicitudUrlRequerido: row.solicitud_url_requerido ?? false,
     coverImageUrl: row.cover_image_url,
     externalUrl: row.external_url,
     location: row.location,
@@ -266,6 +286,10 @@ function summarySelect(actorId: string) {
       c.contacto_telefono,
       c.contacto_email,
       c.empresa_solicitante,
+      c.solicitud_archivo_label,
+      c.solicitud_archivo_requerido,
+      c.solicitud_url_label,
+      c.solicitud_url_requerido,
       COALESCE(
         c.cover_image_url,
         (SELECT ci.url FROM app_networking.convocatoria_images ci
@@ -420,8 +444,10 @@ export async function createConvocatoria(
     `INSERT INTO app_networking.convocatorias
        (title, description, objetivo, tipo, fecha_inicio, fecha_fin,
         requisitos, enlaces_complementarios, contacto_telefono, contacto_email,
-        empresa_solicitante, cover_image_url, external_url, location, status, created_by)
-     VALUES ($1,$2,$3,$4,$5::date,$6::date,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+        empresa_solicitante, solicitud_archivo_label, solicitud_archivo_requerido,
+        solicitud_url_label, solicitud_url_requerido,
+        cover_image_url, external_url, location, status, created_by)
+     VALUES ($1,$2,$3,$4,$5::date,$6::date,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
      RETURNING convocatoria_id::text`,
     [
       input.title,
@@ -435,6 +461,10 @@ export async function createConvocatoria(
       input.contactoTelefono ?? '',
       input.contactoEmail ?? '',
       input.empresaSolicitante ?? '',
+      input.solicitudArchivoLabel ?? '',
+      input.solicitudArchivoRequerido ?? false,
+      input.solicitudUrlLabel ?? '',
+      input.solicitudUrlRequerido ?? false,
       input.coverImageUrl ?? null,
       input.externalUrl ?? null,
       input.location ?? null,
@@ -464,21 +494,25 @@ export async function updateConvocatoria(
   const { rowCount } = await client.query(
     `UPDATE app_networking.convocatorias
      SET
-       title                   = COALESCE($2, title),
-       description             = COALESCE($3, description),
-       objetivo                = COALESCE($4, objetivo),
-       tipo                    = COALESCE($5, tipo),
-       fecha_inicio            = CASE WHEN $6::text IS NOT NULL THEN $6::date ELSE fecha_inicio END,
-       fecha_fin               = CASE WHEN $7::text IS NOT NULL THEN $7::date ELSE fecha_fin END,
-       requisitos              = COALESCE($8, requisitos),
-       enlaces_complementarios = COALESCE($9, enlaces_complementarios),
-       contacto_telefono       = COALESCE($10, contacto_telefono),
-       contacto_email          = COALESCE($11, contacto_email),
-       empresa_solicitante     = COALESCE($12, empresa_solicitante),
-       cover_image_url         = CASE WHEN $13::text IS NOT NULL THEN $13 ELSE cover_image_url END,
-       external_url            = CASE WHEN $14::text IS NOT NULL THEN $14 ELSE external_url END,
-       location                = CASE WHEN $15::text IS NOT NULL THEN $15 ELSE location END,
-       status                  = COALESCE($16, status)
+       title                      = COALESCE($2, title),
+       description                = COALESCE($3, description),
+       objetivo                   = COALESCE($4, objetivo),
+       tipo                       = COALESCE($5, tipo),
+       fecha_inicio               = CASE WHEN $6::text IS NOT NULL THEN $6::date ELSE fecha_inicio END,
+       fecha_fin                  = CASE WHEN $7::text IS NOT NULL THEN $7::date ELSE fecha_fin END,
+       requisitos                 = COALESCE($8, requisitos),
+       enlaces_complementarios    = COALESCE($9, enlaces_complementarios),
+       contacto_telefono          = COALESCE($10, contacto_telefono),
+       contacto_email             = COALESCE($11, contacto_email),
+       empresa_solicitante        = COALESCE($12, empresa_solicitante),
+       solicitud_archivo_label    = COALESCE($13, solicitud_archivo_label),
+       solicitud_archivo_requerido = COALESCE($14, solicitud_archivo_requerido),
+       solicitud_url_label        = COALESCE($15, solicitud_url_label),
+       solicitud_url_requerido    = COALESCE($16, solicitud_url_requerido),
+       cover_image_url            = CASE WHEN $17::text IS NOT NULL THEN $17 ELSE cover_image_url END,
+       external_url               = CASE WHEN $18::text IS NOT NULL THEN $18 ELSE external_url END,
+       location                   = CASE WHEN $19::text IS NOT NULL THEN $19 ELSE location END,
+       status                     = COALESCE($20, status)
      WHERE convocatoria_id = $1`,
     [
       convocatoriaId,
@@ -493,6 +527,10 @@ export async function updateConvocatoria(
       input.contactoTelefono ?? null,
       input.contactoEmail ?? null,
       input.empresaSolicitante ?? null,
+      input.solicitudArchivoLabel ?? null,
+      input.solicitudArchivoRequerido !== undefined ? input.solicitudArchivoRequerido : null,
+      input.solicitudUrlLabel ?? null,
+      input.solicitudUrlRequerido !== undefined ? input.solicitudUrlRequerido : null,
       input.coverImageUrl !== undefined ? (input.coverImageUrl ?? '') : null,
       input.externalUrl !== undefined ? (input.externalUrl ?? '') : null,
       input.location !== undefined ? (input.location ?? '') : null,
@@ -713,6 +751,8 @@ export interface ConvocatoriaApplication {
   reviewerNotes: string;
   reviewedAt: string | null;
   reviewedBy: string | null;
+  attachmentFileUrl: string | null;
+  attachmentUrl: string | null;
   createdAt: string;
 }
 
@@ -737,6 +777,8 @@ interface ApplicationRow {
   reviewer_notes: string;
   reviewed_at: string | null;
   reviewed_by: string | null;
+  attachment_file_url: string | null;
+  attachment_url: string | null;
   created_at: string;
 }
 
@@ -751,6 +793,8 @@ function mapApplication(row: ApplicationRow): ConvocatoriaApplication {
     reviewerNotes: row.reviewer_notes ?? '',
     reviewedAt: row.reviewed_at,
     reviewedBy: row.reviewed_by,
+    attachmentFileUrl: row.attachment_file_url,
+    attachmentUrl: row.attachment_url,
     createdAt: row.created_at,
   };
 }
@@ -774,6 +818,8 @@ export async function listApplications(
        ca.reviewer_notes,
        ca.reviewed_at::text,
        ca.reviewed_by::text,
+       ca.attachment_file_url,
+       ca.attachment_url,
        ca.created_at::text
      FROM app_networking.convocatoria_applications ca
      JOIN app_core.users u ON u.user_id = ca.applicant_user_id
@@ -919,6 +965,7 @@ export async function applyToConvocatoria(
   client: PoolClient,
   actor: AuthUser,
   convocatoriaId: string,
+  attachments?: { attachmentFileUrl?: string; attachmentUrl?: string },
 ): Promise<{ applicationId: string }> {
   await requireModulePermission(client, 'convocatorias', 'view');
   await requireCommunityAccess(client, actor, 'Convocatorias');
@@ -932,11 +979,12 @@ export async function applyToConvocatoria(
   if (open.rows[0].status !== 'open') throw new Error('Esta convocatoria no está abierta');
 
   const { rows } = await client.query<{ application_id: string }>(
-    `INSERT INTO app_networking.convocatoria_applications (convocatoria_id, applicant_user_id)
-     VALUES ($1, $2)
+    `INSERT INTO app_networking.convocatoria_applications
+       (convocatoria_id, applicant_user_id, attachment_file_url, attachment_url)
+     VALUES ($1, $2, $3, $4)
      ON CONFLICT (convocatoria_id, applicant_user_id) DO NOTHING
      RETURNING application_id::text`,
-    [convocatoriaId, actor.userId],
+    [convocatoriaId, actor.userId, attachments?.attachmentFileUrl ?? null, attachments?.attachmentUrl ?? null],
   );
 
   const id = rows[0]?.application_id;
