@@ -1,0 +1,628 @@
+'use client';
+
+import React from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import {
+  ArrowLeft,
+  CalendarDays,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  ExternalLink,
+  MessageCircle,
+  Plus,
+  Send,
+  Trash2,
+  User,
+  Users,
+  X,
+} from 'lucide-react';
+import { useAppDialog } from '@/components/ui/AppDialogProvider';
+import { useUser } from '@/context/UserContext';
+import {
+  applyToWorkshop,
+  cancelApplication,
+  createFaq,
+  createForumPost,
+  deleteFaq,
+  deleteForumPost,
+  getWorkshop,
+  listFaqs,
+  listForumPosts,
+  sendInquiry,
+  type WorkshopFaqRecord,
+  type WorkshopForumPostRecord,
+  type WorkshopRecord,
+} from '@/features/workshops/client';
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
+const TYPE_META: Record<string, { label: string; bg: string; text: string; dot: string }> = {
+  relacionamiento: { label: 'Relacionamiento', bg: '#e8f4ff', text: '#3f6fa8', dot: '#3f6fa8' },
+  formacion:       { label: 'Formación',       bg: '#f3e8ff', text: '#5b2d8a', dot: '#5b2d8a' },
+  innovacion:      { label: 'Innovación',      bg: '#fff3e8', text: '#a85d2d', dot: '#a85d2d' },
+  wellbeing:       { label: 'Wellbeing',       bg: '#e8fff3', text: '#2d8a5b', dot: '#2d8a5b' },
+  otro:            { label: 'Otro',            bg: '#f5f5f5', text: '#6b7280', dot: '#6b7280' },
+};
+
+const STATUS_META: Record<string, { label: string; bg: string; text: string }> = {
+  upcoming:  { label: 'Próximo',    bg: '#f3e8ff', text: '#5b2d8a' },
+  completed: { label: 'Completado', bg: '#e8fff3', text: '#2d8a5b' },
+  cancelled: { label: 'Cancelado',  bg: '#fff1f1', text: '#dc2626' },
+};
+
+function formatDate(value: string) {
+  return new Date(value).toLocaleDateString('es-CO', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  });
+}
+
+function formatTime(value: string) {
+  return new Date(value).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+}
+
+function formatMsgTime(value: string) {
+  const d = new Date(value);
+  const now = new Date();
+  if (d.toDateString() === now.toDateString()) {
+    return d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+  }
+  return d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
+}
+
+function Avatar({ name, url, size = 'md' }: { name: string; url?: string | null; size?: 'sm' | 'md' }) {
+  const cls = size === 'sm' ? 'h-8 w-8 text-xs' : 'h-9 w-9 text-sm';
+  return (
+    <div className={`${cls} shrink-0 rounded-full overflow-hidden flex items-center justify-center font-bold text-white`} style={{ backgroundColor: '#5b2d8a' }}>
+      {url
+        // eslint-disable-next-line @next/next/no-img-element
+        ? <img src={url} alt={name} className="h-full w-full object-cover" />
+        : name.charAt(0).toUpperCase()}
+    </div>
+  );
+}
+
+// ── FAQ Accordion item ─────────────────────────────────────────────────────────
+
+function FaqItem({ faq, canDelete, onDelete }: { faq: WorkshopFaqRecord; canDelete: boolean; onDelete: () => void }) {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <div className="border-b border-[var(--app-border)] last:border-0">
+      <button
+        className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left"
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span className="text-sm font-semibold text-[var(--app-ink)]">{faq.question}</span>
+        <div className="flex shrink-0 items-center gap-2">
+          {canDelete && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onDelete(); }}
+              className="rounded-full p-1 text-[var(--app-muted)] hover:bg-[var(--app-surface-muted)] hover:text-rose-500 transition"
+            >
+              <Trash2 size={13} />
+            </button>
+          )}
+          {open ? <ChevronUp size={16} className="text-[var(--app-muted)]" /> : <ChevronDown size={16} className="text-[var(--app-muted)]" />}
+        </div>
+      </button>
+      {open && (
+        <p className="px-5 pb-4 text-sm leading-relaxed text-[var(--app-muted)]">{faq.answer}</p>
+      )}
+    </div>
+  );
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
+
+export default function WorkshopDetailPage() {
+  const { workshopId } = useParams<{ workshopId: string }>();
+  const router = useRouter();
+  const { can, currentRole, sessionUser } = useUser();
+  const { alert, confirm } = useAppDialog();
+
+  const [workshop, setWorkshop] = React.useState<WorkshopRecord | null>(null);
+  const [faqs, setFaqs] = React.useState<WorkshopFaqRecord[]>([]);
+  const [posts, setPosts] = React.useState<WorkshopForumPostRecord[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [activeTab, setActiveTab] = React.useState<'info' | 'faq' | 'foro'>('info');
+
+  // Action states
+  const [applying, setApplying] = React.useState(false);
+  const [postText, setPostText] = React.useState('');
+  const [sendingPost, setSendingPost] = React.useState(false);
+  const [showInquiryModal, setShowInquiryModal] = React.useState(false);
+  const [inquiryText, setInquiryText] = React.useState('');
+  const [sendingInquiry, setSendingInquiry] = React.useState(false);
+  const [inquirySent, setInquirySent] = React.useState(false);
+
+  // FAQ add form (gestors/admins)
+  const [showAddFaq, setShowAddFaq] = React.useState(false);
+  const [faqQ, setFaqQ] = React.useState('');
+  const [faqA, setFaqA] = React.useState('');
+  const [savingFaq, setSavingFaq] = React.useState(false);
+
+  const canManage = can('workshops', 'manage');
+  const isAdmin = ['gestor', 'admin'].includes(currentRole ?? '');
+
+  const showError = React.useCallback(
+    async (msg: string, err: unknown) => {
+      await alert({ title: 'Error', message: err instanceof Error ? err.message : msg, tone: 'error' });
+    },
+    [alert],
+  );
+
+  const load = React.useCallback(async () => {
+    setLoading(true);
+    try {
+      const [ws, faqData, postData] = await Promise.all([
+        getWorkshop(workshopId),
+        listFaqs(workshopId),
+        listForumPosts(workshopId),
+      ]);
+      setWorkshop(ws);
+      setFaqs(faqData);
+      setPosts(postData);
+    } catch (err) {
+      await showError('No se pudo cargar el workshop', err);
+      router.push('/dashboard/workshops');
+    } finally {
+      setLoading(false);
+    }
+  }, [workshopId, showError, router]);
+
+  React.useEffect(() => { void load(); }, [load]);
+
+  const onApply = async () => {
+    if (!workshop) return;
+    setApplying(true);
+    try {
+      const updated = await applyToWorkshop(workshop.workshopId);
+      setWorkshop(updated);
+    } catch (err) {
+      await showError('No se pudo completar la inscripción', err);
+    } finally {
+      setApplying(false);
+    }
+  };
+
+  const onCancel = async () => {
+    if (!workshop) return;
+    const ok = await confirm({
+      title: 'Cancelar inscripción',
+      message: '¿Deseas cancelar tu inscripción a este workshop?',
+      confirmText: 'Cancelar inscripción',
+      cancelText: 'Mantener',
+      tone: 'warning',
+    });
+    if (!ok) return;
+    setApplying(true);
+    try {
+      const updated = await cancelApplication(workshop.workshopId);
+      setWorkshop(updated);
+    } catch (err) {
+      await showError('No se pudo cancelar la inscripción', err);
+    } finally {
+      setApplying(false);
+    }
+  };
+
+  const onSendPost = async () => {
+    if (!workshop || !postText.trim()) return;
+    setSendingPost(true);
+    try {
+      const post = await createForumPost(workshop.workshopId, postText.trim());
+      setPosts((prev) => [...prev, post]);
+      setPostText('');
+    } catch (err) {
+      await showError('No se pudo enviar el mensaje', err);
+    } finally {
+      setSendingPost(false);
+    }
+  };
+
+  const onDeletePost = async (postId: string) => {
+    if (!workshop) return;
+    const ok = await confirm({ title: 'Eliminar mensaje', message: '¿Eliminar este mensaje?', confirmText: 'Eliminar', cancelText: 'Cancelar', tone: 'warning' });
+    if (!ok) return;
+    try {
+      await deleteForumPost(workshop.workshopId, postId);
+      setPosts((prev) => prev.filter((p) => p.postId !== postId));
+    } catch (err) {
+      await showError('No se pudo eliminar el mensaje', err);
+    }
+  };
+
+  const onSaveFaq = async () => {
+    if (!workshop || !faqQ.trim() || !faqA.trim()) return;
+    setSavingFaq(true);
+    try {
+      const faq = await createFaq(workshop.workshopId, { question: faqQ.trim(), answer: faqA.trim() });
+      setFaqs((prev) => [...prev, faq]);
+      setFaqQ(''); setFaqA(''); setShowAddFaq(false);
+    } catch (err) {
+      await showError('No se pudo guardar la pregunta', err);
+    } finally {
+      setSavingFaq(false);
+    }
+  };
+
+  const onDeleteFaq = async (faqId: string) => {
+    if (!workshop) return;
+    try {
+      await deleteFaq(workshop.workshopId, faqId);
+      setFaqs((prev) => prev.filter((f) => f.faqId !== faqId));
+    } catch (err) {
+      await showError('No se pudo eliminar la pregunta', err);
+    }
+  };
+
+  const onSendInquiry = async () => {
+    if (!workshop || !inquiryText.trim()) return;
+    setSendingInquiry(true);
+    try {
+      await sendInquiry(workshop.workshopId, inquiryText.trim());
+      setInquirySent(true);
+      setInquiryText('');
+    } catch (err) {
+      await showError('No se pudo enviar la consulta', err);
+    } finally {
+      setSendingInquiry(false);
+    }
+  };
+
+  if (loading || !workshop) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <p className="text-sm text-[var(--app-muted)]">Cargando...</p>
+      </div>
+    );
+  }
+
+  const type = TYPE_META[workshop.workshopType] ?? TYPE_META.otro;
+  const status = STATUS_META[workshop.status] ?? STATUS_META.upcoming;
+  const isUpcoming = workshop.status === 'upcoming';
+  const isRegistered = workshop.myAttendanceStatus === 'registered' || workshop.myAttendanceStatus === 'attended';
+
+  // ── Action card ──────────────────────────────────────────────────────────────
+  const actionCard = (
+    <div className="space-y-3">
+      <div className="rounded-2xl border border-[var(--app-border)] bg-white p-5 shadow-sm">
+        {/* Dates */}
+        <div className="space-y-2.5">
+          <div className="flex items-start gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[var(--app-surface-muted)]">
+              <CalendarDays size={15} className="text-[var(--app-muted)]" />
+            </div>
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--app-muted)]">Fecha</p>
+              <p className="text-sm font-semibold text-[var(--app-ink)]">{formatDate(workshop.startsAt)}</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[var(--app-surface-muted)]">
+              <Clock size={15} className="text-[var(--app-muted)]" />
+            </div>
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--app-muted)]">Horario</p>
+              <p className="text-sm font-semibold text-[var(--app-ink)]">{formatTime(workshop.startsAt)} – {formatTime(workshop.endsAt)}</p>
+            </div>
+          </div>
+          {workshop.facilitatorName && (
+            <div className="flex items-start gap-3">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[var(--app-surface-muted)]">
+                <User size={15} className="text-[var(--app-muted)]" />
+              </div>
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--app-muted)]">Facilitador</p>
+                <p className="text-sm font-semibold text-[var(--app-ink)]">{workshop.facilitatorName}</p>
+              </div>
+            </div>
+          )}
+          <div className="flex items-start gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[var(--app-surface-muted)]">
+              <Users size={15} className="text-[var(--app-muted)]" />
+            </div>
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--app-muted)]">Inscritos</p>
+              <p className="text-sm font-semibold text-[var(--app-ink)]">{workshop.attendees}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 space-y-2.5 border-t border-[var(--app-border)] pt-4">
+          {isUpcoming && (
+            isRegistered ? (
+              <>
+                <div className="flex items-center gap-2 rounded-xl bg-[#e8fff3] px-4 py-2.5">
+                  <span className="text-sm font-bold text-[#2d8a5b]">✓ Inscrito</span>
+                </div>
+                {workshop.meetingUrl && (
+                  <a
+                    href={workshop.meetingUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--app-border)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--app-ink)] transition hover:bg-[var(--app-surface-muted)]"
+                  >
+                    <ExternalLink size={15} />
+                    Unirme a la sesión
+                  </a>
+                )}
+                <button
+                  onClick={() => void onCancel()}
+                  disabled={applying}
+                  className="w-full text-center text-xs text-[var(--app-muted)] underline hover:text-[var(--app-ink)] disabled:opacity-50"
+                >
+                  Cancelar inscripción
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => void onApply()}
+                disabled={applying}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#5b2d8a] px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:opacity-90 disabled:opacity-50"
+              >
+                {applying ? 'Inscribiendo...' : 'Inscribirme'}
+              </button>
+            )
+          )}
+
+          {!isUpcoming && (
+            <div
+              className="flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold"
+              style={{ backgroundColor: status.bg, color: status.text }}
+            >
+              {status.label}
+            </div>
+          )}
+
+          <button
+            onClick={() => { setShowInquiryModal(true); setInquirySent(false); }}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--app-border)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--app-ink)] transition hover:bg-[var(--app-surface-muted)]"
+          >
+            <MessageCircle size={15} />
+            Solicitar información
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-0">
+      {/* Back */}
+      <button
+        onClick={() => router.push('/dashboard/workshops')}
+        className="mb-4 flex items-center gap-1.5 text-sm text-[var(--app-muted)] transition hover:text-[var(--app-ink)]"
+      >
+        <ArrowLeft size={15} /> Workshops
+      </button>
+
+      {/* Hero */}
+      <div
+        className="rounded-2xl px-7 py-8"
+        style={{ background: `linear-gradient(135deg, ${type.bg} 0%, #ffffff 100%)` }}
+      >
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-full px-3 py-1 text-[11px] font-extrabold uppercase tracking-wide" style={{ backgroundColor: type.bg, color: type.text }}>{type.label}</span>
+          <span className="rounded-full px-3 py-1 text-[11px] font-extrabold uppercase tracking-wide" style={{ backgroundColor: status.bg, color: status.text }}>{status.label}</span>
+        </div>
+        <h1 className="mt-3 text-2xl font-black leading-tight text-[var(--app-ink)] sm:text-3xl">{workshop.title}</h1>
+        <p className="mt-2 text-sm text-[var(--app-muted)]">
+          {formatDate(workshop.startsAt)} · {formatTime(workshop.startsAt)}–{formatTime(workshop.endsAt)}
+          {workshop.facilitatorName && ` · ${workshop.facilitatorName}`}
+        </p>
+      </div>
+
+      {/* Mobile action card */}
+      <div className="mt-4 lg:hidden">{actionCard}</div>
+
+      {/* Tabs */}
+      <div className="mt-4 flex gap-1 rounded-2xl border border-[var(--app-border)] bg-white p-1.5">
+        {(['info', 'faq', 'foro'] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`flex-1 rounded-xl py-2 text-sm font-semibold capitalize transition ${
+              activeTab === tab
+                ? 'bg-[#5b2d8a] text-white shadow-sm'
+                : 'text-[var(--app-muted)] hover:bg-[var(--app-surface-muted)]'
+            }`}
+          >
+            {tab === 'info' ? 'Información' : tab === 'faq' ? 'Preguntas frecuentes' : 'Foro'}
+          </button>
+        ))}
+      </div>
+
+      {/* Desktop: 2 column layout */}
+      <div className="mt-4 lg:grid lg:grid-cols-[1fr_22rem] lg:gap-5">
+        {/* Left: tab content */}
+        <div>
+          {activeTab === 'info' && (
+            <div className="rounded-2xl border border-[var(--app-border)] bg-white p-6">
+              <h2 className="text-base font-extrabold text-[var(--app-ink)]">Acerca del workshop</h2>
+              {workshop.description ? (
+                <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-[var(--app-muted)]">{workshop.description}</p>
+              ) : (
+                <p className="mt-3 text-sm italic text-[var(--app-muted)]">Sin descripción disponible.</p>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'faq' && (
+            <div className="rounded-2xl border border-[var(--app-border)] bg-white">
+              <div className="flex items-center justify-between border-b border-[var(--app-border)] px-5 py-4">
+                <h2 className="text-base font-extrabold text-[var(--app-ink)]">Preguntas frecuentes</h2>
+                {canManage && (
+                  <button
+                    onClick={() => setShowAddFaq((v) => !v)}
+                    className="flex items-center gap-1.5 rounded-full bg-[#5b2d8a] px-3 py-1.5 text-xs font-bold text-white hover:opacity-90 transition"
+                  >
+                    <Plus size={12} /> Agregar
+                  </button>
+                )}
+              </div>
+
+              {showAddFaq && canManage && (
+                <div className="border-b border-[var(--app-border)] bg-[var(--app-surface-muted)] px-5 py-4 space-y-2.5">
+                  <input
+                    value={faqQ}
+                    onChange={(e) => setFaqQ(e.target.value)}
+                    placeholder="Pregunta"
+                    className="w-full rounded-xl border border-[var(--app-border)] bg-white px-3 py-2 text-sm outline-none focus:border-[#5b2d8a]"
+                  />
+                  <textarea
+                    value={faqA}
+                    onChange={(e) => setFaqA(e.target.value)}
+                    placeholder="Respuesta"
+                    rows={3}
+                    className="w-full resize-none rounded-xl border border-[var(--app-border)] bg-white px-3 py-2 text-sm outline-none focus:border-[#5b2d8a]"
+                  />
+                  <div className="flex gap-2">
+                    <button onClick={() => void onSaveFaq()} disabled={savingFaq || !faqQ.trim() || !faqA.trim()} className="rounded-full bg-[#5b2d8a] px-4 py-1.5 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50 transition">
+                      {savingFaq ? 'Guardando...' : 'Guardar'}
+                    </button>
+                    <button onClick={() => { setShowAddFaq(false); setFaqQ(''); setFaqA(''); }} className="rounded-full border border-[var(--app-border)] px-4 py-1.5 text-xs font-semibold text-[var(--app-muted)] hover:bg-white transition">
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {faqs.length === 0 ? (
+                <p className="px-5 py-8 text-center text-sm text-[var(--app-muted)]">No hay preguntas frecuentes aún.</p>
+              ) : (
+                faqs.map((faq) => (
+                  <FaqItem key={faq.faqId} faq={faq} canDelete={isAdmin} onDelete={() => void onDeleteFaq(faq.faqId)} />
+                ))
+              )}
+            </div>
+          )}
+
+          {activeTab === 'foro' && (
+            <div className="rounded-2xl border border-[var(--app-border)] bg-white">
+              <div className="border-b border-[var(--app-border)] px-5 py-4">
+                <h2 className="text-base font-extrabold text-[var(--app-ink)]">Foro</h2>
+                <p className="mt-0.5 text-xs text-[var(--app-muted)]">Preguntas y comentarios de la comunidad.</p>
+              </div>
+
+              <div className="divide-y divide-[var(--app-border)]">
+                {posts.length === 0 ? (
+                  <p className="px-5 py-8 text-center text-sm text-[var(--app-muted)]">Sé el primero en participar.</p>
+                ) : (
+                  posts.map((post) => {
+                    const isMine = post.authorUserId === sessionUser?.id;
+                    const canDel = isMine || isAdmin;
+                    return (
+                      <div key={post.postId} className="group flex gap-3 px-5 py-4">
+                        <Avatar name={post.authorName} url={post.authorAvatarUrl} size="sm" />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-baseline gap-2">
+                            <span className="text-sm font-semibold text-[var(--app-ink)]">{post.authorName}</span>
+                            <span className="text-[11px] text-[var(--app-muted)]">{formatMsgTime(post.createdAt)}</span>
+                            {canDel && (
+                              <button
+                                onClick={() => void onDeletePost(post.postId)}
+                                className="ml-auto hidden rounded-full p-1 text-[var(--app-muted)] hover:text-rose-500 transition group-hover:block"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            )}
+                          </div>
+                          <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-[var(--app-muted)]">{post.body}</p>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Post input */}
+              <div className="border-t border-[var(--app-border)] px-4 py-3">
+                <div className="flex items-end gap-2">
+                  <textarea
+                    value={postText}
+                    onChange={(e) => setPostText(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void onSendPost(); } }}
+                    placeholder="Escribe un mensaje al foro..."
+                    rows={2}
+                    className="flex-1 resize-none rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-2.5 text-sm text-[var(--app-ink)] outline-none transition focus:border-[#5b2d8a] focus:bg-white placeholder:text-[var(--app-muted)]"
+                  />
+                  <button
+                    onClick={() => void onSendPost()}
+                    disabled={!postText.trim() || sendingPost}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#5b2d8a] text-white shadow-sm transition hover:opacity-90 disabled:opacity-40"
+                  >
+                    <Send size={16} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Desktop action card */}
+        <div className="hidden lg:block">
+          <div className="sticky top-6">{actionCard}</div>
+        </div>
+      </div>
+
+      {/* Inquiry Modal */}
+      {showInquiryModal && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center" onClick={() => setShowInquiryModal(false)}>
+          <div
+            className="w-full max-w-md rounded-t-3xl bg-white p-6 shadow-2xl sm:rounded-3xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-extrabold text-[var(--app-ink)]">Solicitar información</h3>
+              <button onClick={() => setShowInquiryModal(false)} className="rounded-full p-1.5 text-[var(--app-muted)] hover:bg-[var(--app-surface-muted)] transition">
+                <X size={16} />
+              </button>
+            </div>
+            <p className="mt-1 text-xs text-[var(--app-muted)]">Tu pregunta llegará directamente al facilitador o gestor del workshop.</p>
+
+            {inquirySent ? (
+              <div className="mt-5 rounded-2xl bg-[#e8fff3] px-5 py-4 text-center">
+                <p className="text-sm font-bold text-[#2d8a5b]">¡Mensaje enviado!</p>
+                <p className="mt-1 text-xs text-[#2d8a5b]">Revisa Mensajes para ver la respuesta.</p>
+                <button
+                  onClick={() => router.push('/dashboard/mensajes')}
+                  className="mt-3 rounded-full bg-[#2d8a5b] px-4 py-2 text-xs font-bold text-white hover:opacity-90 transition"
+                >
+                  Ver en Mensajes →
+                </button>
+              </div>
+            ) : (
+              <>
+                <textarea
+                  autoFocus
+                  value={inquiryText}
+                  onChange={(e) => setInquiryText(e.target.value)}
+                  placeholder="Escribe tu pregunta aquí..."
+                  rows={4}
+                  className="mt-4 w-full resize-none rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-3 text-sm outline-none transition focus:border-[#5b2d8a] focus:bg-white placeholder:text-[var(--app-muted)]"
+                />
+                <div className="mt-3 flex gap-2">
+                  <button
+                    onClick={() => void onSendInquiry()}
+                    disabled={!inquiryText.trim() || sendingInquiry}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-full bg-[#5b2d8a] py-2.5 text-sm font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50 transition"
+                  >
+                    <Send size={14} />
+                    {sendingInquiry ? 'Enviando...' : 'Enviar pregunta'}
+                  </button>
+                  <button
+                    onClick={() => setShowInquiryModal(false)}
+                    className="rounded-full border border-[var(--app-border)] px-4 py-2.5 text-sm font-semibold text-[var(--app-muted)] hover:bg-[var(--app-surface-muted)] transition"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

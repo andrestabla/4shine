@@ -2,8 +2,26 @@ import { NextResponse } from 'next/server';
 import { authenticateRequest } from '@/server/auth/request-auth';
 import { withClient, withRoleContext } from '@/server/db/pool';
 import type { UpdateWorkshopInput } from '@/features/workshops/service';
-import { deleteWorkshop, updateWorkshop } from '@/features/workshops/service';
+import { deleteWorkshop, getWorkshop, updateWorkshop } from '@/features/workshops/service';
 import { errorResponse, logModuleAudit, parseJsonBody, unauthorizedResponse } from '../../_utils';
+
+export async function GET(request: Request, context: ContextParams) {
+  const identity = await authenticateRequest(request);
+  if (!identity) return unauthorizedResponse();
+
+  const { workshopId } = await context.params;
+
+  try {
+    const data = await withClient((client) =>
+      withRoleContext(client, identity.userId, identity.role, () =>
+        getWorkshop(client, identity, workshopId),
+      ),
+    );
+    return NextResponse.json({ ok: true, data }, { status: 200 });
+  } catch (error) {
+    return errorResponse(error, 'Failed to get workshop');
+  }
+}
 
 interface ContextParams {
   params: Promise<{ workshopId: string }>;

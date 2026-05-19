@@ -1,10 +1,18 @@
 'use client';
 
 import React from 'react';
-import { CalendarRange, Lock } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import {
+  CalendarDays,
+  CalendarRange,
+  Clock,
+  Lock,
+  Plus,
+  User,
+  Users,
+  X,
+} from 'lucide-react';
 import { AccessOfferPanel } from '@/components/access/AccessOfferPanel';
-import { PageTitle } from '@/components/dashboard/PageTitle';
-import { EmptyState } from '@/components/dashboard/EmptyState';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useUser } from '@/context/UserContext';
 import { filterCommercialProducts } from '@/features/access/catalog';
@@ -13,12 +21,37 @@ import {
   deleteWorkshop,
   listWorkshops,
   updateWorkshop,
+  type CreateWorkshopInput,
   type WorkshopRecord,
   type WorkshopStatus,
   type WorkshopType,
 } from '@/features/workshops/client';
 
-interface CreateFormState {
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
+const TYPE_META: Record<string, { label: string; bg: string; text: string }> = {
+  relacionamiento: { label: 'Relacionamiento', bg: '#e8f4ff', text: '#3f6fa8' },
+  formacion:       { label: 'Formación',       bg: '#f3e8ff', text: '#5b2d8a' },
+  innovacion:      { label: 'Innovación',      bg: '#fff3e8', text: '#a85d2d' },
+  wellbeing:       { label: 'Wellbeing',       bg: '#e8fff3', text: '#2d8a5b' },
+  otro:            { label: 'Otro',            bg: '#f5f5f5', text: '#6b7280' },
+};
+
+const STATUS_META: Record<string, { label: string; bg: string; text: string }> = {
+  upcoming:  { label: 'Próximo',    bg: '#f3e8ff', text: '#5b2d8a' },
+  completed: { label: 'Completado', bg: '#e8fff3', text: '#2d8a5b' },
+  cancelled: { label: 'Cancelado',  bg: '#fff1f1', text: '#dc2626' },
+};
+
+function formatDate(v: string) {
+  return new Date(v).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+function formatTime(v: string) {
+  return new Date(v).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+}
+function toIso(v: string) { return new Date(v).toISOString(); }
+
+interface FormState {
   title: string;
   workshopType: WorkshopType;
   startsAt: string;
@@ -28,44 +61,132 @@ interface CreateFormState {
   description: string;
 }
 
-function toDateTime(value: string): string {
-  return new Date(value).toLocaleString('es-CO', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
+const BLANK_FORM: FormState = {
+  title: '', workshopType: 'formacion', startsAt: '', endsAt: '',
+  facilitatorName: '', meetingUrl: '', description: '',
+};
+
+// ── Workshop card ──────────────────────────────────────────────────────────────
+
+function WorkshopCard({
+  workshop,
+  canUpdate,
+  canDelete,
+  onClick,
+  onStatusChange,
+  onDelete,
+}: {
+  workshop: WorkshopRecord;
+  canUpdate: boolean;
+  canDelete: boolean;
+  onClick: () => void;
+  onStatusChange: (s: WorkshopStatus) => void;
+  onDelete: () => void;
+}) {
+  const type = TYPE_META[workshop.workshopType] ?? TYPE_META.otro;
+  const status = STATUS_META[workshop.status] ?? STATUS_META.upcoming;
+  const isRegistered = workshop.myAttendanceStatus === 'registered' || workshop.myAttendanceStatus === 'attended';
+
+  return (
+    <article
+      className="group relative flex cursor-pointer flex-col rounded-2xl border border-[var(--app-border)] bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+      onClick={onClick}
+    >
+      {/* Color accent top bar */}
+      <div className="h-1.5 rounded-t-2xl" style={{ backgroundColor: type.text }} />
+
+      <div className="flex flex-1 flex-col p-5">
+        {/* Badges */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="rounded-full px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide" style={{ backgroundColor: type.bg, color: type.text }}>{type.label}</span>
+          <span className="rounded-full px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide" style={{ backgroundColor: status.bg, color: status.text }}>{status.label}</span>
+          {isRegistered && (
+            <span className="rounded-full bg-[#e8fff3] px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-[#2d8a5b]">Inscrito</span>
+          )}
+        </div>
+
+        {/* Title */}
+        <h3 className="mt-2.5 text-base font-extrabold leading-snug text-[var(--app-ink)]">{workshop.title}</h3>
+
+        {/* Meta */}
+        <div className="mt-2 space-y-1">
+          <div className="flex items-center gap-1.5 text-xs text-[var(--app-muted)]">
+            <CalendarDays size={12} className="shrink-0" />
+            <span>{formatDate(workshop.startsAt)}</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-xs text-[var(--app-muted)]">
+            <Clock size={12} className="shrink-0" />
+            <span>{formatTime(workshop.startsAt)} – {formatTime(workshop.endsAt)}</span>
+          </div>
+          {workshop.facilitatorName && (
+            <div className="flex items-center gap-1.5 text-xs text-[var(--app-muted)]">
+              <User size={12} className="shrink-0" />
+              <span>{workshop.facilitatorName}</span>
+            </div>
+          )}
+          <div className="flex items-center gap-1.5 text-xs text-[var(--app-muted)]">
+            <Users size={12} className="shrink-0" />
+            <span>{workshop.attendees} inscritos</span>
+          </div>
+        </div>
+
+        {/* Description preview */}
+        {workshop.description && (
+          <p className="mt-3 line-clamp-2 text-xs leading-relaxed text-[var(--app-muted)]">{workshop.description}</p>
+        )}
+
+        {/* Admin actions — stop propagation */}
+        {(canUpdate || canDelete) && (
+          <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-[var(--app-border)] pt-3" onClick={(e) => e.stopPropagation()}>
+            {canUpdate && (
+              <select
+                value={workshop.status}
+                onChange={(e) => onStatusChange(e.target.value as WorkshopStatus)}
+                className="rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-2.5 py-1.5 text-xs font-semibold text-[var(--app-ink)] outline-none"
+              >
+                <option value="upcoming">Próximo</option>
+                <option value="completed">Completado</option>
+                <option value="cancelled">Cancelado</option>
+              </select>
+            )}
+            {canDelete && (
+              <button
+                onClick={onDelete}
+                className="rounded-xl border border-red-200 px-2.5 py-1.5 text-xs font-semibold text-red-500 transition hover:bg-red-50"
+              >
+                Eliminar
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </article>
+  );
 }
 
-function toIso(value: string): string {
-  return new Date(value).toISOString();
-}
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function WorkshopsPage() {
+  const router = useRouter();
   const { can, currentRole, refreshBootstrap, viewerAccess } = useUser();
-  const { alert, confirm, prompt } = useAppDialog();
+  const { alert, confirm } = useAppDialog();
+
   const [workshops, setWorkshops] = React.useState<WorkshopRecord[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const [form, setForm] = React.useState<CreateFormState>({
-    title: '',
-    workshopType: 'formacion',
-    startsAt: '',
-    endsAt: '',
-    facilitatorName: '',
-    meetingUrl: '',
-    description: '',
-  });
-  const isCommunityLocked =
-    currentRole === 'lider' && viewerAccess?.viewerTier === 'open_leader';
-  const programOffers = filterCommercialProducts(viewerAccess?.catalog, {
-    codes: ['program_4shine'],
-  });
+  const [showModal, setShowModal] = React.useState(false);
+  const [saving, setSaving] = React.useState(false);
+  const [form, setForm] = React.useState<FormState>(BLANK_FORM);
+
+  // Filters
+  const [statusFilter, setStatusFilter] = React.useState<WorkshopStatus | 'all'>('all');
+  const [typeFilter, setTypeFilter] = React.useState<WorkshopType | 'all'>('all');
+
+  const isCommunityLocked = currentRole === 'lider' && viewerAccess?.viewerTier === 'open_leader';
+  const programOffers = filterCommercialProducts(viewerAccess?.catalog, { codes: ['program_4shine'] });
 
   const showError = React.useCallback(
-    async (fallbackMessage: string, cause: unknown) => {
-      await alert({
-        title: 'Error',
-        message: cause instanceof Error ? cause.message : fallbackMessage,
-        tone: 'error',
-      });
+    async (msg: string, err: unknown) => {
+      await alert({ title: 'Error', message: err instanceof Error ? err.message : msg, tone: 'error' });
     },
     [alert],
   );
@@ -73,29 +194,25 @@ export default function WorkshopsPage() {
   const load = React.useCallback(async () => {
     setLoading(true);
     try {
-      const data = await listWorkshops();
-      setWorkshops(data);
-    } catch (loadError) {
-      await showError('No se pudieron cargar los workshops', loadError);
+      setWorkshops(await listWorkshops());
+    } catch (err) {
+      await showError('No se pudieron cargar los workshops', err);
     } finally {
       setLoading(false);
     }
   }, [showError]);
 
   React.useEffect(() => {
-    if (isCommunityLocked) {
-      setLoading(false);
-      return;
-    }
+    if (isCommunityLocked) { setLoading(false); return; }
     void load();
   }, [isCommunityLocked, load]);
 
-  const onCreate = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const onCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!form.title.trim() || !form.startsAt || !form.endsAt) return;
-
+    setSaving(true);
     try {
-      await createWorkshop({
+      const input: CreateWorkshopInput = {
         title: form.title.trim(),
         workshopType: form.workshopType,
         startsAt: toIso(form.startsAt),
@@ -103,79 +220,60 @@ export default function WorkshopsPage() {
         facilitatorName: form.facilitatorName.trim() || null,
         meetingUrl: form.meetingUrl.trim() || null,
         description: form.description.trim() || null,
-      });
-      setForm({
-        title: '',
-        workshopType: 'formacion',
-        startsAt: '',
-        endsAt: '',
-        facilitatorName: '',
-        meetingUrl: '',
-        description: '',
-      });
+      };
+      await createWorkshop(input);
+      setForm(BLANK_FORM);
+      setShowModal(false);
       await Promise.all([load(), refreshBootstrap()]);
-    } catch (createError) {
-      await showError('No se pudo crear el workshop', createError);
+    } catch (err) {
+      await showError('No se pudo crear el workshop', err);
+    } finally {
+      setSaving(false);
     }
   };
 
   const onStatusChange = async (workshop: WorkshopRecord, status: WorkshopStatus) => {
     try {
       await updateWorkshop(workshop.workshopId, { status });
-      await Promise.all([load(), refreshBootstrap()]);
-    } catch (updateError) {
-      await showError('No se pudo actualizar el workshop', updateError);
+      await load();
+    } catch (err) {
+      await showError('No se pudo actualizar el workshop', err);
     }
   };
 
   const onDelete = async (workshop: WorkshopRecord) => {
-    const isConfirmed = await confirm({
+    const ok = await confirm({
       title: 'Eliminar workshop',
-      message: `¿Deseas eliminar el workshop "${workshop.title}"?`,
+      message: `¿Deseas eliminar "${workshop.title}"?`,
       confirmText: 'Eliminar',
       cancelText: 'Cancelar',
       tone: 'warning',
     });
-    if (!isConfirmed) return;
-
+    if (!ok) return;
     try {
       await deleteWorkshop(workshop.workshopId);
       await Promise.all([load(), refreshBootstrap()]);
-    } catch (deleteError) {
-      await showError('No se pudo eliminar el workshop', deleteError);
+    } catch (err) {
+      await showError('No se pudo eliminar el workshop', err);
     }
   };
 
-  const onRename = async (workshop: WorkshopRecord) => {
-    const title = await prompt({
-      title: 'Renombrar workshop',
-      message: 'Ingresa el nuevo título.',
-      label: 'Título',
-      defaultValue: workshop.title,
-      placeholder: 'Título del workshop',
-      confirmText: 'Guardar',
-      cancelText: 'Cancelar',
-    });
+  // ── Filtered list ──────────────────────────────────────────────────────────
+  const filtered = workshops.filter((w) => {
+    if (statusFilter !== 'all' && w.status !== statusFilter) return false;
+    if (typeFilter !== 'all' && w.workshopType !== typeFilter) return false;
+    return true;
+  });
 
-    if (!title || !title.trim() || title.trim() === workshop.title) return;
+  const availableTypes = Array.from(new Set(workshops.map((w) => w.workshopType)));
 
-    try {
-      await updateWorkshop(workshop.workshopId, { title: title.trim() });
-      await Promise.all([load(), refreshBootstrap()]);
-    } catch (updateError) {
-      await showError('No se pudo actualizar el workshop', updateError);
-    }
-  };
-
+  // ── Locked state ──────────────────────────────────────────────────────────
   if (isCommunityLocked) {
     return (
       <div className="space-y-4">
         <section className="rounded-[1.5rem] border border-[var(--app-border)] bg-white px-7 py-10 text-center sm:py-12">
-          <div
-            className="mx-auto flex h-14 w-14 items-center justify-center rounded-[1.1rem]"
-            style={{ background: "linear-gradient(135deg, #edf7f0 0%, #d6f0dc 100%)" }}
-          >
-            <CalendarRange size={22} style={{ color: "#2a7a4b" }} />
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[1.1rem]" style={{ background: 'linear-gradient(135deg, #edf7f0 0%, #d6f0dc 100%)' }}>
+            <CalendarRange size={22} style={{ color: '#2a7a4b' }} />
           </div>
           <h1 className="mt-5 text-[1.6rem] font-black leading-tight text-[var(--app-ink)] sm:text-[1.9rem]">
             Los workshops del programa<br />te esperan aquí.
@@ -183,24 +281,18 @@ export default function WorkshopsPage() {
           <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-[var(--app-muted)]">
             Experiencias grupales de relacionamiento, formación y bienestar integradas a tu trayectoria.
           </p>
-          <a
-            href="https://www.4shine.co/planes-precios"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#5b2d8a] px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:-translate-y-0.5 hover:opacity-90"
-          >
+          <a href="https://www.4shine.co/planes-precios" target="_blank" rel="noopener noreferrer" className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#5b2d8a] px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:-translate-y-0.5 hover:opacity-90">
             Activar programa · $3,000 USD
           </a>
         </section>
-
         <section className="rounded-[1.5rem] border border-[var(--app-border)] bg-white p-5 sm:p-6">
           <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[var(--app-muted)]">Tipos de workshop</p>
           <h2 className="mt-1 text-base font-extrabold text-[var(--app-ink)]">Formación grupal integrada al journey.</h2>
           <div className="mt-4 space-y-2 opacity-60">
             {[
-              { label: "Relacionamiento", desc: "Dinámicas para construir y fortalecer tu red." },
-              { label: "Formación", desc: "Sesiones de aprendizaje grupal en vivo." },
-              { label: "Wellbeing e innovación", desc: "Espacios de bienestar y pensamiento creativo." },
+              { label: 'Relacionamiento', desc: 'Dinámicas para construir y fortalecer tu red.' },
+              { label: 'Formación', desc: 'Sesiones de aprendizaje grupal en vivo.' },
+              { label: 'Wellbeing e innovación', desc: 'Espacios de bienestar y pensamiento creativo.' },
             ].map((f) => (
               <div key={f.label} className="flex items-center gap-3.5 rounded-[1rem] bg-[var(--app-surface-muted)] px-4 py-3">
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[0.7rem] bg-white">
@@ -214,11 +306,10 @@ export default function WorkshopsPage() {
             ))}
           </div>
         </section>
-
         <AccessOfferPanel
           badge="Acceso bloqueado"
           title="Activa Workshops con el plan 4Shine."
-          description="Los workshops complementan la trayectoria del líder con experiencias grupales, relacionamiento y formación. Este acceso requiere el programa 4Shine."
+          description="Los workshops complementan la trayectoria del líder con experiencias grupales, relacionamiento y formación."
           products={programOffers}
           primaryAction={{ href: '/dashboard', label: 'Ver plan 4Shine' }}
           note="Cuando el programa está activo, Workshops se integra con tu agenda y con el resto de módulos del journey."
@@ -229,118 +320,159 @@ export default function WorkshopsPage() {
 
   return (
     <div className="space-y-4">
-      <PageTitle title="Workshops" subtitle="Talleres programados y participación con CRUD real." />
-
-      {can('workshops', 'create') && (
-        <form className="app-panel grid grid-cols-1 gap-2 p-4 md:grid-cols-6" onSubmit={onCreate}>
-          <input
-            className="app-input md:col-span-2"
-            placeholder="Título"
-            value={form.title}
-            onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
-            required
-          />
-          <select
-            className="app-select"
-            value={form.workshopType}
-            onChange={(event) => setForm((prev) => ({ ...prev, workshopType: event.target.value as WorkshopType }))}
+      {/* Header */}
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-black text-[var(--app-ink)]">Workshops</h1>
+          <p className="mt-0.5 text-sm text-[var(--app-muted)]">Eventos y talleres del programa.</p>
+        </div>
+        {can('workshops', 'create') && (
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-2 rounded-full bg-[#5b2d8a] px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:opacity-90"
           >
-            <option value="relacionamiento">relacionamiento</option>
-            <option value="formacion">formacion</option>
-            <option value="innovacion">innovacion</option>
-            <option value="wellbeing">wellbeing</option>
-            <option value="otro">otro</option>
-          </select>
-          <input
-            className="app-input"
-            type="datetime-local"
-            value={form.startsAt}
-            onChange={(event) => setForm((prev) => ({ ...prev, startsAt: event.target.value }))}
-            required
-          />
-          <input
-            className="app-input"
-            type="datetime-local"
-            value={form.endsAt}
-            onChange={(event) => setForm((prev) => ({ ...prev, endsAt: event.target.value }))}
-            required
-          />
-          <button className="app-button-primary" type="submit">
-            Crear
+            <Plus size={15} /> Nuevo workshop
           </button>
-          <input
-            className="app-input md:col-span-2"
-            placeholder="Facilitador (opcional)"
-            value={form.facilitatorName}
-            onChange={(event) => setForm((prev) => ({ ...prev, facilitatorName: event.target.value }))}
-          />
-          <input
-            className="app-input md:col-span-2"
-            placeholder="Link de sesión (opcional)"
-            value={form.meetingUrl}
-            onChange={(event) => setForm((prev) => ({ ...prev, meetingUrl: event.target.value }))}
-          />
-          <input
-            className="app-input md:col-span-2"
-            placeholder="Descripción (opcional)"
-            value={form.description}
-            onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
-          />
-        </form>
+        )}
+      </div>
+
+      {/* Status tabs */}
+      <div className="flex gap-1 rounded-2xl border border-[var(--app-border)] bg-white p-1.5">
+        {(['all', 'upcoming', 'completed', 'cancelled'] as const).map((s) => (
+          <button
+            key={s}
+            onClick={() => setStatusFilter(s)}
+            className={`flex-1 rounded-xl py-2 text-xs font-semibold transition ${
+              statusFilter === s
+                ? 'bg-[#5b2d8a] text-white shadow-sm'
+                : 'text-[var(--app-muted)] hover:bg-[var(--app-surface-muted)]'
+            }`}
+          >
+            {s === 'all' ? 'Todos' : s === 'upcoming' ? 'Próximos' : s === 'completed' ? 'Completados' : 'Cancelados'}
+          </button>
+        ))}
+      </div>
+
+      {/* Type chips */}
+      {availableTypes.length > 1 && (
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setTypeFilter('all')}
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+              typeFilter === 'all'
+                ? 'bg-[var(--app-ink)] text-white'
+                : 'border border-[var(--app-border)] bg-white text-[var(--app-muted)] hover:bg-[var(--app-surface-muted)]'
+            }`}
+          >
+            Todos los tipos
+          </button>
+          {availableTypes.map((t) => {
+            const meta = TYPE_META[t];
+            return (
+              <button
+                key={t}
+                onClick={() => setTypeFilter(typeFilter === t ? 'all' : t)}
+                className="rounded-full px-3 py-1.5 text-xs font-semibold transition"
+                style={
+                  typeFilter === t
+                    ? { backgroundColor: meta?.text, color: '#fff' }
+                    : { backgroundColor: meta?.bg, color: meta?.text }
+                }
+              >
+                {meta?.label ?? t}
+              </button>
+            );
+          })}
+        </div>
       )}
+
+      {/* Grid */}
       {loading ? (
-        <div className="app-panel px-4 py-5 text-sm text-[var(--app-muted)]">Cargando...</div>
-      ) : workshops.length === 0 ? (
-        <EmptyState message="No hay workshops registrados." />
-      ) : (
-        <div className="space-y-4">
-          {workshops.map((workshop) => (
-            <article key={workshop.workshopId} className="app-panel p-5">
-              <div className="flex items-center justify-between gap-3">
-                <h3 className="font-semibold text-[var(--app-ink)]">{workshop.title}</h3>
-                {can('workshops', 'update') ? (
-                  <select
-                    className="app-select min-h-0 px-3 py-2 text-xs"
-                    value={workshop.status}
-                    onChange={(event) => onStatusChange(workshop, event.target.value as WorkshopStatus)}
-                  >
-                    <option value="upcoming">upcoming</option>
-                    <option value="completed">completed</option>
-                    <option value="cancelled">cancelled</option>
-                  </select>
-                ) : (
-                  <span className="app-badge app-badge-muted">{workshop.status}</span>
-                )}
-              </div>
-              <p className="mt-1 text-sm text-[var(--app-muted)]">
-                {workshop.workshopType} · {toDateTime(workshop.startsAt)}
-              </p>
-              <p className="mt-3 text-sm text-[var(--app-ink)]/84">{workshop.description ?? 'Sin descripción'}</p>
-              <p className="mt-3 text-xs text-[var(--app-muted)]">
-                Facilitador: {workshop.facilitatorName ?? '4Shine Team'} · Asistentes: {workshop.attendees}
-              </p>
-              <div className="mt-4 flex items-center gap-2">
-                {can('workshops', 'update') && (
-                  <button
-                    className="app-button-secondary min-h-0 px-3 py-2 text-xs"
-                    type="button"
-                    onClick={() => void onRename(workshop)}
-                  >
-                    Renombrar
-                  </button>
-                )}
-                {can('workshops', 'delete') && (
-                  <button
-                    className="rounded-full border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50"
-                    type="button"
-                    onClick={() => void onDelete(workshop)}
-                  >
-                    Eliminar
-                  </button>
-                )}
-              </div>
-            </article>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-48 animate-pulse rounded-2xl bg-[var(--app-surface-muted)]" />
           ))}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="flex flex-col items-center gap-3 rounded-2xl border border-[var(--app-border)] bg-white px-6 py-16 text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#f3e8ff]">
+            <CalendarRange size={22} style={{ color: '#5b2d8a' }} />
+          </div>
+          <p className="text-sm text-[var(--app-muted)]">
+            {statusFilter !== 'all' || typeFilter !== 'all'
+              ? 'No hay workshops con esos filtros.'
+              : 'No hay workshops registrados aún.'}
+          </p>
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {filtered.map((ws) => (
+            <WorkshopCard
+              key={ws.workshopId}
+              workshop={ws}
+              canUpdate={can('workshops', 'update')}
+              canDelete={can('workshops', 'delete')}
+              onClick={() => router.push(`/dashboard/workshops/${ws.workshopId}`)}
+              onStatusChange={(s) => void onStatusChange(ws, s)}
+              onDelete={() => void onDelete(ws)}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Create Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center" onClick={() => setShowModal(false)}>
+          <div className="w-full max-w-lg rounded-t-3xl bg-white p-6 shadow-2xl sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-extrabold text-[var(--app-ink)]">Nuevo workshop</h3>
+              <button onClick={() => setShowModal(false)} className="rounded-full p-1.5 text-[var(--app-muted)] hover:bg-[var(--app-surface-muted)] transition">
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={(e) => void onCreate(e)} className="mt-4 space-y-3">
+              <input
+                required
+                placeholder="Título del workshop *"
+                value={form.title}
+                onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
+                className="w-full rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-2.5 text-sm outline-none focus:border-[#5b2d8a] focus:bg-white transition"
+              />
+              <select
+                value={form.workshopType}
+                onChange={(e) => setForm((p) => ({ ...p, workshopType: e.target.value as WorkshopType }))}
+                className="w-full rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-2.5 text-sm outline-none focus:border-[#5b2d8a] focus:bg-white transition"
+              >
+                <option value="relacionamiento">Relacionamiento</option>
+                <option value="formacion">Formación</option>
+                <option value="innovacion">Innovación</option>
+                <option value="wellbeing">Wellbeing</option>
+                <option value="otro">Otro</option>
+              </select>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-[11px] font-semibold text-[var(--app-muted)]">Inicio *</label>
+                  <input required type="datetime-local" value={form.startsAt} onChange={(e) => setForm((p) => ({ ...p, startsAt: e.target.value }))} className="w-full rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-2.5 text-sm outline-none focus:border-[#5b2d8a] focus:bg-white transition" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] font-semibold text-[var(--app-muted)]">Fin *</label>
+                  <input required type="datetime-local" value={form.endsAt} onChange={(e) => setForm((p) => ({ ...p, endsAt: e.target.value }))} className="w-full rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-2.5 text-sm outline-none focus:border-[#5b2d8a] focus:bg-white transition" />
+                </div>
+              </div>
+              <input placeholder="Facilitador (opcional)" value={form.facilitatorName} onChange={(e) => setForm((p) => ({ ...p, facilitatorName: e.target.value }))} className="w-full rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-2.5 text-sm outline-none focus:border-[#5b2d8a] focus:bg-white transition" />
+              <input placeholder="Link de sesión (opcional)" value={form.meetingUrl} onChange={(e) => setForm((p) => ({ ...p, meetingUrl: e.target.value }))} className="w-full rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-2.5 text-sm outline-none focus:border-[#5b2d8a] focus:bg-white transition" />
+              <textarea placeholder="Descripción (opcional)" rows={3} value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} className="w-full resize-none rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-2.5 text-sm outline-none focus:border-[#5b2d8a] focus:bg-white transition" />
+              <div className="flex gap-2 pt-1">
+                <button type="submit" disabled={saving || !form.title.trim() || !form.startsAt || !form.endsAt} className="flex flex-1 items-center justify-center gap-2 rounded-full bg-[#5b2d8a] py-2.5 text-sm font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50 transition">
+                  {saving ? 'Creando...' : 'Crear workshop'}
+                </button>
+                <button type="button" onClick={() => setShowModal(false)} className="rounded-full border border-[var(--app-border)] px-4 py-2.5 text-sm font-semibold text-[var(--app-muted)] hover:bg-[var(--app-surface-muted)] transition">
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>
