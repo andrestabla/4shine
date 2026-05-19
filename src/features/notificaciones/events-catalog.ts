@@ -141,6 +141,18 @@ export const VARIABLE_DEFS: Record<VariableKey, VariableDef> = {
     description: 'URL directa para acceder al diagnóstico',
     example: 'https://app.4shine.co/descubrimiento?inv=...',
   },
+  tipo_convocatoria: {
+    key: 'tipo_convocatoria',
+    label: 'Tipo de convocatoria',
+    description: 'Tipo de convocatoria (laboral, proyecto social, etc.)',
+    example: 'Laboral',
+  },
+  objetivo: {
+    key: 'objetivo',
+    label: 'Objetivo',
+    description: 'Objetivo de la convocatoria o solicitud',
+    example: 'Vincular líderes con empresas del ecosistema',
+  },
 };
 
 // ─── Event Catalog ────────────────────────────────────────────────────────────
@@ -278,6 +290,33 @@ export const NOTIFICATION_EVENTS: NotificationEventDef[] = [
     description: 'Se envía al líder cuando su postulación es rechazada.',
     variables: ['nombre', 'titulo', 'motivo', 'plataforma'],
     defaultInAppType: 'alert',
+  },
+  {
+    key: 'convocatorias.request_submitted',
+    moduleCode: 'convocatorias',
+    moduleLabel: 'Convocatorias',
+    label: 'Solicitud enviada (confirmación al líder)',
+    description: 'Confirmación al líder cuando envía una solicitud de publicación.',
+    variables: ['nombre', 'titulo', 'plataforma', 'enlace_plataforma'],
+    defaultInAppType: 'success',
+  },
+  {
+    key: 'convocatorias.request_received',
+    moduleCode: 'convocatorias',
+    moduleLabel: 'Convocatorias',
+    label: 'Nueva solicitud de convocatoria (para gestores y admin)',
+    description: 'Se envía a gestores y administradores cuando un líder solicita publicar una convocatoria.',
+    variables: ['nombre', 'lider_nombre', 'titulo', 'descripcion', 'tipo_convocatoria', 'objetivo', 'enlace_plataforma', 'plataforma'],
+    defaultInAppType: 'info',
+  },
+  {
+    key: 'convocatorias.applied',
+    moduleCode: 'convocatorias',
+    moduleLabel: 'Convocatorias',
+    label: 'Postulación recibida (para el líder)',
+    description: 'Confirmación al líder cuando aplica a una convocatoria.',
+    variables: ['nombre', 'titulo', 'fecha_cierre', 'enlace_plataforma', 'plataforma'],
+    defaultInAppType: 'success',
   },
 
   // ── NETWORKING ────────────────────────────────────────────────────────────

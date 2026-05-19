@@ -24,9 +24,11 @@ import { filterCommercialProducts } from '@/features/access/catalog';
 import {
   createConvocatoria,
   createRequest,
+  getNotificationInterest,
   listConvocatorias,
   listRequests,
   reviewRequest,
+  setNotificationInterest,
   type ConvocatoriaRequest,
   type ConvocatoriaSummary,
   type ConvocatoriaStatus,
@@ -334,11 +336,22 @@ const INITIAL_CREATE: CreateState = {
 interface RequestState {
   open: boolean;
   title: string;
+  objetivo: string;
+  tipo: 'laboral' | 'proyecto_social' | 'proveedor' | 'convenio' | 'otra';
   description: string;
+  fechaInicio: string;
+  fechaFin: string;
+  requisitos: string;
+  enlacesComplementarios: string;
+  numeroContacto: string;
   loading: boolean;
 }
 
-const INITIAL_REQUEST: RequestState = { open: false, title: '', description: '', loading: false };
+const INITIAL_REQUEST: RequestState = {
+  open: false, title: '', objetivo: '', tipo: 'otra', description: '',
+  fechaInicio: '', fechaFin: '', requisitos: '', enlacesComplementarios: '',
+  numeroContacto: '', loading: false,
+};
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
@@ -354,6 +367,7 @@ export default function ConvocatoriasPage() {
   const [filter, setFilter] = React.useState<FilterTab>('all');
   const [create, setCreate] = React.useState<CreateState>(INITIAL_CREATE);
   const [requestForm, setRequestForm] = React.useState<RequestState>(INITIAL_REQUEST);
+  const [notifInterest, setNotifInterest] = React.useState<boolean>(false);
 
   const isCommunityLocked = currentRole === 'lider' && viewerAccess?.viewerTier === 'open_leader';
   const programOffers = filterCommercialProducts(viewerAccess?.catalog, { codes: ['program_4shine'] });
@@ -386,7 +400,10 @@ export default function ConvocatoriasPage() {
   React.useEffect(() => {
     if (isCommunityLocked) { setLoading(false); return; }
     void load();
-  }, [isCommunityLocked, load]);
+    if (!canManage) {
+      getNotificationInterest().then((r) => setNotifInterest(r.interested)).catch(() => {});
+    }
+  }, [isCommunityLocked, load, canManage]);
 
   const filtered = filter === 'all' ? items : items.filter((i) => i.status === filter);
 
@@ -412,6 +429,17 @@ export default function ConvocatoriasPage() {
     }
   };
 
+  // ── Toggle notification interest ────────────────────────────────────────────
+
+  const onToggleInterest = async (v: boolean) => {
+    setNotifInterest(v);
+    try {
+      await setNotificationInterest(v);
+    } catch {
+      setNotifInterest(!v); // revert on error
+    }
+  };
+
   // ── Solicitar publicación (líder) ───────────────────────────────────────────
 
   const onSendRequest = async (e: React.FormEvent) => {
@@ -421,7 +449,14 @@ export default function ConvocatoriasPage() {
     try {
       await createRequest({
         title: requestForm.title.trim(),
+        objetivo: requestForm.objetivo.trim(),
+        tipo: requestForm.tipo,
         description: requestForm.description.trim(),
+        fechaInicio: requestForm.fechaInicio || null,
+        fechaFin: requestForm.fechaFin || null,
+        requisitos: requestForm.requisitos.trim(),
+        enlacesComplementarios: requestForm.enlacesComplementarios.trim(),
+        numeroContacto: requestForm.numeroContacto.trim(),
       });
       setRequestForm(INITIAL_REQUEST);
       await alert({
@@ -555,6 +590,24 @@ export default function ConvocatoriasPage() {
         <MyRequestsPanel requests={requests} />
       )}
 
+      {/* Notification interest toggle — non-managers only */}
+      {!canManage && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--app-border)] bg-white px-5 py-3.5">
+          <div>
+            <p className="text-sm font-bold text-[var(--app-ink)]">Notificaciones de nuevas convocatorias</p>
+            <p className="text-xs text-[var(--app-muted)]">Recibe un correo cuando se publique una nueva convocatoria.</p>
+          </div>
+          <button
+            onClick={() => void onToggleInterest(!notifInterest)}
+            className={`relative h-6 w-11 rounded-full transition-colors ${notifInterest ? 'bg-[#5b2d8a]' : 'bg-gray-300'}`}
+            role="switch"
+            aria-checked={notifInterest}
+          >
+            <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${notifInterest ? 'translate-x-5' : 'translate-x-0.5'}`} />
+          </button>
+        </div>
+      )}
+
       {/* Filter tabs */}
       <div className="flex gap-1.5 overflow-x-auto">
         {TABS.map((tab) => {
@@ -655,31 +708,92 @@ export default function ConvocatoriasPage() {
       {/* Modal: solicitar publicación (líder) */}
       {requestForm.open && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
-            <div className="mb-1 flex items-center gap-2">
-              <Send size={18} className="text-[#7c3aed]" />
-              <h2 className="text-lg font-black text-[var(--app-ink)]">Solicitar publicación</h2>
+          <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl max-h-[90vh] flex flex-col">
+            <div className="px-6 pt-6 pb-4 border-b border-[var(--app-border)]">
+              <div className="flex items-center gap-2">
+                <Send size={18} className="text-[#7c3aed]" />
+                <h2 className="text-lg font-black text-[var(--app-ink)]">Solicitar publicación</h2>
+              </div>
+              <p className="mt-1 text-sm text-[var(--app-muted)]">
+                Cuéntanos qué convocatoria quieres publicar. El equipo 4Shine la revisará y te contactará.
+              </p>
             </div>
-            <p className="mb-4 text-sm text-[var(--app-muted)]">
-              Cuéntanos qué convocatoria quieres publicar. El equipo 4Shine la revisará y te contactará.
-            </p>
-            <form onSubmit={onSendRequest} className="space-y-3">
-              <input
-                className="app-input"
-                placeholder="Título de la convocatoria *"
-                value={requestForm.title}
-                onChange={(e) => setRequestForm((s) => ({ ...s, title: e.target.value }))}
-                required
-                autoFocus
-              />
-              <textarea
-                className="app-textarea"
-                placeholder="Descripción breve — qué es, a quién va dirigida, fechas tentativas..."
-                rows={4}
-                value={requestForm.description}
-                onChange={(e) => setRequestForm((s) => ({ ...s, description: e.target.value }))}
-              />
-              <div className="flex justify-end gap-2 pt-1">
+            <form onSubmit={onSendRequest} className="flex flex-col flex-1 overflow-hidden">
+              <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+                <input
+                  className="app-input"
+                  placeholder="Título de la convocatoria *"
+                  value={requestForm.title}
+                  onChange={(e) => setRequestForm((s) => ({ ...s, title: e.target.value }))}
+                  required
+                  autoFocus
+                />
+                <select
+                  className="app-select"
+                  value={requestForm.tipo}
+                  onChange={(e) => setRequestForm((s) => ({ ...s, tipo: e.target.value as RequestState['tipo'] }))}
+                >
+                  <option value="otra">Tipo: Otra</option>
+                  <option value="laboral">Laboral</option>
+                  <option value="proyecto_social">Proyecto Social</option>
+                  <option value="proveedor">Proveedor</option>
+                  <option value="convenio">Convenio</option>
+                </select>
+                <textarea
+                  className="app-textarea"
+                  placeholder="Objetivo de la convocatoria"
+                  rows={2}
+                  value={requestForm.objetivo}
+                  onChange={(e) => setRequestForm((s) => ({ ...s, objetivo: e.target.value }))}
+                />
+                <textarea
+                  className="app-textarea"
+                  placeholder="Descripción breve — qué es, a quién va dirigida..."
+                  rows={3}
+                  value={requestForm.description}
+                  onChange={(e) => setRequestForm((s) => ({ ...s, description: e.target.value }))}
+                />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="mb-1 block text-xs font-bold text-[var(--app-muted)] uppercase tracking-wide">Fecha inicio</label>
+                    <input
+                      className="app-input"
+                      type="date"
+                      value={requestForm.fechaInicio}
+                      onChange={(e) => setRequestForm((s) => ({ ...s, fechaInicio: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-bold text-[var(--app-muted)] uppercase tracking-wide">Fecha fin</label>
+                    <input
+                      className="app-input"
+                      type="date"
+                      value={requestForm.fechaFin}
+                      onChange={(e) => setRequestForm((s) => ({ ...s, fechaFin: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <textarea
+                  className="app-textarea"
+                  placeholder="Requisitos para aplicar (opcional)"
+                  rows={2}
+                  value={requestForm.requisitos}
+                  onChange={(e) => setRequestForm((s) => ({ ...s, requisitos: e.target.value }))}
+                />
+                <input
+                  className="app-input"
+                  placeholder="Enlaces complementarios (opcional)"
+                  value={requestForm.enlacesComplementarios}
+                  onChange={(e) => setRequestForm((s) => ({ ...s, enlacesComplementarios: e.target.value }))}
+                />
+                <input
+                  className="app-input"
+                  placeholder="Número de contacto (opcional)"
+                  value={requestForm.numeroContacto}
+                  onChange={(e) => setRequestForm((s) => ({ ...s, numeroContacto: e.target.value }))}
+                />
+              </div>
+              <div className="flex justify-end gap-2 px-6 py-4 border-t border-[var(--app-border)]">
                 <button
                   type="button"
                   className="app-button-secondary"

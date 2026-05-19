@@ -2,6 +2,7 @@ import type { PoolClient } from 'pg';
 import type { AuthUser } from '@/server/auth/types';
 import { requireCommunityAccess } from '@/features/access/service';
 import { requireModulePermission } from '@/server/auth/module-permissions';
+import { dispatchNotification } from '@/features/notificaciones/engine';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -619,8 +620,8 @@ export async function applyToConvocatoria(
   await requireModulePermission(client, 'convocatorias', 'view');
   await requireCommunityAccess(client, actor, 'Convocatorias');
 
-  const open = await client.query<{ status: string }>(
-    `SELECT status FROM app_networking.convocatorias WHERE convocatoria_id = $1`,
+  const open = await client.query<{ status: string; title: string }>(
+    `SELECT status, title FROM app_networking.convocatorias WHERE convocatoria_id = $1`,
     [convocatoriaId],
   );
 
@@ -637,6 +638,28 @@ export async function applyToConvocatoria(
 
   const id = rows[0]?.application_id;
   if (!id) throw new Error('Ya aplicaste a esta convocatoria');
+
+  // Dispatch notification (fire-and-forget)
+  const { rows: orgRows } = await client.query<{ organization_id: string }>(
+    `SELECT organization_id::text FROM app_core.users WHERE user_id = $1 LIMIT 1`,
+    [actor.userId],
+  );
+  const organizationId = orgRows[0]?.organization_id;
+  if (organizationId) {
+    void dispatchNotification(client, {
+      organizationId,
+      recipientUserId: actor.userId,
+      recipientEmail: actor.email,
+      eventKey: 'convocatorias.applied',
+      variables: {
+        nombre: actor.name.split(' ')[0] ?? actor.name,
+        titulo: open.rows[0].title ?? '',
+        fecha_cierre: '',
+        enlace_plataforma: 'https://app.4shine.co',
+        plataforma: '4Shine',
+      },
+    });
+  }
 
   return { applicationId: id };
 }
@@ -758,6 +781,13 @@ export interface ConvocatoriaRequest {
   requestId: string;
   title: string;
   description: string;
+  objetivo: string;
+  tipo: string;
+  fechaInicio: string | null;
+  fechaFin: string | null;
+  requisitos: string;
+  enlacesComplementarios: string;
+  numeroContacto: string;
   requesterUserId: string;
   requesterName: string;
   status: RequestStatus;
@@ -772,6 +802,13 @@ export interface ConvocatoriaRequest {
 export interface CreateRequestInput {
   title: string;
   description?: string;
+  objetivo?: string;
+  tipo?: 'laboral' | 'proyecto_social' | 'proveedor' | 'convenio' | 'otra';
+  fechaInicio?: string | null;
+  fechaFin?: string | null;
+  requisitos?: string;
+  enlacesComplementarios?: string;
+  numeroContacto?: string;
 }
 
 export interface ReviewRequestInput {
@@ -783,6 +820,13 @@ interface RequestRow {
   request_id: string;
   title: string;
   description: string;
+  objetivo: string;
+  tipo: string;
+  fecha_inicio: string | null;
+  fecha_fin: string | null;
+  requisitos: string;
+  enlaces_complementarios: string;
+  numero_contacto: string;
   requester_user_id: string;
   requester_name: string;
   status: RequestStatus;
@@ -799,6 +843,13 @@ function mapRequest(row: RequestRow): ConvocatoriaRequest {
     requestId: row.request_id,
     title: row.title,
     description: row.description,
+    objetivo: row.objetivo,
+    tipo: row.tipo,
+    fechaInicio: row.fecha_inicio,
+    fechaFin: row.fecha_fin,
+    requisitos: row.requisitos,
+    enlacesComplementarios: row.enlaces_complementarios,
+    numeroContacto: row.numero_contacto,
     requesterUserId: row.requester_user_id,
     requesterName: row.requester_name,
     status: row.status,
@@ -816,6 +867,13 @@ const REQUEST_SELECT = `
     r.request_id::text,
     r.title,
     r.description,
+    r.objetivo,
+    r.tipo,
+    r.fecha_inicio::text,
+    r.fecha_fin::text,
+    r.requisitos,
+    r.enlaces_complementarios,
+    r.numero_contacto,
     r.requester_user_id::text,
     COALESCE(ru.first_name || ' ' || ru.last_name, ru.email, 'Miembro') AS requester_name,
     r.status,
@@ -876,10 +934,22 @@ export async function createRequest(
   if (!input.title.trim()) throw new Error('El título es requerido');
 
   const { rows } = await client.query<{ request_id: string }>(
-    `INSERT INTO app_networking.convocatoria_requests (title, description, requester_user_id)
-     VALUES ($1, $2, $3)
+    `INSERT INTO app_networking.convocatoria_requests
+       (title, description, objetivo, tipo, fecha_inicio, fecha_fin, requisitos, enlaces_complementarios, numero_contacto, requester_user_id)
+     VALUES ($1, $2, $3, $4, $5::date, $6::date, $7, $8, $9, $10)
      RETURNING request_id::text`,
-    [input.title.trim(), input.description?.trim() ?? '', actor.userId],
+    [
+      input.title.trim(),
+      input.description?.trim() ?? '',
+      input.objetivo?.trim() ?? '',
+      input.tipo ?? 'otra',
+      input.fechaInicio || null,
+      input.fechaFin || null,
+      input.requisitos?.trim() ?? '',
+      input.enlacesComplementarios?.trim() ?? '',
+      input.numeroContacto?.trim() ?? '',
+      actor.userId,
+    ],
   );
 
   const id = rows[0]?.request_id;
@@ -888,6 +958,66 @@ export async function createRequest(
   const all = await listRequests(client, actor, 'mine');
   const created = all.find((r) => r.requestId === id);
   if (!created) throw new Error('Request not found after creation');
+
+  // Dispatch notifications (fire-and-forget)
+  const { rows: orgRows } = await client.query<{ organization_id: string }>(
+    `SELECT organization_id::text FROM app_core.users WHERE user_id = $1 LIMIT 1`,
+    [actor.userId],
+  );
+  const organizationId = orgRows[0]?.organization_id;
+
+  if (organizationId) {
+    const TIPO_LABELS: Record<string, string> = {
+      laboral: 'Laboral', proyecto_social: 'Proyecto Social',
+      proveedor: 'Proveedor', convenio: 'Convenio', otra: 'Otra',
+    };
+
+    // Notify the leader with confirmation
+    void dispatchNotification(client, {
+      organizationId,
+      recipientUserId: actor.userId,
+      recipientEmail: actor.email,
+      eventKey: 'convocatorias.request_submitted',
+      variables: {
+        nombre: actor.name.split(' ')[0] ?? actor.name,
+        titulo: input.title.trim(),
+        plataforma: '4Shine',
+        enlace_plataforma: 'https://app.4shine.co',
+      },
+    });
+
+    // Notify all gestores and admins
+    const { rows: managers } = await client.query<{ user_id: string; email: string; first_name: string | null; last_name: string | null }>(
+      `SELECT u.user_id::text, u.email::text, u.first_name, u.last_name
+       FROM app_auth.user_roles ur
+       JOIN app_core.users u ON u.user_id = ur.user_id
+       WHERE ur.role_code = ANY(ARRAY['gestor', 'admin'])
+         AND u.is_active = true
+         AND u.organization_id = $1`,
+      [organizationId],
+    );
+
+    for (const manager of managers) {
+      const mgrName = [manager.first_name, manager.last_name].filter(Boolean).join(' ') || manager.email;
+      void dispatchNotification(client, {
+        organizationId,
+        recipientUserId: manager.user_id,
+        recipientEmail: manager.email,
+        eventKey: 'convocatorias.request_received',
+        variables: {
+          nombre: manager.first_name ?? mgrName,
+          lider_nombre: actor.name,
+          titulo: input.title.trim(),
+          descripcion: input.description?.trim() ?? '',
+          tipo_convocatoria: TIPO_LABELS[input.tipo ?? 'otra'] ?? 'Otra',
+          objetivo: input.objetivo?.trim() ?? '',
+          enlace_plataforma: 'https://app.4shine.co',
+          plataforma: '4Shine',
+        },
+      });
+    }
+  }
+
   return created;
 }
 
@@ -919,4 +1049,80 @@ export async function reviewRequest(
 
   if (!rows[0]) throw new Error('Request not found');
   return mapRequest(rows[0]);
+}
+
+// ── Notification interests ─────────────────────────────────────────────────────
+
+export async function getNotificationInterest(
+  client: PoolClient,
+  actor: AuthUser,
+): Promise<boolean> {
+  const { rows } = await client.query<{ exists: boolean }>(
+    `SELECT EXISTS(SELECT 1 FROM app_networking.convocatoria_notification_interests WHERE user_id = $1) AS exists`,
+    [actor.userId],
+  );
+  return rows[0]?.exists === true;
+}
+
+export async function setNotificationInterest(
+  client: PoolClient,
+  actor: AuthUser,
+  interested: boolean,
+): Promise<boolean> {
+  if (interested) {
+    await client.query(
+      `INSERT INTO app_networking.convocatoria_notification_interests (user_id) VALUES ($1) ON CONFLICT DO NOTHING`,
+      [actor.userId],
+    );
+  } else {
+    await client.query(
+      `DELETE FROM app_networking.convocatoria_notification_interests WHERE user_id = $1`,
+      [actor.userId],
+    );
+  }
+  return interested;
+}
+
+export async function notifyInterestedUsers(
+  client: PoolClient,
+  actor: AuthUser,
+  convocatoriaId: string,
+): Promise<{ notified: number }> {
+  await requireModulePermission(client, 'convocatorias', 'update');
+
+  const conv = await getConvocatoria(client, actor, convocatoriaId);
+
+  const { rows: orgRows } = await client.query<{ organization_id: string }>(
+    `SELECT organization_id::text FROM app_core.users WHERE user_id = $1 LIMIT 1`,
+    [actor.userId],
+  );
+  const organizationId = orgRows[0]?.organization_id;
+  if (!organizationId) return { notified: 0 };
+
+  const { rows: interested } = await client.query<{ user_id: string; email: string; first_name: string | null }>(
+    `SELECT u.user_id::text, u.email::text, u.first_name
+     FROM app_networking.convocatoria_notification_interests cni
+     JOIN app_core.users u ON u.user_id = cni.user_id
+     WHERE u.is_active = true AND u.organization_id = $1`,
+    [organizationId],
+  );
+
+  for (const user of interested) {
+    void dispatchNotification(client, {
+      organizationId,
+      recipientUserId: user.user_id,
+      recipientEmail: user.email,
+      eventKey: 'convocatorias.published',
+      variables: {
+        nombre: user.first_name ?? user.email,
+        titulo: conv.title,
+        descripcion: conv.description,
+        fecha_cierre: '',
+        enlace_plataforma: `https://app.4shine.co/dashboard/convocatorias/${convocatoriaId}`,
+        plataforma: '4Shine',
+      },
+    });
+  }
+
+  return { notified: interested.length };
 }

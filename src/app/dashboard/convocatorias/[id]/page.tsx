@@ -33,6 +33,7 @@ import {
   deleteForumPost,
   getConvocatoria,
   listForumPosts,
+  notifyInterestedUsers,
   removeAttachment,
   removeImage,
   setDates,
@@ -369,6 +370,8 @@ export default function ConvocatoriaDetailPage() {
   const [editOpen, setEditOpen] = React.useState(false);
   const [adminTab, setAdminTab] = React.useState<'images' | 'attachments' | 'dates' | 'faqs'>('images');
   const [imageGalleryIdx, setImageGalleryIdx] = React.useState(0);
+  const [notifyLoading, setNotifyLoading] = React.useState(false);
+  const [notifyCount, setNotifyCount] = React.useState<number | null>(null);
 
   const isAdmin = can('convocatorias', 'create');
 
@@ -520,6 +523,26 @@ export default function ConvocatoriaDetailPage() {
     }
   };
 
+  // ── Admin: notify interested ──────────────────────────────────────────────
+
+  const onNotifyInterested = async () => {
+    setNotifyLoading(true);
+    setNotifyCount(null);
+    try {
+      const result = await notifyInterestedUsers(id);
+      setNotifyCount(result.notified);
+      await alert({
+        title: 'Notificaciones enviadas',
+        message: `Se notificó a ${result.notified} usuario${result.notified !== 1 ? 's' : ''} interesados.`,
+        tone: 'success',
+      });
+    } catch (err) {
+      await showError('No se pudo notificar a los interesados', err);
+    } finally {
+      setNotifyLoading(false);
+    }
+  };
+
   // ── Admin: images ─────────────────────────────────────────────────────────
 
   const onImageUploaded = async (url: string) => {
@@ -644,7 +667,15 @@ export default function ConvocatoriaDetailPage() {
 
             {/* Admin controls */}
             {isAdmin && (
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => void onNotifyInterested()}
+                  disabled={notifyLoading}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-[#7c3aed] px-3 py-2 text-sm font-semibold text-[#5b2d8a] hover:bg-[#f3e8ff] transition disabled:opacity-50"
+                >
+                  <Send size={14} />
+                  {notifyLoading ? 'Enviando...' : notifyCount !== null ? `Notificado (${notifyCount})` : 'Notificar interesados'}
+                </button>
                 <button
                   onClick={() => setEditOpen(true)}
                   className="app-button-secondary inline-flex items-center gap-1.5 text-sm"

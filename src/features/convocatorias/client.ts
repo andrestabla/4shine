@@ -205,6 +205,13 @@ export interface ConvocatoriaRequest {
   requestId: string;
   title: string;
   description: string;
+  objetivo: string;
+  tipo: string;
+  fechaInicio: string | null;
+  fechaFin: string | null;
+  requisitos: string;
+  enlacesComplementarios: string;
+  numeroContacto: string;
   requesterUserId: string;
   requesterName: string;
   status: RequestStatus;
@@ -219,6 +226,13 @@ export interface ConvocatoriaRequest {
 export interface CreateRequestInput {
   title: string;
   description?: string;
+  objetivo?: string;
+  tipo?: 'laboral' | 'proyecto_social' | 'proveedor' | 'convenio' | 'otra';
+  fechaInicio?: string | null;
+  fechaFin?: string | null;
+  requisitos?: string;
+  enlacesComplementarios?: string;
+  numeroContacto?: string;
 }
 
 export interface ReviewRequestInput {
@@ -243,4 +257,21 @@ export function reviewRequest(requestId: string, input: ReviewRequestInput): Pro
     method: 'PATCH',
     body: JSON.stringify(input),
   });
+}
+
+// ── Notification interests ────────────────────────────────────────────────────
+
+export function getNotificationInterest(): Promise<{ interested: boolean }> {
+  return requestApi<{ interested: boolean }>(`${BASE}/notifications/interest`);
+}
+
+export function setNotificationInterest(interested: boolean): Promise<{ interested: boolean }> {
+  return requestApi<{ interested: boolean }>(`${BASE}/notifications/interest`, {
+    method: 'POST',
+    body: JSON.stringify({ interested }),
+  });
+}
+
+export function notifyInterestedUsers(id: string): Promise<{ notified: number }> {
+  return requestApi<{ notified: number }>(`${BASE}/${id}/notify`, { method: 'POST' });
 }

@@ -112,7 +112,9 @@ export type VariableKey =
   | 'solicitante_nombre'
   | 'conexion_nombre'
   | 'codigo_acceso'
-  | 'enlace_invitacion';
+  | 'enlace_invitacion'
+  | 'tipo_convocatoria'
+  | 'objetivo';
 
 export interface VariableDef {
   key: VariableKey;
