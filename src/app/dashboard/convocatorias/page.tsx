@@ -514,7 +514,7 @@ export default function ConvocatoriasPage() {
     { key: 'open',      label: 'Abiertas' },
     { key: 'closed',    label: 'Cerradas' },
     { key: 'suspended', label: 'Suspendidas' },
-    { key: 'draft',     label: 'Borrador' },
+    ...(canManage ? [{ key: 'draft' as FilterTab, label: 'Borrador' }] : []),
   ];
 
   return (

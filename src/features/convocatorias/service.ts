@@ -252,6 +252,15 @@ function summarySelect(actorId: string) {
 
 // ── List ──────────────────────────────────────────────────────────────────────
 
+async function canManageConvocatorias(client: PoolClient, role: string): Promise<boolean> {
+  const { rows } = await client.query<{ can_create: boolean }>(
+    `SELECT can_create FROM app_auth.role_module_permissions
+     WHERE role_code = $1 AND module_code = 'convocatorias'`,
+    [role],
+  );
+  return rows[0]?.can_create === true;
+}
+
 export async function listConvocatorias(
   client: PoolClient,
   actor: AuthUser,
@@ -260,8 +269,12 @@ export async function listConvocatorias(
   await requireModulePermission(client, 'convocatorias', 'view');
   await requireCommunityAccess(client, actor, 'Convocatorias');
 
+  const isManager = await canManageConvocatorias(client, actor.role);
+  const draftFilter = isManager ? '' : `WHERE c.status != 'draft'`;
+
   const { rows } = await client.query<ConvocatoriaSummaryRow>(
     `${summarySelect(actor.userId)}
+     ${draftFilter}
      GROUP BY c.convocatoria_id
      ORDER BY c.created_at DESC
      LIMIT $1`,
@@ -290,6 +303,11 @@ export async function getConvocatoria(
 
   const summaryRow = summaryResult.rows[0];
   if (!summaryRow) throw new Error('Convocatoria not found');
+
+  if (summaryRow.status === 'draft') {
+    const isManager = await canManageConvocatorias(client, actor.role);
+    if (!isManager) throw new Error('Convocatoria not found');
+  }
 
   const [imagesResult, attachmentsResult, datesResult, faqsResult] = await Promise.all([
     client.query<ConvocatoriaImageRow>(
