@@ -897,7 +897,7 @@ export async function reviewApplication(
         titulo: convTitle,
         motivo: notes,
         plataforma: '4Shine',
-        enlace_plataforma: `https://app.4shine.co/dashboard/convocatorias/${convocatoriaId}`,
+        enlace_plataforma: `https://4shine.co/dashboard/convocatorias/${convocatoriaId}`,
       },
     });
   }
@@ -945,8 +945,8 @@ export async function messageApplicants(
     const bodyHtml = `<p style="margin:0 0 16px;font-size:15px;color:#1a1a1a;">Hola <strong>${nombre}</strong>,</p>
 <p style="margin:0 0 16px;font-size:15px;color:#444;line-height:1.6;"><strong>Convocatoria:</strong> ${convTitle}</p>
 <p style="margin:0 0 24px;font-size:15px;color:#444;line-height:1.6;white-space:pre-wrap;">${input.message}</p>
-<p style="margin:0;"><a href="https://app.4shine.co/dashboard/convocatorias/${convocatoriaId}">Ver convocatoria</a></p>`;
-    const bodyText = `Hola ${nombre},\n\nConvocatoria: ${convTitle}\n\n${input.message}\n\nVer convocatoria: https://app.4shine.co/dashboard/convocatorias/${convocatoriaId}`;
+<p style="margin:0;"><a href="https://4shine.co/dashboard/convocatorias/${convocatoriaId}">Ver convocatoria</a></p>`;
+    const bodyText = `Hola ${nombre},\n\nConvocatoria: ${convTitle}\n\n${input.message}\n\nVer convocatoria: https://4shine.co/dashboard/convocatorias/${convocatoriaId}`;
 
     void sendEmailToAddress(client, organizationId, app.email, input.subject, bodyHtml, bodyText);
     void (await import('@/features/notificaciones/service')).insertUserNotification(client, {
@@ -956,7 +956,7 @@ export async function messageApplicants(
       title: input.subject,
       message: input.message,
       eventKey: 'convocatorias.applicant_message',
-      actionUrl: `https://app.4shine.co/dashboard/convocatorias/${convocatoriaId}`,
+      actionUrl: `https://4shine.co/dashboard/convocatorias/${convocatoriaId}`,
     });
   }
 
@@ -1008,7 +1008,7 @@ export async function applyToConvocatoria(
         nombre: actor.name.split(' ')[0] ?? actor.name,
         titulo: open.rows[0].title ?? '',
         fecha_cierre: '',
-        enlace_plataforma: `https://app.4shine.co/dashboard/convocatorias/${convocatoriaId}`,
+        enlace_plataforma: `https://4shine.co/dashboard/convocatorias/${convocatoriaId}`,
         plataforma: '4Shine',
       },
     });
@@ -1335,7 +1335,7 @@ export async function createRequest(
         nombre: actor.name.split(' ')[0] ?? actor.name,
         titulo: input.title.trim(),
         plataforma: '4Shine',
-        enlace_plataforma: 'https://app.4shine.co',
+        enlace_plataforma: 'https://4shine.co',
       },
     });
 
@@ -1364,7 +1364,7 @@ export async function createRequest(
           descripcion: input.description?.trim() ?? '',
           tipo_convocatoria: TIPO_LABELS[input.tipo ?? 'otra'] ?? 'Otra',
           objetivo: input.objetivo?.trim() ?? '',
-          enlace_plataforma: 'https://app.4shine.co',
+          enlace_plataforma: 'https://4shine.co',
           plataforma: '4Shine',
         },
       });
@@ -1471,7 +1471,7 @@ export async function notifyInterestedUsers(
         titulo: conv.title,
         descripcion: conv.description,
         fecha_cierre: '',
-        enlace_plataforma: `https://app.4shine.co/dashboard/convocatorias/${convocatoriaId}`,
+        enlace_plataforma: `https://4shine.co/dashboard/convocatorias/${convocatoriaId}`,
         plataforma: '4Shine',
       },
     });
