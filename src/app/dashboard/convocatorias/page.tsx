@@ -135,14 +135,16 @@ interface RequestsPanelProps {
   onReview: (req: ConvocatoriaRequest, status: 'approved' | 'rejected', notes?: string) => Promise<void>;
 }
 
+type RequestFilter = 'pending' | 'all';
+
 function RequestsPanel({ requests, onReview }: RequestsPanelProps) {
   const [open, setOpen] = React.useState(true);
+  const [reqFilter, setReqFilter] = React.useState<RequestFilter>('pending');
   const [reviewing, setReviewing] = React.useState<string | null>(null);
   const [notes, setNotes] = React.useState('');
 
   const pending = requests.filter((r) => r.status === 'pending');
-
-  if (requests.length === 0) return null;
+  const visible = reqFilter === 'pending' ? pending : requests;
 
   return (
     <div className="rounded-2xl border border-amber-200 bg-amber-50/40">
@@ -165,80 +167,105 @@ function RequestsPanel({ requests, onReview }: RequestsPanelProps) {
       </button>
 
       {open && (
-        <div className="border-t border-amber-200 divide-y divide-amber-100">
-          {requests.map((req) => (
-            <div key={req.requestId} className="px-5 py-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex flex-wrap items-center gap-2 mb-1">
-                    <span className="text-sm font-bold text-[var(--app-ink)] truncate">{req.title}</span>
-                    <RequestStatusBadge status={req.status} />
-                  </div>
-                  <p className="text-xs text-[var(--app-muted)]">
-                    Solicitado por <span className="font-semibold">{req.requesterName}</span> · {toRelativeDate(req.createdAt)}
-                  </p>
-                  {req.description && (
-                    <p className="mt-1.5 text-sm text-[var(--app-ink)]/70 line-clamp-2">{req.description}</p>
-                  )}
-                  {req.reviewerNotes && (
-                    <p className="mt-1 text-xs italic text-[var(--app-muted)]">Nota: {req.reviewerNotes}</p>
-                  )}
-                </div>
+        <>
+          {/* Filter tabs */}
+          <div className="flex gap-1.5 border-t border-amber-200 px-5 py-2.5">
+            {(['pending', 'all'] as RequestFilter[]).map((f) => (
+              <button
+                key={f}
+                onClick={() => setReqFilter(f)}
+                className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                  reqFilter === f
+                    ? 'bg-amber-500 text-white'
+                    : 'bg-white text-amber-700 hover:bg-amber-100'
+                }`}
+              >
+                {f === 'pending' ? 'Pendientes' : 'Todas'}
+              </button>
+            ))}
+          </div>
 
-                {req.status === 'pending' && (
-                  <div className="shrink-0">
-                    {reviewing === req.requestId ? (
-                      <div className="space-y-2">
-                        <input
-                          className="app-input text-xs"
-                          placeholder="Nota opcional..."
-                          value={notes}
-                          onChange={(e) => setNotes(e.target.value)}
-                          autoFocus
-                        />
-                        <div className="flex gap-1.5">
-                          <button
-                            onClick={async () => {
-                              await onReview(req, 'approved', notes || undefined);
-                              setReviewing(null);
-                              setNotes('');
-                            }}
-                            className="flex-1 rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700"
-                          >
-                            Aprobar
-                          </button>
-                          <button
-                            onClick={async () => {
-                              await onReview(req, 'rejected', notes || undefined);
-                              setReviewing(null);
-                              setNotes('');
-                            }}
-                            className="flex-1 rounded-full border border-rose-200 px-3 py-1.5 text-xs font-bold text-rose-600 hover:bg-rose-50"
-                          >
-                            Rechazar
-                          </button>
-                          <button
-                            onClick={() => { setReviewing(null); setNotes(''); }}
-                            className="rounded-full border border-[var(--app-border)] px-3 py-1.5 text-xs text-[var(--app-muted)] hover:bg-white"
-                          >
-                            <X size={12} />
-                          </button>
-                        </div>
+          <div className="border-t border-amber-200 divide-y divide-amber-100">
+            {visible.length === 0 ? (
+              <p className="px-5 py-6 text-center text-sm text-[var(--app-muted)]">
+                {reqFilter === 'pending' ? 'No hay solicitudes pendientes.' : 'No hay solicitudes aún.'}
+              </p>
+            ) : (
+              visible.map((req) => (
+                <div key={req.requestId} className="px-5 py-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <span className="text-sm font-bold text-[var(--app-ink)] truncate">{req.title}</span>
+                        <RequestStatusBadge status={req.status} />
                       </div>
-                    ) : (
-                      <button
-                        onClick={() => setReviewing(req.requestId)}
-                        className="rounded-full border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-50 transition"
-                      >
-                        Revisar
-                      </button>
+                      <p className="text-xs text-[var(--app-muted)]">
+                        Solicitado por <span className="font-semibold">{req.requesterName}</span> · {toRelativeDate(req.createdAt)}
+                      </p>
+                      {req.description && (
+                        <p className="mt-1.5 text-sm text-[var(--app-ink)]/70 line-clamp-2">{req.description}</p>
+                      )}
+                      {req.reviewerNotes && (
+                        <p className="mt-1 text-xs italic text-[var(--app-muted)]">Nota: {req.reviewerNotes}</p>
+                      )}
+                    </div>
+
+                    {req.status === 'pending' && (
+                      <div className="shrink-0">
+                        {reviewing === req.requestId ? (
+                          <div className="space-y-2">
+                            <input
+                              className="app-input text-xs"
+                              placeholder="Nota opcional..."
+                              value={notes}
+                              onChange={(e) => setNotes(e.target.value)}
+                              autoFocus
+                            />
+                            <div className="flex gap-1.5">
+                              <button
+                                onClick={async () => {
+                                  await onReview(req, 'approved', notes || undefined);
+                                  setReviewing(null);
+                                  setNotes('');
+                                }}
+                                className="flex-1 rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700"
+                              >
+                                Aprobar
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  await onReview(req, 'rejected', notes || undefined);
+                                  setReviewing(null);
+                                  setNotes('');
+                                }}
+                                className="flex-1 rounded-full border border-rose-200 px-3 py-1.5 text-xs font-bold text-rose-600 hover:bg-rose-50"
+                              >
+                                Rechazar
+                              </button>
+                              <button
+                                onClick={() => { setReviewing(null); setNotes(''); }}
+                                className="rounded-full border border-[var(--app-border)] px-3 py-1.5 text-xs text-[var(--app-muted)] hover:bg-white"
+                              >
+                                <X size={12} />
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setReviewing(req.requestId)}
+                            className="rounded-full border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-50 transition"
+                          >
+                            Revisar
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
+                </div>
+              ))
+            )}
+          </div>
+        </>
       )}
     </div>
   );
@@ -345,7 +372,7 @@ export default function ConvocatoriasPage() {
     try {
       const [convs, reqs] = await Promise.all([
         listConvocatorias(),
-        listRequests(canManage ? 'pending' : 'mine').catch(() => []),
+        listRequests(canManage ? 'all' : 'mine').catch(() => []),
       ]);
       setItems(convs);
       setRequests(reqs);
@@ -520,7 +547,7 @@ export default function ConvocatoriasPage() {
       </div>
 
       {/* Requests panel — solo gestor/admin ve pendientes; líder ve las suyas */}
-      {canManage && requests.length > 0 && (
+      {canManage && (
         <RequestsPanel requests={requests} onReview={onReview} />
       )}
 

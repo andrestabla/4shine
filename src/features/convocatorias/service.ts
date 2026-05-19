@@ -209,7 +209,13 @@ function summarySelect(actorId: string) {
       c.convocatoria_id::text,
       c.title,
       c.description,
-      c.cover_image_url,
+      COALESCE(
+        c.cover_image_url,
+        (SELECT ci.url FROM app_networking.convocatoria_images ci
+         WHERE ci.convocatoria_id = c.convocatoria_id
+         ORDER BY ci.sort_order ASC, ci.created_at ASC
+         LIMIT 1)
+      ) AS cover_image_url,
       c.external_url,
       c.location,
       c.status,
