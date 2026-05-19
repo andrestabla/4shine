@@ -192,23 +192,46 @@ export async function listMessageParticipants(
   await requireModulePermission(client, 'mensajes', 'view');
   await requireCommunityAccess(client, actor, 'Mensajes');
 
-  const { rows } = await client.query<ParticipantRow>(
-    `
-      SELECT
-        u.user_id::text,
-        u.display_name,
-        u.primary_role,
-        o.name AS organization_name,
-        u.avatar_url
-      FROM app_core.users u
-      LEFT JOIN app_core.organizations o ON o.organization_id = u.organization_id
-      WHERE u.user_id <> $1::uuid
-        AND u.is_active = true
-      ORDER BY u.display_name
-      LIMIT $2
-    `,
-    [actor.userId, Math.min(Math.max(limit, 1), 500)],
-  );
+  // Líderes: solo pueden ver y contactar sus conexiones aceptadas en Networking
+  const sql =
+    actor.role === 'lider'
+      ? `
+          SELECT
+            u.user_id::text,
+            u.display_name,
+            u.primary_role,
+            o.name AS organization_name,
+            u.avatar_url
+          FROM app_core.users u
+          LEFT JOIN app_core.organizations o ON o.organization_id = u.organization_id
+          JOIN app_networking.connections c ON (
+            (c.requester_user_id = $1 AND c.addressee_user_id = u.user_id) OR
+            (c.addressee_user_id = $1 AND c.requester_user_id = u.user_id)
+          ) AND c.status = 'connected'
+          WHERE u.user_id <> $1::uuid
+            AND u.is_active = true
+          ORDER BY u.display_name
+          LIMIT $2
+        `
+      : `
+          SELECT
+            u.user_id::text,
+            u.display_name,
+            u.primary_role,
+            o.name AS organization_name,
+            u.avatar_url
+          FROM app_core.users u
+          LEFT JOIN app_core.organizations o ON o.organization_id = u.organization_id
+          WHERE u.user_id <> $1::uuid
+            AND u.is_active = true
+          ORDER BY u.display_name
+          LIMIT $2
+        `;
+
+  const { rows } = await client.query<ParticipantRow>(sql, [
+    actor.userId,
+    Math.min(Math.max(limit, 1), 500),
+  ]);
 
   return rows.map(mapParticipant);
 }

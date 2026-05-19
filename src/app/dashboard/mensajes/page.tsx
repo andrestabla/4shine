@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import ReactDOM from 'react-dom';
 import {
   ArrowLeft,
   Check,
@@ -12,6 +13,7 @@ import {
   Send,
   Smile,
   Trash2,
+  Users,
   X,
 } from 'lucide-react';
 import { AccessOfferPanel } from '@/components/access/AccessOfferPanel';
@@ -143,6 +145,8 @@ export default function MensajesPage() {
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const emojiRef = React.useRef<HTMLDivElement>(null);
+  const emojiBtnRef = React.useRef<HTMLButtonElement>(null);
+  const [emojiAnchor, setEmojiAnchor] = React.useState<{ bottom: number; left: number } | null>(null);
 
   const isCommunityLocked = currentRole === 'lider' && viewerAccess?.viewerTier === 'open_leader';
   const programOffers = filterCommercialProducts(viewerAccess?.catalog, { codes: ['program_4shine'] });
@@ -270,8 +274,12 @@ export default function MensajesPage() {
   React.useEffect(() => {
     if (!showEmoji) return;
     const handler = (e: MouseEvent) => {
-      if (emojiRef.current && !emojiRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const clickedBtn = emojiBtnRef.current?.contains(target);
+      const clickedPanel = emojiRef.current?.contains(target);
+      if (!clickedBtn && !clickedPanel) {
         setShowEmoji(false);
+        setEmojiAnchor(null);
       }
     };
     document.addEventListener('mousedown', handler);
@@ -382,7 +390,19 @@ export default function MensajesPage() {
   const insertEmoji = (emoji: string) => {
     setMessageText((t) => t + emoji);
     setShowEmoji(false);
+    setEmojiAnchor(null);
     inputRef.current?.focus();
+  };
+
+  const toggleEmoji = () => {
+    if (!showEmoji && emojiBtnRef.current) {
+      const rect = emojiBtnRef.current.getBoundingClientRect();
+      setEmojiAnchor({
+        bottom: window.innerHeight - rect.top + 8,
+        left: rect.left,
+      });
+    }
+    setShowEmoji((v) => !v);
   };
 
   // ── Locked ─────────────────────────────────────────────────────────────────
@@ -483,8 +503,38 @@ export default function MensajesPage() {
         </div>
       </div>
       <div className="flex-1 divide-y divide-[var(--app-border)] overflow-y-auto">
+        {/* Aviso para líderes: solo ven conexiones aceptadas */}
+        {currentRole === 'lider' && (
+          <div className="flex items-start gap-3 bg-[#f3e8ff]/60 px-4 py-3 text-xs text-[#5b2d8a]">
+            <Users size={14} className="mt-0.5 shrink-0" />
+            <span>
+              Solo ves tus conexiones aceptadas de Networking.{' '}
+              <a href="/dashboard/networking" className="font-bold underline">
+                Conectar con más personas →
+              </a>
+            </span>
+          </div>
+        )}
         {filteredContacts.length === 0 ? (
-          <p className="px-4 py-8 text-center text-sm text-[var(--app-muted)]">Sin resultados.</p>
+          currentRole === 'lider' ? (
+            <div className="flex flex-col items-center gap-3 px-4 py-8 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#f3e8ff]">
+                <Users size={20} style={{ color: '#5b2d8a' }} />
+              </div>
+              <p className="text-sm font-semibold text-[var(--app-ink)]">Aún no tienes conexiones</p>
+              <p className="max-w-[14rem] text-xs text-[var(--app-muted)]">
+                Conecta con líderes en Networking para poder enviarles mensajes.
+              </p>
+              <a
+                href="/dashboard/networking"
+                className="mt-1 rounded-full bg-[#5b2d8a] px-4 py-2 text-xs font-bold text-white hover:opacity-90 transition"
+              >
+                Ir a Networking
+              </a>
+            </div>
+          ) : (
+            <p className="px-4 py-8 text-center text-sm text-[var(--app-muted)]">Sin resultados.</p>
+          )
         ) : (
           filteredContacts.map((p) => (
             <button
@@ -773,32 +823,40 @@ export default function MensajesPage() {
               {/* Input bar */}
               {can('mensajes', 'create') && (
                 <div className="flex items-end gap-2 border-t border-[var(--app-border)] px-4 py-3">
-                  {/* Emoji picker */}
-                  <div ref={emojiRef} className="relative">
+                  {/* Emoji picker — portal para evitar overflow:hidden del contenedor */}
+                  <div ref={emojiRef}>
                     <button
+                      ref={emojiBtnRef}
                       type="button"
-                      onClick={() => setShowEmoji((v) => !v)}
+                      onClick={toggleEmoji}
                       className="rounded-full p-2 text-[var(--app-muted)] transition hover:bg-[var(--app-surface-muted)] hover:text-[var(--app-ink)]"
                     >
                       <Smile size={20} />
                     </button>
-                    {showEmoji && (
-                      <div className="absolute bottom-12 left-0 z-20 animate-fade-in rounded-2xl border border-[var(--app-border)] bg-white p-3 shadow-lg">
+                  </div>
+                  {showEmoji && emojiAnchor && typeof document !== 'undefined' &&
+                    ReactDOM.createPortal(
+                      <div
+                        ref={emojiRef}
+                        style={{ position: 'fixed', bottom: emojiAnchor.bottom, left: emojiAnchor.left, zIndex: 9999 }}
+                        className="animate-fade-in rounded-2xl border border-[var(--app-border)] bg-white p-3 shadow-xl"
+                      >
                         <div className="grid grid-cols-8 gap-1">
                           {EMOJIS.map((emoji) => (
                             <button
                               key={emoji}
                               type="button"
                               onClick={() => insertEmoji(emoji)}
-                              className="rounded-lg p-1 text-xl transition hover:bg-[var(--app-surface-muted)]"
+                              className="rounded-lg p-1.5 text-lg leading-none transition hover:bg-[var(--app-surface-muted)]"
                             >
                               {emoji}
                             </button>
                           ))}
                         </div>
-                      </div>
-                    )}
-                  </div>
+                      </div>,
+                      document.body,
+                    )
+                  }
 
                   <input
                     ref={inputRef}
