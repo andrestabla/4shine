@@ -181,7 +181,7 @@ export function NotificationSettingsPanel() {
                   value={form.varPlatformUrl}
                   onChange={(e) => set('varPlatformUrl', e.target.value)}
                   className="app-input w-full"
-                  placeholder="https://app.4shine.co"
+                  placeholder="https://4shine.co"
                 />
               </div>
             </div>

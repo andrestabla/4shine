@@ -25,7 +25,7 @@ export const VARIABLE_DEFS: Record<VariableKey, VariableDef> = {
     key: 'enlace_plataforma',
     label: 'Enlace a la plataforma',
     description: 'URL principal de la plataforma',
-    example: 'https://app.4shine.co',
+    example: 'https://4shine.co',
   },
   titulo: {
     key: 'titulo',
@@ -85,7 +85,7 @@ export const VARIABLE_DEFS: Record<VariableKey, VariableDef> = {
     key: 'enlace_reset',
     label: 'Enlace de restablecimiento',
     description: 'URL segura para restablecer la contraseña',
-    example: 'https://app.4shine.co/restablecer?token=...',
+    example: 'https://4shine.co/restablecer?token=...',
   },
   motivo: {
     key: 'motivo',
@@ -139,7 +139,7 @@ export const VARIABLE_DEFS: Record<VariableKey, VariableDef> = {
     key: 'enlace_invitacion',
     label: 'Enlace de invitación',
     description: 'URL directa para acceder al diagnóstico',
-    example: 'https://app.4shine.co/descubrimiento?inv=...',
+    example: 'https://4shine.co/descubrimiento?inv=...',
   },
   tipo_convocatoria: {
     key: 'tipo_convocatoria',
