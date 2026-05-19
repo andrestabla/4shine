@@ -8,8 +8,11 @@ import {
   ChevronDown,
   ChevronUp,
   Clock,
+  DollarSign,
   ExternalLink,
+  MapPin,
   MessageCircle,
+  Pencil,
   Plus,
   Send,
   Trash2,
@@ -324,9 +327,24 @@ export default function WorkshopDetailPage() {
             </div>
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--app-muted)]">Inscritos</p>
-              <p className="text-sm font-semibold text-[var(--app-ink)]">{workshop.attendees}</p>
+              <p className="text-sm font-semibold text-[var(--app-ink)]">
+                {workshop.attendees}{workshop.maxAttendees ? ` / ${workshop.maxAttendees}` : ''}
+              </p>
             </div>
           </div>
+          {workshop.price !== null && (
+            <div className="flex items-start gap-3">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[var(--app-surface-muted)]">
+                <DollarSign size={15} className="text-[var(--app-muted)]" />
+              </div>
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--app-muted)]">Precio</p>
+                <p className="text-sm font-semibold text-[var(--app-ink)]">
+                  {workshop.currency} {Number(workshop.price).toLocaleString('es-CO')}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="mt-4 space-y-2.5 border-t border-[var(--app-border)] pt-4">
@@ -389,13 +407,23 @@ export default function WorkshopDetailPage() {
 
   return (
     <div className="space-y-0">
-      {/* Back */}
-      <button
-        onClick={() => router.push('/dashboard/workshops')}
-        className="mb-4 flex items-center gap-1.5 text-sm text-[var(--app-muted)] transition hover:text-[var(--app-ink)]"
-      >
-        <ArrowLeft size={15} /> Workshops
-      </button>
+      {/* Back + edit */}
+      <div className="mb-4 flex items-center justify-between">
+        <button
+          onClick={() => router.push('/dashboard/workshops')}
+          className="flex items-center gap-1.5 text-sm text-[var(--app-muted)] transition hover:text-[var(--app-ink)]"
+        >
+          <ArrowLeft size={15} /> Workshops
+        </button>
+        {canManage && (
+          <button
+            onClick={() => router.push(`/dashboard/workshops/${workshopId}/edit`)}
+            className="flex items-center gap-1.5 rounded-full border border-[var(--app-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--app-ink)] shadow-sm transition hover:bg-[var(--app-surface-muted)]"
+          >
+            <Pencil size={12} /> Editar
+          </button>
+        )}
+      </div>
 
       {/* Hero */}
       <div
@@ -438,12 +466,116 @@ export default function WorkshopDetailPage() {
         {/* Left: tab content */}
         <div>
           {activeTab === 'info' && (
-            <div className="rounded-2xl border border-[var(--app-border)] bg-white p-6">
-              <h2 className="text-base font-extrabold text-[var(--app-ink)]">Acerca del workshop</h2>
-              {workshop.description ? (
-                <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-[var(--app-muted)]">{workshop.description}</p>
-              ) : (
-                <p className="mt-3 text-sm italic text-[var(--app-muted)]">Sin descripción disponible.</p>
+            <div className="space-y-4">
+              {/* Description */}
+              <div className="rounded-2xl border border-[var(--app-border)] bg-white p-6">
+                <h2 className="text-base font-extrabold text-[var(--app-ink)]">Acerca del workshop</h2>
+                {workshop.description ? (
+                  <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-[var(--app-muted)]">{workshop.description}</p>
+                ) : (
+                  <p className="mt-3 text-sm italic text-[var(--app-muted)]">Sin descripción disponible.</p>
+                )}
+              </div>
+
+              {/* Location */}
+              {(workshop.locationName || workshop.locationAddress) && (
+                <div className="rounded-2xl border border-[var(--app-border)] bg-white p-6">
+                  <h2 className="mb-3 text-base font-extrabold text-[var(--app-ink)]">Ubicación</h2>
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[var(--app-surface-muted)]">
+                      <MapPin size={15} className="text-[var(--app-muted)]" />
+                    </div>
+                    <div>
+                      {workshop.locationName && (
+                        <p className="text-sm font-semibold text-[var(--app-ink)]">{workshop.locationName}</p>
+                      )}
+                      {workshop.locationAddress && (
+                        <p className="text-sm text-[var(--app-muted)]">{workshop.locationAddress}</p>
+                      )}
+                      {(workshop.locationLat || workshop.locationAddress) && (() => {
+                        const url = workshop.locationLat && workshop.locationLng
+                          ? `https://www.google.com/maps?q=${workshop.locationLat},${workshop.locationLng}`
+                          : `https://www.google.com/maps/search/${encodeURIComponent(workshop.locationAddress ?? '')}`;
+                        return (
+                          <a href={url} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-[#5b2d8a] hover:underline">
+                            Ver en Google Maps <ExternalLink size={10} />
+                          </a>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                  {workshop.locationPhotos.length > 0 && (
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {workshop.locationPhotos.map((url) => (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img key={url} src={url} alt="" className="h-28 w-40 rounded-xl object-cover" />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Price */}
+              {workshop.price !== null && (
+                <div className="rounded-2xl border border-[var(--app-border)] bg-white p-6">
+                  <h2 className="mb-3 text-base font-extrabold text-[var(--app-ink)]">Precio</h2>
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[var(--app-surface-muted)]">
+                      <DollarSign size={15} className="text-[var(--app-muted)]" />
+                    </div>
+                    <p className="text-sm font-bold text-[var(--app-ink)]">
+                      {workshop.currency} {Number(workshop.price).toLocaleString('es-CO')}
+                    </p>
+                    {workshop.maxAttendees && (
+                      <span className="text-xs text-[var(--app-muted)]">· Máx. {workshop.maxAttendees} asistentes</span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Speakers */}
+              {workshop.speakers.length > 0 && (
+                <div className="rounded-2xl border border-[var(--app-border)] bg-white p-6">
+                  <h2 className="mb-4 text-base font-extrabold text-[var(--app-ink)]">Ponentes</h2>
+                  <div className="space-y-4">
+                    {workshop.speakers.map((speaker, i) => (
+                      <div key={i} className="flex gap-3">
+                        {speaker.avatarUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={speaker.avatarUrl} alt={speaker.name} className="h-11 w-11 shrink-0 rounded-full object-cover" />
+                        ) : (
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#f3e8ff] text-sm font-bold text-[#5b2d8a]">
+                            {speaker.name.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <div>
+                          <p className="text-sm font-bold text-[var(--app-ink)]">{speaker.name}</p>
+                          {speaker.role && <p className="text-xs font-semibold text-[var(--app-muted)]">{speaker.role}</p>}
+                          {speaker.bio && <p className="mt-1 text-xs leading-relaxed text-[var(--app-muted)]">{speaker.bio}</p>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Agenda */}
+              {workshop.agenda.length > 0 && (
+                <div className="rounded-2xl border border-[var(--app-border)] bg-white p-6">
+                  <h2 className="mb-4 text-base font-extrabold text-[var(--app-ink)]">Agenda</h2>
+                  <ol className="relative border-l border-[var(--app-border)] pl-5 space-y-4">
+                    {workshop.agenda.map((item, i) => (
+                      <li key={i} className="relative">
+                        <div className="absolute -left-[1.35rem] flex h-4 w-4 items-center justify-center rounded-full border-2 border-[#5b2d8a] bg-white" />
+                        <div>
+                          <span className="text-[11px] font-extrabold uppercase tracking-wide text-[#5b2d8a]">{item.time}</span>
+                          <p className="text-sm font-semibold text-[var(--app-ink)]">{item.title}</p>
+                          {item.description && <p className="text-xs text-[var(--app-muted)]">{item.description}</p>}
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
               )}
             </div>
           )}

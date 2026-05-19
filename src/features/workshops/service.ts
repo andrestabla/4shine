@@ -7,6 +7,19 @@ export type WorkshopType = 'relacionamiento' | 'formacion' | 'innovacion' | 'wel
 export type WorkshopStatus = 'upcoming' | 'completed' | 'cancelled';
 export type AttendanceStatus = 'invited' | 'registered' | 'attended' | 'no_show' | 'cancelled';
 
+export interface AgendaItem {
+  time: string;
+  title: string;
+  description?: string;
+}
+
+export interface Speaker {
+  name: string;
+  role?: string;
+  bio?: string;
+  avatarUrl?: string;
+}
+
 export interface WorkshopRecord {
   workshopId: string;
   title: string;
@@ -20,6 +33,16 @@ export interface WorkshopRecord {
   meetingUrl: string | null;
   attendees: number;
   myAttendanceStatus: AttendanceStatus | null;
+  locationName: string | null;
+  locationAddress: string | null;
+  locationLat: number | null;
+  locationLng: number | null;
+  locationPhotos: string[];
+  price: number | null;
+  currency: string;
+  maxAttendees: number | null;
+  agenda: AgendaItem[];
+  speakers: Speaker[];
   createdBy: string | null;
   createdAt: string;
   updatedAt: string;
@@ -53,6 +76,16 @@ export interface CreateWorkshopInput {
   facilitatorUserId?: string | null;
   facilitatorName?: string | null;
   meetingUrl?: string | null;
+  locationName?: string | null;
+  locationAddress?: string | null;
+  locationLat?: number | null;
+  locationLng?: number | null;
+  locationPhotos?: string[];
+  price?: number | null;
+  currency?: string;
+  maxAttendees?: number | null;
+  agenda?: AgendaItem[];
+  speakers?: Speaker[];
 }
 
 export interface UpdateWorkshopInput {
@@ -65,6 +98,16 @@ export interface UpdateWorkshopInput {
   facilitatorUserId?: string | null;
   facilitatorName?: string | null;
   meetingUrl?: string | null;
+  locationName?: string | null;
+  locationAddress?: string | null;
+  locationLat?: number | null;
+  locationLng?: number | null;
+  locationPhotos?: string[];
+  price?: number | null;
+  currency?: string;
+  maxAttendees?: number | null;
+  agenda?: AgendaItem[];
+  speakers?: Speaker[];
 }
 
 export interface CreateFaqInput {
@@ -88,6 +131,16 @@ interface WorkshopRow {
   meeting_url: string | null;
   attendees: number;
   my_attendance_status: AttendanceStatus | null;
+  location_name: string | null;
+  location_address: string | null;
+  location_lat: string | null;
+  location_lng: string | null;
+  location_photos: string[] | null;
+  price: string | null;
+  currency: string;
+  max_attendees: number | null;
+  agenda: AgendaItem[] | null;
+  speakers: Speaker[] | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -127,6 +180,16 @@ function mapRow(row: WorkshopRow): WorkshopRecord {
     meetingUrl: row.meeting_url,
     attendees: Number(row.attendees ?? 0),
     myAttendanceStatus: row.my_attendance_status ?? null,
+    locationName: row.location_name,
+    locationAddress: row.location_address,
+    locationLat: row.location_lat !== null ? Number(row.location_lat) : null,
+    locationLng: row.location_lng !== null ? Number(row.location_lng) : null,
+    locationPhotos: row.location_photos ?? [],
+    price: row.price !== null ? Number(row.price) : null,
+    currency: row.currency ?? 'USD',
+    maxAttendees: row.max_attendees ?? null,
+    agenda: row.agenda ?? [],
+    speakers: row.speakers ?? [],
     createdBy: row.created_by,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -171,6 +234,16 @@ const WORKSHOP_SELECT = `
     w.meeting_url,
     COUNT(wa.user_id)::int AS attendees,
     my_reg.attendance_status AS my_attendance_status,
+    w.location_name,
+    w.location_address,
+    w.location_lat::text AS location_lat,
+    w.location_lng::text AS location_lng,
+    w.location_photos,
+    w.price::text AS price,
+    w.currency,
+    w.max_attendees,
+    w.agenda,
+    w.speakers,
     w.created_by::text,
     w.created_at::text,
     w.updated_at::text
@@ -234,9 +307,17 @@ export async function createWorkshop(
     `
       INSERT INTO app_networking.workshops (
         title, description, workshop_type, status,
-        starts_at, ends_at, facilitator_user_id, facilitator_name, meeting_url, created_by
+        starts_at, ends_at, facilitator_user_id, facilitator_name, meeting_url,
+        location_name, location_address, location_lat, location_lng, location_photos,
+        price, currency, max_attendees, agenda, speakers,
+        created_by
       )
-      VALUES ($1, $2, $3, $4, $5::timestamptz, $6::timestamptz, $7, $8, $9, $10)
+      VALUES (
+        $1, $2, $3, $4, $5::timestamptz, $6::timestamptz, $7, $8, $9,
+        $10, $11, $12, $13, $14,
+        $15, $16, $17, $18::jsonb, $19::jsonb,
+        $20
+      )
       RETURNING workshop_id::text
     `,
     [
@@ -249,6 +330,16 @@ export async function createWorkshop(
       input.facilitatorUserId ?? null,
       input.facilitatorName ?? null,
       input.meetingUrl ?? null,
+      input.locationName ?? null,
+      input.locationAddress ?? null,
+      input.locationLat ?? null,
+      input.locationLng ?? null,
+      input.locationPhotos ?? [],
+      input.price ?? null,
+      input.currency ?? 'USD',
+      input.maxAttendees ?? null,
+      JSON.stringify(input.agenda ?? []),
+      JSON.stringify(input.speakers ?? []),
       actor.userId,
     ],
   );
@@ -271,29 +362,49 @@ export async function updateWorkshop(
     `
       UPDATE app_networking.workshops
       SET
-        title              = COALESCE($2, title),
-        description        = COALESCE($3, description),
-        workshop_type      = COALESCE($4, workshop_type),
-        status             = COALESCE($5, status),
-        starts_at          = COALESCE($6::timestamptz, starts_at),
-        ends_at            = COALESCE($7::timestamptz, ends_at),
+        title               = COALESCE($2, title),
+        description         = COALESCE($3, description),
+        workshop_type       = COALESCE($4, workshop_type),
+        status              = COALESCE($5, status),
+        starts_at           = COALESCE($6::timestamptz, starts_at),
+        ends_at             = COALESCE($7::timestamptz, ends_at),
         facilitator_user_id = COALESCE($8, facilitator_user_id),
-        facilitator_name   = COALESCE($9, facilitator_name),
-        meeting_url        = COALESCE($10, meeting_url),
-        updated_at         = now()
+        facilitator_name    = COALESCE($9, facilitator_name),
+        meeting_url         = COALESCE($10, meeting_url),
+        location_name       = $11,
+        location_address    = $12,
+        location_lat        = $13,
+        location_lng        = $14,
+        location_photos     = COALESCE($15, location_photos),
+        price               = $16,
+        currency            = COALESCE($17, currency),
+        max_attendees       = $18,
+        agenda              = COALESCE($19::jsonb, agenda),
+        speakers            = COALESCE($20::jsonb, speakers),
+        updated_at          = now()
       WHERE workshop_id = $1
     `,
     [
       workshopId,
       input.title ?? null,
-      input.description ?? null,
+      input.description !== undefined ? input.description : null,
       input.workshopType ?? null,
       input.status ?? null,
       input.startsAt ?? null,
       input.endsAt ?? null,
-      input.facilitatorUserId ?? null,
-      input.facilitatorName ?? null,
-      input.meetingUrl ?? null,
+      input.facilitatorUserId !== undefined ? input.facilitatorUserId : null,
+      input.facilitatorName !== undefined ? input.facilitatorName : null,
+      input.meetingUrl !== undefined ? input.meetingUrl : null,
+      input.locationName !== undefined ? input.locationName : null,
+      input.locationAddress !== undefined ? input.locationAddress : null,
+      input.locationLat !== undefined ? input.locationLat : null,
+      input.locationLng !== undefined ? input.locationLng : null,
+      input.locationPhotos !== undefined ? input.locationPhotos : null,
+      input.price !== undefined ? input.price : null,
+      input.currency ?? null,
+      input.maxAttendees !== undefined ? input.maxAttendees : null,
+      input.agenda !== undefined ? JSON.stringify(input.agenda) : null,
+      input.speakers !== undefined ? JSON.stringify(input.speakers) : null,
     ],
   );
 

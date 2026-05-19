@@ -7,21 +7,19 @@ import {
   CalendarRange,
   Clock,
   Lock,
+  Pencil,
   Plus,
   User,
   Users,
-  X,
 } from 'lucide-react';
 import { AccessOfferPanel } from '@/components/access/AccessOfferPanel';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useUser } from '@/context/UserContext';
 import { filterCommercialProducts } from '@/features/access/catalog';
 import {
-  createWorkshop,
   deleteWorkshop,
   listWorkshops,
   updateWorkshop,
-  type CreateWorkshopInput,
   type WorkshopRecord,
   type WorkshopStatus,
   type WorkshopType,
@@ -49,43 +47,28 @@ function formatDate(v: string) {
 function formatTime(v: string) {
   return new Date(v).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
 }
-function toIso(v: string) { return new Date(v).toISOString(); }
-
-interface FormState {
-  title: string;
-  workshopType: WorkshopType;
-  startsAt: string;
-  endsAt: string;
-  facilitatorName: string;
-  meetingUrl: string;
-  description: string;
-}
-
-const BLANK_FORM: FormState = {
-  title: '', workshopType: 'formacion', startsAt: '', endsAt: '',
-  facilitatorName: '', meetingUrl: '', description: '',
-};
 
 // ── Workshop card ──────────────────────────────────────────────────────────────
 
 function WorkshopCard({
   workshop,
-  canUpdate,
-  canDelete,
+  canManage,
   onClick,
+  onEdit,
   onStatusChange,
   onDelete,
 }: {
   workshop: WorkshopRecord;
-  canUpdate: boolean;
-  canDelete: boolean;
+  canManage: boolean;
   onClick: () => void;
+  onEdit: () => void;
   onStatusChange: (s: WorkshopStatus) => void;
   onDelete: () => void;
 }) {
   const type = TYPE_META[workshop.workshopType] ?? TYPE_META.otro;
   const status = STATUS_META[workshop.status] ?? STATUS_META.upcoming;
   const isRegistered = workshop.myAttendanceStatus === 'registered' || workshop.myAttendanceStatus === 'attended';
+  const priceLabel = workshop.price !== null ? `${workshop.currency} ${Number(workshop.price).toLocaleString('es-CO')}` : null;
 
   return (
     <article
@@ -102,6 +85,9 @@ function WorkshopCard({
           <span className="rounded-full px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide" style={{ backgroundColor: status.bg, color: status.text }}>{status.label}</span>
           {isRegistered && (
             <span className="rounded-full bg-[#e8fff3] px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-[#2d8a5b]">Inscrito</span>
+          )}
+          {priceLabel && (
+            <span className="rounded-full bg-[var(--app-surface-muted)] px-2.5 py-0.5 text-[10px] font-extrabold tracking-wide text-[var(--app-ink)]">{priceLabel}</span>
           )}
         </div>
 
@@ -136,27 +122,29 @@ function WorkshopCard({
         )}
 
         {/* Admin actions — stop propagation */}
-        {(canUpdate || canDelete) && (
+        {canManage && (
           <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-[var(--app-border)] pt-3" onClick={(e) => e.stopPropagation()}>
-            {canUpdate && (
-              <select
-                value={workshop.status}
-                onChange={(e) => onStatusChange(e.target.value as WorkshopStatus)}
-                className="rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-2.5 py-1.5 text-xs font-semibold text-[var(--app-ink)] outline-none"
-              >
-                <option value="upcoming">Próximo</option>
-                <option value="completed">Completado</option>
-                <option value="cancelled">Cancelado</option>
-              </select>
-            )}
-            {canDelete && (
-              <button
-                onClick={onDelete}
-                className="rounded-xl border border-red-200 px-2.5 py-1.5 text-xs font-semibold text-red-500 transition hover:bg-red-50"
-              >
-                Eliminar
-              </button>
-            )}
+            <button
+              onClick={onEdit}
+              className="flex items-center gap-1.5 rounded-xl border border-[var(--app-border)] bg-white px-2.5 py-1.5 text-xs font-semibold text-[var(--app-ink)] transition hover:bg-[var(--app-surface-muted)]"
+            >
+              <Pencil size={11} /> Editar
+            </button>
+            <select
+              value={workshop.status}
+              onChange={(e) => onStatusChange(e.target.value as WorkshopStatus)}
+              className="rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-2.5 py-1.5 text-xs font-semibold text-[var(--app-ink)] outline-none"
+            >
+              <option value="upcoming">Próximo</option>
+              <option value="completed">Completado</option>
+              <option value="cancelled">Cancelado</option>
+            </select>
+            <button
+              onClick={onDelete}
+              className="rounded-xl border border-red-200 px-2.5 py-1.5 text-xs font-semibold text-red-500 transition hover:bg-red-50"
+            >
+              Eliminar
+            </button>
           </div>
         )}
       </div>
@@ -173,9 +161,6 @@ export default function WorkshopsPage() {
 
   const [workshops, setWorkshops] = React.useState<WorkshopRecord[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const [showModal, setShowModal] = React.useState(false);
-  const [saving, setSaving] = React.useState(false);
-  const [form, setForm] = React.useState<FormState>(BLANK_FORM);
 
   // Filters
   const [statusFilter, setStatusFilter] = React.useState<WorkshopStatus | 'all'>('all');
@@ -183,6 +168,7 @@ export default function WorkshopsPage() {
 
   const isCommunityLocked = currentRole === 'lider' && viewerAccess?.viewerTier === 'open_leader';
   const programOffers = filterCommercialProducts(viewerAccess?.catalog, { codes: ['program_4shine'] });
+  const canManage = can('workshops', 'manage');
 
   const showError = React.useCallback(
     async (msg: string, err: unknown) => {
@@ -206,31 +192,6 @@ export default function WorkshopsPage() {
     if (isCommunityLocked) { setLoading(false); return; }
     void load();
   }, [isCommunityLocked, load]);
-
-  const onCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.title.trim() || !form.startsAt || !form.endsAt) return;
-    setSaving(true);
-    try {
-      const input: CreateWorkshopInput = {
-        title: form.title.trim(),
-        workshopType: form.workshopType,
-        startsAt: toIso(form.startsAt),
-        endsAt: toIso(form.endsAt),
-        facilitatorName: form.facilitatorName.trim() || null,
-        meetingUrl: form.meetingUrl.trim() || null,
-        description: form.description.trim() || null,
-      };
-      await createWorkshop(input);
-      setForm(BLANK_FORM);
-      setShowModal(false);
-      await Promise.all([load(), refreshBootstrap()]);
-    } catch (err) {
-      await showError('No se pudo crear el workshop', err);
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const onStatusChange = async (workshop: WorkshopRecord, status: WorkshopStatus) => {
     try {
@@ -326,9 +287,9 @@ export default function WorkshopsPage() {
           <h1 className="text-xl font-black text-[var(--app-ink)]">Workshops</h1>
           <p className="mt-0.5 text-sm text-[var(--app-muted)]">Eventos y talleres del programa.</p>
         </div>
-        {can('workshops', 'create') && (
+        {canManage && (
           <button
-            onClick={() => setShowModal(true)}
+            onClick={() => router.push('/dashboard/workshops/new')}
             className="flex items-center gap-2 rounded-full bg-[#5b2d8a] px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:opacity-90"
           >
             <Plus size={15} /> Nuevo workshop
@@ -410,9 +371,9 @@ export default function WorkshopsPage() {
             <WorkshopCard
               key={ws.workshopId}
               workshop={ws}
-              canUpdate={can('workshops', 'update')}
-              canDelete={can('workshops', 'delete')}
+              canManage={canManage}
               onClick={() => router.push(`/dashboard/workshops/${ws.workshopId}`)}
+              onEdit={() => router.push(`/dashboard/workshops/${ws.workshopId}/edit`)}
               onStatusChange={(s) => void onStatusChange(ws, s)}
               onDelete={() => void onDelete(ws)}
             />
@@ -420,61 +381,6 @@ export default function WorkshopsPage() {
         </div>
       )}
 
-      {/* Create Modal */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center" onClick={() => setShowModal(false)}>
-          <div className="w-full max-w-lg rounded-t-3xl bg-white p-6 shadow-2xl sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-extrabold text-[var(--app-ink)]">Nuevo workshop</h3>
-              <button onClick={() => setShowModal(false)} className="rounded-full p-1.5 text-[var(--app-muted)] hover:bg-[var(--app-surface-muted)] transition">
-                <X size={16} />
-              </button>
-            </div>
-
-            <form onSubmit={(e) => void onCreate(e)} className="mt-4 space-y-3">
-              <input
-                required
-                placeholder="Título del workshop *"
-                value={form.title}
-                onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
-                className="w-full rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-2.5 text-sm outline-none focus:border-[#5b2d8a] focus:bg-white transition"
-              />
-              <select
-                value={form.workshopType}
-                onChange={(e) => setForm((p) => ({ ...p, workshopType: e.target.value as WorkshopType }))}
-                className="w-full rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-2.5 text-sm outline-none focus:border-[#5b2d8a] focus:bg-white transition"
-              >
-                <option value="relacionamiento">Relacionamiento</option>
-                <option value="formacion">Formación</option>
-                <option value="innovacion">Innovación</option>
-                <option value="wellbeing">Wellbeing</option>
-                <option value="otro">Otro</option>
-              </select>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-1 block text-[11px] font-semibold text-[var(--app-muted)]">Inicio *</label>
-                  <input required type="datetime-local" value={form.startsAt} onChange={(e) => setForm((p) => ({ ...p, startsAt: e.target.value }))} className="w-full rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-2.5 text-sm outline-none focus:border-[#5b2d8a] focus:bg-white transition" />
-                </div>
-                <div>
-                  <label className="mb-1 block text-[11px] font-semibold text-[var(--app-muted)]">Fin *</label>
-                  <input required type="datetime-local" value={form.endsAt} onChange={(e) => setForm((p) => ({ ...p, endsAt: e.target.value }))} className="w-full rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-2.5 text-sm outline-none focus:border-[#5b2d8a] focus:bg-white transition" />
-                </div>
-              </div>
-              <input placeholder="Facilitador (opcional)" value={form.facilitatorName} onChange={(e) => setForm((p) => ({ ...p, facilitatorName: e.target.value }))} className="w-full rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-2.5 text-sm outline-none focus:border-[#5b2d8a] focus:bg-white transition" />
-              <input placeholder="Link de sesión (opcional)" value={form.meetingUrl} onChange={(e) => setForm((p) => ({ ...p, meetingUrl: e.target.value }))} className="w-full rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-2.5 text-sm outline-none focus:border-[#5b2d8a] focus:bg-white transition" />
-              <textarea placeholder="Descripción (opcional)" rows={3} value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} className="w-full resize-none rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-2.5 text-sm outline-none focus:border-[#5b2d8a] focus:bg-white transition" />
-              <div className="flex gap-2 pt-1">
-                <button type="submit" disabled={saving || !form.title.trim() || !form.startsAt || !form.endsAt} className="flex flex-1 items-center justify-center gap-2 rounded-full bg-[#5b2d8a] py-2.5 text-sm font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50 transition">
-                  {saving ? 'Creando...' : 'Crear workshop'}
-                </button>
-                <button type="button" onClick={() => setShowModal(false)} className="rounded-full border border-[var(--app-border)] px-4 py-2.5 text-sm font-semibold text-[var(--app-muted)] hover:bg-[var(--app-surface-muted)] transition">
-                  Cancelar
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

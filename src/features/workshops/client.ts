@@ -4,6 +4,19 @@ export type WorkshopType = 'relacionamiento' | 'formacion' | 'innovacion' | 'wel
 export type WorkshopStatus = 'upcoming' | 'completed' | 'cancelled';
 export type AttendanceStatus = 'invited' | 'registered' | 'attended' | 'no_show' | 'cancelled';
 
+export interface AgendaItem {
+  time: string;
+  title: string;
+  description?: string;
+}
+
+export interface Speaker {
+  name: string;
+  role?: string;
+  bio?: string;
+  avatarUrl?: string;
+}
+
 export interface WorkshopRecord {
   workshopId: string;
   title: string;
@@ -17,6 +30,16 @@ export interface WorkshopRecord {
   meetingUrl: string | null;
   attendees: number;
   myAttendanceStatus: AttendanceStatus | null;
+  locationName: string | null;
+  locationAddress: string | null;
+  locationLat: number | null;
+  locationLng: number | null;
+  locationPhotos: string[];
+  price: number | null;
+  currency: string;
+  maxAttendees: number | null;
+  agenda: AgendaItem[];
+  speakers: Speaker[];
   createdBy: string | null;
   createdAt: string;
   updatedAt: string;
@@ -50,6 +73,16 @@ export interface CreateWorkshopInput {
   facilitatorUserId?: string | null;
   facilitatorName?: string | null;
   meetingUrl?: string | null;
+  locationName?: string | null;
+  locationAddress?: string | null;
+  locationLat?: number | null;
+  locationLng?: number | null;
+  locationPhotos?: string[];
+  price?: number | null;
+  currency?: string;
+  maxAttendees?: number | null;
+  agenda?: AgendaItem[];
+  speakers?: Speaker[];
 }
 
 export interface UpdateWorkshopInput {
@@ -62,6 +95,16 @@ export interface UpdateWorkshopInput {
   facilitatorUserId?: string | null;
   facilitatorName?: string | null;
   meetingUrl?: string | null;
+  locationName?: string | null;
+  locationAddress?: string | null;
+  locationLat?: number | null;
+  locationLng?: number | null;
+  locationPhotos?: string[];
+  price?: number | null;
+  currency?: string;
+  maxAttendees?: number | null;
+  agenda?: AgendaItem[];
+  speakers?: Speaker[];
 }
 
 export interface CreateFaqInput {
