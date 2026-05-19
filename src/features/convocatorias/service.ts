@@ -779,7 +779,7 @@ interface ApplicationRow {
   reviewed_by: string | null;
   attachment_file_url: string | null;
   attachment_url: string | null;
-  created_at: string;
+  applied_at: string;
 }
 
 function mapApplication(row: ApplicationRow): ConvocatoriaApplication {
@@ -795,7 +795,7 @@ function mapApplication(row: ApplicationRow): ConvocatoriaApplication {
     reviewedBy: row.reviewed_by,
     attachmentFileUrl: row.attachment_file_url,
     attachmentUrl: row.attachment_url,
-    createdAt: row.created_at,
+    createdAt: row.applied_at,
   };
 }
 
@@ -820,11 +820,11 @@ export async function listApplications(
        ca.reviewed_by::text,
        ca.attachment_file_url,
        ca.attachment_url,
-       ca.created_at::text
+       ca.applied_at::text
      FROM app_networking.convocatoria_applications ca
      JOIN app_core.users u ON u.user_id = ca.applicant_user_id
      WHERE ca.convocatoria_id = $1
-     ORDER BY ca.created_at DESC`,
+     ORDER BY ca.applied_at DESC`,
     [convocatoriaId],
   );
 
@@ -862,7 +862,9 @@ export async function reviewApplication(
        reviewer_notes,
        reviewed_at::text,
        reviewed_by::text,
-       created_at::text`,
+       NULL AS attachment_file_url,
+       NULL AS attachment_url,
+       applied_at::text`,
     [applicationId, convocatoriaId, input.status, notes, actor.userId],
   );
 
