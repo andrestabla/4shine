@@ -17,6 +17,24 @@ async function getInstitutionTimezone(client: PoolClient, actorUserId: string): 
   }
 }
 
+// Zoom's start_time expects local wall-clock time (yyyy-MM-ddTHH:mm:ss, no offset)
+// paired with the timezone field. Sending a UTC ISO string with milliseconds makes
+// Zoom misread the value as local time. Convert the instant to the target timezone.
+function toZoomLocalTime(isoInstant: string, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date(isoInstant));
+  const part = (type: string) => parts.find((p) => p.type === type)?.value ?? '00';
+  return `${part('year')}-${part('month')}-${part('day')}T${part('hour')}:${part('minute')}:${part('second')}`;
+}
+
 export interface ZoomMeetingResult {
   meetingId: string;
   joinUrl: string;
@@ -27,6 +45,7 @@ export interface ZoomMeetingParams {
   topic: string;
   startsAt: string;
   durationMinutes: number;
+  hostEmail?: string;
   timezone?: string;
   waitingRoom?: boolean;
   autoRecording?: 'none' | 'local' | 'cloud';
@@ -87,28 +106,47 @@ export async function createZoomMeeting(
 
   const token = await getAccessToken(accountId, clientId, clientSecret);
 
-  const res = await fetch('https://api.zoom.us/v2/users/me/meetings', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
+  const meetingBody: Record<string, unknown> = {
+    topic: params.topic,
+    type: 2,
+    start_time: toZoomLocalTime(params.startsAt, timezone),
+    duration: params.durationMinutes,
+    timezone,
+    settings: {
+      waiting_room: waitingRoom,
+      auto_recording: autoRecording,
+      host_video: true,
+      participant_video: false,
+      join_before_host: false,
+      mute_upon_entry: true,
     },
-    body: JSON.stringify({
-      topic: params.topic,
-      type: 2,
-      start_time: params.startsAt,
-      duration: params.durationMinutes,
-      timezone,
-      settings: {
-        waiting_room: waitingRoom,
-        auto_recording: autoRecording,
-        host_video: true,
-        participant_video: false,
-        join_before_host: false,
-        mute_upon_entry: true,
+  };
+
+  const postMeeting = (payload: Record<string, unknown>) =>
+    fetch('https://api.zoom.us/v2/users/me/meetings', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
       },
-    }),
-  });
+      body: JSON.stringify(payload),
+    });
+
+  // The Adviser host can start the meeting when set as an alternative host.
+  // Zoom requires that email to belong to a user on the same Zoom account; if it
+  // does not, the request is retried without it so the meeting is still created.
+  let res: Response;
+  if (params.hostEmail) {
+    res = await postMeeting({
+      ...meetingBody,
+      settings: { ...(meetingBody.settings as object), alternative_hosts: params.hostEmail },
+    });
+    if (!res.ok) {
+      res = await postMeeting(meetingBody);
+    }
+  } else {
+    res = await postMeeting(meetingBody);
+  }
 
   if (!res.ok) {
     throw new Error(`Zoom create meeting error ${res.status}: ${await res.text()}`);
@@ -146,7 +184,7 @@ export async function updateZoomMeetingTime(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      start_time: params.startsAt,
+      start_time: toZoomLocalTime(params.startsAt, timezone),
       duration: params.durationMinutes,
       timezone,
     }),

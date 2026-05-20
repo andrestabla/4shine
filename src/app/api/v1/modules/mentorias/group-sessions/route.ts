@@ -26,13 +26,22 @@ export async function POST(request: Request) {
   if (!body.zoomJoinUrl && !body.zoomHostUrl) {
     try {
       const meeting = await withClient((client) =>
-        withRoleContext(client, identity.userId, identity.role, () =>
-          createZoomMeeting(client, identity.userId, {
+        withRoleContext(client, identity.userId, identity.role, async () => {
+          let hostEmail: string | undefined;
+          if (body.hostUserId) {
+            const { rows } = await client.query<{ email: string }>(
+              `SELECT email::text FROM app_core.users WHERE user_id = $1::uuid LIMIT 1`,
+              [body.hostUserId],
+            );
+            hostEmail = rows[0]?.email ?? undefined;
+          }
+          return createZoomMeeting(client, identity.userId, {
             topic: body.title,
             startsAt: body.startsAt,
             durationMinutes: durationMinutes(body.startsAt, body.endsAt),
-          }),
-        ),
+            hostEmail,
+          });
+        }),
       );
       if (meeting) {
         enrichedBody = {
