@@ -533,6 +533,7 @@ export default function ConvocatoriaDetailPage() {
   const [forumLoading, setForumLoading] = React.useState(false);
   const [adminTab, setAdminTab] = React.useState<'applications' | 'images' | 'attachments' | 'dates' | 'faqs'>('applications');
   const [imageGalleryIdx, setImageGalleryIdx] = React.useState(0);
+  const [activeTab, setActiveTab] = React.useState<'info' | 'faq' | 'foro'>('info');
   const [notifyLoading, setNotifyLoading] = React.useState(false);
   const [notifyCount, setNotifyCount] = React.useState<number | null>(null);
 
@@ -875,88 +876,6 @@ export default function ConvocatoriaDetailPage() {
             </span>
           </div>
 
-          {/* Description */}
-          {item.description && (
-            <div className="mt-5 text-sm leading-relaxed text-[var(--app-ink)]/80 whitespace-pre-wrap">
-              {item.description}
-            </div>
-          )}
-
-          {/* Objetivo */}
-          {item.objetivo && (
-            <p className="mt-4 text-sm leading-relaxed text-[var(--app-ink)]/80">
-              <span className="font-bold">Objetivo: </span>{item.objetivo}
-            </p>
-          )}
-
-          {/* Requisitos */}
-          {item.requisitos && (
-            <p className="mt-4 text-sm leading-relaxed text-[var(--app-ink)]/80">
-              <span className="font-bold">Requisitos: </span>{item.requisitos}
-            </p>
-          )}
-
-          {/* Fechas de la convocatoria */}
-          {(item.fechaInicio || item.fechaFin) && (
-            <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-[var(--app-muted)]">
-              {item.fechaInicio && (
-                <span className="flex items-center gap-1.5">
-                  <Calendar size={14} />
-                  <span className="font-semibold">Inicio:</span> {toDateLabel(item.fechaInicio)}
-                </span>
-              )}
-              {item.fechaFin && (
-                <span className="flex items-center gap-1.5">
-                  <Calendar size={14} />
-                  <span className="font-semibold">Cierre:</span> {toDateLabel(item.fechaFin)}
-                </span>
-              )}
-            </div>
-          )}
-
-          {/* Empresa solicitante */}
-          {item.empresaSolicitante && (
-            <p className="mt-4 text-sm text-[var(--app-ink)]/80">
-              <span className="font-bold">Empresa solicitante: </span>{item.empresaSolicitante}
-            </p>
-          )}
-
-          {/* Contacto */}
-          {(item.contactoTelefono || item.contactoEmail) && (
-            <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-[var(--app-muted)]">
-              {item.contactoTelefono && (
-                <a
-                  href={`tel:${item.contactoTelefono}`}
-                  className="flex items-center gap-1.5 hover:text-[#5b2d8a] transition"
-                >
-                  <Phone size={14} />{item.contactoTelefono}
-                </a>
-              )}
-              {item.contactoEmail && (
-                <a
-                  href={`mailto:${item.contactoEmail}`}
-                  className="flex items-center gap-1.5 hover:text-[#5b2d8a] transition"
-                >
-                  <Mail size={14} />{item.contactoEmail}
-                </a>
-              )}
-            </div>
-          )}
-
-          {/* Enlace complementario */}
-          {item.enlacesComplementarios && (
-            <div className="mt-4">
-              <a
-                href={item.enlacesComplementarios}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-sm text-[#5b2d8a] hover:underline"
-              >
-                <Link2 size={14} />Enlace complementario
-              </a>
-            </div>
-          )}
-
           {/* Apply CTA */}
           {item.status === 'open' && !isAdmin && (
             <div className="mt-6 space-y-4">
@@ -1049,9 +968,108 @@ export default function ConvocatoriaDetailPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-        {/* Left: dates + attachments + FAQ */}
-        <div className="space-y-5 lg:col-span-1">
+      {/* Tabs */}
+      <div className="flex gap-1 rounded-2xl border border-[var(--app-border)] bg-white p-1.5">
+        {(['info', 'faq', 'foro'] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`flex-1 rounded-xl py-2 text-sm font-semibold transition ${
+              activeTab === tab
+                ? 'bg-[#5b2d8a] text-white shadow-sm'
+                : 'text-[var(--app-muted)] hover:bg-[var(--app-surface-muted)]'
+            }`}
+          >
+            {tab === 'info' ? 'Información' : tab === 'faq' ? 'Preguntas frecuentes' : 'Foro'}
+          </button>
+        ))}
+      </div>
+
+      {/* Información tab */}
+      {activeTab === 'info' && (
+        <div className="space-y-5">
+          {/* Acerca de la convocatoria */}
+          <div className="rounded-2xl border border-[var(--app-border)] bg-white p-6 sm:p-8">
+            <h2 className="text-base font-extrabold text-[var(--app-ink)]">Acerca de la convocatoria</h2>
+
+            {item.description ? (
+              <div className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-[var(--app-ink)]/80">
+                {item.description}
+              </div>
+            ) : !item.objetivo && !item.requisitos ? (
+              <p className="mt-3 text-sm italic text-[var(--app-muted)]">Sin descripción disponible.</p>
+            ) : null}
+
+            {item.objetivo && (
+              <p className="mt-4 text-sm leading-relaxed text-[var(--app-ink)]/80">
+                <span className="font-bold">Objetivo: </span>{item.objetivo}
+              </p>
+            )}
+
+            {item.requisitos && (
+              <p className="mt-4 text-sm leading-relaxed text-[var(--app-ink)]/80">
+                <span className="font-bold">Requisitos: </span>{item.requisitos}
+              </p>
+            )}
+
+            {(item.fechaInicio || item.fechaFin) && (
+              <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-[var(--app-muted)]">
+                {item.fechaInicio && (
+                  <span className="flex items-center gap-1.5">
+                    <Calendar size={14} />
+                    <span className="font-semibold">Inicio:</span> {toDateLabel(item.fechaInicio)}
+                  </span>
+                )}
+                {item.fechaFin && (
+                  <span className="flex items-center gap-1.5">
+                    <Calendar size={14} />
+                    <span className="font-semibold">Cierre:</span> {toDateLabel(item.fechaFin)}
+                  </span>
+                )}
+              </div>
+            )}
+
+            {item.empresaSolicitante && (
+              <p className="mt-4 text-sm text-[var(--app-ink)]/80">
+                <span className="font-bold">Empresa solicitante: </span>{item.empresaSolicitante}
+              </p>
+            )}
+
+            {(item.contactoTelefono || item.contactoEmail) && (
+              <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-[var(--app-muted)]">
+                {item.contactoTelefono && (
+                  <a
+                    href={`tel:${item.contactoTelefono}`}
+                    className="flex items-center gap-1.5 hover:text-[#5b2d8a] transition"
+                  >
+                    <Phone size={14} />{item.contactoTelefono}
+                  </a>
+                )}
+                {item.contactoEmail && (
+                  <a
+                    href={`mailto:${item.contactoEmail}`}
+                    className="flex items-center gap-1.5 hover:text-[#5b2d8a] transition"
+                  >
+                    <Mail size={14} />{item.contactoEmail}
+                  </a>
+                )}
+              </div>
+            )}
+
+            {item.enlacesComplementarios && (
+              <div className="mt-4">
+                <a
+                  href={item.enlacesComplementarios}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-sm text-[#5b2d8a] hover:underline"
+                >
+                  <Link2 size={14} />Enlace complementario
+                </a>
+              </div>
+            )}
+          </div>
+
           {/* Key dates */}
           {item.dates.length > 0 && (
             <div className="rounded-2xl border border-[var(--app-border)] bg-white p-5">
@@ -1102,91 +1120,96 @@ export default function ConvocatoriaDetailPage() {
             </div>
           )}
         </div>
+      )}
 
-        {/* Right: FAQ + Forum */}
-        <div className="space-y-5 lg:col-span-2">
-          {/* FAQ */}
-          {item.faqs.length > 0 && (
-            <div className="rounded-2xl border border-[var(--app-border)] bg-white p-5 sm:p-6">
-              <h2 className="mb-2 text-base font-extrabold text-[var(--app-ink)]">
-                Preguntas frecuentes
-              </h2>
-              <div>
-                {item.faqs.map((faq) => (
-                  <FaqItem key={faq.faqId} faq={faq} />
-                ))}
-              </div>
+      {/* Preguntas frecuentes tab */}
+      {activeTab === 'faq' && (
+        <div className="rounded-2xl border border-[var(--app-border)] bg-white p-5 sm:p-6">
+          <h2 className="mb-2 text-base font-extrabold text-[var(--app-ink)]">
+            Preguntas frecuentes
+          </h2>
+          {item.faqs.length > 0 ? (
+            <div>
+              {item.faqs.map((faq) => (
+                <FaqItem key={faq.faqId} faq={faq} />
+              ))}
             </div>
+          ) : (
+            <p className="py-6 text-center text-sm text-[var(--app-muted)]">
+              Aún no hay preguntas frecuentes para esta convocatoria.
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Foro tab */}
+      {activeTab === 'foro' && (
+        <div className="rounded-2xl border border-[var(--app-border)] bg-white p-5 sm:p-6">
+          <div className="mb-4 flex items-center gap-2">
+            <MessageSquare size={18} className="text-[#7c3aed]" />
+            <h2 className="text-base font-extrabold text-[var(--app-ink)]">Foro de la convocatoria</h2>
+            <span className="ml-auto text-xs text-[var(--app-muted)]">{posts.length} mensajes</span>
+          </div>
+
+          {/* Posts list */}
+          {posts.length === 0 ? (
+            <p className="py-4 text-center text-sm text-[var(--app-muted)]">
+              Sé el primero en escribir en este foro.
+            </p>
+          ) : (
+            <ul className="space-y-4 mb-5">
+              {posts.map((post) => (
+                <li key={post.postId} className={`flex gap-3 ${post.isPinned ? 'rounded-xl bg-[#faf5ff] p-3' : ''}`}>
+                  <Avatar name={post.authorName} avatarUrl={post.authorAvatarUrl} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-sm font-bold text-[var(--app-ink)]">{post.authorName}</span>
+                      {post.isPinned && (
+                        <span className="rounded-full bg-[#e9d5ff] px-1.5 py-0.5 text-[10px] font-bold text-[#5b2d8a]">
+                          Fijado
+                        </span>
+                      )}
+                      <span className="text-xs text-[var(--app-muted)]">{toRelativeTime(post.createdAt)}</span>
+                      {(isAdmin || post.authorUserId === currentUser?.id) && (
+                        <button
+                          onClick={() => void onDeletePost(post)}
+                          className="ml-auto text-[var(--app-muted)] hover:text-red-500 transition"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      )}
+                    </div>
+                    <p className="mt-1 text-sm leading-relaxed text-[var(--app-ink)]/80 whitespace-pre-wrap">
+                      {post.body}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ul>
           )}
 
-          {/* Forum */}
-          <div className="rounded-2xl border border-[var(--app-border)] bg-white p-5 sm:p-6">
-            <div className="mb-4 flex items-center gap-2">
-              <MessageSquare size={18} className="text-[#7c3aed]" />
-              <h2 className="text-base font-extrabold text-[var(--app-ink)]">Foro de la convocatoria</h2>
-              <span className="ml-auto text-xs text-[var(--app-muted)]">{posts.length} mensajes</span>
-            </div>
-
-            {/* Posts list */}
-            {posts.length === 0 ? (
-              <p className="py-4 text-center text-sm text-[var(--app-muted)]">
-                Sé el primero en escribir en este foro.
-              </p>
-            ) : (
-              <ul className="space-y-4 mb-5">
-                {posts.map((post) => (
-                  <li key={post.postId} className={`flex gap-3 ${post.isPinned ? 'rounded-xl bg-[#faf5ff] p-3' : ''}`}>
-                    <Avatar name={post.authorName} avatarUrl={post.authorAvatarUrl} />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-sm font-bold text-[var(--app-ink)]">{post.authorName}</span>
-                        {post.isPinned && (
-                          <span className="rounded-full bg-[#e9d5ff] px-1.5 py-0.5 text-[10px] font-bold text-[#5b2d8a]">
-                            Fijado
-                          </span>
-                        )}
-                        <span className="text-xs text-[var(--app-muted)]">{toRelativeTime(post.createdAt)}</span>
-                        {(isAdmin || post.authorUserId === currentUser?.id) && (
-                          <button
-                            onClick={() => void onDeletePost(post)}
-                            className="ml-auto text-[var(--app-muted)] hover:text-red-500 transition"
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        )}
-                      </div>
-                      <p className="mt-1 text-sm leading-relaxed text-[var(--app-ink)]/80 whitespace-pre-wrap">
-                        {post.body}
-                      </p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            {/* Compose */}
-            <form onSubmit={onForumSubmit} className="flex items-end gap-2">
-              <textarea
-                className="app-textarea flex-1"
-                placeholder="Escribe un mensaje en el foro..."
-                rows={2}
-                value={forumMsg}
-                onChange={(e) => setForumMsg(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void onForumSubmit(e);
-                }}
-              />
-              <button
-                type="submit"
-                disabled={forumLoading || !forumMsg.trim()}
-                className="app-button-primary shrink-0 p-3 disabled:opacity-50"
-              >
-                {forumLoading ? '...' : <Send size={16} />}
-              </button>
-            </form>
-          </div>
+          {/* Compose */}
+          <form onSubmit={onForumSubmit} className="flex items-end gap-2">
+            <textarea
+              className="app-textarea flex-1"
+              placeholder="Escribe un mensaje en el foro..."
+              rows={2}
+              value={forumMsg}
+              onChange={(e) => setForumMsg(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void onForumSubmit(e);
+              }}
+            />
+            <button
+              type="submit"
+              disabled={forumLoading || !forumMsg.trim()}
+              className="app-button-primary shrink-0 p-3 disabled:opacity-50"
+            >
+              {forumLoading ? '...' : <Send size={16} />}
+            </button>
+          </form>
         </div>
-      </div>
+      )}
 
       {/* Admin panel */}
       {isAdmin && (
