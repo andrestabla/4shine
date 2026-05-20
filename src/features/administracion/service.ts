@@ -39,6 +39,13 @@ const MAX_DYNAMIC_LOGIN_MESSAGE_ITEMS = 20;
 const MAX_DYNAMIC_LOGIN_MESSAGE_LENGTH = 400;
 const SECRET_MASK = '••••••••••••';
 
+// True when a value is a masking placeholder (only bullet/asterisk chars), never a real secret.
+function isSecretMask(value: unknown): boolean {
+  if (typeof value !== 'string') return false;
+  const trimmed = value.trim();
+  return trimmed.length > 0 && /^[•*]+$/u.test(trimmed);
+}
+
 const BRANDING_FIELD_KEYS: Array<keyof BrandingSettings> = [
   'platformName',
   'institutionTimezone',
@@ -839,13 +846,13 @@ function mergeIntegrations(
       : item.wizardData;
 
     for (const [fieldKey, fieldValue] of Object.entries(wizardData)) {
-      if (fieldValue === SECRET_MASK && hasText(item.wizardData[fieldKey])) {
+      if (isSecretMask(fieldValue) && hasText(item.wizardData[fieldKey])) {
         wizardData[fieldKey] = item.wizardData[fieldKey];
       }
     }
 
     const nextValue =
-      typeof update.value === 'string' && update.value !== SECRET_MASK
+      typeof update.value === 'string' && !isSecretMask(update.value)
         ? update.value
         : item.value;
 
@@ -1772,7 +1779,7 @@ export async function updateIntegrationsSettings(
         hasText(integration.label) ? integration.label.trim() : integration.key,
         hasText(integration.provider) ? integration.provider.trim() : 'Custom',
         integration.enabled,
-        integration.value === SECRET_MASK ? null : (integration.value || null),
+        isSecretMask(integration.value) ? null : (integration.value || null),
         JSON.stringify(normalizeWizardData(integration.wizardData)),
         normalizeDate(integration.lastConfiguredAt),
         actor.userId,
