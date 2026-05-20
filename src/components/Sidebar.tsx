@@ -324,8 +324,10 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
       >
         <div
           className={clsx(
-            "flex items-center border-b p-6",
-            isCollapsed ? "justify-center" : "justify-between",
+            "flex border-b",
+            isCollapsed
+              ? "flex-col items-center gap-4 p-4"
+              : "items-center justify-between p-6",
           )}
           style={{ borderColor }}
         >
@@ -377,15 +379,15 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
 
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="absolute -right-3 top-7 z-50 hidden rounded-full border bg-white p-1.5 text-[#4f2360] shadow-sm transition-colors md:flex"
-            style={{
-              borderColor,
-            }}
+            title={isCollapsed ? "Expandir menú" : "Colapsar menú"}
+            aria-label={isCollapsed ? "Expandir menú" : "Colapsar menú"}
+            className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-[0.9rem] border transition hover:bg-white/10 md:flex"
+            style={{ borderColor, color: onPrimaryText }}
           >
             {isCollapsed ? (
-              <ChevronRight size={14} />
+              <ChevronRight size={16} />
             ) : (
-              <ChevronLeft size={14} />
+              <ChevronLeft size={16} />
             )}
           </button>
 
