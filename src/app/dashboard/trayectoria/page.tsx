@@ -6,8 +6,6 @@ import React from "react";
 import {
   ArrowRight,
   Award,
-  BookOpen,
-  BriefcaseBusiness,
   CalendarDays,
   CheckCircle2,
   Compass,
@@ -67,13 +65,6 @@ interface LeaderPhaseModel extends JourneyPhaseDefinition {
   workshopHighlights: string[];
   primaryHref: string;
   primaryLabel: string;
-}
-
-interface ActionCard {
-  title: string;
-  description: string;
-  href: string;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
 }
 
 const IMPACT_TARGET = 85;
@@ -281,6 +272,26 @@ function challengeIcon(index: number) {
   return Users;
 }
 
+// Resolve which dashboard module a "Próximo desafío" should open, by matching
+// keywords in its title first, then its description.
+function challengeHref(challenge: { title: string; description: string }): string {
+  const pick = (text: string): string | null => {
+    const value = text.toLowerCase();
+    if (/wb\s*\d|workbook|aprendiz/.test(value)) return "/dashboard/aprendizaje";
+    if (/mentor/.test(value)) return "/dashboard/mentorias";
+    if (/relacion|visibilidad|networking|conexi/.test(value)) return "/dashboard/networking";
+    if (/workshop|taller/.test(value)) return "/dashboard/workshops";
+    if (/convocatoria/.test(value)) return "/dashboard/convocatorias";
+    if (/descubrimiento|diagn/.test(value)) return "/dashboard/descubrimiento";
+    return null;
+  };
+  return (
+    pick(challenge.title) ??
+    pick(`${challenge.title} ${challenge.description}`) ??
+    "/dashboard/aprendizaje"
+  );
+}
+
 export default function TrayectoriaPage() {
   const { currentUser, currentRole, bootstrapData, viewerAccess } = useUser();
   const [isLoading, setIsLoading] = React.useState(false);
@@ -447,43 +458,6 @@ export default function TrayectoriaPage() {
       label: "Progreso medio",
       value: `${average(bootstrapData.mentees.map((mentee) => mentee.progress))}%`,
       hint: "Referencia cohortes activas",
-    },
-  ];
-
-  const phaseActionCards: ActionCard[] = [
-    {
-      title: "Aprendizaje",
-      description:
-        summarize(activePhase.learningHighlights[0] ?? activePhase.goal),
-      href: "/dashboard/aprendizaje",
-      icon: BookOpen,
-    },
-    {
-      title: "Mentorías",
-      description: summarize(
-        activePhase.mentorshipMoments[0] ??
-          "Revisa tus próximas sesiones y mantén continuidad en la conversación.",
-      ),
-      href: "/dashboard/mentorias",
-      icon: CalendarDays,
-    },
-    {
-      title: "Networking",
-      description: summarize(
-        activePhase.networkingHighlights.join(" · ") || "Activa relaciones clave durante esta etapa.",
-      ),
-      href: "/dashboard/networking",
-      icon: Users,
-    },
-    {
-      title: "Convocatorias y workshops",
-      description: summarize(
-        [...activePhase.opportunityHighlights, ...activePhase.workshopHighlights].join(
-          " · ",
-        ) || "Explora oportunidades aplicables a tu etapa actual.",
-      ),
-      href: "/dashboard/workshops",
-      icon: BriefcaseBusiness,
     },
   ];
 
@@ -944,59 +918,6 @@ export default function TrayectoriaPage() {
           </section>
 
           <section className="app-panel p-5 sm:p-6">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <Flag size={16} className="text-[var(--brand-primary)]" />
-                  <p className="app-section-kicker">Ruta activa</p>
-                </div>
-                <h3 className="mt-3 text-2xl font-black text-[var(--app-ink)]">
-                  {activePhase.title}
-                </h3>
-                <p className="mt-2 text-sm leading-relaxed text-[var(--app-muted)]">
-                  {activePhase.goal}
-                </p>
-              </div>
-              <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--app-muted)]">
-                {activePhase.weekRangeLabel}
-              </span>
-            </div>
-
-            <div className="mt-5 flex flex-wrap gap-2">
-              {activePhase.steps.map((step) => (
-                <span
-                  key={step.weekLabel}
-                  className="app-chip-soft"
-                >
-                  {step.weekLabel}
-                </span>
-              ))}
-            </div>
-
-            <div className="mt-6 grid gap-3 sm:grid-cols-2">
-              {phaseActionCards.map((card) => (
-                <Link
-                  key={card.title}
-                  href={card.href}
-                  className="app-list-card"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="rounded-[1rem] bg-[var(--app-chip)] p-3 text-[var(--brand-primary)]">
-                      <card.icon size={18} />
-                    </div>
-                    <div>
-                      <p className="font-bold text-[var(--app-ink)]">{card.title}</p>
-                      <p className="mt-1 text-sm leading-relaxed text-[var(--app-muted)]">
-                        {card.description}
-                      </p>
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </section>
-
-          <section className="app-panel p-5 sm:p-6">
             <div className="flex items-center gap-2">
               <Sparkles size={16} className="text-[var(--brand-primary)]" />
               <p className="app-section-kicker">Próximos desafíos</p>
@@ -1006,8 +927,9 @@ export default function TrayectoriaPage() {
               {challengeCards.map((challenge, index) => {
                 const Icon = challengeIcon(index);
                 return (
-                  <article
+                  <Link
                     key={`${challenge.title}-${index}`}
+                    href={challengeHref(challenge)}
                     className="app-list-card"
                   >
                     <div className="flex items-start gap-3">
@@ -1021,7 +943,7 @@ export default function TrayectoriaPage() {
                         </p>
                       </div>
                     </div>
-                  </article>
+                  </Link>
                 );
               })}
             </div>
