@@ -115,6 +115,16 @@ async function sendEmail(config: OutboundConfigRow, payload: OutboundEmailPayloa
   });
 }
 
+// Dates are stored as UTC instants; render them in the institution's timezone
+// so emails show the same local time as the platform UI.
+function formatSessionDate(iso: string, timeZone: string): string {
+  return new Date(iso).toLocaleString('es-CO', {
+    dateStyle: 'full',
+    timeStyle: 'short',
+    timeZone,
+  });
+}
+
 export async function sendGroupSessionJoinedEmail(
   client: PoolClient,
   actor: AuthUser,
@@ -134,8 +144,8 @@ export async function sendGroupSessionJoinedEmail(
   const config = await resolveOutboundConfig(client, user.organization_id);
   if (!config) return;
 
-  const { rows: brandingRows } = await client.query<{ platform_name: string; logo_url: string | null }>(
-    `SELECT platform_name, logo_url FROM app_admin.branding_settings
+  const { rows: brandingRows } = await client.query<{ platform_name: string; logo_url: string | null; institution_timezone: string | null }>(
+    `SELECT platform_name, logo_url, institution_timezone FROM app_admin.branding_settings
      WHERE organization_id = $1 LIMIT 1`,
     [user.organization_id],
   );
@@ -146,10 +156,8 @@ export async function sendGroupSessionJoinedEmail(
 
   const firstName = user.display_name.split(' ')[0] || 'Líder';
   const platformName = branding.platformName;
-  const sessionDate = new Date(event.startsAt).toLocaleString('es-CO', {
-    dateStyle: 'full',
-    timeStyle: 'short',
-  });
+  const timeZone = brandingRows[0]?.institution_timezone || 'America/Bogota';
+  const sessionDate = formatSessionDate(event.startsAt, timeZone);
 
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL ?? 'https://www.4shine.co').replace(/\/$/, '');
   const icsUrl = `${appUrl}/api/v1/modules/mentorias/group-sessions/${event.eventId}/ics`;
@@ -239,8 +247,8 @@ export async function sendMentorshipScheduledEmail(
   const config = await resolveOutboundConfig(client, lider.organization_id);
   if (!config) return;
 
-  const { rows: brandingRows } = await client.query<{ platform_name: string; logo_url: string | null }>(
-    `SELECT platform_name, logo_url FROM app_admin.branding_settings
+  const { rows: brandingRows } = await client.query<{ platform_name: string; logo_url: string | null; institution_timezone: string | null }>(
+    `SELECT platform_name, logo_url, institution_timezone FROM app_admin.branding_settings
      WHERE organization_id = $1 LIMIT 1`,
     [lider.organization_id],
   );
@@ -250,10 +258,8 @@ export async function sendMentorshipScheduledEmail(
   };
 
   const platformName = branding.platformName;
-  const sessionDate = new Date(session.startsAt).toLocaleString('es-CO', {
-    dateStyle: 'full',
-    timeStyle: 'short',
-  });
+  const timeZone = brandingRows[0]?.institution_timezone || 'America/Bogota';
+  const sessionDate = formatSessionDate(session.startsAt, timeZone);
 
   const gcalStart = new Date(session.startsAt).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
   const gcalEnd = new Date(session.endsAt).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
@@ -382,8 +388,8 @@ export async function sendMentorshipCancelledEmail(
   const config = await resolveOutboundConfig(client, lider.organization_id);
   if (!config) return;
 
-  const { rows: brandingRows } = await client.query<{ platform_name: string; logo_url: string | null }>(
-    `SELECT platform_name, logo_url FROM app_admin.branding_settings WHERE organization_id = $1 LIMIT 1`,
+  const { rows: brandingRows } = await client.query<{ platform_name: string; logo_url: string | null; institution_timezone: string | null }>(
+    `SELECT platform_name, logo_url, institution_timezone FROM app_admin.branding_settings WHERE organization_id = $1 LIMIT 1`,
     [lider.organization_id],
   );
   const branding = {
@@ -393,11 +399,12 @@ export async function sendMentorshipCancelledEmail(
 
   const firstName = lider.display_name.split(' ')[0] || 'Líder';
   const platformName = branding.platformName;
-  const originalDate = new Date(session.startsAt).toLocaleString('es-CO', { dateStyle: 'full', timeStyle: 'short' });
+  const timeZone = brandingRows[0]?.institution_timezone || 'America/Bogota';
+  const originalDate = formatSessionDate(session.startsAt, timeZone);
 
   const proposedSection = details.proposedStartsAt
     ? (() => {
-        const proposed = new Date(details.proposedStartsAt).toLocaleString('es-CO', { dateStyle: 'full', timeStyle: 'short' });
+        const proposed = formatSessionDate(details.proposedStartsAt, timeZone);
         return `
           <table width="100%" cellpadding="0" cellspacing="0" border="0"
                  style="background-color:#f0fdf4;border-radius:12px;padding:16px 20px;margin-bottom:20px;border:1px solid #bbf7d0;">
@@ -447,7 +454,7 @@ export async function sendMentorshipCancelledEmail(
     `Motivo: ${details.reason || 'No especificado'}`,
     '',
     details.proposedStartsAt
-      ? `Nuevo horario propuesto: ${new Date(details.proposedStartsAt).toLocaleString('es-CO', { dateStyle: 'full', timeStyle: 'short' })}`
+      ? `Nuevo horario propuesto: ${formatSessionDate(details.proposedStartsAt, timeZone)}`
       : 'El Adviser te contactará para coordinar una nueva fecha.',
     '',
     `Accede a la plataforma de ${platformName} para más detalles.`,

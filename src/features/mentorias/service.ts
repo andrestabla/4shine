@@ -2342,10 +2342,15 @@ export async function scheduleProgramMentorship(
   let zoomHostUrl: string | null = null;
   if (!resolvedMeetingUrl) {
     try {
+      const { rows: hostRows } = await client.query<{ email: string }>(
+        `SELECT email::text FROM app_core.users WHERE user_id = $1::uuid LIMIT 1`,
+        [input.mentorUserId],
+      );
       const zoom = await createZoomMeeting(client, actor.userId, {
         topic: entitlement.title,
         startsAt: input.startsAt,
         durationMinutes: entitlement.defaultDurationMinutes,
+        hostEmail: hostRows[0]?.email ?? undefined,
       });
       if (zoom) {
         resolvedMeetingUrl = zoom.joinUrl;
