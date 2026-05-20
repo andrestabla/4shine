@@ -1124,6 +1124,8 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
         </section>
       )}
 
+      {!isOpenLeader && (
+      <>
       <section className="app-panel p-5 sm:p-6">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -1214,6 +1216,8 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
           })}
         </div>
       </section>
+      </>
+      )}
 
       {(currentRole === 'admin' || currentRole === 'gestor') && (
         <section className="app-panel p-5 sm:p-6">
@@ -1255,6 +1259,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
         </section>
       )}
 
+      {!isOpenLeader && (
       <section className="app-panel p-5 sm:p-6">
         <p className="app-section-kicker">Sesiones grupales próximas</p>
         <div className="mt-4 space-y-3">
@@ -1325,6 +1330,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
           )}
         </div>
       </section>
+      )}
 
       {(currentRole === 'admin' || currentRole === 'gestor') && (
         <section className="app-panel p-5 sm:p-6">
@@ -1352,6 +1358,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
         </section>
       )}
 
+      {!isOpenLeader && (
       <section className="app-panel p-5 sm:p-6">
         <p className="app-section-kicker">Grabaciones de sesiones pasadas</p>
 
@@ -1510,6 +1517,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
           </div>
         )}
       </section>
+      )}
 
       {selectedGroupSession && (
         <div
