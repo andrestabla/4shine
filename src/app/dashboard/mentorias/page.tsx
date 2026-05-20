@@ -2634,7 +2634,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
             />
           </div>
         ) : (
-          <div className="mt-5 space-y-3">
+          <div className="mt-5 space-y-2">
             {overview.programEntitlements.map((item, idx) => {
               const isFormOpen = programForm.entitlementId === item.entitlementId;
               const isCompleted = item.status === 'completed';
@@ -2643,142 +2643,104 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
 
               if (isCompleted) {
                 return (
-                  <article key={item.entitlementId} className="flex items-start gap-4 rounded-[20px] border border-emerald-200 bg-emerald-50/80 px-5 py-4">
-                    <CheckCircle2 size={20} className="mt-0.5 shrink-0 text-emerald-500" />
+                  <div key={item.entitlementId} className="flex flex-wrap items-center gap-3 rounded-[14px] border border-emerald-200 bg-emerald-50/70 px-4 py-2.5">
+                    <CheckCircle2 size={16} className="shrink-0 text-emerald-500" />
                     <div className="min-w-0 flex-1">
-                      <p className="font-bold text-emerald-800">{item.title}</p>
+                      <p className="truncate text-sm font-bold text-emerald-800">{item.title}</p>
                       {item.mentorName && item.scheduledStartsAt && (
-                        <p className="mt-0.5 text-sm text-emerald-700">
+                        <p className="truncate text-xs text-emerald-700">
                           {item.mentorName} · {formatDateTime(item.scheduledStartsAt, tz)}
                         </p>
                       )}
-                      {item.scheduledMeetingUrl && (
-                        <a
-                          href={item.scheduledMeetingUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-emerald-300 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50"
-                        >
-                          <Play size={11} />
-                          Ver grabación
-                        </a>
-                      )}
                     </div>
-                    <span className="shrink-0 rounded-full border border-emerald-200 bg-emerald-100 px-3 py-1 text-xs font-extrabold uppercase tracking-[0.14em] text-emerald-700">
+                    <span className="shrink-0 rounded-full border border-emerald-200 bg-emerald-100 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.14em] text-emerald-700">
                       Completada
                     </span>
-                  </article>
+                  </div>
                 );
               }
 
               if (isScheduled) {
                 return (
-                  <article key={item.entitlementId} className="rounded-[20px] border border-amber-200 bg-amber-50/80 px-5 py-4">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-amber-600/70">
-                          Mentoría {idx + 1} · {phaseLabel(item.phaseCode)}
+                  <div key={item.entitlementId} className="flex flex-wrap items-center gap-3 rounded-[14px] border border-amber-200 bg-amber-50/70 px-4 py-2.5">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-bold text-amber-900">{item.title}</p>
+                      {item.mentorName && item.scheduledStartsAt && (
+                        <p className="truncate text-xs text-amber-700">
+                          {item.mentorName} · {formatDateTime(item.scheduledStartsAt, tz)}
                         </p>
-                        <p className="mt-1 font-bold text-amber-900">{item.title}</p>
-                        {item.mentorName && item.scheduledStartsAt && (
-                          <p className="mt-0.5 text-sm text-amber-700">
-                            {item.mentorName} · {formatDateTime(item.scheduledStartsAt, tz)}
-                          </p>
-                        )}
-                      </div>
-                      <span className="shrink-0 rounded-full border border-amber-300 bg-amber-100 px-3 py-1 text-xs font-extrabold uppercase tracking-[0.14em] text-amber-700">
-                        Programada
-                      </span>
+                      )}
                     </div>
-                    {item.scheduledMeetingUrl && (
+                    <span className="shrink-0 rounded-full border border-amber-300 bg-amber-100 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.14em] text-amber-700">
+                      Programada
+                    </span>
+                    {item.scheduledEndsAt && isGroupSessionPast({ endsAt: item.scheduledEndsAt }) ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          document
+                            .getElementById('mentorias-grabaciones')
+                            ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                        }
+                        className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[var(--brand-primary)] px-3.5 py-1.5 text-xs font-bold text-white hover:opacity-90"
+                      >
+                        <Play size={12} /> Ver grabación
+                      </button>
+                    ) : item.scheduledMeetingUrl ? (
                       <a
                         href={item.scheduledMeetingUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="mt-3 inline-flex items-center gap-2 rounded-full bg-[#2D8CFF] px-4 py-2 text-xs font-bold text-white hover:opacity-90"
+                        className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#2D8CFF] px-3.5 py-1.5 text-xs font-bold text-white hover:opacity-90"
                       >
-                        <Video size={12} />
-                        Unirse a la sesión
+                        <Video size={12} /> Unirse
                       </a>
-                    )}
-                  </article>
+                    ) : null}
+                  </div>
                 );
               }
 
               if (isLocked) {
                 return (
-                  <article key={item.entitlementId} className="rounded-[20px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-5 py-4 opacity-55">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[var(--app-border)] bg-white">
-                        <Lock size={13} className="text-[var(--app-muted)]" />
-                      </div>
-                      <div>
-                        <p className="font-bold text-[var(--app-ink)]">{item.title}</p>
-                        <p className="mt-0.5 text-sm text-[var(--app-muted)]">
-                          {item.scheduleBlockedReason ?? 'Se habilita 10 días después de que se desarrolle la mentoría anterior.'}
-                        </p>
-                      </div>
+                  <div key={item.entitlementId} className="flex flex-wrap items-center gap-3 rounded-[14px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-2.5 opacity-70">
+                    <Lock size={14} className="shrink-0 text-[var(--app-muted)]" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-bold text-[var(--app-ink)]">{item.title}</p>
+                      <p className="truncate text-xs text-[var(--app-muted)]">
+                        {item.scheduleBlockedReason ?? 'Se habilita 10 días después de la mentoría anterior.'}
+                      </p>
                     </div>
-                  </article>
+                    <span className="shrink-0 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-700">
+                      Bloqueada
+                    </span>
+                  </div>
                 );
               }
 
               return (
-                <article
-                  key={item.entitlementId}
-                  className={clsx(
-                    'rounded-[22px] border px-5 py-5',
-                    item.status === 'scheduled'
-                      ? 'border-amber-200 bg-amber-50/80'
-                      : 'border-[var(--brand-primary)]/25 bg-white shadow-[0_2px_12px_rgba(91,45,138,0.08)]',
-                  )}
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[var(--app-muted)]">
-                        Mentoría {idx + 1} · {phaseLabel(item.phaseCode)}
+                <div key={item.entitlementId} className="rounded-[14px] border border-[var(--brand-primary)]/25 bg-white">
+                  <div className="flex flex-wrap items-center gap-3 px-4 py-2.5">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-bold text-[var(--app-ink)]">{item.title}</p>
+                      <p className="truncate text-xs text-[var(--app-muted)]">
+                        {phaseLabel(item.phaseCode)} · {item.defaultDurationMinutes} min
                       </p>
-                      <h3 className="mt-1.5 text-lg font-black text-[var(--app-ink)]">{item.title}</h3>
-                      {item.description && (
-                        <p className="mt-1.5 max-w-prose text-sm leading-relaxed text-[var(--app-muted)]">
-                          {item.description}
-                        </p>
-                      )}
                     </div>
-                    <span className={clsx('rounded-full border px-3 py-1 text-xs font-extrabold uppercase tracking-[0.16em]', PROGRAM_STATUS_META[item.status].tone)}>
+                    <span className={clsx('shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.14em]', PROGRAM_STATUS_META[item.status].tone)}>
                       {PROGRAM_STATUS_META[item.status].label}
                     </span>
-                  </div>
-
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {item.workbookCode && (
-                      <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--app-muted)]">
-                        Workbook {item.workbookCode.toUpperCase()}
-                      </span>
+                    {!isFormOpen && (
+                      <button
+                        className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[var(--brand-primary)] px-3.5 py-1.5 text-xs font-bold text-white transition hover:opacity-90"
+                        type="button"
+                        onClick={() => setProgramForm((prev) => ({ ...prev, entitlementId: item.entitlementId }))}
+                      >
+                        Programar <ArrowRight size={13} />
+                      </button>
                     )}
-                    <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--app-muted)]">
-                      {item.defaultDurationMinutes} min
-                    </span>
                   </div>
-
-                  {item.scheduledStartsAt && item.mentorName && (
-                    <div className="mt-4 rounded-[16px] border border-[var(--app-border)] bg-white/80 px-4 py-3 text-sm">
-                      <span className="font-semibold text-[var(--app-ink)]">{item.mentorName}</span>
-                      <span className="text-[var(--app-muted)]"> · {formatDateTime(item.scheduledStartsAt, tz)}</span>
-                    </div>
-                  )}
-
-                  {!isFormOpen ? (
-                    <button
-                      className="mt-4 inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-5 py-2.5 text-sm font-bold text-white transition hover:opacity-90"
-                      type="button"
-                      onClick={() => setProgramForm((prev) => ({ ...prev, entitlementId: item.entitlementId }))}
-                    >
-                      {item.status === 'scheduled' ? 'Reagendar mentoría' : 'Programar mentoría'}
-                      <ArrowRight size={14} />
-                    </button>
-                  ) : (
-                    <form className="mt-5 space-y-3 border-t border-[var(--app-border)] pt-5" onSubmit={handleProgramSchedule}>
+                  {isFormOpen && (
+                    <form className="space-y-3 border-t border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-4" onSubmit={handleProgramSchedule}>
                       {overview.mentorCatalog.length === 0 && (
                         <div className="rounded-[14px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                           Necesitamos activar al menos un Adviser para poder reservar esta mentoría.
@@ -2874,11 +2836,50 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                       </div>
                     </form>
                   )}
-                </article>
+                </div>
               );
             })}
           </div>
         )}
+      </section>
+
+      <section id="mentorias-grabaciones" className="app-panel p-5 sm:p-6">
+        <div className="flex items-center gap-2">
+          <Video size={16} className="text-[var(--brand-primary)]" />
+          <p className="app-section-kicker">Grabaciones de mentorías</p>
+        </div>
+        {(() => {
+          const recordings = overview.programEntitlements.filter(
+            (item) => item.status === 'completed' && item.scheduledRecordingUrl,
+          );
+          return recordings.length === 0 ? (
+            <div className="mt-5">
+              <EmptyState message="Las grabaciones de tus mentorías aparecerán aquí automáticamente al finalizar cada sesión." />
+            </div>
+          ) : (
+            <div className="mt-5 space-y-2">
+              {recordings.map((item) => (
+                <div key={item.entitlementId} className="flex flex-wrap items-center gap-3 rounded-[14px] border border-[var(--app-border)] bg-white px-4 py-2.5">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-bold text-[var(--app-ink)]">{item.title}</p>
+                    <p className="truncate text-xs text-[var(--app-muted)]">
+                      {item.mentorName ?? 'Adviser'}
+                      {item.scheduledStartsAt ? ` · ${formatDateTime(item.scheduledStartsAt, tz)}` : ''}
+                    </p>
+                  </div>
+                  <a
+                    href={item.scheduledRecordingUrl ?? '#'}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[var(--brand-primary)] px-3.5 py-1.5 text-xs font-bold text-white transition hover:opacity-90"
+                  >
+                    <Play size={12} /> Ver grabación
+                  </a>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
       </section>
 
       <div className="flex items-center justify-between gap-4 rounded-[20px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-5 py-4">

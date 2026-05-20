@@ -86,6 +86,7 @@ export interface ProgramMentorshipEntitlementRecord {
   scheduledStartsAt: string | null;
   scheduledEndsAt: string | null;
   scheduledMeetingUrl: string | null;
+  scheduledRecordingUrl: string | null;
   mentorUserId: string | null;
   mentorName: string | null;
 }
@@ -320,6 +321,7 @@ interface ProgramEntitlementRow {
   scheduled_starts_at: string | null;
   scheduled_ends_at: string | null;
   scheduled_meeting_url: string | null;
+  scheduled_recording_url: string | null;
   scheduled_session_status: MentorshipStatus | null;
   mentor_user_id: string | null;
   mentor_name: string | null;
@@ -495,6 +497,7 @@ function mapProgramEntitlement(
     scheduledStartsAt: row.scheduled_starts_at,
     scheduledEndsAt: row.scheduled_ends_at,
     scheduledMeetingUrl: row.scheduled_meeting_url,
+    scheduledRecordingUrl: row.scheduled_recording_url,
     mentorUserId: row.mentor_user_id,
     mentorName: row.mentor_name,
   };
@@ -831,6 +834,7 @@ async function getProgramEntitlement(
         ms.starts_at::text AS scheduled_starts_at,
         ms.ends_at::text AS scheduled_ends_at,
         ms.meeting_url AS scheduled_meeting_url,
+        ms.zoom_recording_url AS scheduled_recording_url,
         ms.status AS scheduled_session_status,
         ms.mentor_user_id::text AS mentor_user_id,
         mentor.display_name AS mentor_name
@@ -1037,6 +1041,7 @@ async function listProgramEntitlements(
         ms.starts_at::text AS scheduled_starts_at,
         ms.ends_at::text AS scheduled_ends_at,
         ms.meeting_url AS scheduled_meeting_url,
+        ms.zoom_recording_url AS scheduled_recording_url,
         ms.status AS scheduled_session_status,
         ms.mentor_user_id::text AS mentor_user_id,
         mentor.display_name AS mentor_name
@@ -1817,8 +1822,8 @@ export async function ingestZoomRecording(
 
   await client.query(
     `UPDATE app_mentoring.mentorship_sessions
-     SET meeting_url = $2, updated_at = now()
-     WHERE session_id = $1::uuid AND (meeting_url IS NULL OR meeting_url NOT LIKE 'https://zoom.us/rec/%')`,
+     SET zoom_recording_url = $2, updated_at = now()
+     WHERE session_id = $1::uuid AND zoom_recording_url IS NULL`,
     [individualSession.session_id, payload.playUrl],
   );
 }
