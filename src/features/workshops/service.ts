@@ -24,6 +24,7 @@ export interface WorkshopRecord {
   workshopId: string;
   title: string;
   description: string | null;
+  bannerUrl: string | null;
   workshopType: WorkshopType;
   status: WorkshopStatus;
   startsAt: string;
@@ -69,6 +70,7 @@ export interface WorkshopForumPostRecord {
 export interface CreateWorkshopInput {
   title: string;
   description?: string | null;
+  bannerUrl?: string | null;
   workshopType: WorkshopType;
   status?: WorkshopStatus;
   startsAt: string;
@@ -91,6 +93,7 @@ export interface CreateWorkshopInput {
 export interface UpdateWorkshopInput {
   title?: string;
   description?: string | null;
+  bannerUrl?: string | null;
   workshopType?: WorkshopType;
   status?: WorkshopStatus;
   startsAt?: string;
@@ -122,6 +125,7 @@ interface WorkshopRow {
   workshop_id: string;
   title: string;
   description: string | null;
+  banner_url: string | null;
   workshop_type: WorkshopType;
   status: WorkshopStatus;
   starts_at: string;
@@ -171,6 +175,7 @@ function mapRow(row: WorkshopRow): WorkshopRecord {
     workshopId: row.workshop_id,
     title: row.title,
     description: row.description,
+    bannerUrl: row.banner_url,
     workshopType: row.workshop_type,
     status: row.status,
     startsAt: row.starts_at,
@@ -225,6 +230,7 @@ const WORKSHOP_SELECT = `
     w.workshop_id::text,
     w.title,
     w.description,
+    w.banner_url,
     w.workshop_type,
     w.status,
     w.starts_at::text,
@@ -306,23 +312,24 @@ export async function createWorkshop(
   const { rows } = await client.query<{ workshop_id: string }>(
     `
       INSERT INTO app_networking.workshops (
-        title, description, workshop_type, status,
+        title, description, banner_url, workshop_type, status,
         starts_at, ends_at, facilitator_user_id, facilitator_name, meeting_url,
         location_name, location_address, location_lat, location_lng, location_photos,
         price, currency, max_attendees, agenda, speakers,
         created_by
       )
       VALUES (
-        $1, $2, $3, $4, $5::timestamptz, $6::timestamptz, $7, $8, $9,
-        $10, $11, $12, $13, $14,
-        $15, $16, $17, $18::jsonb, $19::jsonb,
-        $20
+        $1, $2, $3, $4, $5, $6::timestamptz, $7::timestamptz, $8, $9, $10,
+        $11, $12, $13, $14, $15,
+        $16, $17, $18, $19::jsonb, $20::jsonb,
+        $21
       )
       RETURNING workshop_id::text
     `,
     [
       input.title,
       input.description ?? null,
+      input.bannerUrl ?? null,
       input.workshopType,
       input.status ?? 'upcoming',
       input.startsAt,
@@ -381,6 +388,7 @@ export async function updateWorkshop(
         max_attendees       = $18,
         agenda              = COALESCE($19::jsonb, agenda),
         speakers            = COALESCE($20::jsonb, speakers),
+        banner_url          = COALESCE($21, banner_url),
         updated_at          = now()
       WHERE workshop_id = $1
     `,
@@ -405,6 +413,7 @@ export async function updateWorkshop(
       input.maxAttendees !== undefined ? input.maxAttendees : null,
       input.agenda !== undefined ? JSON.stringify(input.agenda) : null,
       input.speakers !== undefined ? JSON.stringify(input.speakers) : null,
+      input.bannerUrl !== undefined ? input.bannerUrl : null,
     ],
   );
 

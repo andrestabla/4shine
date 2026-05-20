@@ -21,6 +21,7 @@ export interface WorkshopRecord {
   workshopId: string;
   title: string;
   description: string | null;
+  bannerUrl: string | null;
   workshopType: WorkshopType;
   status: WorkshopStatus;
   startsAt: string;
@@ -66,6 +67,7 @@ export interface WorkshopForumPostRecord {
 export interface CreateWorkshopInput {
   title: string;
   description?: string | null;
+  bannerUrl?: string | null;
   workshopType: WorkshopType;
   status?: WorkshopStatus;
   startsAt: string;
@@ -88,6 +90,7 @@ export interface CreateWorkshopInput {
 export interface UpdateWorkshopInput {
   title?: string;
   description?: string | null;
+  bannerUrl?: string | null;
   workshopType?: WorkshopType;
   status?: WorkshopStatus;
   startsAt?: string;

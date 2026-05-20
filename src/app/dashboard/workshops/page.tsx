@@ -72,11 +72,19 @@ function WorkshopCard({
 
   return (
     <article
-      className="group relative flex cursor-pointer flex-col rounded-2xl border border-[var(--app-border)] bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+      className="group relative flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-[var(--app-border)] bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
       onClick={onClick}
     >
+      {/* Banner image */}
+      {workshop.bannerUrl && (
+        <div className="h-36 w-full overflow-hidden bg-[var(--app-surface-muted)]">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={workshop.bannerUrl} alt="" className="h-full w-full object-cover" />
+        </div>
+      )}
+
       {/* Color accent top bar */}
-      <div className="h-1.5 rounded-t-2xl" style={{ backgroundColor: type.text }} />
+      <div className="h-1.5" style={{ backgroundColor: type.text }} />
 
       <div className="flex flex-1 flex-col p-5">
         {/* Badges */}

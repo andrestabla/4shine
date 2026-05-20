@@ -55,6 +55,7 @@ interface FormState {
   workshopType: WorkshopType;
   status: WorkshopStatus;
   description: string;
+  bannerUrl: string;
   startsAt: string;
   endsAt: string;
   facilitatorName: string;
@@ -77,6 +78,7 @@ const BLANK: FormState = {
   workshopType: 'formacion',
   status: 'upcoming',
   description: '',
+  bannerUrl: '',
   startsAt: '',
   endsAt: '',
   facilitatorName: '',
@@ -135,6 +137,7 @@ export function WorkshopFormPage({ mode, workshopId }: Props) {
           workshopType: ws.workshopType,
           status: ws.status,
           description: ws.description ?? '',
+          bannerUrl: ws.bannerUrl ?? '',
           startsAt: toLocal(ws.startsAt),
           endsAt: toLocal(ws.endsAt),
           facilitatorName: ws.facilitatorName ?? '',
@@ -170,6 +173,7 @@ export function WorkshopFormPage({ mode, workshopId }: Props) {
       workshopType: form.workshopType,
       status: form.status,
       description: form.description.trim() || null,
+      bannerUrl: form.bannerUrl,
       startsAt: toIso(form.startsAt),
       endsAt: toIso(form.endsAt),
       facilitatorName: form.facilitatorName.trim() || null,
@@ -323,6 +327,33 @@ export function WorkshopFormPage({ mode, workshopId }: Props) {
             rows={4}
             className={`${inputCls} resize-none`}
           />
+        </Field>
+        <Field label="Imagen banner (portada)">
+          <div className="space-y-2">
+            {form.bannerUrl && (
+              <div className="group relative w-full overflow-hidden rounded-xl border border-[var(--app-border)]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={form.bannerUrl} alt="Banner del workshop" className="h-40 w-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => set('bannerUrl', '')}
+                  className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-black/50 text-white transition hover:bg-black/70"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            )}
+            <R2UploadButton
+              moduleCode="workshops"
+              action="update"
+              pathPrefix="workshops/banners"
+              accept="image/*"
+              buttonLabel={form.bannerUrl ? 'Cambiar banner' : 'Subir banner'}
+              onUploaded={(url) => set('bannerUrl', url)}
+              className="inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--app-ink)] transition hover:bg-[var(--app-surface-muted)]"
+            />
+            <p className="text-[11px] text-[var(--app-muted)]">Se muestra como portada en la tarjeta del workshop.</p>
+          </div>
         </Field>
       </SectionCard>
 
