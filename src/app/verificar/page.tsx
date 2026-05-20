@@ -3,15 +3,12 @@
 import React from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { CheckCircle, Loader2, XCircle } from 'lucide-react';
-import { useUser } from '@/context/UserContext';
-import type { SessionUser } from '@/context/UserContext';
 
 type VerifyState = 'loading' | 'success' | 'error';
 
 function VerificarContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { applySession } = useUser();
   const [state, setState] = React.useState<VerifyState>('loading');
   const [errorMessage, setErrorMessage] = React.useState('');
   const didRun = React.useRef(false);
@@ -32,11 +29,7 @@ function VerificarContent() {
         const res = await fetch(`/api/v1/auth/verify-email?token=${encodeURIComponent(token)}`, {
           credentials: 'include',
         });
-        const data = (await res.json()) as {
-          ok: boolean;
-          error?: string;
-          user?: SessionUser;
-        };
+        const data = (await res.json()) as { ok: boolean; error?: string };
 
         if (!res.ok || !data.ok) {
           setState('error');
@@ -45,18 +38,12 @@ function VerificarContent() {
         }
 
         setState('success');
-
-        if (data.user) {
-          await applySession(data.user as SessionUser);
-        }
-
-        setTimeout(() => router.push('/dashboard'), 1800);
       } catch {
         setState('error');
         setErrorMessage('Error de conexión. Intenta de nuevo.');
       }
     })();
-  }, [searchParams, applySession, router]);
+  }, [searchParams]);
 
   return (
     <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-slate-100 p-8 text-center">
@@ -71,8 +58,17 @@ function VerificarContent() {
       {state === 'success' && (
         <>
           <CheckCircle size={44} className="mx-auto text-emerald-500 mb-4" />
-          <p className="text-lg font-semibold text-slate-800">¡Cuenta verificada!</p>
-          <p className="text-sm text-slate-500 mt-2">Ingresando a la plataforma...</p>
+          <p className="text-lg font-semibold text-slate-800">Excelente</p>
+          <p className="text-sm text-slate-500 mt-2">
+            Has confirmado exitosamente tu cuenta. Ya puedes iniciar sesión con las credenciales creadas.
+          </p>
+          <button
+            type="button"
+            onClick={() => router.push('/acceso')}
+            className="mt-6 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors"
+          >
+            Iniciar sesión
+          </button>
         </>
       )}
 
