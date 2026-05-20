@@ -924,8 +924,12 @@ export default function AprendizajePage() {
     [isCoursesTab],
   );
 
+  const hasLoadedRef = React.useRef(false);
+
   const loadModule = React.useCallback(async () => {
-    setLoading(true);
+    // Full-page skeleton only on the first load; later refetches (search,
+    // filters, pagination) keep the UI mounted so inputs don't lose focus.
+    if (!hasLoadedRef.current) setLoading(true);
     try {
       const resourceFamily =
         activeLearningTab === "cursos"
@@ -971,6 +975,7 @@ export default function AprendizajePage() {
     } catch (error) {
       await showError("No se pudo cargar el módulo de aprendizaje", error);
     } finally {
+      hasLoadedRef.current = true;
       setLoading(false);
     }
   }, [
