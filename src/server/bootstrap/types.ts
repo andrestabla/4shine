@@ -215,12 +215,13 @@ export interface Chat {
 }
 
 export interface Notification {
-  id: number;
+  id: string;
   title: string;
   message: string;
   time: string;
   read: boolean;
   type: 'message' | 'alert' | 'success' | 'info';
+  actionUrl: string | null;
 }
 
 export interface Quote {

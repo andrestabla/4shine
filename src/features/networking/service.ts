@@ -2,6 +2,7 @@ import type { PoolClient } from 'pg';
 import type { AuthUser } from '@/server/auth/types';
 import { requireCommunityAccess } from '@/features/access/service';
 import { requireModulePermission } from '@/server/auth/module-permissions';
+import { notifyUser } from '@/features/notificaciones/engine';
 
 export type ConnectionStatus = 'pending' | 'connected' | 'blocked' | 'rejected';
 export type CommunityVisibility = 'open' | 'closed';
@@ -614,6 +615,13 @@ export async function createConnection(client: PoolClient, actor: AuthUser, inpu
     [actor.userId, connectionId],
   );
 
+  await notifyUser(client, {
+    actorUserId: actor.userId,
+    recipientUserId: input.addresseeUserId,
+    eventKey: 'networking.connection_request',
+    variables: { nombre: actor.name },
+  });
+
   return mapRow(full.rows[0]);
 }
 
@@ -635,6 +643,22 @@ export async function updateConnection(client: PoolClient, actor: AuthUser, conn
     `${BASE_SELECT} WHERE c.connection_id = $2::uuid LIMIT 1`,
     [actor.userId, connectionId],
   );
+
+  if (input.status === 'connected') {
+    const { rows: reqRows } = await client.query<{ requester_user_id: string }>(
+      `SELECT requester_user_id::text FROM app_networking.connections WHERE connection_id = $1 LIMIT 1`,
+      [connectionId],
+    );
+    const requesterId = reqRows[0]?.requester_user_id;
+    if (requesterId && requesterId !== actor.userId) {
+      await notifyUser(client, {
+        actorUserId: actor.userId,
+        recipientUserId: requesterId,
+        eventKey: 'networking.connection_accepted',
+        variables: { nombre: actor.name },
+      });
+    }
+  }
 
   return mapRow(rows[0]);
 }

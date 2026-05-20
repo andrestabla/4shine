@@ -202,6 +202,39 @@ export async function dispatchNotification(
   }
 }
 
+// ─── Convenience: dispatch an in-app notification to a single user ───────────
+// Resolves the organization from actorUserId and never throws — a notification
+// failure must not break the operation that triggered it. The email channel is
+// skipped (recipientEmail empty) since modules send their own transactional
+// emails; this only creates the in-app notification row.
+export async function notifyUser(
+  client: PoolClient,
+  params: {
+    actorUserId: string;
+    recipientUserId: string;
+    eventKey: string;
+    variables?: Partial<Record<VariableKey, string>>;
+  },
+): Promise<void> {
+  try {
+    const { rows } = await client.query<{ organization_id: string }>(
+      `SELECT organization_id::text FROM app_core.users WHERE user_id = $1 LIMIT 1`,
+      [params.actorUserId],
+    );
+    const organizationId = rows[0]?.organization_id;
+    if (!organizationId) return;
+    await dispatchNotification(client, {
+      organizationId,
+      recipientUserId: params.recipientUserId,
+      recipientEmail: '',
+      eventKey: params.eventKey,
+      variables: params.variables ?? {},
+    });
+  } catch (err) {
+    console.error('[notify] dispatch failed:', err);
+  }
+}
+
 // ─── Test email sender (uses sample vars, no dispatch context needed) ─────────
 
 export async function sendEmailToAddress(

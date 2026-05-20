@@ -3,6 +3,7 @@ import { getViewerAccessState, requireProgramSubscriptionAccess } from '@/featur
 import type { AuthUser } from '@/server/auth/types';
 import { requireModulePermission } from '@/server/auth/module-permissions';
 import { createZoomMeeting } from '@/server/integrations/zoom';
+import { notifyUser } from '@/features/notificaciones/engine';
 
 export type MentorshipSessionType = 'individual' | 'grupal';
 export type MentorshipStatus =
@@ -1703,11 +1704,12 @@ export async function participateInGroupSession(
   if (input.status === 'joined') {
     await client.query(
       `
-        INSERT INTO app_core.notifications (user_id, notification_type, title, message, payload)
+        INSERT INTO app_core.notifications (user_id, notification_type, title, message, payload, action_url)
         VALUES (
           $1, 'info', 'Participación confirmada',
           $2,
-          jsonb_build_object('eventId', $3::text, 'zoomJoinUrl', $4::text)
+          jsonb_build_object('eventId', $3::text, 'zoomJoinUrl', $4::text),
+          '/dashboard/mentorias'
         )
       `,
       [
@@ -2402,6 +2404,19 @@ export async function scheduleProgramMentorship(
     [input.entitlementId, session.sessionId],
   );
 
+  await notifyUser(client, {
+    actorUserId: actor.userId,
+    recipientUserId: actor.userId,
+    eventKey: 'mentorias.session_scheduled_mentee',
+    variables: { nombre: actor.name, titulo: entitlement.title },
+  });
+  await notifyUser(client, {
+    actorUserId: actor.userId,
+    recipientUserId: input.mentorUserId,
+    eventKey: 'mentorias.session_scheduled_mentor',
+    variables: { titulo: entitlement.title },
+  });
+
   return session;
 }
 
@@ -2589,6 +2604,16 @@ export async function updateMentorship(
   }
 
   await syncLinkedMentorshipEntities(client, sessionId);
+
+  if (isCancellation && current.menteeUserId) {
+    await notifyUser(client, {
+      actorUserId: actor.userId,
+      recipientUserId: current.menteeUserId,
+      eventKey: 'mentorias.session_cancelled_mentee',
+      variables: { titulo: current.title },
+    });
+  }
+
   return getSession(client, sessionId);
 }
 

@@ -13,7 +13,11 @@ import {
   MessageSquare,
 } from "lucide-react";
 import clsx from "clsx";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import {
+  markAllNotificationsRead,
+  markNotificationRead,
+} from "@/features/notificaciones/client";
 import type { Notification } from "@/server/bootstrap/types";
 
 const PATH_TITLES: Record<string, string> = {
@@ -56,13 +60,27 @@ function resolvePageTitle(pathname: string): string {
 export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
   const { currentUser, bootstrapData } = useUser();
   const { tokens } = useBranding();
+  const router = useRouter();
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const notificationsRef = React.useRef<HTMLDivElement>(null);
   const pathname = usePathname();
 
   React.useEffect(() => {
     setNotifications(bootstrapData?.notifications ?? []);
   }, [bootstrapData]);
+
+  // Close the notifications dropdown when clicking anywhere outside it.
+  React.useEffect(() => {
+    if (!showNotifications) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (!notificationsRef.current?.contains(event.target as Node)) {
+        setShowNotifications(false);
+      }
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, [showNotifications]);
 
   const pageTitle = useMemo(() => {
     return resolvePageTitle(pathname);
@@ -70,14 +88,36 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const markAsRead = (id: number) => {
-    setNotifications(
-      notifications.map((n) => (n.id === id ? { ...n, read: true } : n)),
+  const markAsRead = (id: string) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
     );
+    void markNotificationRead(id);
   };
 
   const markAllRead = () => {
-    setNotifications(notifications.map((n) => ({ ...n, read: true })));
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    void markAllNotificationsRead();
+  };
+
+  const openNotification = (notif: Notification) => {
+    if (!notif.read) markAsRead(notif.id);
+    setShowNotifications(false);
+    const url = notif.actionUrl?.trim();
+    if (!url) return;
+    try {
+      const parsed = new URL(url, window.location.origin);
+      const internal =
+        parsed.hostname === window.location.hostname ||
+        parsed.hostname.endsWith("4shine.co");
+      if (internal) {
+        router.push(parsed.pathname + parsed.search + parsed.hash);
+      } else {
+        window.open(parsed.href, "_blank", "noopener,noreferrer");
+      }
+    } catch {
+      router.push(url);
+    }
   };
 
   const getIcon = (type: string) => {
@@ -129,14 +169,16 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
             />
           </div>
 
-          <div className="relative">
+          <div className="relative" ref={notificationsRef}>
             <button
               onClick={() => setShowNotifications(!showNotifications)}
               className="relative flex h-12 w-12 items-center justify-center rounded-[1rem] border border-[var(--app-border)] bg-white/88 text-[var(--app-muted)] transition hover:bg-white hover:text-[var(--app-ink)]"
             >
               <Bell size={18} />
               {unreadCount > 0 && (
-                <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full border-2 border-white bg-rose-500 animate-pulse" />
+                <span className="absolute -right-1 -top-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full border-2 border-white bg-rose-500 px-1 text-[10px] font-bold leading-none text-white">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
               )}
             </button>
 
@@ -160,8 +202,9 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
                     notifications.map((notif) => (
                       <div
                         key={notif.id}
+                        onClick={() => openNotification(notif)}
                         className={clsx(
-                          "relative flex gap-3 border-b border-[rgba(91,52,117,0.08)] px-4 py-4 transition hover:bg-white/80",
+                          "relative flex cursor-pointer gap-3 border-b border-[rgba(91,52,117,0.08)] px-4 py-4 transition hover:bg-white/80",
                           !notif.read ? "bg-[rgba(245,183,209,0.14)]" : "",
                         )}
                       >

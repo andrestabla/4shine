@@ -1174,9 +1174,11 @@ async function fetchNotifications(client: PoolClient, contextUserId: string): Pr
     created_at: string;
     read_at: string | null;
     notification_type: Notification['type'];
+    action_url: string | null;
   }>(
     `
-      SELECT notification_id, title, message, created_at::text, read_at::text, notification_type
+      SELECT notification_id::text, title, message, created_at::text, read_at::text,
+             notification_type, action_url
       FROM app_core.notifications
       WHERE user_id = $1
       ORDER BY created_at DESC
@@ -1185,13 +1187,14 @@ async function fetchNotifications(client: PoolClient, contextUserId: string): Pr
     [contextUserId],
   );
 
-  return rows.map((row, index) => ({
-    id: index + 1,
+  return rows.map((row) => ({
+    id: row.notification_id,
     title: row.title,
     message: row.message,
     time: relativeDaysFrom(row.created_at),
     read: !!row.read_at,
     type: row.notification_type,
+    actionUrl: row.action_url,
   }));
 }
 

@@ -2,6 +2,7 @@ import type { PoolClient } from 'pg';
 import type { AuthUser } from '@/server/auth/types';
 import { requireCommunityAccess } from '@/features/access/service';
 import { requireModulePermission } from '@/server/auth/module-permissions';
+import { notifyUser } from '@/features/notificaciones/engine';
 
 export type WorkshopType = 'relacionamiento' | 'formacion' | 'innovacion' | 'wellbeing' | 'otro';
 export type WorkshopStatus = 'upcoming' | 'completed' | 'cancelled';
@@ -464,7 +465,14 @@ export async function applyToWorkshop(
     [workshopId, actor.userId],
   );
 
-  return getWorkshop(client, actor, workshopId);
+  const workshop = await getWorkshop(client, actor, workshopId);
+  await notifyUser(client, {
+    actorUserId: actor.userId,
+    recipientUserId: actor.userId,
+    eventKey: 'workshops.registration_confirmed',
+    variables: { nombre: actor.name, titulo: workshop.title },
+  });
+  return workshop;
 }
 
 export async function cancelApplication(

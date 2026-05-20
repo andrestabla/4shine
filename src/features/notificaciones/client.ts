@@ -136,3 +136,11 @@ export function markNotificationRead(notificationId: string) {
     }),
   );
 }
+
+export function markAllNotificationsRead() {
+  return safe(() =>
+    requestApi<{ ok: true }>(`/api/v1/modules/notificaciones/read-all`, {
+      method: 'POST',
+    }),
+  );
+}
