@@ -177,6 +177,10 @@ function toIso(value: string): string {
   return new Date(value).toISOString();
 }
 
+function isGroupSessionPast(event: { endsAt: string }): boolean {
+  return new Date(event.endsAt).getTime() < Date.now();
+}
+
 function toDatetimeLocalInput(value: string): string {
   const date = new Date(value);
   const adjusted = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
@@ -1143,7 +1147,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
               {upcomingGroupSession.hostName ?? upcomingGroupSession.externalExpertName ?? 'Anfitrión por definir'}
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
-              {upcomingGroupSession.zoomJoinUrl ? (
+              {upcomingGroupSession.zoomJoinUrl && !isGroupSessionPast(upcomingGroupSession) ? (
                 <a
                   href={upcomingGroupSession.zoomJoinUrl}
                   target="_blank"
@@ -1277,9 +1281,15 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {eventItem.zoomJoinUrl ? (
-                      <a href={eventItem.zoomJoinUrl} target="_blank" rel="noreferrer" className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--brand-primary)]">
-                        Enlace Zoom
-                      </a>
+                      isGroupSessionPast(eventItem) ? (
+                        <span className="rounded-full border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-1 text-xs font-semibold text-[var(--app-muted)]">
+                          Finalizada
+                        </span>
+                      ) : (
+                        <a href={eventItem.zoomJoinUrl} target="_blank" rel="noreferrer" className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--brand-primary)]">
+                          Enlace Zoom
+                        </a>
+                      )
                     ) : null}
                     {(currentRole === 'lider' || currentRole === 'mentor') && (
                       eventItem.participationStatus === 'joined' ? (
@@ -1566,15 +1576,22 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
 
               <div className="mt-5 flex flex-wrap gap-3">
                 {selectedGroupSession.zoomJoinUrl && (
-                  <a
-                    href={selectedGroupSession.zoomJoinUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-2 rounded-full bg-[#2D8CFF] px-4 py-2 text-sm font-bold text-white"
-                  >
-                    <Video size={14} />
-                    Entrar a Zoom
-                  </a>
+                  isGroupSessionPast(selectedGroupSession) ? (
+                    <span className="inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-2 text-sm font-semibold text-[var(--app-muted)]">
+                      <Video size={14} />
+                      Sesión finalizada
+                    </span>
+                  ) : (
+                    <a
+                      href={selectedGroupSession.zoomJoinUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-2 rounded-full bg-[#2D8CFF] px-4 py-2 text-sm font-bold text-white"
+                    >
+                      <Video size={14} />
+                      Entrar a Zoom
+                    </a>
+                  )
                 )}
                 {(currentRole === 'lider' || currentRole === 'mentor') && (
                   selectedGroupSession.participationStatus === 'joined' ? (
