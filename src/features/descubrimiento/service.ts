@@ -1604,6 +1604,73 @@ export async function updateDiscoveryFeedbackSettings(
   return mapFeedbackSettingsRow(rows[0]);
 }
 
+// Pre-fills blank discovery profile fields from the user's registered profile
+// so a registered user does not re-enter data already captured at sign-up.
+// Only blank fields are filled — values already in the session are kept.
+async function applyRegisteredProfileDefaults(
+  client: PoolClient,
+  actor: AuthUser,
+  session: DiscoverySessionRecord,
+): Promise<DiscoverySessionRecord> {
+  const needsCountry = !session.country;
+  const needsJobRole = !session.jobRole;
+  const needsGender = !session.gender;
+  const needsYears = session.yearsExperience == null;
+  if (!needsCountry && !needsJobRole && !needsGender && !needsYears) {
+    return session;
+  }
+
+  const { rows } = await client.query<{
+    country: string | null;
+    job_role: string | null;
+    gender: string | null;
+    years_experience: number | null;
+  }>(
+    `
+      SELECT up.country, up.job_role, up.gender, up.years_experience
+      FROM app_core.user_profiles up
+      WHERE up.user_id = $1::uuid
+      LIMIT 1
+    `,
+    [actor.userId],
+  );
+  const profile = rows[0];
+  if (!profile) return session;
+
+  const changed =
+    (needsCountry && Boolean(profile.country)) ||
+    (needsJobRole && Boolean(profile.job_role)) ||
+    (needsGender && Boolean(profile.gender)) ||
+    (needsYears && profile.years_experience != null);
+  if (!changed) return session;
+
+  const nextCountry: string =
+    needsCountry && profile.country ? profile.country : session.country ?? "";
+  const nextJobRole: string =
+    needsJobRole && profile.job_role ? profile.job_role : session.jobRole ?? "";
+  const nextGender: string | null =
+    needsGender && profile.gender ? profile.gender : session.gender ?? null;
+  const nextYears: number | null =
+    needsYears && profile.years_experience != null
+      ? profile.years_experience
+      : session.yearsExperience ?? null;
+
+  await client.query(
+    `
+      UPDATE app_assessment.discovery_sessions
+      SET country = $2,
+          job_role = $3,
+          gender = $4,
+          years_experience = $5,
+          updated_at = now()
+      WHERE session_id = $1::uuid
+    `,
+    [session.sessionId, nextCountry, nextJobRole || null, nextGender, nextYears],
+  );
+
+  return (await readDiscoverySession(client, actor.userId)) ?? session;
+}
+
 export async function getOrCreateDiscoverySession(
   client: PoolClient,
   actor: AuthUser,
@@ -1611,12 +1678,10 @@ export async function getOrCreateDiscoverySession(
   await requireModulePermission(client, "descubrimiento", "view");
   await requireDiscoveryAccess(client, actor);
 
-  const current = await readDiscoverySession(client, actor.userId);
-  if (!current) {
-    return createDiscoverySession(client, actor);
-  }
+  const existing = await readDiscoverySession(client, actor.userId);
+  let session = existing ?? (await createDiscoverySession(client, actor));
 
-  if (current.nameSnapshot !== actor.name) {
+  if (session.nameSnapshot !== actor.name) {
     const { rows } = await client.query<DiscoverySessionRow>(
       `
         UPDATE app_assessment.discovery_sessions
@@ -1647,15 +1712,15 @@ export async function getOrCreateDiscoverySession(
           created_at::text,
           updated_at::text
       `,
-      [current.sessionId, actor.name],
+      [session.sessionId, actor.name],
     );
 
     if (rows[0]) {
-      return mapDiscoverySessionRow(rows[0]);
+      session = mapDiscoverySessionRow(rows[0]);
     }
   }
 
-  return current;
+  return applyRegisteredProfileDefaults(client, actor, session);
 }
 
 export async function updateDiscoverySession(
