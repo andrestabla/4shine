@@ -18,9 +18,12 @@ async function getZoomWebhookSecret(client: import('pg').PoolClient): Promise<st
 }
 
 export async function POST(request: Request) {
+  // Read the raw body: Zoom signs the exact bytes it sent, so the signature
+  // must be verified against this string, not a re-serialized JSON object.
+  const rawBody = await request.text();
   let body: Record<string, unknown>;
   try {
-    body = await request.json() as Record<string, unknown>;
+    body = JSON.parse(rawBody) as Record<string, unknown>;
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
@@ -48,7 +51,6 @@ export async function POST(request: Request) {
   if (zmSignature && zmTimestamp) {
     const secret = await withClient((client) => getZoomWebhookSecret(client));
     if (secret) {
-      const rawBody = JSON.stringify(body);
       const message = `v0:${zmTimestamp}:${rawBody}`;
       const hash = 'v0=' + createHmac('sha256', secret).update(message).digest('hex');
       if (hash !== zmSignature) {
