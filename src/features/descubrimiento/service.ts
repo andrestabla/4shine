@@ -99,7 +99,7 @@ interface DiscoveryFeedbackSettingsRow {
 
 const INVITATION_PROVISION_SYSTEM_USER_ID =
   process.env.INVITATION_PROVISION_SYSTEM_USER_ID || "00000000-0000-0000-0000-000000000001";
-const CURRENT_DISCOVERY_AI_REPORT_VERSION = 5;
+const CURRENT_DISCOVERY_AI_REPORT_VERSION = 6;
 const DISCOVERY_ANALYSIS_BATCH_CONCURRENCY = 4;
 
 interface OutboundConfigRow {
@@ -4167,28 +4167,59 @@ function normalizeHeadingForMatch(input: string): string {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
-const REQUIRED_SECTION_GROUPS: Array<{ name: string; alts: string[] }> = [
-  { name: "perfil", alts: ["perfil"] },
-  { name: "impulso", alts: ["impuls", "motiva", "fortale"] },
-  { name: "plan", alts: ["plan", "aceler", "30 dia"] },
-  { name: "atencion", alts: ["atencion", "critico", "lectura", "riesgo"] },
-  { name: "tactica", alts: ["tactic", "interven", "accion concreta"] },
+// Estructura exacta del reporte definida por la configuración RAG del módulo.
+// Vista global ("all") = "Visión general"; vistas de pilar = secciones por pilar.
+const DISCOVERY_REPORT_SECTIONS = {
+  all: [
+    "Perfil de liderazgo actual",
+    "Resumen ejecutivo del perfil",
+    "Fortalezas estratégicas de tu liderazgo",
+    "Áreas críticas de expansión",
+    "Plan de aceleración estratégica",
+  ],
+  pillar: [
+    "Resumen ejecutivo del pilar",
+    "Fortalezas del pilar",
+    "Áreas de expansión",
+    "Obstáculos a superar",
+    "Plan de aceleración",
+  ],
+} as const;
+
+function discoveryReportSectionTitles(pillar: DiscoveryReportFilter): readonly string[] {
+  return pillar === "all" ? DISCOVERY_REPORT_SECTIONS.all : DISCOVERY_REPORT_SECTIONS.pillar;
+}
+
+// Las palabras clave de `alts` se comparan contra texto ya normalizado (sin acentos, en minúscula).
+const REQUIRED_SECTION_GROUPS_ALL: Array<{ name: string; alts: string[] }> = [
+  { name: "Perfil de liderazgo actual", alts: ["perfil"] },
+  { name: "Resumen ejecutivo del perfil", alts: ["resumen"] },
+  { name: "Fortalezas estratégicas de tu liderazgo", alts: ["fortale"] },
+  { name: "Áreas críticas de expansión", alts: ["expansion"] },
+  { name: "Plan de aceleración estratégica", alts: ["plan", "aceler"] },
+];
+
+const REQUIRED_SECTION_GROUPS_PILLAR: Array<{ name: string; alts: string[] }> = [
+  { name: "Resumen ejecutivo del pilar", alts: ["resumen"] },
+  { name: "Fortalezas del pilar", alts: ["fortale"] },
+  { name: "Áreas de expansión", alts: ["expansion"] },
+  { name: "Obstáculos a superar", alts: ["obstacul"] },
+  { name: "Plan de aceleración", alts: ["plan", "aceler"] },
 ];
 
 function getReportRejectionReason(report: string, pillar: DiscoveryReportFilter): string | null {
   const minWords = pillar === "all" ? 900 : 550;
   const wordCount = countWords(report);
-  const percentMentions = (report.match(/\b\d{1,3}(?:[.,]\d+)?%/g) ?? []).length;
-  const minPercentMentions = pillar === "all" ? 6 : 4;
 
   const normalized = normalizeHeadingForMatch(report);
-  const missing = REQUIRED_SECTION_GROUPS
+  const requiredGroups =
+    pillar === "all" ? REQUIRED_SECTION_GROUPS_ALL : REQUIRED_SECTION_GROUPS_PILLAR;
+  const missing = requiredGroups
     .filter(({ alts }) => !alts.some((kw) => normalized.includes(kw)))
     .map(({ name }) => name);
 
   if (missing.length > 0) return `Faltan secciones obligatorias: ${missing.join(", ")}`;
   if (wordCount < minWords) return `Extensión insuficiente (${wordCount}/${minWords} palabras)`;
-  if (percentMentions < minPercentMentions) return `Faltan menciones de porcentajes (${percentMentions}/${minPercentMentions})`;
   if (looksGenericReport(report)) return "El contenido parece genérico";
   if (hasAnyLists(report)) return "Contiene listas o viñetas prohibidas";
 
@@ -4856,21 +4887,17 @@ async function runDiscoveryAnalysisWithContext(
     "Objetivo:",
     "Genera una lectura profunda y organizada para la vista global. Conecta fortalezas, brechas y tensiones reales del liderazgo con lenguaje cercano, simple y retador. Habla directamente con la persona.",
     "",
-    "Estructura obligatoria:",
-    "## Tu perfil estratégico",
-    "Describe cómo lidera esta persona hoy: qué la caracteriza, qué tensiones carga y qué distancia hay entre cómo se ve a sí misma y cómo actúa bajo presión. Mínimo 200 palabras en prosa pura.",
-    "## Lo que hoy te impulsa",
-    "Conecta con las fortalezas reales: en qué situaciones concretas se expresan, por qué funcionan y qué hace que sean sostenibles. Mínimo 150 palabras en prosa pura.",
-    "## Plan de aceleración de 30 días",
-    "Propón 3 acciones concretas y ligadas a este caso. Describe el cómo y el para qué de cada una con precisión. Mínimo 150 palabras en prosa pura.",
-    "## Lectura del pilar",
-    "Explica cómo se relacionan los cuatro pilares entre sí en este caso y qué revela esa combinación. Mínimo 100 palabras.",
-    "## Puntos críticos de atención",
-    "Describe qué pasa si no se interviene: consecuencias concretas para el equipo y para el propio líder. Mínimo 100 palabras en prosa pura.",
-    "## Intervención táctica",
-    "Propón micro-hábitos y conversaciones específicas ligadas a las brechas de este caso. Mínimo 100 palabras en prosa pura.",
-    "## Señal de progreso",
-    "Cierra describiendo qué cambiaría en el día a día cuando las intervenciones funcionen. Mínimo 80 palabras.",
+    "Estructura obligatoria — exactamente estas cinco secciones, en este orden, con estos títulos markdown de nivel 2 (##) idénticos, sin agregar, eliminar ni renombrar secciones:",
+    "## Perfil de liderazgo actual",
+    "Describe cómo lidera esta persona hoy: qué la caracteriza, qué tensiones internas carga y qué distancia hay entre cómo se ve a sí misma y cómo actúa bajo presión. Mínimo 200 palabras en prosa pura.",
+    "## Resumen ejecutivo del perfil",
+    "Sintetiza la lectura estratégica del liderazgo: el patrón central, su costo invisible y la oportunidad de evolución más relevante. Mínimo 130 palabras en prosa pura.",
+    "## Fortalezas estratégicas de tu liderazgo",
+    "Conecta las fortalezas reales con situaciones concretas donde se expresan, por qué funcionan y qué impacto tienen en el equipo. Mínimo 150 palabras en prosa pura.",
+    "## Áreas críticas de expansión",
+    "Describe las brechas prioritarias como oportunidades de evolución: manifestación conductual, costo invisible e impacto en otros. Mínimo 150 palabras en prosa pura.",
+    "## Plan de aceleración estratégica",
+    "Propón 3 acciones visibles, medibles y aplicables en 2 a 4 semanas, ligadas a este caso. Describe el cómo y el para qué de cada una con precisión. Mínimo 150 palabras en prosa pura.",
     "",
     contextBlock,
   ].join("\n");
@@ -4888,21 +4915,17 @@ async function runDiscoveryAnalysisWithContext(
     "",
     `Objetivo: generar un diagnóstico profundo del pilar ${toPillarDisplayName(pillar)} con lenguaje cercano, directo y concreto. Que la persona sienta que esto fue escrito para ella.`,
     "",
-    "Estructura obligatoria:",
-    "## Tu perfil estratégico",
-    "Describe cómo este pilar condiciona su liderazgo general y qué tensión específica revela en este caso.",
-    "## Lo que hoy te impulsa",
-    "Conecta con las fortalezas del pilar: en qué situaciones aparecen y por qué funcionan para esta persona.",
-    "## Plan de aceleración de 30 días",
-    "Propón 2 o 3 acciones concretas ligadas a las brechas de este pilar y este caso.",
-    "## Lectura del pilar",
-    "Explica qué revela la distancia entre cómo se percibe y cómo actúa en este pilar, y qué consecuencias tiene.",
-    "## Puntos críticos de atención",
-    "Describe las consecuencias concretas si no se interviene: qué pasa en el equipo y en el propio líder.",
-    "## Intervención táctica",
-    "Propón acciones semanales específicas y ligadas a las brechas concretas de este caso.",
-    "## Señal de progreso",
-    "Describe qué cambiaría en el día a día cuando la intervención funcione.",
+    "Estructura obligatoria — exactamente estas cinco secciones, en este orden, con estos títulos markdown de nivel 2 (##) idénticos, sin agregar, eliminar ni renombrar secciones:",
+    "## Resumen ejecutivo del pilar",
+    "Sintetiza qué revela este pilar sobre su liderazgo y la tensión específica que aparece en este caso. Cierra con una frase memorable, breve y emocionalmente potente.",
+    "## Fortalezas del pilar",
+    "Conecta las fortalezas del pilar con situaciones concretas donde aparecen y por qué funcionan para esta persona.",
+    "## Áreas de expansión",
+    "Describe las oportunidades de evolución del pilar: manifestación conductual, costo invisible e impacto en otros.",
+    "## Obstáculos a superar",
+    "Explica las tensiones internas y los obstáculos concretos que limitan el avance en este pilar y sus consecuencias para el equipo y el propio líder.",
+    "## Plan de aceleración",
+    "Propón 2 o 3 acciones visibles, medibles y aplicables en 2 a 4 semanas, ligadas a las brechas concretas de este pilar.",
     "",
     contextBlock,
   ].join("\n");
@@ -5205,7 +5228,7 @@ function buildContractPrompts(input: {
     "- No uses lenguaje técnico innecesario ni tono académico.",
     "- Sé claro, concreto y profundo sin sonar agresivo.",
     "- No inventes información; usa solo datos del caso y contexto recuperado.",
-    "- Cada sección debe incluir competencias concretas y cifras del caso.",
+    "- Cada sección debe anclar el análisis en competencias y conductas concretas de este caso.",
     "- Debes explicar causa probable, consecuencia observable y acción sugerida.",
     "- No nombres autores ni títulos de recursos, solo ideas aplicables.",
     "- Si una frase podría servirle igual a otro usuario, reescríbela hasta que quede específica para esta combinación de datos.",
@@ -5236,18 +5259,18 @@ ${feedbackInstructions.trim()}
 ${editorialRules}
 
 Restricciones de profundidad (ESTRICTAS):
-- Cada sección debe tener mínimo 130 palabras de análisis denso.
+- Cada sección debe tener mínimo 170 palabras de análisis denso.
 - El informe total debe superar las 900 palabras.
 - PROHIBIDO USAR LISTAS O VIÑETAS. Usa solo párrafos narrativos continuos.
 
-TÍTULOS DE SECCIÓN EXACTOS — copia estos títulos exactamente, sin cambiar ni un carácter, ni mayúsculas, ni acentos:
-## Tu perfil estratégico
-## Lo que hoy te impulsa
-## Plan de aceleración de 30 días
-## Lectura del pilar
-## Puntos críticos de atención
-## Intervención táctica
-## Señal de progreso
+ESTRUCTURA OBLIGATORIA — el informe debe tener exactamente estas cinco secciones, en este orden, con estos títulos markdown de nivel 2 (##) copiados sin cambiar ni un carácter, ni mayúsculas, ni acentos:
+## Perfil de liderazgo actual
+## Resumen ejecutivo del perfil
+## Fortalezas estratégicas de tu liderazgo
+## Áreas críticas de expansión
+## Plan de aceleración estratégica
+
+No agregues, elimines ni renombres secciones, y no uses ningún otro título. Cada sección debe incluir al menos una tensión emocional, un costo invisible, una manifestación conductual o una oportunidad concreta de evolución. El plan de aceleración debe proponer acciones visibles, medibles y aplicables en 2 a 4 semanas.
 
 ${globalContextBlock}
 `.trim();
@@ -5274,18 +5297,18 @@ ${feedbackInstructions.trim()}
 ${editorialRules}
 
 Restricciones de profundidad (ESTRICTAS):
-- Cada sección debe tener mínimo 85 palabras de análisis denso.
+- Cada sección debe tener mínimo 110 palabras de análisis denso.
 - El informe total debe superar las 550 palabras.
 - PROHIBIDO USAR LISTAS O VIÑETAS. Usa solo párrafos narrativos continuos.
 
-TÍTULOS DE SECCIÓN EXACTOS — copia estos títulos exactamente, sin cambiar ni un carácter, ni mayúsculas, ni acentos:
-## Tu perfil estratégico
-## Lo que hoy te impulsa
-## Plan de aceleración de 30 días
-## Lectura del pilar
-## Puntos críticos de atención
-## Intervención táctica
-## Señal de progreso
+ESTRUCTURA OBLIGATORIA — el informe debe tener exactamente estas cinco secciones, en este orden, con estos títulos markdown de nivel 2 (##) copiados sin cambiar ni un carácter, ni mayúsculas, ni acentos:
+## Resumen ejecutivo del pilar
+## Fortalezas del pilar
+## Áreas de expansión
+## Obstáculos a superar
+## Plan de aceleración
+
+No agregues, elimines ni renombres secciones, y no uses ningún otro título. Cada sección debe incluir al menos una tensión emocional, un costo invisible, una manifestación conductual o una oportunidad concreta de evolución. Incluye una frase memorable, breve y emocionalmente potente para este pilar. El plan de aceleración debe proponer acciones visibles, medibles y aplicables en 2 a 4 semanas.
 
 ${pillarContextBlock}
 `.trim();
@@ -5413,14 +5436,8 @@ async function runContractStyleAnalysis(
         "1. ELIMINA CUALQUIER LISTA, VIÑETA O NUMERACIÓN. Usa exclusivamente párrafos narrativos continuos.",
         "2. EXPANDE EL ANÁLISIS: describe con mucho más detalle las situaciones de liderazgo, el impacto en el equipo y las recomendaciones tácticas.",
         "3. Sé mucho más prolijo y descriptivo. No resumas; analiza en profundidad cada punto.",
-        "4. USA EXACTAMENTE ESTOS TÍTULOS DE SECCIÓN (cópialos sin modificar ni un carácter):",
-        "   ## Tu perfil estratégico",
-        "   ## Lo que hoy te impulsa",
-        "   ## Plan de aceleración de 30 días",
-        "   ## Lectura del pilar",
-        "   ## Puntos críticos de atención",
-        "   ## Intervención táctica",
-        "   ## Señal de progreso",
+        "4. USA EXACTAMENTE ESTOS TÍTULOS DE SECCIÓN, EN ESTE ORDEN, SIN AGREGAR NI QUITAR NINGUNO (cópialos sin modificar ni un carácter):",
+        ...discoveryReportSectionTitles(pillar).map((title) => `   ## ${title}`),
         "",
         "Borrador a mejorar radicalmente:",
         report,
