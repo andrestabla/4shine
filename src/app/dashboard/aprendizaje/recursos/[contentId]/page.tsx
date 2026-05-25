@@ -40,7 +40,8 @@ import {
 } from "@/features/aprendizaje/client";
 import { downloadCourseCertificate } from "@/lib/certificate-generator";
 import type { LearningCommentReactionType } from "@/features/aprendizaje/comment-reactions";
-import { buildYouTubeEmbedUrl, isDirectAudioUrl, isDirectVideoUrl } from "@/features/aprendizaje/media";
+import { buildYouTubeEmbedUrl, isDirectAudioUrl, isEmbeddableVideoUrl } from "@/features/aprendizaje/media";
+import HlsVideoPlayer from "@/components/dashboard/aprendizaje/HlsVideoPlayer";
 import {
   formatLearningDate,
   formatLearningDateTime,
@@ -1448,16 +1449,9 @@ export default function LearningResourceDetailPage() {
                 </div>
               ) : currentItem ? (
                 <div key={`${resource.contentId}-${activeResourceIndex}`} className="w-full">
-                  {currentItem.contentType === "video" && isDirectVideoUrl(currentItem.url) ? (
-                    // DIRECT VIDEO PLAYER
-                    <div className="w-full overflow-hidden rounded-[16px] bg-black ring-1 ring-white/10 md:aspect-video relative group">
-                      <video
-                        src={currentItem.url!}
-                        className="h-full w-full object-contain"
-                        controls
-                        autoPlay
-                      />
-                    </div>
+                  {currentItem.contentType === "video" && isEmbeddableVideoUrl(currentItem.url) ? (
+                    // DIRECT VIDEO PLAYER (mp4/webm/mov + HLS .m3u8 via hls.js)
+                    <HlsVideoPlayer src={currentItem.url!} title={currentItem.title || undefined} />
                   ) : currentItem?.contentType === "pdf" && currentItem.url ? (
                     // PDF VIEWER
                     <div key={`pdf-${currentItem.id}`} className="w-full overflow-hidden rounded-[16px] bg-slate-800 ring-1 ring-white/10 h-[70vh] md:h-[80vh] relative">
@@ -1611,6 +1605,15 @@ export default function LearningResourceDetailPage() {
             className="absolute inset-0 h-full w-full"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
+          />
+        ) : resource.contentType === "video" && isEmbeddableVideoUrl(resource.url) ? (
+          // DIRECT VIDEO (mp4/webm/mov + HLS .m3u8 via hls.js)
+          <HlsVideoPlayer
+            src={resource.url!}
+            title={resource.title}
+            wrapperClassName="absolute inset-0 h-full w-full"
+            className="h-full w-full object-contain"
+            autoPlay={false}
           />
         ) : resource.contentType === "pdf" && resource.url ? (
           isMobile ? (

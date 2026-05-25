@@ -57,3 +57,15 @@ export function isDirectVideoUrl(url: string | null | undefined): boolean {
   if (!url) return false;
   return /\.(mp4|m4v|webm|ogv|mov)(\?.*)?$/i.test(url);
 }
+
+export function isHlsUrl(url: string | null | undefined): boolean {
+  if (!url) return false;
+  return /\.m3u8(\?.*)?$/i.test(url);
+}
+
+// Direct video URL we can embed in a <video> element, with hls.js support
+// transparently added for HLS streams (.m3u8). Use this to decide whether to
+// render the inline video player vs an external-link fallback.
+export function isEmbeddableVideoUrl(url: string | null | undefined): boolean {
+  return isDirectVideoUrl(url) || isHlsUrl(url);
+}
