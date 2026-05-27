@@ -23,6 +23,9 @@ export interface UserRecord {
   organizationId: string | null;
   organizationName: string | null;
   planType: PlanType | null;
+  subscriptionPlanId: string | null;
+  subscriptionPlanCode: string | null;
+  subscriptionPlanName: string | null;
   country: string | null;
   jobRole: JobRole | null;
   gender: string | null;
@@ -120,6 +123,7 @@ export interface UpdateUserInput {
   isActive?: boolean;
   password?: string;
   planType?: PlanType | null;
+  subscriptionPlanId?: string | null;
   country?: string | null;
   jobRole?: JobRole | null;
   gender?: string | null;

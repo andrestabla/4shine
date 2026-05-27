@@ -36,6 +36,9 @@ export interface UserRecord {
   profession: string | null;
   industry: string | null;
   planType: PlanType | null;
+  subscriptionPlanId: string | null;
+  subscriptionPlanCode: string | null;
+  subscriptionPlanName: string | null;
   seniorityLevel: SeniorityLevel | null;
   bio: string | null;
   location: string | null;
@@ -143,6 +146,7 @@ export interface UpdateUserInput {
   profession?: string | null;
   industry?: string | null;
   planType?: PlanType | null;
+  subscriptionPlanId?: string | null;
   seniorityLevel?: SeniorityLevel | null;
   bio?: string | null;
   location?: string | null;
@@ -179,6 +183,9 @@ interface UserRow {
   profession: string | null;
   industry: string | null;
   plan_type: PlanType | null;
+  subscription_plan_id: string | null;
+  subscription_plan_code: string | null;
+  subscription_plan_name: string | null;
   seniority_level: SeniorityLevel | null;
   bio: string | null;
   location: string | null;
@@ -431,6 +438,9 @@ const BASE_SELECT = `
     p.profession,
     p.industry,
     p.plan_type,
+    p.subscription_plan_id::text AS subscription_plan_id,
+    sp.plan_code AS subscription_plan_code,
+    sp.name AS subscription_plan_name,
     p.seniority_level,
     p.bio,
     p.location,
@@ -446,6 +456,7 @@ const BASE_SELECT = `
   FROM app_core.users u
   LEFT JOIN app_core.organizations o ON o.organization_id = u.organization_id
   LEFT JOIN app_core.user_profiles p ON p.user_id = u.user_id
+  LEFT JOIN app_billing.subscription_plans sp ON sp.plan_id = p.subscription_plan_id
   LEFT JOIN LATERAL (
     SELECT
       upa.policy_code,
@@ -474,6 +485,9 @@ function mapUser(row: UserRow): UserRecord {
     profession: row.profession,
     industry: row.industry,
     planType: row.plan_type,
+    subscriptionPlanId: row.subscription_plan_id,
+    subscriptionPlanCode: row.subscription_plan_code,
+    subscriptionPlanName: row.subscription_plan_name,
     seniorityLevel: row.seniority_level,
     bio: row.bio,
     location: row.location,
@@ -1605,6 +1619,42 @@ export async function updateUser(
         shouldUpdateYearsExperience,
       ],
     );
+  }
+
+  if (input.subscriptionPlanId !== undefined) {
+    if (input.subscriptionPlanId === null) {
+      await client.query(
+        `UPDATE app_core.user_profiles
+         SET subscription_plan_id = NULL,
+             subscription_started_at = NULL,
+             subscription_expires_at = NULL,
+             updated_at = now()
+         WHERE user_id = $1::uuid`,
+        [userId],
+      );
+    } else {
+      const { rows: planRows } = await client.query<{ duration_days: number }>(
+        `SELECT duration_days
+         FROM app_billing.subscription_plans
+         WHERE plan_id = $1::uuid AND is_active = true
+         LIMIT 1`,
+        [input.subscriptionPlanId],
+      );
+      if (!planRows[0]) {
+        throw new Error('El plan seleccionado no existe o está inactivo.');
+      }
+      const durationDays = Number(planRows[0].duration_days ?? 0);
+      await client.query(
+        `INSERT INTO app_core.user_profiles (user_id, subscription_plan_id, subscription_started_at, subscription_expires_at)
+         VALUES ($1::uuid, $2::uuid, now(), now() + ($3::int || ' days')::interval)
+         ON CONFLICT (user_id) DO UPDATE
+         SET subscription_plan_id = EXCLUDED.subscription_plan_id,
+             subscription_started_at = now(),
+             subscription_expires_at = now() + ($3::int || ' days')::interval,
+             updated_at = now()`,
+        [userId, input.subscriptionPlanId, durationDays],
+      );
+    }
   }
 
   await ensureLeaderProgramPurchase(client, userId, {

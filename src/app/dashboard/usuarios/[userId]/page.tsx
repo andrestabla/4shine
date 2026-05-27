@@ -36,6 +36,8 @@ import {
   userTypeLabel,
   type UserTypeOption,
 } from '@/features/usuarios/user-types';
+import { listPlans as listSubscriptionPlans } from '@/features/planes/client';
+import type { SubscriptionPlanWithFeatures } from '@/features/planes/client';
 import { YEARS_EXPERIENCE_OPTIONS, yearsToKey, keyToStoredValue } from '@/lib/demographics';
 import {
   USER_COUNTRY_OPTIONS,
@@ -116,6 +118,19 @@ export default function UsuarioDetallePage() {
   });
   const [loading, setLoading] = React.useState(true);
   const [processingAction, setProcessingAction] = React.useState<string | null>(null);
+  const [availablePlans, setAvailablePlans] = React.useState<SubscriptionPlanWithFeatures[]>([]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const res = await listSubscriptionPlans(false);
+      if (cancelled) return;
+      if (res.ok && res.data) setAvailablePlans(res.data);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const loadData = React.useCallback(async () => {
     if (!userId) return;
@@ -253,6 +268,7 @@ export default function UsuarioDetallePage() {
       await updateUser(detail.userId, {
         primaryRole: selection.primaryRole,
         planType: selection.planType,
+        subscriptionPlanId: userType === 'leader_with_subscription' ? undefined : null,
       });
       await refreshBootstrap();
       await loadData();
@@ -260,6 +276,41 @@ export default function UsuarioDetallePage() {
       await alert({
         title: 'Error al actualizar tipo de usuario',
         message: error instanceof Error ? error.message : 'No se pudo actualizar el tipo de usuario.',
+        tone: 'error',
+      });
+    } finally {
+      setProcessingAction(null);
+    }
+  };
+
+  const onChangeSubscriptionPlan = async (planId: string) => {
+    if (!detail) return;
+    if (planId === (detail.subscriptionPlanId ?? '')) return;
+
+    const targetPlan = availablePlans.find((p) => p.planId === planId);
+    if (!targetPlan) return;
+
+    const ok = await confirm({
+      title: 'Asignar plan de suscripción',
+      message: `¿Asignar el plan "${targetPlan.name}" a ${detail.displayName}?`,
+      confirmText: 'Asignar plan',
+      tone: 'warning',
+    });
+    if (!ok) return;
+
+    setProcessingAction('change-subscription-plan');
+    try {
+      await updateUser(detail.userId, {
+        primaryRole: 'lider',
+        planType: 'premium',
+        subscriptionPlanId: planId,
+      });
+      await refreshBootstrap();
+      await loadData();
+    } catch (error) {
+      await alert({
+        title: 'Error al asignar plan',
+        message: error instanceof Error ? error.message : 'No se pudo asignar el plan.',
         tone: 'error',
       });
     } finally {
@@ -391,6 +442,11 @@ export default function UsuarioDetallePage() {
                 <span className="app-badge app-badge-muted">
                   {userTypeLabel(currentUserType)}
                 </span>
+                {currentUserType === 'leader_with_subscription' && detail.subscriptionPlanName && (
+                  <span className="app-badge" style={{ background: '#f2b24b', color: '#1c0f32' }}>
+                    {detail.subscriptionPlanName}
+                  </span>
+                )}
                 <span
                   className={`app-badge ${
                     detail.isActive ? 'app-badge-success' : 'app-badge-muted'
@@ -589,6 +645,39 @@ export default function UsuarioDetallePage() {
                 </button>
               ))}
             </div>
+
+            {currentUserType === 'leader_with_subscription' && (
+              <div className="mb-4 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)]/60 p-3">
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-[var(--app-muted)]">
+                  Plan de suscripción
+                </label>
+                <select
+                  className="app-select w-full"
+                  value={detail.subscriptionPlanId ?? ''}
+                  onChange={(event) => void onChangeSubscriptionPlan(event.target.value)}
+                  disabled={!canUpdate || processingAction !== null || availablePlans.length === 0}
+                >
+                  <option value="" disabled>
+                    {availablePlans.length === 0 ? 'Cargando planes…' : 'Selecciona un plan'}
+                  </option>
+                  {availablePlans.map((plan) => (
+                    <option key={plan.planId} value={plan.planId}>
+                      {plan.name} · {plan.currencyCode} {plan.priceAmount.toLocaleString('en-US')} · {plan.durationDays}d
+                    </option>
+                  ))}
+                </select>
+                {detail.subscriptionPlanName && (
+                  <p className="mt-2 text-xs text-[var(--app-muted)]">
+                    Plan activo actual: <strong className="text-[var(--app-ink)]">{detail.subscriptionPlanName}</strong>
+                  </p>
+                )}
+                {!detail.subscriptionPlanId && (
+                  <p className="mt-2 text-xs text-amber-700">
+                    El usuario es líder con suscripción pero aún no tiene un plan específico asignado.
+                  </p>
+                )}
+              </div>
+            )}
 
             <p className="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-[var(--app-muted)]/74">
               Permisos activos del rol base: {roleLabel(detail.primaryRole)}
