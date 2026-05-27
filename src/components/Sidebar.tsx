@@ -28,6 +28,7 @@ import {
   ShieldCheck,
   Compass,
   Globe,
+  CreditCard,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -140,6 +141,12 @@ const MAIN_NAV_ITEMS: NavItem[] = [
     icon: PieChart,
     path: "/dashboard/analitica",
   },
+  {
+    moduleCode: "perfil",
+    label: "Mi suscripción",
+    icon: CreditCard,
+    path: "/dashboard/suscripcion",
+  },
 ];
 
 const ADMIN_NAV_ITEMS: NavItem[] = [
@@ -179,6 +186,14 @@ const ADMIN_NAV_ITEMS: NavItem[] = [
     label: "Site",
     icon: Globe,
     path: "/dashboard/administracion/site",
+    requiredAction: "manage",
+    adminOnly: true,
+  },
+  {
+    moduleCode: "usuarios",
+    label: "Planes y Precios",
+    icon: CreditCard,
+    path: "/dashboard/administracion/planes",
     requiredAction: "manage",
     adminOnly: true,
   },

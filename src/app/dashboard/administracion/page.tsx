@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { PageTitle } from '@/components/dashboard/PageTitle';
-import { Settings, Palette, PlugZap, Users, ShieldCheck, Globe, Bell } from 'lucide-react';
+import { Settings, Palette, PlugZap, Users, ShieldCheck, Globe, Bell, CreditCard } from 'lucide-react';
 
 const ADMIN_CARDS = [
   {
@@ -22,6 +22,12 @@ const ADMIN_CARDS = [
     description: 'Crear plantillas de email e in-app con variables dinámicas y configurar qué eventos disparan cada notificación.',
     href: '/dashboard/administracion/notificaciones',
     icon: Bell,
+  },
+  {
+    title: 'Planes y Precios',
+    description: 'Crear, editar, activar o desactivar los planes de suscripción y definir el acceso a cada módulo de la plataforma.',
+    href: '/dashboard/administracion/planes',
+    icon: CreditCard,
   },
   {
     title: 'Integraciones',

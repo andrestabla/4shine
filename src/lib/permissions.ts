@@ -14,6 +14,7 @@ export const MODULE_CODES = [
   'metodologia',
   'networking',
   'perfil',
+  'planes',
   'trayectoria',
   'usuarios',
   'workshops',
