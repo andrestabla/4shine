@@ -6,7 +6,8 @@ import { PageTitle } from '@/components/dashboard/PageTitle';
 import { listPlans, setPlanActive, deletePlan } from '@/features/planes/client';
 import type { SubscriptionPlanWithFeatures } from '@/features/planes/client';
 import { PLAN_FEATURES, groupFeaturesByModule } from '@/features/planes/features-catalog';
-import { Plus, Pencil, Trash2, CheckCircle, XCircle, Power } from 'lucide-react';
+import { Plus, Pencil, Trash2, CheckCircle, XCircle, Power, CreditCard, Package } from 'lucide-react';
+import { ProductosSection } from '@/components/dashboard/planes/ProductosSection';
 
 const GROUP_LABELS: Record<string, string> = {
   program: 'Programas',
@@ -23,7 +24,10 @@ function formatPrice(amount: number, currency: string): string {
   }).format(amount);
 }
 
+type AdminTab = 'planes' | 'productos';
+
 export default function PlanesAdminPage() {
+  const [tab, setTab] = useState<AdminTab>('planes');
   const [plans, setPlans] = useState<SubscriptionPlanWithFeatures[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -86,9 +90,39 @@ export default function PlanesAdminPage() {
     <div className="space-y-6">
       <PageTitle
         title="Planes y Precios"
-        subtitle="Administra los planes y precios disponibles en la plataforma. Cada plan define el acceso del líder a los módulos del sistema."
+        subtitle="Administra los planes de suscripción y los productos puntuales (diagnóstico, packs de mentorías) disponibles en la plataforma."
       />
 
+      {/* Tabs */}
+      <div className="flex flex-wrap gap-2 border-b border-[var(--app-border)]">
+        <button
+          onClick={() => setTab('planes')}
+          className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-semibold transition ${
+            tab === 'planes'
+              ? 'border-[var(--app-ink)] text-[var(--app-ink)]'
+              : 'border-transparent text-[var(--app-muted)] hover:text-[var(--app-ink)]'
+          }`}
+        >
+          <CreditCard size={15} />
+          Planes de suscripción
+        </button>
+        <button
+          onClick={() => setTab('productos')}
+          className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-semibold transition ${
+            tab === 'productos'
+              ? 'border-[var(--app-ink)] text-[var(--app-ink)]'
+              : 'border-transparent text-[var(--app-muted)] hover:text-[var(--app-ink)]'
+          }`}
+        >
+          <Package size={15} />
+          Productos puntuales
+        </button>
+      </div>
+
+      {tab === 'productos' && <ProductosSection />}
+
+      {tab === 'planes' && (
+      <>
       <div className="flex justify-end">
         <Link
           href="/dashboard/administracion/planes/nuevo"
@@ -234,6 +268,8 @@ export default function PlanesAdminPage() {
           .
         </p>
       </div>
+      </>
+      )}
     </div>
   );
 }

@@ -1,0 +1,45 @@
+export type ProductGroup = 'discovery' | 'mentoring_pack' | 'program';
+
+export interface ProductRecord {
+  productCode: string;
+  productGroup: ProductGroup;
+  name: string;
+  headline: string;
+  description: string;
+  priceAmount: number;
+  currencyCode: string;
+  sessionsIncluded: number;
+  highlightLabel: string | null;
+  isActive: boolean;
+  isSystem: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateProductInput {
+  productCode: string;
+  productGroup: ProductGroup;
+  name: string;
+  headline?: string;
+  description?: string;
+  priceAmount: number;
+  currencyCode?: string;
+  sessionsIncluded?: number;
+  highlightLabel?: string | null;
+  isActive?: boolean;
+  sortOrder?: number;
+}
+
+export interface UpdateProductInput {
+  productGroup?: ProductGroup;
+  name?: string;
+  headline?: string;
+  description?: string;
+  priceAmount?: number;
+  currencyCode?: string;
+  sessionsIncluded?: number;
+  highlightLabel?: string | null;
+  isActive?: boolean;
+  sortOrder?: number;
+}
