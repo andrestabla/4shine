@@ -1,6 +1,9 @@
 import { MarketingShell } from '@/components/marketing/MarketingShell';
 import { PricingMatrix } from '@/components/marketing/PricingMatrix';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default function PlanesPreciosPage() {
   return (
     <MarketingShell
