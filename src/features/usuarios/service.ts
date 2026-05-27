@@ -1644,16 +1644,18 @@ export async function updateUser(
         throw new Error('El plan seleccionado no existe o está inactivo.');
       }
       const durationDays = Number(planRows[0].duration_days ?? 0);
-      await client.query(
-        `INSERT INTO app_core.user_profiles (user_id, subscription_plan_id, subscription_started_at, subscription_expires_at)
-         VALUES ($1::uuid, $2::uuid, now(), now() + ($3::int || ' days')::interval)
-         ON CONFLICT (user_id) DO UPDATE
-         SET subscription_plan_id = EXCLUDED.subscription_plan_id,
+      const { rowCount: updated } = await client.query(
+        `UPDATE app_core.user_profiles
+         SET subscription_plan_id = $2::uuid,
              subscription_started_at = now(),
              subscription_expires_at = now() + ($3::int || ' days')::interval,
-             updated_at = now()`,
+             updated_at = now()
+         WHERE user_id = $1::uuid`,
         [userId, input.subscriptionPlanId, durationDays],
       );
+      if (!updated) {
+        throw new Error('No se pudo asignar el plan: el perfil del usuario no existe todavía.');
+      }
     }
   }
 
