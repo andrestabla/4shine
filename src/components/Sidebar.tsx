@@ -249,7 +249,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const panelBg = isLightPrimary
     ? rgbaFromHex("#ffffff", 0.88)
     : rgbaFromHex("#ffffff", 0.12);
-  const shellGradient = `linear-gradient(180deg, color-mix(in srgb, ${tokens.colors.primary} 96%, #4c245b 4%) 0%, color-mix(in srgb, ${tokens.colors.primary} 84%, #2f123b 16%) 100%)`;
+  const shellGradient = `linear-gradient(180deg, ${tokens.colors.primary} 0%, color-mix(in srgb, ${tokens.colors.primary} 86%, black 14%) 100%)`;
   const sidebarHighlights = [
     {
       title: currentRole === "lider" ? "Ruta activa" : "Experiencia guiada",

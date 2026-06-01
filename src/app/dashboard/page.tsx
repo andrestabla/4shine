@@ -327,7 +327,10 @@ export default function DashboardHomePage() {
         {/* Promo banner */}
         <section
           className="relative overflow-hidden rounded-[1.5rem] px-7 py-7 sm:px-9 sm:py-8"
-          style={{ background: "linear-gradient(135deg, #5b2d8a 0%, #8b3fa8 45%, #d96bb5 100%)" }}
+          style={{
+            background:
+              "linear-gradient(135deg, var(--brand-primary) 0%, color-mix(in srgb, var(--brand-primary) 55%, var(--brand-accent)) 45%, var(--brand-accent) 100%)",
+          }}
         >
           <div
             className="pointer-events-none absolute right-0 top-0 h-48 w-48 rounded-full opacity-20"
@@ -349,7 +352,8 @@ export default function DashboardHomePage() {
             </p>
             <Link
               href="/dashboard/aprendizaje"
-              className="mt-5 inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-bold text-[#5b2d8a] shadow-sm transition hover:-translate-y-0.5"
+              className="mt-5 inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-bold shadow-sm transition hover:-translate-y-0.5"
+              style={{ color: "var(--brand-primary)" }}
             >
               Explorar recursos <ArrowRight size={14} />
             </Link>
@@ -402,7 +406,8 @@ export default function DashboardHomePage() {
               href="https://www.4shine.co/planes-precios"
               target="_blank"
               rel="noopener noreferrer"
-              className="shrink-0 rounded-full bg-[#5b2d8a] px-4 py-2 text-xs font-bold text-white transition hover:opacity-90"
+              className="shrink-0 rounded-full px-4 py-2 text-xs font-bold text-white transition hover:opacity-90"
+              style={{ background: "var(--brand-primary)" }}
             >
               Ver programa
             </a>
@@ -430,12 +435,20 @@ export default function DashboardHomePage() {
               );
             })}
           </div>
-          <div className="mt-4 flex items-center justify-between rounded-[1rem] border border-dashed border-[#5b2d8a]/20 bg-[#f8f3ff] px-4 py-3.5">
+          <div
+            className="mt-4 flex items-center justify-between rounded-[1rem] border border-dashed px-4 py-3.5"
+            style={{
+              borderColor: "color-mix(in srgb, var(--brand-primary) 22%, transparent)",
+              background: "var(--brand-surface)",
+            }}
+          >
             <div>
-              <p className="text-sm font-extrabold text-[#5b2d8a]">Programa completo · $3,000 USD</p>
+              <p className="text-sm font-extrabold" style={{ color: "var(--brand-primary)" }}>
+                Programa completo · $3,000 USD
+              </p>
               <p className="mt-0.5 text-[11px] text-[var(--app-muted)]">Diagnóstico · 10 mentorías · 24 semanas · comunidad</p>
             </div>
-            <ArrowRight size={16} className="shrink-0 text-[#5b2d8a]" />
+            <ArrowRight size={16} className="shrink-0" style={{ color: "var(--brand-primary)" }} />
           </div>
         </section>
 
