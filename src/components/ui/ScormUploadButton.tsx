@@ -127,6 +127,8 @@ export function ScormUploadButton({ onUploaded, disabled, className }: ScormUplo
           prefix: string;
           entryPoint: string;
           files: Array<{ zipPath: string; uploadUrl: string; contentType: string }>;
+          corsConfigured?: boolean;
+          corsError?: string | null;
         };
       }>(presignRes);
 
@@ -134,7 +136,18 @@ export function ScormUploadButton({ onUploaded, disabled, className }: ScormUplo
         throw new Error(presignPayload.error ?? 'Error al preparar la carga.');
       }
 
-      const { prefix, files: presignedFiles } = presignPayload.data;
+      const { prefix, files: presignedFiles, corsConfigured, corsError } = presignPayload.data;
+
+      // Si el server no pudo configurar CORS en el bucket R2, el browser
+      // bloqueará todos los PUT con "Failed to fetch". Detectar y dar
+      // instrucciones explícitas en lugar de fallar 737 veces.
+      if (corsConfigured === false) {
+        throw new Error(
+          `No se pudo configurar CORS en el bucket R2 automáticamente${
+            corsError ? ` (${corsError})` : ''
+          }. El token R2 necesita permiso s3:PutBucketCors. Configura CORS manualmente en el dashboard de Cloudflare con AllowedOrigins=["https://www.4shine.co"], AllowedMethods=[PUT,POST,GET,HEAD], AllowedHeaders=["*"].`,
+        );
+      }
       const urlByPath = new Map(
         presignedFiles.map((f) => [f.zipPath, { url: f.uploadUrl, contentType: f.contentType }]),
       );

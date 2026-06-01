@@ -74,14 +74,18 @@ export async function POST(request: Request) {
 
         // Direct-PUT mode: generate presigned URLs for each file.
         const requestOrigin = new URL(request.url).origin;
+        let corsConfigured = true;
+        let corsError: string | null = null;
         try {
           await ensureR2BucketCors(config, [
             requestOrigin,
             'https://www.4shine.co',
             'https://4shine.co',
           ]);
-        } catch {
-          // Best effort — upload proceeds if CORS is already correct.
+        } catch (err) {
+          corsConfigured = false;
+          corsError = err instanceof Error ? err.message : String(err);
+          console.error('[scorm-presign] CORS config failed:', err);
         }
 
         const s3 = createR2S3Client(config);
@@ -102,7 +106,15 @@ export async function POST(request: Request) {
           }),
         );
 
-        return { courseId, prefix, entryPoint, publicBaseUrl: config.publicBaseUrl, files };
+        return {
+          courseId,
+          prefix,
+          entryPoint,
+          publicBaseUrl: config.publicBaseUrl,
+          files,
+          corsConfigured,
+          corsError,
+        };
       }),
     );
 
