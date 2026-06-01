@@ -24,17 +24,34 @@
 :root {
   --background: #f8f4ff;
   --foreground: #2f223f;
-  --brand-primary: #0f172a;
-  --brand-secondary: #475569;
-  --brand-accent: #f59e0b;
-  --brand-hover: #0b1321;
-  --brand-focus: #334155;
-  --brand-radius-rem: 1;
+  --brand-primary: #0D1B2A;
+  --brand-secondary: #1A1F2B;
+  --brand-accent: #D4AF37;
+  --brand-hover: #0a1421;
+  --brand-focus: #1f2a3b;
+  --brand-radius-rem: 0.75;
   --brand-page-max-width: 1260px;
-  --brand-font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  --brand-font-family: Manrope, ui-sans-serif, system-ui, sans-serif;
   --brand-login-layout: image_right;
-  --brand-login-overlay-color: #0f172a;
-  --brand-login-overlay-opacity: 0.45;
+  --brand-login-overlay-color: #0D1B2A;
+  --brand-login-overlay-opacity: 0.55;
+
+  /* ── Tints derivados para superficies marketing/dashboard ── */
+  --brand-on-dark: #ffffff;
+  --brand-on-primary: color-mix(in srgb, var(--brand-primary) 12%, white);
+  --brand-on-accent: color-mix(in srgb, var(--brand-primary) 92%, black);
+  --brand-surface: color-mix(in srgb, var(--brand-primary) 5%, white);
+  --brand-surface-strong: color-mix(in srgb, var(--brand-primary) 10%, white);
+  --brand-surface-muted: color-mix(in srgb, var(--brand-primary) 8%, white);
+  --brand-ink: color-mix(in srgb, var(--brand-primary) 92%, black);
+  --brand-ink-soft: color-mix(in srgb, var(--brand-primary) 72%, black);
+  --brand-ink-muted: color-mix(in srgb, var(--brand-primary) 55%, white);
+  --brand-border: color-mix(in srgb, var(--brand-primary) 18%, transparent);
+  --brand-border-strong: color-mix(in srgb, var(--brand-primary) 28%, transparent);
+  --brand-dark: color-mix(in srgb, var(--brand-primary) 95%, black);
+  --brand-darker: color-mix(in srgb, var(--brand-primary) 86%, black);
+  --brand-accent-soft: color-mix(in srgb, var(--brand-accent) 18%, white);
+  --brand-accent-strong: color-mix(in srgb, var(--brand-accent) 85%, black);
   --app-bg: #f8f4ff;
   --app-bg-strong: #f1e9fb;
   --app-surface: rgba(255, 255, 255, 0.9);

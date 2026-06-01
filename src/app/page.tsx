@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Compass, MessageSquare, TrendingUp, Globe, Map, BarChart2, Users } from 'lucide-react';
 import { getSitePages } from '@/lib/site-settings';
+import { loadServerBranding } from '@/lib/server-branding';
 
 type PillarKey = 'within' | 'out' | 'up' | 'beyond';
 
@@ -186,51 +187,105 @@ const HOME_NAV_ITEMS = [
 ] as const;
 
 export default async function HomeMarketingPage() {
-  const enabledPages = await getSitePages();
+  const [enabledPages, branding] = await Promise.all([
+    getSitePages(),
+    loadServerBranding(),
+  ]);
   const navItems = HOME_NAV_ITEMS.filter((item) => enabledPages[item.pageKey] !== false);
+  const platformName = branding.settings.platformName?.trim() || '4Shine';
+  const logoUrl = branding.settings.logoUrl?.trim() || '/branding/4shine-logo-blanco.png';
+  const currentYear = 2026;
 
   return (
-    <main className="min-h-screen bg-[#f4f2fa] text-[#1c0f32]">
+    <main
+      className="min-h-screen"
+      style={{ background: 'var(--brand-surface)', color: 'var(--brand-ink)' }}
+    >
 
       {/* ── 1. HERO ── */}
-      <section className="relative overflow-hidden border-b border-[#d8d0ea] bg-[#1c102d] text-white">
+      <section
+        className="relative overflow-hidden border-b text-white"
+        style={{
+          background: 'var(--brand-dark)',
+          borderColor: 'var(--brand-border)',
+        }}
+      >
         <video
           className="absolute inset-0 h-full w-full object-cover"
           autoPlay loop muted playsInline preload="metadata" aria-hidden="true"
         >
           <source src="https://liderazgoestrategico.s3.us-east-1.amazonaws.com/4shine/International_Team_1920x1080.mp4" type="video/mp4" />
         </video>
-        <div className="absolute inset-0 bg-[linear-gradient(108deg,rgba(20,9,36,0.92)_10%,rgba(28,14,45,0.80)_55%,rgba(46,23,62,0.74)_100%)]" />
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              'linear-gradient(108deg, color-mix(in srgb, var(--brand-primary) 92%, black) 10%, color-mix(in srgb, var(--brand-primary) 80%, black) 55%, color-mix(in srgb, var(--brand-secondary) 74%, black) 100%)',
+          }}
+        />
 
         <div className="relative mx-auto flex max-w-[1240px] flex-col px-6 pb-20 pt-6 md:px-10 lg:px-14">
           <header className="mb-14 flex items-center justify-between">
             <Link href="/" className="inline-flex items-center gap-2.5">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/workbooks-v2/diamond.svg" alt="Logo 4Shine" className="h-8 w-8 object-contain" />
-              <span className="text-xl font-black tracking-tight">4Shine</span>
+              <img src={logoUrl} alt={`Logo ${platformName}`} className="h-9 object-contain" />
+              <span className="text-xl font-black tracking-tight">{platformName}</span>
             </Link>
             {navItems.length > 0 && (
               <nav className="hidden items-center gap-8 text-sm font-semibold md:flex">
                 {navItems.map((item) => (
-                  <Link key={item.href} href={item.href} className="transition hover:text-[#f4cf8e]">{item.label}</Link>
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className="transition hover:opacity-80"
+                    style={{ color: 'rgba(255,255,255,0.85)' }}
+                  >
+                    {item.label}
+                  </Link>
                 ))}
               </nav>
             )}
-            <Link href="/acceso" className="rounded-full bg-[#f2b24b] px-5 py-2 text-sm font-extrabold text-[#2a1b3f] hover:bg-[#f6c56d] transition">Ingresar</Link>
+            <Link
+              href="/acceso"
+              className="rounded-full px-5 py-2 text-sm font-extrabold transition hover:opacity-90"
+              style={{
+                background: 'var(--brand-accent)',
+                color: 'var(--brand-on-accent)',
+              }}
+            >
+              Ingresar
+            </Link>
           </header>
 
           <div className="grid items-center gap-12 lg:grid-cols-[1.1fr_0.9fr]">
             <div>
-              <p className="mb-5 text-xs font-bold uppercase tracking-[0.32em] text-[#c9b8ff]">Plataforma de liderazgo</p>
+              <p
+                className="mb-5 text-xs font-bold uppercase tracking-[0.32em]"
+                style={{ color: 'var(--brand-accent-soft)' }}
+              >
+                Plataforma de liderazgo
+              </p>
               <h1 className="max-w-[14ch] text-5xl font-black leading-[0.94] tracking-tight md:text-6xl lg:text-7xl">
                 Transforma tu liderazgo con método, mentoría y resultados medibles.
               </h1>
-              <p className="mt-6 max-w-[54ch] text-base leading-relaxed text-[#ddd6f0] md:text-lg">
-                4Shine existe para acelerar el desarrollo de líderes que necesitan elevar su impacto personal, profesional y estratégico con una ruta estructurada de 6 meses.
+              <p className="mt-6 max-w-[54ch] text-base leading-relaxed text-white/85 md:text-lg">
+                {platformName} existe para acelerar el desarrollo de líderes que necesitan elevar su impacto personal, profesional y estratégico con una ruta estructurada de 6 meses.
               </p>
               <div className="mt-9 flex flex-wrap gap-3">
-                <Link href="/metodologia" className="rounded-full bg-white px-7 py-3 text-sm font-black text-[#2f1a47] hover:bg-[#f0eaff] transition">Conocer metodología</Link>
-                <Link href="/planes-precios" className="rounded-full border border-white/40 px-7 py-3 text-sm font-bold text-white hover:bg-white/10 transition">Ver planes</Link>
+                <Link
+                  href="/metodologia"
+                  className="rounded-full px-7 py-3 text-sm font-black transition hover:opacity-90"
+                  style={{ background: 'white', color: 'var(--brand-primary)' }}
+                >
+                  Conocer metodología
+                </Link>
+                <Link
+                  href="/planes-precios"
+                  className="rounded-full border px-7 py-3 text-sm font-bold text-white transition hover:bg-white/10"
+                  style={{ borderColor: 'rgba(255,255,255,0.4)' }}
+                >
+                  Ver planes
+                </Link>
               </div>
             </div>
 
@@ -238,10 +293,14 @@ export default async function HomeMarketingPage() {
               {pillars.map((p) => {
                 const Icon = PILLAR_ICONS[p.key];
                 return (
-                  <article key={p.title} className="rounded-2xl border border-white/15 bg-white/8 p-5 transition hover:bg-white/12">
-                    <Icon size={20} color="rgba(255,255,255,0.65)" strokeWidth={1.6} />
+                  <article
+                    key={p.title}
+                    className="rounded-2xl border border-white/15 p-5 transition hover:bg-white/10"
+                    style={{ background: 'rgba(255,255,255,0.06)' }}
+                  >
+                    <Icon size={20} color="rgba(255,255,255,0.7)" strokeWidth={1.6} />
                     <h2 className="mt-3 text-base font-extrabold">{p.title}</h2>
-                    <p className="mt-1.5 text-sm leading-snug text-[#e8e0fc]">{p.description}</p>
+                    <p className="mt-1.5 text-sm leading-snug text-white/80">{p.description}</p>
                   </article>
                 );
               })}
@@ -251,15 +310,15 @@ export default async function HomeMarketingPage() {
       </section>
 
       {/* ── 2. MÉTRICAS ── */}
-      <section className="bg-[#14082a] text-white">
+      <section className="text-white" style={{ background: 'var(--brand-darker)' }}>
         <div className="mx-auto grid max-w-[1240px] grid-cols-2 px-6 md:grid-cols-4 md:px-10 lg:px-14">
           {metrics.map((m, i) => (
             <div
               key={m.label}
               className={`flex flex-col items-center justify-center py-10 px-6 text-center ${i < metrics.length - 1 ? 'border-r border-white/10' : ''}`}
             >
-              <span className="text-4xl font-black md:text-5xl" style={{ color: '#f2b24b' }}>{m.value}</span>
-              <span className="mt-2 text-xs font-semibold uppercase tracking-widest text-[#c9b8ff]">{m.label}</span>
+              <span className="text-4xl font-black md:text-5xl" style={{ color: 'var(--brand-accent)' }}>{m.value}</span>
+              <span className="mt-2 text-xs font-semibold uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.65)' }}>{m.label}</span>
             </div>
           ))}
         </div>
@@ -269,22 +328,32 @@ export default async function HomeMarketingPage() {
       <section className="bg-white">
         <div className="mx-auto grid max-w-[1240px] items-center gap-16 px-6 py-20 md:px-10 lg:grid-cols-2 lg:px-14">
           <div>
-            <h2 className="max-w-[22ch] text-4xl font-black leading-[1.05] tracking-tight md:text-5xl">
+            <h2
+              className="max-w-[22ch] text-4xl font-black leading-[1.05] tracking-tight md:text-5xl"
+              style={{ color: 'var(--brand-primary)' }}
+            >
               Para líderes que saben que hay más en ellos.
             </h2>
-            <p className="mt-6 max-w-[52ch] text-base leading-relaxed text-[#4a3665] md:text-lg">
-              4Shine nació porque el liderazgo real no se improvisa ni se aprende en un curso de 8 horas. Nació para quienes están dispuestos a trabajar con método, recibir acompañamiento de alto nivel y medir su transformación con honestidad.
+            <p className="mt-6 max-w-[52ch] text-base leading-relaxed md:text-lg" style={{ color: 'var(--brand-ink-soft)' }}>
+              {platformName} nació porque el liderazgo real no se improvisa ni se aprende en un curso de 8 horas. Nació para quienes están dispuestos a trabajar con método, recibir acompañamiento de alto nivel y medir su transformación con honestidad.
             </p>
-            <p className="mt-4 max-w-[52ch] text-base leading-relaxed text-[#4a3665]">
+            <p className="mt-4 max-w-[52ch] text-base leading-relaxed" style={{ color: 'var(--brand-ink-soft)' }}>
               No somos una plataforma de contenido. Somos una experiencia de desarrollo que combina herramientas, comunidad, diagnóstico y mentores especializados en un solo programa estructurado.
             </p>
-            <Link href="/metodologia" className="mt-8 inline-flex items-center gap-2 rounded-full border-2 border-[#5b2d8a] px-6 py-3 text-sm font-bold text-[#5b2d8a] hover:bg-[#5b2d8a] hover:text-white transition">
+            <Link
+              href="/metodologia"
+              className="mt-8 inline-flex items-center gap-2 rounded-full border-2 px-6 py-3 text-sm font-bold transition hover:text-white"
+              style={{
+                borderColor: 'var(--brand-primary)',
+                color: 'var(--brand-primary)',
+              }}
+            >
               Ver metodología completa
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7h8M8 4l3 3-3 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </Link>
           </div>
 
-          <div className="relative overflow-hidden rounded-3xl shadow-[0_24px_64px_rgba(28,16,45,0.18)]">
+          <div className="relative overflow-hidden rounded-3xl shadow-[0_24px_64px_rgba(0,0,0,0.18)]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="https://liderazgoestrategico.s3.us-east-1.amazonaws.com/recursos/IMG_4119.JPG"
@@ -297,27 +366,36 @@ export default async function HomeMarketingPage() {
       </section>
 
       {/* ── 4. LA PLATAFORMA EN ACCIÓN ── */}
-      <section className="bg-[#f4f2fa]">
+      <section style={{ background: 'var(--brand-surface)' }}>
         <div className="mx-auto max-w-[1240px] px-6 py-20 md:px-10 lg:px-14">
           <div className="mb-12 text-center">
-            <h2 className="text-4xl font-black tracking-tight md:text-5xl">Conoce 4Shine por dentro.</h2>
-            <p className="mx-auto mt-4 max-w-[52ch] text-base text-[#5e4b78] md:text-lg">
+            <h2 className="text-4xl font-black tracking-tight md:text-5xl" style={{ color: 'var(--brand-primary)' }}>
+              Conoce {platformName} por dentro.
+            </h2>
+            <p className="mx-auto mt-4 max-w-[52ch] text-base md:text-lg" style={{ color: 'var(--brand-ink-soft)' }}>
               Un espacio diseñado para que tu desarrollo no dependa del azar. Todo en un solo lugar: ruta, contenido, mentores y comunidad.
             </p>
           </div>
 
-          <div className="relative mx-auto max-w-[900px] overflow-hidden rounded-3xl bg-[#1c102d] shadow-[0_40px_80px_rgba(28,16,45,0.22)]">
+          <div
+            className="relative mx-auto max-w-[900px] overflow-hidden rounded-3xl shadow-[0_40px_80px_rgba(0,0,0,0.22)]"
+            style={{ background: 'var(--brand-dark)' }}
+          >
             <div className="aspect-video flex items-center justify-center">
               <div className="relative flex flex-col items-center gap-5">
                 <button
                   type="button"
-                  className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-full border border-[#f2b24b]/50 bg-[#f2b24b]/15 transition hover:bg-[#f2b24b]/25"
+                  className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-full border transition hover:opacity-90"
+                  style={{
+                    borderColor: 'color-mix(in srgb, var(--brand-accent) 50%, transparent)',
+                    background: 'color-mix(in srgb, var(--brand-accent) 15%, transparent)',
+                  }}
                 >
                   <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
-                    <path d="M9 6.5l12 6.5-12 6.5V6.5z" fill="#f2b24b" />
+                    <path d="M9 6.5l12 6.5-12 6.5V6.5z" fill="var(--brand-accent)" />
                   </svg>
                 </button>
-                <p className="text-sm font-medium text-white/40">Conoce cómo funciona 4Shine</p>
+                <p className="text-sm font-medium text-white/40">Conoce cómo funciona {platformName}</p>
               </div>
             </div>
           </div>
@@ -325,9 +403,9 @@ export default async function HomeMarketingPage() {
           <div className="mx-auto mt-14 grid max-w-[900px] gap-10 sm:grid-cols-3">
             {platformFeatures.map(({ Icon, title, text }) => (
               <div key={title}>
-                <Icon size={20} color="#5b2d8a" strokeWidth={1.6} />
-                <h3 className="mt-4 text-base font-black text-[#1c0f32]">{title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-[#5d4a78]">{text}</p>
+                <Icon size={20} color="var(--brand-primary)" strokeWidth={1.6} />
+                <h3 className="mt-4 text-base font-black" style={{ color: 'var(--brand-primary)' }}>{title}</h3>
+                <p className="mt-2 text-sm leading-relaxed" style={{ color: 'var(--brand-ink-soft)' }}>{text}</p>
               </div>
             ))}
           </div>
@@ -338,10 +416,14 @@ export default async function HomeMarketingPage() {
       <section className="bg-white">
         <div className="mx-auto max-w-[1240px] px-6 py-20 md:px-10 lg:px-14">
           <div className="mb-14 grid items-end gap-6 md:grid-cols-[1fr_auto]">
-            <h2 className="max-w-[24ch] text-4xl font-black tracking-tight md:text-5xl">
+            <h2 className="max-w-[24ch] text-4xl font-black tracking-tight md:text-5xl" style={{ color: 'var(--brand-primary)' }}>
               Cuatro dimensiones. Una transformación completa.
             </h2>
-            <Link href="/metodologia" className="whitespace-nowrap text-sm font-bold text-[#5b2d8a] underline underline-offset-4 hover:text-[#7c3aad]">
+            <Link
+              href="/metodologia"
+              className="whitespace-nowrap text-sm font-bold underline underline-offset-4 hover:opacity-70"
+              style={{ color: 'var(--brand-primary)' }}
+            >
               Ver metodología →
             </Link>
           </div>
@@ -370,13 +452,17 @@ export default async function HomeMarketingPage() {
       </section>
 
       {/* ── 6. EXPERIENCIAS DE TRANSFORMACIÓN ── */}
-      <section className="bg-[#1c102d] text-white">
+      <section className="text-white" style={{ background: 'var(--brand-dark)' }}>
         <div className="mx-auto max-w-[1240px] px-6 py-20 md:px-10 lg:px-14">
           <div className="mb-14 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <h2 className="max-w-[22ch] text-4xl font-black tracking-tight md:text-5xl">
               Resultados reales en líderes reales.
             </h2>
-            <Link href="/afiliados" className="whitespace-nowrap text-sm font-bold text-[#f2b24b] underline underline-offset-4 hover:text-[#f6c56d]">
+            <Link
+              href="/afiliados"
+              className="whitespace-nowrap text-sm font-bold underline underline-offset-4 hover:opacity-80"
+              style={{ color: 'var(--brand-accent)' }}
+            >
               Conoce a nuestros Advisers →
             </Link>
           </div>
@@ -384,7 +470,7 @@ export default async function HomeMarketingPage() {
           <div className="grid gap-10 md:grid-cols-3">
             {stories.map((s) => (
               <div key={s.name} className="border-l-2 pl-6" style={{ borderColor: s.color }}>
-                <p className="text-[15px] leading-relaxed text-[#e8e0fc]">{s.text}</p>
+                <p className="text-[15px] leading-relaxed text-white/85">{s.text}</p>
                 <div className="mt-6 flex items-center gap-3">
                   <div
                     className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-black text-white"
@@ -394,7 +480,7 @@ export default async function HomeMarketingPage() {
                   </div>
                   <div>
                     <p className="text-sm font-black text-white">{s.name}</p>
-                    <p className="text-xs text-[#c9b8ff]">{s.role}</p>
+                    <p className="text-xs text-white/60">{s.role}</p>
                   </div>
                 </div>
               </div>
@@ -404,12 +490,12 @@ export default async function HomeMarketingPage() {
       </section>
 
       {/* ── 7. PLANES Y PRECIOS ── */}
-      <section className="bg-[#f4f2fa]">
+      <section style={{ background: 'var(--brand-surface)' }}>
         <div className="mx-auto max-w-[1240px] px-6 py-20 md:px-10 lg:px-14">
           <div className="mb-14 text-center">
-            <p className="mb-3 text-xs font-black uppercase tracking-[0.3em] text-[#7557a1]">Inversión</p>
-            <h2 className="text-4xl font-black tracking-tight md:text-5xl">Elige tu punto de entrada.</h2>
-            <p className="mx-auto mt-4 max-w-[52ch] text-base text-[#5e4b78]">
+            <p className="mb-3 text-xs font-black uppercase tracking-[0.3em]" style={{ color: 'var(--brand-accent-strong)' }}>Inversión</p>
+            <h2 className="text-4xl font-black tracking-tight md:text-5xl" style={{ color: 'var(--brand-primary)' }}>Elige tu punto de entrada.</h2>
+            <p className="mx-auto mt-4 max-w-[52ch] text-base" style={{ color: 'var(--brand-ink-soft)' }}>
               Diagnóstico individual, programa completo o comunidad semanal. Cada opción lleva al mismo destino: un liderazgo más claro, más potente.
             </p>
           </div>
@@ -418,38 +504,89 @@ export default async function HomeMarketingPage() {
             {plans.map((plan) => (
               <article
                 key={plan.name}
-                className={`relative flex flex-col overflow-hidden rounded-3xl border ${
+                className="relative flex flex-col overflow-hidden rounded-3xl border"
+                style={
                   plan.highlighted
-                    ? 'border-[#5b2d8a] bg-[#1c102d] text-white shadow-[0_24px_64px_rgba(91,45,138,0.28)]'
-                    : 'border-[#d6cced] bg-white text-[#1c0f32] shadow-[0_8px_32px_rgba(42,20,68,0.06)]'
-                }`}
+                    ? {
+                        background: 'var(--brand-dark)',
+                        color: 'white',
+                        borderColor: 'var(--brand-primary)',
+                        boxShadow: '0 24px 64px rgba(0,0,0,0.28)',
+                      }
+                    : {
+                        background: 'white',
+                        color: 'var(--brand-ink)',
+                        borderColor: 'var(--brand-border)',
+                        boxShadow: '0 8px 32px rgba(0,0,0,0.06)',
+                      }
+                }
               >
                 {plan.highlighted && (
-                  <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#f2b24b] to-[#e07b3e]" />
+                  <div
+                    className="absolute inset-x-0 top-0 h-1"
+                    style={{ background: 'linear-gradient(to right, var(--brand-accent), var(--brand-accent-strong))' }}
+                  />
                 )}
                 <div className="p-8">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <span className={`rounded-full px-3 py-0.5 text-[11px] font-black uppercase tracking-wider ${plan.highlighted ? 'bg-[#f2b24b]/20 text-[#f2b24b]' : 'bg-[#efeaf8] text-[#7557a1]'}`}>
+                      <span
+                        className="rounded-full px-3 py-0.5 text-[11px] font-black uppercase tracking-wider"
+                        style={
+                          plan.highlighted
+                            ? {
+                                background: 'color-mix(in srgb, var(--brand-accent) 20%, transparent)',
+                                color: 'var(--brand-accent)',
+                              }
+                            : {
+                                background: 'var(--brand-surface-strong)',
+                                color: 'var(--brand-primary)',
+                              }
+                        }
+                      >
                         {plan.label}
                       </span>
                       <h3 className="mt-3 text-xl font-black">{plan.name}</h3>
                     </div>
                     <div className="shrink-0 text-right">
                       {plan.currency && (
-                        <span className={`text-xs font-bold ${plan.highlighted ? 'text-[#c9b8ff]' : 'text-[#7557a1]'}`}>{plan.currency}</span>
+                        <span
+                          className="text-xs font-bold"
+                          style={{ color: plan.highlighted ? 'rgba(255,255,255,0.65)' : 'var(--brand-primary)' }}
+                        >
+                          {plan.currency}
+                        </span>
                       )}
-                      <p className={`text-3xl font-black leading-none ${plan.highlighted ? 'text-[#f2b24b]' : 'text-[#1c0f32]'}`}>{plan.price}</p>
+                      <p
+                        className="text-3xl font-black leading-none"
+                        style={{ color: plan.highlighted ? 'var(--brand-accent)' : 'var(--brand-primary)' }}
+                      >
+                        {plan.price}
+                      </p>
                     </div>
                   </div>
-                  <p className={`mt-4 text-sm leading-relaxed ${plan.highlighted ? 'text-[#c9b8ff]' : 'text-[#5d4a78]'}`}>{plan.description}</p>
+                  <p
+                    className="mt-4 text-sm leading-relaxed"
+                    style={{ color: plan.highlighted ? 'rgba(255,255,255,0.8)' : 'var(--brand-ink-soft)' }}
+                  >
+                    {plan.description}
+                  </p>
                   <ul className="mt-6 space-y-2.5">
                     {plan.features.map((f) => (
                       <li key={f} className="flex items-start gap-2.5 text-sm">
-                        <svg className={`mt-0.5 shrink-0 ${plan.highlighted ? 'text-[#f2b24b]' : 'text-[#5b2d8a]'}`} width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <svg
+                          className="mt-0.5 shrink-0"
+                          style={{ color: plan.highlighted ? 'var(--brand-accent)' : 'var(--brand-primary)' }}
+                          width="16"
+                          height="16"
+                          viewBox="0 0 16 16"
+                          fill="none"
+                        >
                           <path d="M3 8.5l3.5 3.5 6.5-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                         </svg>
-                        <span className={plan.highlighted ? 'text-[#ddd6f0]' : 'text-[#4a3665]'}>{f}</span>
+                        <span style={{ color: plan.highlighted ? 'rgba(255,255,255,0.85)' : 'var(--brand-ink-soft)' }}>
+                          {f}
+                        </span>
                       </li>
                     ))}
                   </ul>
@@ -457,11 +594,16 @@ export default async function HomeMarketingPage() {
                 <div className="mt-auto px-8 pb-8">
                   <Link
                     href={plan.href}
-                    className={`block w-full rounded-full py-3 text-center text-sm font-extrabold transition ${
+                    className="block w-full rounded-full py-3 text-center text-sm font-extrabold transition hover:opacity-90"
+                    style={
                       plan.highlighted
-                        ? 'bg-[#f2b24b] text-[#1c0f32] hover:bg-[#f6c56d]'
-                        : 'border-2 border-[#5b2d8a] text-[#5b2d8a] hover:bg-[#5b2d8a] hover:text-white'
-                    }`}
+                        ? { background: 'var(--brand-accent)', color: 'var(--brand-on-accent)' }
+                        : {
+                            border: '2px solid var(--brand-primary)',
+                            color: 'var(--brand-primary)',
+                            background: 'transparent',
+                          }
+                    }
                   >
                     {plan.cta}
                   </Link>
@@ -477,18 +619,22 @@ export default async function HomeMarketingPage() {
         <div className="mx-auto max-w-[1240px] px-6 py-20 md:px-10 lg:px-14">
           <div className="grid items-start gap-16 lg:grid-cols-[1fr_1fr]">
             <div>
-              <h2 className="max-w-[20ch] text-4xl font-black leading-[1.05] tracking-tight md:text-5xl">
+              <h2
+                className="max-w-[20ch] text-4xl font-black leading-[1.05] tracking-tight md:text-5xl"
+                style={{ color: 'var(--brand-primary)' }}
+              >
                 Aprende de quienes ya lo han vivido.
               </h2>
-              <p className="mt-6 max-w-[50ch] text-base leading-relaxed text-[#4a3665] md:text-lg">
-                Cada Adviser de 4Shine ha liderado equipos, tomado decisiones difíciles y transitado su propia transformación. No son coaches genéricos — son practicantes del liderazgo que acompañan desde la experiencia real.
+              <p className="mt-6 max-w-[50ch] text-base leading-relaxed md:text-lg" style={{ color: 'var(--brand-ink-soft)' }}>
+                Cada Adviser de {platformName} ha liderado equipos, tomado decisiones difíciles y transitado su propia transformación. No son coaches genéricos — son practicantes del liderazgo que acompañan desde la experiencia real.
               </p>
-              <p className="mt-4 max-w-[50ch] text-sm leading-relaxed text-[#6b5487]">
+              <p className="mt-4 max-w-[50ch] text-sm leading-relaxed" style={{ color: 'var(--brand-ink-muted)' }}>
                 Acompañan sesiones individuales y grupales, retroalimentan con profundidad y se convierten en aliados del desarrollo de cada líder en el programa.
               </p>
               <Link
                 href="/afiliados"
-                className="mt-8 inline-flex items-center gap-2 text-sm font-bold text-[#5b2d8a] underline underline-offset-4 hover:text-[#7c3aad]"
+                className="mt-8 inline-flex items-center gap-2 text-sm font-bold underline underline-offset-4 hover:opacity-70"
+                style={{ color: 'var(--brand-primary)' }}
               >
                 Conocer a todos los Advisers →
               </Link>
@@ -504,9 +650,9 @@ export default async function HomeMarketingPage() {
                     {a.initial}
                   </div>
                   <div>
-                    <p className="text-sm font-black text-[#1c0f32]">{a.name}</p>
-                    <p className="mt-0.5 text-xs font-semibold text-[#5b2d8a]">{a.specialty}</p>
-                    <p className="mt-0.5 text-xs text-[#8b75a8]">{a.years}</p>
+                    <p className="text-sm font-black" style={{ color: 'var(--brand-primary)' }}>{a.name}</p>
+                    <p className="mt-0.5 text-xs font-semibold" style={{ color: 'var(--brand-ink-soft)' }}>{a.specialty}</p>
+                    <p className="mt-0.5 text-xs" style={{ color: 'var(--brand-ink-muted)' }}>{a.years}</p>
                   </div>
                 </div>
               ))}
@@ -516,23 +662,30 @@ export default async function HomeMarketingPage() {
       </section>
 
       {/* ── 9. CONVIÉRTETE EN AFILIADO ── */}
-      <section className="bg-[#1c102d]">
+      <section style={{ background: 'var(--brand-dark)' }}>
         <div className="mx-auto max-w-[1240px] px-6 py-24 md:px-10 lg:px-14">
           <div className="mx-auto max-w-[720px] text-center">
             <h2 className="text-4xl font-black leading-[1.05] tracking-tight text-white md:text-5xl lg:text-6xl">
               ¿Eres experto? Multiplica tu impacto como Adviser.
             </h2>
-            <p className="mx-auto mt-6 max-w-[52ch] text-base leading-relaxed text-[#c9b8ff] md:text-lg">
-              Si tienes experiencia probada en liderazgo, desarrollo organizacional, comunicación ejecutiva u otras disciplinas de alto impacto, puedes prestar tus servicios en modalidad de afiliado dentro de la plataforma 4Shine.
+            <p className="mx-auto mt-6 max-w-[52ch] text-base leading-relaxed text-white/85 md:text-lg">
+              Si tienes experiencia probada en liderazgo, desarrollo organizacional, comunicación ejecutiva u otras disciplinas de alto impacto, puedes prestar tus servicios en modalidad de afiliado dentro de la plataforma {platformName}.
             </p>
-            <p className="mx-auto mt-4 max-w-[50ch] text-sm leading-relaxed text-[#9b88c8]">
+            <p className="mx-auto mt-4 max-w-[50ch] text-sm leading-relaxed text-white/65">
               Conectamos tu experiencia con líderes que están listos para crecer. Tú pones el expertise; nosotros ponemos la comunidad, la plataforma y el programa.
             </p>
             <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-              <Link href="/afiliados" className="rounded-full bg-[#f2b24b] px-8 py-3.5 text-sm font-extrabold text-[#1c0f32] hover:bg-[#f6c56d] transition">
+              <Link
+                href="/afiliados"
+                className="rounded-full px-8 py-3.5 text-sm font-extrabold transition hover:opacity-90"
+                style={{ background: 'var(--brand-accent)', color: 'var(--brand-on-accent)' }}
+              >
                 Postularme como Adviser
               </Link>
-              <Link href="/metodologia" className="rounded-full border border-white/30 px-8 py-3.5 text-sm font-bold text-white hover:bg-white/10 transition">
+              <Link
+                href="/metodologia"
+                className="rounded-full border border-white/30 px-8 py-3.5 text-sm font-bold text-white transition hover:bg-white/10"
+              >
                 Conocer el programa primero
               </Link>
             </div>
@@ -543,8 +696,8 @@ export default async function HomeMarketingPage() {
                 { value: 'Comunidad', label: 'Acceso a red de líderes 4Shine' },
               ].map((b) => (
                 <div key={b.value} className="text-center">
-                  <p className="text-lg font-black text-[#f2b24b]">{b.value}</p>
-                  <p className="mt-1 text-xs text-[#9b88c8]">{b.label}</p>
+                  <p className="text-lg font-black" style={{ color: 'var(--brand-accent)' }}>{b.value}</p>
+                  <p className="mt-1 text-xs text-white/65">{b.label}</p>
                 </div>
               ))}
             </div>
@@ -553,29 +706,38 @@ export default async function HomeMarketingPage() {
       </section>
 
       {/* ── FOOTER ── */}
-      <footer className="border-t border-[#dacfed] bg-white">
+      <footer className="border-t bg-white" style={{ borderColor: 'var(--brand-border)' }}>
         <div className="mx-auto flex max-w-[1240px] flex-col gap-8 px-6 py-12 md:flex-row md:items-center md:justify-between md:px-10 lg:px-14">
           <div>
-            <Link href="/" className="inline-flex items-center gap-2.5 text-[#1c0f32]">
+            <Link href="/" className="inline-flex items-center gap-2.5" style={{ color: 'var(--brand-primary)' }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/workbooks-v2/diamond.svg" alt="" className="h-6 w-6" />
-              <span className="text-lg font-black tracking-tight">4Shine</span>
+              <img src={logoUrl} alt="" className="h-7 object-contain" />
+              <span className="text-lg font-black tracking-tight">{platformName}</span>
             </Link>
-            <p className="mt-2 text-sm text-[#8b75a8]">Liderazgo con método, consciencia e impacto.</p>
+            <p className="mt-2 text-sm" style={{ color: 'var(--brand-ink-muted)' }}>
+              Liderazgo con método, consciencia e impacto.
+            </p>
           </div>
           {navItems.length > 0 && (
-            <nav className="flex flex-wrap gap-6 text-sm font-semibold text-[#5f4a7a]">
+            <nav className="flex flex-wrap gap-6 text-sm font-semibold" style={{ color: 'var(--brand-ink-soft)' }}>
               {navItems.map((item) => (
-                <Link key={item.href} href={item.href} className="transition hover:text-[#1c0f32]">{item.label}</Link>
+                <Link key={item.href} href={item.href} className="transition hover:opacity-70">{item.label}</Link>
               ))}
             </nav>
           )}
-          <Link href="/acceso" className="rounded-full bg-[#1c0f32] px-5 py-2 text-sm font-bold text-white hover:bg-[#2e1a49] transition">
+          <Link
+            href="/acceso"
+            className="rounded-full px-5 py-2 text-sm font-bold text-white transition hover:opacity-90"
+            style={{ background: 'var(--brand-primary)' }}
+          >
             Ingresar
           </Link>
         </div>
-        <div className="border-t border-[#ebe4f7] py-4 text-center text-xs text-[#9b88c8]">
-          © {new Date().getFullYear()} 4Shine · Todos los derechos reservados
+        <div
+          className="border-t py-4 text-center text-xs"
+          style={{ borderColor: 'var(--brand-border)', color: 'var(--brand-ink-muted)' }}
+        >
+          © {currentYear} {platformName} · Todos los derechos reservados
         </div>
       </footer>
 

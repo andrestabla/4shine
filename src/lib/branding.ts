@@ -4,6 +4,7 @@ import {
   findBrandingFont,
   type BrandingRuntimeTokens,
   type BrandingSettings,
+  type BrandingSettingsRecord,
 } from '@/features/administracion/types';
 
 const HEX_PATTERN = /^#[0-9a-f]{6}$/i;
@@ -50,6 +51,30 @@ export function deriveHoverColor(primary: string): string {
 
 export function deriveFocusColor(primary: string): string {
   return mixColors(primary, '#ffffff', 0.18);
+}
+
+export const DEFAULT_BRANDING_RECORD: BrandingSettingsRecord = {
+  brandingId: null,
+  organizationId: '',
+  createdAt: null,
+  updatedAt: null,
+  ...DEFAULT_BRANDING_SETTINGS,
+};
+
+export function brandingCssVariables(tokens: BrandingRuntimeTokens): Record<string, string> {
+  return {
+    '--brand-primary': tokens.colors.primary,
+    '--brand-secondary': tokens.colors.secondary,
+    '--brand-accent': tokens.colors.accent,
+    '--brand-hover': tokens.colors.hover,
+    '--brand-focus': tokens.colors.focus,
+    '--brand-radius-rem': String(tokens.shape.borderRadiusRem),
+    '--brand-page-max-width': tokens.layout.pageMaxWidth,
+    '--brand-font-family': tokens.typography.cssStack,
+    '--brand-login-layout': tokens.layout.loginLayout,
+    '--brand-login-overlay-color': tokens.layout.loginOverlayColor,
+    '--brand-login-overlay-opacity': String(tokens.layout.loginOverlayOpacity),
+  };
 }
 
 export function buildBrandingTokens(settings: BrandingSettings): BrandingRuntimeTokens {
