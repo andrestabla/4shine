@@ -14,7 +14,14 @@ export type IntegrationKey = (typeof INTEGRATION_CATALOG)[number]['key'];
 export const OUTBOUND_EMAIL_PROVIDERS = ['smtp', 'sendgrid', 'resend', 'ses'] as const;
 export type OutboundEmailProvider = (typeof OUTBOUND_EMAIL_PROVIDERS)[number];
 
-export const BRANDING_PRESET_CODES = ['corporativo', 'energetico', 'tech', 'custom'] as const;
+export const BRANDING_PRESET_CODES = [
+  '4shine_premium',
+  '4shine_dark',
+  'corporativo',
+  'energetico',
+  'tech',
+  'custom',
+] as const;
 export type BrandingPresetCode = (typeof BRANDING_PRESET_CODES)[number];
 
 export const LOGIN_LAYOUT_OPTIONS = ['image_right', 'image_left', 'centered_image'] as const;
@@ -34,10 +41,14 @@ export interface BrandingFontOption {
 }
 
 export const BRANDING_FONT_OPTIONS: BrandingFontOption[] = [
+  { value: 'Manrope', label: 'Manrope (4Shine)', googleFamily: 'Manrope:wght@400;500;600;700;800', cssStack: 'Manrope, ui-sans-serif, system-ui, sans-serif' },
+  { value: 'Outfit', label: 'Outfit (4Shine)', googleFamily: 'Outfit:wght@400;500;600;700;800', cssStack: 'Outfit, ui-sans-serif, system-ui, sans-serif' },
+  { value: 'Raleway', label: 'Raleway (4Shine)', googleFamily: 'Raleway:wght@400;500;600;700;800', cssStack: 'Raleway, ui-sans-serif, system-ui, sans-serif' },
+  { value: 'Urbanist', label: 'Urbanist (4Shine)', googleFamily: 'Urbanist:wght@400;500;600;700;800', cssStack: 'Urbanist, ui-sans-serif, system-ui, sans-serif' },
+  { value: 'Montserrat', label: 'Montserrat (4Shine)', googleFamily: 'Montserrat:wght@400;500;600;700;800', cssStack: 'Montserrat, ui-sans-serif, system-ui, sans-serif' },
   { value: 'Inter', label: 'Inter (Estándar)', googleFamily: 'Inter:wght@400;500;600;700;800', cssStack: 'Inter, ui-sans-serif, system-ui, sans-serif' },
   { value: 'Poppins', label: 'Poppins', googleFamily: 'Poppins:wght@400;500;600;700;800', cssStack: 'Poppins, ui-sans-serif, system-ui, sans-serif' },
   { value: 'Roboto', label: 'Roboto', googleFamily: 'Roboto:wght@400;500;700;900', cssStack: 'Roboto, ui-sans-serif, system-ui, sans-serif' },
-  { value: 'Montserrat', label: 'Montserrat', googleFamily: 'Montserrat:wght@400;500;600;700;800', cssStack: 'Montserrat, ui-sans-serif, system-ui, sans-serif' },
   { value: 'Nunito Sans', label: 'Nunito Sans', googleFamily: 'Nunito+Sans:wght@400;500;700;800', cssStack: '"Nunito Sans", ui-sans-serif, system-ui, sans-serif' },
 ] as const;
 
@@ -53,6 +64,26 @@ export interface BrandingPresetDefinition {
 }
 
 export const BRANDING_PRESETS: BrandingPresetDefinition[] = [
+  {
+    code: '4shine_premium',
+    label: '4Shine Premium',
+    description: 'Dorado Premium · Azul Élite · Manrope · 0.75rem',
+    primaryColor: '#0D1B2A',
+    secondaryColor: '#1A1F2B',
+    accentColor: '#D4AF37',
+    typography: 'Manrope',
+    borderRadiusRem: 0.75,
+  },
+  {
+    code: '4shine_dark',
+    label: '4Shine Dark',
+    description: 'Azul Profundo · Champagne Soft · Outfit · 1rem',
+    primaryColor: '#1A1F2B',
+    secondaryColor: '#0D1B2A',
+    accentColor: '#E2C75E',
+    typography: 'Outfit',
+    borderRadiusRem: 1,
+  },
   {
     code: 'corporativo',
     label: 'Corporativo',
@@ -249,31 +280,31 @@ export interface IntegrationsSettingsRecord {
 }
 
 export const DEFAULT_BRANDING_SETTINGS: BrandingSettings = {
-  platformName: '4Shine Platform',
-  institutionTimezone: 'UTC',
-  primaryColor: '#0f172a',
-  secondaryColor: '#475569',
-  accentColor: '#f59e0b',
-  logoUrl: '',
-  faviconUrl: '',
+  platformName: '4Shine',
+  institutionTimezone: 'America/Bogota',
+  primaryColor: '#0D1B2A',
+  secondaryColor: '#1A1F2B',
+  accentColor: '#D4AF37',
+  logoUrl: '/branding/4shine-logo-blanco.png',
+  faviconUrl: '/branding/4shine-isotipo-amarillo.png',
   loaderText: 'Cargando 4Shine...',
   loaderAssetUrl: '',
-  typography: 'Inter',
-  borderRadiusRem: 1,
+  typography: 'Manrope',
+  borderRadiusRem: 0.75,
   pageMaxWidth: '1260px',
   loginLayout: 'image_right',
-  loginOverlayColor: '#0f172a',
-  loginOverlayOpacity: 0.45,
-  welcomeMessage: 'Inicia sesión con tu cuenta corporativa.',
-  loginHeadline: 'Bienvenidos a una nueva experiencia de aprendizaje',
-  loginSupportMessage: 'Pensado para plataforma web y app móvil.',
-  imageWelcomeMessage: 'Bienvenidos a esta experiencia de transformación 4Shine.',
-  imageLoginHeadline: 'Bienvenidos a una nueva experiencia de aprendizaje',
-  imageLoginSupportMessage: 'Pensado para plataforma web y app móvil.',
-  loginBackgroundImageUrl: '',
-  loginBackgroundImageUrls: [],
-  loginImageUrls: [],
-  imageWelcomeMessages: ['Bienvenidos a esta experiencia de transformación 4Shine.'],
+  loginOverlayColor: '#0D1B2A',
+  loginOverlayOpacity: 0.55,
+  welcomeMessage: 'Inicia sesión con tu cuenta 4Shine.',
+  loginHeadline: 'Brilla con propósito.',
+  loginSupportMessage: '¿Necesitas ayuda? Escríbenos a soporte@4shine.co',
+  imageWelcomeMessage: 'Bienvenidos a una experiencia de transformación 4Shine.',
+  imageLoginHeadline: 'Brilla con propósito.',
+  imageLoginSupportMessage: 'Plataforma de aprendizaje y liderazgo 4Shine.',
+  loginBackgroundImageUrl: '/branding/4shine-login-bg-manual.png',
+  loginBackgroundImageUrls: ['/branding/4shine-login-bg-manual.png'],
+  loginImageUrls: ['/branding/4shine-login-bg-manual.png'],
+  imageWelcomeMessages: ['Bienvenidos a una experiencia de transformación 4Shine.'],
   showPlatformName: true,
   showWelcomeMessage: true,
   showLoginHeadline: true,
@@ -283,7 +314,7 @@ export const DEFAULT_BRANDING_SETTINGS: BrandingSettings = {
   showImageLoginSupportMessage: true,
   showLoaderText: true,
   customCss: '',
-  presetCode: 'corporativo',
+  presetCode: '4shine_premium',
 };
 
 export const DEFAULT_OUTBOUND_EMAIL_CONFIG: OutboundEmailConfig = {
