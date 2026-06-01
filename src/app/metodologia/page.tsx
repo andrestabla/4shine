@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Compass, MessageSquare, TrendingUp, Globe } from 'lucide-react';
 import { MarketingShell } from '@/components/marketing/MarketingShell';
+import { loadServerBranding } from '@/lib/server-branding';
 
 type PillarKey = 'within' | 'out' | 'up' | 'beyond';
 
@@ -89,7 +90,7 @@ const stories = [
   {
     initial: 'C', color: '#1e5fa8',
     name: 'Carolina M.', role: 'Directora Académica',
-    text: '"4Shine me enseñó a integrar estrategia con bienestar. Tomo decisiones más consistentes y lidero con claridad en contextos de alta incertidumbre."',
+    text: '"{platformName} me enseñó a integrar estrategia con bienestar. Tomo decisiones más consistentes y lidero con claridad en contextos de alta incertidumbre."',
   },
   {
     initial: 'A', color: '#0e7a5a',
@@ -98,19 +99,25 @@ const stories = [
   },
 ];
 
-export default function MetodologiaPage() {
+export default async function MetodologiaPage() {
+  const branding = await loadServerBranding();
+  const platformName = branding.settings.platformName?.trim() || '4Shine';
+
   return (
     <MarketingShell
-      title="La metodología 4Shine"
+      title={`La metodología ${platformName}`}
       subtitle="Un programa de 24 semanas que integra diagnóstico, formación aplicada, mentoría experta y comunidad ejecutiva para generar resultados sostenibles."
     >
 
       {/* ── 1. QUÉ ES 4SHINE — VIDEO ── */}
-      <section className="bg-white">
+      <section style={{ background: 'white' }}>
         <div className="mx-auto max-w-[1240px] px-6 pb-20 pt-4 md:px-10 lg:px-14">
           <div className="grid items-center gap-16 lg:grid-cols-2">
             <div>
-              <h2 className="max-w-[22ch] text-4xl font-black leading-[1.05] tracking-tight text-[#1c0f32] md:text-5xl">
+              <h2
+                className="max-w-[22ch] text-4xl font-black leading-[1.05] tracking-tight md:text-5xl"
+                style={{ color: 'var(--brand-primary)' }}
+              >
                 Más que una plataforma. Un sistema de transformación.
               </h2>
               <div className="mt-8 space-y-5">
@@ -120,32 +127,45 @@ export default function MetodologiaPage() {
                   { n: '03', text: 'Acompañamiento personalizado de Advisers certificados que aceleran decisiones y consolidan hábitos reales.' },
                 ].map(({ n, text }) => (
                   <div key={n} className="flex gap-4">
-                    <span className="mt-0.5 shrink-0 text-sm font-black text-[#7557a1]">{n}</span>
-                    <p className="text-base leading-relaxed text-[#4a3665]">{text}</p>
+                    <span
+                      className="mt-0.5 shrink-0 text-sm font-black"
+                      style={{ color: 'var(--brand-accent-strong)' }}
+                    >
+                      {n}
+                    </span>
+                    <p className="text-base leading-relaxed" style={{ color: 'var(--brand-ink-soft)' }}>{text}</p>
                   </div>
                 ))}
               </div>
               <Link
                 href="/planes-precios"
-                className="mt-8 inline-flex items-center gap-2 rounded-full bg-[#2e1b49] px-6 py-3 text-sm font-bold text-white hover:bg-[#3d2562] transition"
+                className="mt-8 inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-bold text-white transition hover:opacity-90"
+                style={{ background: 'var(--brand-darker)' }}
               >
                 Ver planes y precios
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7h8M8 4l3 3-3 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
               </Link>
             </div>
 
-            <div className="overflow-hidden rounded-3xl bg-[#1c102d] shadow-[0_32px_72px_rgba(28,16,45,0.22)]">
+            <div
+              className="overflow-hidden rounded-3xl shadow-[0_32px_72px_rgba(0,0,0,0.22)]"
+              style={{ background: 'var(--brand-dark)' }}
+            >
               <div className="aspect-video flex items-center justify-center">
                 <div className="flex flex-col items-center gap-5">
                   <button
                     type="button"
-                    className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-full border border-[#f2b24b]/50 bg-[#f2b24b]/15 transition hover:bg-[#f2b24b]/25"
+                    className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-full border transition hover:opacity-80"
+                    style={{
+                      borderColor: 'color-mix(in srgb, var(--brand-accent) 50%, transparent)',
+                      background: 'color-mix(in srgb, var(--brand-accent) 15%, transparent)',
+                    }}
                   >
                     <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
-                      <path d="M9 6.5l12 6.5-12 6.5V6.5z" fill="#f2b24b" />
+                      <path d="M9 6.5l12 6.5-12 6.5V6.5z" fill="var(--brand-accent)" />
                     </svg>
                   </button>
-                  <p className="text-sm font-medium text-white/40">Conoce cómo funciona 4Shine</p>
+                  <p className="text-sm font-medium text-white/40">Conoce cómo funciona {platformName}</p>
                 </div>
               </div>
             </div>
@@ -154,28 +174,39 @@ export default function MetodologiaPage() {
       </section>
 
       {/* ── 2. MÉTRICAS ── */}
-      <section className="bg-[#14082a] text-white">
+      <section className="text-white" style={{ background: 'var(--brand-darker)' }}>
         <div className="mx-auto grid max-w-[1240px] grid-cols-2 px-6 md:grid-cols-4 md:px-10 lg:px-14">
           {metrics.map((m, i) => (
             <div
               key={m.label}
               className={`flex flex-col items-center justify-center py-10 px-6 text-center ${i < metrics.length - 1 ? 'border-r border-white/10' : ''}`}
             >
-              <span className="text-4xl font-black md:text-5xl" style={{ color: '#f2b24b' }}>{m.value}</span>
-              <span className="mt-2 text-xs font-semibold uppercase tracking-widest text-[#c9b8ff]">{m.label}</span>
+              <span className="text-4xl font-black md:text-5xl" style={{ color: 'var(--brand-accent)' }}>{m.value}</span>
+              <span
+                className="mt-2 text-xs font-semibold uppercase tracking-widest"
+                style={{ color: 'color-mix(in srgb, var(--brand-accent) 60%, white)' }}
+              >
+                {m.label}
+              </span>
             </div>
           ))}
         </div>
       </section>
 
       {/* ── 3. LOS 4 PILARES ── */}
-      <section className="bg-[#f4f2fa]">
+      <section style={{ background: 'var(--brand-surface)' }}>
         <div className="mx-auto max-w-[1240px] px-6 py-20 md:px-10 lg:px-14">
           <div className="mb-14 grid items-end gap-4 md:grid-cols-[1fr_auto]">
-            <h2 className="max-w-[28ch] text-4xl font-black tracking-tight text-[#1c0f32] md:text-5xl">
+            <h2
+              className="max-w-[28ch] text-4xl font-black tracking-tight md:text-5xl"
+              style={{ color: 'var(--brand-primary)' }}
+            >
               Cuatro dimensiones. Una transformación completa.
             </h2>
-            <p className="max-w-[42ch] text-base leading-relaxed text-[#5e4b78] md:text-lg">
+            <p
+              className="max-w-[42ch] text-base leading-relaxed md:text-lg"
+              style={{ color: 'var(--brand-ink-soft)' }}
+            >
               Cada fase construye sobre la anterior. De adentro hacia afuera, de la identidad al impacto colectivo.
             </p>
           </div>
@@ -205,10 +236,13 @@ export default function MetodologiaPage() {
       </section>
 
       {/* ── 4. WORKBOOKS ── */}
-      <section className="bg-white">
+      <section style={{ background: 'white' }}>
         <div className="mx-auto max-w-[1240px] px-6 py-20 md:px-10 lg:px-14">
           <div className="mb-10 grid items-end gap-6 md:grid-cols-[1fr_auto]">
-            <h2 className="max-w-[26ch] text-4xl font-black tracking-tight text-[#1c0f32] md:text-5xl">
+            <h2
+              className="max-w-[26ch] text-4xl font-black tracking-tight md:text-5xl"
+              style={{ color: 'var(--brand-primary)' }}
+            >
               10 guías de trabajo práctico, una por fase y momento.
             </h2>
             <div className="flex flex-wrap gap-2.5 md:justify-end">
@@ -228,7 +262,8 @@ export default function MetodologiaPage() {
             {workbooks.map((wb) => (
               <div
                 key={wb.n}
-                className="flex items-center gap-4 border-b border-[#ede8f6] px-2 py-4 last:border-0 transition hover:bg-[#faf8ff]"
+                className="flex items-center gap-4 border-b px-2 py-4 last:border-0 transition hover:opacity-90"
+                style={{ borderColor: 'var(--brand-border)' }}
               >
                 <span
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-black text-white"
@@ -237,8 +272,10 @@ export default function MetodologiaPage() {
                   {wb.n}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-base font-black text-[#1c0f32]">{wb.title}</p>
-                  <p className="mt-0.5 text-xs text-[#8b75a8]">{wb.weeks} · <span style={{ color: PHASE_COLORS[wb.phase] }}>{wb.phaseLabel}</span></p>
+                  <p className="text-base font-black" style={{ color: 'var(--brand-primary)' }}>{wb.title}</p>
+                  <p className="mt-0.5 text-xs" style={{ color: 'var(--brand-ink-muted)' }}>
+                    {wb.weeks} · <span style={{ color: PHASE_COLORS[wb.phase] }}>{wb.phaseLabel}</span>
+                  </p>
                 </div>
               </div>
             ))}
@@ -247,12 +284,15 @@ export default function MetodologiaPage() {
       </section>
 
       {/* ── 5. PLATAFORMA — filas con divisores, sin contenedores ── */}
-      <section className="bg-[#f4f2fa]">
+      <section style={{ background: 'var(--brand-surface)' }}>
         <div className="mx-auto max-w-[1240px] px-6 py-20 md:px-10 lg:px-14">
-          <h2 className="mb-2 max-w-[28ch] text-4xl font-black tracking-tight text-[#1c0f32] md:text-5xl">
+          <h2
+            className="mb-2 max-w-[28ch] text-4xl font-black tracking-tight md:text-5xl"
+            style={{ color: 'var(--brand-primary)' }}
+          >
             Todo lo que necesitas para crecer, en un solo lugar.
           </h2>
-          <p className="mb-16 max-w-[54ch] text-base text-[#5e4b78]">
+          <p className="mb-16 max-w-[54ch] text-base" style={{ color: 'var(--brand-ink-soft)' }}>
             Diagnóstico, ruta, contenido, mentoría y comunidad. Sin dispersión.
           </p>
 
@@ -266,7 +306,6 @@ export default function MetodologiaPage() {
                 { title: 'Masterclasses de Advisers', text: 'Sesiones de expertos sobre temas de liderazgo de alto impacto.' },
                 { title: 'Biblioteca de recursos', text: 'Lecturas, frameworks y herramientas curadas por especialistas.' },
               ],
-              dark: false,
             },
             {
               n: '02',
@@ -277,7 +316,6 @@ export default function MetodologiaPage() {
                 { title: 'Adviser Experto', text: 'Sesiones focalizadas con especialistas según la fase que estés transitando en el programa.' },
                 { title: 'Estructura probada', text: 'Cada sesión tiene un marco de preparación, conversación y compromisos que aceleran el avance real.' },
               ],
-              dark: true,
             },
             {
               n: '03',
@@ -286,25 +324,25 @@ export default function MetodologiaPage() {
               items: [
                 { title: 'Sesiones grupales en vivo', text: 'Encuentros semanales con el grupo del programa para compartir avances y desafíos reales.' },
                 { title: 'Workshops y convocatorias', text: 'Eventos de profundización, talleres temáticos y encuentros presenciales o virtuales.' },
-                { title: 'Red de líderes 4Shine', text: 'Acceso permanente a la comunidad: más de 1.000 líderes activos en distintas industrias.' },
+                { title: `Red de líderes ${platformName}`, text: 'Acceso permanente a la comunidad: más de 1.000 líderes activos en distintas industrias.' },
               ],
-              dark: false,
             },
-          ].map(({ n, title, summary, items, dark }) => (
+          ].map(({ n, title, summary, items }) => (
             <div
               key={n}
-              className={`grid items-start gap-8 border-t py-12 lg:grid-cols-[220px_1fr] ${dark ? 'border-[#2e1b49]' : 'border-[#d8d0ea]'}`}
+              className="grid items-start gap-8 border-t py-12 lg:grid-cols-[220px_1fr]"
+              style={{ borderColor: 'var(--brand-border)' }}
             >
               <div>
-                <span className={`text-xs font-bold ${dark ? 'text-[#9b88c8]' : 'text-[#9b88c8]'}`}>{n}</span>
-                <h3 className={`mt-1 text-xl font-black ${dark ? 'text-[#1c0f32]' : 'text-[#1c0f32]'}`}>{title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-[#5e4b78]">{summary}</p>
+                <span className="text-xs font-bold" style={{ color: 'var(--brand-ink-muted)' }}>{n}</span>
+                <h3 className="mt-1 text-xl font-black" style={{ color: 'var(--brand-primary)' }}>{title}</h3>
+                <p className="mt-2 text-sm leading-relaxed" style={{ color: 'var(--brand-ink-soft)' }}>{summary}</p>
               </div>
               <div className="grid gap-8 sm:grid-cols-3">
                 {items.map(({ title: t, text }) => (
                   <div key={t}>
-                    <p className="text-sm font-black text-[#1c0f32]">{t}</p>
-                    <p className="mt-1.5 text-sm leading-relaxed text-[#6b5487]">{text}</p>
+                    <p className="text-sm font-black" style={{ color: 'var(--brand-primary)' }}>{t}</p>
+                    <p className="mt-1.5 text-sm leading-relaxed" style={{ color: 'var(--brand-ink-soft)' }}>{text}</p>
                   </div>
                 ))}
               </div>
@@ -314,13 +352,17 @@ export default function MetodologiaPage() {
       </section>
 
       {/* ── 6. EXPERIENCIAS DE TRANSFORMACIÓN ── */}
-      <section className="bg-[#1c102d] text-white">
+      <section className="text-white" style={{ background: 'var(--brand-dark)' }}>
         <div className="mx-auto max-w-[1240px] px-6 py-20 md:px-10 lg:px-14">
           <div className="mb-14 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <h2 className="max-w-[24ch] text-4xl font-black tracking-tight md:text-5xl">
               Experiencias reales de transformación.
             </h2>
-            <Link href="/planes-precios" className="whitespace-nowrap text-sm font-bold text-[#f2b24b] underline underline-offset-4 hover:text-[#f6c56d]">
+            <Link
+              href="/planes-precios"
+              className="whitespace-nowrap text-sm font-bold underline underline-offset-4 hover:opacity-80"
+              style={{ color: 'var(--brand-accent)' }}
+            >
               Ver planes y empezar →
             </Link>
           </div>
@@ -328,7 +370,9 @@ export default function MetodologiaPage() {
           <div className="grid gap-10 md:grid-cols-3">
             {stories.map((s) => (
               <div key={s.name} className="border-l-2 pl-6" style={{ borderColor: s.color }}>
-                <p className="text-[15px] leading-relaxed text-[#e8e0fc]">{s.text}</p>
+                <p className="text-[15px] leading-relaxed" style={{ color: 'color-mix(in srgb, var(--brand-accent) 18%, white)' }}>
+                  {s.text.replace('{platformName}', platformName)}
+                </p>
                 <div className="mt-6 flex items-center gap-3">
                   <div
                     className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-black text-white"
@@ -338,7 +382,7 @@ export default function MetodologiaPage() {
                   </div>
                   <div>
                     <p className="text-sm font-black text-white">{s.name}</p>
-                    <p className="text-xs text-[#c9b8ff]">{s.role}</p>
+                    <p className="text-xs" style={{ color: 'color-mix(in srgb, var(--brand-accent) 50%, white)' }}>{s.role}</p>
                   </div>
                 </div>
               </div>
@@ -348,7 +392,8 @@ export default function MetodologiaPage() {
           <div className="mt-14 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <Link
               href="/acceso?plan=diagnostico"
-              className="rounded-full bg-[#f2b24b] px-8 py-3.5 text-sm font-extrabold text-[#1c0f32] hover:bg-[#f6c56d] transition"
+              className="rounded-full px-8 py-3.5 text-sm font-extrabold transition hover:opacity-90"
+              style={{ background: 'var(--brand-accent)', color: 'var(--brand-on-accent)' }}
             >
               Empezar con el Diagnóstico — $50 USD
             </Link>

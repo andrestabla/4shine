@@ -24,7 +24,8 @@ export async function MarketingShell({ title, subtitle, children }: { title: str
 
   const navItems = ALL_NAV_ITEMS.filter((item) => enabledPages[item.pageKey] !== false);
   const platformName = branding.settings.platformName?.trim() || '4Shine';
-  const logoUrl = branding.settings.logoUrl?.trim() || '/branding/4shine-logo-blanco.png';
+  const logoUrl = branding.settings.logoUrl?.trim() || '/branding/4shine-logo-mixto.png';
+  const showPlatformName = branding.settings.showPlatformName !== false;
 
   return (
     <main
@@ -44,21 +45,18 @@ export async function MarketingShell({ title, subtitle, children }: { title: str
         <div className="mx-auto flex h-20 w-full max-w-[1240px] items-center justify-between px-6 md:px-10 lg:px-14">
           <Link
             href="/"
-            className="inline-flex items-center gap-2.5"
+            className="inline-flex items-center gap-3"
             style={{ color: 'var(--brand-primary)' }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={logoUrl}
               alt={`Logo ${platformName}`}
-              className="h-9 w-9 object-contain"
-              style={{
-                background: 'var(--brand-primary)',
-                borderRadius: 'calc(var(--brand-radius-rem) * 0.5rem + 0.25rem)',
-                padding: '4px',
-              }}
+              className="h-10 object-contain"
             />
-            <span className="text-2xl font-black tracking-tight">{platformName}</span>
+            {showPlatformName && (
+              <span className="text-xl font-black tracking-tight">{platformName}</span>
+            )}
           </Link>
           {navItems.length > 0 && (
             <nav
@@ -118,13 +116,19 @@ export async function MarketingShell({ title, subtitle, children }: { title: str
         style={{ borderColor: 'color-mix(in srgb, var(--brand-primary) 14%, transparent)' }}
       >
         <div className="mx-auto flex w-full max-w-[1240px] flex-col gap-5 px-6 py-10 md:flex-row md:items-center md:justify-between md:px-10 lg:px-14">
-          <div>
-            <p className="text-xl font-black" style={{ color: 'var(--brand-primary)' }}>
-              {platformName}
-            </p>
-            <p className="text-sm" style={{ color: 'color-mix(in srgb, var(--brand-primary) 60%, black)' }}>
-              Liderazgo con método, consciencia e impacto.
-            </p>
+          <div className="flex items-center gap-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={logoUrl} alt={`Logo ${platformName}`} className="h-8 object-contain" />
+            <div>
+              {showPlatformName && (
+                <p className="text-lg font-black" style={{ color: 'var(--brand-primary)' }}>
+                  {platformName}
+                </p>
+              )}
+              <p className="text-sm" style={{ color: 'color-mix(in srgb, var(--brand-primary) 60%, black)' }}>
+                Liderazgo con método, consciencia e impacto.
+              </p>
+            </div>
           </div>
           {navItems.length > 0 && (
             <div

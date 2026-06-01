@@ -85,32 +85,49 @@ export function PricingMatrixClient({ plans }: PricingMatrixClientProps) {
     <div className="mx-auto w-full max-w-[1240px] px-6 pb-24 md:px-10 lg:px-14">
       {/* Tab filter */}
       <div className="mb-10 flex flex-wrap gap-2">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={`rounded-full px-5 py-2 text-sm font-bold transition ${
-              tab === t.id
-                ? 'bg-[#2e1b49] text-white shadow-sm'
-                : 'border border-[#d6cced] bg-white text-[#5f4a7a] hover:border-[#5b2d8a] hover:text-[#5b2d8a]'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
+        {TABS.map((t) => {
+          const active = tab === t.id;
+          return (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className="rounded-full px-5 py-2 text-sm font-bold transition shadow-sm"
+              style={
+                active
+                  ? { background: 'var(--brand-primary)', color: 'white' }
+                  : {
+                      background: 'white',
+                      color: 'var(--brand-primary)',
+                      border: '1px solid var(--brand-border)',
+                    }
+              }
+            >
+              {t.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* ── Diagnóstico ── */}
       {tab === 'diagnostico' && (
         <div className="grid gap-10 lg:grid-cols-[1fr_400px]">
           <div>
-            <p className="mb-3 text-xs font-black uppercase tracking-[0.3em] text-[#7557a1]">
+            <p
+              className="mb-3 text-xs font-black uppercase tracking-[0.3em]"
+              style={{ color: 'var(--brand-ink-muted)' }}
+            >
               Punto de partida
             </p>
-            <h2 className="max-w-[26ch] text-3xl font-black leading-tight tracking-tight text-[#1c0f32] md:text-4xl">
+            <h2
+              className="max-w-[26ch] text-3xl font-black leading-tight tracking-tight md:text-4xl"
+              style={{ color: 'var(--brand-primary)' }}
+            >
               Conoce dónde estás antes de decidir hacia dónde ir.
             </h2>
-            <p className="mt-5 max-w-[54ch] text-base leading-relaxed text-[#4a3665]">
+            <p
+              className="mt-5 max-w-[54ch] text-base leading-relaxed"
+              style={{ color: 'var(--brand-ink-soft)' }}
+            >
               El Diagnóstico Ejecutivo 4Shine evalúa tu nivel actual en los 4 pilares de liderazgo — Within, Out, Up y Beyond — y entrega un informe personalizado con tus fortalezas, brechas y recomendaciones concretas.
             </p>
             <ul className="mt-6 space-y-3">
@@ -121,31 +138,62 @@ export function PricingMatrixClient({ plans }: PricingMatrixClientProps) {
                 'Punto de partida para cualquier programa',
                 'Acceso permanente a tus resultados',
               ].map((f) => (
-                <li key={f} className="flex items-start gap-3 text-sm text-[#4a3665]">
-                  <Check size={15} className="mt-0.5 shrink-0 text-[#5b2d8a]" strokeWidth={2.5} />
+                <li
+                  key={f}
+                  className="flex items-start gap-3 text-sm"
+                  style={{ color: 'var(--brand-ink-soft)' }}
+                >
+                  <Check
+                    size={15}
+                    className="mt-0.5 shrink-0"
+                    strokeWidth={2.5}
+                    style={{ color: 'var(--brand-primary)' }}
+                  />
                   {f}
                 </li>
               ))}
             </ul>
           </div>
 
-          <article className="flex flex-col rounded-3xl border border-[#5b2d8a] bg-[#1c102d] p-8 text-white shadow-[0_24px_64px_rgba(91,45,138,0.22)]">
-            <span className="mb-3 inline-block w-fit rounded-full bg-[#f2b24b]/20 px-3 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-[#f2b24b]">
+          <article
+            className="flex flex-col rounded-3xl p-8 text-white shadow-[0_24px_64px_rgba(91,45,138,0.22)]"
+            style={{
+              border: '1px solid var(--brand-primary)',
+              background: 'var(--brand-dark)',
+            }}
+          >
+            <span
+              className="mb-3 inline-block w-fit rounded-full px-3 py-0.5 text-[10px] font-extrabold uppercase tracking-wider"
+              style={{ background: 'var(--brand-accent)', color: 'var(--brand-on-accent)' }}
+            >
               Compra individual
             </span>
             <p className="text-lg font-black">Diagnóstico Ejecutivo</p>
-            <p className="mt-1 text-5xl font-black text-[#f2b24b]">
-              $50 <span className="text-base font-semibold text-[#c9b8ff]">USD</span>
+            <p className="mt-1 text-5xl font-black" style={{ color: 'var(--brand-accent)' }}>
+              $50{' '}
+              <span className="text-base font-semibold" style={{ color: 'var(--brand-ink-muted)' }}>
+                USD
+              </span>
             </p>
-            <p className="mt-3 text-sm leading-relaxed text-[#c9b8ff]">
+            <p
+              className="mt-3 text-sm leading-relaxed"
+              style={{ color: 'var(--brand-ink-muted)' }}
+            >
               Pago único. Acceso inmediato. Resultado disponible en la plataforma en menos de 48 horas.
             </p>
-            <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4 text-xs leading-relaxed text-[#9b88c8]">
+            <div
+              className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4 text-xs leading-relaxed"
+              style={{ color: 'var(--brand-ink-muted)' }}
+            >
               Incluido en todos los programas de liderazgo. Si ya tienes un programa activo, no necesitas comprarlo por separado.
             </div>
             <Link
               href="/acceso?plan=diagnostico"
-              className="mt-auto pt-6 block w-full rounded-full bg-[#f2b24b] py-3 text-center text-sm font-extrabold text-[#1c0f32] transition hover:bg-[#f6c56d]"
+              className="mt-auto pt-6 block w-full rounded-full py-3 text-center text-sm font-extrabold transition"
+              style={{
+                background: 'var(--brand-accent)',
+                color: 'var(--brand-on-accent)',
+              }}
             >
               Comprar diagnóstico
             </Link>
@@ -161,73 +209,102 @@ export function PricingMatrixClient({ plans }: PricingMatrixClientProps) {
       {/* ── Mentorías ── */}
       {tab === 'mentorias' && (
         <div>
-          <p className="mb-8 max-w-[62ch] text-base leading-relaxed text-[#5e4b78]">
+          <p
+            className="mb-8 max-w-[62ch] text-base leading-relaxed"
+            style={{ color: 'var(--brand-ink-soft)' }}
+          >
             Sesiones individuales con Advisers certificados. Sin compromiso de programa. Ideal para acompañamiento puntual en un momento concreto de decisión, transición o desarrollo.
           </p>
           <div className="grid gap-5 sm:grid-cols-3">
             {MENTORING_PACKS.map((pack) => (
               <article
                 key={pack.id}
-                className={`flex flex-col rounded-3xl border p-7 ${
+                className="flex flex-col rounded-3xl p-7"
+                style={
                   pack.badge
-                    ? 'border-[#5b2d8a] bg-[#1c102d] text-white shadow-[0_24px_56px_rgba(91,45,138,0.22)]'
-                    : 'border-[#d6cced] bg-white text-[#1c0f32] shadow-[0_8px_32px_rgba(42,20,68,0.05)]'
-                }`}
+                    ? {
+                        border: '1px solid var(--brand-primary)',
+                        background: 'var(--brand-dark)',
+                        color: 'white',
+                        boxShadow: '0 24px 56px rgba(91,45,138,0.22)',
+                      }
+                    : {
+                        border: '1px solid var(--brand-border)',
+                        background: 'white',
+                        color: 'var(--brand-primary)',
+                        boxShadow: '0 8px 32px rgba(42,20,68,0.05)',
+                      }
+                }
               >
                 {pack.badge && (
-                  <span className="mb-3 inline-block w-fit rounded-full bg-[#f2b24b]/20 px-3 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-[#f2b24b]">
+                  <span
+                    className="mb-3 inline-block w-fit rounded-full px-3 py-0.5 text-[10px] font-extrabold uppercase tracking-wider"
+                    style={{
+                      background: 'var(--brand-accent)',
+                      color: 'var(--brand-on-accent)',
+                    }}
+                  >
                     {pack.badge}
                   </span>
                 )}
                 <p
-                  className={`text-4xl font-black ${
-                    pack.badge ? 'text-[#f2b24b]' : 'text-[#1c0f32]'
-                  }`}
+                  className="text-4xl font-black"
+                  style={{
+                    color: pack.badge ? 'var(--brand-accent)' : 'var(--brand-primary)',
+                  }}
                 >
                   {pack.sessions}
                   <span
-                    className={`ml-1 text-base font-semibold ${
-                      pack.badge ? 'text-[#c9b8ff]' : 'text-[#8b75a8]'
-                    }`}
+                    className="ml-1 text-base font-semibold"
+                    style={{ color: 'var(--brand-ink-muted)' }}
                   >
                     {pack.sessions === 1 ? 'sesión' : 'sesiones'}
                   </span>
                 </p>
                 <p
-                  className={`mt-1 text-2xl font-black ${
-                    pack.badge ? 'text-white' : 'text-[#1c0f32]'
-                  }`}
+                  className="mt-1 text-2xl font-black"
+                  style={{
+                    color: pack.badge ? 'white' : 'var(--brand-primary)',
+                  }}
                 >
                   ${pack.price}{' '}
                   <span
-                    className={`text-sm font-semibold ${
-                      pack.badge ? 'text-[#c9b8ff]' : 'text-[#8b75a8]'
-                    }`}
+                    className="text-sm font-semibold"
+                    style={{ color: 'var(--brand-ink-muted)' }}
                   >
                     USD
                   </span>
                 </p>
                 <p
-                  className={`mt-4 flex-1 text-sm leading-relaxed ${
-                    pack.badge ? 'text-[#c9b8ff]' : 'text-[#5d4a78]'
-                  }`}
+                  className="mt-4 flex-1 text-sm leading-relaxed"
+                  style={{
+                    color: pack.badge ? 'var(--brand-ink-muted)' : 'var(--brand-ink-soft)',
+                  }}
                 >
                   {pack.note}
                 </p>
                 <Link
                   href={pack.checkoutHref}
-                  className={`mt-6 block w-full rounded-full py-2.5 text-center text-sm font-extrabold transition ${
+                  className="mt-6 block w-full rounded-full py-2.5 text-center text-sm font-extrabold transition"
+                  style={
                     pack.badge
-                      ? 'bg-[#f2b24b] text-[#1c0f32] hover:bg-[#f6c56d]'
-                      : 'border-2 border-[#5b2d8a] text-[#5b2d8a] hover:bg-[#5b2d8a] hover:text-white'
-                  }`}
+                      ? {
+                          background: 'var(--brand-accent)',
+                          color: 'var(--brand-on-accent)',
+                        }
+                      : {
+                          border: '2px solid var(--brand-primary)',
+                          color: 'var(--brand-primary)',
+                          background: 'transparent',
+                        }
+                  }
                 >
                   Comprar
                 </Link>
               </article>
             ))}
           </div>
-          <p className="mt-6 text-xs text-[#9b88c8]">
+          <p className="mt-6 text-xs" style={{ color: 'var(--brand-ink-muted)' }}>
             * Cada sesión dura 60 minutos. Las sesiones no tienen fecha de vencimiento.
           </p>
         </div>
@@ -249,7 +326,14 @@ interface ProgramsSectionProps {
 function ProgramsSection({ programs, moduleGroups }: ProgramsSectionProps) {
   if (programs.length === 0) {
     return (
-      <div className="rounded-2xl border border-[#d6cced] bg-white p-10 text-center text-sm text-[#5e4b78]">
+      <div
+        className="rounded-2xl p-10 text-center text-sm"
+        style={{
+          border: '1px solid var(--brand-border)',
+          background: 'white',
+          color: 'var(--brand-ink-soft)',
+        }}
+      >
         Aún no hay programas activos disponibles. Vuelve más tarde.
       </div>
     );
@@ -257,54 +341,69 @@ function ProgramsSection({ programs, moduleGroups }: ProgramsSectionProps) {
 
   return (
     <div>
-      <p className="mb-8 max-w-[64ch] text-base leading-relaxed text-[#5e4b78]">
+      <p
+        className="mb-8 max-w-[64ch] text-base leading-relaxed"
+        style={{ color: 'var(--brand-ink-soft)' }}
+      >
         Cada programa da acceso completo a la plataforma. Lo que varía es la intensidad del acompañamiento, las sesiones incluidas y la duración de la suscripción.
       </p>
 
-      <div className="overflow-x-auto rounded-2xl border border-[#d6cced] bg-white shadow-[0_8px_40px_rgba(42,20,68,0.07)]">
+      <div
+        className="overflow-x-auto rounded-2xl"
+        style={{
+          border: '1px solid var(--brand-border)',
+          background: 'white',
+          boxShadow: '0 8px 40px rgba(42,20,68,0.07)',
+        }}
+      >
         <table className="w-full min-w-[720px] border-collapse">
           <thead>
-            <tr className="border-b border-[#ede7f8]">
+            <tr style={{ borderBottom: '1px solid var(--brand-border)' }}>
               <th className="w-56 px-6 py-6 text-left" />
               {programs.map((p) => {
                 const highlighted = Boolean(p.highlightLabel);
                 return (
                   <th
                     key={p.planId}
-                    className={`px-5 py-6 text-center align-bottom ${
-                      highlighted ? 'bg-[#1c102d]' : ''
-                    }`}
+                    className="px-5 py-6 text-center align-bottom"
+                    style={highlighted ? { background: 'var(--brand-dark)' } : undefined}
                   >
                     {p.highlightLabel && (
-                      <span className="mb-2 inline-block rounded-full bg-[#f2b24b]/20 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-[#f2b24b]">
+                      <span
+                        className="mb-2 inline-block rounded-full px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider"
+                        style={{
+                          background: 'var(--brand-accent)',
+                          color: 'var(--brand-on-accent)',
+                        }}
+                      >
                         {p.highlightLabel}
                       </span>
                     )}
                     <p
-                      className={`text-[15px] font-black ${
-                        highlighted ? 'text-white' : 'text-[#1c0f32]'
-                      }`}
+                      className="text-[15px] font-black"
+                      style={{
+                        color: highlighted ? 'white' : 'var(--brand-primary)',
+                      }}
                     >
                       {p.name}
                     </p>
                     <p
-                      className={`mt-1 text-2xl font-black ${
-                        highlighted ? 'text-[#f2b24b]' : 'text-[#1c0f32]'
-                      }`}
+                      className="mt-1 text-2xl font-black"
+                      style={{
+                        color: highlighted ? 'var(--brand-accent)' : 'var(--brand-primary)',
+                      }}
                     >
                       {formatPrice(p.priceAmount)}{' '}
                       <span
-                        className={`text-xs font-semibold ${
-                          highlighted ? 'text-[#9b88c8]' : 'text-[#8b75a8]'
-                        }`}
+                        className="text-xs font-semibold"
+                        style={{ color: 'var(--brand-ink-muted)' }}
                       >
                         {p.currencyCode}
                       </span>
                     </p>
                     <p
-                      className={`mt-1 text-[11px] font-semibold ${
-                        highlighted ? 'text-[#c9b8ff]' : 'text-[#8b75a8]'
-                      }`}
+                      className="mt-1 text-[11px] font-semibold"
+                      style={{ color: 'var(--brand-ink-muted)' }}
                     >
                       {formatDuration(p.durationDays)}
                     </p>
@@ -316,10 +415,14 @@ function ProgramsSection({ programs, moduleGroups }: ProgramsSectionProps) {
 
           <tbody>
             {/* Section header: Permisos por módulo */}
-            <tr className="border-b border-[#f0ebfa]">
+            <tr style={{ borderBottom: '1px solid var(--brand-border)' }}>
               <td
                 colSpan={programs.length + 1}
-                className="bg-[#1c102d] px-6 py-2.5 text-[10px] font-extrabold uppercase tracking-widest text-[#c9b8ff]"
+                className="px-6 py-2.5 text-[10px] font-extrabold uppercase tracking-widest"
+                style={{
+                  background: 'var(--brand-dark)',
+                  color: 'var(--brand-ink-muted)',
+                }}
               >
                 Acceso por módulo
               </td>
@@ -329,10 +432,17 @@ function ProgramsSection({ programs, moduleGroups }: ProgramsSectionProps) {
               group.features.map((def) => (
                 <tr
                   key={def.key}
-                  className="border-b border-[#f0ebfa] transition hover:bg-[#fbf9ff]"
+                  className="transition"
+                  style={{ borderBottom: '1px solid var(--brand-border)' }}
                 >
-                  <td className="px-6 py-3.5 text-sm font-medium text-[#3d2b5f]">
-                    <span className="text-[10px] uppercase tracking-wider text-[#8b75a8]">
+                  <td
+                    className="px-6 py-3.5 text-sm font-medium"
+                    style={{ color: 'var(--brand-ink-soft)' }}
+                  >
+                    <span
+                      className="text-[10px] uppercase tracking-wider"
+                      style={{ color: 'var(--brand-ink-muted)' }}
+                    >
                       {group.moduleLabel}
                     </span>
                     <br />
@@ -346,33 +456,47 @@ function ProgramsSection({ programs, moduleGroups }: ProgramsSectionProps) {
                     return (
                       <td
                         key={p.planId}
-                        className={`px-5 py-3.5 ${highlighted ? 'bg-[#1c102d]/[0.025]' : ''}`}
+                        className="px-5 py-3.5"
+                        style={
+                          highlighted ? { background: 'var(--brand-surface)' } : undefined
+                        }
                       >
                         <div className="flex justify-center">
                           {enabled ? (
                             quota ? (
                               <span
-                                className={`text-sm font-extrabold ${
-                                  highlighted ? 'text-[#f2b24b]' : 'text-[#5b2d8a]'
-                                }`}
+                                className="text-sm font-extrabold"
+                                style={{
+                                  color: highlighted
+                                    ? 'var(--brand-accent)'
+                                    : 'var(--brand-primary)',
+                                }}
                               >
                                 {quota}
                               </span>
                             ) : (
                               <div
-                                className={`flex h-6 w-6 items-center justify-center rounded-full ${
-                                  highlighted ? 'bg-[#f2b24b]/20' : 'bg-[#5b2d8a]/10'
-                                }`}
+                                className="flex h-6 w-6 items-center justify-center rounded-full"
+                                style={{
+                                  background: 'var(--brand-surface-strong)',
+                                }}
                               >
                                 <Check
                                   size={13}
                                   strokeWidth={2.5}
-                                  className={highlighted ? 'text-[#f2b24b]' : 'text-[#5b2d8a]'}
+                                  style={{
+                                    color: highlighted
+                                      ? 'var(--brand-accent)'
+                                      : 'var(--brand-primary)',
+                                  }}
                                 />
                               </div>
                             )
                           ) : (
-                            <X size={14} className="text-[#c9b8ff]/60" />
+                            <X
+                              size={14}
+                              style={{ color: 'var(--brand-ink-muted)', opacity: 0.6 }}
+                            />
                           )}
                         </div>
                       </td>
@@ -384,7 +508,7 @@ function ProgramsSection({ programs, moduleGroups }: ProgramsSectionProps) {
 
             {/* CTA row */}
             <tr>
-              <td className="px-6 py-5 text-[11px] text-[#9b88c8]">
+              <td className="px-6 py-5 text-[11px]" style={{ color: 'var(--brand-ink-muted)' }}>
                 * Precio único. Sin cuotas ocultas.
               </td>
               {programs.map((p) => {
@@ -392,17 +516,24 @@ function ProgramsSection({ programs, moduleGroups }: ProgramsSectionProps) {
                 return (
                   <td
                     key={p.planId}
-                    className={`px-5 py-5 text-center ${
-                      highlighted ? 'bg-[#1c102d]/[0.025]' : ''
-                    }`}
+                    className="px-5 py-5 text-center"
+                    style={highlighted ? { background: 'var(--brand-surface)' } : undefined}
                   >
                     <Link
                       href={`/acceso?plan=${encodeURIComponent(p.planCode)}`}
-                      className={`inline-block rounded-full px-6 py-2.5 text-sm font-extrabold transition ${
+                      className="inline-block rounded-full px-6 py-2.5 text-sm font-extrabold transition"
+                      style={
                         highlighted
-                          ? 'bg-[#f2b24b] text-[#1c0f32] hover:bg-[#f6c56d]'
-                          : 'border-2 border-[#5b2d8a] text-[#5b2d8a] hover:bg-[#5b2d8a] hover:text-white'
-                      }`}
+                          ? {
+                              background: 'var(--brand-accent)',
+                              color: 'var(--brand-on-accent)',
+                            }
+                          : {
+                              border: '2px solid var(--brand-primary)',
+                              color: 'var(--brand-primary)',
+                              background: 'transparent',
+                            }
+                      }
                     >
                       Comenzar
                     </Link>
@@ -422,7 +553,14 @@ function ProgramsSection({ programs, moduleGroups }: ProgramsSectionProps) {
 function CirculoSection({ circulos }: { circulos: SubscriptionPlanWithFeatures[] }) {
   if (circulos.length === 0) {
     return (
-      <div className="rounded-2xl border border-[#d6cced] bg-white p-10 text-center text-sm text-[#5e4b78]">
+      <div
+        className="rounded-2xl p-10 text-center text-sm"
+        style={{
+          border: '1px solid var(--brand-border)',
+          background: 'white',
+          color: 'var(--brand-ink-soft)',
+        }}
+      >
         Aún no hay planes de Círculo activos. Vuelve más tarde.
       </div>
     );
@@ -438,7 +576,10 @@ function CirculoSection({ circulos }: { circulos: SubscriptionPlanWithFeatures[]
 
   return (
     <div>
-      <p className="mb-8 max-w-[62ch] text-base leading-relaxed text-[#5e4b78]">
+      <p
+        className="mb-8 max-w-[62ch] text-base leading-relaxed"
+        style={{ color: 'var(--brand-ink-soft)' }}
+      >
         Acceso al Círculo de Líderes 4Shine: sesiones grupales en vivo, cursos exclusivos, comunidad y workshops. Elige la duración que más se ajuste a tu momento.
       </p>
       <div className="mx-auto grid max-w-[960px] gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -447,30 +588,50 @@ function CirculoSection({ circulos }: { circulos: SubscriptionPlanWithFeatures[]
           return (
             <article
               key={plan.planId}
-              className={`flex flex-col rounded-3xl border p-8 ${
+              className="flex flex-col rounded-3xl p-8"
+              style={
                 isHighlight
-                  ? 'border-[#5b2d8a] bg-[#1c102d] text-white shadow-[0_24px_56px_rgba(91,45,138,0.22)]'
-                  : 'border-[#d6cced] bg-white text-[#1c0f32] shadow-[0_8px_32px_rgba(42,20,68,0.05)]'
-              }`}
+                  ? {
+                      border: '1px solid var(--brand-primary)',
+                      background: 'var(--brand-dark)',
+                      color: 'white',
+                      boxShadow: '0 24px 56px rgba(91,45,138,0.22)',
+                    }
+                  : {
+                      border: '1px solid var(--brand-border)',
+                      background: 'white',
+                      color: 'var(--brand-primary)',
+                      boxShadow: '0 8px 32px rgba(42,20,68,0.05)',
+                    }
+              }
             >
               {plan.highlightLabel && (
-                <span className="mb-3 inline-block w-fit rounded-full bg-[#f2b24b]/20 px-3 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-[#f2b24b]">
+                <span
+                  className="mb-3 inline-block w-fit rounded-full px-3 py-0.5 text-[10px] font-extrabold uppercase tracking-wider"
+                  style={{
+                    background: 'var(--brand-accent)',
+                    color: 'var(--brand-on-accent)',
+                  }}
+                >
                   {plan.highlightLabel}
                 </span>
               )}
-              <p className={`text-lg font-black ${isHighlight ? 'text-white' : 'text-[#1c0f32]'}`}>
+              <p
+                className="text-lg font-black"
+                style={{ color: isHighlight ? 'white' : 'var(--brand-primary)' }}
+              >
                 {plan.name}
               </p>
               <p
-                className={`mt-1 text-3xl font-black ${
-                  isHighlight ? 'text-[#f2b24b]' : 'text-[#1c0f32]'
-                }`}
+                className="mt-1 text-3xl font-black"
+                style={{
+                  color: isHighlight ? 'var(--brand-accent)' : 'var(--brand-primary)',
+                }}
               >
                 {formatPrice(plan.priceAmount)}{' '}
                 <span
-                  className={`text-sm font-semibold ${
-                    isHighlight ? 'text-[#c9b8ff]' : 'text-[#8b75a8]'
-                  }`}
+                  className="text-sm font-semibold"
+                  style={{ color: 'var(--brand-ink-muted)' }}
                 >
                   {plan.currencyCode} · {formatDuration(plan.durationDays)}
                 </span>
@@ -485,25 +646,37 @@ function CirculoSection({ circulos }: { circulos: SubscriptionPlanWithFeatures[]
                     <li
                       key={key}
                       className={`flex items-start gap-2.5 text-sm ${
-                        enabled
-                          ? ''
-                          : isHighlight
-                            ? 'text-white/40 line-through'
-                            : 'text-[#5b2d8a]/40 line-through'
+                        enabled ? '' : 'line-through'
                       }`}
+                      style={
+                        enabled
+                          ? undefined
+                          : isHighlight
+                            ? { color: 'rgba(255,255,255,0.4)' }
+                            : { color: 'var(--brand-ink-muted)', opacity: 0.6 }
+                      }
                     >
                       {enabled ? (
                         <Check
                           size={14}
                           strokeWidth={2.5}
-                          className={`mt-0.5 shrink-0 ${
-                            isHighlight ? 'text-[#f2b24b]' : 'text-[#5b2d8a]'
-                          }`}
+                          className="mt-0.5 shrink-0"
+                          style={{
+                            color: isHighlight
+                              ? 'var(--brand-accent)'
+                              : 'var(--brand-primary)',
+                          }}
                         />
                       ) : (
                         <X size={14} className="mt-0.5 shrink-0 opacity-40" />
                       )}
-                      <span className={isHighlight ? 'text-[#ddd6f0]' : 'text-[#4a3665]'}>
+                      <span
+                        style={{
+                          color: isHighlight
+                            ? 'var(--brand-ink-muted)'
+                            : 'var(--brand-ink-soft)',
+                        }}
+                      >
                         {def.label}
                       </span>
                     </li>
@@ -512,11 +685,19 @@ function CirculoSection({ circulos }: { circulos: SubscriptionPlanWithFeatures[]
               </ul>
               <Link
                 href={`/acceso?plan=${encodeURIComponent(plan.planCode)}`}
-                className={`mt-8 block w-full rounded-full py-3 text-center text-sm font-extrabold transition ${
+                className="mt-8 block w-full rounded-full py-3 text-center text-sm font-extrabold transition"
+                style={
                   isHighlight
-                    ? 'bg-[#f2b24b] text-[#1c0f32] hover:bg-[#f6c56d]'
-                    : 'border-2 border-[#5b2d8a] text-[#5b2d8a] hover:bg-[#5b2d8a] hover:text-white'
-                }`}
+                    ? {
+                        background: 'var(--brand-accent)',
+                        color: 'var(--brand-on-accent)',
+                      }
+                    : {
+                        border: '2px solid var(--brand-primary)',
+                        color: 'var(--brand-primary)',
+                        background: 'transparent',
+                      }
+                }
               >
                 Unirme al Círculo
               </Link>

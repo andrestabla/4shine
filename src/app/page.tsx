@@ -193,7 +193,9 @@ export default async function HomeMarketingPage() {
   ]);
   const navItems = HOME_NAV_ITEMS.filter((item) => enabledPages[item.pageKey] !== false);
   const platformName = branding.settings.platformName?.trim() || '4Shine';
-  const logoUrl = branding.settings.logoUrl?.trim() || '/branding/4shine-logo-blanco.png';
+  const showPlatformName = branding.settings.showPlatformName !== false;
+  const logoUrl = branding.settings.logoUrl?.trim() || '/branding/4shine-logo-mixto.png';
+  const logoOnDarkUrl = branding.settings.logoUrl?.trim() || '/branding/4shine-logo-amarillo.png';
   const currentYear = 2026;
 
   return (
@@ -226,10 +228,12 @@ export default async function HomeMarketingPage() {
 
         <div className="relative mx-auto flex max-w-[1240px] flex-col px-6 pb-20 pt-6 md:px-10 lg:px-14">
           <header className="mb-14 flex items-center justify-between">
-            <Link href="/" className="inline-flex items-center gap-2.5">
+            <Link href="/" className="inline-flex items-center gap-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={logoUrl} alt={`Logo ${platformName}`} className="h-9 object-contain" />
-              <span className="text-xl font-black tracking-tight">{platformName}</span>
+              <img src={logoOnDarkUrl} alt={`Logo ${platformName}`} className="h-10 object-contain" />
+              {showPlatformName && (
+                <span className="text-xl font-black tracking-tight">{platformName}</span>
+              )}
             </Link>
             {navItems.length > 0 && (
               <nav className="hidden items-center gap-8 text-sm font-semibold md:flex">
@@ -709,10 +713,12 @@ export default async function HomeMarketingPage() {
       <footer className="border-t bg-white" style={{ borderColor: 'var(--brand-border)' }}>
         <div className="mx-auto flex max-w-[1240px] flex-col gap-8 px-6 py-12 md:flex-row md:items-center md:justify-between md:px-10 lg:px-14">
           <div>
-            <Link href="/" className="inline-flex items-center gap-2.5" style={{ color: 'var(--brand-primary)' }}>
+            <Link href="/" className="inline-flex items-center gap-3" style={{ color: 'var(--brand-primary)' }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={logoUrl} alt="" className="h-7 object-contain" />
-              <span className="text-lg font-black tracking-tight">{platformName}</span>
+              <img src={logoUrl} alt="" className="h-8 object-contain" />
+              {showPlatformName && (
+                <span className="text-lg font-black tracking-tight">{platformName}</span>
+              )}
             </Link>
             <p className="mt-2 text-sm" style={{ color: 'var(--brand-ink-muted)' }}>
               Liderazgo con método, consciencia e impacto.

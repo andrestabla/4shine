@@ -53,6 +53,16 @@ const LOGIN_LAYOUT_DESCRIPTIONS: Record<BrandingSettings['loginLayout'], string>
   centered_image: 'Formulario centrado sobre imagen de fondo completa.',
 };
 
+type TabKey = 'identidad' | 'tema' | 'login' | 'preview' | 'historial';
+
+const TABS: { key: TabKey; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
+  { key: 'identidad', label: 'Identidad', icon: Building2 },
+  { key: 'tema', label: 'Tema visual', icon: Palette },
+  { key: 'login', label: 'Login', icon: PanelTop },
+  { key: 'preview', label: 'Vista previa', icon: PaintBucket },
+  { key: 'historial', label: 'Historial', icon: History },
+];
+
 function formatDate(value: string | null): string {
   if (!value) return 'Sin cambios guardados';
   return new Date(value).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' });
@@ -184,6 +194,7 @@ export default function BrandingAdminPage() {
   const [revertingRevisionId, setRevertingRevisionId] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [isLoadedFromApi, setIsLoadedFromApi] = React.useState(false);
+  const [activeTab, setActiveTab] = React.useState<TabKey>('identidad');
 
   const showError = React.useCallback(
     async (fallbackMessage: string, cause: unknown) => {
@@ -358,6 +369,35 @@ export default function BrandingAdminPage() {
     settings.imageWelcomeMessages.find((item) => item.trim().length > 0) ??
     settings.imageWelcomeMessage;
 
+  const fontLabelByValue = React.useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const font of BRANDING_FONT_OPTIONS) {
+      map[font.value] = font.label;
+    }
+    return map;
+  }, []);
+
+  const renderSaveBar = (key: string) => (
+    <div
+      key={key}
+      className="sticky bottom-0 z-10 -mx-1 mt-6 flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur"
+    >
+      <button className="rounded-md bg-slate-900 text-white px-4 py-2 text-sm" type="submit">
+        Guardar configuración
+      </button>
+      <button
+        type="button"
+        className="rounded-md border border-slate-300 text-slate-700 px-4 py-2 text-sm"
+        onClick={() => void loadSettings()}
+      >
+        Recargar desde DB
+      </button>
+      <p className="text-xs text-slate-500 ml-auto">
+        Última actualización: {formatDate(lastUpdatedAt)}
+      </p>
+    </div>
+  );
+
   return (
     <div className="space-y-4">
       <PageTitle
@@ -369,785 +409,920 @@ export default function BrandingAdminPage() {
         <div className="bg-white rounded-xl border border-slate-200 p-4 text-sm text-slate-500">Cargando configuración...</div>
       ) : (
         <form onSubmit={onSave} className="space-y-4">
-          <section className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
-            <h3 className="font-semibold text-slate-800 flex items-center gap-2">
-              <Building2 size={18} className="text-indigo-600" /> Identidad Institucional
-            </h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="text-sm text-slate-700">
-                <div className="flex items-center justify-between gap-2">
-                  <span>Nombre de la Institución</span>
-                  <VisibilityToggle
-                    checked={settings.showPlatformName}
-                    onChange={(next) => patchSettings({ showPlatformName: next })}
-                  />
-                </div>
-                <input
-                  className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
-                  value={settings.platformName}
-                  onChange={(event) => patchSettings({ platformName: event.target.value })}
-                />
-              </div>
-
-              <label className="text-sm text-slate-700">
-                URL del Logo
-                <div className="mt-1 flex gap-2">
-                  <input
-                    className="w-full border border-slate-300 rounded-xl px-3 py-2"
-                    value={settings.logoUrl}
-                    onChange={(event) => patchSettings({ logoUrl: event.target.value })}
-                    placeholder="https://..."
-                  />
-                  <R2UploadButton
-                    moduleCode="usuarios"
-                    action="manage"
-                    fieldName="logoUrl"
-                    entityTable="app_admin.branding_settings"
-                    pathPrefix="branding/logo"
-                    accept="image/*"
-                    buttonLabel="Subir"
-                    onUploaded={(url) => patchSettings({ logoUrl: url })}
-                  />
-                </div>
-              </label>
-
-              <label className="text-sm text-slate-700">
-                Huso Horario (Timezone)
-                <select
-                  className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
-                  value={settings.institutionTimezone}
-                  onChange={(event) => patchSettings({ institutionTimezone: event.target.value })}
-                >
-                  {TIMEZONE_OPTIONS.map((timezone) => (
-                    <option key={timezone} value={timezone}>
-                      {timezone}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="text-sm text-slate-700">
-                URL del Favicon (Icono pestaña)
-                <div className="mt-1 flex gap-2">
-                  <input
-                    className="w-full border border-slate-300 rounded-xl px-3 py-2"
-                    value={settings.faviconUrl}
-                    onChange={(event) => patchSettings({ faviconUrl: event.target.value })}
-                    placeholder="https://..."
-                  />
-                  <R2UploadButton
-                    moduleCode="usuarios"
-                    action="manage"
-                    fieldName="faviconUrl"
-                    entityTable="app_admin.branding_settings"
-                    pathPrefix="branding/favicon"
-                    accept="image/*,.ico"
-                    buttonLabel="Subir"
-                    onUploaded={(url) => patchSettings({ faviconUrl: url })}
-                  />
-                </div>
-              </label>
-            </div>
-          </section>
-
-          <section className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
-            <h3 className="font-semibold text-slate-800 flex items-center gap-2">
-              <Sparkles size={18} className="text-violet-600" /> Presets Rápidos
-            </h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {BRANDING_PRESETS.map((preset) => (
+          <div
+            role="tablist"
+            aria-label="Secciones de branding"
+            className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm"
+          >
+            {TABS.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.key;
+              return (
                 <button
-                  key={preset.code}
+                  key={tab.key}
                   type="button"
-                  onClick={() => applyPreset(preset.code)}
-                  className={`rounded-3xl border px-4 py-4 text-left transition ${
-                    settings.presetCode === preset.code
-                      ? 'border-slate-900 bg-slate-900 text-white'
-                      : 'border-slate-300 bg-white hover:border-slate-500'
+                  role="tab"
+                  id={`tab-${tab.key}`}
+                  aria-selected={isActive}
+                  aria-controls={`panel-${tab.key}`}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-slate-400 ${
+                    isActive
+                      ? 'border-transparent text-white shadow-sm'
+                      : 'border-slate-200 bg-white text-slate-700 hover:border-slate-400'
                   }`}
+                  style={
+                    isActive
+                      ? { backgroundColor: 'var(--brand-primary)' }
+                      : undefined
+                  }
                 >
-                  <p className="font-semibold flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: preset.primaryColor }} />
-                    {preset.label}
-                  </p>
-                  <p className={`text-sm mt-2 ${settings.presetCode === preset.code ? 'text-slate-200' : 'text-slate-500'}`}>
-                    {preset.description}
-                  </p>
+                  <Icon size={14} />
+                  {tab.label}
                 </button>
-              ))}
-            </div>
-          </section>
-
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-            <section className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
-              <h3 className="font-semibold text-slate-800 flex items-center gap-2">
-                <Palette size={18} className="text-blue-600" /> Colores
-              </h3>
-
-              <ColorField label="Color Primario" value={settings.primaryColor} onChange={(next) => patchSettings({ primaryColor: next, presetCode: 'custom' })} />
-              <div className="text-xs text-slate-500">Genera automáticamente paletas hover/focus.</div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <ColorField label="Secundario" value={settings.secondaryColor} onChange={(next) => patchSettings({ secondaryColor: next, presetCode: 'custom' })} />
-                <ColorField label="Acento" value={settings.accentColor} onChange={(next) => patchSettings({ accentColor: next, presetCode: 'custom' })} />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="rounded-xl border border-slate-200 p-3">
-                  <p className="text-xs text-slate-500">Hover automático</p>
-                  <div className="mt-2 h-8 rounded-lg" style={{ backgroundColor: hoverColor }} />
-                  <p className="text-xs mt-2 text-slate-600">{hoverColor}</p>
-                </div>
-                <div className="rounded-xl border border-slate-200 p-3">
-                  <p className="text-xs text-slate-500">Focus automático</p>
-                  <div className="mt-2 h-8 rounded-lg" style={{ backgroundColor: focusColor }} />
-                  <p className="text-xs mt-2 text-slate-600">{focusColor}</p>
-                </div>
-              </div>
-            </section>
-
-            <section className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
-              <h3 className="font-semibold text-slate-800 flex items-center gap-2">
-                <Type size={18} className="text-emerald-600" /> Tipografía y Forma
-              </h3>
-
-              <label className="text-sm text-slate-700">
-                Fuente Principal (Google Fonts)
-                <select
-                  className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
-                  value={settings.typography}
-                  onChange={(event) => patchSettings({ typography: event.target.value, presetCode: 'custom' })}
-                >
-                  {BRANDING_FONT_OPTIONS.map((font) => (
-                    <option key={font.value} value={font.value}>
-                      {font.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="text-sm text-slate-700 block">
-                Radio de Borde (Border Radius)
-                <input
-                  type="range"
-                  min={0}
-                  max={3}
-                  step={0.1}
-                  className="mt-3 w-full"
-                  value={settings.borderRadiusRem}
-                  onChange={(event) => patchSettings({ borderRadiusRem: Number(event.target.value), presetCode: 'custom' })}
-                />
-                <span className="inline-block mt-2 text-xs px-2 py-1 bg-slate-100 rounded-md">{settings.borderRadiusRem.toFixed(1)}rem</span>
-              </label>
-
-              <label className="text-sm text-slate-700 block">
-                Ancho máximo de página (Landing/Home)
-                <input
-                  className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
-                  value={settings.pageMaxWidth}
-                  onChange={(event) => patchSettings({ pageMaxWidth: event.target.value })}
-                />
-              </label>
-
-              <div className="flex flex-wrap gap-2">
-                {PAGE_WIDTH_PRESETS.map((size) => (
-                  <button
-                    key={size}
-                    type="button"
-                    className={`text-xs px-3 py-1.5 rounded-full border ${
-                      settings.pageMaxWidth === size ? 'bg-slate-900 text-white border-slate-900' : 'border-slate-300 text-slate-700'
-                    }`}
-                    onClick={() => patchSettings({ pageMaxWidth: size })}
-                  >
-                    {size}
-                  </button>
-                ))}
-              </div>
-
-              <div className="rounded-2xl bg-slate-100 p-4 flex items-center gap-3">
-                <button
-                  type="button"
-                  className="px-5 py-2 text-white shadow"
-                  style={{ backgroundColor: settings.accentColor, borderRadius: `${settings.borderRadiusRem}rem` }}
-                >
-                  Botón Frontend
-                </button>
-                <button
-                  type="button"
-                  className="px-5 py-2 border"
-                  style={{
-                    borderColor: settings.accentColor,
-                    color: settings.primaryColor,
-                    borderRadius: `${settings.borderRadiusRem}rem`,
-                  }}
-                >
-                  Outline
-                </button>
-              </div>
-            </section>
+              );
+            })}
           </div>
 
-          <section className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
-            <h3 className="font-semibold text-slate-800 flex items-center gap-2">
-              <PanelTop size={18} className="text-pink-600" /> Login & Branding
-            </h3>
+          {/* === TAB: Identidad === */}
+          <div
+            role="tabpanel"
+            id="panel-identidad"
+            aria-labelledby="tab-identidad"
+            hidden={activeTab !== 'identidad'}
+            className="space-y-4"
+          >
+            <section className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
+              <div>
+                <h3 className="font-semibold text-slate-800 flex items-center gap-2">
+                  <Building2 size={18} className="text-indigo-600" /> Identidad institucional
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  Define cómo se identifica tu plataforma: nombre, logos y zona horaria base.
+                </p>
+              </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {LOGIN_LAYOUT_OPTIONS.map((layout) => (
-                <button
-                  key={layout}
-                  type="button"
-                  onClick={() => patchSettings({ loginLayout: layout })}
-                  className={`rounded-2xl border px-4 py-3 text-left transition ${
-                    settings.loginLayout === layout
-                      ? 'border-slate-900 bg-slate-900 text-white'
-                      : 'border-slate-300 bg-white hover:border-slate-500'
-                  }`}
-                >
-                  <p className="font-semibold">{LOGIN_LAYOUT_LABELS[layout]}</p>
-                  <p
-                    className={`text-xs mt-2 ${
-                      settings.loginLayout === layout ? 'text-slate-200' : 'text-slate-500'
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="text-sm text-slate-700">
+                  <div className="flex items-center justify-between gap-2">
+                    <span>Nombre de la plataforma</span>
+                    <VisibilityToggle
+                      checked={settings.showPlatformName}
+                      onChange={(next) => patchSettings({ showPlatformName: next })}
+                    />
+                  </div>
+                  <input
+                    className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
+                    value={settings.platformName}
+                    onChange={(event) => patchSettings({ platformName: event.target.value })}
+                  />
+                </div>
+
+                <label className="text-sm text-slate-700">
+                  URL del Logo
+                  <div className="mt-1 flex gap-2">
+                    <input
+                      className="w-full border border-slate-300 rounded-xl px-3 py-2"
+                      value={settings.logoUrl}
+                      onChange={(event) => patchSettings({ logoUrl: event.target.value })}
+                      placeholder="https://..."
+                    />
+                    <R2UploadButton
+                      moduleCode="usuarios"
+                      action="manage"
+                      fieldName="logoUrl"
+                      entityTable="app_admin.branding_settings"
+                      pathPrefix="branding/logo"
+                      accept="image/*"
+                      buttonLabel="Subir"
+                      onUploaded={(url) => patchSettings({ logoUrl: url })}
+                    />
+                  </div>
+                </label>
+
+                <label className="text-sm text-slate-700">
+                  Zona horaria
+                  <select
+                    className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
+                    value={settings.institutionTimezone}
+                    onChange={(event) => patchSettings({ institutionTimezone: event.target.value })}
+                  >
+                    {TIMEZONE_OPTIONS.map((timezone) => (
+                      <option key={timezone} value={timezone}>
+                        {timezone}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="text-sm text-slate-700">
+                  URL del Favicon (Icono pestaña)
+                  <div className="mt-1 flex gap-2">
+                    <input
+                      className="w-full border border-slate-300 rounded-xl px-3 py-2"
+                      value={settings.faviconUrl}
+                      onChange={(event) => patchSettings({ faviconUrl: event.target.value })}
+                      placeholder="https://..."
+                    />
+                    <R2UploadButton
+                      moduleCode="usuarios"
+                      action="manage"
+                      fieldName="faviconUrl"
+                      entityTable="app_admin.branding_settings"
+                      pathPrefix="branding/favicon"
+                      accept="image/*,.ico"
+                      buttonLabel="Subir"
+                      onUploaded={(url) => patchSettings({ faviconUrl: url })}
+                    />
+                  </div>
+                </label>
+              </div>
+            </section>
+
+            <div className="h-px bg-slate-200 mx-2" aria-hidden="true" />
+
+            <section className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
+              <div>
+                <h3 className="font-semibold text-slate-800 flex items-center gap-2">
+                  <Sparkles size={18} className="text-violet-600" /> Presets rápidos
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  Aplica una combinación lista de colores, tipografía y radio. Puedes ajustarla luego en el tab Tema.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {BRANDING_PRESETS.map((preset) => {
+                  const isActive = settings.presetCode === preset.code;
+                  const fontLabel = fontLabelByValue[preset.typography] ?? preset.typography;
+                  return (
+                    <button
+                      key={preset.code}
+                      type="button"
+                      onClick={() => applyPreset(preset.code)}
+                      className={`rounded-3xl border px-4 py-4 text-left transition ${
+                        isActive
+                          ? 'border-slate-900 bg-slate-900 text-white'
+                          : 'border-slate-300 bg-white hover:border-slate-500'
+                      }`}
+                    >
+                      <p className="font-semibold flex items-center gap-2">
+                        <span className="w-3 h-3 rounded-full" style={{ backgroundColor: preset.primaryColor }} />
+                        {preset.label}
+                      </p>
+                      <p className={`text-sm mt-2 ${isActive ? 'text-slate-200' : 'text-slate-500'}`}>
+                        {preset.description}
+                      </p>
+                      <div className="mt-3 flex items-center gap-1.5">
+                        <span
+                          className="h-5 w-5 rounded-full border border-white/40 shadow-sm"
+                          style={{ backgroundColor: preset.primaryColor }}
+                          title={`Primario ${preset.primaryColor}`}
+                        />
+                        <span
+                          className="h-5 w-5 rounded-full border border-white/40 shadow-sm"
+                          style={{ backgroundColor: preset.secondaryColor }}
+                          title={`Secundario ${preset.secondaryColor}`}
+                        />
+                        <span
+                          className="h-5 w-5 rounded-full border border-white/40 shadow-sm"
+                          style={{ backgroundColor: preset.accentColor }}
+                          title={`Acento ${preset.accentColor}`}
+                        />
+                        <span
+                          className={`ml-2 text-[11px] ${isActive ? 'text-slate-200' : 'text-slate-500'}`}
+                        >
+                          {fontLabel}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
+            {renderSaveBar('save-identidad')}
+          </div>
+
+          {/* === TAB: Tema visual === */}
+          <div
+            role="tabpanel"
+            id="panel-tema"
+            aria-labelledby="tab-tema"
+            hidden={activeTab !== 'tema'}
+            className="space-y-4"
+          >
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+              <section className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
+                <div>
+                  <h3 className="font-semibold text-slate-800 flex items-center gap-2">
+                    <Palette size={18} className="text-blue-600" /> Colores
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Define la paleta base. Hover/focus se derivan automáticamente.
+                  </p>
+                </div>
+
+                <ColorField label="Color Primario" value={settings.primaryColor} onChange={(next) => patchSettings({ primaryColor: next, presetCode: 'custom' })} />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <ColorField label="Secundario" value={settings.secondaryColor} onChange={(next) => patchSettings({ secondaryColor: next, presetCode: 'custom' })} />
+                  <ColorField label="Acento" value={settings.accentColor} onChange={(next) => patchSettings({ accentColor: next, presetCode: 'custom' })} />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="rounded-xl border border-slate-200 p-3">
+                    <p className="text-xs text-slate-500">Hover automático</p>
+                    <div className="mt-2 h-8 rounded-lg" style={{ backgroundColor: hoverColor }} />
+                    <p className="text-xs mt-2 text-slate-600">{hoverColor}</p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 p-3">
+                    <p className="text-xs text-slate-500">Focus automático</p>
+                    <div className="mt-2 h-8 rounded-lg" style={{ backgroundColor: focusColor }} />
+                    <p className="text-xs mt-2 text-slate-600">{focusColor}</p>
+                  </div>
+                </div>
+              </section>
+
+              <section className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
+                <div>
+                  <h3 className="font-semibold text-slate-800 flex items-center gap-2">
+                    <Type size={18} className="text-emerald-600" /> Tipografía y forma
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Controla la fuente principal, el radio de bordes y el ancho máximo de página.
+                  </p>
+                </div>
+
+                <label className="text-sm text-slate-700">
+                  Fuente Principal (Google Fonts)
+                  <select
+                    className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
+                    value={settings.typography}
+                    onChange={(event) => patchSettings({ typography: event.target.value, presetCode: 'custom' })}
+                  >
+                    {BRANDING_FONT_OPTIONS.map((font) => (
+                      <option key={font.value} value={font.value}>
+                        {font.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="text-sm text-slate-700 block">
+                  Radio de Borde (Border Radius)
+                  <input
+                    type="range"
+                    min={0}
+                    max={3}
+                    step={0.1}
+                    className="mt-3 w-full"
+                    value={settings.borderRadiusRem}
+                    onChange={(event) => patchSettings({ borderRadiusRem: Number(event.target.value), presetCode: 'custom' })}
+                  />
+                  <span className="inline-block mt-2 text-xs px-2 py-1 bg-slate-100 rounded-md">{settings.borderRadiusRem.toFixed(1)}rem</span>
+                </label>
+
+                <label className="text-sm text-slate-700 block">
+                  Ancho máximo de página (Landing/Home)
+                  <input
+                    className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
+                    value={settings.pageMaxWidth}
+                    onChange={(event) => patchSettings({ pageMaxWidth: event.target.value })}
+                  />
+                </label>
+
+                <div className="flex flex-wrap gap-2">
+                  {PAGE_WIDTH_PRESETS.map((size) => (
+                    <button
+                      key={size}
+                      type="button"
+                      className={`text-xs px-3 py-1.5 rounded-full border ${
+                        settings.pageMaxWidth === size ? 'bg-slate-900 text-white border-slate-900' : 'border-slate-300 text-slate-700'
+                      }`}
+                      onClick={() => patchSettings({ pageMaxWidth: size })}
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="rounded-2xl bg-slate-100 p-4 flex items-center gap-3">
+                  <button
+                    type="button"
+                    className="px-5 py-2 text-white shadow"
+                    style={{ backgroundColor: settings.accentColor, borderRadius: `${settings.borderRadiusRem}rem` }}
+                  >
+                    Botón Frontend
+                  </button>
+                  <button
+                    type="button"
+                    className="px-5 py-2 border"
+                    style={{
+                      borderColor: settings.accentColor,
+                      color: settings.primaryColor,
+                      borderRadius: `${settings.borderRadiusRem}rem`,
+                    }}
+                  >
+                    Outline
+                  </button>
+                </div>
+              </section>
+            </div>
+
+            {renderSaveBar('save-tema')}
+          </div>
+
+          {/* === TAB: Login === */}
+          <div
+            role="tabpanel"
+            id="panel-login"
+            aria-labelledby="tab-login"
+            hidden={activeTab !== 'login'}
+            className="space-y-4"
+          >
+            <section className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
+              <div>
+                <h3 className="font-semibold text-slate-800 flex items-center gap-2">
+                  <PanelTop size={18} className="text-pink-600" /> Login & Branding
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  Configura layout, textos, imágenes de fondo y CSS avanzado para la pantalla de inicio de sesión.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {LOGIN_LAYOUT_OPTIONS.map((layout) => (
+                  <button
+                    key={layout}
+                    type="button"
+                    onClick={() => patchSettings({ loginLayout: layout })}
+                    className={`rounded-2xl border px-4 py-3 text-left transition ${
+                      settings.loginLayout === layout
+                        ? 'border-slate-900 bg-slate-900 text-white'
+                        : 'border-slate-300 bg-white hover:border-slate-500'
                     }`}
                   >
-                    {LOGIN_LAYOUT_DESCRIPTIONS[layout]}
-                  </p>
-                </button>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="rounded-xl border border-slate-200 p-3 space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Textos formulario
-                </p>
-
-                <div className="text-sm text-slate-700">
-                  <div className="flex items-center justify-between gap-2">
-                    <span>Titular del Login</span>
-                    <VisibilityToggle
-                      checked={settings.showLoginHeadline}
-                      onChange={(next) => patchSettings({ showLoginHeadline: next })}
-                    />
-                  </div>
-                  <input
-                    className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
-                    value={settings.loginHeadline}
-                    onChange={(event) => patchSettings({ loginHeadline: event.target.value })}
-                  />
-                </div>
-
-                <div className="text-sm text-slate-700">
-                  <div className="flex items-center justify-between gap-2">
-                    <span>Mensaje de Bienvenida</span>
-                    <VisibilityToggle
-                      checked={settings.showWelcomeMessage}
-                      onChange={(next) => patchSettings({ showWelcomeMessage: next })}
-                    />
-                  </div>
-                  <input
-                    className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
-                    value={settings.welcomeMessage}
-                    onChange={(event) => patchSettings({ welcomeMessage: event.target.value })}
-                  />
-                </div>
-
-                <div className="text-sm text-slate-700">
-                  <div className="flex items-center justify-between gap-2">
-                    <span>Mensaje de soporte</span>
-                    <VisibilityToggle
-                      checked={settings.showLoginSupportMessage}
-                      onChange={(next) => patchSettings({ showLoginSupportMessage: next })}
-                    />
-                  </div>
-                  <input
-                    className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
-                    value={settings.loginSupportMessage}
-                    onChange={(event) => patchSettings({ loginSupportMessage: event.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-slate-200 p-3 space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Textos bloque sobre imagen
-                </p>
-
-                <div className="text-sm text-slate-700">
-                  <div className="flex items-center justify-between gap-2">
-                    <span>Titular sobre imagen</span>
-                    <VisibilityToggle
-                      checked={settings.showImageLoginHeadline}
-                      onChange={(next) => patchSettings({ showImageLoginHeadline: next })}
-                    />
-                  </div>
-                  <input
-                    className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
-                    value={settings.imageLoginHeadline}
-                    onChange={(event) => patchSettings({ imageLoginHeadline: event.target.value })}
-                  />
-                </div>
-
-                <div className="text-sm text-slate-700">
-                  <div className="flex items-center justify-between gap-2">
-                    <span>Mensaje de bienvenida sobre imagen</span>
-                    <VisibilityToggle
-                      checked={settings.showImageWelcomeMessage}
-                      onChange={(next) => patchSettings({ showImageWelcomeMessage: next })}
-                    />
-                  </div>
-                  <div className="mt-2 space-y-2">
-                    {settings.imageWelcomeMessages.length === 0 && (
-                      <p className="text-xs text-slate-500">
-                        No hay mensajes cargados. Agrega al menos uno para rotación aleatoria.
-                      </p>
-                    )}
-
-                    {settings.imageWelcomeMessages.map((message, index) => (
-                      <div key={`image-welcome-message-${index}`} className="flex gap-2">
-                        <input
-                          className="w-full border border-slate-300 rounded-xl px-3 py-2"
-                          value={message}
-                          onChange={(event) => {
-                            const next = [...settings.imageWelcomeMessages];
-                            next[index] = event.target.value;
-                            setImageWelcomeMessages(next);
-                          }}
-                          placeholder={`Mensaje ${index + 1}`}
-                        />
-                        <button
-                          type="button"
-                          className="inline-flex items-center justify-center rounded-md border border-rose-300 px-3 text-rose-600 hover:bg-rose-50"
-                          onClick={() =>
-                            setImageWelcomeMessages(
-                              settings.imageWelcomeMessages.filter((_, itemIndex) => itemIndex !== index),
-                            )
-                          }
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    ))}
-
-                    <button
-                      type="button"
-                      className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
-                      onClick={() =>
-                        setImageWelcomeMessages([...settings.imageWelcomeMessages, ''])
-                      }
-                      disabled={settings.imageWelcomeMessages.length >= 20}
+                    <p className="font-semibold">{LOGIN_LAYOUT_LABELS[layout]}</p>
+                    <p
+                      className={`text-xs mt-2 ${
+                        settings.loginLayout === layout ? 'text-slate-200' : 'text-slate-500'
+                      }`}
                     >
-                      <Plus size={14} />
-                      Agregar mensaje
-                    </button>
-                  </div>
-                </div>
-
-                <div className="text-sm text-slate-700">
-                  <div className="flex items-center justify-between gap-2">
-                    <span>Mensaje de soporte sobre imagen</span>
-                    <VisibilityToggle
-                      checked={settings.showImageLoginSupportMessage}
-                      onChange={(next) =>
-                        patchSettings({ showImageLoginSupportMessage: next })
-                      }
-                    />
-                  </div>
-                  <input
-                    className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
-                    value={settings.imageLoginSupportMessage}
-                    onChange={(event) =>
-                      patchSettings({ imageLoginSupportMessage: event.target.value })
-                    }
-                  />
-                </div>
-              </div>
-
-              <ColorField
-                label="Color de capa (overlay)"
-                value={settings.loginOverlayColor}
-                onChange={(next) => patchSettings({ loginOverlayColor: next })}
-              />
-
-              <label className="text-sm text-slate-700 block">
-                Opacidad de capa
-                <input
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  className="mt-3 w-full"
-                  value={settings.loginOverlayOpacity}
-                  onChange={(event) =>
-                    patchSettings({ loginOverlayOpacity: Number(event.target.value) })
-                  }
-                />
-                <span className="inline-block mt-2 text-xs px-2 py-1 bg-slate-100 rounded-md">
-                  {Math.round(settings.loginOverlayOpacity * 100)}%
-                </span>
-              </label>
-
-              <div className="text-sm text-slate-700 md:col-span-2 space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium">
-                    Imágenes de background (rotación aleatoria)
-                  </span>
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
-                    onClick={() =>
-                      setLoginBackgroundImages([...settings.loginBackgroundImageUrls, ''])
-                    }
-                    disabled={settings.loginBackgroundImageUrls.length >= 20}
-                  >
-                    <Plus size={14} />
-                    Agregar imagen
+                      {LOGIN_LAYOUT_DESCRIPTIONS[layout]}
+                    </p>
                   </button>
-                </div>
-
-                {settings.loginBackgroundImageUrls.length === 0 && (
-                  <p className="text-xs text-slate-500">
-                    Sin imágenes. Si no agregas ninguna, se usará gradiente por defecto.
-                  </p>
-                )}
-
-                {settings.loginBackgroundImageUrls.map((url, index) => (
-                  <div key={`login-background-${index}`} className="flex gap-2">
-                    <input
-                      className="w-full border border-slate-300 rounded-xl px-3 py-2"
-                      value={url}
-                      onChange={(event) => {
-                        const next = [...settings.loginBackgroundImageUrls];
-                        next[index] = event.target.value;
-                        setLoginBackgroundImages(next);
-                      }}
-                      placeholder={`https://.../background-${index + 1}.jpg`}
-                    />
-                    <R2UploadButton
-                      moduleCode="usuarios"
-                      action="manage"
-                      fieldName={`loginBackgroundImageUrls.${index}`}
-                      entityTable="app_admin.branding_settings"
-                      pathPrefix="branding/login-background"
-                      accept="image/*"
-                      buttonLabel="Subir"
-                      onUploaded={(uploadedUrl) => {
-                        const next = [...settings.loginBackgroundImageUrls];
-                        next[index] = uploadedUrl;
-                        setLoginBackgroundImages(next);
-                      }}
-                    />
-                    <button
-                      type="button"
-                      className="inline-flex items-center justify-center rounded-md border border-rose-300 px-3 text-rose-600 hover:bg-rose-50"
-                      onClick={() =>
-                        setLoginBackgroundImages(
-                          settings.loginBackgroundImageUrls.filter((_, itemIndex) => itemIndex !== index),
-                        )
-                      }
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
                 ))}
-
-                <p className="text-xs text-slate-500">
-                  Se usa una imagen aleatoria por carga para fondos de login (desktop/web/app).
-                </p>
               </div>
 
-              <div className="text-sm text-slate-700 md:col-span-2 space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium">
-                    Imágenes de panel login (rotación aleatoria)
-                  </span>
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
-                    onClick={() => setLoginPanelImages([...settings.loginImageUrls, ''])}
-                    disabled={settings.loginImageUrls.length >= 20}
-                  >
-                    <Plus size={14} />
-                    Agregar imagen
-                  </button>
-                </div>
-
-                {settings.loginImageUrls.length === 0 && (
-                  <p className="text-xs text-slate-500">
-                    Sin imágenes específicas para panel. Se usarán las de background como fallback.
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="rounded-xl border border-slate-200 p-3 space-y-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Textos formulario
                   </p>
-                )}
 
-                {settings.loginImageUrls.map((url, index) => (
-                  <div key={`login-panel-${index}`} className="flex gap-2">
+                  <div className="text-sm text-slate-700">
+                    <div className="flex items-center justify-between gap-2">
+                      <span>Titular del Login</span>
+                      <VisibilityToggle
+                        checked={settings.showLoginHeadline}
+                        onChange={(next) => patchSettings({ showLoginHeadline: next })}
+                      />
+                    </div>
                     <input
-                      className="w-full border border-slate-300 rounded-xl px-3 py-2"
-                      value={url}
-                      onChange={(event) => {
-                        const next = [...settings.loginImageUrls];
-                        next[index] = event.target.value;
-                        setLoginPanelImages(next);
-                      }}
-                      placeholder={`https://.../login-panel-${index + 1}.jpg`}
+                      className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
+                      value={settings.loginHeadline}
+                      onChange={(event) => patchSettings({ loginHeadline: event.target.value })}
                     />
-                    <R2UploadButton
-                      moduleCode="usuarios"
-                      action="manage"
-                      fieldName={`loginImageUrls.${index}`}
-                      entityTable="app_admin.branding_settings"
-                      pathPrefix="branding/login-panel"
-                      accept="image/*"
-                      buttonLabel="Subir"
-                      onUploaded={(uploadedUrl) => {
-                        const next = [...settings.loginImageUrls];
-                        next[index] = uploadedUrl;
-                        setLoginPanelImages(next);
-                      }}
-                    />
-                    <button
-                      type="button"
-                      className="inline-flex items-center justify-center rounded-md border border-rose-300 px-3 text-rose-600 hover:bg-rose-50"
-                      onClick={() =>
-                        setLoginPanelImages(
-                          settings.loginImageUrls.filter((_, itemIndex) => itemIndex !== index),
-                        )
-                      }
-                    >
-                      <Trash2 size={14} />
-                    </button>
                   </div>
-                ))}
 
-                <p className="text-xs text-slate-500">
-                  Se aplica al bloque visual de login en layouts con imagen lateral.
-                </p>
-              </div>
+                  <div className="text-sm text-slate-700">
+                    <div className="flex items-center justify-between gap-2">
+                      <span>Mensaje de Bienvenida</span>
+                      <VisibilityToggle
+                        checked={settings.showWelcomeMessage}
+                        onChange={(next) => patchSettings({ showWelcomeMessage: next })}
+                      />
+                    </div>
+                    <input
+                      className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
+                      value={settings.welcomeMessage}
+                      onChange={(event) => patchSettings({ welcomeMessage: event.target.value })}
+                    />
+                  </div>
 
-              <label className="text-sm text-slate-700 md:col-span-2">
-                GIF de Carga (Platform Loader)
-                <div className="mt-1 flex gap-2">
-                  <input
-                    className="w-full border border-slate-300 rounded-xl px-3 py-2"
-                    value={settings.loaderAssetUrl}
-                    onChange={(event) => patchSettings({ loaderAssetUrl: event.target.value })}
-                    placeholder="https://.../loader.gif"
-                  />
-                  <R2UploadButton
-                    moduleCode="usuarios"
-                    action="manage"
-                    fieldName="loaderAssetUrl"
-                    entityTable="app_admin.branding_settings"
-                    pathPrefix="branding/loader"
-                    accept="image/gif,image/*"
-                    buttonLabel="Subir"
-                    onUploaded={(url) => patchSettings({ loaderAssetUrl: url })}
-                  />
+                  <div className="text-sm text-slate-700">
+                    <div className="flex items-center justify-between gap-2">
+                      <span>Mensaje de soporte</span>
+                      <VisibilityToggle
+                        checked={settings.showLoginSupportMessage}
+                        onChange={(next) => patchSettings({ showLoginSupportMessage: next })}
+                      />
+                    </div>
+                    <input
+                      className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
+                      value={settings.loginSupportMessage}
+                      onChange={(event) => patchSettings({ loginSupportMessage: event.target.value })}
+                    />
+                  </div>
                 </div>
-                <p className="text-xs text-slate-500 mt-1">
-                  Este GIF se mostrará durante transiciones y estados de espera.
-                </p>
-              </label>
 
-              <div className="text-sm text-slate-700 md:col-span-2">
-                <div className="flex items-center justify-between gap-2">
-                  <span>Texto del loader</span>
-                  <VisibilityToggle
-                    checked={settings.showLoaderText}
-                    onChange={(next) => patchSettings({ showLoaderText: next })}
-                  />
-                </div>
-                <input
-                  className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
-                  value={settings.loaderText}
-                  onChange={(event) => patchSettings({ loaderText: event.target.value })}
-                />
-              </div>
-
-              <label className="text-sm text-slate-700 md:col-span-2">
-                CSS Personalizado (Avanzado)
-                <textarea
-                  className="mt-1 w-full min-h-28 border border-slate-300 rounded-xl px-3 py-2 font-mono text-xs"
-                  value={settings.customCss}
-                  onChange={(event) => patchSettings({ customCss: event.target.value })}
-                  placeholder=".sidebar { background: red !important; }"
-                />
-              </label>
-            </div>
-          </section>
-
-          <section className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-            <h3 className="font-semibold text-slate-800 flex items-center gap-2 mb-3">
-              <PaintBucket size={18} className="text-amber-600" /> Vista previa aplicada
-            </h3>
-
-            <div className="rounded-2xl border border-slate-200 overflow-hidden">
-              <div className="px-4 py-3 text-white" style={{ backgroundColor: tokens.colors.primary }}>
-                {settings.showPlatformName ? (
-                  <p className="font-semibold">{settings.platformName}</p>
-                ) : (
-                  <p className="font-semibold opacity-70">Nombre oculto en login</p>
-                )}
-                <p className="text-xs opacity-80">{settings.typography} · {settings.institutionTimezone}</p>
-              </div>
-              <div
-                className="p-4 bg-slate-50 space-y-3"
-                style={
-                  previewBackgroundImage
-                    ? {
-                        backgroundImage: `linear-gradient(0deg, ${previewOverlay}, ${previewOverlay}), url("${previewBackgroundImage}")`,
-                        backgroundSize: 'cover',
-                        backgroundPosition: 'center',
-                      }
-                    : {
-                        backgroundImage: `linear-gradient(120deg, color-mix(in srgb, ${settings.primaryColor} 85%, black), color-mix(in srgb, ${settings.secondaryColor} 70%, black))`,
-                      }
-                }
-              >
-                <div className="rounded-xl border border-white/20 bg-black/20 p-3">
-                  <p className="text-[11px] uppercase tracking-wide text-white/70">
-                    Formulario login
+                <div className="rounded-xl border border-slate-200 p-3 space-y-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Textos bloque sobre imagen
                   </p>
-                  {settings.showLoginHeadline && (
-                    <p className="text-sm font-semibold text-white mt-1">{settings.loginHeadline}</p>
-                  )}
-                  {settings.showWelcomeMessage && (
-                    <p className="text-xs text-white/80 mt-1">{settings.welcomeMessage}</p>
-                  )}
-                  {settings.showLoginSupportMessage && (
-                    <p className="text-xs text-white/70 mt-2">
-                      Soporte: {settings.loginSupportMessage}
-                    </p>
-                  )}
-                </div>
-                <div className="rounded-xl border border-white/20 bg-black/20 p-3">
-                  <p className="text-[11px] uppercase tracking-wide text-white/70">
-                    Bloque sobre imagen
-                  </p>
-                  <p className="text-[11px] text-white/60 mt-1">
-                    Imagen panel: {previewPanelImage ? 'rotación activa' : 'fallback background'}
-                  </p>
-                  {settings.showImageLoginHeadline && (
-                    <p className="text-sm font-semibold text-white mt-1">
-                      {settings.imageLoginHeadline}
-                    </p>
-                  )}
-                  {settings.showImageWelcomeMessage && (
-                    <p className="text-xs text-white/80 mt-1">{previewImageWelcomeMessage}</p>
-                  )}
-                  {settings.showImageLoginSupportMessage && (
-                    <p className="text-xs text-white/70 mt-2">
-                      Soporte: {settings.imageLoginSupportMessage}
-                    </p>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  className="px-4 py-2 text-white"
-                  style={{
-                    backgroundColor: tokens.colors.accent,
-                    borderRadius: `calc(${tokens.shape.borderRadiusRem}rem + 0.1rem)`,
-                  }}
-                >
-                  Acción primaria
-                </button>
-                <p className="text-xs text-white/70">
-                  Layout login: {LOGIN_LAYOUT_LABELS[settings.loginLayout]}
-                </p>
-                <p className="text-xs text-white/70">
-                  Overlay: {settings.loginOverlayColor} / {Math.round(settings.loginOverlayOpacity * 100)}%
-                </p>
-                <p className="text-xs text-white/70">
-                  Ancho máximo app: {settings.pageMaxWidth}
-                </p>
-              </div>
-            </div>
 
-            <div className="mt-4 flex flex-wrap gap-2">
-              <button className="rounded-md bg-slate-900 text-white px-4 py-2 text-sm" type="submit">
-                Guardar configuración
-              </button>
-              <button
-                type="button"
-                className="rounded-md border border-slate-300 text-slate-700 px-4 py-2 text-sm"
-                onClick={() => void loadSettings()}
-              >
-                Recargar desde DB
-              </button>
-            </div>
+                  <div className="text-sm text-slate-700">
+                    <div className="flex items-center justify-between gap-2">
+                      <span>Titular sobre imagen</span>
+                      <VisibilityToggle
+                        checked={settings.showImageLoginHeadline}
+                        onChange={(next) => patchSettings({ showImageLoginHeadline: next })}
+                      />
+                    </div>
+                    <input
+                      className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
+                      value={settings.imageLoginHeadline}
+                      onChange={(event) => patchSettings({ imageLoginHeadline: event.target.value })}
+                    />
+                  </div>
 
-            <p className="text-xs text-slate-500 mt-3">
-              Última actualización persistida: {formatDate(lastUpdatedAt)}.
-            </p>
-          </section>
+                  <div className="text-sm text-slate-700">
+                    <div className="flex items-center justify-between gap-2">
+                      <span>Mensaje de bienvenida sobre imagen</span>
+                      <VisibilityToggle
+                        checked={settings.showImageWelcomeMessage}
+                        onChange={(next) => patchSettings({ showImageWelcomeMessage: next })}
+                      />
+                    </div>
+                    <div className="mt-2 space-y-2">
+                      {settings.imageWelcomeMessages.length === 0 && (
+                        <p className="text-xs text-slate-500">
+                          No hay mensajes cargados. Agrega al menos uno para rotación aleatoria.
+                        </p>
+                      )}
 
-          <section className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-3">
-            <h3 className="font-semibold text-slate-800 flex items-center gap-2">
-              <History size={18} className="text-indigo-600" /> Historial y Versionado
-            </h3>
-
-            {revisionsLoading ? (
-              <div className="rounded-xl border border-slate-200 p-3 text-sm text-slate-500">
-                Cargando historial...
-              </div>
-            ) : revisions.length === 0 ? (
-              <div className="rounded-xl border border-slate-200 p-3 text-sm text-slate-500">
-                No hay versiones guardadas aún.
-              </div>
-            ) : (
-              <div className="overflow-x-auto rounded-xl border border-slate-200">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50 text-slate-600">
-                    <tr className="text-left">
-                      <th className="px-3 py-2">Fecha</th>
-                      <th className="px-3 py-2">Actor</th>
-                      <th className="px-3 py-2">Tipo</th>
-                      <th className="px-3 py-2">Campos</th>
-                      <th className="px-3 py-2">Acción</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {revisions.map((revision) => (
-                      <tr key={revision.revisionId} className="border-t border-slate-100">
-                        <td className="px-3 py-2 text-slate-600 whitespace-nowrap">
-                          {formatDate(revision.createdAt)}
-                        </td>
-                        <td className="px-3 py-2 text-slate-700">
-                          {revision.createdByName ?? 'Sistema'}
-                        </td>
-                        <td className="px-3 py-2">
-                          <span
-                            className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
-                              revision.reason === 'revert'
-                                ? 'bg-amber-100 text-amber-800'
-                                : 'bg-sky-100 text-sky-800'
-                            }`}
-                          >
-                            {formatRevisionReason(revision.reason)}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2 text-slate-600">
-                          {summarizeChangedFields(revision.changedFields)}
-                        </td>
-                        <td className="px-3 py-2">
+                      {settings.imageWelcomeMessages.map((message, index) => (
+                        <div key={`image-welcome-message-${index}`} className="flex gap-2">
+                          <input
+                            className="w-full border border-slate-300 rounded-xl px-3 py-2"
+                            value={message}
+                            onChange={(event) => {
+                              const next = [...settings.imageWelcomeMessages];
+                              next[index] = event.target.value;
+                              setImageWelcomeMessages(next);
+                            }}
+                            placeholder={`Mensaje ${index + 1}`}
+                          />
                           <button
                             type="button"
-                            className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-                            onClick={() => void onRevertRevision(revision)}
-                            disabled={revertingRevisionId === revision.revisionId}
+                            className="inline-flex items-center justify-center rounded-md border border-rose-300 px-3 text-rose-600 hover:bg-rose-50"
+                            onClick={() =>
+                              setImageWelcomeMessages(
+                                settings.imageWelcomeMessages.filter((_, itemIndex) => itemIndex !== index),
+                              )
+                            }
                           >
-                            <RotateCcw size={12} />
-                            {revertingRevisionId === revision.revisionId ? 'Restaurando...' : 'Restaurar'}
+                            <Trash2 size={14} />
                           </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        </div>
+                      ))}
+
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
+                        onClick={() =>
+                          setImageWelcomeMessages([...settings.imageWelcomeMessages, ''])
+                        }
+                        disabled={settings.imageWelcomeMessages.length >= 20}
+                      >
+                        <Plus size={14} />
+                        Agregar mensaje
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="text-sm text-slate-700">
+                    <div className="flex items-center justify-between gap-2">
+                      <span>Mensaje de soporte sobre imagen</span>
+                      <VisibilityToggle
+                        checked={settings.showImageLoginSupportMessage}
+                        onChange={(next) =>
+                          patchSettings({ showImageLoginSupportMessage: next })
+                        }
+                      />
+                    </div>
+                    <input
+                      className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
+                      value={settings.imageLoginSupportMessage}
+                      onChange={(event) =>
+                        patchSettings({ imageLoginSupportMessage: event.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+
+                <ColorField
+                  label="Color de capa (overlay)"
+                  value={settings.loginOverlayColor}
+                  onChange={(next) => patchSettings({ loginOverlayColor: next })}
+                />
+
+                <label className="text-sm text-slate-700 block">
+                  Opacidad de capa
+                  <input
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    className="mt-3 w-full"
+                    value={settings.loginOverlayOpacity}
+                    onChange={(event) =>
+                      patchSettings({ loginOverlayOpacity: Number(event.target.value) })
+                    }
+                  />
+                  <span className="inline-block mt-2 text-xs px-2 py-1 bg-slate-100 rounded-md">
+                    {Math.round(settings.loginOverlayOpacity * 100)}%
+                  </span>
+                </label>
+
+                <div className="text-sm text-slate-700 md:col-span-2 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium">
+                      Imágenes de background (rotación aleatoria)
+                    </span>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
+                      onClick={() =>
+                        setLoginBackgroundImages([...settings.loginBackgroundImageUrls, ''])
+                      }
+                      disabled={settings.loginBackgroundImageUrls.length >= 20}
+                    >
+                      <Plus size={14} />
+                      Agregar imagen
+                    </button>
+                  </div>
+
+                  {settings.loginBackgroundImageUrls.length === 0 && (
+                    <p className="text-xs text-slate-500">
+                      Sin imágenes. Si no agregas ninguna, se usará gradiente por defecto.
+                    </p>
+                  )}
+
+                  {settings.loginBackgroundImageUrls.map((url, index) => (
+                    <div key={`login-background-${index}`} className="flex gap-2">
+                      <input
+                        className="w-full border border-slate-300 rounded-xl px-3 py-2"
+                        value={url}
+                        onChange={(event) => {
+                          const next = [...settings.loginBackgroundImageUrls];
+                          next[index] = event.target.value;
+                          setLoginBackgroundImages(next);
+                        }}
+                        placeholder={`https://.../background-${index + 1}.jpg`}
+                      />
+                      <R2UploadButton
+                        moduleCode="usuarios"
+                        action="manage"
+                        fieldName={`loginBackgroundImageUrls.${index}`}
+                        entityTable="app_admin.branding_settings"
+                        pathPrefix="branding/login-background"
+                        accept="image/*"
+                        buttonLabel="Subir"
+                        onUploaded={(uploadedUrl) => {
+                          const next = [...settings.loginBackgroundImageUrls];
+                          next[index] = uploadedUrl;
+                          setLoginBackgroundImages(next);
+                        }}
+                      />
+                      <button
+                        type="button"
+                        className="inline-flex items-center justify-center rounded-md border border-rose-300 px-3 text-rose-600 hover:bg-rose-50"
+                        onClick={() =>
+                          setLoginBackgroundImages(
+                            settings.loginBackgroundImageUrls.filter((_, itemIndex) => itemIndex !== index),
+                          )
+                        }
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
+
+                  <p className="text-xs text-slate-500">
+                    Se usa una imagen aleatoria por carga para fondos de login (desktop/web/app).
+                  </p>
+                </div>
+
+                <div className="text-sm text-slate-700 md:col-span-2 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium">
+                      Imágenes de panel login (rotación aleatoria)
+                    </span>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
+                      onClick={() => setLoginPanelImages([...settings.loginImageUrls, ''])}
+                      disabled={settings.loginImageUrls.length >= 20}
+                    >
+                      <Plus size={14} />
+                      Agregar imagen
+                    </button>
+                  </div>
+
+                  {settings.loginImageUrls.length === 0 && (
+                    <p className="text-xs text-slate-500">
+                      Sin imágenes específicas para panel. Se usarán las de background como fallback.
+                    </p>
+                  )}
+
+                  {settings.loginImageUrls.map((url, index) => (
+                    <div key={`login-panel-${index}`} className="flex gap-2">
+                      <input
+                        className="w-full border border-slate-300 rounded-xl px-3 py-2"
+                        value={url}
+                        onChange={(event) => {
+                          const next = [...settings.loginImageUrls];
+                          next[index] = event.target.value;
+                          setLoginPanelImages(next);
+                        }}
+                        placeholder={`https://.../login-panel-${index + 1}.jpg`}
+                      />
+                      <R2UploadButton
+                        moduleCode="usuarios"
+                        action="manage"
+                        fieldName={`loginImageUrls.${index}`}
+                        entityTable="app_admin.branding_settings"
+                        pathPrefix="branding/login-panel"
+                        accept="image/*"
+                        buttonLabel="Subir"
+                        onUploaded={(uploadedUrl) => {
+                          const next = [...settings.loginImageUrls];
+                          next[index] = uploadedUrl;
+                          setLoginPanelImages(next);
+                        }}
+                      />
+                      <button
+                        type="button"
+                        className="inline-flex items-center justify-center rounded-md border border-rose-300 px-3 text-rose-600 hover:bg-rose-50"
+                        onClick={() =>
+                          setLoginPanelImages(
+                            settings.loginImageUrls.filter((_, itemIndex) => itemIndex !== index),
+                          )
+                        }
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
+
+                  <p className="text-xs text-slate-500">
+                    Se aplica al bloque visual de login en layouts con imagen lateral.
+                  </p>
+                </div>
+
+                <label className="text-sm text-slate-700 md:col-span-2">
+                  GIF de Carga (Platform Loader)
+                  <div className="mt-1 flex gap-2">
+                    <input
+                      className="w-full border border-slate-300 rounded-xl px-3 py-2"
+                      value={settings.loaderAssetUrl}
+                      onChange={(event) => patchSettings({ loaderAssetUrl: event.target.value })}
+                      placeholder="https://.../loader.gif"
+                    />
+                    <R2UploadButton
+                      moduleCode="usuarios"
+                      action="manage"
+                      fieldName="loaderAssetUrl"
+                      entityTable="app_admin.branding_settings"
+                      pathPrefix="branding/loader"
+                      accept="image/gif,image/*"
+                      buttonLabel="Subir"
+                      onUploaded={(url) => patchSettings({ loaderAssetUrl: url })}
+                    />
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Este GIF se mostrará durante transiciones y estados de espera.
+                  </p>
+                </label>
+
+                <div className="text-sm text-slate-700 md:col-span-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span>Texto del loader</span>
+                    <VisibilityToggle
+                      checked={settings.showLoaderText}
+                      onChange={(next) => patchSettings({ showLoaderText: next })}
+                    />
+                  </div>
+                  <input
+                    className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2"
+                    value={settings.loaderText}
+                    onChange={(event) => patchSettings({ loaderText: event.target.value })}
+                  />
+                </div>
+
+                <label className="text-sm text-slate-700 md:col-span-2">
+                  CSS Personalizado (Avanzado)
+                  <textarea
+                    className="mt-1 w-full min-h-28 border border-slate-300 rounded-xl px-3 py-2 font-mono text-xs"
+                    value={settings.customCss}
+                    onChange={(event) => patchSettings({ customCss: event.target.value })}
+                    placeholder=".sidebar { background: red !important; }"
+                  />
+                </label>
               </div>
-            )}
-          </section>
+            </section>
+
+            {renderSaveBar('save-login')}
+          </div>
+
+          {/* === TAB: Vista previa === */}
+          <div
+            role="tabpanel"
+            id="panel-preview"
+            aria-labelledby="tab-preview"
+            hidden={activeTab !== 'preview'}
+            className="space-y-4"
+          >
+            <section className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+              <div className="mb-3">
+                <h3 className="font-semibold text-slate-800 flex items-center gap-2">
+                  <PaintBucket size={18} className="text-amber-600" /> Vista previa aplicada
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  Simulación rápida de cómo lucirá el login con la configuración actual.
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 overflow-hidden">
+                <div className="px-4 py-3 text-white" style={{ backgroundColor: tokens.colors.primary }}>
+                  {settings.showPlatformName ? (
+                    <p className="font-semibold">{settings.platformName}</p>
+                  ) : (
+                    <p className="font-semibold opacity-70">Nombre oculto en login</p>
+                  )}
+                  <p className="text-xs opacity-80">{settings.typography} · {settings.institutionTimezone}</p>
+                </div>
+                <div
+                  className="p-4 bg-slate-50 space-y-3"
+                  style={
+                    previewBackgroundImage
+                      ? {
+                          backgroundImage: `linear-gradient(0deg, ${previewOverlay}, ${previewOverlay}), url("${previewBackgroundImage}")`,
+                          backgroundSize: 'cover',
+                          backgroundPosition: 'center',
+                        }
+                      : {
+                          backgroundImage: `linear-gradient(120deg, color-mix(in srgb, ${settings.primaryColor} 85%, black), color-mix(in srgb, ${settings.secondaryColor} 70%, black))`,
+                        }
+                  }
+                >
+                  <div className="rounded-xl border border-white/20 bg-black/20 p-3">
+                    <p className="text-[11px] uppercase tracking-wide text-white/70">
+                      Formulario login
+                    </p>
+                    {settings.showLoginHeadline && (
+                      <p className="text-sm font-semibold text-white mt-1">{settings.loginHeadline}</p>
+                    )}
+                    {settings.showWelcomeMessage && (
+                      <p className="text-xs text-white/80 mt-1">{settings.welcomeMessage}</p>
+                    )}
+                    {settings.showLoginSupportMessage && (
+                      <p className="text-xs text-white/70 mt-2">
+                        Soporte: {settings.loginSupportMessage}
+                      </p>
+                    )}
+                  </div>
+                  <div className="rounded-xl border border-white/20 bg-black/20 p-3">
+                    <p className="text-[11px] uppercase tracking-wide text-white/70">
+                      Bloque sobre imagen
+                    </p>
+                    <p className="text-[11px] text-white/60 mt-1">
+                      Imagen panel: {previewPanelImage ? 'rotación activa' : 'fallback background'}
+                    </p>
+                    {settings.showImageLoginHeadline && (
+                      <p className="text-sm font-semibold text-white mt-1">
+                        {settings.imageLoginHeadline}
+                      </p>
+                    )}
+                    {settings.showImageWelcomeMessage && (
+                      <p className="text-xs text-white/80 mt-1">{previewImageWelcomeMessage}</p>
+                    )}
+                    {settings.showImageLoginSupportMessage && (
+                      <p className="text-xs text-white/70 mt-2">
+                        Soporte: {settings.imageLoginSupportMessage}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    className="px-4 py-2 text-white"
+                    style={{
+                      backgroundColor: tokens.colors.accent,
+                      borderRadius: `calc(${tokens.shape.borderRadiusRem}rem + 0.1rem)`,
+                    }}
+                  >
+                    Acción primaria
+                  </button>
+                  <p className="text-xs text-white/70">
+                    Layout login: {LOGIN_LAYOUT_LABELS[settings.loginLayout]}
+                  </p>
+                  <p className="text-xs text-white/70">
+                    Overlay: {settings.loginOverlayColor} / {Math.round(settings.loginOverlayOpacity * 100)}%
+                  </p>
+                  <p className="text-xs text-white/70">
+                    Ancho máximo app: {settings.pageMaxWidth}
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            {renderSaveBar('save-preview')}
+          </div>
+
+          {/* === TAB: Historial === */}
+          <div
+            role="tabpanel"
+            id="panel-historial"
+            aria-labelledby="tab-historial"
+            hidden={activeTab !== 'historial'}
+            className="space-y-4"
+          >
+            <section className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-3">
+              <div>
+                <h3 className="font-semibold text-slate-800 flex items-center gap-2">
+                  <History size={18} className="text-indigo-600" /> Historial y versionado
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  Cada cambio guardado se registra como una versión, que puedes restaurar en cualquier momento.
+                </p>
+              </div>
+
+              {revisionsLoading ? (
+                <div className="rounded-xl border border-slate-200 p-3 text-sm text-slate-500">
+                  Cargando historial...
+                </div>
+              ) : revisions.length === 0 ? (
+                <div className="rounded-xl border border-slate-200 p-4 text-sm text-slate-500">
+                  Aún no se han guardado cambios. Cada vez que guardes una configuración, quedará registrada aquí.
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-xl border border-slate-200">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-50 text-slate-600">
+                      <tr className="text-left">
+                        <th className="px-3 py-2">Fecha</th>
+                        <th className="px-3 py-2">Actor</th>
+                        <th className="px-3 py-2">Tipo</th>
+                        <th className="px-3 py-2">Campos</th>
+                        <th className="px-3 py-2">Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {revisions.map((revision) => (
+                        <tr key={revision.revisionId} className="border-t border-slate-100">
+                          <td className="px-3 py-2 text-slate-600 whitespace-nowrap">
+                            {formatDate(revision.createdAt)}
+                          </td>
+                          <td className="px-3 py-2 text-slate-700">
+                            {revision.createdByName ?? 'Sistema'}
+                          </td>
+                          <td className="px-3 py-2">
+                            <span
+                              className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
+                                revision.reason === 'revert'
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : 'bg-sky-100 text-sky-800'
+                              }`}
+                            >
+                              {formatRevisionReason(revision.reason)}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 text-slate-600">
+                            {summarizeChangedFields(revision.changedFields)}
+                          </td>
+                          <td className="px-3 py-2">
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                              onClick={() => void onRevertRevision(revision)}
+                              disabled={revertingRevisionId === revision.revisionId}
+                            >
+                              <RotateCcw size={12} />
+                              {revertingRevisionId === revision.revisionId ? 'Restaurando...' : 'Restaurar'}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+
+            {renderSaveBar('save-historial')}
+          </div>
         </form>
       )}
     </div>

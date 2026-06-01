@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { MarketingShell } from "@/components/marketing/MarketingShell";
+import { loadServerBranding } from "@/lib/server-branding";
 import {
   DiscoveryRadarChart,
   DiscoveryCompetenciesChart,
@@ -73,7 +74,10 @@ const SAMPLE_REPORT = `Tu perfil muestra una orientación estratégica sólida �
 
 Shine Out es el área con mayor potencial de desarrollo: la brecha entre tu visión (Up, 81) y tu capacidad de comunicarla con impacto (Out, 58) es frecuente en líderes técnicos que han crecido por resultados más que por influencia directa. Desarrollar deliberadamente tu presencia ejecutiva y comunicación estratégica es la palanca de mayor retorno en esta etapa de tu carrera.`;
 
-export default function DescubrimientoPublicPage() {
+export default async function DescubrimientoPublicPage() {
+  const branding = await loadServerBranding();
+  const platformName = branding.settings.platformName?.trim() || '4Shine';
+
   return (
     <MarketingShell
       title="Descubrimiento · Diagnóstico de liderazgo"
@@ -87,7 +91,7 @@ export default function DescubrimientoPublicPage() {
           className="absolute inset-0"
           style={{
             background:
-              "linear-gradient(135deg, #1a0b2e 0%, #2d1256 40%, #4a1f7a 70%, #6b2f9e 100%)",
+              "linear-gradient(135deg, var(--brand-darker) 0%, var(--brand-dark) 40%, var(--brand-primary) 70%, color-mix(in srgb, var(--brand-primary) 80%, white) 100%)",
           }}
         />
         {/* decorative blobs */}
@@ -95,14 +99,14 @@ export default function DescubrimientoPublicPage() {
           className="pointer-events-none absolute -right-32 -top-32 h-[480px] w-[480px] rounded-full opacity-25"
           style={{
             background:
-              "radial-gradient(circle, #c98ab6 0%, transparent 70%)",
+              "radial-gradient(circle, color-mix(in srgb, var(--brand-accent) 60%, white) 0%, transparent 70%)",
           }}
         />
         <div
           className="pointer-events-none absolute -bottom-24 left-1/4 h-[320px] w-[320px] rounded-full opacity-15"
           style={{
             background:
-              "radial-gradient(circle, #f4cf8e 0%, transparent 70%)",
+              "radial-gradient(circle, var(--brand-accent) 0%, transparent 70%)",
           }}
         />
 
@@ -110,13 +114,13 @@ export default function DescubrimientoPublicPage() {
           <div className="grid gap-12 lg:grid-cols-[1fr_440px] lg:items-center">
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.3em] text-white/80">
-                Diagnóstico de liderazgo · 4Shine
+                Diagnóstico de liderazgo · {platformName}
               </div>
               <h1 className="mt-6 text-[3rem] font-black leading-[0.92] tracking-tight text-white sm:text-[4rem] lg:text-[4.5rem]">
                 Conoce tu<br />
                 <span
                   style={{
-                    background: "linear-gradient(90deg, #f4cf8e 0%, #e9a84c 100%)",
+                    background: "linear-gradient(90deg, var(--brand-accent) 0%, var(--brand-accent-strong) 100%)",
                     WebkitBackgroundClip: "text",
                     WebkitTextFillColor: "transparent",
                   }}
@@ -132,7 +136,8 @@ export default function DescubrimientoPublicPage() {
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link
                   href="/acceso"
-                  className="inline-flex items-center gap-2 rounded-full bg-[#f4cf8e] px-7 py-3.5 text-sm font-extrabold text-[#2a1b3f] shadow-[0_4px_20px_rgba(244,207,142,0.4)] transition hover:-translate-y-0.5 hover:bg-[#f6d9a0]"
+                  className="inline-flex items-center gap-2 rounded-full px-7 py-3.5 text-sm font-extrabold shadow-[0_4px_20px_rgba(0,0,0,0.25)] transition hover:-translate-y-0.5 hover:opacity-90"
+                  style={{ background: 'var(--brand-accent)', color: 'var(--brand-on-accent)' }}
                 >
                   Activar diagnóstico · $50 USD
                 </Link>
@@ -174,47 +179,65 @@ export default function DescubrimientoPublicPage() {
         {/* ── Objetivo + Deliverables ───────────────────────────────────── */}
         <section className="grid gap-10 lg:grid-cols-[1fr_1fr] lg:items-start">
           <div>
-            <span className="inline-block rounded-full bg-[#f2ecff] px-3 py-1 text-[10px] font-black uppercase tracking-[0.28em] text-[#5b2d8a]">
+            <span
+              className="inline-block rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.28em]"
+              style={{ background: 'var(--brand-surface-strong)', color: 'var(--brand-accent-strong)' }}
+            >
               Objetivo
             </span>
-            <h2 className="mt-4 text-[2.6rem] font-black leading-[0.95] tracking-tight text-[#1a0b2e] lg:text-[3rem]">
+            <h2
+              className="mt-4 text-[2.6rem] font-black leading-[0.95] tracking-tight lg:text-[3rem]"
+              style={{ color: 'var(--brand-primary)' }}
+            >
               Un mapa claro de<br />dónde estás hoy.
             </h2>
-            <p className="mt-5 text-[1rem] leading-relaxed text-[#4a3560]">
+            <p className="mt-5 text-[1rem] leading-relaxed" style={{ color: 'var(--brand-ink-soft)' }}>
               Descubrimiento mide tu posicionamiento actual como líder en cuatro dimensiones
               complementarias. No es una evaluación de desempeño — es un diagnóstico de
               autoconocimiento ejecutivo que te da un punto de referencia sólido para
               orientar tu desarrollo con método.
             </p>
-            <p className="mt-4 text-[1rem] leading-relaxed text-[#4a3560]">
+            <p className="mt-4 text-[1rem] leading-relaxed" style={{ color: 'var(--brand-ink-soft)' }}>
               El resultado identifica fortalezas consolidadas y las áreas con mayor potencial
               de impacto si las desarrollas intencionalmente.
             </p>
           </div>
 
           <div
-            className="rounded-3xl p-7 shadow-[0_20px_60px_rgba(91,45,138,0.12)]"
+            className="rounded-3xl p-7 shadow-[0_20px_60px_rgba(0,0,0,0.12)]"
             style={{
-              background: "linear-gradient(145deg, #1a0b2e 0%, #2d1256 100%)",
+              background: "linear-gradient(145deg, var(--brand-darker) 0%, var(--brand-dark) 100%)",
             }}
           >
-            <p className="text-[11px] font-black uppercase tracking-[0.26em] text-[#c9b8e8]">
+            <p
+              className="text-[11px] font-black uppercase tracking-[0.26em]"
+              style={{ color: 'color-mix(in srgb, var(--brand-accent) 40%, white)' }}
+            >
               Lo que obtienes
             </p>
             <ul className="mt-5 space-y-3">
               {DELIVERABLES.map((item, i) => (
                 <li key={item} className="flex items-start gap-3">
-                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#f4cf8e]/20 text-[10px] font-black text-[#f4cf8e]">
+                  <span
+                    className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-black"
+                    style={{
+                      background: 'color-mix(in srgb, var(--brand-accent) 20%, transparent)',
+                      color: 'var(--brand-accent)',
+                    }}
+                  >
                     {i + 1}
                   </span>
-                  <span className="text-sm leading-snug text-[#ddd6ef]">{item}</span>
+                  <span className="text-sm leading-snug" style={{ color: 'color-mix(in srgb, var(--brand-accent) 15%, white)' }}>
+                    {item}
+                  </span>
                 </li>
               ))}
             </ul>
             <div className="mt-7 border-t border-white/10 pt-6">
               <Link
                 href="/acceso"
-                className="block rounded-full bg-[#f4cf8e] py-3 text-center text-sm font-extrabold text-[#2a1b3f] transition hover:bg-[#f6d9a0]"
+                className="block rounded-full py-3 text-center text-sm font-extrabold transition hover:opacity-90"
+                style={{ background: 'var(--brand-accent)', color: 'var(--brand-on-accent)' }}
               >
                 Activar diagnóstico · $50 USD
               </Link>
@@ -224,13 +247,19 @@ export default function DescubrimientoPublicPage() {
 
         {/* ── 4 Pillars ─────────────────────────────────────────────────── */}
         <section id="metodologia">
-          <span className="inline-block rounded-full bg-[#f2ecff] px-3 py-1 text-[10px] font-black uppercase tracking-[0.28em] text-[#5b2d8a]">
-            Metodología 4Shine
+          <span
+            className="inline-block rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.28em]"
+            style={{ background: 'var(--brand-surface-strong)', color: 'var(--brand-accent-strong)' }}
+          >
+            Metodología {platformName}
           </span>
-          <h2 className="mt-4 text-[2.6rem] font-black leading-[0.95] tracking-tight text-[#1a0b2e] lg:text-[3rem]">
+          <h2
+            className="mt-4 text-[2.6rem] font-black leading-[0.95] tracking-tight lg:text-[3rem]"
+            style={{ color: 'var(--brand-primary)' }}
+          >
             Los 4 pilares del liderazgo.
           </h2>
-          <p className="mt-4 max-w-2xl text-[0.98rem] leading-relaxed text-[#4a3560]">
+          <p className="mt-4 max-w-2xl text-[0.98rem] leading-relaxed" style={{ color: 'var(--brand-ink-soft)' }}>
             Cada pilar combina preguntas Likert con situaciones de juicio situacional (SJT)
             que revelan cómo actúas cuando hay presión, ambigüedad o decisiones difíciles.
           </p>
@@ -245,14 +274,14 @@ export default function DescubrimientoPublicPage() {
                 <div className={`h-1.5 w-12 rounded-full bg-gradient-to-r ${pillar.gradient} mb-5`} />
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <h3 className="text-xl font-black text-[#1a0b2e]">{pillar.label}</h3>
-                    <p className="mt-0.5 text-sm font-semibold text-[#5f4c78]">{pillar.tagline}</p>
+                    <h3 className="text-xl font-black" style={{ color: 'var(--brand-primary)' }}>{pillar.label}</h3>
+                    <p className="mt-0.5 text-sm font-semibold" style={{ color: 'var(--brand-ink-soft)' }}>{pillar.tagline}</p>
                   </div>
                   <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black ${pillar.chip}`}>
                     {pillar.num}
                   </span>
                 </div>
-                <p className="mt-4 text-sm leading-relaxed text-[#4a3560]">{pillar.description}</p>
+                <p className="mt-4 text-sm leading-relaxed" style={{ color: 'var(--brand-ink-soft)' }}>{pillar.description}</p>
                 {/* decorative circle */}
                 <div
                   className={`pointer-events-none absolute -right-8 -bottom-8 h-28 w-28 rounded-full opacity-8 bg-gradient-to-br ${pillar.gradient}`}
@@ -266,14 +295,17 @@ export default function DescubrimientoPublicPage() {
         <section
           className="relative overflow-hidden rounded-3xl p-9 text-white md:p-12"
           style={{
-            background: "linear-gradient(135deg, #1a0b2e 0%, #2d1256 50%, #3f1a70 100%)",
+            background: "linear-gradient(135deg, var(--brand-darker) 0%, var(--brand-dark) 50%, var(--brand-primary) 100%)",
           }}
         >
           <div
             className="pointer-events-none absolute right-0 top-0 h-80 w-80 rounded-full opacity-15"
-            style={{ background: "radial-gradient(circle, #c98ab6 0%, transparent 70%)", transform: "translate(30%, -30%)" }}
+            style={{ background: "radial-gradient(circle, color-mix(in srgb, var(--brand-accent) 60%, white) 0%, transparent 70%)", transform: "translate(30%, -30%)" }}
           />
-          <span className="inline-block rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.28em] text-[#c9b8e8]">
+          <span
+            className="inline-block rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.28em]"
+            style={{ color: 'color-mix(in srgb, var(--brand-accent) 40%, white)' }}
+          >
             Metodología dual
           </span>
           <h2 className="mt-4 text-[2.2rem] font-black tracking-tight md:text-[2.8rem]">
@@ -285,13 +317,13 @@ export default function DescubrimientoPublicPage() {
                 tag: "Escala Likert · 107 ítems",
                 title: "Autopercepción cuantificable",
                 body: "Afirmaciones sobre comportamientos de liderazgo medidas en escala de frecuencia o acuerdo. Te dan una lectura numérica de cómo percibes tu propio desempeño en cada competencia.",
-                accent: "#c9b8e8",
+                accent: "color-mix(in srgb, var(--brand-accent) 40%, white)",
               },
               {
                 tag: "SJT · 19 situaciones",
                 title: "Criterio en condiciones reales",
                 body: "Escenarios que presentan dilemas de liderazgo reales — ambigüedad, conflicto, presión, decisión. Tu elección de respuesta revela tu criterio aplicado, no solo tu intención declarada.",
-                accent: "#f4cf8e",
+                accent: "var(--brand-accent)",
               },
             ].map((block) => (
               <div
@@ -313,36 +345,51 @@ export default function DescubrimientoPublicPage() {
 
         {/* ── Sample product / charts ──────────────────────────────────── */}
         <section>
-          <span className="inline-block rounded-full bg-[#f2ecff] px-3 py-1 text-[10px] font-black uppercase tracking-[0.28em] text-[#5b2d8a]">
+          <span
+            className="inline-block rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.28em]"
+            style={{ background: 'var(--brand-surface-strong)', color: 'var(--brand-accent-strong)' }}
+          >
             Ejemplo del informe
           </span>
-          <h2 className="mt-4 text-[2.6rem] font-black leading-[0.95] tracking-tight text-[#1a0b2e] lg:text-[3rem]">
+          <h2
+            className="mt-4 text-[2.6rem] font-black leading-[0.95] tracking-tight lg:text-[3rem]"
+            style={{ color: 'var(--brand-primary)' }}
+          >
             Así luce tu resultado.
           </h2>
-          <p className="mt-3 max-w-2xl text-[0.98rem] leading-relaxed text-[#4a3560]">
+          <p className="mt-3 max-w-2xl text-[0.98rem] leading-relaxed" style={{ color: 'var(--brand-ink-soft)' }}>
             Datos de ejemplo. Tu diagnóstico real generará scores propios con análisis IA personalizado.
           </p>
 
           <div className="mt-10 grid gap-6 lg:grid-cols-[340px_1fr]">
-            <div className="rounded-3xl border border-[#e4d8f5] bg-white p-7 shadow-[0_12px_50px_rgba(91,45,138,0.07)]">
-              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#5b2d8a]">Índice global</p>
+            <div
+              className="rounded-3xl border bg-white p-7 shadow-[0_12px_50px_rgba(0,0,0,0.07)]"
+              style={{ borderColor: 'var(--brand-border)' }}
+            >
+              <p className="text-[10px] font-black uppercase tracking-[0.24em]" style={{ color: 'var(--brand-accent-strong)' }}>Índice global</p>
               <GlobalIndexDisplay />
-              <div className="mt-4 border-t border-[#ede6f7] pt-5">
-                <p className="mb-3 text-[10px] font-black uppercase tracking-[0.22em] text-[#5b2d8a]">Score por pilar</p>
+              <div className="mt-4 border-t pt-5" style={{ borderColor: 'var(--brand-border)' }}>
+                <p className="mb-3 text-[10px] font-black uppercase tracking-[0.22em]" style={{ color: 'var(--brand-accent-strong)' }}>Score por pilar</p>
                 <PillarScoreBars />
               </div>
             </div>
 
-            <div className="rounded-3xl border border-[#e4d8f5] bg-white p-7 shadow-[0_12px_50px_rgba(91,45,138,0.07)]">
-              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#5b2d8a]">Mapa de pilares</p>
-              <p className="mt-1 text-sm text-[#5f4c78]">Visualización radial de los 4 ejes de liderazgo</p>
+            <div
+              className="rounded-3xl border bg-white p-7 shadow-[0_12px_50px_rgba(0,0,0,0.07)]"
+              style={{ borderColor: 'var(--brand-border)' }}
+            >
+              <p className="text-[10px] font-black uppercase tracking-[0.24em]" style={{ color: 'var(--brand-accent-strong)' }}>Mapa de pilares</p>
+              <p className="mt-1 text-sm" style={{ color: 'var(--brand-ink-soft)' }}>Visualización radial de los 4 ejes de liderazgo</p>
               <DiscoveryRadarChart />
             </div>
           </div>
 
-          <div className="mt-6 rounded-3xl border border-[#e4d8f5] bg-white p-7 shadow-[0_12px_50px_rgba(91,45,138,0.07)]">
-            <p className="mb-1 text-[10px] font-black uppercase tracking-[0.24em] text-[#5b2d8a]">16 competencias · Score individual</p>
-            <p className="mb-5 text-sm text-[#5f4c78]">
+          <div
+            className="mt-6 rounded-3xl border bg-white p-7 shadow-[0_12px_50px_rgba(0,0,0,0.07)]"
+            style={{ borderColor: 'var(--brand-border)' }}
+          >
+            <p className="mb-1 text-[10px] font-black uppercase tracking-[0.24em]" style={{ color: 'var(--brand-accent-strong)' }}>16 competencias · Score individual</p>
+            <p className="mb-5 text-sm" style={{ color: 'var(--brand-ink-soft)' }}>
               Cada barra representa una competencia coloreada por pilar.{" "}
               <span className="font-semibold text-[#7c5f93]">■ Within</span>{" "}
               <span className="font-semibold text-[#6a9fd8]">■ Out</span>{" "}
@@ -355,26 +402,26 @@ export default function DescubrimientoPublicPage() {
           {/* AI sample */}
           <div
             className="mt-6 rounded-3xl p-8"
-            style={{ background: "linear-gradient(135deg, #f7f3ff 0%, #fdf0f8 100%)" }}
+            style={{ background: "linear-gradient(135deg, var(--brand-surface) 0%, var(--brand-surface-strong) 100%)" }}
           >
             <div className="mb-5 flex flex-wrap items-center gap-3">
               <span
                 className="rounded-full px-3.5 py-1.5 text-[10px] font-black uppercase tracking-[0.26em]"
                 style={{
-                  background: "linear-gradient(135deg, #5b2d8a, #9d79c8)",
+                  background: "var(--brand-primary)",
                   color: "white",
                 }}
               >
                 Análisis IA · Shine Up
               </span>
-              <span className="text-[11px] font-semibold text-[#9d8cb5]">Ejemplo de lectura ejecutiva</span>
+              <span className="text-[11px] font-semibold" style={{ color: 'var(--brand-ink-muted)' }}>Ejemplo de lectura ejecutiva</span>
             </div>
-            <div className="space-y-4 text-[0.95rem] leading-relaxed text-[#3a2a55]">
+            <div className="space-y-4 text-[0.95rem] leading-relaxed" style={{ color: 'var(--brand-ink-soft)' }}>
               {SAMPLE_REPORT.split("\n\n").map((para, i) => (
                 <p key={i}>{para}</p>
               ))}
             </div>
-            <p className="mt-5 text-[11px] italic text-[#9e8fba]">
+            <p className="mt-5 text-[11px] italic" style={{ color: 'var(--brand-ink-muted)' }}>
               Este análisis es un ejemplo. El informe real se genera con IA a partir de tus respuestas específicas.
             </p>
           </div>
@@ -382,25 +429,32 @@ export default function DescubrimientoPublicPage() {
 
         {/* ── Features grid ─────────────────────────────────────────────── */}
         <section>
-          <span className="inline-block rounded-full bg-[#f2ecff] px-3 py-1 text-[10px] font-black uppercase tracking-[0.28em] text-[#5b2d8a]">
+          <span
+            className="inline-block rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.28em]"
+            style={{ background: 'var(--brand-surface-strong)', color: 'var(--brand-accent-strong)' }}
+          >
             Características
           </span>
-          <h2 className="mt-4 text-[2.6rem] font-black leading-[0.95] tracking-tight text-[#1a0b2e] lg:text-[3rem]">
+          <h2
+            className="mt-4 text-[2.6rem] font-black leading-[0.95] tracking-tight lg:text-[3rem]"
+            style={{ color: 'var(--brand-primary)' }}
+          >
             Qué hace único<br />a este diagnóstico.
           </h2>
           <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {FEATURES.map((f) => (
               <article
                 key={f.title}
-                className="group flex flex-col gap-4 rounded-3xl border border-[#e8dff5] bg-white p-6 shadow-[0_4px_20px_rgba(91,45,138,0.05)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_40px_rgba(91,45,138,0.1)]"
+                className="group flex flex-col gap-4 rounded-3xl border bg-white p-6 shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_40px_rgba(0,0,0,0.1)]"
+                style={{ borderColor: 'var(--brand-border)' }}
               >
                 <div className="flex items-center justify-between">
                   <span className="text-2xl">{f.icon}</span>
-                  <span className="text-[11px] font-black text-[#c4b4dc]">{f.num}</span>
+                  <span className="text-[11px] font-black" style={{ color: 'var(--brand-ink-muted)' }}>{f.num}</span>
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-[#1a0b2e]">{f.title}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-[#5f4c78]">{f.detail}</p>
+                  <h3 className="text-base font-black" style={{ color: 'var(--brand-primary)' }}>{f.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed" style={{ color: 'var(--brand-ink-soft)' }}>{f.detail}</p>
                 </div>
               </article>
             ))}
@@ -411,20 +465,23 @@ export default function DescubrimientoPublicPage() {
         <section
           className="relative overflow-hidden rounded-3xl p-10 text-white md:p-14"
           style={{
-            background: "linear-gradient(135deg, #1a0b2e 0%, #3a1060 50%, #5b1f80 100%)",
+            background: "linear-gradient(135deg, var(--brand-darker) 0%, var(--brand-dark) 50%, var(--brand-primary) 100%)",
           }}
         >
           <div
             className="pointer-events-none absolute -left-20 -top-20 h-72 w-72 rounded-full opacity-20"
-            style={{ background: "radial-gradient(circle, #c98ab6 0%, transparent 70%)" }}
+            style={{ background: "radial-gradient(circle, color-mix(in srgb, var(--brand-accent) 60%, white) 0%, transparent 70%)" }}
           />
           <div
             className="pointer-events-none absolute -bottom-16 right-20 h-56 w-56 rounded-full opacity-15"
-            style={{ background: "radial-gradient(circle, #f4cf8e 0%, transparent 70%)" }}
+            style={{ background: "radial-gradient(circle, var(--brand-accent) 0%, transparent 70%)" }}
           />
           <div className="relative grid gap-10 lg:grid-cols-[1fr_auto] lg:items-center">
             <div>
-              <span className="inline-block rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.28em] text-[#c9b8e8]">
+              <span
+                className="inline-block rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.28em]"
+                style={{ color: 'color-mix(in srgb, var(--brand-accent) 40%, white)' }}
+              >
                 Pago único · Sin suscripción
               </span>
               <h2 className="mt-4 text-[2.8rem] font-black leading-[0.93] tracking-tight md:text-[3.5rem]">
@@ -438,7 +495,8 @@ export default function DescubrimientoPublicPage() {
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link
                   href="/acceso"
-                  className="inline-flex items-center gap-2 rounded-full bg-[#f4cf8e] px-8 py-3.5 text-sm font-extrabold text-[#2a1b3f] shadow-[0_4px_24px_rgba(244,207,142,0.45)] transition hover:-translate-y-0.5 hover:bg-[#f6d9a0]"
+                  className="inline-flex items-center gap-2 rounded-full px-8 py-3.5 text-sm font-extrabold shadow-[0_4px_24px_rgba(0,0,0,0.25)] transition hover:-translate-y-0.5 hover:opacity-90"
+                  style={{ background: 'var(--brand-accent)', color: 'var(--brand-on-accent)' }}
                 >
                   Activar diagnóstico
                 </Link>
@@ -452,18 +510,28 @@ export default function DescubrimientoPublicPage() {
             </div>
 
             <div className="flex flex-col items-center gap-1 self-center rounded-2xl border border-white/16 bg-white/8 px-10 py-8 text-center backdrop-blur-sm">
-              <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#c9b8e8]">Precio</p>
+              <p
+                className="text-[10px] font-black uppercase tracking-[0.28em]"
+                style={{ color: 'color-mix(in srgb, var(--brand-accent) 40%, white)' }}
+              >
+                Precio
+              </p>
               <p
                 className="mt-1 text-[4rem] font-black leading-none"
                 style={{
-                  background: "linear-gradient(90deg, #f4cf8e 0%, #e9a84c 100%)",
+                  background: "linear-gradient(90deg, var(--brand-accent) 0%, var(--brand-accent-strong) 100%)",
                   WebkitBackgroundClip: "text",
                   WebkitTextFillColor: "transparent",
                 }}
               >
                 $50
               </p>
-              <p className="mt-1 text-sm font-semibold text-[#c9b8e8]">USD · Pago único</p>
+              <p
+                className="mt-1 text-sm font-semibold"
+                style={{ color: 'color-mix(in srgb, var(--brand-accent) 40%, white)' }}
+              >
+                USD · Pago único
+              </p>
             </div>
           </div>
         </section>
