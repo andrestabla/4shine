@@ -1345,20 +1345,36 @@ export default function LearningResourceDetailPage() {
                           <span key={t} className="px-2 py-0.5 rounded-full bg-white/10 text-white/70 text-[10px] font-bold uppercase tracking-wider">{t}</span>
                         ))}
                       </div>
-                      <button
-                        onClick={() => {
-                          if (totalItems > 0) {
-                            setActiveResourceIndex(0);
-                          }
-                        }}
-                        disabled={totalItems === 0}
-                        className="group flex items-center justify-center gap-2 rounded-full bg-white px-6 py-3.5 text-sm font-bold text-[var(--brand-primary)] transition hover:bg-[var(--brand-accent)] hover:text-[var(--brand-on-accent)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-white disabled:hover:text-[var(--brand-primary)]"
-                      >
-                        {totalItems > 0 ? "Comenzar curso" : "Curso sin recursos"}
-                        {totalItems > 0 && (
-                          <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
-                        )}
-                      </button>
+                      {(() => {
+                        const isCourseType = resource.contentType === "scorm";
+                        const hasUrl = Boolean(resource.url?.trim());
+                        const hasModules = totalItems > 0;
+                        const canStart = hasModules || (isCourseType && hasUrl);
+                        const needsContent = isCourseType && !hasUrl && !hasModules;
+                        return (
+                          <>
+                            <button
+                              onClick={() => {
+                                if (hasModules) setActiveResourceIndex(0);
+                              }}
+                              disabled={!canStart}
+                              className="group flex items-center justify-center gap-2 rounded-full bg-white px-6 py-3.5 text-sm font-bold text-[var(--brand-primary)] transition hover:bg-[var(--brand-accent)] hover:text-[var(--brand-on-accent)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-white disabled:hover:text-[var(--brand-primary)]"
+                            >
+                              {canStart ? "Comenzar curso" : "Curso sin recursos"}
+                              {canStart && (
+                                <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
+                              )}
+                            </button>
+                            {needsContent && (
+                              <p className="mt-3 max-w-md text-xs leading-relaxed text-white/70">
+                                Este curso aún no tiene paquete cargado ni módulos internos.
+                                Edítalo desde Aprendizaje &raquo; Cursos para subir el ZIP
+                                del paquete (SCORM/HTML) o agregar módulos con recursos.
+                              </p>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
                   <div
