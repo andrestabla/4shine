@@ -76,6 +76,7 @@ function toBrandingSettings(input: BrandingSettings): BrandingSettings {
     secondaryColor: input.secondaryColor,
     accentColor: input.accentColor,
     logoUrl: input.logoUrl,
+    logoDarkUrl: input.logoDarkUrl,
     faviconUrl: input.faviconUrl,
     loaderText: input.loaderText,
     loaderAssetUrl: input.loaderAssetUrl,
@@ -479,7 +480,7 @@ export default function BrandingAdminPage() {
                 </div>
 
                 <label className="text-sm text-slate-700">
-                  URL del Logo
+                  Logo principal (sobre fondos claros)
                   <div className="mt-1 flex gap-2">
                     <input
                       className="w-full border border-slate-300 rounded-xl px-3 py-2"
@@ -498,6 +499,34 @@ export default function BrandingAdminPage() {
                       onUploaded={(url) => patchSettings({ logoUrl: url })}
                     />
                   </div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Aparece en navbar marketing, footer y card de login.
+                  </p>
+                </label>
+
+                <label className="text-sm text-slate-700">
+                  Logo alterno (sobre fondos oscuros)
+                  <div className="mt-1 flex gap-2">
+                    <input
+                      className="w-full border border-slate-300 rounded-xl px-3 py-2"
+                      value={settings.logoDarkUrl}
+                      onChange={(event) => patchSettings({ logoDarkUrl: event.target.value })}
+                      placeholder="https://..."
+                    />
+                    <R2UploadButton
+                      moduleCode="usuarios"
+                      action="manage"
+                      fieldName="logoDarkUrl"
+                      entityTable="app_admin.branding_settings"
+                      pathPrefix="branding/logo-dark"
+                      accept="image/*"
+                      buttonLabel="Subir"
+                      onUploaded={(url) => patchSettings({ logoDarkUrl: url })}
+                    />
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Hero, paneles oscuros, sidebar y panel imagen del login. Si no se sube, se reusa el principal.
+                  </p>
                 </label>
 
                 <label className="text-sm text-slate-700">

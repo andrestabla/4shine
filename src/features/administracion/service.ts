@@ -53,6 +53,7 @@ const BRANDING_FIELD_KEYS: Array<keyof BrandingSettings> = [
   'secondaryColor',
   'accentColor',
   'logoUrl',
+  'logoDarkUrl',
   'faviconUrl',
   'loaderText',
   'loaderAssetUrl',
@@ -97,6 +98,7 @@ interface BrandingRow {
   secondary_color: string;
   accent_color: string;
   logo_url: string | null;
+  logo_dark_url: string | null;
   favicon_url: string | null;
   loader_text: string;
   loader_asset_url: string | null;
@@ -370,6 +372,7 @@ function mapBrandingRow(row: BrandingRow): BrandingSettingsRecord {
     secondaryColor: row.secondary_color,
     accentColor: row.accent_color,
     logoUrl: row.logo_url ?? '',
+    logoDarkUrl: row.logo_dark_url ?? '',
     faviconUrl: row.favicon_url ?? '',
     loaderText: row.loader_text,
     loaderAssetUrl: row.loader_asset_url ?? '',
@@ -416,6 +419,7 @@ function toBrandingSettingsSnapshot(input: BrandingSettings | BrandingSettingsRe
     secondaryColor: input.secondaryColor,
     accentColor: input.accentColor,
     logoUrl: input.logoUrl,
+    logoDarkUrl: input.logoDarkUrl,
     faviconUrl: input.faviconUrl,
     loaderText: input.loaderText,
     loaderAssetUrl: input.loaderAssetUrl,
@@ -485,6 +489,7 @@ function normalizeBrandingSnapshot(value: unknown): BrandingSettings {
     secondaryColor: normalizeColor(snapshot.secondaryColor, DEFAULT_BRANDING_SETTINGS.secondaryColor),
     accentColor: normalizeColor(snapshot.accentColor, DEFAULT_BRANDING_SETTINGS.accentColor),
     logoUrl: asText(snapshot.logoUrl, DEFAULT_BRANDING_SETTINGS.logoUrl).trim(),
+    logoDarkUrl: asText(snapshot.logoDarkUrl, DEFAULT_BRANDING_SETTINGS.logoDarkUrl).trim(),
     faviconUrl: asText(snapshot.faviconUrl, DEFAULT_BRANDING_SETTINGS.faviconUrl).trim(),
     loaderText: hasText(snapshot.loaderText)
       ? snapshot.loaderText!.trim()
@@ -746,6 +751,7 @@ function normalizeBrandingInput(
     secondaryColor: normalizeColor(input.secondaryColor, current.secondaryColor),
     accentColor: normalizeColor(input.accentColor, current.accentColor),
     logoUrl: asText(input.logoUrl, current.logoUrl).trim(),
+    logoDarkUrl: asText(input.logoDarkUrl, current.logoDarkUrl).trim(),
     faviconUrl: asText(input.faviconUrl, current.faviconUrl).trim(),
     loaderText: hasText(input.loaderText) ? input.loaderText!.trim() : current.loaderText,
     loaderAssetUrl: asText(input.loaderAssetUrl, current.loaderAssetUrl).trim(),
@@ -1092,6 +1098,7 @@ export async function getBrandingSettings(
         bs.secondary_color,
         bs.accent_color,
         bs.logo_url,
+        bs.logo_dark_url,
         bs.favicon_url,
         bs.loader_text,
         bs.loader_asset_url,
@@ -1215,6 +1222,7 @@ async function persistBrandingSettings(
         show_loader_text,
         custom_css,
         preset_code,
+        logo_dark_url,
         created_by,
         updated_by
       )
@@ -1255,8 +1263,9 @@ async function persistBrandingSettings(
         $34,
         $35,
         $36,
-        $37::uuid,
-        $37::uuid
+        NULLIF($37, ''),
+        $38::uuid,
+        $38::uuid
       )
       ON CONFLICT (organization_id) DO UPDATE
       SET platform_name = EXCLUDED.platform_name,
@@ -1294,6 +1303,7 @@ async function persistBrandingSettings(
           show_loader_text = EXCLUDED.show_loader_text,
           custom_css = EXCLUDED.custom_css,
           preset_code = EXCLUDED.preset_code,
+          logo_dark_url = EXCLUDED.logo_dark_url,
           updated_by = EXCLUDED.updated_by,
           updated_at = now()
       RETURNING
@@ -1305,6 +1315,7 @@ async function persistBrandingSettings(
         secondary_color,
         accent_color,
         logo_url,
+        logo_dark_url,
         favicon_url,
         loader_text,
         loader_asset_url,
@@ -1374,6 +1385,7 @@ async function persistBrandingSettings(
       next.showLoaderText,
       next.customCss,
       next.presetCode,
+      next.logoDarkUrl,
       actor.userId,
     ],
   );
@@ -1514,6 +1526,7 @@ export async function getPublicBrandingSettings(
       bs.secondary_color,
       bs.accent_color,
       bs.logo_url,
+      bs.logo_dark_url,
       bs.favicon_url,
       bs.loader_text,
       bs.loader_asset_url,
@@ -1560,6 +1573,7 @@ export async function getPublicBrandingSettings(
       bs.secondary_color,
       bs.accent_color,
       bs.logo_url,
+      bs.logo_dark_url,
       bs.favicon_url,
       bs.loader_text,
       bs.loader_asset_url,

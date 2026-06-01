@@ -195,7 +195,10 @@ export default async function HomeMarketingPage() {
   const platformName = branding.settings.platformName?.trim() || '4Shine';
   const showPlatformName = branding.settings.showPlatformName !== false;
   const logoUrl = branding.settings.logoUrl?.trim() || '/branding/4shine-logo-mixto.png';
-  const logoOnDarkUrl = branding.settings.logoUrl?.trim() || '/branding/4shine-logo-amarillo.png';
+  const logoOnDarkUrl =
+    branding.settings.logoDarkUrl?.trim() ||
+    branding.settings.logoUrl?.trim() ||
+    '/branding/4shine-logo-amarillo.png';
   const currentYear = 2026;
 
   return (

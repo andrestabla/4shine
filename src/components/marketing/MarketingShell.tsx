@@ -26,6 +26,7 @@ export async function MarketingShell({ title, subtitle, children }: { title: str
   const platformName = branding.settings.platformName?.trim() || '4Shine';
   const logoUrl = branding.settings.logoUrl?.trim() || '/branding/4shine-logo-mixto.png';
   const showPlatformName = branding.settings.showPlatformName !== false;
+  const kickerLabel = showPlatformName ? `Plataforma ${platformName}` : 'Plataforma';
 
   return (
     <main
@@ -93,7 +94,7 @@ export async function MarketingShell({ title, subtitle, children }: { title: str
           className="text-xs font-black uppercase tracking-[0.3em]"
           style={{ color: 'var(--brand-accent)' }}
         >
-          Plataforma {platformName}
+          {kickerLabel}
         </p>
         <h1
           className="mt-3 max-w-[18ch] text-5xl font-black leading-[0.95] tracking-tight md:text-6xl"

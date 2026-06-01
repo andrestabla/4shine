@@ -123,6 +123,7 @@ export interface BrandingSettings {
   secondaryColor: string;
   accentColor: string;
   logoUrl: string;
+  logoDarkUrl: string;
   faviconUrl: string;
   loaderText: string;
   loaderAssetUrl: string;
@@ -205,6 +206,7 @@ export interface BrandingRuntimeTokens {
   };
   assets: {
     logoUrl: string;
+    logoDarkUrl: string;
     faviconUrl: string;
     loaderAssetUrl: string;
   };
@@ -285,7 +287,8 @@ export const DEFAULT_BRANDING_SETTINGS: BrandingSettings = {
   primaryColor: '#0D1B2A',
   secondaryColor: '#1A1F2B',
   accentColor: '#D4AF37',
-  logoUrl: '/branding/4shine-logo-blanco.png',
+  logoUrl: '/branding/4shine-logo-mixto.png',
+  logoDarkUrl: '/branding/4shine-logo-amarillo.png',
   faviconUrl: '/branding/4shine-isotipo-amarillo.png',
   loaderText: 'Cargando 4Shine...',
   loaderAssetUrl: '',

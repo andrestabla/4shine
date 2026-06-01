@@ -414,14 +414,20 @@ export default function LoginPage() {
     </div>
   ) : null;
 
+  const cardLogoUrl = isCenteredImageLayout
+    ? (branding.logoDarkUrl?.trim() || branding.logoUrl?.trim() || '')
+    : (branding.logoUrl?.trim() || branding.logoDarkUrl?.trim() || '');
+
+  const panelLogoUrl = branding.logoDarkUrl?.trim() || branding.logoUrl?.trim() || '';
+
   const logoEl = (size: 'sm' | 'lg') => (
     <div className="flex justify-center mb-4">
-      {branding.logoUrl ? (
+      {cardLogoUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={branding.logoUrl}
+          src={cardLogoUrl}
           alt={branding.platformName}
-          className={`${size === 'lg' ? 'w-14 h-14' : 'w-10 h-10'} rounded-2xl object-cover`}
+          className={`${size === 'lg' ? 'h-16' : 'h-12'} w-auto object-contain`}
         />
       ) : (
         <Gem
@@ -660,21 +666,21 @@ export default function LoginPage() {
                 style={splitImagePanelStyle}
               >
                 <div className="w-full p-12 text-white">
-                  {visibility.platformName && hasText(branding.platformName) && (
-                    <div className="flex items-center gap-3 mb-5">
-                      {branding.logoUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={branding.logoUrl}
-                          alt={branding.platformName}
-                          className="w-12 h-12 rounded-xl object-cover"
-                        />
-                      ) : (
-                        <Gem size={36} style={{ color: tokens.colors.accent }} />
-                      )}
+                  <div className="flex items-center gap-3 mb-5">
+                    {panelLogoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={panelLogoUrl}
+                        alt={branding.platformName}
+                        className="h-14 w-auto object-contain"
+                      />
+                    ) : (
+                      <Gem size={36} style={{ color: tokens.colors.accent }} />
+                    )}
+                    {visibility.platformName && hasText(branding.platformName) && (
                       <p className="text-3xl font-bold">{branding.platformName}</p>
-                    </div>
-                  )}
+                    )}
+                  </div>
 
                   {visibility.imageLoginHeadline && hasText(branding.imageLoginHeadline) && (
                     <p className="text-5xl leading-tight font-bold max-w-2xl">
@@ -708,21 +714,21 @@ export default function LoginPage() {
                 style={splitImagePanelStyle}
               >
                 <div className="w-full p-12 text-white">
-                  {visibility.platformName && hasText(branding.platformName) && (
-                    <div className="flex items-center gap-3 mb-5">
-                      {branding.logoUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={branding.logoUrl}
-                          alt={branding.platformName}
-                          className="w-12 h-12 rounded-xl object-cover"
-                        />
-                      ) : (
-                        <Gem size={36} style={{ color: tokens.colors.accent }} />
-                      )}
+                  <div className="flex items-center gap-3 mb-5">
+                    {panelLogoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={panelLogoUrl}
+                        alt={branding.platformName}
+                        className="h-14 w-auto object-contain"
+                      />
+                    ) : (
+                      <Gem size={36} style={{ color: tokens.colors.accent }} />
+                    )}
+                    {visibility.platformName && hasText(branding.platformName) && (
                       <p className="text-3xl font-bold">{branding.platformName}</p>
-                    </div>
-                  )}
+                    )}
+                  </div>
 
                   {visibility.imageLoginHeadline && hasText(branding.imageLoginHeadline) && (
                     <p className="text-5xl leading-tight font-bold max-w-2xl">

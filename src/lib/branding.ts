@@ -115,6 +115,7 @@ export function buildBrandingTokens(settings: BrandingSettings): BrandingRuntime
     },
     assets: {
       logoUrl: settings.logoUrl,
+      logoDarkUrl: settings.logoDarkUrl,
       faviconUrl: settings.faviconUrl,
       loaderAssetUrl: settings.loaderAssetUrl,
     },
