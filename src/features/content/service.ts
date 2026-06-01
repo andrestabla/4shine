@@ -31,6 +31,8 @@ export interface ContentStructurePayload {
   modules?: CourseModule[];
 }
 
+export type LibraryLocation = 'contenidos_libres' | 'cursos';
+
 export interface ContentItemRecord {
   contentId: string;
   scope: ContentScope;
@@ -45,6 +47,7 @@ export interface ContentItemRecord {
   authorName: string | null;
   status: ContentStatus;
   isRecommended: boolean;
+  libraryLocation: LibraryLocation;
   createdBy: string;
   approvedBy: string | null;
   approvedAt: string | null;
@@ -69,6 +72,7 @@ export interface CreateContentInput {
   url?: string | null;
   status?: ContentStatus;
   isRecommended?: boolean;
+  libraryLocation?: LibraryLocation;
   competencyMetadata?: ContentCompetencyMetadata;
   structurePayload?: ContentStructurePayload;
   tags?: string[];
@@ -85,11 +89,24 @@ export interface UpdateContentInput {
   url?: string | null;
   status?: ContentStatus;
   isRecommended?: boolean;
+  libraryLocation?: LibraryLocation;
   competencyMetadata?: ContentCompetencyMetadata;
   structurePayload?: ContentStructurePayload;
   tags?: string[];
   thumbnailUrl?: string | null;
   certificateTemplateId?: string | null;
+}
+
+// Solo los cursos (content_type='scorm') pueden vivir en cualquier
+// ubicación. Cualquier otro tipo se fuerza a 'contenidos_libres'.
+function resolveLibraryLocation(
+  contentType: ContentType,
+  requested: LibraryLocation | undefined,
+  fallback: LibraryLocation = 'contenidos_libres',
+): LibraryLocation {
+  if (contentType !== 'scorm') return 'contenidos_libres';
+  if (requested === 'cursos' || requested === 'contenidos_libres') return requested;
+  return fallback;
 }
 
 interface ContentRow {
@@ -106,6 +123,7 @@ interface ContentRow {
   author_name: string | null;
   status: ContentStatus;
   is_recommended: boolean;
+  library_location: LibraryLocation;
   created_by: string;
   approved_by: string | null;
   approved_at: string | null;
@@ -141,6 +159,7 @@ const CONTENT_SELECT = `
     ci.author_name,
     ci.status,
     ci.is_recommended,
+    ci.library_location,
     ci.created_by::text,
     ci.approved_by::text,
     ci.approved_at::text,
@@ -176,6 +195,7 @@ function mapRow(row: ContentRow): ContentItemRecord {
     authorName: row.author_name,
     status: row.status,
     isRecommended: row.is_recommended,
+    libraryLocation: row.library_location,
     createdBy: row.created_by,
     approvedBy: row.approved_by,
     approvedAt: row.approved_at,
@@ -430,6 +450,13 @@ export async function createContent(
   const competencyMetadata = normalizeCompetencyMetadata(input.competencyMetadata);
   const structurePayload = normalizeStructurePayload(input.structurePayload, input.contentType);
   const tags = normalizeTags(input.tags);
+  // Para cursos nuevos el default es 'cursos' (mantiene la vista de
+  // Cursos por defecto); para cualquier otro tipo, 'contenidos_libres'.
+  const libraryLocation = resolveLibraryLocation(
+    input.contentType,
+    input.libraryLocation,
+    input.contentType === 'scorm' ? 'cursos' : 'contenidos_libres',
+  );
   if (status === 'published') {
     await requireModulePermission(client, moduleCode, 'approve');
   }
@@ -452,6 +479,7 @@ export async function createContent(
         competency_metadata,
         structure_payload,
         thumbnail_url,
+        library_location,
         created_by,
         approved_by,
         approved_at,
@@ -473,8 +501,9 @@ export async function createContent(
         $13::jsonb,
         $14::jsonb,
         $15,
-        $16::uuid,
-        CASE WHEN $11 = 'published' THEN $16::uuid ELSE NULL::uuid END,
+        $16,
+        $17::uuid,
+        CASE WHEN $11 = 'published' THEN $17::uuid ELSE NULL::uuid END,
         CASE WHEN $11 = 'published' THEN now() ELSE NULL END,
         CASE WHEN $11 = 'published' THEN now() ELSE NULL END
       )
@@ -496,6 +525,7 @@ export async function createContent(
       JSON.stringify(competencyMetadata),
       JSON.stringify(structurePayload),
       input.thumbnailUrl ?? null,
+      libraryLocation,
       actor.userId,
     ],
   );
@@ -536,6 +566,22 @@ export async function updateContent(
       ? undefined
       : normalizeStructurePayload(input.structurePayload, input.contentType);
 
+  // Si el cliente envía libraryLocation, validamos contra el
+  // content_type efectivo: solo cursos (scorm) pueden estar en 'cursos';
+  // cualquier otro tipo se fuerza a 'contenidos_libres'.
+  let normalizedLibraryLocation: LibraryLocation | null = null;
+  if (input.libraryLocation !== undefined) {
+    const effectiveType = (input.contentType ??
+      ((await client.query<{ content_type: ContentType }>(
+        `SELECT content_type FROM app_learning.content_items WHERE content_id = $1::uuid`,
+        [contentId],
+      )).rows[0]?.content_type ?? 'video')) as ContentType;
+    normalizedLibraryLocation = resolveLibraryLocation(
+      effectiveType,
+      input.libraryLocation,
+    );
+  }
+
   const { rows } = await client.query<{ content_id: string }>(
     `
       UPDATE app_learning.content_items
@@ -555,6 +601,7 @@ export async function updateContent(
         structure_payload = COALESCE($12::jsonb, structure_payload),
         thumbnail_url = COALESCE($13, thumbnail_url),
         certificate_template_id = CASE WHEN $15::boolean THEN $16::uuid ELSE certificate_template_id END,
+        library_location = COALESCE($17, library_location),
         approved_by = CASE WHEN $9 = 'published' THEN $14::uuid ELSE approved_by END,
         approved_at = CASE WHEN $9 = 'published' THEN now() ELSE approved_at END,
         published_at = CASE WHEN $9 = 'published' THEN COALESCE(published_at, now()) ELSE published_at END,
@@ -579,6 +626,7 @@ export async function updateContent(
       actor.userId,
       'certificateTemplateId' in input,
       input.certificateTemplateId ?? null,
+      normalizedLibraryLocation,
     ],
   );
 

@@ -29,6 +29,8 @@ export interface LearningCommentRecord {
   reactions: LearningCommentReactionSummary[];
 }
 
+export type LearningLibraryLocation = 'contenidos_libres' | 'cursos';
+
 export interface LearningResourceRecord {
   contentId: string;
   title: string;
@@ -41,6 +43,7 @@ export interface LearningResourceRecord {
   authorName: string | null;
   status: ContentStatus;
   isRecommended: boolean;
+  libraryLocation: LearningLibraryLocation;
   competencyMetadata: ContentCompetencyMetadata;
   tags: string[];
   likes: number;
@@ -63,6 +66,7 @@ export interface LearningResourceRecord {
 export interface LearningResourceListQuery {
   q?: string;
   family?: 'resource' | 'course' | null;
+  libraryLocation?: LearningLibraryLocation | null;
   contentType?: ContentType | null;
   status?: ContentStatus | null;
   pillar?: string | null;
@@ -188,6 +192,7 @@ interface LearningResourceRow {
   author_name: string | null;
   status: ContentStatus;
   is_recommended: boolean;
+  library_location: LearningLibraryLocation;
   competency_metadata: ContentCompetencyMetadata | null;
   tags: string[] | null;
   likes: number;
@@ -350,6 +355,7 @@ function mapLearningResourceRow(row: LearningResourceRow): LearningResourceRecor
     authorName: row.author_name,
     status: row.status,
     isRecommended: row.is_recommended,
+    libraryLocation: row.library_location,
     competencyMetadata: row.competency_metadata ?? {},
     tags: row.tags ?? [],
     likes: Number(row.likes ?? 0),
@@ -688,6 +694,7 @@ export async function listLearningResources(
   const offset = (page - 1) * pageSize;
   const statusFilter = canManage ? query?.status ?? null : null;
   const familyFilter = query?.family ?? null;
+  const libraryLocationFilter = query?.libraryLocation ?? null;
 
   const countResult = await client.query<{ total: string }>(
     `
@@ -738,6 +745,7 @@ export async function listLearningResources(
           OR (COALESCE(ci.competency_metadata->>'audience', 'all') = 'lider_sin_suscripcion' AND $8::text = 'lider' AND $2::boolean = true)
           OR (COALESCE(ci.competency_metadata->>'audience', 'all') = 'ishiners' AND $8::text = 'mentor')
         )
+        AND ($9::text IS NULL OR ci.library_location = $9)
     `,
     [
       canManage,
@@ -748,6 +756,7 @@ export async function listLearningResources(
       query?.pillar ?? null,
       normalizedQuery,
       actor.role,
+      libraryLocationFilter,
     ],
   );
 
@@ -767,6 +776,7 @@ export async function listLearningResources(
         NULL::text AS author_name,
         ci.status,
         ci.is_recommended,
+        ci.library_location,
         ci.competency_metadata,
         ci.structure_payload,
         COALESCE(tags.tags, ARRAY[]::text[]) AS tags,
@@ -853,6 +863,7 @@ export async function listLearningResources(
           OR (COALESCE(ci.competency_metadata->>'audience', 'all') = 'lider_sin_suscripcion' AND $11::text = 'lider' AND $3::boolean = true)
           OR (COALESCE(ci.competency_metadata->>'audience', 'all') = 'ishiners' AND $11::text = 'mentor')
         )
+        AND ($12::text IS NULL OR ci.library_location = $12)
       ORDER BY
         ci.is_recommended DESC,
         CASE ci.status
@@ -879,6 +890,7 @@ export async function listLearningResources(
       pageSize,
       offset,
       actor.role,
+      libraryLocationFilter,
     ],
   );
 
@@ -912,6 +924,7 @@ export async function getLearningResourceDetail(
         NULL::text AS author_name,
         ci.status,
         ci.is_recommended,
+        ci.library_location,
         ci.competency_metadata,
         ci.structure_payload,
         COALESCE(tags.tags, ARRAY[]::text[]) AS tags,

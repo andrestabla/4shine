@@ -128,6 +128,8 @@ function isLearningTabKey(value: string | null): value is LearningTabKey {
   return value === "recursos" || value === "cursos" || value === "workbooks" || value === "certificados";
 }
 
+type LibraryLocationOption = "contenidos_libres" | "cursos";
+
 interface ResourceFormState {
   title: string;
   category: string;
@@ -144,6 +146,7 @@ interface ResourceFormState {
   audience: string;
   thumbnailUrl: string;
   isRecommended: boolean;
+  libraryLocation: LibraryLocationOption;
   courseModules: CourseModule[];
   certificateTemplateId: string | null;
 }
@@ -164,6 +167,7 @@ const EMPTY_RESOURCE_FORM: ResourceFormState = {
   audience: "lider",
   thumbnailUrl: "",
   isRecommended: false,
+  libraryLocation: "contenidos_libres",
   courseModules: [],
   certificateTemplateId: null,
 };
@@ -177,6 +181,9 @@ function createInitialResourceForm(
       contentType: "scorm",
       category: CONTENT_TYPE_EXPERIENCE.scorm.categoryPresets[0] ?? "",
       durationLabel: CONTENT_TYPE_EXPERIENCE.scorm.durationPresets[0] ?? "",
+      // Para cursos nuevos, ubicación default es "Cursos" (mantiene la
+      // vista clásica). El admin puede cambiarla a "Contenidos libres".
+      libraryLocation: "cursos",
       courseModules: [createEmptyCourseModule()],
     };
   }
@@ -939,11 +946,19 @@ export default function AprendizajePage() {
     // filters, pagination) keep the UI mounted so inputs don't lose focus.
     if (!hasLoadedRef.current) setLoading(true);
     try {
-      // "recursos" (Contenidos libres) lista AMBAS familias: recursos
-      // individuales y cursos. "cursos" mantiene la vista filtrada solo a
-      // cursos para quien quiera enfocarse en experiencias estructuradas.
-      const resourceFamily =
-        activeLearningTab === "cursos" ? "course" : null;
+      // El filtro ya no es por content_type sino por library_location, que
+      // el admin decide en el editor del curso:
+      // - "Contenidos libres" -> todos los items con location 'contenidos_libres'
+      //   (recursos individuales y cursos que el admin ubicó ahí).
+      // - "Cursos" -> solo items con location 'cursos' (que por construcción
+      //   son cursos, ya que un recurso no-curso siempre va a 'contenidos_libres').
+      const resourceFamily = null;
+      const libraryLocation =
+        activeLearningTab === "cursos"
+          ? "cursos"
+          : activeLearningTab === "recursos"
+            ? "contenidos_libres"
+            : null;
       const resourceRequest =
         activeLearningTab === "workbooks" || activeLearningTab === "certificados"
           ? Promise.resolve({
@@ -956,6 +971,7 @@ export default function AprendizajePage() {
           : listLearningResources({
               q: deferredResourceSearch,
               family: resourceFamily,
+              libraryLocation,
               contentType:
                 activeLearningTab === "recursos" &&
                 resourceTypeFilter !== "all"
@@ -1299,6 +1315,8 @@ export default function AprendizajePage() {
         audience: resource.competencyMetadata.audience ?? "lider",
         thumbnailUrl: resource.thumbnailUrl ?? "",
         isRecommended: resource.isRecommended,
+        libraryLocation:
+          resource.libraryLocation === "cursos" ? "cursos" : "contenidos_libres",
         courseModules: normalizeCourseModulesFromStructure(
           resource.structurePayload,
         ),
@@ -1375,6 +1393,7 @@ export default function AprendizajePage() {
     status: resourceForm.status,
     thumbnailUrl: resourceForm.thumbnailUrl.trim() || null,
     isRecommended: resourceForm.isRecommended,
+    libraryLocation: resourceForm.libraryLocation,
     tags: resourceForm.tags,
     competencyMetadata: {
       pillar: resourceForm.pillar.trim() || null,
@@ -3505,6 +3524,55 @@ export default function AprendizajePage() {
                             ? "Marcar como curso recomendado dentro del catálogo"
                             : "Marcar como recurso recomendado dentro del catálogo"}
                         </label>
+
+                        {isCourseEditor && (
+                          <div className="lg:col-span-2">
+                            <label className="app-field-label">Ubicación en aprendizaje</label>
+                            <p className="text-xs text-[var(--app-muted)] mb-2">
+                              Decide en qué pestaña aparecerá este curso. Solo puede vivir en una.
+                            </p>
+                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                              {([
+                                {
+                                  value: "cursos" as const,
+                                  label: "Cursos",
+                                  description: "Vista enfocada en experiencias estructuradas con módulos.",
+                                },
+                                {
+                                  value: "contenidos_libres" as const,
+                                  label: "Contenidos libres",
+                                  description: "Biblioteca general junto a videos, pódcasts y documentos.",
+                                },
+                              ]).map((option) => {
+                                const isActive = resourceForm.libraryLocation === option.value;
+                                return (
+                                  <button
+                                    key={option.value}
+                                    type="button"
+                                    onClick={() =>
+                                      setResourceForm((prev) => ({
+                                        ...prev,
+                                        libraryLocation: option.value,
+                                      }))
+                                    }
+                                    className={`text-left rounded-[18px] border px-4 py-3 transition ${
+                                      isActive
+                                        ? "border-[var(--brand-primary)] bg-[color-mix(in_srgb,var(--brand-primary)_8%,transparent)]"
+                                        : "border-[var(--app-border)] bg-white hover:border-[var(--app-border-strong)]"
+                                    }`}
+                                  >
+                                    <p className="text-sm font-semibold text-[var(--app-ink)]">
+                                      {option.label}
+                                    </p>
+                                    <p className="mt-1 text-xs text-[var(--app-muted)]">
+                                      {option.description}
+                                    </p>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </section>
                       </>

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { authenticateRequest } from '@/server/auth/request-auth';
 import { withClient, withRoleContext } from '@/server/db/pool';
 import type { ContentStatus, ContentType } from '@/features/content/service';
-import { listLearningResources } from '@/features/aprendizaje/service';
+import { listLearningResources, type LearningLibraryLocation } from '@/features/aprendizaje/service';
 import { errorResponse, logModuleAudit, unauthorizedResponse } from '../../_utils';
 
 export async function GET(request: Request) {
@@ -15,6 +15,9 @@ export async function GET(request: Request) {
       q: url.searchParams.get('q') ?? undefined,
       family:
         (url.searchParams.get('family') as 'resource' | 'course' | null) ??
+        undefined,
+      libraryLocation:
+        (url.searchParams.get('libraryLocation') as LearningLibraryLocation | null) ??
         undefined,
       contentType: (url.searchParams.get('contentType') as ContentType | null) ?? undefined,
       status: (url.searchParams.get('status') as ContentStatus | null) ?? undefined,

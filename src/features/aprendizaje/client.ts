@@ -12,6 +12,7 @@ import type {
   CourseCertificateData,
   CreateLearningCommentInput,
   LearningCommentReactionToggleResult,
+  LearningLibraryLocation,
   LearningLikeToggleResult,
   LearningCommentRecord,
   LearningResourceListQuery,
@@ -33,6 +34,7 @@ export type {
   LearningCommentReactionSummary,
   LearningCommentReactionToggleResult,
   LearningCommentReactionType,
+  LearningLibraryLocation,
   LearningLikeToggleResult,
   LearningMetadataAssistantInput,
   LearningMetadataAssistantResult,
@@ -54,6 +56,7 @@ export async function listLearningResources(
   const params = new URLSearchParams();
   if (query.q?.trim()) params.set('q', query.q.trim());
   if (query.family) params.set('family', query.family);
+  if (query.libraryLocation) params.set('libraryLocation', query.libraryLocation);
   if (query.contentType) params.set('contentType', query.contentType);
   if (query.status) params.set('status', query.status);
   if (query.pillar) params.set('pillar', query.pillar);
