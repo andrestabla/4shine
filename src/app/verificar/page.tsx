@@ -49,7 +49,7 @@ function VerificarContent() {
     <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-slate-100 p-8 text-center">
       {state === 'loading' && (
         <>
-          <Loader2 size={44} className="mx-auto animate-spin text-indigo-500 mb-4" />
+          <Loader2 size={44} className="mx-auto animate-spin mb-4" style={{ color: 'var(--brand-accent)' }} />
           <p className="text-lg font-semibold text-slate-800">Verificando tu cuenta...</p>
           <p className="text-sm text-slate-500 mt-2">Un momento, por favor.</p>
         </>
@@ -65,7 +65,8 @@ function VerificarContent() {
           <button
             type="button"
             onClick={() => router.push('/acceso')}
-            className="mt-6 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors"
+            className="mt-6 px-5 py-2.5 rounded-xl text-sm font-semibold transition hover:opacity-90"
+            style={{ background: 'var(--brand-primary)', color: 'var(--brand-on-dark)' }}
           >
             Iniciar sesión
           </button>
@@ -80,7 +81,8 @@ function VerificarContent() {
           <button
             type="button"
             onClick={() => router.push('/acceso')}
-            className="mt-6 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors"
+            className="mt-6 px-5 py-2.5 rounded-xl text-sm font-semibold transition hover:opacity-90"
+            style={{ background: 'var(--brand-primary)', color: 'var(--brand-on-dark)' }}
           >
             Ir al inicio de sesión
           </button>
@@ -96,7 +98,7 @@ export default function VerificarPage() {
       <React.Suspense
         fallback={
           <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-slate-100 p-8 text-center">
-            <Loader2 size={44} className="mx-auto animate-spin text-indigo-500 mb-4" />
+            <Loader2 size={44} className="mx-auto animate-spin mb-4" style={{ color: 'var(--brand-accent)' }} />
             <p className="text-sm text-slate-500">Cargando...</p>
           </div>
         }

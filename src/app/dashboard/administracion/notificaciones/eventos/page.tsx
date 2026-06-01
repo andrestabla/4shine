@@ -128,7 +128,7 @@ function EventRow({ eventDef, config, templates, onUpdate }: EventRowProps) {
               className={clsx(
                 'flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-all',
                 channelInApp
-                  ? 'border-purple-300 bg-purple-50 text-purple-700'
+                  ? 'border-[var(--brand-border-strong)] bg-[var(--brand-surface-strong)] text-[var(--brand-primary)]'
                   : 'border-[var(--app-border)] text-[var(--app-muted)]',
               )}
             >

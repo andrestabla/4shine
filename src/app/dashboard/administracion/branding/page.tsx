@@ -456,7 +456,7 @@ export default function BrandingAdminPage() {
             <section className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
               <div>
                 <h3 className="font-semibold text-slate-800 flex items-center gap-2">
-                  <Building2 size={18} className="text-indigo-600" /> Identidad institucional
+                  <Building2 size={18} style={{ color: 'var(--brand-primary)' }} /> Identidad institucional
                 </h3>
                 <p className="text-xs text-slate-500 mt-1">
                   Define cómo se identifica tu plataforma: nombre, logos y zona horaria base.
@@ -573,7 +573,7 @@ export default function BrandingAdminPage() {
             <section className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
               <div>
                 <h3 className="font-semibold text-slate-800 flex items-center gap-2">
-                  <Sparkles size={18} className="text-violet-600" /> Presets rápidos
+                  <Sparkles size={18} style={{ color: 'var(--brand-accent)' }} /> Presets rápidos
                 </h3>
                 <p className="text-xs text-slate-500 mt-1">
                   Aplica una combinación lista de colores, tipografía y radio. Puedes ajustarla luego en el tab Tema.
@@ -645,7 +645,7 @@ export default function BrandingAdminPage() {
               <section className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
                 <div>
                   <h3 className="font-semibold text-slate-800 flex items-center gap-2">
-                    <Palette size={18} className="text-blue-600" /> Colores
+                    <Palette size={18} style={{ color: 'var(--brand-primary)' }} /> Colores
                   </h3>
                   <p className="text-xs text-slate-500 mt-1">
                     Define la paleta base. Hover/focus se derivan automáticamente.
@@ -676,7 +676,7 @@ export default function BrandingAdminPage() {
               <section className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
                 <div>
                   <h3 className="font-semibold text-slate-800 flex items-center gap-2">
-                    <Type size={18} className="text-emerald-600" /> Tipografía y forma
+                    <Type size={18} style={{ color: 'var(--brand-primary)' }} /> Tipografía y forma
                   </h3>
                   <p className="text-xs text-slate-500 mt-1">
                     Controla la fuente principal, el radio de bordes y el ancho máximo de página.
@@ -773,7 +773,7 @@ export default function BrandingAdminPage() {
             <section className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
               <div>
                 <h3 className="font-semibold text-slate-800 flex items-center gap-2">
-                  <PanelTop size={18} className="text-pink-600" /> Login & Branding
+                  <PanelTop size={18} style={{ color: 'var(--brand-accent)' }} /> Login & Branding
                 </h3>
                 <p className="text-xs text-slate-500 mt-1">
                   Configura layout, textos, imágenes de fondo y CSS avanzado para la pantalla de inicio de sesión.
@@ -1177,7 +1177,7 @@ export default function BrandingAdminPage() {
             <section className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
               <div className="mb-3">
                 <h3 className="font-semibold text-slate-800 flex items-center gap-2">
-                  <PaintBucket size={18} className="text-amber-600" /> Vista previa aplicada
+                  <PaintBucket size={18} style={{ color: 'var(--brand-accent)' }} /> Vista previa aplicada
                 </h3>
                 <p className="text-xs text-slate-500 mt-1">
                   Simulación rápida de cómo lucirá el login con la configuración actual.
@@ -1281,7 +1281,7 @@ export default function BrandingAdminPage() {
             <section className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-3">
               <div>
                 <h3 className="font-semibold text-slate-800 flex items-center gap-2">
-                  <History size={18} className="text-indigo-600" /> Historial y versionado
+                  <History size={18} style={{ color: 'var(--brand-primary)' }} /> Historial y versionado
                 </h3>
                 <p className="text-xs text-slate-500 mt-1">
                   Cada cambio guardado se registra como una versión, que puedes restaurar en cualquier momento.
