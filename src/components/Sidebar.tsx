@@ -207,6 +207,10 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
 
   const [isCollapsed, setIsCollapsed] = React.useState(false);
 
+  const sidebarLogoUrl =
+    branding.logoDarkUrl?.trim() || branding.logoUrl?.trim() || "";
+  const showPlatformName = branding.showPlatformName !== false;
+
   if (!currentUser || !currentRole) return null;
 
   const hasAccess = (item: NavItem) => {
@@ -347,13 +351,13 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           style={{ borderColor }}
         >
           {!isCollapsed && (
-            <div className="flex items-center gap-3">
-              {branding.logoUrl ? (
+            <div className="flex items-center gap-3 min-w-0">
+              {sidebarLogoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={branding.logoUrl}
+                  src={sidebarLogoUrl}
                   alt={branding.platformName}
-                  className="h-10 w-10 rounded-[1rem] bg-white/10 object-cover p-1"
+                  className="h-10 w-auto max-w-[8rem] object-contain"
                 />
               ) : (
                 <Gem
@@ -361,30 +365,32 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
                   style={{ color: tokens.colors.accent }}
                 />
               )}
-              <div className="min-w-0">
-                <p
-                  className="text-[10px] font-semibold uppercase tracking-[0.28em]"
-                  style={{ color: subtleText }}
-                >
-                  Plataforma
-                </p>
-                <span
-                  className="block max-w-40 truncate text-xl font-black tracking-tight"
-                  style={{ color: onPrimaryText }}
-                >
-                  {branding.platformName}
-                </span>
-              </div>
+              {showPlatformName && (
+                <div className="min-w-0">
+                  <p
+                    className="text-[10px] font-semibold uppercase tracking-[0.28em]"
+                    style={{ color: subtleText }}
+                  >
+                    Plataforma
+                  </p>
+                  <span
+                    className="block max-w-40 truncate text-xl font-black tracking-tight"
+                    style={{ color: onPrimaryText }}
+                  >
+                    {branding.platformName}
+                  </span>
+                </div>
+              )}
             </div>
           )}
           {isCollapsed &&
-            (branding.logoUrl ? (
+            (sidebarLogoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={branding.logoUrl}
-                  alt={branding.platformName}
-                  className="h-9 w-9 rounded-[1rem] bg-white/10 object-cover p-1"
-                />
+              <img
+                src={sidebarLogoUrl}
+                alt={branding.platformName}
+                className="h-10 w-auto max-w-[3.5rem] object-contain"
+              />
             ) : (
               <Gem
                 className="h-8 w-8"

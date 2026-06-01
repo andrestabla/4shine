@@ -62,7 +62,10 @@ function resolvePageTitle(pathname: string): string {
 
 export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
   const { currentUser, bootstrapData } = useUser();
-  const { tokens } = useBranding();
+  const { branding, tokens } = useBranding();
+  const headerPlatformName = branding.platformName?.trim() || "";
+  const showHeaderPlatformName =
+    branding.showPlatformName !== false && headerPlatformName.length > 0;
   const router = useRouter();
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -150,9 +153,11 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
             <Menu size={24} />
           </button>
           <div className="min-w-0">
-            <p className="app-section-kicker hidden md:block">
-              4Shine Platform
-            </p>
+            {showHeaderPlatformName && (
+              <p className="app-section-kicker hidden md:block">
+                {headerPlatformName}
+              </p>
+            )}
             <h1
               className="app-display-title truncate text-[2rem] font-semibold leading-none md:text-[2.3rem]"
               data-display-font="true"
