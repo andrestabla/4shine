@@ -29,6 +29,23 @@ function parseEntryPoint(manifestXml: string): string {
   return 'index.html';
 }
 
+// Busca el archivo HTML de arranque en un ZIP que no es SCORM (paquetes
+// HTML/web sin imsmanifest.xml). Prefiere el index.html más cercano a la
+// raíz; si no hay index, devuelve el primer .html al nivel más superficial.
+function findHtmlEntry(filePaths: string[]): string | null {
+  const htmlFiles = filePaths.filter((p) => /\.html?$/i.test(p));
+  if (htmlFiles.length === 0) return null;
+  const byDepth = (path: string) => path.split('/').length;
+  const sorted = [...htmlFiles].sort((a, b) => {
+    const depthDiff = byDepth(a) - byDepth(b);
+    if (depthDiff !== 0) return depthDiff;
+    const aIsIndex = /(?:^|\/)index\.html?$/i.test(a) ? 0 : 1;
+    const bIsIndex = /(?:^|\/)index\.html?$/i.test(b) ? 0 : 1;
+    return aIsIndex - bIsIndex;
+  });
+  return sorted[0] ?? null;
+}
+
 const MIME_MAP: Record<string, string> = {
   html: 'text/html', htm: 'text/html', js: 'application/javascript',
   mjs: 'application/javascript', css: 'text/css', json: 'application/json',
@@ -69,15 +86,27 @@ export function ScormUploadButton({ onUploaded, disabled, className }: ScormUplo
       const JSZip = (await import('jszip')).default;
       const zip = await JSZip.loadAsync(file);
 
-      const manifestFile = zip.file('imsmanifest.xml');
-      if (!manifestFile) {
-        throw new Error('Archivo inválido: no se encontró imsmanifest.xml en el ZIP.');
-      }
-      const manifestXml = await manifestFile.async('text');
-      const entryPoint = parseEntryPoint(manifestXml);
-
       const entries = Object.entries(zip.files).filter(([, f]) => !f.dir);
       const fileCount = entries.length;
+
+      // Detección de entry point:
+      // 1) Si hay imsmanifest.xml -> paquete SCORM, parsear como antes.
+      // 2) Si no, buscar el index.html (o cualquier .html) más cercano a
+      //    la raíz -> paquete HTML/web exportado.
+      let entryPoint: string;
+      const manifestFile = zip.file('imsmanifest.xml');
+      if (manifestFile) {
+        const manifestXml = await manifestFile.async('text');
+        entryPoint = parseEntryPoint(manifestXml);
+      } else {
+        const htmlEntry = findHtmlEntry(entries.map(([path]) => path));
+        if (!htmlEntry) {
+          throw new Error(
+            'Archivo inválido: el ZIP no contiene imsmanifest.xml ni un index.html. Sube un paquete SCORM o un export HTML con un index.',
+          );
+        }
+        entryPoint = htmlEntry;
+      }
       setProgress({ uploading: true, done: 0, total: fileCount });
 
       // Step 1: allocate an upload session (prefix) on the server.
@@ -161,7 +190,7 @@ export function ScormUploadButton({ onUploaded, disabled, className }: ScormUplo
     } catch (err) {
       setProgress({ uploading: false, done: 0, total: 0 });
       await alert({
-        title: 'Error al subir curso SCORM',
+        title: 'Error al subir curso',
         message: err instanceof Error ? err.message : 'No fue posible subir el paquete.',
         tone: 'error',
       });

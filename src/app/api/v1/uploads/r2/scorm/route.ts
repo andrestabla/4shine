@@ -38,6 +38,22 @@ function parseEntryPoint(manifestXml: string): string {
   return 'index.html';
 }
 
+// Fallback para paquetes HTML/web sin imsmanifest.xml: encuentra el
+// index.html más cercano a la raíz (o el primer .html disponible).
+function findHtmlEntry(filePaths: string[]): string | null {
+  const htmlFiles = filePaths.filter((p) => /\.html?$/i.test(p));
+  if (htmlFiles.length === 0) return null;
+  const byDepth = (path: string) => path.split('/').length;
+  const sorted = [...htmlFiles].sort((a, b) => {
+    const depthDiff = byDepth(a) - byDepth(b);
+    if (depthDiff !== 0) return depthDiff;
+    const aIsIndex = /(?:^|\/)index\.html?$/i.test(a) ? 0 : 1;
+    const bIsIndex = /(?:^|\/)index\.html?$/i.test(b) ? 0 : 1;
+    return aIsIndex - bIsIndex;
+  });
+  return sorted[0] ?? null;
+}
+
 export async function POST(request: Request) {
   const identity = await authenticateRequest(request);
   if (!identity) {
@@ -115,22 +131,34 @@ export async function POST(request: Request) {
     const JSZip = (await import('jszip')).default;
     const zip = await JSZip.loadAsync(buffer);
 
-    const manifestFile = zip.file('imsmanifest.xml');
-    if (!manifestFile) {
-      return NextResponse.json(
-        { ok: false, error: 'Archivo inválido: no se encontró imsmanifest.xml en el ZIP.' },
-        { status: 422 },
-      );
-    }
+    const entries = Object.entries(zip.files).filter(([, f]) => !f.dir);
 
-    const manifestText = await manifestFile.async('text');
-    const entryPoint = parseEntryPoint(manifestText);
+    // Si hay imsmanifest.xml -> SCORM; si no, intentar como paquete HTML
+    // buscando un index.html en la raíz del ZIP.
+    let entryPoint: string;
+    const manifestFile = zip.file('imsmanifest.xml');
+    if (manifestFile) {
+      const manifestText = await manifestFile.async('text');
+      entryPoint = parseEntryPoint(manifestText);
+    } else {
+      const htmlEntry = findHtmlEntry(entries.map(([path]) => path));
+      if (!htmlEntry) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              'Archivo inválido: el ZIP no contiene imsmanifest.xml ni un index.html. Sube un paquete SCORM o un export HTML con un index.',
+          },
+          { status: 422 },
+        );
+      }
+      entryPoint = htmlEntry;
+    }
 
     const courseId = randomUUID().replace(/-/g, '').slice(0, 16);
     const prefix = `aprendizaje/scorm/${courseId}`;
 
     const s3 = createR2S3Client(config);
-    const entries = Object.entries(zip.files).filter(([, f]) => !f.dir);
 
     // Upload files in parallel batches of 8
     const BATCH = 8;
@@ -165,7 +193,7 @@ export async function POST(request: Request) {
     }
     console.error('SCORM upload error:', error);
     return NextResponse.json(
-      { ok: false, error: 'Error al procesar el paquete SCORM.' },
+      { ok: false, error: 'Error al procesar el paquete del curso.' },
       { status: 500 },
     );
   }
