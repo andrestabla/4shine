@@ -101,6 +101,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: error.message }, { status: (error as ForbiddenError).statusCode });
     }
     console.error('SCORM relay error:', error);
-    return NextResponse.json({ ok: false, error: 'Error al subir archivos al almacenamiento.' }, { status: 500 });
+    // Surface the underlying cause to the client so el operador puede
+    // diferenciar fallos de R2 (auth, bucket inexistente, CORS) de
+    // problemas de configuración o de tamaño.
+    const cause = error instanceof Error ? error.message : String(error);
+    const codeHint =
+      error && typeof error === 'object' && 'Code' in error
+        ? String((error as { Code?: unknown }).Code)
+        : error && typeof error === 'object' && 'name' in error
+          ? String((error as { name?: unknown }).name)
+          : '';
+    return NextResponse.json(
+      {
+        ok: false,
+        error: `Error al subir archivos al almacenamiento: ${cause}${codeHint ? ` [${codeHint}]` : ''}`,
+      },
+      { status: 500 },
+    );
   }
 }
