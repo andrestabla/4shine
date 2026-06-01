@@ -143,6 +143,7 @@ export interface DiscoveryOverviewRow {
   completionPercent: number;
   globalIndex: number | null;
   updatedAt: string;
+  completedAt: string | null;
   analytics: {
     completion: {
       eligible: number;

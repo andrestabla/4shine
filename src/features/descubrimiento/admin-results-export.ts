@@ -81,8 +81,8 @@ export function downloadDiscoveryRowResultsWorkbook(
           : "-",
     },
     {
-      Campo: "Fecha actualización",
-      Valor: new Date(row.updatedAt).toLocaleString("es-CO"),
+      Campo: row.completedAt ? "Fecha de presentación" : "Última conexión",
+      Valor: new Date(row.completedAt ?? row.updatedAt).toLocaleString("es-CO"),
     },
   ]);
   utils.book_append_sheet(workbook, summarySheet, "Resumen");

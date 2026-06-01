@@ -1875,6 +1875,7 @@ export function DiscoveryExperience() {
                     <th className="px-2 py-2">Avance</th>
                     <th className="px-2 py-2">Indice</th>
                     <th className="px-2 py-2">Satisfacción</th>
+                    <th className="px-2 py-2">Última actividad</th>
                     <th className="px-2 py-2">Acciones</th>
                   </tr>
                 </thead>
@@ -1911,6 +1912,33 @@ export function DiscoveryExperience() {
                         ) : (
                           "-"
                         )}
+                      </td>
+                      <td className="px-2 py-2 whitespace-nowrap">
+                        {(() => {
+                          const stamp = row.completedAt ?? row.updatedAt;
+                          if (!stamp) return "-";
+                          const date = new Date(stamp);
+                          if (Number.isNaN(date.getTime())) return "-";
+                          return (
+                            <div className="leading-tight">
+                              <div className="font-semibold">
+                                {date.toLocaleDateString("es-CO", {
+                                  day: "2-digit",
+                                  month: "2-digit",
+                                  year: "numeric",
+                                })}
+                              </div>
+                              <div className="text-xs text-[var(--app-muted)]">
+                                {date.toLocaleTimeString("es-CO", {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
+                                {" · "}
+                                {row.completedAt ? "Presentado" : "Última conexión"}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="px-2 py-2">
                         <div className="flex flex-wrap gap-2">

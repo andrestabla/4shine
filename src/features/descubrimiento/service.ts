@@ -3036,6 +3036,7 @@ export async function getDiscoveryOverview(
     answers: DiscoveryAnswers | null;
     feedback_survey?: unknown;
     updated_at: string;
+    completed_at: string | null;
     invitation_id: string | null;
   }
 
@@ -3185,6 +3186,7 @@ export async function getDiscoveryOverview(
         ds.answers,
         ds.feedback_survey,
         ds.updated_at::text,
+        ds.completed_at::text,
         di.invitation_id::text AS invitation_id
       FROM app_assessment.discovery_sessions ds
       JOIN app_core.users u ON u.user_id = ds.user_id
@@ -3234,6 +3236,7 @@ export async function getDiscoveryOverview(
       completionPercent: Number(row.completion_percent ?? 0),
       globalIndex,
       updatedAt: row.updated_at,
+      completedAt: row.completed_at,
       analytics,
     };
   });
@@ -3296,6 +3299,7 @@ export async function getDiscoveryOverview(
             ? score.globalIndex
             : null,
         updatedAt: invitation.updated_at,
+        completedAt: isCompleted ? invitation.updated_at : null,
         analytics,
       };
     })
