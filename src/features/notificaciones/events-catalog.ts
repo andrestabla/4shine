@@ -370,6 +370,15 @@ export const NOTIFICATION_EVENTS: NotificationEventDef[] = [
     defaultInAppType: 'info',
   },
   {
+    key: 'descubrimiento.started_admin_alert',
+    moduleCode: 'descubrimiento',
+    moduleLabel: 'Descubrimiento',
+    label: 'Diagnóstico iniciado · alerta a administradores',
+    description: 'Se envía a admins/gestores cuando un líder o invitado inicia un diagnóstico DX por primera vez.',
+    variables: ['nombre', 'lider_nombre', 'titulo', 'plataforma', 'enlace_plataforma'],
+    defaultInAppType: 'info',
+  },
+  {
     key: 'descubrimiento.completed',
     moduleCode: 'descubrimiento',
     moduleLabel: 'Descubrimiento',

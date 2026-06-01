@@ -15,6 +15,7 @@ import type { AuthUser } from "@/server/auth/types";
 import { USER_COUNTRY_SET, USER_GENDER_SET, USER_JOB_ROLE_SET } from "@/lib/user-demographics";
 import { buildBrandedEmailHtml } from "@/lib/email-template";
 import { getNotificationSettingsByOrg, resolveEventConfig } from "@/features/notificaciones/service";
+import { dispatchNotification } from "@/features/notificaciones/engine";
 import { COMP_DEFINITIONS } from "./DiagnosticsData";
 import {
   DISCOVERY_TOTAL_ITEMS,
@@ -858,6 +859,54 @@ async function readDiscoverySessionBySessionId(
   return rows[0] ? mapDiscoverySessionRow(rows[0]) : null;
 }
 
+async function notifyAdminsOfDiscoveryStart(
+  client: PoolClient,
+  actor: AuthUser,
+  diagnosticIdentifier: string,
+): Promise<void> {
+  const { rows: orgRows } = await client.query<{ organization_id: string }>(
+    `SELECT organization_id::text FROM app_core.users WHERE user_id = $1::uuid LIMIT 1`,
+    [actor.userId],
+  );
+  const organizationId = orgRows[0]?.organization_id;
+  if (!organizationId) return;
+
+  const { rows: admins } = await client.query<{
+    user_id: string;
+    email: string;
+    first_name: string | null;
+    last_name: string | null;
+  }>(
+    `SELECT u.user_id::text, u.email::text, u.first_name, u.last_name
+     FROM app_auth.user_roles ur
+     JOIN app_core.users u ON u.user_id = ur.user_id
+     WHERE ur.role_code = ANY(ARRAY['admin', 'gestor'])
+       AND u.is_active = true
+       AND u.organization_id = $1::uuid
+       AND u.user_id <> $2::uuid`,
+    [organizationId, actor.userId],
+  );
+
+  const platformUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.4shine.co";
+  const leaderName = actor.name?.trim() || actor.email || "Un participante";
+
+  for (const admin of admins) {
+    const adminFirstName = admin.first_name?.trim() || admin.email;
+    void dispatchNotification(client, {
+      organizationId,
+      recipientUserId: admin.user_id,
+      recipientEmail: admin.email,
+      eventKey: "descubrimiento.started_admin_alert",
+      variables: {
+        nombre: adminFirstName,
+        lider_nombre: leaderName,
+        titulo: diagnosticIdentifier,
+        enlace_plataforma: `${platformUrl}/dashboard/descubrimiento`,
+      },
+    });
+  }
+}
+
 async function createDiscoverySession(
   client: PoolClient,
   actor: AuthUser,
@@ -1680,6 +1729,12 @@ export async function getOrCreateDiscoverySession(
 
   const existing = await readDiscoverySession(client, actor.userId);
   let session = existing ?? (await createDiscoverySession(client, actor));
+
+  if (!existing) {
+    void notifyAdminsOfDiscoveryStart(client, actor, session.diagnosticIdentifier).catch(
+      (err) => console.error("[descubrimiento] admin alert failed:", err),
+    );
+  }
 
   if (session.nameSnapshot !== actor.name) {
     const { rows } = await client.query<DiscoverySessionRow>(
