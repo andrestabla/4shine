@@ -250,7 +250,7 @@ export default function WorkshopsPage() {
           <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-[var(--app-muted)]">
             Experiencias grupales de relacionamiento, formación y bienestar integradas a tu trayectoria.
           </p>
-          <a href="https://www.4shine.co/planes-precios" target="_blank" rel="noopener noreferrer" className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#5b2d8a] px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:-translate-y-0.5 hover:opacity-90">
+          <a href="https://www.4shine.co/planes-precios" target="_blank" rel="noopener noreferrer" className="mt-6 inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:-translate-y-0.5 hover:opacity-90" style={{ background: 'var(--brand-primary)' }}>
             Activar programa · $3,000 USD
           </a>
         </section>
@@ -298,7 +298,8 @@ export default function WorkshopsPage() {
         {canManage && (
           <button
             onClick={() => router.push('/dashboard/workshops/new')}
-            className="flex items-center gap-2 rounded-full bg-[#5b2d8a] px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:opacity-90"
+            className="flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:opacity-90"
+            style={{ background: 'var(--brand-primary)' }}
           >
             <Plus size={15} /> Nuevo workshop
           </button>
@@ -313,9 +314,10 @@ export default function WorkshopsPage() {
             onClick={() => setStatusFilter(s)}
             className={`flex-1 rounded-xl py-2 text-xs font-semibold transition ${
               statusFilter === s
-                ? 'bg-[#5b2d8a] text-white shadow-sm'
+                ? 'text-white shadow-sm'
                 : 'text-[var(--app-muted)] hover:bg-[var(--app-surface-muted)]'
             }`}
+            style={statusFilter === s ? { background: 'var(--brand-primary)' } : undefined}
           >
             {s === 'all' ? 'Todos' : s === 'upcoming' ? 'Próximos' : s === 'completed' ? 'Completados' : 'Cancelados'}
           </button>
@@ -364,8 +366,8 @@ export default function WorkshopsPage() {
         </div>
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-2xl border border-[var(--app-border)] bg-white px-6 py-16 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#f3e8ff]">
-            <CalendarRange size={22} style={{ color: '#5b2d8a' }} />
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl" style={{ background: 'var(--brand-surface-strong)' }}>
+            <CalendarRange size={22} style={{ color: 'var(--brand-primary)' }} />
           </div>
           <p className="text-sm text-[var(--app-muted)]">
             {statusFilter !== 'all' || typeFilter !== 'all'

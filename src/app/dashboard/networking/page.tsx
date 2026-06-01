@@ -138,7 +138,7 @@ function Avatar({ name, avatarUrl, size = 'md' }: { name: string; avatarUrl?: st
   }
   return (
     <div className={`${sz} shrink-0 rounded-2xl flex items-center justify-center font-black text-white`}
-      style={{ background: 'linear-gradient(135deg, #4f2360 0%, #7c3aed 100%)' }}>
+      style={{ background: 'linear-gradient(135deg, var(--brand-primary) 0%, color-mix(in srgb, var(--brand-primary) 60%, var(--brand-accent)) 100%)' }}>
       {(name[0] ?? 'U').toUpperCase()}
     </div>
   );
@@ -158,14 +158,14 @@ function TabNav({ activeTab, onTabChange, pendingCount }: { activeTab: MainTab; 
         {tabs.map((tab) => (
           <button key={tab.id} type="button" onClick={() => onTabChange(tab.id)}
             className={`relative flex flex-1 items-center justify-center gap-2 px-4 py-3.5 text-sm font-semibold transition-colors ${
-              activeTab === tab.id ? 'text-[#4f2360]' : 'text-[var(--app-muted)] hover:text-[var(--app-ink)] hover:bg-[var(--app-surface-muted)]'
+              activeTab === tab.id ? 'text-[var(--brand-primary)]' : 'text-[var(--app-muted)] hover:text-[var(--app-ink)] hover:bg-[var(--app-surface-muted)]'
             }`}>
             {tab.icon}
             <span>{tab.label}</span>
             {tab.id === 'mi-red' && pendingCount > 0 && (
-              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-[#4f2360] px-1 text-[10px] font-black text-white">{pendingCount}</span>
+              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--brand-primary)] px-1 text-[10px] font-black text-white">{pendingCount}</span>
             )}
-            {activeTab === tab.id && <span className="absolute bottom-0 left-0 h-0.5 w-full rounded-t-full bg-[#4f2360]" />}
+            {activeTab === tab.id && <span className="absolute bottom-0 left-0 h-0.5 w-full rounded-t-full bg-[var(--brand-primary)]" />}
           </button>
         ))}
       </div>
@@ -184,11 +184,11 @@ function NetworkSubNav({ activeSubTab, onSubTabChange, pendingCount }: { activeS
       {tabs.map((tab) => (
         <button key={tab.id} type="button" onClick={() => onSubTabChange(tab.id)}
           className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold transition-all ${
-            activeSubTab === tab.id ? 'bg-white text-[#4f2360] shadow-sm' : 'text-[var(--app-muted)] hover:text-[var(--app-ink)]'
+            activeSubTab === tab.id ? 'bg-white text-[var(--brand-primary)] shadow-sm' : 'text-[var(--app-muted)] hover:text-[var(--app-ink)]'
           }`}>
           {tab.label}
           {tab.id === 'contactos' && pendingCount > 0 && (
-            <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-[#4f2360] px-1 text-[10px] font-black text-white">{pendingCount}</span>
+            <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--brand-primary)] px-1 text-[10px] font-black text-white">{pendingCount}</span>
           )}
         </button>
       ))}
@@ -221,7 +221,7 @@ function UrlPreviewCard({ url }: { url: string }) {
   if (loading) {
     return (
       <a href={url} target="_blank" rel="noreferrer"
-        className="flex items-center gap-2 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-2.5 text-sm font-semibold text-[#4f2360] transition hover:bg-white">
+        className="flex items-center gap-2 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-2.5 text-sm font-semibold text-[var(--brand-primary)] transition hover:bg-white">
         <Link2 size={14} />
         <span className="truncate">{url}</span>
       </a>
@@ -262,7 +262,7 @@ function UrlPreviewCard({ url }: { url: string }) {
     <a href={url} target="_blank" rel="noreferrer"
       className="flex flex-col overflow-hidden rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-2.5 transition hover:bg-white">
       {preview?.siteName && <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--app-muted)]">{preview.siteName}</p>}
-      <p className="text-sm font-bold text-[#4f2360] line-clamp-1 leading-snug">{preview?.title ?? url}</p>
+      <p className="text-sm font-bold text-[var(--brand-primary)] line-clamp-1 leading-snug">{preview?.title ?? url}</p>
       {preview?.description && <p className="mt-0.5 text-[11px] text-[var(--app-muted)] line-clamp-2">{preview.description}</p>}
       <p className="mt-1 flex items-center gap-1 text-[10px] text-[var(--app-muted)]"><Link2 size={10} />{url}</p>
     </a>
@@ -291,7 +291,7 @@ function CommentBody({ body }: { body: string }) {
         {parts.map((p, i) =>
           p.type === 'url' ? (
             <a key={i} href={p.value} target="_blank" rel="noreferrer"
-              className="text-[#4f2360] underline underline-offset-2 break-all">
+              className="text-[var(--brand-primary)] underline underline-offset-2 break-all">
               {p.value}
             </a>
           ) : (
@@ -368,7 +368,7 @@ function PostCard({
           <div className="min-w-0 flex-1">
             <p className="text-sm font-bold text-[var(--app-ink)] leading-tight">{post.authorName}</p>
             <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-              <span className="inline-flex items-center gap-1 rounded-full border border-[var(--app-chip-border)] bg-[var(--app-chip)] px-2 py-0.5 text-[11px] font-semibold text-[#4f2360]">
+              <span className="inline-flex items-center gap-1 rounded-full border border-[var(--app-chip-border)] bg-[var(--app-chip)] px-2 py-0.5 text-[11px] font-semibold text-[var(--brand-primary)]">
                 {post.groupName}
               </span>
               <span className="text-[11px] text-[var(--app-muted)]">{toRelativeTime(post.createdAt)}</span>
@@ -404,15 +404,15 @@ function PostCard({
         <button type="button"
           onClick={() => onToggleReaction(post.postId)}
           className={`flex flex-1 items-center justify-center gap-1.5 py-2.5 text-xs font-semibold transition-colors ${
-            post.hasReacted ? 'text-[#4f2360]' : 'text-[var(--app-muted)] hover:text-[var(--app-ink)]'
+            post.hasReacted ? 'text-[var(--brand-primary)]' : 'text-[var(--app-muted)] hover:text-[var(--app-ink)]'
           }`}>
-          <ThumbsUp size={13} className={post.hasReacted ? 'fill-[#4f2360]' : ''} />
+          <ThumbsUp size={13} className={post.hasReacted ? 'fill-[var(--brand-primary)]' : ''} />
           Recomendar{post.reactionCount > 0 ? ` · ${post.reactionCount}` : ''}
         </button>
         <button type="button"
           onClick={() => void handleToggleComments()}
           className={`flex flex-1 items-center justify-center gap-1.5 py-2.5 text-xs font-semibold transition-colors ${
-            showComments ? 'text-[#4f2360]' : 'text-[var(--app-muted)] hover:text-[var(--app-ink)]'
+            showComments ? 'text-[var(--brand-primary)]' : 'text-[var(--app-muted)] hover:text-[var(--app-ink)]'
           }`}>
           <MessageSquare size={13} />
           Comentar{post.commentCount > 0 ? ` · ${post.commentCount}` : ''}
@@ -457,7 +457,7 @@ function PostCard({
               onChange={(e) => setCommentInput(e.target.value)}
             />
             <button type="submit" disabled={submitting || !commentInput.trim()}
-              className="shrink-0 rounded-full bg-[#4f2360] px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-[#3b1649] disabled:opacity-40">
+              className="shrink-0 rounded-full bg-[var(--brand-primary)] px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-[var(--brand-darker)] disabled:opacity-40">
               <Send size={11} />
             </button>
           </form>
@@ -488,7 +488,7 @@ function PersonCard({ person, onFollow, onContact, onMessage, onViewProfile, com
           <p className="truncate text-[11px] text-[var(--app-muted)]">{person.profession ?? roleLabel(person.primaryRole)}</p>
         </div>
         <button type="button" onClick={person.isFollowing ? onFollow : onContact}
-          className="shrink-0 rounded-full border border-[#4f2360] px-3 py-1 text-[11px] font-bold text-[#4f2360] transition hover:bg-[#4f2360] hover:text-white">
+          className="shrink-0 rounded-full border border-[var(--brand-primary)] px-3 py-1 text-[11px] font-bold text-[var(--brand-primary)] transition hover:bg-[var(--brand-primary)] hover:text-white">
           {person.isFollowing ? 'Siguiendo' : person.connectionStatus === 'none' ? 'Conectar' : 'Mensaje'}
         </button>
       </div>
@@ -497,7 +497,7 @@ function PersonCard({ person, onFollow, onContact, onMessage, onViewProfile, com
 
   return (
     <article className="app-panel overflow-hidden p-0">
-      <div className="h-10 bg-gradient-to-r from-[#2c136e] via-[#45208f] to-[#25124f]" />
+      <div className="h-10" style={{ background: 'linear-gradient(to right, var(--brand-darker), var(--brand-primary), var(--brand-darker))' }} />
       <div className="-mt-5 p-4">
         <Avatar name={person.displayName} avatarUrl={person.avatarUrl} size="md" />
         <div className="mt-2">
@@ -513,7 +513,7 @@ function PersonCard({ person, onFollow, onContact, onMessage, onViewProfile, com
         <div className="mt-3 flex flex-wrap gap-2">
           {person.connectionStatus !== 'connected' && person.connectionStatus !== 'pending' && (
             <button type="button" onClick={onContact}
-              className="flex items-center gap-1.5 rounded-full border border-[#4f2360] px-3 py-1.5 text-xs font-bold text-[#4f2360] transition hover:bg-[#4f2360] hover:text-white">
+              className="flex items-center gap-1.5 rounded-full border border-[var(--brand-primary)] px-3 py-1.5 text-xs font-bold text-[var(--brand-primary)] transition hover:bg-[var(--brand-primary)] hover:text-white">
               <UserPlus size={12} />Conectar
             </button>
           )}
@@ -523,12 +523,12 @@ function PersonCard({ person, onFollow, onContact, onMessage, onViewProfile, com
           </button>
           {person.connectionStatus === 'connected' && (
             <button type="button" onClick={onMessage}
-              className="flex items-center gap-1.5 rounded-full bg-[#4f2360] px-3 py-1.5 text-xs font-bold text-white transition hover:bg-[#3b1649]">
+              className="flex items-center gap-1.5 rounded-full bg-[var(--brand-primary)] px-3 py-1.5 text-xs font-bold text-white transition hover:bg-[var(--brand-darker)]">
               <MessageSquare size={12} />Mensaje
             </button>
           )}
           {person.connectionStatus === 'connected' && (
-            <button type="button" onClick={onViewProfile} className="text-xs font-semibold text-[#4f2360] underline underline-offset-2">
+            <button type="button" onClick={onViewProfile} className="text-xs font-semibold text-[var(--brand-primary)] underline underline-offset-2">
               Ver perfil
             </button>
           )}
@@ -602,19 +602,22 @@ function CommunityCard({ community, onToggleMembership, canManage, onToggleStatu
       <div className="p-4">
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg font-black text-white"
-            style={{ background: 'linear-gradient(135deg, #4f2360 0%, #7c3aed 100%)' }}>
+            style={{ background: 'linear-gradient(135deg, var(--brand-primary) 0%, color-mix(in srgb, var(--brand-primary) 60%, var(--brand-accent)) 100%)' }}>
             {(community.name[0] ?? 'C').toUpperCase()}
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <p className="text-sm font-bold text-[var(--app-ink)]">{community.name}</p>
               {community.isGeneral && (
-                <span className="rounded-full bg-[#4f2360]/10 px-2 py-0.5 text-[10px] font-bold text-[#4f2360]">General</span>
+                <span
+                  className="rounded-full px-2 py-0.5 text-[10px] font-bold text-[var(--brand-primary)]"
+                  style={{ background: 'color-mix(in srgb, var(--brand-primary) 10%, transparent)' }}
+                >General</span>
               )}
             </div>
             <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
               {community.category && (
-                <span className="rounded-full border border-[var(--app-chip-border)] bg-[var(--app-chip)] px-2 py-0.5 text-[11px] font-semibold text-[#4f2360]">
+                <span className="rounded-full border border-[var(--app-chip-border)] bg-[var(--app-chip)] px-2 py-0.5 text-[11px] font-semibold text-[var(--brand-primary)]">
                   {community.category}
                 </span>
               )}
@@ -631,7 +634,7 @@ function CommunityCard({ community, onToggleMembership, canManage, onToggleStatu
           <div className="mt-3 space-y-1.5">
             {community.links.map((link, i) => (
               <a key={i} href={link.url} target="_blank" rel="noreferrer"
-                className="flex items-center gap-2 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-2.5 py-1.5 text-xs font-semibold text-[#4f2360] transition hover:bg-white">
+                className="flex items-center gap-2 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-2.5 py-1.5 text-xs font-semibold text-[var(--brand-primary)] transition hover:bg-white">
                 <Link2 size={11} />
                 <span className="truncate">{link.title}</span>
               </a>
@@ -642,7 +645,7 @@ function CommunityCard({ community, onToggleMembership, canManage, onToggleStatu
         {/* Actions */}
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <Link href={`/dashboard/networking/comunidades/${community.groupId}`}
-            className="rounded-full border border-[#4f2360] px-3 py-1.5 text-xs font-bold text-[#4f2360] transition hover:bg-[#4f2360] hover:text-white">
+            className="rounded-full border border-[var(--brand-primary)] px-3 py-1.5 text-xs font-bold text-[var(--brand-primary)] transition hover:bg-[var(--brand-primary)] hover:text-white">
             Ver comunidad
           </Link>
           {!community.isGeneral && (
@@ -650,7 +653,7 @@ function CommunityCard({ community, onToggleMembership, canManage, onToggleStatu
               className={`rounded-full px-4 py-1.5 text-xs font-bold transition ${
                 community.isMember
                   ? 'border border-[var(--app-border)] text-[var(--app-muted)] hover:border-red-200 hover:text-red-600'
-                  : 'bg-[#4f2360] text-white hover:bg-[#3b1649]'
+                  : 'bg-[var(--brand-primary)] text-white hover:bg-[var(--brand-darker)]'
               }`}>
               {community.isMember ? 'Salir' : '+ Unirme'}
             </button>
@@ -661,7 +664,7 @@ function CommunityCard({ community, onToggleMembership, canManage, onToggleStatu
           {canManage && (
             <div className="ml-auto flex gap-1.5">
               <button type="button" onClick={() => setEditOpen((v) => !v)}
-                className="flex items-center gap-1 rounded-full border border-[var(--app-border)] px-2.5 py-1 text-[11px] font-semibold text-[var(--app-muted)] hover:border-[#4f2360] hover:text-[#4f2360]">
+                className="flex items-center gap-1 rounded-full border border-[var(--app-border)] px-2.5 py-1 text-[11px] font-semibold text-[var(--app-muted)] hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)]">
                 <Pencil size={11} />Editar
               </button>
               <button type="button" onClick={onToggleStatus}
@@ -743,7 +746,7 @@ function CommunityCard({ community, onToggleMembership, canManage, onToggleStatu
                 <input className="app-input flex-1 py-1.5 text-xs" placeholder="https://..."
                   value={newLinkUrl} onChange={(e) => setNewLinkUrl(e.target.value)} />
                 <button type="button" onClick={addLink}
-                  className="flex items-center gap-1 rounded-full bg-[#4f2360] px-3 py-1.5 text-[11px] font-bold text-white hover:bg-[#3b1649]">
+                  className="flex items-center gap-1 rounded-full bg-[var(--brand-primary)] px-3 py-1.5 text-[11px] font-bold text-white hover:bg-[var(--brand-darker)]">
                   <Plus size={11} />
                 </button>
               </div>
@@ -756,7 +759,7 @@ function CommunityCard({ community, onToggleMembership, canManage, onToggleStatu
               Cancelar
             </button>
             <button type="submit" disabled={saving}
-              className="rounded-full bg-[#4f2360] px-5 py-1.5 text-xs font-bold text-white transition hover:bg-[#3b1649] disabled:opacity-40">
+              className="rounded-full bg-[var(--brand-primary)] px-5 py-1.5 text-xs font-bold text-white transition hover:bg-[var(--brand-darker)] disabled:opacity-40">
               {saving ? 'Guardando…' : 'Guardar cambios'}
             </button>
           </div>
@@ -782,11 +785,17 @@ function ConnectionCard({ connection, isInbound, onAccept, onReject, onDelete, o
         <Avatar name={connection.counterpartName} size="md" />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-bold text-[var(--app-ink)]">{connection.counterpartName}</p>
-          <span className={`mt-0.5 inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
-            connection.status === 'connected' ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-              : isInbound ? 'border-[#4f2360]/20 bg-[#4f2360]/5 text-[#4f2360]'
-              : 'border-amber-200 bg-amber-50 text-amber-700'
-          }`}>
+          <span
+            className={`mt-0.5 inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
+              connection.status === 'connected' ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                : isInbound ? 'text-[var(--brand-primary)]'
+                : 'border-amber-200 bg-amber-50 text-amber-700'
+            }`}
+            style={connection.status !== 'connected' && isInbound ? {
+              borderColor: 'color-mix(in srgb, var(--brand-primary) 20%, transparent)',
+              background: 'color-mix(in srgb, var(--brand-primary) 5%, transparent)',
+            } : undefined}
+          >
             {connection.status === 'connected' ? '1er grado' : isInbound ? 'Te invitó' : 'Invitación enviada'}
           </span>
         </div>
@@ -800,7 +809,7 @@ function ConnectionCard({ connection, isInbound, onAccept, onReject, onDelete, o
       {connection.status === 'pending' && isInbound && (
         <div className="mt-3 flex gap-2">
           <button type="button" onClick={onAccept}
-            className="flex items-center gap-1.5 rounded-full bg-[#4f2360] px-4 py-1.5 text-xs font-bold text-white transition hover:bg-[#3b1649]">
+            className="flex items-center gap-1.5 rounded-full bg-[var(--brand-primary)] px-4 py-1.5 text-xs font-bold text-white transition hover:bg-[var(--brand-darker)]">
             <Check size={12} />Aceptar
           </button>
           <button type="button" onClick={onReject}
@@ -872,7 +881,7 @@ function PostComposer({ communities, postForm, onFormChange, onSubmit, canCreate
                 Cancelar
               </button>
               <button type="submit" disabled={!canCreate}
-                className="rounded-full bg-[#4f2360] px-5 py-1.5 text-xs font-bold text-white transition hover:bg-[#3b1649] disabled:opacity-40">
+                className="rounded-full bg-[var(--brand-primary)] px-5 py-1.5 text-xs font-bold text-white transition hover:bg-[var(--brand-darker)] disabled:opacity-40">
                 Publicar
               </button>
             </div>
@@ -1072,7 +1081,7 @@ export default function NetworkingPage() {
           <h1 className="mt-5 text-[1.6rem] font-black leading-tight text-[var(--app-ink)] sm:text-[1.9rem]">Tu comunidad de líderes<br />está aquí adentro.</h1>
           <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-[var(--app-muted)]">Networking es el espacio de conexión, colaboración y expansión del programa 4Shine. Se activa junto con tu suscripción.</p>
           <a href="https://www.4shine.co/planes-precios" target="_blank" rel="noopener noreferrer"
-            className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#5b2d8a] px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:-translate-y-0.5 hover:opacity-90">
+            className="mt-6 inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:-translate-y-0.5 hover:opacity-90">
             Activar programa · $3,000 USD
           </a>
         </section>
@@ -1121,7 +1130,7 @@ export default function NetworkingPage() {
       <div className="space-y-4">
         <TabNav activeTab={activeTab} onTabChange={setActiveTab} pendingCount={myPending} />
         <div className="app-panel flex flex-col items-center gap-4 py-14 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl" style={{ background: 'linear-gradient(135deg, #4f2360, #7c3aed)' }}>
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl" style={{ background: 'linear-gradient(135deg, var(--brand-primary), color-mix(in srgb, var(--brand-primary) 60%, var(--brand-accent)))' }}>
             <MessageSquare size={24} className="text-white" />
           </div>
           <div>
@@ -1129,7 +1138,7 @@ export default function NetworkingPage() {
             <p className="mt-1 text-sm text-[var(--app-muted)]">Tus conversaciones directas con líderes de tu red están en Mensajes.</p>
           </div>
           <button type="button" onClick={() => router.push('/dashboard/mensajes')}
-            className="flex items-center gap-2 rounded-full bg-[#4f2360] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#3b1649]">
+            className="flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-6 py-3 text-sm font-bold text-white transition hover:bg-[var(--brand-darker)]">
             Ir a Mensajes<ChevronRight size={16} />
           </button>
         </div>
@@ -1141,7 +1150,7 @@ export default function NetworkingPage() {
   const leftSidebar = (
     <aside className="space-y-4">
       <section className="app-panel overflow-hidden p-0">
-        <div className="h-16 bg-gradient-to-r from-[#2c136e] via-[#45208f] to-[#25124f]" />
+        <div className="h-16" style={{ background: 'linear-gradient(to right, var(--brand-darker), var(--brand-primary), var(--brand-darker))' }} />
         <div className="-mt-7 px-4 pb-4">
           <div className="h-14 w-14 rounded-2xl border-4 border-white overflow-hidden">
             {currentUser?.avatarUrl ? (
@@ -1149,7 +1158,7 @@ export default function NetworkingPage() {
               <img src={currentUser.avatarUrl} alt={currentUser.name ?? ''} className="h-full w-full object-cover" />
             ) : (
               <div className="flex h-full w-full items-center justify-center text-lg font-black text-white"
-                style={{ background: 'linear-gradient(135deg, #4f2360 0%, #7c3aed 100%)' }}>
+                style={{ background: 'linear-gradient(135deg, var(--brand-primary) 0%, color-mix(in srgb, var(--brand-primary) 60%, var(--brand-accent)) 100%)' }}>
                 {(currentUser?.name?.[0] ?? 'U').toUpperCase()}
               </div>
             )}
@@ -1169,7 +1178,7 @@ export default function NetworkingPage() {
           <button type="button" onClick={() => { setActiveTab('mi-red'); setNetworkSubTab('contactos'); }}
             className="border-l border-[var(--app-border)] px-4 py-3 text-left transition hover:bg-[var(--app-surface-muted)]">
             <p className="text-[11px] text-[var(--app-muted)]">Pendientes</p>
-            <p className={`text-lg font-black ${myPending > 0 ? 'text-[#4f2360]' : 'text-[var(--app-ink)]'}`}>{myPending}</p>
+            <p className={`text-lg font-black ${myPending > 0 ? 'text-[var(--brand-primary)]' : 'text-[var(--app-ink)]'}`}>{myPending}</p>
           </button>
         </div>
       </section>
@@ -1187,7 +1196,7 @@ export default function NetworkingPage() {
             <button key={label} type="button" onClick={() => { setActiveTab(tab); if (sub) setNetworkSubTab(sub); }}
               className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm font-semibold transition ${
                 activeTab === tab && (!sub || networkSubTab === sub)
-                  ? 'bg-[var(--app-surface-muted)] text-[#4f2360]'
+                  ? 'bg-[var(--app-surface-muted)] text-[var(--brand-primary)]'
                   : 'text-[var(--app-muted)] hover:bg-[var(--app-surface-muted)] hover:text-[var(--app-ink)]'
               }`}>
               {label}<ChevronRight size={14} className="opacity-40" />
@@ -1245,7 +1254,7 @@ export default function NetworkingPage() {
                 </div>
               )}
               <button type="button" onClick={() => { setActiveTab('mi-red'); setNetworkSubTab('descubre'); }}
-                className="mt-3 flex w-full items-center justify-center gap-1 text-xs font-bold text-[#4f2360] transition hover:underline">
+                className="mt-3 flex w-full items-center justify-center gap-1 text-xs font-bold text-[var(--brand-primary)] transition hover:underline">
                 Ver más sugerencias<ChevronRight size={13} />
               </button>
             </section>
@@ -1255,7 +1264,7 @@ export default function NetworkingPage() {
                 <div className="mb-3 flex items-center justify-between">
                   <h3 className="text-sm font-bold text-[var(--app-ink)]">Comunidades</h3>
                   <button type="button" onClick={() => { setActiveTab('mi-red'); setNetworkSubTab('comunidades'); }}
-                    className="text-xs font-bold text-[#4f2360] hover:underline">
+                    className="text-xs font-bold text-[var(--brand-primary)] hover:underline">
                     Ver todas
                   </button>
                 </div>
@@ -1264,7 +1273,7 @@ export default function NetworkingPage() {
                     <Link key={community.groupId} href={`/dashboard/networking/comunidades/${community.groupId}`}
                       className="flex items-center gap-2.5 rounded-xl p-1 transition hover:bg-[var(--app-surface-muted)]">
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-black text-white"
-                        style={{ background: 'linear-gradient(135deg, #4f2360, #7c3aed)' }}>
+                        style={{ background: 'linear-gradient(135deg, var(--brand-primary), color-mix(in srgb, var(--brand-primary) 60%, var(--brand-accent)))' }}>
                         {(community.name[0] ?? 'C').toUpperCase()}
                       </div>
                       <div className="min-w-0 flex-1">
@@ -1273,7 +1282,7 @@ export default function NetworkingPage() {
                       </div>
                       {!community.isMember && !community.isGeneral && (
                         <button type="button" onClick={(e) => { e.preventDefault(); void onToggleMembership(community); }}
-                          className="shrink-0 rounded-full border border-[#4f2360] px-2.5 py-0.5 text-[11px] font-bold text-[#4f2360] hover:bg-[#4f2360] hover:text-white">
+                          className="shrink-0 rounded-full border border-[var(--brand-primary)] px-2.5 py-0.5 text-[11px] font-bold text-[var(--brand-primary)] hover:bg-[var(--brand-primary)] hover:text-white">
                           +
                         </button>
                       )}
@@ -1303,7 +1312,7 @@ export default function NetworkingPage() {
             <div className="space-y-4">
               {pendingInbound.length > 0 && (
                 <section className="app-panel p-4">
-                  <p className="mb-3 text-[11px] font-extrabold uppercase tracking-[0.2em] text-[#4f2360]">Invitaciones recibidas · {pendingInbound.length}</p>
+                  <p className="mb-3 text-[11px] font-extrabold uppercase tracking-[0.2em] text-[var(--brand-primary)]">Invitaciones recibidas · {pendingInbound.length}</p>
                   <div className="space-y-3">
                     {pendingInbound.map((c) => (
                       <ConnectionCard key={c.connectionId} connection={c} isInbound
@@ -1381,7 +1390,7 @@ export default function NetworkingPage() {
                     </select>
                     <textarea className="app-textarea min-h-20" placeholder="Descripción de la comunidad…" value={communityForm.description}
                       onChange={(e) => setCommunityForm((p) => ({ ...p, description: e.target.value }))} />
-                    <button type="submit" className="w-full rounded-full bg-[#4f2360] py-2.5 text-sm font-bold text-white transition hover:bg-[#3b1649]">
+                    <button type="submit" className="w-full rounded-full bg-[var(--brand-primary)] py-2.5 text-sm font-bold text-white transition hover:bg-[var(--brand-darker)]">
                       Crear comunidad
                     </button>
                   </form>

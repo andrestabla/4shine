@@ -184,7 +184,7 @@ function Avatar({
   return (
     <div
       className={`${cls} shrink-0 rounded-full overflow-hidden flex items-center justify-center font-bold text-white`}
-      style={{ backgroundColor: '#5b2d8a' }}
+      style={{ backgroundColor: 'var(--brand-primary)' }}
     >
       {avatarUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
@@ -534,7 +534,8 @@ export default function MensajesPage() {
             href="https://www.4shine.co/planes-precios"
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#5b2d8a] px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:-translate-y-0.5 hover:opacity-90"
+            className="mt-6 inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:-translate-y-0.5 hover:opacity-90"
+            style={{ background: 'var(--brand-primary)' }}
           >
             Activar programa · $3,000 USD
           </a>
@@ -615,14 +616,18 @@ export default function MensajesPage() {
 
         {/* Aviso líderes — fijo en header, siempre visible */}
         {currentRole === 'lider' && (
-          <div className="flex items-center gap-2 rounded-lg bg-[#f3e8ff] px-3 py-2">
-            <Users size={13} className="shrink-0 text-[#5b2d8a]" />
-            <p className="min-w-0 flex-1 text-[11px] leading-snug text-[#5b2d8a]">
+          <div
+            className="flex items-center gap-2 rounded-lg px-3 py-2"
+            style={{ background: 'var(--brand-surface-strong)' }}
+          >
+            <Users size={13} className="shrink-0" style={{ color: 'var(--brand-primary)' }} />
+            <p className="min-w-0 flex-1 text-[11px] leading-snug" style={{ color: 'var(--brand-primary)' }}>
               Solo ves tus conexiones de Networking.
             </p>
             <a
               href="/dashboard/networking"
-              className="shrink-0 rounded-full bg-[#5b2d8a] px-2.5 py-1 text-[11px] font-bold text-white hover:opacity-90 transition"
+              className="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold text-white hover:opacity-90 transition"
+              style={{ background: 'var(--brand-primary)' }}
             >
               Conectar
             </a>
@@ -635,8 +640,11 @@ export default function MensajesPage() {
         {filteredContacts.length === 0 ? (
           currentRole === 'lider' ? (
             <div className="flex flex-col items-center gap-3 px-4 py-8 text-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#f3e8ff]">
-                <Users size={20} style={{ color: '#5b2d8a' }} />
+              <div
+                className="flex h-12 w-12 items-center justify-center rounded-full"
+                style={{ background: 'var(--brand-surface-strong)' }}
+              >
+                <Users size={20} style={{ color: 'var(--brand-primary)' }} />
               </div>
               <p className="text-sm font-semibold text-[var(--app-ink)]">Aún no tienes conexiones</p>
               <p className="max-w-[14rem] text-xs text-[var(--app-muted)]">
@@ -644,7 +652,8 @@ export default function MensajesPage() {
               </p>
               <a
                 href="/dashboard/networking"
-                className="mt-1 rounded-full bg-[#5b2d8a] px-4 py-2 text-xs font-bold text-white hover:opacity-90 transition"
+                className="mt-1 rounded-full px-4 py-2 text-xs font-bold text-white hover:opacity-90 transition"
+                style={{ background: 'var(--brand-primary)' }}
               >
                 Ir a Networking
               </a>
@@ -695,7 +704,8 @@ export default function MensajesPage() {
         {can('mensajes', 'create') && (
           <button
             onClick={() => setShowContacts(true)}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#5b2d8a] text-white transition hover:opacity-90"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition hover:opacity-90"
+            style={{ background: 'var(--brand-primary)' }}
             title="Nueva conversación"
           >
             <Plus size={16} />
@@ -708,8 +718,11 @@ export default function MensajesPage() {
           <p className="px-4 py-8 text-center text-sm text-[var(--app-muted)]">Cargando...</p>
         ) : filteredThreads.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 px-4 py-12 text-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#f3e8ff]">
-              <MessageCircle size={20} style={{ color: '#5b2d8a' }} />
+            <div
+              className="flex h-12 w-12 items-center justify-center rounded-full"
+              style={{ background: 'var(--brand-surface-strong)' }}
+            >
+              <MessageCircle size={20} style={{ color: 'var(--brand-primary)' }} />
             </div>
             <p className="text-sm text-[var(--app-muted)]">
               {threadSearch ? 'Sin resultados.' : 'Inicia tu primera conversación.'}
@@ -724,13 +737,17 @@ export default function MensajesPage() {
                 key={thread.threadId}
                 onClick={() => onSelectThread(thread.threadId)}
                 className={`flex w-full items-center gap-3 px-4 py-3.5 text-left transition ${
-                  isSelected ? 'bg-[#f3e8ff]' : 'hover:bg-[var(--app-surface-muted)]'
+                  isSelected ? '' : 'hover:bg-[var(--app-surface-muted)]'
                 }`}
+                style={isSelected ? { background: 'var(--brand-surface-strong)' } : undefined}
               >
                 <div className="relative shrink-0">
                   <Avatar name={name} avatarUrl={thread.otherParticipantAvatarUrl} />
                   {thread.unreadCount > 0 && (
-                    <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-[#5b2d8a] px-0.5 text-[10px] font-black text-white">
+                    <span
+                      className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full px-0.5 text-[10px] font-black text-white"
+                      style={{ background: 'var(--brand-primary)' }}
+                    >
                       {thread.unreadCount}
                     </span>
                   )}
@@ -739,8 +756,9 @@ export default function MensajesPage() {
                   <div className="flex items-baseline justify-between gap-1">
                     <p
                       className={`truncate text-sm ${
-                        isSelected ? 'font-bold text-[#5b2d8a]' : 'font-semibold text-[var(--app-ink)]'
+                        isSelected ? 'font-bold' : 'font-semibold text-[var(--app-ink)]'
                       }`}
+                      style={isSelected ? { color: 'var(--brand-primary)' } : undefined}
                     >
                       {name}
                     </p>
@@ -781,8 +799,11 @@ export default function MensajesPage() {
         >
           {!selectedThread ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#f3e8ff]">
-                <MessageCircle size={28} style={{ color: '#5b2d8a' }} />
+              <div
+                className="flex h-16 w-16 items-center justify-center rounded-2xl"
+                style={{ background: 'var(--brand-surface-strong)' }}
+              >
+                <MessageCircle size={28} style={{ color: 'var(--brand-primary)' }} />
               </div>
               <p className="max-w-[16rem] text-sm text-[var(--app-muted)]">
                 Selecciona una conversación o inicia una nueva con el botón +
@@ -874,7 +895,8 @@ export default function MensajesPage() {
                                     rows={3}
                                     value={editText}
                                     onChange={(e) => setEditText(e.target.value)}
-                                    className="w-full resize-none rounded-xl border border-[var(--app-border-strong)] px-3 py-2 text-sm text-[var(--app-ink)] outline-none focus:ring-2 ring-[#c9b0e1]/30"
+                                    className="w-full resize-none rounded-xl border border-[var(--app-border-strong)] px-3 py-2 text-sm text-[var(--app-ink)] outline-none focus:ring-2"
+                                    style={{ ['--tw-ring-color' as string]: 'color-mix(in srgb, var(--brand-primary) 30%, transparent)' }}
                                   />
                                   <div className="mt-1.5 flex justify-end gap-1.5">
                                     <button
@@ -885,7 +907,8 @@ export default function MensajesPage() {
                                     </button>
                                     <button
                                       onClick={() => void onSaveEdit()}
-                                      className="flex items-center gap-1 rounded-full bg-[#5b2d8a] px-2.5 py-1 text-xs font-semibold text-white hover:opacity-90"
+                                      className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold text-white hover:opacity-90"
+                                      style={{ background: 'var(--brand-primary)' }}
                                     >
                                       <Check size={11} /> Guardar
                                     </button>
@@ -898,9 +921,10 @@ export default function MensajesPage() {
                                     <div
                                       className={`px-4 py-2.5 ${
                                         isMine
-                                          ? 'rounded-2xl rounded-tr-sm bg-[#5b2d8a] text-white'
+                                          ? 'rounded-2xl rounded-tr-sm text-white'
                                           : 'rounded-2xl rounded-tl-sm bg-[var(--app-surface-muted)] text-[var(--app-ink)]'
                                       }`}
+                                      style={isMine ? { background: 'var(--brand-primary)' } : undefined}
                                     >
                                       <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
                                         {renderText(msg.messageText)}
@@ -949,7 +973,7 @@ export default function MensajesPage() {
                                 )}
                                 {isMine && !isDeleted && msg.messageId === lastMyMessageId && (
                                   isSeen
-                                    ? <CheckCheck size={13} className="text-[#5b2d8a]" />
+                                    ? <CheckCheck size={13} style={{ color: 'var(--brand-primary)' }} />
                                     : <Check size={13} className="text-[var(--app-muted)]" />
                                 )}
                               </div>
@@ -1033,7 +1057,8 @@ export default function MensajesPage() {
                     type="button"
                     onClick={() => void onSend()}
                     disabled={!messageText.trim()}
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#5b2d8a] text-white transition hover:opacity-90 disabled:opacity-40"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white transition hover:opacity-90 disabled:opacity-40"
+                    style={{ background: 'var(--brand-primary)' }}
                   >
                     <Send size={16} />
                   </button>

@@ -79,14 +79,14 @@ function ConvocatoriaCard({ item }: { item: ConvocatoriaSummary }) {
         ) : (
           <div
             className="flex h-44 w-full items-center justify-center"
-            style={{ background: 'linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%)' }}
+            style={{ background: 'linear-gradient(135deg, var(--brand-surface) 0%, var(--brand-surface-strong) 100%)' }}
           >
-            <Megaphone size={32} style={{ color: '#7c3aed' }} className="opacity-40" />
+            <Megaphone size={32} style={{ color: 'var(--brand-primary)' }} className="opacity-40" />
           </div>
         )}
         <div className="flex flex-1 flex-col gap-3 p-5">
           <div className="flex items-start justify-between gap-2">
-            <h3 className="text-base font-bold leading-tight text-[var(--app-ink)] group-hover:text-[#5b2d8a] transition-colors line-clamp-2">
+            <h3 className="text-base font-bold leading-tight text-[var(--app-ink)] group-hover:text-[var(--brand-primary)] transition-colors line-clamp-2">
               {item.title}
             </h3>
             <span className={`shrink-0 inline-block rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${STATUS_CONFIG[item.status].classes}`}>
@@ -112,7 +112,10 @@ function ConvocatoriaCard({ item }: { item: ConvocatoriaSummary }) {
               <Users size={12} />{item.applicationsCount}
             </span>
             {item.hasApplied && (
-              <span className="rounded-full bg-[#f3e8ff] px-2 py-0.5 text-[10px] font-bold text-[#5b2d8a]">
+              <span
+                className="rounded-full px-2 py-0.5 text-[10px] font-bold"
+                style={{ background: 'var(--brand-surface-strong)', color: 'var(--brand-primary)' }}
+              >
                 Aplicaste ✓
               </span>
             )}
@@ -408,9 +411,9 @@ export default function ConvocatoriasPage() {
         <section className="rounded-[1.5rem] border border-[var(--app-border)] bg-white px-7 py-10 text-center sm:py-12">
           <div
             className="mx-auto flex h-14 w-14 items-center justify-center rounded-[1.1rem]"
-            style={{ background: 'linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%)' }}
+            style={{ background: 'linear-gradient(135deg, var(--brand-surface) 0%, var(--brand-surface-strong) 100%)' }}
           >
-            <Megaphone size={22} style={{ color: '#7c3aed' }} />
+            <Megaphone size={22} style={{ color: 'var(--brand-primary)' }} />
           </div>
           <h1 className="mt-5 text-[1.6rem] font-black leading-tight text-[var(--app-ink)] sm:text-[1.9rem]">
             Las convocatorias del<br />ecosistema te esperan.
@@ -422,7 +425,8 @@ export default function ConvocatoriasPage() {
             href="https://www.4shine.co/planes-precios"
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#5b2d8a] px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:-translate-y-0.5 hover:opacity-90"
+            className="mt-6 inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:-translate-y-0.5 hover:opacity-90"
+            style={{ background: 'var(--brand-primary)' }}
           >
             Activar programa · $3,000 USD
           </a>
@@ -490,7 +494,8 @@ export default function ConvocatoriasPage() {
           ) : (
             <Link
               href="/dashboard/convocatorias/solicitar"
-              className="inline-flex items-center gap-2 rounded-full border border-[#7c3aed] px-4 py-2 text-sm font-bold text-[#5b2d8a] hover:bg-[#f3e8ff] transition"
+              className="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-bold transition"
+              style={{ borderColor: 'var(--brand-border-strong)', color: 'var(--brand-primary)' }}
             >
               <Send size={14} />
               Solicitar publicación
@@ -519,7 +524,8 @@ export default function ConvocatoriasPage() {
             onClick={() => void onToggleInterest(!notifInterest)}
             role="switch"
             aria-checked={notifInterest}
-            className={`relative shrink-0 h-7 w-12 rounded-full transition-colors duration-200 focus:outline-none ${notifInterest ? 'bg-[#5b2d8a]' : 'bg-gray-300'}`}
+            className="relative shrink-0 h-7 w-12 rounded-full transition-colors duration-200 focus:outline-none"
+            style={{ background: notifInterest ? 'var(--brand-primary)' : '#d1d5db' }}
           >
             <span className={`absolute top-1 left-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 ${notifInterest ? 'translate-x-5' : 'translate-x-0'}`} />
           </button>
@@ -537,9 +543,10 @@ export default function ConvocatoriasPage() {
               onClick={() => { setFilter(tab.key); setTipoFilter('all'); }}
               className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-semibold transition ${
                 filter === tab.key
-                  ? 'bg-[#5b2d8a] text-white'
+                  ? 'text-white'
                   : 'bg-[var(--app-surface-muted)] text-[var(--app-muted)] hover:text-[var(--app-ink)]'
               }`}
+              style={filter === tab.key ? { background: 'var(--brand-primary)' } : undefined}
             >
               {tab.label}
               {count > 0 && (
@@ -559,9 +566,10 @@ export default function ConvocatoriasPage() {
             onClick={() => setTipoFilter('all')}
             className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
               tipoFilter === 'all'
-                ? 'border-[#7c3aed] bg-[#f3e8ff] text-[#5b2d8a]'
+                ? ''
                 : 'border-[var(--app-border)] bg-white text-[var(--app-muted)] hover:text-[var(--app-ink)]'
             }`}
+            style={tipoFilter === 'all' ? { borderColor: 'var(--brand-border-strong)', background: 'var(--brand-surface-strong)', color: 'var(--brand-primary)' } : undefined}
           >
             Todos los tipos
           </button>
@@ -571,9 +579,10 @@ export default function ConvocatoriasPage() {
               onClick={() => setTipoFilter(tipo)}
               className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
                 tipoFilter === tipo
-                  ? 'border-[#7c3aed] bg-[#f3e8ff] text-[#5b2d8a]'
+                  ? ''
                   : 'border-[var(--app-border)] bg-white text-[var(--app-muted)] hover:text-[var(--app-ink)]'
               }`}
+              style={tipoFilter === tipo ? { borderColor: 'var(--brand-border-strong)', background: 'var(--brand-surface-strong)', color: 'var(--brand-primary)' } : undefined}
             >
               {TIPO_LABELS[tipo] ?? tipo}
             </button>
