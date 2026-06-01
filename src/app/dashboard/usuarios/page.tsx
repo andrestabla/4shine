@@ -255,7 +255,7 @@ export default function UsuariosPage() {
                           {user.subscriptionPlanName ? (
                             <span
                               className="app-badge"
-                              style={{ background: '#f2b24b', color: '#1c0f32' }}
+                              style={{ background: 'var(--brand-accent)', color: 'var(--brand-on-accent)' }}
                               title={user.subscriptionPlanCode ?? ''}
                             >
                               {user.subscriptionPlanName}

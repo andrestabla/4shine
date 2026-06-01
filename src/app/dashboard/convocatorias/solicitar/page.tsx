@@ -103,9 +103,9 @@ export default function SolicitarConvocatoriaPage() {
         <div className="mb-6 flex items-center gap-3">
           <div
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
-            style={{ background: 'linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%)' }}
+            style={{ background: 'linear-gradient(135deg, var(--brand-surface-strong) 0%, var(--brand-surface) 100%)' }}
           >
-            <Send size={18} style={{ color: '#7c3aed' }} />
+            <Send size={18} style={{ color: 'var(--brand-primary)' }} />
           </div>
           <div>
             <h1 className="text-xl font-black leading-tight text-[var(--app-ink)]">
@@ -255,7 +255,7 @@ export default function SolicitarConvocatoriaPage() {
             </button>
             <button
               type="submit"
-              className="inline-flex items-center gap-2 rounded-full bg-[#5b2d8a] px-5 py-2.5 text-sm font-bold text-white hover:opacity-90 disabled:opacity-50 transition"
+              className="inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-5 py-2.5 text-sm font-bold text-white hover:opacity-90 disabled:opacity-50 transition"
               disabled={form.loading || !form.title.trim()}
             >
               {form.loading ? 'Enviando...' : <><Send size={14} />Enviar solicitud</>}

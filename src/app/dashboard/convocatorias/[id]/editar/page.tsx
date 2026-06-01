@@ -270,7 +270,7 @@ export default function EditarConvocatoriaPage() {
               <input
                 id="solicitud-archivo-req"
                 type="checkbox"
-                className="h-4 w-4 rounded border-[var(--app-border)] accent-[#5b2d8a]"
+                className="h-4 w-4 rounded border-[var(--app-border)] accent-[var(--brand-primary)]"
                 checked={form.solicitudArchivoRequerido}
                 onChange={(e) => set({ solicitudArchivoRequerido: e.target.checked })}
               />
@@ -294,7 +294,7 @@ export default function EditarConvocatoriaPage() {
               <input
                 id="solicitud-url-req"
                 type="checkbox"
-                className="h-4 w-4 rounded border-[var(--app-border)] accent-[#5b2d8a]"
+                className="h-4 w-4 rounded border-[var(--app-border)] accent-[var(--brand-primary)]"
                 checked={form.solicitudUrlRequerido}
                 onChange={(e) => set({ solicitudUrlRequerido: e.target.checked })}
               />

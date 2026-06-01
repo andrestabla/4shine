@@ -942,7 +942,10 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
         <div className="rounded-[1.5rem] border border-[var(--app-border)] bg-white px-6 py-8 text-center">
           <div
             className="mx-auto flex h-12 w-12 items-center justify-center rounded-[0.9rem]"
-            style={{ background: "linear-gradient(135deg, #f0e8ff 0%, #fce4f3 100%)" }}
+            style={{
+              background:
+                "linear-gradient(135deg, var(--brand-surface-strong) 0%, color-mix(in srgb, var(--brand-accent) 18%, white) 100%)",
+            }}
           >
             <span className="text-xl">👥</span>
           </div>
@@ -954,7 +957,8 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
             href="https://www.4shine.co/planes-precios"
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#5b2d8a] px-5 py-2.5 text-sm font-bold text-white transition hover:opacity-90"
+            className="mt-5 inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold transition hover:opacity-90"
+            style={{ background: "var(--brand-primary)", color: "var(--brand-on-dark)" }}
           >
             Activar programa · $3,000 USD
           </a>
@@ -1431,7 +1435,13 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                             className="h-full w-full object-cover transition group-hover:scale-[1.02]"
                           />
                         ) : (
-                          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#e8d8f8] to-[#f4d0ee]">
+                          <div
+                            className="flex h-full w-full items-center justify-center"
+                            style={{
+                              background:
+                                "linear-gradient(135deg, var(--brand-surface-strong) 0%, color-mix(in srgb, var(--brand-accent) 22%, white) 100%)",
+                            }}
+                          >
                             <Play size={32} className="text-[var(--brand-primary)]/60" />
                           </div>
                         )}
@@ -2562,15 +2572,24 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
       {sectionTabs}
 
       {isOpenLeader && (
-        <div className="flex items-start gap-4 rounded-[1.3rem] border border-[#5b2d8a]/12 bg-[#f8f3ff] px-5 py-4">
+        <div
+          className="flex items-start gap-4 rounded-[1.3rem] px-5 py-4"
+          style={{
+            background: "var(--brand-surface-strong)",
+            border: "1px solid color-mix(in srgb, var(--brand-primary) 12%, transparent)",
+          }}
+        >
           <div
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[0.75rem]"
-            style={{ background: "linear-gradient(135deg, #e8d8f8 0%, #f4d0ee 100%)" }}
+            style={{
+              background:
+                "linear-gradient(135deg, var(--brand-surface-strong) 0%, color-mix(in srgb, var(--brand-accent) 22%, white) 100%)",
+            }}
           >
-            <Lightbulb size={20} className="text-[#5b2d8a]" />
+            <Lightbulb size={20} className="text-[var(--brand-primary)]" />
           </div>
           <div className="flex-1">
-            <p className="text-sm font-extrabold text-[#5b2d8a]">Sesiones adicionales disponibles para tu cuenta</p>
+            <p className="text-sm font-extrabold text-[var(--brand-primary)]">Sesiones adicionales disponibles para tu cuenta</p>
             <p className="mt-0.5 text-xs leading-relaxed text-[var(--app-muted)]">
               Puedes reservar sesiones adicionales con los Advisers disponibles. Las mentorías incluidas del journey se activan con el programa 4Shine.
             </p>
@@ -2579,7 +2598,8 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
             href="https://www.4shine.co/planes-precios"
             target="_blank"
             rel="noopener noreferrer"
-            className="shrink-0 rounded-full bg-[#5b2d8a] px-4 py-2 text-xs font-bold text-white transition hover:opacity-90"
+            className="shrink-0 rounded-full px-4 py-2 text-xs font-bold transition hover:opacity-90"
+            style={{ background: "var(--brand-primary)", color: "var(--brand-on-dark)" }}
           >
             Ver programa
           </a>

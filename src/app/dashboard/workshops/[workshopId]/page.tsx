@@ -76,7 +76,7 @@ function formatMsgTime(value: string) {
 function Avatar({ name, url, size = 'md' }: { name: string; url?: string | null; size?: 'sm' | 'md' }) {
   const cls = size === 'sm' ? 'h-8 w-8 text-xs' : 'h-9 w-9 text-sm';
   return (
-    <div className={`${cls} shrink-0 rounded-full overflow-hidden flex items-center justify-center font-bold text-white`} style={{ backgroundColor: '#5b2d8a' }}>
+    <div className={`${cls} shrink-0 rounded-full overflow-hidden flex items-center justify-center font-bold text-white`} style={{ backgroundColor: 'var(--brand-primary)' }}>
       {url
         // eslint-disable-next-line @next/next/no-img-element
         ? <img src={url} alt={name} className="h-full w-full object-cover" />
@@ -377,7 +377,7 @@ export default function WorkshopDetailPage() {
               <button
                 onClick={() => void onApply()}
                 disabled={applying}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#5b2d8a] px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:opacity-90 disabled:opacity-50"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--brand-primary)] px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:opacity-90 disabled:opacity-50"
               >
                 {applying ? 'Inscribiendo...' : 'Inscribirme'}
               </button>
@@ -452,7 +452,7 @@ export default function WorkshopDetailPage() {
             onClick={() => setActiveTab(tab)}
             className={`flex-1 rounded-xl py-2 text-sm font-semibold capitalize transition ${
               activeTab === tab
-                ? 'bg-[#5b2d8a] text-white shadow-sm'
+                ? 'bg-[var(--brand-primary)] text-white shadow-sm'
                 : 'text-[var(--app-muted)] hover:bg-[var(--app-surface-muted)]'
             }`}
           >
@@ -497,7 +497,7 @@ export default function WorkshopDetailPage() {
                           ? `https://www.google.com/maps?q=${workshop.locationLat},${workshop.locationLng}`
                           : `https://www.google.com/maps/search/${encodeURIComponent(workshop.locationAddress ?? '')}`;
                         return (
-                          <a href={url} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-[#5b2d8a] hover:underline">
+                          <a href={url} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-[var(--brand-primary)] hover:underline">
                             Ver en Google Maps <ExternalLink size={10} />
                           </a>
                         );
@@ -544,7 +544,7 @@ export default function WorkshopDetailPage() {
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={speaker.avatarUrl} alt={speaker.name} className="h-11 w-11 shrink-0 rounded-full object-cover" />
                         ) : (
-                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#f3e8ff] text-sm font-bold text-[#5b2d8a]">
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--brand-surface-strong)] text-sm font-bold text-[var(--brand-primary)]">
                             {speaker.name.charAt(0).toUpperCase()}
                           </div>
                         )}
@@ -566,9 +566,9 @@ export default function WorkshopDetailPage() {
                   <ol className="relative border-l border-[var(--app-border)] pl-5 space-y-4">
                     {workshop.agenda.map((item, i) => (
                       <li key={i} className="relative">
-                        <div className="absolute -left-[1.35rem] flex h-4 w-4 items-center justify-center rounded-full border-2 border-[#5b2d8a] bg-white" />
+                        <div className="absolute -left-[1.35rem] flex h-4 w-4 items-center justify-center rounded-full border-2 border-[var(--brand-primary)] bg-white" />
                         <div>
-                          <span className="text-[11px] font-extrabold uppercase tracking-wide text-[#5b2d8a]">{item.time}</span>
+                          <span className="text-[11px] font-extrabold uppercase tracking-wide text-[var(--brand-primary)]">{item.time}</span>
                           <p className="text-sm font-semibold text-[var(--app-ink)]">{item.title}</p>
                           {item.description && <p className="text-xs text-[var(--app-muted)]">{item.description}</p>}
                         </div>
@@ -587,7 +587,7 @@ export default function WorkshopDetailPage() {
                 {canManage && (
                   <button
                     onClick={() => setShowAddFaq((v) => !v)}
-                    className="flex items-center gap-1.5 rounded-full bg-[#5b2d8a] px-3 py-1.5 text-xs font-bold text-white hover:opacity-90 transition"
+                    className="flex items-center gap-1.5 rounded-full bg-[var(--brand-primary)] px-3 py-1.5 text-xs font-bold text-white hover:opacity-90 transition"
                   >
                     <Plus size={12} /> Agregar
                   </button>
@@ -600,17 +600,17 @@ export default function WorkshopDetailPage() {
                     value={faqQ}
                     onChange={(e) => setFaqQ(e.target.value)}
                     placeholder="Pregunta"
-                    className="w-full rounded-xl border border-[var(--app-border)] bg-white px-3 py-2 text-sm outline-none focus:border-[#5b2d8a]"
+                    className="w-full rounded-xl border border-[var(--app-border)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--brand-primary)]"
                   />
                   <textarea
                     value={faqA}
                     onChange={(e) => setFaqA(e.target.value)}
                     placeholder="Respuesta"
                     rows={3}
-                    className="w-full resize-none rounded-xl border border-[var(--app-border)] bg-white px-3 py-2 text-sm outline-none focus:border-[#5b2d8a]"
+                    className="w-full resize-none rounded-xl border border-[var(--app-border)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--brand-primary)]"
                   />
                   <div className="flex gap-2">
-                    <button onClick={() => void onSaveFaq()} disabled={savingFaq || !faqQ.trim() || !faqA.trim()} className="rounded-full bg-[#5b2d8a] px-4 py-1.5 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50 transition">
+                    <button onClick={() => void onSaveFaq()} disabled={savingFaq || !faqQ.trim() || !faqA.trim()} className="rounded-full bg-[var(--brand-primary)] px-4 py-1.5 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50 transition">
                       {savingFaq ? 'Guardando...' : 'Guardar'}
                     </button>
                     <button onClick={() => { setShowAddFaq(false); setFaqQ(''); setFaqA(''); }} className="rounded-full border border-[var(--app-border)] px-4 py-1.5 text-xs font-semibold text-[var(--app-muted)] hover:bg-white transition">
@@ -677,12 +677,12 @@ export default function WorkshopDetailPage() {
                     onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void onSendPost(); } }}
                     placeholder="Escribe un mensaje al foro..."
                     rows={2}
-                    className="flex-1 resize-none rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-2.5 text-sm text-[var(--app-ink)] outline-none transition focus:border-[#5b2d8a] focus:bg-white placeholder:text-[var(--app-muted)]"
+                    className="flex-1 resize-none rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-2.5 text-sm text-[var(--app-ink)] outline-none transition focus:border-[var(--brand-primary)] focus:bg-white placeholder:text-[var(--app-muted)]"
                   />
                   <button
                     onClick={() => void onSendPost()}
                     disabled={!postText.trim() || sendingPost}
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#5b2d8a] text-white shadow-sm transition hover:opacity-90 disabled:opacity-40"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--brand-primary)] text-white shadow-sm transition hover:opacity-90 disabled:opacity-40"
                   >
                     <Send size={16} />
                   </button>
@@ -732,13 +732,13 @@ export default function WorkshopDetailPage() {
                   onChange={(e) => setInquiryText(e.target.value)}
                   placeholder="Escribe tu pregunta aquí..."
                   rows={4}
-                  className="mt-4 w-full resize-none rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-3 text-sm outline-none transition focus:border-[#5b2d8a] focus:bg-white placeholder:text-[var(--app-muted)]"
+                  className="mt-4 w-full resize-none rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-3 text-sm outline-none transition focus:border-[var(--brand-primary)] focus:bg-white placeholder:text-[var(--app-muted)]"
                 />
                 <div className="mt-3 flex gap-2">
                   <button
                     onClick={() => void onSendInquiry()}
                     disabled={!inquiryText.trim() || sendingInquiry}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-full bg-[#5b2d8a] py-2.5 text-sm font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50 transition"
+                    className="flex flex-1 items-center justify-center gap-2 rounded-full bg-[var(--brand-primary)] py-2.5 text-sm font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50 transition"
                   >
                     <Send size={14} />
                     {sendingInquiry ? 'Enviando...' : 'Enviar pregunta'}

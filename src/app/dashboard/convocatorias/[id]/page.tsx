@@ -121,7 +121,7 @@ function Avatar({ name, avatarUrl }: { name: string; avatarUrl?: string | null }
   return (
     <div
       className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl text-xs font-black text-white"
-      style={{ background: 'linear-gradient(135deg, #4f2360 0%, #7c3aed 100%)' }}
+      style={{ background: 'linear-gradient(135deg, var(--brand-darker) 0%, var(--brand-primary) 100%)' }}
     >
       {getInitials(name)}
     </div>
@@ -228,7 +228,7 @@ function ApplicationsPanel({ convocatoriaId, onError }: ApplicationsPanelProps) 
         </p>
         <button
           onClick={() => setShowMsg(!showMsg)}
-          className="inline-flex items-center gap-1.5 rounded-full border border-[#7c3aed] px-3 py-1.5 text-xs font-semibold text-[#5b2d8a] hover:bg-[#f3e8ff] transition"
+          className="inline-flex items-center gap-1.5 rounded-full border border-[var(--brand-primary)] px-3 py-1.5 text-xs font-semibold text-[var(--brand-primary)] hover:bg-[var(--brand-surface-strong)] transition"
         >
           <Send size={12} />
           Enviar mensaje
@@ -237,8 +237,8 @@ function ApplicationsPanel({ convocatoriaId, onError }: ApplicationsPanelProps) 
 
       {/* Message composer */}
       {showMsg && (
-        <form onSubmit={onSendMessage} className="rounded-xl border border-[#e9d5ff] bg-[#faf5ff] p-4 space-y-3">
-          <p className="text-xs font-bold uppercase tracking-wide text-[#7c3aed]">Enviar mensaje a postulantes</p>
+        <form onSubmit={onSendMessage} className="rounded-xl border border-[var(--brand-border)] bg-[var(--brand-surface-strong)] p-4 space-y-3">
+          <p className="text-xs font-bold uppercase tracking-wide text-[var(--brand-primary)]">Enviar mensaje a postulantes</p>
           <div>
             <label className="mb-1 block text-xs font-semibold text-[var(--app-muted)]">Destinatario</label>
             <select
@@ -308,7 +308,7 @@ function ApplicationsPanel({ convocatoriaId, onError }: ApplicationsPanelProps) 
                         href={app.attachmentFileUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="mt-1 inline-flex items-center gap-1 text-xs text-[#5b2d8a] hover:underline"
+                        className="mt-1 inline-flex items-center gap-1 text-xs text-[var(--brand-primary)] hover:underline"
                       >
                         <FileText size={11} />Ver archivo adjunto
                       </a>
@@ -318,7 +318,7 @@ function ApplicationsPanel({ convocatoriaId, onError }: ApplicationsPanelProps) 
                         href={app.attachmentUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="mt-1 ml-3 inline-flex items-center gap-1 text-xs text-[#5b2d8a] hover:underline"
+                        className="mt-1 ml-3 inline-flex items-center gap-1 text-xs text-[var(--brand-primary)] hover:underline"
                       >
                         <Link2 size={11} />{app.attachmentUrl.length > 40 ? app.attachmentUrl.slice(0, 40) + '…' : app.attachmentUrl}
                       </a>
@@ -802,9 +802,9 @@ export default function ConvocatoriaDetailPage() {
         ) : (
           <div
             className="flex h-40 items-center justify-center"
-            style={{ background: 'linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%)' }}
+            style={{ background: 'linear-gradient(135deg, var(--brand-surface-strong) 0%, var(--brand-surface) 100%)' }}
           >
-            <Megaphone size={36} style={{ color: '#7c3aed' }} className="opacity-30" />
+            <Megaphone size={36} style={{ color: 'var(--brand-primary)' }} className="opacity-30" />
           </div>
         )}
 
@@ -816,7 +816,14 @@ export default function ConvocatoriaDetailPage() {
                   {cfg.label}
                 </span>
                 {TIPO_LABELS[item.tipo] && item.tipo !== 'otra' && (
-                  <span className="inline-block rounded-full border border-purple-200 bg-purple-50 px-2.5 py-0.5 text-[11px] font-bold text-purple-700">
+                  <span
+                    className="inline-block rounded-full border px-2.5 py-0.5 text-[11px] font-bold"
+                    style={{
+                      borderColor: 'var(--brand-border)',
+                      backgroundColor: 'var(--brand-surface-strong)',
+                      color: 'var(--brand-primary)',
+                    }}
+                  >
                     {TIPO_LABELS[item.tipo]}
                   </span>
                 )}
@@ -833,7 +840,7 @@ export default function ConvocatoriaDetailPage() {
                 <button
                   onClick={() => void onNotifyInterested()}
                   disabled={notifyLoading}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-[#7c3aed] px-3 py-2 text-sm font-semibold text-[#5b2d8a] hover:bg-[#f3e8ff] transition disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-[var(--brand-primary)] px-3 py-2 text-sm font-semibold text-[var(--brand-primary)] hover:bg-[var(--brand-surface-strong)] transition disabled:opacity-50"
                 >
                   <Send size={14} />
                   {notifyLoading ? 'Enviando...' : notifyCount !== null ? `Notificado (${notifyCount})` : 'Notificar interesados'}
@@ -866,7 +873,7 @@ export default function ConvocatoriaDetailPage() {
                 href={item.externalUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-[#5b2d8a] hover:underline"
+                className="flex items-center gap-1.5 text-[var(--brand-primary)] hover:underline"
               >
                 <ExternalLink size={14} />Más información
               </a>
@@ -881,8 +888,8 @@ export default function ConvocatoriaDetailPage() {
             <div className="mt-6 space-y-4">
               {/* Attachment requirements (only shown before applying) */}
               {!item.hasApplied && (item.solicitudArchivoRequerido || item.solicitudUrlRequerido) && (
-                <div className="rounded-xl border border-[#e9d5ff] bg-[#faf5ff] p-4 space-y-3">
-                  <p className="text-xs font-bold uppercase tracking-wide text-[#7c3aed]">Requisitos para postular</p>
+                <div className="rounded-xl border border-[var(--brand-border)] bg-[var(--brand-surface-strong)] p-4 space-y-3">
+                  <p className="text-xs font-bold uppercase tracking-wide text-[var(--brand-primary)]">Requisitos para postular</p>
                   {item.solicitudArchivoRequerido && (
                     <div>
                       <p className="mb-2 text-sm font-semibold text-[var(--app-ink)]">
@@ -940,7 +947,7 @@ export default function ConvocatoriaDetailPage() {
                   className={`rounded-full px-6 py-3 text-sm font-bold shadow-sm transition hover:-translate-y-0.5 disabled:opacity-60 ${
                     item.hasApplied
                       ? 'border border-[var(--app-border)] bg-white text-[var(--app-ink)] hover:bg-[var(--app-surface-muted)]'
-                      : 'bg-[#5b2d8a] text-white hover:opacity-90'
+                      : 'bg-[var(--brand-primary)] text-white hover:opacity-90'
                   }`}
                 >
                   {applyLoading
@@ -950,7 +957,7 @@ export default function ConvocatoriaDetailPage() {
                     : 'Aplicar a esta convocatoria'}
                 </button>
                 {item.hasApplied && (
-                  <span className="rounded-full bg-[#f3e8ff] px-3 py-1.5 text-xs font-bold text-[#5b2d8a]">
+                  <span className="rounded-full bg-[var(--brand-surface-strong)] px-3 py-1.5 text-xs font-bold text-[var(--brand-primary)]">
                     Tu aplicación fue enviada
                   </span>
                 )}
@@ -976,7 +983,7 @@ export default function ConvocatoriaDetailPage() {
             onClick={() => setActiveTab(tab)}
             className={`flex-1 rounded-xl py-2 text-sm font-semibold transition ${
               activeTab === tab
-                ? 'bg-[#5b2d8a] text-white shadow-sm'
+                ? 'bg-[var(--brand-primary)] text-white shadow-sm'
                 : 'text-[var(--app-muted)] hover:bg-[var(--app-surface-muted)]'
             }`}
           >
@@ -1040,7 +1047,7 @@ export default function ConvocatoriaDetailPage() {
                 {item.contactoTelefono && (
                   <a
                     href={`tel:${item.contactoTelefono}`}
-                    className="flex items-center gap-1.5 hover:text-[#5b2d8a] transition"
+                    className="flex items-center gap-1.5 hover:text-[var(--brand-primary)] transition"
                   >
                     <Phone size={14} />{item.contactoTelefono}
                   </a>
@@ -1048,7 +1055,7 @@ export default function ConvocatoriaDetailPage() {
                 {item.contactoEmail && (
                   <a
                     href={`mailto:${item.contactoEmail}`}
-                    className="flex items-center gap-1.5 hover:text-[#5b2d8a] transition"
+                    className="flex items-center gap-1.5 hover:text-[var(--brand-primary)] transition"
                   >
                     <Mail size={14} />{item.contactoEmail}
                   </a>
@@ -1062,7 +1069,7 @@ export default function ConvocatoriaDetailPage() {
                   href={item.enlacesComplementarios}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-sm text-[#5b2d8a] hover:underline"
+                  className="inline-flex items-center gap-1.5 text-sm text-[var(--brand-primary)] hover:underline"
                 >
                   <Link2 size={14} />Enlace complementario
                 </a>
@@ -1081,9 +1088,9 @@ export default function ConvocatoriaDetailPage() {
                   <li key={d.dateId} className="flex items-start gap-3">
                     <div
                       className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
-                      style={{ background: 'linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%)' }}
+                      style={{ background: 'linear-gradient(135deg, var(--brand-surface-strong) 0%, var(--brand-surface) 100%)' }}
                     >
-                      <Calendar size={14} style={{ color: '#7c3aed' }} />
+                      <Calendar size={14} style={{ color: 'var(--brand-primary)' }} />
                     </div>
                     <div>
                       <p className="text-xs font-semibold text-[var(--app-muted)]">{d.label}</p>
@@ -1146,7 +1153,7 @@ export default function ConvocatoriaDetailPage() {
       {activeTab === 'foro' && (
         <div className="rounded-2xl border border-[var(--app-border)] bg-white p-5 sm:p-6">
           <div className="mb-4 flex items-center gap-2">
-            <MessageSquare size={18} className="text-[#7c3aed]" />
+            <MessageSquare size={18} className="text-[var(--brand-primary)]" />
             <h2 className="text-base font-extrabold text-[var(--app-ink)]">Foro de la convocatoria</h2>
             <span className="ml-auto text-xs text-[var(--app-muted)]">{posts.length} mensajes</span>
           </div>
@@ -1159,13 +1166,13 @@ export default function ConvocatoriaDetailPage() {
           ) : (
             <ul className="space-y-4 mb-5">
               {posts.map((post) => (
-                <li key={post.postId} className={`flex gap-3 ${post.isPinned ? 'rounded-xl bg-[#faf5ff] p-3' : ''}`}>
+                <li key={post.postId} className={`flex gap-3 ${post.isPinned ? 'rounded-xl bg-[var(--brand-surface-strong)] p-3' : ''}`}>
                   <Avatar name={post.authorName} avatarUrl={post.authorAvatarUrl} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-baseline gap-2">
                       <span className="text-sm font-bold text-[var(--app-ink)]">{post.authorName}</span>
                       {post.isPinned && (
-                        <span className="rounded-full bg-[#e9d5ff] px-1.5 py-0.5 text-[10px] font-bold text-[#5b2d8a]">
+                        <span className="rounded-full bg-[var(--brand-surface)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--brand-primary)]">
                           Fijado
                         </span>
                       )}
@@ -1234,7 +1241,7 @@ export default function ConvocatoriaDetailPage() {
                 onClick={() => setAdminTab(key)}
                 className={`flex items-center gap-1.5 border-b-2 px-3 py-3 text-xs font-semibold transition ${
                   adminTab === key
-                    ? 'border-[#5b2d8a] text-[#5b2d8a]'
+                    ? 'border-[var(--brand-primary)] text-[var(--brand-primary)]'
                     : 'border-transparent text-[var(--app-muted)] hover:text-[var(--app-ink)]'
                 }`}
               >
@@ -1360,7 +1367,7 @@ export default function ConvocatoriaDetailPage() {
                       <li key={att.attachmentId} className="flex items-center gap-3 rounded-xl border border-[var(--app-border)] px-3 py-2">
                         <FileText size={14} className="shrink-0 text-[var(--app-muted)]" />
                         <span className="flex-1 truncate text-sm text-[var(--app-ink)]">{att.fileName}</span>
-                        <a href={att.fileUrl} target="_blank" rel="noopener noreferrer" className="text-[var(--app-muted)] hover:text-[#5b2d8a]">
+                        <a href={att.fileUrl} target="_blank" rel="noopener noreferrer" className="text-[var(--app-muted)] hover:text-[var(--brand-primary)]">
                           <ExternalLink size={13} />
                         </a>
                         <button onClick={() => void onRemoveAttachment(att)} className="text-[var(--app-muted)] hover:text-red-500">

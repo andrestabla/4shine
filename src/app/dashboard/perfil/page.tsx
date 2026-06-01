@@ -819,7 +819,12 @@ export default function PerfilPage() {
                   profile.interests.map((interest) => (
                     <span
                       key={interest}
-                      className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700"
+                      className="rounded-full px-2.5 py-1 text-xs font-semibold"
+                      style={{
+                        background: 'color-mix(in srgb, var(--brand-accent) 14%, white)',
+                        border: '1px solid color-mix(in srgb, var(--brand-accent) 32%, transparent)',
+                        color: 'var(--brand-accent-strong)',
+                      }}
                     >
                       {interest}
                     </span>

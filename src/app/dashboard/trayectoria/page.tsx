@@ -614,9 +614,12 @@ export default function TrayectoriaPage() {
         <section className="rounded-[1.5rem] border border-[var(--app-border)] bg-white px-7 py-10 text-center sm:py-12">
           <div
             className="mx-auto flex h-14 w-14 items-center justify-center rounded-[1.1rem]"
-            style={{ background: "linear-gradient(135deg, #f0e8ff 0%, #fce4f3 100%)" }}
+            style={{
+              background:
+                "linear-gradient(135deg, var(--brand-surface-strong) 0%, color-mix(in srgb, var(--brand-accent) 18%, white) 100%)",
+            }}
           >
-            <Sparkles size={22} style={{ color: "#7c3fa8" }} />
+            <Sparkles size={22} style={{ color: "var(--brand-primary)" }} />
           </div>
           <h1 className="mt-5 text-[1.6rem] font-black leading-tight text-[var(--app-ink)] sm:text-[1.9rem]">
             Tu journey de 24 semanas<br />te espera.
@@ -629,7 +632,8 @@ export default function TrayectoriaPage() {
             href="https://www.4shine.co/planes-precios"
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#5b2d8a] px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:-translate-y-0.5 hover:opacity-90"
+            className="mt-6 inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-bold shadow-sm transition hover:-translate-y-0.5 hover:opacity-90"
+            style={{ background: "var(--brand-primary)", color: "var(--brand-on-dark)" }}
           >
             Activar programa · $3,000 USD
           </a>
@@ -657,8 +661,8 @@ export default function TrayectoriaPage() {
               { v: "10", l: "Mentorías" },
               { v: "5", l: "Workbooks" },
             ].map((s) => (
-              <div key={s.l} className="rounded-[0.9rem] bg-[#f8f3ff] px-3 py-3 text-center">
-                <p className="text-lg font-black text-[#5b2d8a]">{s.v}</p>
+              <div key={s.l} className="rounded-[0.9rem] bg-[var(--brand-surface-strong)] px-3 py-3 text-center">
+                <p className="text-lg font-black text-[var(--brand-primary)]">{s.v}</p>
                 <p className="mt-0.5 text-[10px] font-semibold text-[var(--app-muted)]">{s.l}</p>
               </div>
             ))}
@@ -890,8 +894,8 @@ export default function TrayectoriaPage() {
                   <Radar
                     name="Resultado"
                     dataKey="value"
-                    stroke="var(--brand-accent, #f6b74c)"
-                    fill="rgba(246,183,76,0.18)"
+                    stroke="var(--brand-accent)"
+                    fill="color-mix(in srgb, var(--brand-accent) 18%, transparent)"
                     strokeWidth={2.4}
                   />
                 </RadarChart>
@@ -900,7 +904,13 @@ export default function TrayectoriaPage() {
 
             <div className="mt-2 flex flex-wrap items-center gap-5 text-sm text-[var(--app-muted)]">
               <span className="inline-flex items-center gap-2">
-                <span className="h-3 w-3 rounded-full border border-[var(--brand-accent,#f6b74c)] bg-[rgba(246,183,76,0.18)]" />
+                <span
+                  className="h-3 w-3 rounded-full"
+                  style={{
+                    border: "1px solid var(--brand-accent)",
+                    background: "color-mix(in srgb, var(--brand-accent) 18%, transparent)",
+                  }}
+                />
                 Tu resultado
               </span>
               <span className="inline-flex items-center gap-2">
@@ -1005,7 +1015,11 @@ export default function TrayectoriaPage() {
               {earnedCertificates.map((cert) => (
                 <article
                   key={cert.contentId}
-                  className="rounded-[1.15rem] border border-violet-200 bg-violet-50 px-4 py-5 text-center"
+                  className="rounded-[1.15rem] px-4 py-5 text-center"
+                  style={{
+                    background: "color-mix(in srgb, var(--brand-accent) 12%, white)",
+                    border: "1px solid color-mix(in srgb, var(--brand-accent) 28%, transparent)",
+                  }}
                 >
                   <div
                     className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-white"
@@ -1019,7 +1033,13 @@ export default function TrayectoriaPage() {
                   <p className="mt-1 text-xs text-[var(--app-muted)]">
                     {cert.template.organizationName}
                   </p>
-                  <span className="mt-3 inline-flex rounded-full bg-violet-100 px-3 py-1 text-xs font-extrabold uppercase tracking-[0.18em] text-violet-700">
+                  <span
+                    className="mt-3 inline-flex rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-[0.18em]"
+                    style={{
+                      background: "color-mix(in srgb, var(--brand-accent) 22%, white)",
+                      color: "var(--brand-accent-strong)",
+                    }}
+                  >
                     Certificado
                   </span>
                   <button
@@ -1038,7 +1058,11 @@ export default function TrayectoriaPage() {
                         setDownloadingCertId(null);
                       }
                     }}
-                    className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-full border border-violet-200 bg-white px-3 py-1.5 text-xs font-bold text-violet-700 transition hover:bg-violet-100 disabled:opacity-60"
+                    className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-bold transition hover:opacity-80 disabled:opacity-60"
+                    style={{
+                      border: "1px solid color-mix(in srgb, var(--brand-accent) 32%, transparent)",
+                      color: "var(--brand-accent-strong)",
+                    }}
                   >
                     {downloadingCertId === cert.contentId ? (
                       <Loader2 size={12} className="animate-spin" />

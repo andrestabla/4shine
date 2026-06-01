@@ -443,7 +443,7 @@ export default function UsuarioDetallePage() {
                   {userTypeLabel(currentUserType)}
                 </span>
                 {currentUserType === 'leader_with_subscription' && detail.subscriptionPlanName && (
-                  <span className="app-badge" style={{ background: '#f2b24b', color: '#1c0f32' }}>
+                  <span className="app-badge" style={{ background: 'var(--brand-accent)', color: 'var(--brand-on-accent)' }}>
                     {detail.subscriptionPlanName}
                   </span>
                 )}
@@ -682,9 +682,9 @@ export default function UsuarioDetallePage() {
             <p className="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-[var(--app-muted)]/74">
               Permisos activos del rol base: {roleLabel(detail.primaryRole)}
             </p>
-            <div className="max-h-72 space-y-2 overflow-y-auto rounded-[1rem] border border-[rgba(91,52,117,0.08)] p-3">
+            <div className="max-h-72 space-y-2 overflow-y-auto rounded-[1rem] border border-[var(--brand-border)] p-3">
               {detail.rolePermissions.map((permission) => (
-                <div key={permission.moduleCode} className="rounded-[0.9rem] border border-[rgba(91,52,117,0.08)] p-2">
+                <div key={permission.moduleCode} className="rounded-[0.9rem] border border-[var(--brand-border)] p-2">
                   <p className="text-sm font-semibold text-[var(--app-ink)]">{permission.moduleName}</p>
                   <p className="mt-1 text-xs text-[var(--app-muted)]">
                     {[
@@ -744,7 +744,7 @@ export default function UsuarioDetallePage() {
             ) : (
               <div className="space-y-3">
                 {logs.map((log) => (
-                  <div key={log.auditId} className="rounded-[1rem] border border-[rgba(91,52,117,0.08)] p-4">
+                  <div key={log.auditId} className="rounded-[1rem] border border-[var(--brand-border)] p-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div>
                         <p className="text-lg font-bold text-[var(--app-ink)]">{log.action}</p>
