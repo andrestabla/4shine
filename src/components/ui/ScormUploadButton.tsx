@@ -139,10 +139,23 @@ export function ScormUploadButton({ onUploaded, disabled, className }: ScormUplo
       const CONCURRENCY = 4;
       let done = 0;
 
+      const VERCEL_BODY_LIMIT = 4.5 * 1024 * 1024; // 4.5 MB
+
       const uploadOne = async (zipPath: string, fileIndex: number): Promise<void> => {
         const zipFile = zip.file(zipPath);
         if (!zipFile) return;
         const body = await zipFile.async('arraybuffer');
+        const sizeMb = (body.byteLength / (1024 * 1024)).toFixed(2);
+
+        // Guard explícito antes de enviar: Vercel rechaza payloads > 4.5MB
+        // y devuelve un 413 sin JSON, que el catch general no puede mapear
+        // a un error útil para el usuario.
+        if (body.byteLength > VERCEL_BODY_LIMIT) {
+          throw new Error(
+            `El archivo "${zipPath}" pesa ${sizeMb} MB y excede el límite de 4.5 MB por archivo del servidor. Reduce el tamaño del activo o divide el paquete.`,
+          );
+        }
+
         const fd = new FormData();
         fd.append('prefix', prefix);
         fd.append('count', '1');
@@ -155,7 +168,12 @@ export function ScormUploadButton({ onUploaded, disabled, className }: ScormUplo
         });
         if (!res.ok) {
           const payload = await safeJson<{ error?: string }>(res).catch(() => ({}));
-          throw new Error((payload as { error?: string }).error ?? `Error subiendo archivo ${fileIndex + 1} (${res.status})`);
+          const serverError = (payload as { error?: string }).error;
+          throw new Error(
+            serverError
+              ? `Archivo "${zipPath}" (${sizeMb} MB): ${serverError}`
+              : `Error subiendo "${zipPath}" (${sizeMb} MB, archivo ${fileIndex + 1}/${fileCount}, status ${res.status})`,
+          );
         }
       };
 
