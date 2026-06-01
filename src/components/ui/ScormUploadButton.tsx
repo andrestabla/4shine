@@ -138,14 +138,13 @@ export function ScormUploadButton({ onUploaded, disabled, className }: ScormUplo
 
       const { prefix, files: presignedFiles, corsConfigured, corsError } = presignPayload.data;
 
-      // Si el server no pudo configurar CORS en el bucket R2, el browser
-      // bloqueará todos los PUT con "Failed to fetch". Detectar y dar
-      // instrucciones explícitas en lugar de fallar 737 veces.
+      // Si el server no pudo autoconfigurar CORS, probablemente el token R2
+      // no tiene s3:PutBucketCors. Asumimos que el admin configuró CORS
+      // manualmente y procedemos. Si CORS realmente está mal, los PUTs
+      // individuales fallarán y verás un error por archivo con el detalle.
       if (corsConfigured === false) {
-        throw new Error(
-          `No se pudo configurar CORS en el bucket R2 automáticamente${
-            corsError ? ` (${corsError})` : ''
-          }. El token R2 necesita permiso s3:PutBucketCors. Configura CORS manualmente en el dashboard de Cloudflare con AllowedOrigins=["https://www.4shine.co"], AllowedMethods=[PUT,POST,GET,HEAD], AllowedHeaders=["*"].`,
+        console.warn(
+          `[scorm-upload] CORS no se pudo verificar automáticamente (${corsError ?? 'unknown'}). Procediendo asumiendo CORS configurado manualmente en R2.`,
         );
       }
       const urlByPath = new Map(
