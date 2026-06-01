@@ -143,10 +143,10 @@ export default async function WorkbookPage({ params }: { params: Promise<{ slug:
                                 <span>Progreso digital</span>
                                 <span>{workbook.progress}%</span>
                             </div>
-                            <div className="h-2 overflow-hidden rounded-full bg-[rgba(91,52,117,0.12)]">
+                            <div className="h-2 overflow-hidden rounded-full" style={{ background: 'color-mix(in srgb, var(--brand-primary) 12%, transparent)' }}>
                                 <div
-                                    className="h-full rounded-full bg-gradient-to-r from-amber-500 to-orange-500"
-                                    style={{ width: `${workbook.progress}%` }}
+                                    className="h-full rounded-full"
+                                    style={{ width: `${workbook.progress}%`, background: 'var(--brand-accent)' }}
                                 />
                             </div>
                         </div>

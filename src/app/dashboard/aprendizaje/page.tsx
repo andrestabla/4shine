@@ -493,7 +493,7 @@ function ResourceTagComposer({
             tags.map((tag) => (
               <span
                 key={tag}
-                className="inline-flex items-center gap-2 rounded-full border border-[rgba(95,52,113,0.14)] bg-white px-3 py-1.5 text-sm font-medium text-[var(--app-ink)]"
+                className="inline-flex items-center gap-2 rounded-full border border-[var(--brand-border)] bg-white px-3 py-1.5 text-sm font-medium text-[var(--app-ink)]"
               >
                 {tag}
                 <button
@@ -558,7 +558,7 @@ function LearningEditorStepNav({
             onClick={() => onSelect(index)}
             className={`min-w-[13rem] rounded-[20px] border px-4 py-3 text-left transition ${
               isActive
-                ? "border-[#5a2f6b] bg-[rgba(90,47,107,0.08)] shadow-[0_8px_24px_rgba(55,32,80,0.06)]"
+                ? "border-[var(--brand-primary)] bg-[color-mix(in_srgb,var(--brand-primary)_8%,transparent)] shadow-[0_8px_24px_rgba(0,0,0,0.06)]"
                 : "border-[var(--app-border)] bg-white/84 hover:border-[var(--app-border-strong)]"
             }`}
           >
@@ -568,7 +568,7 @@ function LearningEditorStepNav({
                   step.ready
                     ? "bg-emerald-100 text-emerald-700"
                     : isActive
-                      ? "bg-[#5a2f6b] text-white"
+                      ? "bg-[var(--brand-primary)] text-white"
                       : "bg-[var(--app-surface-muted)] text-[var(--app-muted)]"
                 }`}
               >
@@ -619,7 +619,15 @@ function LearningEditorSupportRail({
 }) {
   return (
     <div className="space-y-4">
-      <div className="rounded-[24px] border border-[rgba(95,52,113,0.12)] bg-[linear-gradient(135deg,rgba(81,40,95,0.96),rgba(121,76,145,0.92),rgba(243,183,209,0.9))] p-5 text-white shadow-[0_22px_40px_rgba(55,32,80,0.14)]">
+      <div
+        className="rounded-[24px] border p-5 text-white"
+        style={{
+          borderColor: 'var(--brand-border)',
+          background:
+            'linear-gradient(135deg, var(--brand-dark) 0%, var(--brand-primary) 60%, var(--brand-accent) 100%)',
+          boxShadow: '0 22px 40px rgba(0,0,0,0.14)',
+        }}
+      >
         <p className="text-xs font-black uppercase tracking-[0.24em] text-white/72">
           Vista rápida
         </p>
@@ -662,7 +670,7 @@ function LearningEditorSupportRail({
       {isCourseEditor && (
         <div className="rounded-[24px] border border-[var(--app-border)] bg-white/90 p-5">
           <div className="flex items-center gap-2">
-            <Layers3 size={18} className="text-[#5f3471]" />
+            <Layers3 size={18} className="text-[var(--brand-primary)]" />
             <h4 className="font-semibold text-[var(--app-ink)]">
               Resumen del curso
             </h4>
@@ -720,7 +728,7 @@ function LearningEditorSupportRail({
 
       <div className="rounded-[24px] border border-[var(--app-border)] bg-white/90 p-5">
         <div className="flex items-center gap-2">
-          <Lightbulb size={18} className="text-[#5f3471]" />
+          <Lightbulb size={18} className="text-[var(--brand-primary)]" />
           <h4 className="font-semibold text-[var(--app-ink)]">
             Recomendación editorial
           </h4>
@@ -801,16 +809,16 @@ function clampPercent(value: number | null | undefined): number {
 function workbookProgressClasses(progress: number): string {
   if (progress >= 100) return "bg-gradient-to-r from-emerald-500 to-teal-500";
   if (progress >= 60) return "bg-gradient-to-r from-blue-600 to-sky-500";
-  if (progress >= 30) return "bg-gradient-to-r from-amber-500 to-orange-500";
-  return "bg-gradient-to-r from-[#a291bb] to-[#c9bcdb]";
+  if (progress >= 30) return "bg-[var(--brand-accent)]";
+  return "bg-[var(--brand-surface-strong)]";
 }
 
 function workbookVisualClasses(sequenceNo: number): string {
   const themes = [
-    "bg-[linear-gradient(135deg,#4f2360_0%,#6d3c80_56%,#f0b1cd_100%)] text-white",
-    "bg-[linear-gradient(135deg,#5d2d63_0%,#8f72dd_48%,#d9d0ff_100%)] text-white",
-    "bg-[linear-gradient(135deg,#4a2a55_0%,#c0709b_54%,#f6d5e8_100%)] text-white",
-    "bg-[linear-gradient(135deg,#40204d_0%,#7257b8_48%,#b8ecff_100%)] text-white",
+    "bg-[linear-gradient(135deg,var(--brand-darker)_0%,var(--brand-primary)_56%,var(--brand-accent)_100%)] text-white",
+    "bg-[linear-gradient(135deg,var(--brand-dark)_0%,var(--brand-primary)_48%,var(--brand-accent-soft)_100%)] text-white",
+    "bg-[linear-gradient(135deg,var(--brand-darker)_0%,var(--brand-secondary)_54%,var(--brand-accent)_100%)] text-white",
+    "bg-[linear-gradient(135deg,var(--brand-darker)_0%,var(--brand-primary)_48%,var(--brand-accent-strong)_100%)] text-white",
   ];
 
   return themes[(sequenceNo - 1) % themes.length];
@@ -1993,7 +2001,7 @@ export default function AprendizajePage() {
               href={buildLearningTabHref(tab.key)}
               className={`rounded-[22px] border px-5 py-4 transition ${
                 isActive
-                  ? "border-[#5a2f6b] bg-[rgba(90,47,107,0.08)] shadow-[0_18px_38px_rgba(55,32,80,0.06)]"
+                  ? "border-[var(--brand-primary)] bg-[color-mix(in_srgb,var(--brand-primary)_8%,transparent)] shadow-[0_18px_38px_rgba(0,0,0,0.06)]"
                   : "border-[var(--app-border)] bg-white/82 hover:border-[var(--app-border-strong)] hover:bg-white"
               }`}
             >
@@ -2001,8 +2009,8 @@ export default function AprendizajePage() {
                 <div
                   className={`rounded-[14px] p-3 ${
                     isActive
-                      ? "bg-[rgba(90,47,107,0.12)] text-[#4f2360]"
-                      : "bg-[var(--app-chip)] text-[#4f2360]"
+                      ? "bg-[color-mix(in_srgb,var(--brand-primary)_12%,transparent)] text-[var(--brand-primary)]"
+                      : "bg-[var(--app-chip)] text-[var(--brand-primary)]"
                   }`}
                 >
                   <Icon size={18} />
@@ -2030,10 +2038,16 @@ export default function AprendizajePage() {
           {(isResourcesTab || isCoursesTab) && (
             <section className="space-y-4">
               {isOpenLeader && isResourcesTab ? (
-                <div className="flex items-center gap-3 rounded-[1rem] border border-[#5b2d8a]/10 bg-[#f8f3ff] px-4 py-3 text-sm text-[var(--app-muted)]">
+                <div
+                  className="flex items-center gap-3 rounded-[1rem] border px-4 py-3 text-sm text-[var(--app-muted)]"
+                  style={{
+                    borderColor: 'color-mix(in srgb, var(--brand-primary) 12%, transparent)',
+                    background: 'var(--brand-surface)',
+                  }}
+                >
                   <span className="shrink-0 text-base">✦</span>
                   <span>
-                    Estás viendo solo recursos <span className="font-semibold text-[#5b2d8a]">free</span>. Los cursos premium y la experiencia completa se activan con el programa 4Shine.
+                    Estás viendo solo recursos <span className="font-semibold text-[var(--brand-primary)]">free</span>. Los cursos premium y la experiencia completa se activan con el programa 4Shine.
                   </span>
                 </div>
               ) : null}
@@ -2042,9 +2056,9 @@ export default function AprendizajePage() {
                 <div className="rounded-[1.5rem] border border-[var(--app-border)] bg-white px-6 py-8 text-center">
                   <div
                     className="mx-auto flex h-12 w-12 items-center justify-center rounded-[0.9rem]"
-                    style={{ background: "linear-gradient(135deg, #f0e8ff 0%, #fce4f3 100%)" }}
+                    style={{ background: "var(--brand-surface-strong)" }}
                   >
-                    <BookOpen size={20} style={{ color: "#7c3fa8" }} />
+                    <BookOpen size={20} style={{ color: "var(--brand-primary)" }} />
                   </div>
                   <p className="mt-4 text-base font-extrabold text-[var(--app-ink)]">Cursos disponibles con el programa</p>
                   <p className="mx-auto mt-2 max-w-xs text-sm text-[var(--app-muted)]">
@@ -2054,7 +2068,7 @@ export default function AprendizajePage() {
                     href="https://www.4shine.co/planes-precios"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#5b2d8a] px-5 py-2.5 text-sm font-bold text-white transition hover:opacity-90"
+                    className="mt-5 inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-5 py-2.5 text-sm font-bold text-white transition hover:opacity-90"
                   >
                     Activar programa · $3,000 USD
                   </a>
@@ -2102,7 +2116,7 @@ export default function AprendizajePage() {
                           : "xl:grid-cols-2"
                     }`}
                   >
-                    <div className="rounded-[18px] border border-[var(--app-border)] bg-white/82 px-4 py-3 shadow-[0_16px_36px_rgba(55,32,80,0.05)] xl:col-span-2">
+                    <div className="rounded-[18px] border border-[var(--app-border)] bg-white/82 px-4 py-3 shadow-[0_16px_36px_rgba(0,0,0,0.05)] xl:col-span-2">
                       <label className="flex items-center gap-2 text-sm text-[var(--app-muted)]">
                         <Search size={16} />
                         <input
@@ -2239,7 +2253,7 @@ export default function AprendizajePage() {
                                 type="button"
                                 className={
                                   pageNumber === resourcePage
-                                    ? "inline-flex h-11 min-w-11 items-center justify-center rounded-full bg-[#4f2360] px-4 text-sm font-semibold text-white"
+                                    ? "inline-flex h-11 min-w-11 items-center justify-center rounded-full bg-[var(--brand-primary)] px-4 text-sm font-semibold text-white"
                                     : "inline-flex h-11 min-w-11 items-center justify-center rounded-full border border-[var(--app-border)] bg-white px-4 text-sm font-semibold text-[var(--app-ink)]"
                                 }
                                 onClick={() => setResourcePage(pageNumber)}
@@ -2293,7 +2307,7 @@ export default function AprendizajePage() {
                 <div className="rounded-[1.5rem] border border-[var(--app-border)] bg-white px-6 py-8 text-center">
                   <div
                     className="mx-auto flex h-12 w-12 items-center justify-center rounded-[0.9rem]"
-                    style={{ background: "linear-gradient(135deg, #f0e8ff 0%, #fce4f3 100%)" }}
+                    style={{ background: "var(--brand-surface-strong)" }}
                   >
                     <span className="text-xl">📓</span>
                   </div>
@@ -2305,7 +2319,7 @@ export default function AprendizajePage() {
                     href="https://www.4shine.co/planes-precios"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#5b2d8a] px-5 py-2.5 text-sm font-bold text-white transition hover:opacity-90"
+                    className="mt-5 inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-5 py-2.5 text-sm font-bold text-white transition hover:opacity-90"
                   >
                     Activar programa · $3,000 USD
                   </a>
@@ -2313,7 +2327,7 @@ export default function AprendizajePage() {
               ) : (
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.7fr)_minmax(260px,0.7fr)]">
-                    <div className="rounded-[18px] border border-[var(--app-border)] bg-white/82 px-4 py-3 shadow-[0_16px_36px_rgba(55,32,80,0.05)] md:col-span-2">
+                    <div className="rounded-[18px] border border-[var(--app-border)] bg-white/82 px-4 py-3 shadow-[0_16px_36px_rgba(0,0,0,0.05)] md:col-span-2">
                       <label className="flex items-center gap-2 text-sm text-[var(--app-muted)]">
                         <Search size={16} />
                         <input
@@ -2327,7 +2341,7 @@ export default function AprendizajePage() {
                       </label>
                     </div>
                     {currentRole === "lider" ? (
-                      <div className="flex items-center rounded-[18px] border border-[var(--app-border)] bg-white/82 px-4 py-3 text-sm text-[var(--app-muted)] shadow-[0_16px_36px_rgba(55,32,80,0.05)]">
+                      <div className="flex items-center rounded-[18px] border border-[var(--app-border)] bg-white/82 px-4 py-3 text-sm text-[var(--app-muted)] shadow-[0_16px_36px_rgba(0,0,0,0.05)]">
                         <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--app-muted)]">
                           Tu ruta
                         </span>
@@ -2372,7 +2386,7 @@ export default function AprendizajePage() {
                           <Link
                             key={workbook.workbookId}
                             href={buildWorkbookDigitalHref(workbook)}
-                            className="group overflow-hidden rounded-[24px] border border-[var(--app-border)] bg-white/82 text-left text-[var(--app-ink)] shadow-[0_18px_38px_rgba(55,32,80,0.06)] transition hover:-translate-y-1 hover:border-[var(--app-border-strong)] hover:shadow-[0_24px_44px_rgba(55,32,80,0.1)]"
+                            className="group overflow-hidden rounded-[24px] border border-[var(--app-border)] bg-white/82 text-left text-[var(--app-ink)] shadow-[0_18px_38px_rgba(0,0,0,0.06)] transition hover:-translate-y-1 hover:border-[var(--app-border-strong)] hover:shadow-[0_24px_44px_rgba(0,0,0,0.10)]"
                           >
                             <div
                               className={`relative min-h-[220px] p-5 ${workbookVisualClasses(workbook.sequenceNo)}`}
@@ -2484,7 +2498,7 @@ export default function AprendizajePage() {
                   return (
                     <div
                       key={template.templateId}
-                      className="overflow-hidden rounded-[24px] border border-[var(--app-border)] bg-white/90 shadow-[0_18px_38px_rgba(55,32,80,0.06)]"
+                      className="overflow-hidden rounded-[24px] border border-[var(--app-border)] bg-white/90 shadow-[0_18px_38px_rgba(0,0,0,0.06)]"
                     >
                       <div
                         className="p-5"
@@ -2851,7 +2865,7 @@ export default function AprendizajePage() {
             );
             if (!builderTemplate) return null;
             return (
-              <div className="fixed inset-0 z-[230] flex flex-col bg-[#f0eef8]">
+              <div className="fixed inset-0 z-[230] flex flex-col bg-[var(--brand-surface-strong)]">
                 <CertificateBuilder
                   template={builderTemplate}
                   onSave={async (elements) => {
@@ -2875,7 +2889,7 @@ export default function AprendizajePage() {
         isResourceModalOpen &&
         typeof document !== "undefined" &&
         createPortal(
-          <div className="fixed inset-0 z-[220] bg-[linear-gradient(180deg,#fcfbff_0%,#f7f1ff_100%)]">
+          <div className="fixed inset-0 z-[220] bg-[var(--brand-surface)]">
           <div
             role="dialog"
             aria-modal="true"
@@ -2954,7 +2968,7 @@ export default function AprendizajePage() {
                       </p>
                       <div className="mt-3 h-2 overflow-hidden rounded-full bg-[var(--app-surface-muted)]">
                         <div
-                          className="h-full rounded-full bg-[linear-gradient(90deg,#5a2f6b_0%,#c789b8_100%)] transition-all"
+                          className="h-full rounded-full bg-[linear-gradient(90deg,var(--brand-primary)_0%,var(--brand-accent)_100%)] transition-all"
                           style={{
                             width: `${
                               ((resourceEditorStepIndex + 1) /
@@ -2991,7 +3005,7 @@ export default function AprendizajePage() {
               <div className="mx-auto grid min-h-0 w-full max-w-[1540px] flex-1 grid-cols-1 2xl:grid-cols-[minmax(0,1fr)_22rem]">
                 <div className="min-h-0 overflow-y-auto px-4 py-5 sm:px-6 lg:px-8 lg:py-6">
                   <div className="space-y-5">
-                    <div className="2xl:hidden rounded-[24px] border border-[var(--app-border)] bg-white/90 p-4 shadow-[0_18px_38px_rgba(55,32,80,0.05)]">
+                    <div className="2xl:hidden rounded-[24px] border border-[var(--app-border)] bg-white/90 p-4 shadow-[0_18px_38px_rgba(0,0,0,0.05)]">
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--app-muted)]">
@@ -3020,11 +3034,11 @@ export default function AprendizajePage() {
 
                     {isIdentityEditorStep && (
                       <>
-                    <section className="rounded-[24px] border border-[var(--app-border)] bg-white/88 p-5 shadow-[0_18px_38px_rgba(55,32,80,0.05)]">
+                    <section className="rounded-[24px] border border-[var(--app-border)] bg-white/88 p-5 shadow-[0_18px_38px_rgba(0,0,0,0.05)]">
                       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                         <div className="max-w-3xl">
                           <div className="flex items-center gap-3">
-                            <div className="rounded-[16px] bg-[var(--app-chip)] p-3 text-[#4f2360]">
+                            <div className="rounded-[16px] bg-[var(--app-chip)] p-3 text-[var(--brand-primary)]">
                               <Sparkles size={18} />
                             </div>
                             <div>
@@ -3084,20 +3098,20 @@ export default function AprendizajePage() {
                         <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
                           <div className="rounded-[20px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4">
                             <div className="flex flex-wrap items-center gap-2">
-                              <span className="rounded-full border border-[rgba(95,52,113,0.14)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--app-ink)]">
+                              <span className="rounded-full border border-[var(--brand-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--app-ink)]">
                                 {metadataAssistantResult.source.youtubeUsed
                                   ? "YouTube verificado"
                                   : "Sugerencia editorial IA"}
                               </span>
                               {metadataAssistantResult.suggestion.pillar && (
-                                <span className="rounded-full border border-[rgba(95,52,113,0.14)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--app-ink)]">
+                                <span className="rounded-full border border-[var(--brand-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--app-ink)]">
                                   {getPillarLabelFromCode(
                                     metadataAssistantResult.suggestion.pillar,
                                   )}
                                 </span>
                               )}
                               {metadataAssistantResult.suggestion.stage && (
-                                <span className="rounded-full border border-[rgba(95,52,113,0.14)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--app-ink)]">
+                                <span className="rounded-full border border-[var(--brand-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--app-ink)]">
                                   {metadataAssistantResult.suggestion.stage}
                                 </span>
                               )}
@@ -3163,9 +3177,9 @@ export default function AprendizajePage() {
                       )}
                     </section>
 
-                    <section className="rounded-[24px] border border-[var(--app-border)] bg-white/88 p-5 shadow-[0_18px_38px_rgba(55,32,80,0.05)]">
+                    <section className="rounded-[24px] border border-[var(--app-border)] bg-white/88 p-5 shadow-[0_18px_38px_rgba(0,0,0,0.05)]">
                       <div className="flex items-center gap-3">
-                        <div className="rounded-[16px] bg-[var(--app-chip)] p-3 text-[#4f2360]">
+                        <div className="rounded-[16px] bg-[var(--app-chip)] p-3 text-[var(--brand-primary)]">
                           <Lightbulb size={18} />
                         </div>
                         <div>
@@ -3188,7 +3202,7 @@ export default function AprendizajePage() {
                               type="button"
                               className={`rounded-[20px] border px-4 py-4 text-left transition ${
                                 !isCourseEditor
-                                  ? "border-[#5a2f6b] bg-[rgba(90,47,107,0.08)] text-[var(--app-ink)]"
+                                  ? "border-[var(--brand-primary)] bg-[color-mix(in_srgb,var(--brand-primary)_8%,transparent)] text-[var(--app-ink)]"
                                   : "border-[var(--app-border)] bg-white text-[var(--app-muted)]"
                               }`}
                               onClick={() => onChangeEditorKind("resource")}
@@ -3202,7 +3216,7 @@ export default function AprendizajePage() {
                               type="button"
                               className={`rounded-[20px] border px-4 py-4 text-left transition ${
                                 isCourseEditor
-                                  ? "border-[#5a2f6b] bg-[rgba(90,47,107,0.08)] text-[var(--app-ink)]"
+                                  ? "border-[var(--brand-primary)] bg-[color-mix(in_srgb,var(--brand-primary)_8%,transparent)] text-[var(--app-ink)]"
                                   : "border-[var(--app-border)] bg-white text-[var(--app-muted)]"
                               }`}
                               onClick={() => onChangeEditorKind("course")}
@@ -3480,9 +3494,9 @@ export default function AprendizajePage() {
 
                     {isAssetEditorStep && (
                       <>
-                    <section className="rounded-[24px] border border-[var(--app-border)] bg-white/88 p-5 shadow-[0_18px_38px_rgba(55,32,80,0.05)]">
+                    <section className="rounded-[24px] border border-[var(--app-border)] bg-white/88 p-5 shadow-[0_18px_38px_rgba(0,0,0,0.05)]">
                       <div className="flex items-center gap-3">
-                        <div className="rounded-[16px] bg-[var(--app-chip)] p-3 text-[#4f2360]">
+                        <div className="rounded-[16px] bg-[var(--app-chip)] p-3 text-[var(--brand-primary)]">
                           <FileUp size={18} />
                         </div>
                         <div>
@@ -3571,7 +3585,7 @@ export default function AprendizajePage() {
                               href={uploadedResourceAsset.url}
                               target="_blank"
                               rel="noreferrer"
-                              className="inline-flex items-center gap-2 text-sm font-semibold text-[#4f2360] transition hover:text-[#3d194a]"
+                              className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--brand-primary)] transition hover:text-[var(--brand-darker)]"
                             >
                               <Link2 size={14} />
                               Ver activo cargado
@@ -3597,10 +3611,10 @@ export default function AprendizajePage() {
                     </section>
 
                     {isCourseEditor && (
-                      <section className="rounded-[24px] border border-[var(--app-border)] bg-white/88 p-5 shadow-[0_18px_38px_rgba(55,32,80,0.05)]">
+                      <section className="rounded-[24px] border border-[var(--app-border)] bg-white/88 p-5 shadow-[0_18px_38px_rgba(0,0,0,0.05)]">
                         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                           <div className="flex items-center gap-3">
-                            <div className="rounded-[16px] bg-[var(--app-chip)] p-3 text-[#4f2360]">
+                            <div className="rounded-[16px] bg-[var(--app-chip)] p-3 text-[var(--brand-primary)]">
                               <Layers3 size={18} />
                             </div>
                             <div>
@@ -3840,9 +3854,9 @@ export default function AprendizajePage() {
                     )}
 
                     {isTaxonomyEditorStep && (
-                    <section className="rounded-[24px] border border-[var(--app-border)] bg-white/88 p-5 shadow-[0_18px_38px_rgba(55,32,80,0.05)]">
+                    <section className="rounded-[24px] border border-[var(--app-border)] bg-white/88 p-5 shadow-[0_18px_38px_rgba(0,0,0,0.05)]">
                       <div className="flex items-center gap-3">
-                        <div className="rounded-[16px] bg-[var(--app-chip)] p-3 text-[#4f2360]">
+                        <div className="rounded-[16px] bg-[var(--app-chip)] p-3 text-[var(--brand-primary)]">
                           <Layers3 size={18} />
                         </div>
                         <div>
@@ -3980,7 +3994,7 @@ export default function AprendizajePage() {
                                 .slice(0, 4)
                                 .map((behavior) => (
                                   <li key={behavior} className="flex gap-2">
-                                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-[#7d5a92]" />
+                                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-[var(--brand-primary)]" />
                                     <span>{behavior}</span>
                                   </li>
                                 ))}
@@ -4020,9 +4034,9 @@ export default function AprendizajePage() {
                     />
 
                     {isCourseEditor && (
-                      <section className="rounded-[24px] border border-[var(--app-border)] bg-white/88 p-5 shadow-[0_18px_38px_rgba(55,32,80,0.05)]">
+                      <section className="rounded-[24px] border border-[var(--app-border)] bg-white/88 p-5 shadow-[0_18px_38px_rgba(0,0,0,0.05)]">
                         <div className="flex items-center gap-3">
-                          <div className="rounded-[16px] bg-[var(--app-chip)] p-3 text-[#4f2360]">
+                          <div className="rounded-[16px] bg-[var(--app-chip)] p-3 text-[var(--brand-primary)]">
                             <Award size={18} />
                           </div>
                           <div>

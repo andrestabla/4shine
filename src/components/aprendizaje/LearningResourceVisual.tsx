@@ -32,55 +32,64 @@ interface LearningResourceVisualProps {
 function visualTheme(contentType: LearningResourceRecord["contentType"]) {
   if (contentType === "scorm") {
     return {
-      classes:
-        "bg-[linear-gradient(135deg,#43204f_0%,#6f4390_52%,#efb3d0_100%)] text-white",
+      classes: "text-white",
+      style: {
+        background:
+          "linear-gradient(135deg, var(--brand-darker) 0%, var(--brand-primary) 52%, var(--brand-accent) 100%)",
+      } as React.CSSProperties,
       label: "Curso",
       Icon: Layers3,
     };
   }
   if (contentType === "video") {
     return {
-      classes:
-        "bg-[linear-gradient(135deg,#281836_0%,#5e3c80_54%,#d3d8ff_100%)] text-white",
+      classes: "text-white",
+      style: {
+        background:
+          "linear-gradient(135deg, var(--brand-darker) 0%, var(--brand-secondary) 54%, var(--brand-primary) 100%)",
+      } as React.CSSProperties,
       label: "Video",
       Icon: MonitorPlay,
     };
   }
   if (contentType === "podcast") {
     return {
-      classes:
-        "bg-[linear-gradient(135deg,#352043_0%,#7d4f85_54%,#f0c7d6_100%)] text-white",
+      classes: "text-white",
+      style: {
+        background:
+          "linear-gradient(135deg, var(--brand-dark) 0%, var(--brand-primary) 54%, var(--brand-accent-soft) 100%)",
+      } as React.CSSProperties,
       label: "Pódcast",
       Icon: Headphones,
     };
   }
   if (contentType === "pdf") {
     return {
-      classes:
-        "bg-[linear-gradient(135deg,#f7f1ff_0%,#efe4fb_100%)] text-[var(--app-ink)]",
+      classes: "text-[var(--app-ink)]",
+      style: { background: "var(--brand-surface-strong)" } as React.CSSProperties,
       label: "Documento",
       Icon: FileText,
     };
   }
   if (contentType === "ppt") {
     return {
-      classes:
-        "bg-[linear-gradient(135deg,#fff7ef_0%,#fde8dc_100%)] text-[var(--app-ink)]",
+      classes: "text-[var(--app-ink)]",
+      style: { background: "var(--brand-accent-soft)" } as React.CSSProperties,
       label: "Presentación",
       Icon: Presentation,
     };
   }
   if (contentType === "article") {
     return {
-      classes:
-        "bg-[linear-gradient(135deg,#eef8ff_0%,#ddeffc_100%)] text-[var(--app-ink)]",
+      classes: "text-[var(--app-ink)]",
+      style: { background: "var(--brand-surface)" } as React.CSSProperties,
       label: "Artículo",
       Icon: Newspaper,
     };
   }
   return {
-    classes:
-      "bg-[linear-gradient(135deg,#f5f1ff_0%,#e7ddfb_100%)] text-[var(--app-ink)]",
+    classes: "text-[var(--app-ink)]",
+    style: { background: "var(--brand-surface-strong)" } as React.CSSProperties,
     label: "Recurso",
     Icon: BookOpen,
   };
@@ -100,12 +109,18 @@ export function LearningResourceVisual({
   return (
     <div
       className={[
-        "relative overflow-hidden rounded-[22px] border border-white/15 shadow-[0_16px_36px_rgba(55,32,80,0.10)]",
-        hasThumbnail
-          ? "bg-[linear-gradient(135deg,#342045_0%,#8a5da5_62%,#e7b0cf_100%)] text-white"
-          : theme.classes,
+        "relative overflow-hidden rounded-[22px] border border-white/15 shadow-[0_16px_36px_rgba(0,0,0,0.10)]",
+        hasThumbnail ? "text-white" : theme.classes,
         isHero ? "min-h-[220px] p-5 sm:min-h-[260px] sm:p-7" : "min-h-[184px] p-4",
       ].join(" ")}
+      style={
+        hasThumbnail
+          ? {
+              background:
+                "linear-gradient(135deg, var(--brand-darker) 0%, var(--brand-primary) 62%, var(--brand-accent) 100%)",
+            }
+          : theme.style
+      }
     >
       {hasThumbnail ? (
         <>
@@ -114,7 +129,7 @@ export function LearningResourceVisual({
             style={{ backgroundImage: `url("${thumbnailUrl}")` }}
             aria-hidden="true"
           />
-          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(37,24,50,0.18)_0%,rgba(37,24,50,0.38)_40%,rgba(37,24,50,0.82)_100%)]" />
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.18)_0%,rgba(0,0,0,0.40)_40%,rgba(0,0,0,0.78)_100%)]" />
         </>
       ) : (
         <>

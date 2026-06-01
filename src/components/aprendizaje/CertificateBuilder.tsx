@@ -135,7 +135,7 @@ function ElementOnCanvas({
     height: el.height * scale,
     boxSizing: 'border-box',
     cursor: el.locked ? 'default' : 'move',
-    outline: selected ? '2px solid #6366f1' : '1px solid transparent',
+    outline: selected ? '2px solid var(--brand-primary)' : '1px solid transparent',
     outlineOffset: selected ? 1 : 0,
     zIndex: selected ? 20 : 10,
     userSelect: 'none',
@@ -300,7 +300,7 @@ function PropertiesPanel({
                 ['{{organizationName}}', 'Organización'],
               ].map(([v, label]) => (
                 <button key={v} onClick={() => onChange({ content: (el.content ?? '') + v })}
-                  className="rounded-[4px] bg-white border border-[var(--app-border)] px-1.5 py-0.5 text-[9px] font-mono text-[var(--app-muted)] hover:border-indigo-400 hover:text-indigo-600">
+                  className="rounded-[4px] bg-white border border-[var(--app-border)] px-1.5 py-0.5 text-[9px] font-mono text-[var(--app-muted)] hover:border-[var(--brand-border-strong)] hover:text-[var(--brand-primary)]">
                   {label}
                 </button>
               ))}
@@ -451,7 +451,7 @@ export function CertificateBuilder({ template, onSave, onCancel }: CertificateBu
             <button
               key={el.id}
               onClick={() => setSelectedId(el.id)}
-              className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors ${selectedId === el.id ? 'bg-indigo-50 text-indigo-700' : 'text-[var(--app-fg)] hover:bg-[var(--app-subtle)]'}`}
+              className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors ${selectedId === el.id ? 'bg-[var(--brand-surface-strong)] text-[var(--brand-primary)]' : 'text-[var(--app-fg)] hover:bg-[var(--app-subtle)]'}`}
             >
               <GripVertical size={11} className="shrink-0 text-[var(--app-muted)]" />
               <span className="min-w-0 flex-1 truncate">{el.label}</span>
@@ -476,7 +476,7 @@ export function CertificateBuilder({ template, onSave, onCancel }: CertificateBu
       </div>
 
       {/* ── Center: canvas ─────────────────────────────────────────────────── */}
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-[#f0eef8]">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-[var(--brand-surface-strong)]">
         {/* Toolbar */}
         <div className="flex items-center justify-between border-b border-[var(--app-border)] bg-white px-4 py-2">
           <div className="flex items-center gap-3">
@@ -497,7 +497,7 @@ export function CertificateBuilder({ template, onSave, onCancel }: CertificateBu
         {/* Canvas container */}
         <div className="flex flex-1 items-center justify-center overflow-auto p-6">
           <div ref={containerRef} style={{ width: '100%', maxWidth: CERT_W }}>
-            <div style={{ position: 'relative', width: CERT_W * scale, height: CERT_H * scale, boxShadow: '0 8px 40px rgba(55,32,80,0.18)', borderRadius: 4, overflow: 'hidden' }}
+            <div style={{ position: 'relative', width: CERT_W * scale, height: CERT_H * scale, boxShadow: '0 8px 40px rgba(0,0,0,0.18)', borderRadius: 4, overflow: 'hidden' }}
               onClick={() => setSelectedId(null)}>
               {/* Background layer */}
               <div style={{ position: 'absolute', inset: 0, transformOrigin: 'top left', transform: `scale(${scale})`, width: CERT_W, height: CERT_H }}>

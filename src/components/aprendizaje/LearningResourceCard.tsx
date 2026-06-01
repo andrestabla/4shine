@@ -38,7 +38,7 @@ export function LearningResourceCard({
     .join(" · ");
 
   return (
-    <div className="group relative flex h-full flex-col overflow-hidden rounded-[24px] border border-[var(--app-border)] bg-white/92 shadow-[0_18px_38px_rgba(55,32,80,0.05)] transition hover:-translate-y-0.5 hover:border-[var(--app-border-strong)] hover:shadow-[0_24px_48px_rgba(55,32,80,0.08)]">
+    <div className="group relative flex h-full flex-col overflow-hidden rounded-[24px] border border-[var(--app-border)] bg-white/92 shadow-[0_18px_38px_rgba(0,0,0,0.05)] transition hover:-translate-y-0.5 hover:border-[var(--app-border-strong)] hover:shadow-[0_24px_48px_rgba(0,0,0,0.08)]">
       {canManage ? (
         <div className="absolute right-4 top-4 z-10 flex translate-y-[-10px] items-center gap-1 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
           {onEdit && (
@@ -75,7 +75,13 @@ export function LearningResourceCard({
             {learningStatusLabel(resource.status)}
           </span>
           {resource.isRecommended ? (
-            <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700">
+            <span
+              className="rounded-full px-2.5 py-1 text-[11px] font-semibold"
+              style={{
+                background: 'var(--brand-accent)',
+                color: 'var(--brand-on-accent)',
+              }}
+            >
               Recomendado
             </span>
           ) : null}

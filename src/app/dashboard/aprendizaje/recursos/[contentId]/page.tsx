@@ -959,7 +959,8 @@ export default function LearningResourceDetailPage() {
             onClick={() =>
               isScormPackage ? setScormSidebarOpen((prev) => !prev) : setIsMobileMenuOpen(true)
             }
-            className="flex h-10 items-center gap-2 rounded-full bg-[var(--brand-primary)] px-4 text-[11px] font-bold text-white shadow-lg shadow-orange-500/20"
+            className="flex h-10 items-center gap-2 rounded-full bg-[var(--brand-primary)] px-4 text-[11px] font-bold text-white shadow-lg"
+            style={{ boxShadow: '0 10px 25px color-mix(in srgb, var(--brand-accent) 25%, transparent)' }}
           >
             <Menu size={16} />
             {isScormPackage ? (isSidebarOpen ? "OCULTAR PANEL" : "ABRIR PANEL") : "TEMARIO"}
@@ -1003,8 +1004,8 @@ export default function LearningResourceDetailPage() {
               <div className="flex flex-1 items-center gap-3">
                 <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--app-surface-muted)]">
                   <div
-                    className="h-full rounded-full bg-slate-300 transition-all duration-500"
-                    style={{ width: `${Math.min(100, Math.max(0, calculatedProgress))}%` }}
+                    className="h-full rounded-full transition-all duration-500"
+                    style={{ width: `${Math.min(100, Math.max(0, calculatedProgress))}%`, background: 'var(--brand-accent)' }}
                   />
                 </div>
                 <span className="text-[11px] font-bold text-[var(--app-ink)]">{calculatedProgress}%</span>
@@ -1055,7 +1056,7 @@ export default function LearningResourceDetailPage() {
                     }
                   }}
                   className={`w-full flex items-center gap-3 rounded-[12px] p-3 text-left transition ${
-                    activeResourceIndex === -1 ? "border border-[var(--brand-primary)] bg-[var(--brand-primary-soft)]" : "border border-transparent hover:bg-[var(--app-surface-muted)]"
+                    activeResourceIndex === -1 ? "border border-[var(--brand-primary)] bg-[var(--brand-surface-strong)]" : "border border-transparent hover:bg-[var(--app-surface-muted)]"
                   }`}
                 >
                   <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
@@ -1064,7 +1065,7 @@ export default function LearningResourceDetailPage() {
                     0
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className={`truncate text-sm font-bold ${activeResourceIndex === -1 ? "text-[#e85d24]" : "text-[var(--app-ink)]"}`}>
+                    <p className={`truncate text-sm font-bold ${activeResourceIndex === -1 ? "text-[var(--brand-primary)]" : "text-[var(--app-ink)]"}`}>
                       Información del Curso
                     </p>
                   </div>
@@ -1095,7 +1096,7 @@ export default function LearningResourceDetailPage() {
                                 }
                               }}
                               className={`w-full flex items-center gap-3 rounded-[12px] p-2.5 ml-1 text-left transition ${
-                                isActive ? "border border-[var(--brand-primary)] bg-[var(--brand-primary-soft)]" : "border border-transparent hover:bg-[var(--app-surface-muted)]"
+                                isActive ? "border border-[var(--brand-primary)] bg-[var(--brand-surface-strong)]" : "border border-transparent hover:bg-[var(--app-surface-muted)]"
                               }`}
                             >
                               <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
@@ -1108,7 +1109,7 @@ export default function LearningResourceDetailPage() {
                                 {!isActive && isCompleted ? "✓" : item.globalIndex + 1}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className={`truncate text-sm font-bold ${isActive ? "text-[#e85d24]" : "text-[var(--app-ink)]"}`}>
+                                <p className={`truncate text-sm font-bold ${isActive ? "text-[var(--brand-primary)]" : "text-[var(--app-ink)]"}`}>
                                   {item.title}
                                 </p>
                                 {item.durationLabel && (
@@ -1145,7 +1146,7 @@ export default function LearningResourceDetailPage() {
                       }}
                       className={`w-full flex items-center gap-3 rounded-[12px] p-2.5 ml-1 text-left transition ${
                         activeResourceIndex === totalItems
-                          ? "border border-[var(--brand-primary)] bg-[var(--brand-primary-soft)]"
+                          ? "border border-[var(--brand-primary)] bg-[var(--brand-surface-strong)]"
                           : "border border-transparent hover:bg-[var(--app-surface-muted)]"
                       }`}
                     >
@@ -1153,15 +1154,20 @@ export default function LearningResourceDetailPage() {
                         className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
                           activeResourceIndex === totalItems
                             ? "bg-[var(--brand-primary)] text-white"
-                            : "bg-amber-100 text-amber-600"
+                            : ""
                         }`}
+                        style={
+                          activeResourceIndex === totalItems
+                            ? undefined
+                            : { background: 'var(--brand-accent)', color: 'var(--brand-on-accent)' }
+                        }
                       >
                         <Award size={12} />
                       </div>
                       <p
                         className={`text-sm font-bold ${
                           activeResourceIndex === totalItems
-                            ? "text-[#e85d24]"
+                            ? "text-[var(--brand-primary)]"
                             : "text-[var(--app-ink)]"
                         }`}
                       >
@@ -1200,7 +1206,7 @@ export default function LearningResourceDetailPage() {
                                     onClick={() => void onToggleCommentReaction(comment.commentId, reaction.value)}
                                     disabled={Boolean(togglingCommentReaction)}
                                     className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
-                                      reaction.reacted ? "border-[var(--brand-primary)] bg-[var(--brand-primary-soft)] text-[var(--brand-primary)]" : "border-[var(--app-border)] bg-white text-[var(--app-muted)] hover:border-[var(--app-border-strong)]"
+                                      reaction.reacted ? "border-[var(--brand-primary)] bg-[var(--brand-surface-strong)] text-[var(--brand-primary)]" : "border-[var(--app-border)] bg-white text-[var(--app-muted)] hover:border-[var(--app-border-strong)]"
                                     }`}
                                   >
                                     <span>{reaction.emoji}</span>
@@ -1294,19 +1300,43 @@ export default function LearningResourceDetailPage() {
                 </div>
               ) : activeResourceIndex === -1 ? (
                 // COURSE OVERVIEW PANEL
-                <div className="w-full overflow-hidden rounded-[24px] border border-slate-800 bg-[#0f172a] shadow-2xl flex flex-col md:flex-row min-h-[400px]">
-                  <div className="relative w-full md:w-2/5 p-8 flex flex-col justify-center bg-gradient-to-br from-slate-900 to-indigo-950 overflow-hidden">
+                <div
+                  className="w-full overflow-hidden rounded-[24px] border shadow-2xl flex flex-col md:flex-row min-h-[400px]"
+                  style={{
+                    borderColor: 'var(--brand-border-strong)',
+                    background: 'var(--brand-darker)',
+                  }}
+                >
+                  <div
+                    className="relative w-full md:w-2/5 p-8 flex flex-col justify-center overflow-hidden"
+                    style={{
+                      background:
+                        'linear-gradient(135deg, var(--brand-darker) 0%, var(--brand-primary) 100%)',
+                    }}
+                  >
                     {resource.thumbnailUrl && (
                       <>
-                        <div 
-                          className="absolute inset-0 bg-cover bg-center opacity-40" 
-                          style={{ backgroundImage: `url("${resource.thumbnailUrl}")` }} 
+                        <div
+                          className="absolute inset-0 bg-cover bg-center opacity-40"
+                          style={{ backgroundImage: `url("${resource.thumbnailUrl}")` }}
                         />
-                        <div className="absolute inset-0 bg-gradient-to-br from-slate-900/80 to-indigo-950/90" />
+                        <div
+                          className="absolute inset-0"
+                          style={{
+                            background:
+                              'linear-gradient(135deg, color-mix(in srgb, var(--brand-darker) 80%, transparent) 0%, color-mix(in srgb, var(--brand-primary) 90%, transparent) 100%)',
+                          }}
+                        />
                       </>
                     )}
                     <div className="relative z-10">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-orange-500/20 text-orange-500 mb-6 font-bold">
+                      <div
+                        className="flex h-12 w-12 items-center justify-center rounded-xl mb-6 font-bold"
+                        style={{
+                          background: 'var(--brand-accent)',
+                          color: 'var(--brand-on-accent)',
+                        }}
+                      >
                          <Layers3 size={24} />
                       </div>
                       <h2 className="text-3xl font-extrabold text-white mb-4 leading-tight">{resource.title}</h2>
@@ -1315,14 +1345,14 @@ export default function LearningResourceDetailPage() {
                           <span key={t} className="px-2 py-0.5 rounded-full bg-white/10 text-white/70 text-[10px] font-bold uppercase tracking-wider">{t}</span>
                         ))}
                       </div>
-                      <button 
+                      <button
                         onClick={() => {
                           if (totalItems > 0) {
                             setActiveResourceIndex(0);
                           }
                         }}
                         disabled={totalItems === 0}
-                        className="group flex items-center justify-center gap-2 rounded-full bg-white px-6 py-3.5 text-sm font-bold text-slate-900 transition hover:bg-orange-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-white disabled:hover:text-slate-900"
+                        className="group flex items-center justify-center gap-2 rounded-full bg-white px-6 py-3.5 text-sm font-bold text-[var(--brand-primary)] transition hover:bg-[var(--brand-accent)] hover:text-[var(--brand-on-accent)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-white disabled:hover:text-[var(--brand-primary)]"
                       >
                         {totalItems > 0 ? "Comenzar curso" : "Curso sin recursos"}
                         {totalItems > 0 && (
@@ -1331,9 +1361,14 @@ export default function LearningResourceDetailPage() {
                       </button>
                     </div>
                   </div>
-                  <div className="flex-1 p-8 md:p-12 overflow-y-auto bg-slate-900/40 backdrop-blur-sm">
-                    <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Sobre este curso</h3>
-                    <div className="prose prose-invert prose-sm max-w-none text-slate-300 leading-relaxed">
+                  <div
+                    className="flex-1 p-8 md:p-12 overflow-y-auto backdrop-blur-sm"
+                    style={{
+                      background: 'color-mix(in srgb, var(--brand-darker) 60%, transparent)',
+                    }}
+                  >
+                    <h3 className="text-sm font-bold text-white/60 uppercase tracking-widest mb-4">Sobre este curso</h3>
+                    <div className="prose prose-invert prose-sm max-w-none text-white/80 leading-relaxed">
                       {resource.description ? (
                         <p className="whitespace-pre-wrap">{resource.description}</p>
                       ) : (
@@ -1342,11 +1377,11 @@ export default function LearningResourceDetailPage() {
                     </div>
                     <div className="mt-8 grid grid-cols-2 gap-4 border-t border-white/10 pt-8">
                        <div>
-                         <p className="text-[10px] font-bold text-slate-500 uppercase">Autor</p>
+                         <p className="text-[10px] font-bold text-white/50 uppercase">Autor</p>
                          <p className="text-sm font-semibold text-white mt-1">{resource.authorName || "Equipo 4Shine"}</p>
                        </div>
                        <div>
-                         <p className="text-[10px] font-bold text-slate-500 uppercase">Duración</p>
+                         <p className="text-[10px] font-bold text-white/50 uppercase">Duración</p>
                          <p className="text-sm font-semibold text-white mt-1">{resource.durationLabel || "Pendiente"}</p>
                        </div>
                     </div>
@@ -1454,21 +1489,37 @@ export default function LearningResourceDetailPage() {
                     <HlsVideoPlayer src={currentItem.url!} title={currentItem.title || undefined} />
                   ) : currentItem?.contentType === "pdf" && currentItem.url ? (
                     // PDF VIEWER
-                    <div key={`pdf-${currentItem.id}`} className="w-full overflow-hidden rounded-[16px] bg-slate-800 ring-1 ring-white/10 h-[70vh] md:h-[80vh] relative">
+                    <div
+                      key={`pdf-${currentItem.id}`}
+                      className="w-full overflow-hidden rounded-[16px] ring-1 ring-white/10 h-[70vh] md:h-[80vh] relative"
+                      style={{ background: 'var(--brand-darker)' }}
+                    >
                       {isMobile ? (
-                        <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-slate-900 to-indigo-950 p-6 text-center">
-                          <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-orange-500/20 text-orange-500">
+                        <div
+                          className="flex h-full w-full flex-col items-center justify-center p-6 text-center"
+                          style={{
+                            background:
+                              'linear-gradient(135deg, var(--brand-darker) 0%, var(--brand-primary) 100%)',
+                          }}
+                        >
+                          <div
+                            className="mb-6 flex h-20 w-20 items-center justify-center rounded-full"
+                            style={{
+                              background: 'var(--brand-accent)',
+                              color: 'var(--brand-on-accent)',
+                            }}
+                          >
                              <FileDown size={40} />
                           </div>
                           <h3 className="mb-2 text-xl font-bold text-white leading-tight">{currentItem.title || "Documento PDF"}</h3>
-                          <p className="mb-8 max-w-xs text-sm text-slate-400">
+                          <p className="mb-8 max-w-xs text-sm text-white/70">
                             Para una mejor experiencia en dispositivos móviles, te recomendamos descargar el documento.
                           </p>
-                          <a 
-                            href={currentItem.url} 
-                            target="_blank" 
+                          <a
+                            href={currentItem.url}
+                            target="_blank"
                             rel="noopener noreferrer"
-                            className="flex w-full items-center justify-center gap-3 rounded-full bg-white py-4 px-8 text-sm font-bold text-slate-900 transition hover:bg-orange-500 hover:text-white sm:w-auto"
+                            className="flex w-full items-center justify-center gap-3 rounded-full bg-white py-4 px-8 text-sm font-bold text-[var(--brand-primary)] transition hover:bg-[var(--brand-accent)] hover:text-[var(--brand-on-accent)] sm:w-auto"
                           >
                             <Download size={18} />
                             Ver / Descargar PDF
@@ -1484,7 +1535,11 @@ export default function LearningResourceDetailPage() {
                     </div>
                   ) : currentItem && buildYouTubeEmbedUrl(currentItem.url) ? (
                     // YOUTUBE PLAYER
-                    <div key={`yt-${currentItem.id}`} className="w-full overflow-hidden rounded-[16px] bg-[#0f172a] ring-1 ring-white/10 md:aspect-video flex flex-col items-center justify-center relative">
+                    <div
+                      key={`yt-${currentItem.id}`}
+                      className="w-full overflow-hidden rounded-[16px] ring-1 ring-white/10 md:aspect-video flex flex-col items-center justify-center relative"
+                      style={{ background: 'var(--brand-darker)' }}
+                    >
                       <iframe
                         title={currentItem.title || "YouTube Video"}
                         src={buildYouTubeEmbedUrl(currentItem.url)!}
@@ -1495,7 +1550,10 @@ export default function LearningResourceDetailPage() {
                     </div>
                   ) : (
                     // FALLBACK PLACEHOLDER
-                    <div className="w-full overflow-hidden rounded-[16px] border border-slate-800 bg-[#0f172a] shadow-2xl aspect-video md:aspect-video flex flex-col justify-between">
+                    <div
+                      className="w-full overflow-hidden rounded-[16px] border shadow-2xl aspect-video md:aspect-video flex flex-col justify-between"
+                      style={{ borderColor: 'var(--brand-border-strong)', background: 'var(--brand-darker)' }}
+                    >
                       <div className="flex flex-1 items-center justify-center">
                           <div className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 hover:scale-105">
                              {currentItem.url ? (
@@ -1509,11 +1567,17 @@ export default function LearningResourceDetailPage() {
                       </div>
                       <div className="p-8 pb-10 bg-gradient-to-t from-black/60 to-transparent">
                           <h2 className="text-2xl font-bold text-white mb-2">{currentItem.title || "Sin título"}</h2>
-                          <p className="text-slate-300 text-sm">
+                          <p className="text-white/80 text-sm">
                             {currentItem.description || "Este recurso no tiene descripción adicional."}
                           </p>
                           {currentItem.url && (
-                            <a href={currentItem.url} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex items-center gap-2 text-orange-400 font-bold hover:underline">
+                            <a
+                              href={currentItem.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="mt-4 inline-flex items-center gap-2 font-bold hover:underline"
+                              style={{ color: 'var(--brand-accent)' }}
+                            >
                                Abrir en nueva pestaña <ExternalLink size={14} />
                             </a>
                           )}
@@ -1530,15 +1594,22 @@ export default function LearningResourceDetailPage() {
           </section>
           )}
 
-          {!isScormPackage && <div className="absolute bottom-0 left-0 right-0 z-20 flex h-20 items-center justify-between border-t border-slate-800 bg-[#1e293b] px-6 text-white md:px-12">
+          {!isScormPackage && (
+            <div
+              className="absolute bottom-0 left-0 right-0 z-20 flex h-20 items-center justify-between border-t px-6 text-white md:px-12"
+              style={{
+                background: 'var(--brand-dark)',
+                borderColor: 'color-mix(in srgb, var(--brand-primary) 30%, transparent)',
+              }}
+            >
              <button
                onClick={handlePrev}
                disabled={activeResourceIndex <= -1}
-               className="flex items-center gap-2 text-sm font-semibold text-slate-300 transition hover:text-white disabled:opacity-30 disabled:hover:text-slate-300"
+               className="flex items-center gap-2 text-sm font-semibold text-white/70 transition hover:text-white disabled:opacity-30 disabled:hover:text-white/70"
              >
                <ArrowLeft size={16} /> Anterior
              </button>
-             <div className="text-sm font-semibold text-slate-400">
+             <div className="text-sm font-semibold text-white/60">
                {activeResourceIndex === -1
                   ? "Introducción"
                   : activeResourceIndex === totalItems && hasCertificateScreen
@@ -1553,11 +1624,16 @@ export default function LearningResourceDetailPage() {
                  totalItems === 0 ||
                  activeResourceIndex >= (hasCertificateScreen ? totalItems : totalItems - 1)
                }
-               className="flex h-10 items-center justify-center gap-2 rounded-[8px] bg-[#f97316] px-5 text-sm font-bold text-white transition hover:bg-[#ea580c] disabled:opacity-50"
+               className="flex h-10 items-center justify-center gap-2 rounded-[8px] px-5 text-sm font-bold transition hover:opacity-90 disabled:opacity-50"
+               style={{
+                 background: 'var(--brand-accent)',
+                 color: 'var(--brand-on-accent)',
+               }}
              >
                Siguiente <ArrowRight size={16} />
              </button>
-          </div>}
+            </div>
+          )}
         </main>
       </div>
       </CoursePlayerErrorBoundary>,
@@ -1597,7 +1673,10 @@ export default function LearningResourceDetailPage() {
         )}
       </div>
 
-      <div className="w-full overflow-hidden rounded-[24px] bg-[#0f172a] shadow-xl aspect-video md:aspect-[21/9] lg:aspect-video relative flex flex-col items-center justify-center">
+      <div
+        className="w-full overflow-hidden rounded-[24px] shadow-xl aspect-video md:aspect-[21/9] lg:aspect-video relative flex flex-col items-center justify-center"
+        style={{ background: 'var(--brand-darker)' }}
+      >
         {youtubeEmbedUrl ? (
           <iframe
             title={resource.title}
@@ -1617,19 +1696,32 @@ export default function LearningResourceDetailPage() {
           />
         ) : resource.contentType === "pdf" && resource.url ? (
           isMobile ? (
-            <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-slate-900 to-indigo-950 p-8 text-center min-h-[400px]">
-              <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-orange-500/20 text-orange-500 shadow-xl shadow-orange-500/10">
+            <div
+              className="flex h-full w-full flex-col items-center justify-center p-8 text-center min-h-[400px]"
+              style={{
+                background:
+                  'linear-gradient(135deg, var(--brand-darker) 0%, var(--brand-primary) 100%)',
+              }}
+            >
+              <div
+                className="mb-6 flex h-24 w-24 items-center justify-center rounded-full shadow-xl"
+                style={{
+                  background: 'var(--brand-accent)',
+                  color: 'var(--brand-on-accent)',
+                  boxShadow: '0 14px 30px color-mix(in srgb, var(--brand-accent) 15%, transparent)',
+                }}
+              >
                  <FileDown size={48} />
               </div>
               <h3 className="mb-3 text-2xl font-bold text-white leading-tight">{resource.title}</h3>
-              <p className="mb-8 max-w-sm text-base text-slate-400">
+              <p className="mb-8 max-w-sm text-base text-white/70">
                 Los archivos PDF pueden no mostrarse correctamente en navegadores móviles. Haz clic abajo para descargar y visualizar el contenido.
               </p>
-              <a 
-                href={resource.url} 
-                target="_blank" 
+              <a
+                href={resource.url}
+                target="_blank"
                 rel="noopener noreferrer"
-                className="flex w-full items-center justify-center gap-3 rounded-full bg-white py-4 px-10 text-base font-bold text-slate-900 transition hover:bg-orange-500 hover:text-white sm:w-auto"
+                className="flex w-full items-center justify-center gap-3 rounded-full bg-white py-4 px-10 text-base font-bold text-[var(--brand-primary)] transition hover:bg-[var(--brand-accent)] hover:text-[var(--brand-on-accent)] sm:w-auto"
               >
                 <Download size={20} />
                 Descargar Documento
@@ -1643,7 +1735,13 @@ export default function LearningResourceDetailPage() {
             />
           )
         ) : (
-          <div className="flex flex-1 flex-col items-center justify-center p-8 text-center bg-gradient-to-br from-slate-900 to-indigo-950 w-full h-full">
+          <div
+            className="flex flex-1 flex-col items-center justify-center p-8 text-center w-full h-full"
+            style={{
+              background:
+                'linear-gradient(135deg, var(--brand-darker) 0%, var(--brand-primary) 100%)',
+            }}
+          >
              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white/10 text-white shadow-lg backdrop-blur-md transition hover:scale-105 hover:bg-white/20">
                {isDirectAudioUrl(resource.url) ? (
                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
@@ -1715,7 +1813,7 @@ export default function LearningResourceDetailPage() {
               onClick={() => void onToggleLike()}
               disabled={togglingLike}
               className={`flex h-14 min-w-[3.5rem] items-center justify-center gap-2 rounded-[16px] px-6 text-sm font-bold shadow-sm transition hover:-translate-y-1 ${
-                resource.liked ? "bg-[#fdebf3] text-rose-600 ring-1 ring-rose-200" : "bg-white text-[var(--app-ink)] ring-1 ring-[var(--app-border)] hover:box-shadow-md"
+                resource.liked ? "bg-rose-50 text-rose-600 ring-1 ring-rose-200" : "bg-white text-[var(--app-ink)] ring-1 ring-[var(--app-border)] hover:box-shadow-md"
               }`}
             >
               <Heart size={20} className={resource.liked ? "fill-current" : undefined} />
@@ -1786,7 +1884,7 @@ export default function LearningResourceDetailPage() {
                                   onClick={() => void onToggleCommentReaction(comment.commentId, reaction.value)}
                                   disabled={Boolean(togglingCommentReaction)}
                                   className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition hover:-translate-y-px ${
-                                    reaction.reacted ? "border-[var(--brand-primary)] bg-[var(--brand-primary-soft)] text-[var(--brand-primary)] shadow-sm" : "border-[var(--app-border)] bg-transparent text-[var(--app-muted)] hover:border-[var(--app-border-strong)]"
+                                    reaction.reacted ? "border-[var(--brand-primary)] bg-[var(--brand-surface-strong)] text-[var(--brand-primary)] shadow-sm" : "border-[var(--app-border)] bg-transparent text-[var(--app-muted)] hover:border-[var(--app-border-strong)]"
                                   }`}
                                 >
                                   <span>{reaction.emoji}</span>
