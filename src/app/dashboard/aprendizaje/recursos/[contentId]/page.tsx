@@ -1650,7 +1650,7 @@ export default function LearningResourceDetailPage() {
           className="inline-flex items-center gap-2 rounded-full bg-[var(--app-surface-muted)] px-4 py-2 text-sm font-bold text-[var(--app-ink)] transition hover:bg-white hover:text-[var(--brand-primary)]"
         >
           <ArrowLeft size={16} />
-          Volver a {backTab === "cursos" ? "Cursos" : "Recursos"}
+          Volver a {backTab === "cursos" ? "Cursos" : "Contenidos libres"}
         </Link>
         <div className="flex-1" />
         {canManage && (

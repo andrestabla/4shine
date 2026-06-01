@@ -103,13 +103,13 @@ interface LearningTabItem {
 const LEARNING_TABS: LearningTabItem[] = [
   {
     key: "recursos",
-    label: "Recursos",
-    description: "Videos, pódcast, documentos y piezas individuales.",
+    label: "Contenidos libres",
+    description: "Videos, pódcasts, documentos, cursos y piezas individuales en una sola biblioteca.",
   },
   {
     key: "cursos",
     label: "Cursos",
-    description: "Experiencias estructuradas con módulos y recursos internos.",
+    description: "Vista enfocada solo en cursos estructurados con módulos y recursos internos.",
   },
   {
     key: "workbooks",
@@ -939,12 +939,11 @@ export default function AprendizajePage() {
     // filters, pagination) keep the UI mounted so inputs don't lose focus.
     if (!hasLoadedRef.current) setLoading(true);
     try {
+      // "recursos" (Contenidos libres) lista AMBAS familias: recursos
+      // individuales y cursos. "cursos" mantiene la vista filtrada solo a
+      // cursos para quien quiera enfocarse en experiencias estructuradas.
       const resourceFamily =
-        activeLearningTab === "cursos"
-          ? "course"
-          : activeLearningTab === "recursos"
-            ? "resource"
-            : null;
+        activeLearningTab === "cursos" ? "course" : null;
       const resourceRequest =
         activeLearningTab === "workbooks" || activeLearningTab === "certificados"
           ? Promise.resolve({
@@ -1234,7 +1233,7 @@ export default function AprendizajePage() {
       ?.label ?? resourceForm.audience;
   const activeTabMeta =
     LEARNING_TABS.find((tab) => tab.key === activeLearningTab) ?? LEARNING_TABS[0];
-  const activeCollectionLabel = isCoursesTab ? "cursos" : "recursos";
+  const activeCollectionLabel = isCoursesTab ? "cursos" : "contenidos";
   const visibleResourceStart =
     resourceTotal === 0 ? 0 : (resourcePage - 1) * RESOURCE_PAGE_SIZE + 1;
   const visibleResourceEnd =
@@ -1935,8 +1934,8 @@ export default function AprendizajePage() {
           <p className="mt-3 text-sm leading-relaxed text-[var(--app-muted)] md:text-base">
             {isResourcesTab
               ? isOpenLeader
-                ? "Explora el contenido libre de la plataforma con una biblioteca más clara y enfocada."
-                : "Busca recursos individuales por formato, pilar, competencia o etapa, sin mezclar cursos y workbooks en la misma vista."
+                ? "Explora el contenido libre de la plataforma: videos, pódcasts, documentos y cursos en una sola biblioteca."
+                : "Carga y gestiona videos, pódcasts, documentos y cursos en una sola biblioteca. Filtra por formato, pilar, competencia o etapa."
               : isCoursesTab
                 ? isOpenLeader
                   ? "Revisa las rutas de aprendizaje disponibles y activa el programa para desbloquear la experiencia completa."
@@ -1969,16 +1968,35 @@ export default function AprendizajePage() {
             <span className="app-chip-soft">Cuenta free</span>
           ) : null}
           {isResourceManager && !isWorkbooksTab && !isCertificadosTab ? (
-            <button
-              type="button"
-              className="app-button-primary"
-              onClick={() =>
-                openCreateResourceModal(isCoursesTab ? "course" : "resource")
-              }
-            >
-              <Plus size={16} />
-              {isCoursesTab ? "Nuevo curso" : "Nuevo recurso"}
-            </button>
+            isResourcesTab ? (
+              <>
+                <button
+                  type="button"
+                  className="app-button-primary"
+                  onClick={() => openCreateResourceModal("resource")}
+                >
+                  <Plus size={16} />
+                  Nuevo contenido
+                </button>
+                <button
+                  type="button"
+                  className="app-button-secondary"
+                  onClick={() => openCreateResourceModal("course")}
+                >
+                  <Plus size={16} />
+                  Nuevo curso
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="app-button-primary"
+                onClick={() => openCreateResourceModal("course")}
+              >
+                <Plus size={16} />
+                Nuevo curso
+              </button>
+            )
           ) : null}
         </div>
       </section>
@@ -2078,7 +2096,7 @@ export default function AprendizajePage() {
               <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                 <div>
                   <p className="app-section-kicker">
-                    {isCoursesTab ? "Cursos" : "Recursos"}
+                    {isCoursesTab ? "Cursos" : "Contenidos libres"}
                   </p>
                   <h3
                     className="app-display-title mt-2 text-3xl font-semibold"
