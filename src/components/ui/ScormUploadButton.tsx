@@ -109,13 +109,15 @@ export function ScormUploadButton({ onUploaded, disabled, className }: ScormUplo
       }
       setProgress({ uploading: true, done: 0, total: fileCount });
 
-      // Step 1: allocate an upload session (prefix) on the server.
-      // relay:true tells the server to skip presigned URL generation.
+      // Step 1: pedir URLs presignadas directas a R2 (bypass Vercel 4.5 MB
+      // body limit). El presign auto-configura CORS del bucket para que el
+      // browser pueda PUT directamente.
+      const filesList = entries.map(([path]) => ({ zipPath: path }));
       const presignRes = await fetch('/api/v1/uploads/r2/scorm/presign', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ entryPoint, relay: true }),
+        body: JSON.stringify({ entryPoint, files: filesList }),
       });
 
       const presignPayload = await safeJson<{
@@ -132,47 +134,39 @@ export function ScormUploadButton({ onUploaded, disabled, className }: ScormUplo
         throw new Error(presignPayload.error ?? 'Error al preparar la carga.');
       }
 
-      const { prefix } = presignPayload.data;
+      const { prefix, files: presignedFiles } = presignPayload.data;
+      const urlByPath = new Map(
+        presignedFiles.map((f) => [f.zipPath, { url: f.uploadUrl, contentType: f.contentType }]),
+      );
 
-      // Step 2: Relay files through the server API (avoids R2 S3-endpoint CORS restrictions).
-      // One file per request (avoids Vercel 4.5 MB body limit), 4 concurrent uploads.
+      // Step 2: PUT directo de cada archivo a R2 vía la URL presignada.
+      // Soporta archivos hasta el límite de R2 (5 GB) sin pasar por Vercel.
       const CONCURRENCY = 4;
       let done = 0;
-
-      const VERCEL_BODY_LIMIT = 4.5 * 1024 * 1024; // 4.5 MB
 
       const uploadOne = async (zipPath: string, fileIndex: number): Promise<void> => {
         const zipFile = zip.file(zipPath);
         if (!zipFile) return;
+        const presigned = urlByPath.get(zipPath);
+        if (!presigned) {
+          throw new Error(`Sin URL presignada para "${zipPath}".`);
+        }
         const body = await zipFile.async('arraybuffer');
         const sizeMb = (body.byteLength / (1024 * 1024)).toFixed(2);
 
-        // Guard explícito antes de enviar: Vercel rechaza payloads > 4.5MB
-        // y devuelve un 413 sin JSON, que el catch general no puede mapear
-        // a un error útil para el usuario.
-        if (body.byteLength > VERCEL_BODY_LIMIT) {
-          throw new Error(
-            `El archivo "${zipPath}" pesa ${sizeMb} MB y excede el límite de 4.5 MB por archivo del servidor. Reduce el tamaño del activo o divide el paquete.`,
-          );
-        }
-
-        const fd = new FormData();
-        fd.append('prefix', prefix);
-        fd.append('count', '1');
-        fd.append('file_0', new Blob([body], { type: mimeFor(zipPath) }), zipPath.split('/').pop() ?? zipPath);
-        fd.append('path_0', zipPath);
-        const res = await fetch('/api/v1/uploads/r2/scorm/relay', {
-          method: 'POST',
-          credentials: 'include',
-          body: fd,
+        const res = await fetch(presigned.url, {
+          method: 'PUT',
+          headers: { 'Content-Type': presigned.contentType },
+          body,
         });
+
         if (!res.ok) {
-          const payload = await safeJson<{ error?: string }>(res).catch(() => ({}));
-          const serverError = (payload as { error?: string }).error;
+          const text = await res.text().catch(() => '');
+          const detail = text.slice(0, 200).replace(/\s+/g, ' ').trim();
           throw new Error(
-            serverError
-              ? `Archivo "${zipPath}" (${sizeMb} MB): ${serverError}`
-              : `Error subiendo "${zipPath}" (${sizeMb} MB, archivo ${fileIndex + 1}/${fileCount}, status ${res.status})`,
+            `Error subiendo "${zipPath}" (${sizeMb} MB, ${fileIndex + 1}/${fileCount}, status ${res.status})${
+              detail ? ` — ${detail}` : ''
+            }`,
           );
         }
       };
