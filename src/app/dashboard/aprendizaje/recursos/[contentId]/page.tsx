@@ -1103,7 +1103,10 @@ export default function LearningResourceDetailPage() {
   const editHref = backTab === "recursos"
       ? `/dashboard/aprendizaje?edit=${resource.contentId}`
       : `/dashboard/aprendizaje?tab=${backTab}&edit=${resource.contentId}`;
-  const isSidebarOpen = isScormPackage ? scormSidebarOpen : isMobileMenuOpen;
+  // Paquetes-curso (SCORM o HTML) usan el toggle scormSidebarOpen para
+  // poder colapsar el panel y maximizar el iframe del paquete. Otros
+  // recursos siguen el flow mobile-menu clásico.
+  const isSidebarOpen = isCoursePackage ? scormSidebarOpen : isMobileMenuOpen;
 
   if (typeof document === "undefined") return null;
 
@@ -1123,22 +1126,22 @@ export default function LearningResourceDetailPage() {
              </button>
              <h4 className="text-xs font-bold text-white uppercase tracking-wider truncate max-w-[200px]">{resource.title}</h4>
           </div>
-          <button 
+          <button
             onClick={() =>
-              isScormPackage ? setScormSidebarOpen((prev) => !prev) : setIsMobileMenuOpen(true)
+              isCoursePackage ? setScormSidebarOpen((prev) => !prev) : setIsMobileMenuOpen(true)
             }
             className="flex h-10 items-center gap-2 rounded-full bg-[var(--brand-primary)] px-4 text-[11px] font-bold text-white shadow-lg"
             style={{ boxShadow: '0 10px 25px color-mix(in srgb, var(--brand-accent) 25%, transparent)' }}
           >
             <Menu size={16} />
-            {isScormPackage ? (isSidebarOpen ? "OCULTAR PANEL" : "ABRIR PANEL") : "TEMARIO"}
+            {isCoursePackage ? (isSidebarOpen ? "OCULTAR PANEL" : "ABRIR PANEL") : "TEMARIO"}
           </button>
         </div>
 
         {/* SIDEBAR: Temario y Discusión */}
-        {(!isScormPackage || isSidebarOpen) && (
+        {(!isCoursePackage || isSidebarOpen) && (
         <aside className={`flex h-full shrink-0 flex-col bg-white transition-all duration-300 md:relative md:w-80 lg:w-96 md:flex ${
-          isScormPackage
+          isCoursePackage
             ? (isSidebarOpen
                 ? "fixed inset-0 z-[110] w-full md:inset-auto md:z-auto"
                 : "hidden")
@@ -1146,16 +1149,16 @@ export default function LearningResourceDetailPage() {
         }`}>
           <div className="flex shrink-0 flex-col px-6 pt-8 pb-4 relative">
             {isSidebarOpen && (
-              <button 
+              <button
                 onClick={() =>
-                  isScormPackage ? setScormSidebarOpen(false) : setIsMobileMenuOpen(false)
+                  isCoursePackage ? setScormSidebarOpen(false) : setIsMobileMenuOpen(false)
                 }
                 className="absolute top-6 right-6 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-500 md:hidden"
               >
                 <X size={20} />
               </button>
             )}
-            {isScormPackage && isSidebarOpen && (
+            {isCoursePackage && isSidebarOpen && (
               <button
                 type="button"
                 onClick={() => setScormSidebarOpen(false)}
@@ -1217,7 +1220,7 @@ export default function LearningResourceDetailPage() {
                 <button
                   onClick={() => {
                     setActiveResourceIndex(-1);
-                    if (isScormPackage) {
+                    if (isCoursePackage) {
                       setScormSidebarOpen(false);
                     } else {
                       setIsMobileMenuOpen(false);
@@ -1419,7 +1422,7 @@ export default function LearningResourceDetailPage() {
         )}
 
         <main className="relative flex flex-1 flex-col overflow-hidden bg-black">
-          {isScormPackage && !isSidebarOpen && (
+          {isCoursePackage && !isSidebarOpen && (
             <button
               type="button"
               onClick={() => setScormSidebarOpen(true)}
