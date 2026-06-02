@@ -197,7 +197,27 @@ export default function LearningResourceDetailPage() {
   const [certificateDownloading, setCertificateDownloading] = React.useState(false);
   const [scormApiReady, setScormApiReady] = React.useState(false);
   const [scormIframeLoaded, setScormIframeLoaded] = React.useState(false);
-  const [scormSidebarOpen, setScormSidebarOpen] = React.useState(false);
+  const [scormSidebarOpen, setScormSidebarOpen] = React.useState<boolean>(() => {
+    // Restaura el ultimo estado del sidebar (abierto/colapsado) entre sesiones.
+    // Default: cerrado en mobile para no robar pantalla al curso; abierto en
+    // desktop. localStorage lo respeta si el usuario lo cambio.
+    if (typeof window === "undefined") return false;
+    try {
+      const stored = window.localStorage.getItem("4shine:coursePlayer:sidebarOpen");
+      if (stored === "1") return true;
+      if (stored === "0") return false;
+    } catch {}
+    return window.matchMedia?.("(min-width: 768px)").matches ?? false;
+  });
+
+  React.useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        "4shine:coursePlayer:sidebarOpen",
+        scormSidebarOpen ? "1" : "0",
+      );
+    } catch {}
+  }, [scormSidebarOpen]);
   const scormCompletionSentRef = React.useRef(false);
   const scormCompletionSyncingRef = React.useRef(false);
   const scormRuntimeProgressRef = React.useRef<number | null>(null);
@@ -323,7 +343,17 @@ export default function LearningResourceDetailPage() {
 
   const calculatedProgress = React.useMemo(() => {
     if (!resource || resource.contentType !== "scorm") return resource?.progressPercent ?? 0;
-    if (totalItems === 0) return Math.min(100, Math.max(0, resource.progressPercent ?? 0));
+    if (totalItems === 0) {
+      // Paquete-curso (SCORM o HTML/Rise): tomamos el max entre el % en DB
+      // y el live runtime ref para que la barra del sidebar se actualice
+      // en tiempo real mientras el aprendiz avanza, sin esperar al flush.
+      const persisted = Math.min(100, Math.max(0, resource.progressPercent ?? 0));
+      const live = Math.min(
+        100,
+        Math.max(0, Math.round(scormRuntimeProgressRef.current ?? 0)),
+      );
+      return Math.max(persisted, live);
+    }
 
     const structureProgress = Math.min(100, Math.round((validCompletedResourceIds.length / totalItems) * 100));
     const runtimeProgress = Math.min(100, Math.max(0, resource.progressPercent ?? 0));
@@ -456,7 +486,7 @@ export default function LearningResourceDetailPage() {
 
   const flushScormRuntimeToBackend = React.useCallback(
     async (forcedProgress?: number) => {
-      if (!resource || !isScormPackage) return;
+      if (!resource || !isCoursePackage) return;
       const progress = typeof forcedProgress === "number"
         ? Math.min(100, Math.max(0, Math.round(forcedProgress)))
         : scormRuntimeProgressRef.current ?? Math.round(resource.progressPercent ?? 0);
@@ -492,12 +522,12 @@ export default function LearningResourceDetailPage() {
         console.error("Failed to flush SCORM runtime state/progress:", error);
       }
     },
-    [resource, isScormPackage],
+    [resource, isCoursePackage],
   );
 
   const syncScormRuntimeProgress = React.useCallback(
     (rawValue: unknown) => {
-      if (!resource || !isScormPackage) return;
+      if (!resource || !isCoursePackage) return;
 
       const numeric = typeof rawValue === "number" ? rawValue : Number.parseFloat(String(rawValue ?? ""));
       if (!Number.isFinite(numeric)) return;
@@ -514,11 +544,11 @@ export default function LearningResourceDetailPage() {
         void flushScormRuntimeToBackend();
       }, 900);
     },
-    [resource, isScormPackage, flushScormRuntimeToBackend],
+    [resource, isCoursePackage, flushScormRuntimeToBackend],
   );
 
   const markScormPackageCompleted = React.useCallback(async () => {
-    if (!resource || !isScormPackage) return;
+    if (!resource || !isCoursePackage) return;
     if (scormCompletionSentRef.current || scormCompletionSyncingRef.current) return;
     scormCompletionSyncingRef.current = true;
     try {
@@ -529,7 +559,7 @@ export default function LearningResourceDetailPage() {
     } finally {
       scormCompletionSyncingRef.current = false;
     }
-  }, [resource, isScormPackage, flushScormRuntimeToBackend]);
+  }, [resource, isCoursePackage, flushScormRuntimeToBackend]);
 
   // SCORM LMS API shim — must be on window before the iframe executes.
   // The proxy serves the entry HTML from our origin so window.parent.API is reachable.
@@ -777,12 +807,16 @@ export default function LearningResourceDetailPage() {
     w.ResetStatus = function ResetStatus() {
       /* reinicia el estado a incompleto para reportes alternativos */
       scormStateRef.current.status = 'incomplete';
+      scormVisitedLocationsRef.current.clear();
+      delete scormStateRef.current['cmi.x_visited_locations'];
+      syncScormRuntimeProgress(0);
       scheduleFlush();
       return 'true';
     };
     w.SetPassed = function SetPassed() {
       /* marca el curso como aprobado por el aprendiz actual */
       scormStateRef.current.status = 'passed';
+      syncScormRuntimeProgress(100);
       scheduleFlush();
       void markScormPackageCompleted();
       return 'true';
@@ -796,6 +830,7 @@ export default function LearningResourceDetailPage() {
     w.SetReachedEnd = function SetReachedEnd() {
       /* marca que el aprendiz alcanzo el final del curso */
       scormStateRef.current.status = 'completed';
+      syncScormRuntimeProgress(100);
       scheduleFlush();
       void markScormPackageCompleted();
       return 'true';
@@ -808,7 +843,30 @@ export default function LearningResourceDetailPage() {
     };
     w.SetBookmark = function SetBookmark(url: unknown) {
       /* guarda la posicion actual del aprendiz dentro del curso */
-      scormStateRef.current.bookmark = String(url ?? '').slice(0, 2000);
+      const value = String(url ?? '').slice(0, 2000);
+      scormStateRef.current.bookmark = value;
+      const trimmed = value.trim();
+      if (trimmed) {
+        scormVisitedLocationsRef.current.add(trimmed);
+        scormStateRef.current['cmi.x_visited_locations'] = Array.from(
+          scormVisitedLocationsRef.current,
+        )
+          .join('|')
+          .slice(0, 65535);
+        const status = scormStateRef.current.status;
+        if (status !== 'passed' && status !== 'completed') {
+          // Sin conocer el total de lecciones del paquete Rise, usamos una
+          // curva asintotica hacia 95%: cada bookmark nuevo aporta
+          // progreso decreciente, llegando al 100% solo con SetPassed o
+          // SetReachedEnd. 1 visita=40%, 2=57%, 3=67%, 5=77%, 10=87%.
+          const visited = scormVisitedLocationsRef.current.size;
+          const inferredProgress = Math.min(
+            95,
+            Math.round((visited / (visited + 1.5)) * 100),
+          );
+          syncScormRuntimeProgress(inferredProgress);
+        }
+      }
       scheduleFlush();
       return 'true';
     };
@@ -872,7 +930,12 @@ export default function LearningResourceDetailPage() {
       ];
       for (const k of keysToCleanup) delete w[k];
     };
-  }, [isHtmlOnlyPackage, flushScormRuntimeToBackend, markScormPackageCompleted]);
+  }, [
+    isHtmlOnlyPackage,
+    flushScormRuntimeToBackend,
+    markScormPackageCompleted,
+    syncScormRuntimeProgress,
+  ]);
 
   React.useEffect(() => {
     scormCompletionSentRef.current = false;
