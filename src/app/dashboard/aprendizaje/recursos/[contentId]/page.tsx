@@ -718,6 +718,162 @@ export default function LearningResourceDetailPage() {
     setScormIframeLoaded(false);
   }, [isScormPackage, resource?.url]);
 
+  // ── Rise / standalone-HTML LMS shim ─────────────────────────────────────
+  // Paquetes HTML/web (Articulate Rise, exports estándar) buscan en
+  // window.parent funciones específicas (CommitData, GetDataChunk,
+  // SetDataChunk, SetPassed, SetBookmark, etc.) y validan que el
+  // .toString().length sea > 35. Si no las encuentra, usa noops y
+  // pierde todo progreso. Exponemos un set compatible que persiste a
+  // app_learning.content_progress.scorm_runtime_state usando los mismos
+  // refs y flusher que el shim SCORM clásico — así el progreso queda
+  // sincronizado al servidor, ligado a (userId, contentId), y resume al
+  // reabrir desde cualquier dispositivo.
+  React.useEffect(() => {
+    if (!isHtmlOnlyPackage) return;
+    const w = window as unknown as Record<string, unknown>;
+    // Schedule un flush en 1.5s tras cada cambio (debounce). Si llegan
+    // múltiples SetDataChunk consecutivos, agrupa el sync en un solo
+    // request al backend.
+    const scheduleFlush = () => {
+      scormStateDirtyRef.current = true;
+      if (scormRuntimeSyncTimerRef.current !== null) {
+        window.clearTimeout(scormRuntimeSyncTimerRef.current);
+      }
+      scormRuntimeSyncTimerRef.current = window.setTimeout(() => {
+        scormRuntimeSyncTimerRef.current = null;
+        void flushScormRuntimeToBackend();
+      }, 1500);
+    };
+
+    w.CommitData = function CommitData() {
+      /* persiste el estado del aprendiz en el almacenamiento del LMS */
+      scheduleFlush();
+      return 'true';
+    };
+    w.ConcedeControl = function ConcedeControl() {
+      /* devuelve el control al LMS y persiste el estado actual */
+      scheduleFlush();
+      return 'true';
+    };
+    w.Finish = function Finish() {
+      /* cierra la sesion del curso y guarda el estado actual */
+      void flushScormRuntimeToBackend();
+      return 'true';
+    };
+    w.GetDataChunk = function GetDataChunk() {
+      /* recupera la cadena comprimida con el progreso del curso */
+      return scormStateRef.current.dataChunk ?? '';
+    };
+    w.SetDataChunk = function SetDataChunk(data: unknown) {
+      /* almacena la cadena comprimida con el progreso del curso */
+      scormStateRef.current.dataChunk = String(data ?? '').slice(0, 200000);
+      scheduleFlush();
+      return 'true';
+    };
+    w.GetStatus = function GetStatus() {
+      /* devuelve el estado actual de finalizacion del curso */
+      return scormStateRef.current.status ?? 'incomplete';
+    };
+    w.ResetStatus = function ResetStatus() {
+      /* reinicia el estado a incompleto para reportes alternativos */
+      scormStateRef.current.status = 'incomplete';
+      scheduleFlush();
+      return 'true';
+    };
+    w.SetPassed = function SetPassed() {
+      /* marca el curso como aprobado por el aprendiz actual */
+      scormStateRef.current.status = 'passed';
+      scheduleFlush();
+      void markScormPackageCompleted();
+      return 'true';
+    };
+    w.SetFailed = function SetFailed() {
+      /* marca el curso como reprobado para el aprendiz actual */
+      scormStateRef.current.status = 'failed';
+      scheduleFlush();
+      return 'true';
+    };
+    w.SetReachedEnd = function SetReachedEnd() {
+      /* marca que el aprendiz alcanzo el final del curso */
+      scormStateRef.current.status = 'completed';
+      scheduleFlush();
+      void markScormPackageCompleted();
+      return 'true';
+    };
+    w.SetScore = function SetScore(score: unknown) {
+      /* registra el puntaje obtenido por el aprendiz en el curso */
+      scormStateRef.current.score = String(score ?? '');
+      scheduleFlush();
+      return 'true';
+    };
+    w.SetBookmark = function SetBookmark(url: unknown) {
+      /* guarda la posicion actual del aprendiz dentro del curso */
+      scormStateRef.current.bookmark = String(url ?? '').slice(0, 2000);
+      scheduleFlush();
+      return 'true';
+    };
+    w.SetLanguagePreference = function SetLanguagePreference(lang: unknown) {
+      /* almacena la preferencia de idioma del aprendiz actual */
+      scormStateRef.current.lang = String(lang ?? '').slice(0, 16);
+      scheduleFlush();
+      return 'true';
+    };
+    w.WriteToDebug = function WriteToDebug(_msg: unknown) {
+      /* registro de depuracion opcional para el visor del curso */
+      return 'true';
+    };
+    w.CreateResponseIdentifier = function CreateResponseIdentifier(short: unknown, long: unknown) {
+      /* crea un identificador de respuesta para las preguntas */
+      return { short: String(short ?? ''), long: String(long ?? '') };
+    };
+    w.MatchingResponse = function MatchingResponse(source: unknown, target: unknown) {
+      /* construye un par de respuestas tipo emparejamiento */
+      return { source, target };
+    };
+    w.RecordMultipleChoiceInteraction = function RecordMultipleChoiceInteraction() {
+      /* registra una interaccion de opcion multiple del aprendiz */
+      scheduleFlush();
+      return 'true';
+    };
+    w.RecordFillInInteraction = function RecordFillInInteraction() {
+      /* registra una interaccion de completar campos en el curso */
+      scheduleFlush();
+      return 'true';
+    };
+    w.RecordMatchingInteraction = function RecordMatchingInteraction() {
+      /* registra una interaccion de emparejamiento del aprendiz */
+      scheduleFlush();
+      return 'true';
+    };
+
+    return () => {
+      // Flush pendiente y limpiar los globales al desmontar.
+      void flushScormRuntimeToBackend();
+      const keysToCleanup = [
+        'CommitData',
+        'ConcedeControl',
+        'Finish',
+        'GetDataChunk',
+        'SetDataChunk',
+        'GetStatus',
+        'ResetStatus',
+        'SetPassed',
+        'SetFailed',
+        'SetReachedEnd',
+        'SetScore',
+        'SetBookmark',
+        'SetLanguagePreference',
+        'WriteToDebug',
+        'CreateResponseIdentifier',
+        'MatchingResponse',
+        'RecordMultipleChoiceInteraction',
+        'RecordFillInInteraction',
+        'RecordMatchingInteraction',
+      ];
+      for (const k of keysToCleanup) delete w[k];
+    };
+  }, [isHtmlOnlyPackage, flushScormRuntimeToBackend, markScormPackageCompleted]);
+
   React.useEffect(() => {
     scormCompletionSentRef.current = false;
     scormCompletionSyncingRef.current = false;
@@ -748,7 +904,7 @@ export default function LearningResourceDetailPage() {
   }, []);
 
   React.useEffect(() => {
-    if (!isScormPackage) return;
+    if (!isScormPackage && !isHtmlOnlyPackage) return;
     const onBeforeUnload = () => {
       void flushScormRuntimeToBackend();
     };
@@ -756,17 +912,17 @@ export default function LearningResourceDetailPage() {
     return () => {
       window.removeEventListener("beforeunload", onBeforeUnload);
     };
-  }, [isScormPackage, flushScormRuntimeToBackend]);
+  }, [isScormPackage, isHtmlOnlyPackage, flushScormRuntimeToBackend]);
 
   React.useEffect(() => {
-    if (!isScormPackage) return;
+    if (!isScormPackage && !isHtmlOnlyPackage) return;
     const interval = window.setInterval(() => {
       if (scormRuntimeProgressRef.current !== null || scormStateDirtyRef.current) {
         void flushScormRuntimeToBackend();
       }
     }, 10000);
     return () => window.clearInterval(interval);
-  }, [isScormPackage, flushScormRuntimeToBackend]);
+  }, [isScormPackage, isHtmlOnlyPackage, flushScormRuntimeToBackend]);
 
   React.useEffect(() => {
     if (!isScormPackage) return;
