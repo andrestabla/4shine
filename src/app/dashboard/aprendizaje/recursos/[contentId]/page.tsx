@@ -1635,7 +1635,7 @@ export default function LearningResourceDetailPage() {
           </section>
           )}
 
-          {!isScormPackage && (
+          {!isScormPackage && !isHtmlOnlyPackage && (
             <div
               className="absolute bottom-0 left-0 right-0 z-20 flex h-20 items-center justify-between border-t px-6 text-white md:px-12"
               style={{
