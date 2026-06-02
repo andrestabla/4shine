@@ -299,15 +299,36 @@ function mapLearningComments(comments: LearningCommentRow[] | null | undefined):
   }));
 }
 
+// Claves Rise / HTML-package shim (no llevan prefijo cmi.). Cualquier
+// otra key fuera de esta allowlist se descarta para evitar payloads
+// arbitrarios. dataChunk lleva un limite mas alto porque Rise lo usa
+// para serializar TODO el estado del aprendiz (LZW-comprimido).
+const RISE_RUNTIME_KEYS = new Set([
+  'datachunk',
+  'status',
+  'bookmark',
+  'score',
+  'lang',
+]);
+const DATACHUNK_MAX_LEN = 200000;
+
 function normalizeScormState(value: unknown): Record<string, string> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
   const source = value as Record<string, unknown>;
   const output: Record<string, string> = {};
   for (const [key, raw] of Object.entries(source)) {
-    const normalizedKey = key.trim().toLowerCase();
-    if (!normalizedKey.startsWith('cmi.')) continue;
+    const trimmedKey = key.trim();
+    const normalizedKey = trimmedKey.toLowerCase();
     if (normalizedKey.length > 128) continue;
-    output[normalizedKey] = String(raw ?? '').slice(0, 65535);
+    const isCmi = normalizedKey.startsWith('cmi.');
+    const isRise = RISE_RUNTIME_KEYS.has(normalizedKey);
+    if (!isCmi && !isRise) continue;
+    // Preserva el case original para keys Rise (Rise hace lookups
+    // case-sensitive en algunos shims), y normaliza a lowercase para
+    // claves SCORM (CMI es case-insensitive segun spec).
+    const outputKey = isCmi ? normalizedKey : trimmedKey;
+    const maxLen = normalizedKey === 'datachunk' ? DATACHUNK_MAX_LEN : 65535;
+    output[outputKey] = String(raw ?? '').slice(0, maxLen);
   }
   return output;
 }
