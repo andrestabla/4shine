@@ -3658,7 +3658,7 @@ export default function AprendizajePage() {
                               <ScormUploadButton
                                 className="app-button-secondary min-w-[14rem]"
                                 packageKind={coursePackageKind}
-                                onUploaded={({ entryUrl, fileCount, packageKind }) => {
+                                onUploaded={async ({ entryUrl, fileCount, packageKind }) => {
                                   const kindLabel =
                                     packageKind === 'scorm' ? 'SCORM' : 'HTML';
                                   setUploadedResourceAsset({
@@ -3670,6 +3670,24 @@ export default function AprendizajePage() {
                                     fileName: `Paquete ${kindLabel} (${fileCount} archivos)`,
                                   });
                                   setResourceForm((prev) => ({ ...prev, url: entryUrl }));
+
+                                  // Auto-persiste la URL inmediatamente si ya estamos editando un curso
+                                  // existente. Evita el caso donde el form tenía la URL correcta pero
+                                  // el usuario cerraba el wizard sin clickear "Guardar y salir" y la
+                                  // DB quedaba con la URL anterior (rompiendo el player).
+                                  if (editingResourceId) {
+                                    try {
+                                      await updateContent(editingResourceId, { url: entryUrl });
+                                      console.info(
+                                        `[scorm-upload] URL del curso persistida automáticamente: ${entryUrl}`,
+                                      );
+                                    } catch (err) {
+                                      console.error(
+                                        '[scorm-upload] No se pudo auto-persistir la URL:',
+                                        err,
+                                      );
+                                    }
+                                  }
                                 }}
                               />
                             </>
