@@ -245,6 +245,15 @@ export function ScormUploadButton({ onUploaded, disabled, className }: ScormUplo
       const CONCURRENCY = 4;
       let done = 0;
 
+      // PUTs directos a R2 pueden recibir errores transient (502
+      // InternalError, network blips). Retry con backoff exponencial
+      // antes de fallar definitivamente.
+      const MAX_RETRIES = 4;
+      const isRetryableStatus = (status: number) =>
+        status === 0 || status === 408 || status === 429 || status >= 500;
+      const sleep = (ms: number) =>
+        new Promise<void>((resolve) => setTimeout(resolve, ms));
+
       const uploadOne = async (zipPath: string, fileIndex: number): Promise<void> => {
         const zipFile = zip.file(zipPath);
         if (!zipFile) return;
@@ -255,21 +264,36 @@ export function ScormUploadButton({ onUploaded, disabled, className }: ScormUplo
         const body = await zipFile.async('arraybuffer');
         const sizeMb = (body.byteLength / (1024 * 1024)).toFixed(2);
 
-        const res = await fetch(presigned.url, {
-          method: 'PUT',
-          headers: { 'Content-Type': presigned.contentType },
-          body,
-        });
-
-        if (!res.ok) {
-          const text = await res.text().catch(() => '');
-          const detail = text.slice(0, 200).replace(/\s+/g, ' ').trim();
-          throw new Error(
-            `Error subiendo "${zipPath}" (${sizeMb} MB, ${fileIndex + 1}/${fileCount}, status ${res.status})${
-              detail ? ` — ${detail}` : ''
-            }`,
-          );
+        let lastStatus = 0;
+        let lastDetail = '';
+        for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+          if (attempt > 0) {
+            // 500ms, 1s, 2s, 4s
+            await sleep(500 * 2 ** (attempt - 1));
+          }
+          try {
+            const res = await fetch(presigned.url, {
+              method: 'PUT',
+              headers: { 'Content-Type': presigned.contentType },
+              body,
+            });
+            if (res.ok) return;
+            lastStatus = res.status;
+            const text = await res.text().catch(() => '');
+            lastDetail = text.slice(0, 200).replace(/\s+/g, ' ').trim();
+            if (!isRetryableStatus(res.status)) break;
+          } catch (err) {
+            // Network/CORS abort — tratable como retryable.
+            lastStatus = 0;
+            lastDetail = err instanceof Error ? err.message : String(err);
+          }
         }
+
+        throw new Error(
+          `Error subiendo "${zipPath}" (${sizeMb} MB, ${fileIndex + 1}/${fileCount}, status ${lastStatus} tras ${MAX_RETRIES} intentos)${
+            lastDetail ? ` — ${lastDetail}` : ''
+          }`,
+        );
       };
 
       // Process in windows of CONCURRENCY, updating progress after each window
