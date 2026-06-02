@@ -289,8 +289,20 @@ export default function LearningResourceDetailPage() {
     [courseModules],
   );
   const totalItems = flatItems.length;
-  const isScormPackage =
+  // Cualquier paquete completo (sin módulos manuales) que apunte a un
+  // entry HTML alojado en R2 — incluye SCORM real y exports HTML/web.
+  // Lo que diferencia ambos es si necesitamos inyectar el SCORM API shim
+  // en window.parent.API (solo SCORM real).
+  const isCoursePackage =
     resource?.contentType === "scorm" && Boolean(resource?.url) && totalItems === 0;
+  // Detección por path en R2: aprendizaje/scorm/<id>/ vs aprendizaje/html/<id>/.
+  // El campo content_type sigue siendo 'scorm' en DB para ambos por compat;
+  // el path nos dice qué tipo de runtime montar.
+  const isHtmlOnlyPackage =
+    isCoursePackage && /\/aprendizaje\/html\//.test(resource?.url ?? "");
+  // SCORM real necesita scormApiReady (shim en window.parent.API);
+  // HTML puro renderiza el iframe directo, sin esperar.
+  const isScormPackage = isCoursePackage && !isHtmlOnlyPackage;
   const currentItem =
     activeResourceIndex >= 0 ? flatItems[activeResourceIndex] ?? null : null;
   const validCompletedResourceIds = React.useMemo(() => {
@@ -1271,6 +1283,7 @@ export default function LearningResourceDetailPage() {
               Ver certificado
             </button>
           )}
+          {/* SCORM real: espera al shim window.parent.API */}
           {isScormPackage && scormApiReady && (
             <iframe
               src={toScormProxyUrl(resource.url!)}
@@ -1286,11 +1299,23 @@ export default function LearningResourceDetailPage() {
             <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/80">
               <div className="flex flex-col items-center gap-3 text-white">
                 <Loader2 size={28} className="animate-spin" />
-                <p className="text-sm font-semibold">Cargado experiencia</p>
+                <p className="text-sm font-semibold">Cargando experiencia</p>
               </div>
             </div>
           )}
-          {(!isScormPackage || (isScormPackage && activeResourceIndex === totalItems && hasCertificateScreen)) && (
+          {/* Paquete HTML/web: no necesita el shim SCORM. Renderiza
+              el iframe directo sin gating. */}
+          {isHtmlOnlyPackage && (
+            <iframe
+              src={toScormProxyUrl(resource.url!)}
+              className="absolute inset-0 w-full h-full border-0"
+              style={{ zIndex: 10 }}
+              allow="fullscreen; autoplay"
+              title={resource.title}
+              allowFullScreen
+            />
+          )}
+          {((!isScormPackage && !isHtmlOnlyPackage) || (isScormPackage && activeResourceIndex === totalItems && hasCertificateScreen)) && (
           <section className="relative z-20 flex flex-1 items-center justify-center overflow-auto p-4 sm:p-8 pb-24">
             <div className="w-full max-w-5xl">
               {(!resource) ? (

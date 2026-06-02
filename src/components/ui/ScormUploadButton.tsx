@@ -259,13 +259,15 @@ export function ScormUploadButton({
 
       // Step 1: pedir URLs presignadas directas a R2 (bypass Vercel 4.5 MB
       // body limit). El presign auto-configura CORS del bucket para que el
-      // browser pueda PUT directamente.
+      // browser pueda PUT directamente. Pasamos packageKind para que el
+      // server use el prefix correcto (aprendizaje/scorm/<id> vs
+      // aprendizaje/html/<id>) — paquetes separados en R2 por tipo.
       const filesList = entries.map(([path]) => ({ zipPath: path }));
       const presignRes = await fetch('/api/v1/uploads/r2/scorm/presign', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ entryPoint, files: filesList }),
+        body: JSON.stringify({ entryPoint, files: filesList, packageKind }),
       });
 
       const presignPayload = await safeJson<{

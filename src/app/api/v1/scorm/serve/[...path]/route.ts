@@ -6,8 +6,11 @@ import { getR2StorageConfig } from '@/server/storage/r2-upload';
 export const runtime = 'nodejs';
 export const maxDuration = 30;
 
-// Only allow paths that match our SCORM upload prefix
-const PATH_RE = /^aprendizaje\/scorm\/[^/]+\//;
+// Acepta paths bajo aprendizaje/scorm/<id>/ o aprendizaje/html/<id>/.
+// El segundo segmento determina si el paquete es SCORM (requiere
+// inyectar window.parent.API shim) o HTML (sirve tal cual).
+const PATH_RE = /^aprendizaje\/(scorm|html)\/[^/]+\//;
+const SCORM_PATH_RE = /^aprendizaje\/scorm\//;
 
 export async function GET(
   request: Request,

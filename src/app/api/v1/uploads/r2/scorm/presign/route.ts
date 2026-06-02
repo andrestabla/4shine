@@ -31,14 +31,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
   }
 
-  let body: { files?: unknown; entryPoint?: unknown; relay?: unknown };
+  let body: {
+    files?: unknown;
+    entryPoint?: unknown;
+    relay?: unknown;
+    packageKind?: unknown;
+  };
   try {
-    body = (await request.json()) as { files?: unknown; entryPoint?: unknown; relay?: unknown };
+    body = (await request.json()) as typeof body;
   } catch {
     return NextResponse.json({ ok: false, error: 'Invalid JSON' }, { status: 400 });
   }
 
   const relayMode = body.relay === true;
+
+  // Tipo de paquete: 'scorm' usa el directorio aprendizaje/scorm/<id>/
+  // (mantiene compat con cursos previos), 'html' usa
+  // aprendizaje/html/<id>/. Default 'scorm' si no llega o es inválido.
+  const packageKind: 'scorm' | 'html' =
+    body.packageKind === 'html' ? 'html' : 'scorm';
 
   const entryPoint =
     typeof body.entryPoint === 'string' && body.entryPoint.trim()
@@ -65,7 +76,7 @@ export async function POST(request: Request) {
         const config = await getR2StorageConfig(client, identity.userId);
 
         const courseId = randomUUID().replace(/-/g, '').slice(0, 16);
-        const prefix = `aprendizaje/scorm/${courseId}`;
+        const prefix = `aprendizaje/${packageKind}/${courseId}`;
 
         if (relayMode) {
           // Relay mode: just return the prefix; files are uploaded via the relay endpoint.
