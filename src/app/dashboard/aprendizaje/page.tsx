@@ -3624,14 +3624,16 @@ export default function AprendizajePage() {
                           {resourceForm.contentType === "scorm" ? (
                             <ScormUploadButton
                               className="app-button-secondary min-w-[14rem]"
-                              onUploaded={({ entryUrl, fileCount }) => {
+                              onUploaded={({ entryUrl, fileCount, packageKind }) => {
+                                const kindLabel =
+                                  packageKind === 'scorm' ? 'SCORM' : 'HTML';
                                 setUploadedResourceAsset({
                                   key: entryUrl,
                                   url: entryUrl,
                                   bucket: '',
                                   size: 0,
                                   contentType: 'application/zip',
-                                  fileName: `SCORM package (${fileCount} archivos)`,
+                                  fileName: `Paquete ${kindLabel} (${fileCount} archivos)`,
                                 });
                                 setResourceForm((prev) => ({ ...prev, url: entryUrl }));
                               }}

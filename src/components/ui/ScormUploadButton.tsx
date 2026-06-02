@@ -8,6 +8,7 @@ interface ScormUploadResult {
   entryUrl: string;
   entryPoint: string;
   fileCount: number;
+  packageKind: 'scorm' | 'html';
 }
 
 interface ScormUploadButtonProps {
@@ -28,22 +29,38 @@ function normalizeEntryPath(raw: string): string {
     .replace(/\\/g, '/');
 }
 
-function parseEntryPoint(manifestXml: string): string {
-  const patterns = [
-    /adlcp:scormtype\s*=\s*"sco"[^>]*\bhref\s*=\s*"([^"]+)"/i,
-    /\bhref\s*=\s*"([^"]+)"[^>]*adlcp:scormtype\s*=\s*"sco"/i,
-    /\bhref\s*=\s*"([^"#][^"]*\.html?)"/i,
-  ];
-  for (const re of patterns) {
-    const m = manifestXml.match(re);
-    if (m?.[1]) return normalizeEntryPath(m[1]);
+// Extrae TODOS los hrefs del manifest que apunten a HTML/SCO. Devuelve
+// una lista ordenada por confianza: primero los que están en un
+// <resource scormtype="sco">, luego cualquier .html referenciado en
+// <file href="...">.
+function extractManifestEntries(manifestXml: string): string[] {
+  const candidates: string[] = [];
+
+  // Resource elements con adlcp:scormtype="sco" — el SCO principal.
+  const resourceRe =
+    /<resource\b[^>]*adlcp:scormtype\s*=\s*"sco"[^>]*>/gi;
+  let resourceMatch: RegExpExecArray | null;
+  while ((resourceMatch = resourceRe.exec(manifestXml)) !== null) {
+    const tag = resourceMatch[0];
+    const hrefMatch = tag.match(/\bhref\s*=\s*"([^"]+)"/i);
+    if (hrefMatch?.[1]) candidates.push(normalizeEntryPath(hrefMatch[1]));
   }
-  return 'index.html';
+
+  // Cualquier href .html dentro del manifest (file refs).
+  const htmlHrefRe = /\bhref\s*=\s*"([^"#]+\.html?)"/gi;
+  let htmlMatch: RegExpExecArray | null;
+  while ((htmlMatch = htmlHrefRe.exec(manifestXml)) !== null) {
+    if (htmlMatch[1]) candidates.push(normalizeEntryPath(htmlMatch[1]));
+  }
+
+  // Dedupe preservando orden de confianza.
+  return Array.from(new Set(candidates));
 }
 
-// Busca el archivo HTML de arranque en un ZIP que no es SCORM (paquetes
-// HTML/web sin imsmanifest.xml). Prefiere el index.html más cercano a la
-// raíz; si no hay index, devuelve el primer .html al nivel más superficial.
+// Busca el archivo HTML de arranque en un ZIP (paquetes HTML/web o
+// fallback cuando el manifest SCORM no apunta a un archivo válido).
+// Prefiere el index.html más cercano a la raíz; si no hay index,
+// devuelve el primer .html al nivel más superficial.
 function findHtmlEntry(filePaths: string[]): string | null {
   const htmlFiles = filePaths.filter((p) => /\.html?$/i.test(p));
   if (htmlFiles.length === 0) return null;
@@ -57,6 +74,64 @@ function findHtmlEntry(filePaths: string[]): string | null {
   });
   const picked = sorted[0];
   return picked ? normalizeEntryPath(picked) : null;
+}
+
+type PackageDetection =
+  | { kind: 'scorm'; entryPoint: string }
+  | { kind: 'html'; entryPoint: string }
+  | {
+      kind: 'invalid';
+      reason: string;
+    };
+
+// Clasifica el paquete y resuelve el entryPoint contra los archivos
+// reales del ZIP. Reglas:
+// - SCORM: hay imsmanifest.xml Y al menos un candidato del manifest
+//   existe en el ZIP. Si el manifest apunta a algo que no existe,
+//   intentamos cada candidato; si ninguno coincide, degradamos a HTML.
+// - HTML: no hay manifest, o el manifest está roto. Si hay un .html
+//   navegable -> kind 'html'.
+// - Invalid: ni manifest válido ni .html alguno.
+function detectPackage(
+  manifestXml: string | null,
+  allPaths: string[],
+): PackageDetection {
+  const pathSet = new Set(allPaths);
+
+  if (manifestXml) {
+    const candidates = extractManifestEntries(manifestXml);
+    for (const candidate of candidates) {
+      if (pathSet.has(candidate)) {
+        return { kind: 'scorm', entryPoint: candidate };
+      }
+    }
+    // Manifest existe pero ningún candidato matchea con un archivo.
+    // Degradamos a HTML fallback con un warning implícito.
+    const htmlFallback = findHtmlEntry(allPaths);
+    if (htmlFallback) {
+      return { kind: 'html', entryPoint: htmlFallback };
+    }
+    return {
+      kind: 'invalid',
+      reason: candidates.length
+        ? `El imsmanifest.xml referencia ${candidates
+            .slice(0, 3)
+            .map((c) => `"${c}"`)
+            .join(', ')} pero ninguno de esos archivos existe en el ZIP y tampoco hay un index.html alternativo.`
+        : 'El imsmanifest.xml no tiene un SCO ni hrefs HTML detectables, y el ZIP no contiene un index.html alternativo.',
+    };
+  }
+
+  // Sin manifest -> intentar como paquete HTML/web.
+  const htmlEntry = findHtmlEntry(allPaths);
+  if (htmlEntry) {
+    return { kind: 'html', entryPoint: htmlEntry };
+  }
+  return {
+    kind: 'invalid',
+    reason:
+      'El ZIP no contiene imsmanifest.xml ni un index.html. Sube un paquete SCORM o un export HTML con un index.',
+  };
 }
 
 const MIME_MAP: Record<string, string> = {
@@ -102,38 +177,25 @@ export function ScormUploadButton({ onUploaded, disabled, className }: ScormUplo
       const entries = Object.entries(zip.files).filter(([, f]) => !f.dir);
       const fileCount = entries.length;
       const allPaths = entries.map(([path]) => path);
-      const pathSet = new Set(allPaths);
 
-      // Detección de entry point:
-      // 1) Si hay imsmanifest.xml -> paquete SCORM, parsear y VERIFICAR
-      //    que el path realmente existe en el ZIP. Algunos exporters
-      //    referencian el SCO sin .html y dejan al runtime resolverlo;
-      //    al pasarlo crudo a R2 da 404. Si no existe, caemos al
-      //    fallback HTML.
-      // 2) Si no hay manifest o el path del manifest es inválido,
-      //    buscar el index.html (o cualquier .html) más cercano a la
-      //    raíz -> paquete HTML/web exportado.
-      let entryPoint: string;
+      // Clasificación automática del paquete: SCORM (manifest válido +
+      // entry existe), HTML (sin manifest pero con un .html navegable),
+      // o inválido. La detección se hace contra los archivos reales del
+      // ZIP, así no se guarda un entryPoint que apunte a un archivo
+      // inexistente.
       const manifestFile = zip.file('imsmanifest.xml');
-      let manifestEntry: string | null = null;
-      if (manifestFile) {
-        const manifestXml = await manifestFile.async('text');
-        manifestEntry = parseEntryPoint(manifestXml);
+      const manifestXml = manifestFile ? await manifestFile.async('text') : null;
+      const detection = detectPackage(manifestXml, allPaths);
+
+      if (detection.kind === 'invalid') {
+        throw new Error(`Archivo inválido: ${detection.reason}`);
       }
 
-      if (manifestEntry && pathSet.has(manifestEntry)) {
-        entryPoint = manifestEntry;
-      } else {
-        const htmlEntry = findHtmlEntry(allPaths);
-        if (!htmlEntry) {
-          throw new Error(
-            manifestEntry
-              ? `El imsmanifest.xml apunta a "${manifestEntry}" pero ese archivo no existe en el ZIP, y no hay un index.html alternativo. Verifica el manifest del paquete o usa un export HTML válido.`
-              : 'Archivo inválido: el ZIP no contiene imsmanifest.xml ni un index.html. Sube un paquete SCORM o un export HTML con un index.',
-          );
-        }
-        entryPoint = htmlEntry;
-      }
+      const entryPoint = detection.entryPoint;
+      const packageKind = detection.kind; // 'scorm' | 'html'
+      console.info(
+        `[scorm-upload] Paquete clasificado como ${packageKind.toUpperCase()}. Entry: "${entryPoint}"`,
+      );
       setProgress({ uploading: true, done: 0, total: fileCount });
 
       // Step 1: pedir URLs presignadas directas a R2 (bypass Vercel 4.5 MB
@@ -237,7 +299,7 @@ export function ScormUploadButton({ onUploaded, disabled, className }: ScormUplo
       }
 
       setProgress({ uploading: false, done: fileCount, total: fileCount });
-      onUploaded(finalizePayload.data);
+      onUploaded({ ...finalizePayload.data, packageKind });
     } catch (err) {
       setProgress({ uploading: false, done: 0, total: 0 });
       await alert({
