@@ -29,7 +29,7 @@ export async function GET(
       return segment;
     }
   });
-  const filePath = segments.join('/');
+  let filePath = segments.join('/');
 
   if (!PATH_RE.test(filePath)) {
     return new Response('Not Found', { status: 404 });
@@ -52,12 +52,38 @@ export async function GET(
   }
 
   const encodedPath = segments.map(encodeURIComponent).join('/');
-  const r2Url = `${publicBaseUrl}/${encodedPath}${new URL(request.url).search}`;
+  const search = new URL(request.url).search;
+  let r2Url = `${publicBaseUrl}/${encodedPath}${search}`;
   let r2Res: Response;
   try {
     r2Res = await fetch(r2Url);
   } catch {
     return new Response('Bad Gateway', { status: 502 });
+  }
+
+  // Comportamiento "index file" como Apache/nginx: si el último segmento
+  // no tiene extensión (parece un directorio) y R2 devuelve 404, probar
+  // con /index.html dentro. Articulate Rise navega el iframe al folder
+  // padre via history al inicializar, lo que dispara este caso.
+  if (r2Res.status === 404) {
+    const lastSegment = segments[segments.length - 1] ?? '';
+    const looksLikeDirectory = lastSegment !== '' && !lastSegment.includes('.');
+    if (looksLikeDirectory) {
+      const indexUrl = `${publicBaseUrl}/${encodedPath}/index.html${search}`;
+      try {
+        const indexRes = await fetch(indexUrl);
+        if (indexRes.ok) {
+          r2Url = indexUrl;
+          r2Res = indexRes;
+          // Actualizamos filePath para que el baseHref incluya el folder
+          // del index. Sin esto, los assets relativos del HTML (lib/css,
+          // lib/js, etc.) se resolverían contra el folder PADRE y 404.
+          filePath = `${filePath}/index.html`;
+        }
+      } catch {
+        // Si el fallback falla, dejamos el 404 original.
+      }
+    }
   }
 
   if (!r2Res.ok) {
