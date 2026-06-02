@@ -61,12 +61,25 @@ function extractManifestEntries(manifestXml: string): string[] {
   return Array.from(new Set(candidates));
 }
 
+// Archivos basura que macOS Finder inyecta al comprimir y que NO deben
+// considerarse archivos reales del paquete (ni como entry candidate ni
+// como contenido a subir a R2).
+function isJunkPath(p: string): boolean {
+  return (
+    /(^|\/)__MACOSX\//i.test(p) ||
+    /(^|\/)\._/.test(p) ||
+    /(^|\/)\.DS_Store$/i.test(p)
+  );
+}
+
 // Busca el archivo HTML de arranque en un ZIP (paquetes HTML/web o
 // fallback cuando el manifest SCORM no apunta a un archivo válido).
 // Prefiere el index.html más cercano a la raíz; si no hay index,
 // devuelve el primer .html al nivel más superficial.
 function findHtmlEntry(filePaths: string[]): string | null {
-  const htmlFiles = filePaths.filter((p) => /\.html?$/i.test(p));
+  const htmlFiles = filePaths.filter(
+    (p) => /\.html?$/i.test(p) && !isJunkPath(p),
+  );
   if (htmlFiles.length === 0) return null;
   const byDepth = (path: string) => path.split('/').length;
   const sorted = [...htmlFiles].sort((a, b) => {
@@ -206,7 +219,12 @@ export function ScormUploadButton({
       const JSZip = (await import('jszip')).default;
       const zip = await JSZip.loadAsync(file);
 
-      const entries = Object.entries(zip.files).filter(([, f]) => !f.dir);
+      // Excluimos directorios y archivos basura de macOS (__MACOSX/, ._*,
+      // .DS_Store). No tiene sentido subir ese ruido a R2 ni considerarlo
+      // como entry point candidato.
+      const entries = Object.entries(zip.files).filter(
+        ([path, f]) => !f.dir && !isJunkPath(path),
+      );
       const fileCount = entries.length;
       const allPaths = entries.map(([path]) => path);
 
@@ -219,7 +237,11 @@ export function ScormUploadButton({
       let packageKind: 'scorm' | 'html';
 
       if (kindProp === 'html') {
-        const htmlCandidates = allPaths.filter((p) => /\.html?$/i.test(p));
+        // Filtramos archivos basura (macOS resource forks, .DS_Store)
+        // — el usuario nunca elegiría estos como entry point.
+        const htmlCandidates = allPaths.filter(
+          (p) => /\.html?$/i.test(p) && !isJunkPath(p),
+        );
         if (htmlCandidates.length === 0) {
           throw new Error(
             'El ZIP no contiene ningún archivo .html. Verifica que el paquete tenga al menos una página web exportada.',
