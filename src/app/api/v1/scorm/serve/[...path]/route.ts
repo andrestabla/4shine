@@ -58,7 +58,26 @@ export async function GET(
   }
 
   if (!r2Res.ok) {
-    return new Response('Not Found', { status: r2Res.status === 404 ? 404 : 502 });
+    // Surface qué se intentó traer y qué dijo R2 para diagnosticar
+    // 404s rápidos (key con espacios mal codificados, entry point mal
+    // detectado en HTML packages, prefix incorrecto, etc.).
+    const diagnostic = `<!doctype html><html><head><meta charset="utf-8"><title>No se encontró el contenido</title>
+<style>body{font-family:system-ui,sans-serif;padding:2rem;color:#0D1B2A;background:#f5f5f5;max-width:780px;margin:0 auto}h1{font-size:1.25rem}code{background:#fff;padding:.15rem .35rem;border-radius:.25rem;font-size:.85rem;word-break:break-all}pre{background:#fff;padding:1rem;border-radius:.5rem;overflow:auto;font-size:.75rem}</style>
+</head><body>
+<h1>El paquete del curso no se encontró en R2</h1>
+<p>R2 devolvió <strong>${r2Res.status} ${r2Res.statusText}</strong> al pedir:</p>
+<pre>${r2Url.replace(/[<>]/g, '')}</pre>
+<p>Causas frecuentes:</p>
+<ul>
+  <li>El <code>entryPoint</code> guardado en el curso apunta a un archivo que no existe (verificá en Editar curso &raquo; paso 2).</li>
+  <li>La subida del ZIP no terminó completa antes de guardar.</li>
+  <li>El bucket o el <code>publicBaseUrl</code> de R2 cambiaron desde la subida.</li>
+</ul>
+</body></html>`;
+    return new Response(diagnostic, {
+      status: r2Res.status === 404 ? 404 : 502,
+      headers: { 'Content-Type': 'text/html; charset=utf-8' },
+    });
   }
 
   const rawContentType = r2Res.headers.get('content-type') ?? 'application/octet-stream';

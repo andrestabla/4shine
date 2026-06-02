@@ -70,10 +70,16 @@ export async function POST(request: Request) {
     }
 
     const prefix = typeof body.prefix === 'string' ? body.prefix.trim() : '';
-    const entryPoint =
+    const rawEntry =
       typeof body.entryPoint === 'string' && body.entryPoint.trim()
         ? body.entryPoint.trim()
         : 'index.html';
+    // Normaliza: sin leading ./ ni /, slashes consistentes. El entry
+    // se concatena con el prefix; cualquier prefix anómalo rompe el URL.
+    const entryPoint = rawEntry
+      .replace(/^\.\//, '')
+      .replace(/^\/+/, '')
+      .replace(/\\/g, '/');
     const fileCount = typeof body.fileCount === 'number' ? body.fileCount : 0;
 
     if (!prefix) {

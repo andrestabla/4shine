@@ -16,6 +16,18 @@ interface ScormUploadButtonProps {
   className?: string;
 }
 
+function normalizeEntryPath(raw: string): string {
+  // Limpia paths que el manifest o nuestro detector de HTML pueden
+  // devolver con leading `./` o `/`, espacios al borde, etc. — el
+  // server construye entryUrl como `${prefix}/${entryPoint}` y un
+  // leading slash dejaría doble separador.
+  return raw
+    .trim()
+    .replace(/^\.\//, '')
+    .replace(/^\/+/, '')
+    .replace(/\\/g, '/');
+}
+
 function parseEntryPoint(manifestXml: string): string {
   const patterns = [
     /adlcp:scormtype\s*=\s*"sco"[^>]*\bhref\s*=\s*"([^"]+)"/i,
@@ -24,7 +36,7 @@ function parseEntryPoint(manifestXml: string): string {
   ];
   for (const re of patterns) {
     const m = manifestXml.match(re);
-    if (m?.[1]) return m[1];
+    if (m?.[1]) return normalizeEntryPath(m[1]);
   }
   return 'index.html';
 }
@@ -43,7 +55,8 @@ function findHtmlEntry(filePaths: string[]): string | null {
     const bIsIndex = /(?:^|\/)index\.html?$/i.test(b) ? 0 : 1;
     return aIsIndex - bIsIndex;
   });
-  return sorted[0] ?? null;
+  const picked = sorted[0];
+  return picked ? normalizeEntryPath(picked) : null;
 }
 
 const MIME_MAP: Record<string, string> = {
