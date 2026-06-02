@@ -94,7 +94,40 @@ export async function POST(request: Request) {
         }),
       );
       const publicBase = config.publicBaseUrl.replace(/\/+$/, '');
+      // Codifica cada segmento del path para que espacios/caracteres
+      // unicode lleguen bien al GET de R2.
+      const encodedEntry = entryPoint.split('/').map(encodeURIComponent).join('/');
       const entryUrl = `${publicBase}/${prefix}/${entryPoint}`;
+      const probeUrl = `${publicBase}/${prefix}/${encodedEntry}`;
+
+      // VERIFICA que el entryPoint realmente exista en R2 antes de
+      // devolver la URL al cliente. Esto evita el escenario donde la
+      // DB queda con una URL apuntando a un prefix vacío (uploads
+      // parcialmente completos o uploads concurrentes que corrompen el
+      // estado del form).
+      let probeStatus = 0;
+      try {
+        const probe = await fetch(probeUrl, { method: 'HEAD' });
+        probeStatus = probe.status;
+        if (!probe.ok) {
+          return NextResponse.json(
+            {
+              ok: false,
+              error: `El archivo del curso no se encontró en R2 tras la subida (status ${probe.status} al verificar ${probeUrl}). La subida puede haber sido interrumpida; vuelve a intentar.`,
+            },
+            { status: 409 },
+          );
+        }
+      } catch (probeErr) {
+        console.error('SCORM finalize: probe failed', probeErr);
+        // Si la verificación falla por red, no bloqueamos — registramos
+        // y devolvemos la URL igualmente. El cliente podrá detectar
+        // el 404 después.
+      }
+
+      console.info(
+        `[scorm-finalize] OK · prefix=${prefix} · entry=${entryPoint} · probe=${probeStatus} · files=${fileCount}`,
+      );
       return NextResponse.json({ ok: true, data: { entryUrl, entryPoint, prefix, fileCount } });
     } catch (error) {
       if (error instanceof ForbiddenError) {
