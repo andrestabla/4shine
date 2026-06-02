@@ -13,6 +13,10 @@ interface ScormUploadResult {
 
 interface ScormUploadButtonProps {
   onUploaded: (result: ScormUploadResult) => void;
+  // 'scorm' = autodetecta el entry desde imsmanifest.xml.
+  // 'html'  = sin manifest; tras seleccionar el ZIP, el usuario
+  //           pica el archivo principal .html en un picker manual.
+  packageKind?: 'scorm' | 'html';
   disabled?: boolean;
   className?: string;
 }
@@ -163,10 +167,38 @@ async function safeJson<T>(res: Response): Promise<T> {
   }
 }
 
-export function ScormUploadButton({ onUploaded, disabled, className }: ScormUploadButtonProps) {
+export function ScormUploadButton({
+  onUploaded,
+  packageKind: kindProp = 'scorm',
+  disabled,
+  className,
+}: ScormUploadButtonProps) {
   const inputRef = React.useRef<HTMLInputElement>(null);
   const { alert } = useAppDialog();
   const [progress, setProgress] = React.useState({ uploading: false, done: 0, total: 0 });
+  // Picker manual para el modo HTML.
+  const [htmlPicker, setHtmlPicker] = React.useState<{
+    candidates: string[];
+    selected: string;
+    resolve: (entry: string | null) => void;
+  } | null>(null);
+
+  const pickHtmlEntryManually = (candidates: string[]): Promise<string | null> =>
+    new Promise((resolve) => {
+      const sorted = [...candidates].sort((a, b) => {
+        const depthA = a.split('/').length;
+        const depthB = b.split('/').length;
+        if (depthA !== depthB) return depthA - depthB;
+        const isIndexA = /(?:^|\/)index\.html?$/i.test(a) ? 0 : 1;
+        const isIndexB = /(?:^|\/)index\.html?$/i.test(b) ? 0 : 1;
+        return isIndexA - isIndexB;
+      });
+      setHtmlPicker({
+        candidates: sorted,
+        selected: sorted[0] ?? '',
+        resolve,
+      });
+    });
 
   const handleFile = async (file: File) => {
     setProgress({ uploading: true, done: 0, total: 0 });
@@ -178,23 +210,50 @@ export function ScormUploadButton({ onUploaded, disabled, className }: ScormUplo
       const fileCount = entries.length;
       const allPaths = entries.map(([path]) => path);
 
-      // Clasificación automática del paquete: SCORM (manifest válido +
-      // entry existe), HTML (sin manifest pero con un .html navegable),
-      // o inválido. La detección se hace contra los archivos reales del
-      // ZIP, así no se guarda un entryPoint que apunte a un archivo
-      // inexistente.
-      const manifestFile = zip.file('imsmanifest.xml');
-      const manifestXml = manifestFile ? await manifestFile.async('text') : null;
-      const detection = detectPackage(manifestXml, allPaths);
+      // Decisión del entry point según el tipo declarado por el usuario:
+      // - SCORM: auto-detecta vía imsmanifest.xml (con validación contra
+      //   archivos reales y fallback a búsqueda HTML si el manifest miente).
+      // - HTML: lista todos los .html del ZIP y deja que el usuario
+      //   escoja explícitamente el archivo principal. Sin adivinanzas.
+      let entryPoint: string;
+      let packageKind: 'scorm' | 'html';
 
-      if (detection.kind === 'invalid') {
-        throw new Error(`Archivo inválido: ${detection.reason}`);
+      if (kindProp === 'html') {
+        const htmlCandidates = allPaths.filter((p) => /\.html?$/i.test(p));
+        if (htmlCandidates.length === 0) {
+          throw new Error(
+            'El ZIP no contiene ningún archivo .html. Verifica que el paquete tenga al menos una página web exportada.',
+          );
+        }
+        let chosen: string | null;
+        if (htmlCandidates.length === 1) {
+          chosen = htmlCandidates[0];
+        } else {
+          // Pausamos el upload — el progress sigue en 0/0 mientras el
+          // usuario elige.
+          setProgress({ uploading: false, done: 0, total: 0 });
+          chosen = await pickHtmlEntryManually(htmlCandidates);
+          if (!chosen) {
+            return; // canceló
+          }
+          setProgress({ uploading: true, done: 0, total: 0 });
+        }
+        entryPoint = normalizeEntryPath(chosen);
+        packageKind = 'html';
+      } else {
+        // SCORM: clasificación automática.
+        const manifestFile = zip.file('imsmanifest.xml');
+        const manifestXml = manifestFile ? await manifestFile.async('text') : null;
+        const detection = detectPackage(manifestXml, allPaths);
+        if (detection.kind === 'invalid') {
+          throw new Error(`Archivo inválido: ${detection.reason}`);
+        }
+        entryPoint = detection.entryPoint;
+        packageKind = detection.kind;
       }
 
-      const entryPoint = detection.entryPoint;
-      const packageKind = detection.kind; // 'scorm' | 'html'
       console.info(
-        `[scorm-upload] Paquete clasificado como ${packageKind.toUpperCase()}. Entry: "${entryPoint}"`,
+        `[scorm-upload] Paquete ${packageKind.toUpperCase()}. Entry: "${entryPoint}"`,
       );
       setProgress({ uploading: true, done: 0, total: fileCount });
 
@@ -342,6 +401,9 @@ export function ScormUploadButton({ onUploaded, disabled, className }: ScormUplo
 
   const isUploading = progress.uploading;
 
+  const buttonLabel =
+    kindProp === 'html' ? 'Subir paquete HTML a R2' : 'Subir paquete SCORM a R2';
+
   return (
     <>
       <input
@@ -353,7 +415,7 @@ export function ScormUploadButton({ onUploaded, disabled, className }: ScormUplo
       />
       <button
         type="button"
-        disabled={disabled || isUploading}
+        disabled={disabled || isUploading || htmlPicker !== null}
         onClick={() => inputRef.current?.click()}
         className={
           className ??
@@ -365,8 +427,63 @@ export function ScormUploadButton({ onUploaded, disabled, className }: ScormUplo
           ? progress.total > 0
             ? `Subiendo ${progress.done}/${progress.total}…`
             : 'Preparando…'
-          : 'Subir curso a R2'}
+          : buttonLabel}
       </button>
+
+      {htmlPicker && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="text-lg font-semibold text-[var(--app-ink)]">
+              Selecciona el archivo principal del paquete
+            </h3>
+            <p className="mt-2 text-sm text-[var(--app-muted)]">
+              Encontré {htmlPicker.candidates.length} archivos .html en el ZIP.
+              ¿Cuál es la entrada del curso? El sistema mostrará este archivo cuando un líder abra el curso.
+            </p>
+            <select
+              value={htmlPicker.selected}
+              onChange={(e) =>
+                setHtmlPicker((prev) => (prev ? { ...prev, selected: e.target.value } : prev))
+              }
+              className="mt-4 w-full rounded-xl border border-[var(--app-border)] bg-white px-3 py-2 text-sm text-[var(--app-ink)] focus:border-[var(--app-border-strong)] focus:outline-none"
+            >
+              {htmlPicker.candidates.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  htmlPicker.resolve(null);
+                  setHtmlPicker(null);
+                }}
+                className="rounded-full border border-[var(--app-border)] px-4 py-2 text-sm font-semibold text-[var(--app-ink)] hover:bg-[var(--app-surface-muted)]"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  htmlPicker.resolve(htmlPicker.selected);
+                  setHtmlPicker(null);
+                }}
+                disabled={!htmlPicker.selected}
+                className="rounded-full px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
+                style={{ background: 'var(--brand-primary)' }}
+              >
+                Usar este archivo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

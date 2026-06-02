@@ -869,6 +869,9 @@ export default function AprendizajePage() {
   const [customCategoryDraft, setCustomCategoryDraft] = React.useState("");
   const [uploadedResourceAsset, setUploadedResourceAsset] =
     React.useState<R2UploadResponse | null>(null);
+  // Tipo de paquete para subir un curso: SCORM (autodetecta entry) o
+  // HTML (el usuario elige el archivo principal tras seleccionar el ZIP).
+  const [coursePackageKind, setCoursePackageKind] = React.useState<'scorm' | 'html'>('scorm');
   const [metadataAssistantResult, setMetadataAssistantResult] =
     React.useState<LearningMetadataAssistantResult | null>(null);
   const [metadataAssistantLoading, setMetadataAssistantLoading] =
@@ -3620,24 +3623,56 @@ export default function AprendizajePage() {
                           </p>
                         </div>
 
-                        <div className="flex items-end">
+                        <div className="flex flex-col gap-2 lg:items-end">
                           {resourceForm.contentType === "scorm" ? (
-                            <ScormUploadButton
-                              className="app-button-secondary min-w-[14rem]"
-                              onUploaded={({ entryUrl, fileCount, packageKind }) => {
-                                const kindLabel =
-                                  packageKind === 'scorm' ? 'SCORM' : 'HTML';
-                                setUploadedResourceAsset({
-                                  key: entryUrl,
-                                  url: entryUrl,
-                                  bucket: '',
-                                  size: 0,
-                                  contentType: 'application/zip',
-                                  fileName: `Paquete ${kindLabel} (${fileCount} archivos)`,
-                                });
-                                setResourceForm((prev) => ({ ...prev, url: entryUrl }));
-                              }}
-                            />
+                            <>
+                              <div
+                                className="inline-flex rounded-full border p-1 text-xs font-semibold"
+                                style={{ borderColor: 'var(--app-border)', background: 'white' }}
+                              >
+                                {([
+                                  { key: 'scorm' as const, label: 'SCORM' },
+                                  { key: 'html' as const, label: 'HTML' },
+                                ]).map((opt) => {
+                                  const active = coursePackageKind === opt.key;
+                                  return (
+                                    <button
+                                      key={opt.key}
+                                      type="button"
+                                      onClick={() => setCoursePackageKind(opt.key)}
+                                      className="rounded-full px-3 py-1 transition"
+                                      style={
+                                        active
+                                          ? {
+                                              background: 'var(--brand-primary)',
+                                              color: 'var(--brand-on-dark)',
+                                            }
+                                          : { color: 'var(--app-muted)' }
+                                      }
+                                    >
+                                      {opt.label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                              <ScormUploadButton
+                                className="app-button-secondary min-w-[14rem]"
+                                packageKind={coursePackageKind}
+                                onUploaded={({ entryUrl, fileCount, packageKind }) => {
+                                  const kindLabel =
+                                    packageKind === 'scorm' ? 'SCORM' : 'HTML';
+                                  setUploadedResourceAsset({
+                                    key: entryUrl,
+                                    url: entryUrl,
+                                    bucket: '',
+                                    size: 0,
+                                    contentType: 'application/zip',
+                                    fileName: `Paquete ${kindLabel} (${fileCount} archivos)`,
+                                  });
+                                  setResourceForm((prev) => ({ ...prev, url: entryUrl }));
+                                }}
+                              />
+                            </>
                           ) : (
                             <R2UploadButton
                               moduleCode="aprendizaje"
