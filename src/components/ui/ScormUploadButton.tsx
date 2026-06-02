@@ -101,21 +101,35 @@ export function ScormUploadButton({ onUploaded, disabled, className }: ScormUplo
 
       const entries = Object.entries(zip.files).filter(([, f]) => !f.dir);
       const fileCount = entries.length;
+      const allPaths = entries.map(([path]) => path);
+      const pathSet = new Set(allPaths);
 
       // Detección de entry point:
-      // 1) Si hay imsmanifest.xml -> paquete SCORM, parsear como antes.
-      // 2) Si no, buscar el index.html (o cualquier .html) más cercano a
-      //    la raíz -> paquete HTML/web exportado.
+      // 1) Si hay imsmanifest.xml -> paquete SCORM, parsear y VERIFICAR
+      //    que el path realmente existe en el ZIP. Algunos exporters
+      //    referencian el SCO sin .html y dejan al runtime resolverlo;
+      //    al pasarlo crudo a R2 da 404. Si no existe, caemos al
+      //    fallback HTML.
+      // 2) Si no hay manifest o el path del manifest es inválido,
+      //    buscar el index.html (o cualquier .html) más cercano a la
+      //    raíz -> paquete HTML/web exportado.
       let entryPoint: string;
       const manifestFile = zip.file('imsmanifest.xml');
+      let manifestEntry: string | null = null;
       if (manifestFile) {
         const manifestXml = await manifestFile.async('text');
-        entryPoint = parseEntryPoint(manifestXml);
+        manifestEntry = parseEntryPoint(manifestXml);
+      }
+
+      if (manifestEntry && pathSet.has(manifestEntry)) {
+        entryPoint = manifestEntry;
       } else {
-        const htmlEntry = findHtmlEntry(entries.map(([path]) => path));
+        const htmlEntry = findHtmlEntry(allPaths);
         if (!htmlEntry) {
           throw new Error(
-            'Archivo inválido: el ZIP no contiene imsmanifest.xml ni un index.html. Sube un paquete SCORM o un export HTML con un index.',
+            manifestEntry
+              ? `El imsmanifest.xml apunta a "${manifestEntry}" pero ese archivo no existe en el ZIP, y no hay un index.html alternativo. Verifica el manifest del paquete o usa un export HTML válido.`
+              : 'Archivo inválido: el ZIP no contiene imsmanifest.xml ni un index.html. Sube un paquete SCORM o un export HTML con un index.',
           );
         }
         entryPoint = htmlEntry;
