@@ -7,12 +7,18 @@ import { EmptyState } from '@/components/dashboard/EmptyState';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useUser } from '@/context/UserContext';
-import { listUsers, type AppRole, type UserRecord } from '@/features/usuarios/client';
+import { listUsers, type UserRecord } from '@/features/usuarios/client';
+import {
+  deriveUserTypeSelection,
+  USER_TYPE_OPTIONS,
+  userTypeLabel,
+  type UserTypeOption,
+} from '@/features/usuarios/user-types';
 import { RolesMatrixSection } from '@/components/dashboard/usuarios/RolesMatrixSection';
 
 interface ListFilters {
   search: string;
-  role: AppRole | 'all';
+  userType: UserTypeOption | 'all';
   status: 'all' | 'active' | 'inactive';
   policyStatus: 'all' | 'accepted' | 'pending';
 }
@@ -28,19 +34,22 @@ function formatDate(value: string | null): string {
   });
 }
 
-function roleLabel(role: AppRole): string {
-  switch (role) {
-    case 'admin':
-      return 'ADMIN';
-    case 'gestor':
-      return 'GESTOR';
+function userTypeBadgeClass(option: UserTypeOption): string {
+  switch (option) {
+    case 'leader_with_subscription':
+      return 'app-badge';
+    case 'leader_without_subscription':
+      return 'app-badge app-badge-muted';
     case 'mentor':
-      return 'Adviser';
-    case 'invitado':
-      return 'INVITADO';
-    case 'lider':
+      return 'app-badge border-purple-200 bg-purple-50 text-purple-700';
+    case 'gestor':
+      return 'app-badge border-blue-200 bg-blue-50 text-blue-700';
+    case 'admin':
+      return 'app-badge border-amber-200 bg-amber-50 text-amber-700';
+    case 'invited':
+      return 'app-badge border-slate-200 bg-slate-50 text-slate-700';
     default:
-      return 'LÍDER';
+      return 'app-badge';
   }
 }
 
@@ -59,12 +68,32 @@ export default function UsuariosPage() {
   const [loading, setLoading] = React.useState(true);
   const [filters, setFilters] = React.useState<ListFilters>({
     search: '',
-    role: 'all',
+    userType: 'all',
     status: 'all',
     policyStatus: 'all',
   });
 
   const isAdmin = currentRole === 'admin';
+
+  // Mapeamos el filtro de tipo de usuario al rol base que entiende el endpoint;
+  // los matices de subscripción los filtramos localmente con deriveUserTypeSelection.
+  const baseRoleForFilter = React.useMemo<UserRecord['primaryRole'] | 'all'>(() => {
+    switch (filters.userType) {
+      case 'leader_with_subscription':
+      case 'leader_without_subscription':
+        return 'lider';
+      case 'mentor':
+        return 'mentor';
+      case 'gestor':
+        return 'gestor';
+      case 'admin':
+        return 'admin';
+      case 'invited':
+        return 'invitado';
+      default:
+        return 'all';
+    }
+  }, [filters.userType]);
 
   const loadUsers = React.useCallback(async () => {
     setLoading(true);
@@ -72,7 +101,7 @@ export default function UsuariosPage() {
       const data = await listUsers({
         limit: 500,
         search: filters.search,
-        role: filters.role,
+        role: baseRoleForFilter,
         status: filters.status,
         policyStatus: filters.policyStatus,
       });
@@ -86,7 +115,14 @@ export default function UsuariosPage() {
     } finally {
       setLoading(false);
     }
-  }, [alert, filters.policyStatus, filters.role, filters.search, filters.status]);
+  }, [alert, baseRoleForFilter, filters.policyStatus, filters.search, filters.status]);
+
+  // Filtra localmente los matices que el endpoint no distingue
+  // (leader_with_subscription vs leader_without_subscription).
+  const visibleUsers = React.useMemo(() => {
+    if (filters.userType === 'all') return users;
+    return users.filter((user) => deriveUserTypeSelection(user) === filters.userType);
+  }, [users, filters.userType]);
 
   React.useEffect(() => {
     if (tab !== 'usuarios') return;
@@ -160,23 +196,23 @@ export default function UsuariosPage() {
               </label>
 
               <label>
-                <span className="app-field-label">Rol</span>
+                <span className="app-field-label">Tipo de usuario</span>
                 <select
                   className="app-select"
-                  value={filters.role}
+                  value={filters.userType}
                   onChange={(event) =>
                     setFilters((prev) => ({
                       ...prev,
-                      role: event.target.value as ListFilters['role'],
+                      userType: event.target.value as ListFilters['userType'],
                     }))
                   }
                 >
                   <option value="all">Todos</option>
-                  <option value="lider">Líder</option>
-                  <option value="mentor">Adviser</option>
-                  <option value="gestor">Gestor</option>
-                  <option value="admin">Admin</option>
-                  <option value="invitado">Invitado</option>
+                  {USER_TYPE_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {userTypeLabel(option)}
+                    </option>
+                  ))}
                 </select>
               </label>
 
@@ -220,7 +256,7 @@ export default function UsuariosPage() {
 
           {loading ? (
             <div className="app-panel px-4 py-5 text-sm text-[var(--app-muted)]">Cargando usuarios...</div>
-          ) : users.length === 0 ? (
+          ) : visibleUsers.length === 0 ? (
             <EmptyState message="No hay usuarios para los filtros aplicados." />
           ) : (
             <section className="app-table-shell">
@@ -229,7 +265,7 @@ export default function UsuariosPage() {
                   <thead>
                     <tr className="text-left">
                       <th>Usuario</th>
-                      <th>Rol</th>
+                      <th>Tipo de usuario</th>
                       <th>Plan</th>
                       <th>Estado</th>
                       <th>Políticas</th>
@@ -237,7 +273,9 @@ export default function UsuariosPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {users.map((user) => (
+                    {visibleUsers.map((user) => {
+                      const userType = deriveUserTypeSelection(user);
+                      return (
                       <tr key={user.userId}>
                         <td>
                           <div className="flex items-center gap-3">
@@ -250,7 +288,11 @@ export default function UsuariosPage() {
                             </div>
                           </div>
                         </td>
-                        <td className="text-[var(--app-ink)]">{roleLabel(user.primaryRole)}</td>
+                        <td>
+                          <span className={userTypeBadgeClass(userType)}>
+                            {userTypeLabel(userType)}
+                          </span>
+                        </td>
                         <td>
                           {user.subscriptionPlanName ? (
                             <span
@@ -260,8 +302,10 @@ export default function UsuariosPage() {
                             >
                               {user.subscriptionPlanName}
                             </span>
-                          ) : user.primaryRole === 'lider' ? (
-                            <span className="text-xs text-[var(--app-muted)]">Sin plan</span>
+                          ) : userType === 'leader_without_subscription' ? (
+                            <span className="text-xs text-[var(--app-muted)]">Sin suscripción</span>
+                          ) : userType === 'invited' ? (
+                            <span className="text-xs text-[var(--app-muted)]">Acceso solo a Descubrimiento</span>
                           ) : (
                             <span className="text-xs text-[var(--app-muted)]">—</span>
                           )}
@@ -292,7 +336,8 @@ export default function UsuariosPage() {
                           </Link>
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
