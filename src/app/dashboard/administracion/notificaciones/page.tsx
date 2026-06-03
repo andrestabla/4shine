@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { NotificationSettingsPanel } from '@/components/dashboard/notificaciones/NotificationSettingsPanel';
-import { LayoutTemplate, ListChecks, Bell } from 'lucide-react';
+import { LayoutTemplate, ListChecks, Bell, Send, History } from 'lucide-react';
 
 const CARDS = [
   {
@@ -17,6 +17,20 @@ const CARDS = [
       'Activa, desactiva y personaliza cada evento del sistema por módulo: asigna una plantilla, define los canales de envío (email / in-app) y controla quién recibe cada notificación.',
     href: '/dashboard/administracion/notificaciones/eventos',
     icon: ListChecks,
+  },
+  {
+    title: 'Enviar mensajes',
+    description:
+      'Envía mensajes masivos por email y/o in-app a segmentos de usuarios filtrados por tipo de plan, días restantes de suscripción, rol, país, etc. Usa una plantilla existente o redacta desde cero.',
+    href: '/dashboard/administracion/notificaciones/enviar',
+    icon: Send,
+  },
+  {
+    title: 'Historial de envíos',
+    description:
+      'Registro de todos los mensajes que salen de la plataforma (manuales y automáticos), con fecha, remitente, destinatario, estado de entrega y apertura. Cada fila abre el contenido completo.',
+    href: '/dashboard/administracion/notificaciones/historial',
+    icon: History,
   },
 ] as const;
 

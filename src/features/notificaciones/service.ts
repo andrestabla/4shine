@@ -331,12 +331,26 @@ export async function insertUserNotification(
     eventKey: string;
     actionUrl?: string;
     payload?: Record<string, unknown>;
+    senderUserId?: string | null;
+    batchId?: string | null;
+    /** 'in_app' por defecto; usar 'email' al registrar un envío de correo. */
+    channel?: 'in_app' | 'email';
+    recipientEmail?: string | null;
+    providerMessageId?: string | null;
+    /** Para in-app, la inserción ES la entrega: defaults a now() si channel=in_app. */
+    deliveredAt?: Date | null;
   },
 ): Promise<string> {
+  const channel = params.channel ?? 'in_app';
+  const deliveredAt =
+    params.deliveredAt ?? (channel === 'in_app' ? new Date() : null);
+
   const { rows } = await client.query<{ notification_id: string }>(
     `INSERT INTO app_core.notifications
-       (user_id, notification_type, title, message, payload, event_key, action_url)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
+       (user_id, notification_type, title, message, payload, event_key, action_url,
+        sender_user_id, channel, recipient_email, provider_message_id, batch_id,
+        delivered_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
      RETURNING notification_id::text`,
     [
       params.userId,
@@ -346,6 +360,12 @@ export async function insertUserNotification(
       JSON.stringify(params.payload ?? {}),
       params.eventKey,
       params.actionUrl ?? null,
+      params.senderUserId ?? null,
+      channel,
+      params.recipientEmail ?? null,
+      params.providerMessageId ?? null,
+      params.batchId ?? null,
+      deliveredAt ? deliveredAt.toISOString() : null,
     ],
   );
   return rows[0].notification_id;

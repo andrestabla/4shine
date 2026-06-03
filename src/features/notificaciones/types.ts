@@ -152,4 +152,144 @@ export interface DispatchContext {
   recipientEmail: string;
   eventKey: string;
   variables: Partial<Record<VariableKey, string>>;
+  /** Si está presente y la inserción in-app crea una fila, queda registrado
+   *  como sender_user_id. Si NULL, queda como envío automático/sistema. */
+  senderUserId?: string | null;
+  /** Agrupa varias notificaciones de un mismo envío masivo. */
+  batchId?: string | null;
+}
+
+// ─── Bulk send (admin/gestor → muchos usuarios) ──────────────────────────────
+
+export type BulkAudiencePlanType = 'standard' | 'premium' | 'vip' | 'empresa_elite';
+export type BulkAudienceRole = 'lider' | 'mentor' | 'gestor' | 'admin' | 'invitado';
+export type BulkAudienceUserType =
+  | 'leader_without_subscription'
+  | 'leader_with_subscription'
+  | 'mentor'
+  | 'gestor'
+  | 'admin'
+  | 'invited';
+
+export interface BulkAudienceFilter {
+  /** Tipos de usuario derivados de role+planType (mismas opciones que /dashboard/usuarios). */
+  userTypes?: BulkAudienceUserType[];
+  /** Plan específico (cuando aplique). */
+  planTypes?: BulkAudiencePlanType[];
+  /** Días desde el inicio de la suscripción: rango. */
+  daysSinceSubscriptionStartMin?: number;
+  daysSinceSubscriptionStartMax?: number;
+  /** Días que faltan para que caduque la suscripción. Valores negativos = vencidos. */
+  daysUntilExpirationMin?: number;
+  daysUntilExpirationMax?: number;
+  /** Filtros opcionales adicionales. */
+  countries?: string[];
+  isActive?: boolean;
+  hasAcceptedPolicy?: boolean;
+  /** Cuando true, solo usuarios con email válido (necesario para canal email). */
+  requireEmail?: boolean;
+}
+
+export interface BulkRecipientRecord {
+  userId: string;
+  email: string | null;
+  displayName: string;
+  primaryRole: BulkAudienceRole;
+  userType: BulkAudienceUserType;
+  planType: BulkAudiencePlanType | null;
+  daysUntilExpiration: number | null;
+  daysSinceSubscriptionStart: number | null;
+}
+
+export interface BulkAudiencePreview {
+  totalMatching: number;
+  withEmail: number;
+  withoutEmail: number;
+  sample: BulkRecipientRecord[];
+}
+
+export interface BulkSendInput {
+  filter: BulkAudienceFilter;
+  channels: NotificationChannel[];
+  /** Cuando se usa una plantilla. */
+  templateId?: string | null;
+  /** Variables manuales a inyectar (se mezclan con las globales). */
+  variables?: Record<string, string>;
+  /** Cuando se redacta a mano (sin plantilla). */
+  custom?: {
+    subject: string;
+    bodyHtml: string;
+    bodyText: string;
+    inAppTitle: string;
+    inAppBody: string;
+    inAppType?: NotificationInAppType;
+    inAppActionUrl?: string;
+  };
+}
+
+export interface BulkSendResult {
+  batchId: string;
+  totalRecipients: number;
+  inAppCreated: number;
+  emailsQueued: number;
+  emailsFailed: number;
+  errors: Array<{ userId: string; error: string }>;
+}
+
+// ─── History ─────────────────────────────────────────────────────────────────
+
+export type NotificationDeliveryStatus =
+  | 'sent'
+  | 'delivered'
+  | 'opened'
+  | 'bounced'
+  | 'complaint'
+  | 'failed';
+
+export interface NotificationHistoryRow {
+  notificationId: string;
+  batchId: string | null;
+  channel: NotificationChannel;
+  eventKey: string | null;
+  title: string;
+  message: string;
+  bodyHtmlSnapshot: string | null;
+  bodyTextSnapshot: string | null;
+  inAppType: NotificationInAppType | null;
+  actionUrl: string | null;
+
+  senderUserId: string | null;
+  senderName: string | null;
+  recipientUserId: string;
+  recipientName: string;
+  recipientEmail: string | null;
+
+  createdAt: string;
+  deliveredAt: string | null;
+  openedAt: string | null;
+  bouncedAt: string | null;
+  complaintAt: string | null;
+  failedAt: string | null;
+  failureReason: string | null;
+
+  status: NotificationDeliveryStatus;
+}
+
+export interface NotificationHistoryFilter {
+  channel?: NotificationChannel;
+  source?: 'manual' | 'automatic' | 'all';
+  status?: NotificationDeliveryStatus;
+  recipientSearch?: string;
+  senderUserId?: string;
+  fromDate?: string;
+  toDate?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface NotificationHistoryPage {
+  rows: NotificationHistoryRow[];
+  total: number;
+  limit: number;
+  offset: number;
 }

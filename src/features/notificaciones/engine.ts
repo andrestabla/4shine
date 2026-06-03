@@ -86,6 +86,7 @@ async function fetchEmailBranding(client: PoolClient, organizationId: string) {
   };
 }
 
+/** Devuelve el messageId del proveedor (para correlacionar webhooks), o null si no aplica. */
 async function sendTemplateEmail(
   config: Awaited<ReturnType<typeof fetchOutboundConfig>>,
   to: string,
@@ -93,15 +94,15 @@ async function sendTemplateEmail(
   html: string,
   text: string,
   replyTo?: string,
-): Promise<void> {
-  if (!config || !config.enabled) return;
+): Promise<string | null> {
+  if (!config || !config.enabled) return null;
 
   const fromEmail = config.from_email.trim();
   const fromName = config.from_name.trim();
   const from = fromName ? `"${fromName.replace(/"/g, '\\"')}" <${fromEmail}>` : fromEmail;
 
   if (config.provider === 'sendgrid') {
-    await fetch('https://api.sendgrid.com/v3/mail/send', {
+    const res = await fetch('https://api.sendgrid.com/v3/mail/send', {
       method: 'POST',
       headers: { Authorization: `Bearer ${config.api_key.trim()}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -115,11 +116,11 @@ async function sendTemplateEmail(
         ...(replyTo ? { reply_to: { email: replyTo } } : {}),
       }),
     });
-    return;
+    return res.headers.get('x-message-id');
   }
 
   if (config.provider === 'resend') {
-    await fetch('https://api.resend.com/emails', {
+    const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${config.api_key.trim()}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -131,10 +132,11 @@ async function sendTemplateEmail(
         ...(replyTo ? { reply_to: replyTo } : {}),
       }),
     });
-    return;
+    const body = (await res.json().catch(() => ({}))) as { id?: string };
+    return typeof body?.id === 'string' ? body.id : null;
   }
 
-  // SMTP fallback
+  // SMTP fallback (incluye AWS SES SMTP). SES retorna su Message-ID via header.
   const { default: nodemailer } = await import('nodemailer');
   const smtpPort = Number(config.smtp_port);
   const secure = smtpPort === 465 ? true : config.smtp_secure && smtpPort !== 587;
@@ -145,7 +147,8 @@ async function sendTemplateEmail(
     requireTLS: smtpPort === 587 || !secure,
     auth: { user: config.smtp_user.trim(), pass: config.smtp_password.trim() },
   });
-  await transporter.sendMail({ from, to, subject, text, html, replyTo });
+  const result = await transporter.sendMail({ from, to, subject, text, html, replyTo });
+  return typeof result.messageId === 'string' ? result.messageId : null;
 }
 
 // ─── Main dispatch function ───────────────────────────────────────────────────
@@ -259,13 +262,13 @@ export async function sendEmailToAddress(
   subject: string,
   bodyHtml: string,
   bodyText: string,
-): Promise<void> {
+): Promise<string | null> {
   const [emailConfig, branding] = await Promise.all([
     fetchOutboundConfig(client, organizationId),
     fetchEmailBranding(client, organizationId),
   ]);
   const fullHtml = buildBrandedEmailHtml(bodyHtml, branding);
-  await sendTemplateEmail(
+  return await sendTemplateEmail(
     emailConfig,
     toEmail,
     subject,
