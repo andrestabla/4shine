@@ -6354,11 +6354,13 @@ export async function sendDiscoveryReminder(
       last_name: string | null;
       name_snapshot: string | null;
       completed_at: string | null;
+      primary_role: string | null;
     }>(
       `SELECT ds.user_id::text,
               u.email,
               u.first_name,
               u.last_name,
+              u.primary_role,
               ds.name_snapshot,
               ds.completed_at::text AS completed_at
        FROM app_assessment.discovery_sessions ds
@@ -6376,8 +6378,24 @@ export async function sendDiscoveryReminder(
       row.name_snapshot?.split(" ")[0] ||
       recipientEmail.split("@")[0] ||
       "Líder";
-    inviteUrl = `${baseUrl}/dashboard/descubrimiento`;
     isCompleted = Boolean(row.completed_at);
+
+    // Si existe una invitación asociada (caso del usuario con primary_role
+    // 'invitado' o cualquier sesión que provino de una invitación), preferimos
+    // el link de invitación: permite entrar directo al diagnóstico sin login.
+    // Si no hay invitación, caemos al dashboard (requiere login).
+    const { rows: invRows } = await client.query<{ invite_token: string }>(
+      `SELECT invite_token FROM app_assessment.discovery_invitations
+       WHERE session_id = $1::uuid
+          OR (invited_email = $2 AND $2 <> '')
+       ORDER BY updated_at DESC
+       LIMIT 1`,
+      [normalizedSessionId, recipientEmail],
+    );
+
+    inviteUrl = invRows[0]?.invite_token
+      ? `${baseUrl}/descubrimiento/invitacion/${invRows[0].invite_token}`
+      : `${baseUrl}/dashboard/descubrimiento`;
   }
 
   if (!recipientEmail) {
