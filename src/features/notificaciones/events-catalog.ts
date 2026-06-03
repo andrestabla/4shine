@@ -392,8 +392,8 @@ export const NOTIFICATION_EVENTS: NotificationEventDef[] = [
     moduleCode: 'descubrimiento',
     moduleLabel: 'Descubrimiento',
     label: 'Recordatorio de diagnóstico pendiente',
-    description: 'Se envía manualmente al participante para recordarle que termine su diagnóstico. Incluye el enlace de acceso (de invitación cuando aplica, o al dashboard cuando es un usuario interno).',
-    variables: ['nombre', 'plataforma', 'enlace_plataforma', 'enlace_invitacion'],
+    description: 'Se envía manualmente al participante para recordarle que termine su diagnóstico. Incluye el enlace y, para invitados, el código único de acceso (regenerado en cada envío).',
+    variables: ['nombre', 'plataforma', 'enlace_plataforma', 'enlace_invitacion', 'codigo_acceso'],
     defaultInAppType: 'alert',
   },
 

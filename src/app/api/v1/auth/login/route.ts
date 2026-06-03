@@ -165,11 +165,46 @@ export async function POST(request: Request) {
           [authRow.user_id],
         );
 
+        // Auto-promoción: si el usuario era 'invitado' y se loguea por
+        // /acceso (no por el flow de invitación), lo promovemos a 'lider'
+        // sin suscripción. Mantiene el mismo user_id (no duplica) y conserva
+        // su sesión de Descubrimiento. Sin suscripción solo verá Descubrimiento.
+        let effectiveRole: AuthUser['role'] = authRow.primary_role;
+        if (authRow.primary_role === 'invitado') {
+          await client.query(
+            `UPDATE app_core.users
+             SET primary_role = 'lider', updated_at = now()
+             WHERE user_id = $1`,
+            [authRow.user_id],
+          );
+          await client.query(
+            `UPDATE app_auth.user_roles
+             SET is_default = false
+             WHERE user_id = $1 AND role_code <> 'lider'`,
+            [authRow.user_id],
+          );
+          await client.query(
+            `INSERT INTO app_auth.user_roles (user_id, role_code, is_default, assigned_by)
+             VALUES ($1::uuid, 'lider', true, NULL)
+             ON CONFLICT (user_id, role_code) DO UPDATE
+             SET is_default = true, assigned_at = now()`,
+            [authRow.user_id],
+          );
+          await writeAuditLog(client, {
+            actorUserId: authRow.user_id,
+            action: 'auth_invitado_promoted_to_lider',
+            entityTable: 'app_core.users',
+            entityId: authRow.user_id,
+            changeSummary: { previousRole: 'invitado', newRole: 'lider', via: 'login' },
+          });
+          effectiveRole = 'lider';
+        }
+
         const user: AuthUser = {
           userId: authRow.user_id,
           email: authRow.email,
           name: authRow.display_name,
-          role: authRow.primary_role,
+          role: effectiveRole,
         };
 
         const tokens = await issueAuthTokens(

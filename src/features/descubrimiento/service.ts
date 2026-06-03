@@ -6308,20 +6308,18 @@ export async function sendDiscoveryReminder(
   let recipientEmail = "";
   let recipientName = "";
   let recipientUserId = "";
-  let inviteUrl = "";
+  let invitationId: string | null = null;
   let isCompleted = false;
 
   if (normalizedSessionId.startsWith("inv-")) {
-    const invitationId = normalizedSessionId.slice(4);
+    invitationId = normalizedSessionId.slice(4);
     const { rows } = await client.query<{
       invited_email: string;
-      invite_token: string;
       meta: unknown;
       session_id: string | null;
       completed_at: string | null;
     }>(
       `SELECT di.invited_email,
-              di.invite_token,
               di.meta,
               di.session_id::text AS session_id,
               ds.completed_at::text AS completed_at
@@ -6334,7 +6332,6 @@ export async function sendDiscoveryReminder(
     const row = rows[0];
     if (!row) throw new Error("No se encontró la invitación.");
     recipientEmail = row.invited_email;
-    inviteUrl = `${baseUrl}/descubrimiento/invitacion/${row.invite_token}`;
     isCompleted = Boolean(row.completed_at);
     if (
       row.meta &&
@@ -6382,20 +6379,17 @@ export async function sendDiscoveryReminder(
 
     // Si existe una invitación asociada (caso del usuario con primary_role
     // 'invitado' o cualquier sesión que provino de una invitación), preferimos
-    // el link de invitación: permite entrar directo al diagnóstico sin login.
-    // Si no hay invitación, caemos al dashboard (requiere login).
-    const { rows: invRows } = await client.query<{ invite_token: string }>(
-      `SELECT invite_token FROM app_assessment.discovery_invitations
+    // el link de invitación + código único: permite entrar directo al
+    // diagnóstico sin login. Si no hay invitación, caemos al dashboard.
+    const { rows: invRows } = await client.query<{ invitation_id: string }>(
+      `SELECT invitation_id::text FROM app_assessment.discovery_invitations
        WHERE session_id = $1::uuid
           OR (invited_email = $2 AND $2 <> '')
        ORDER BY updated_at DESC
        LIMIT 1`,
       [normalizedSessionId, recipientEmail],
     );
-
-    inviteUrl = invRows[0]?.invite_token
-      ? `${baseUrl}/descubrimiento/invitacion/${invRows[0].invite_token}`
-      : `${baseUrl}/dashboard/descubrimiento`;
+    invitationId = invRows[0]?.invitation_id ?? null;
   }
 
   if (!recipientEmail) {
@@ -6404,6 +6398,32 @@ export async function sendDiscoveryReminder(
 
   if (isCompleted) {
     throw new Error("Este diagnóstico ya fue completado, no es necesario enviar recordatorio.");
+  }
+
+  // Para invitados: regeneramos access_code + invite_token (mismo patrón que
+  // "Reenviar invitación") e incluimos el código único en el correo. El código
+  // anterior queda invalidado, lo cual es deseable: el usuario perdió el correo
+  // anterior, este es el válido.
+  let accessCode: string | null = null;
+  let inviteUrl = `${baseUrl}/dashboard/descubrimiento`;
+  if (invitationId) {
+    const newAccessCode = createAccessCode();
+    const newInviteToken = createInviteToken();
+    const { rows: updRows } = await client.query<{ invite_token: string }>(
+      `UPDATE app_assessment.discovery_invitations
+       SET invite_token = $2,
+           access_code_hash = $3,
+           access_code_last4 = $4,
+           access_code_sent_at = now(),
+           updated_at = now()
+       WHERE invitation_id = $1::uuid
+       RETURNING invite_token`,
+      [invitationId, newInviteToken, hashAccessCode(newAccessCode), newAccessCode.slice(-4)],
+    );
+    if (updRows[0]) {
+      accessCode = newAccessCode;
+      inviteUrl = `${baseUrl}/descubrimiento/invitacion/${updRows[0].invite_token}`;
+    }
   }
 
   // Resolve platform name from branding so {{plataforma}} always renders,
@@ -6425,6 +6445,9 @@ export async function sendDiscoveryReminder(
       plataforma: platformName,
       enlace_plataforma: `${baseUrl}/dashboard/descubrimiento`,
       enlace_invitacion: inviteUrl,
+      // Si no es invitación, dejamos vacío en lugar del placeholder literal;
+      // la plantilla puede usar la variable de forma condicional o ignorarla.
+      codigo_acceso: accessCode ?? "",
     },
   });
 
