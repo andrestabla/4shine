@@ -208,8 +208,20 @@ export interface BulkAudiencePreview {
   sample: BulkRecipientRecord[];
 }
 
+export interface ExternalRecipient {
+  email: string;
+  name?: string;
+}
+
 export interface BulkSendInput {
-  filter: BulkAudienceFilter;
+  /** Lista explícita de userIds de la plataforma (los que estén marcados). */
+  recipientUserIds?: string[];
+  /** Lista de emails externos (sin cuenta) a los que también enviar. */
+  externalRecipients?: ExternalRecipient[];
+  /** @deprecated Solo si se desea enviar a TODA la audiencia del filtro sin
+   *  pasar antes por marcado/desmarcado manual. Si se proporciona, se ignoran
+   *  recipientUserIds. Mantener por compatibilidad / API casos puntuales. */
+  filter?: BulkAudienceFilter;
   channels: NotificationChannel[];
   /** Cuando se usa una plantilla. */
   templateId?: string | null;
@@ -225,6 +237,21 @@ export interface BulkSendInput {
     inAppType?: NotificationInAppType;
     inAppActionUrl?: string;
   };
+}
+
+export interface AudiencePage {
+  rows: BulkRecipientRecord[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface UserSearchResult {
+  userId: string;
+  email: string | null;
+  displayName: string;
+  primaryRole: BulkAudienceRole;
+  userType: BulkAudienceUserType;
 }
 
 export interface BulkSendResult {
@@ -260,7 +287,7 @@ export interface NotificationHistoryRow {
 
   senderUserId: string | null;
   senderName: string | null;
-  recipientUserId: string;
+  recipientUserId: string | null;
   recipientName: string;
   recipientEmail: string | null;
 

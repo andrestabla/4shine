@@ -1,11 +1,13 @@
 import { requestApi } from '@/lib/api-client';
 import type {
+  AudiencePage,
   BulkAudienceFilter,
   BulkAudiencePreview,
   BulkSendInput,
   BulkSendResult,
   NotificationHistoryFilter,
   NotificationHistoryPage,
+  UserSearchResult,
 } from './types';
 
 export async function previewAudience(
@@ -17,6 +19,26 @@ export async function previewAudience(
       method: 'POST',
       body: JSON.stringify({ filter }),
     },
+  );
+}
+
+export async function listAudienceList(
+  filter: BulkAudienceFilter,
+  pagination: { limit?: number; offset?: number } = {},
+): Promise<AudiencePage> {
+  return requestApi<AudiencePage>(
+    '/api/v1/modules/administracion/notificaciones/broadcast/audience-list',
+    {
+      method: 'POST',
+      body: JSON.stringify({ filter, ...pagination }),
+    },
+  );
+}
+
+export async function searchUsers(q: string, limit = 20): Promise<UserSearchResult[]> {
+  const params = new URLSearchParams({ q, limit: String(limit) });
+  return requestApi<UserSearchResult[]>(
+    `/api/v1/modules/administracion/notificaciones/broadcast/search-users?${params}`,
   );
 }
 

@@ -324,7 +324,8 @@ export async function insertUserNotification(
   client: PoolClient,
   params: {
     organizationId: string;
-    userId: string;
+    /** NULL solo cuando channel='email' y el destinatario es externo (sin cuenta). */
+    userId: string | null;
     type: NotificationInAppType;
     title: string;
     message: string;
@@ -341,6 +342,12 @@ export async function insertUserNotification(
     deliveredAt?: Date | null;
   },
 ): Promise<string> {
+  if (!params.userId && !params.recipientEmail) {
+    throw new Error('insertUserNotification requires userId or recipientEmail');
+  }
+  if (!params.userId && (params.channel ?? 'in_app') !== 'email') {
+    throw new Error('Only email channel supports null userId (external recipients)');
+  }
   const channel = params.channel ?? 'in_app';
   const deliveredAt =
     params.deliveredAt ?? (channel === 'in_app' ? new Date() : null);

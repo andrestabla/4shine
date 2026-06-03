@@ -16,16 +16,19 @@ import type { AuthUser } from '@/server/auth/types';
 import { getTemplate, getNotificationSettingsByOrg, insertUserNotification } from './service';
 import { sendEmailToAddress } from './engine';
 import type {
+  AudiencePage,
   BulkAudienceFilter,
   BulkAudiencePreview,
   BulkRecipientRecord,
   BulkSendInput,
   BulkSendResult,
+  ExternalRecipient,
   NotificationHistoryFilter,
   NotificationHistoryPage,
   NotificationHistoryRow,
   NotificationInAppType,
   NotificationDeliveryStatus,
+  UserSearchResult,
 } from './types';
 
 const ALLOWED_MANAGER_ROLES = new Set(['admin', 'gestor']);
@@ -300,6 +303,112 @@ async function listAllRecipients(
   return rows.map(mapAudienceRow);
 }
 
+// ─── Audience list (paginated, editable) + user search ────────────────────────
+
+export async function listAudience(
+  client: PoolClient,
+  actor: AuthUser,
+  filter: BulkAudienceFilter,
+  pagination: { limit?: number; offset?: number } = {},
+): Promise<AudiencePage> {
+  await requireModulePermission(client, 'usuarios', 'manage');
+  if (!isAllowedManager(actor)) {
+    throw new Error('Solo admin y gestor pueden segmentar usuarios.');
+  }
+  const orgId = await resolveActorOrgId(client, actor.userId);
+  const { whereSql, params } = buildAudienceWhere(filter, orgId);
+
+  const limit = Math.min(Math.max(pagination.limit ?? 200, 1), 1000);
+  const offset = Math.max(pagination.offset ?? 0, 0);
+
+  const totalResult = await client.query<{ total: string }>(
+    `
+      SELECT COUNT(*) AS total
+      FROM app_core.users u
+      LEFT JOIN app_core.user_profiles up ON up.user_id = u.user_id
+      WHERE ${whereSql}
+    `,
+    params,
+  );
+
+  const queryParams = [...params, limit, offset];
+  const rowsResult = await client.query<AudienceRow>(
+    `
+      SELECT
+        u.user_id::text,
+        u.email::text,
+        u.display_name,
+        u.primary_role,
+        up.plan_type,
+        up.subscription_started_at::text,
+        up.subscription_expires_at::text
+      FROM app_core.users u
+      LEFT JOIN app_core.user_profiles up ON up.user_id = u.user_id
+      WHERE ${whereSql}
+      ORDER BY u.display_name
+      LIMIT $${queryParams.length - 1} OFFSET $${queryParams.length}
+    `,
+    queryParams,
+  );
+
+  return {
+    rows: rowsResult.rows.map(mapAudienceRow),
+    total: Number(totalResult.rows[0]?.total ?? 0),
+    limit,
+    offset,
+  };
+}
+
+export async function searchPlatformUsers(
+  client: PoolClient,
+  actor: AuthUser,
+  query: string,
+  limit = 20,
+): Promise<UserSearchResult[]> {
+  await requireModulePermission(client, 'usuarios', 'manage');
+  if (!isAllowedManager(actor)) {
+    throw new Error('Solo admin y gestor pueden buscar usuarios.');
+  }
+  const orgId = await resolveActorOrgId(client, actor.userId);
+  const q = `%${query.trim().toLowerCase()}%`;
+  if (!q || q === '%%') return [];
+
+  const { rows } = await client.query<AudienceRow>(
+    `
+      SELECT
+        u.user_id::text,
+        u.email::text,
+        u.display_name,
+        u.primary_role,
+        up.plan_type,
+        NULL::text AS subscription_started_at,
+        NULL::text AS subscription_expires_at
+      FROM app_core.users u
+      LEFT JOIN app_core.user_profiles up ON up.user_id = u.user_id
+      WHERE u.organization_id = $1::uuid
+        AND u.is_active = true
+        AND (
+          LOWER(u.display_name) LIKE $2
+          OR LOWER(u.email::text) LIKE $2
+        )
+      ORDER BY u.display_name
+      LIMIT $3
+    `,
+    [orgId, q, Math.min(Math.max(limit, 1), 50)],
+  );
+
+  return rows.map((row) => {
+    const r = mapAudienceRow(row);
+    return {
+      userId: r.userId,
+      email: r.email,
+      displayName: r.displayName,
+      primaryRole: r.primaryRole,
+      userType: r.userType,
+    };
+  });
+}
+
 // ─── Bulk send ───────────────────────────────────────────────────────────────
 
 function renderTemplate(
@@ -307,6 +416,73 @@ function renderTemplate(
   vars: Record<string, string>,
 ): string {
   return template.replace(/\{\{(\w+)\}\}/g, (_, key) => vars[key] ?? `{{${key}}}`);
+}
+
+interface ResolvedRecipient {
+  userId: string | null;
+  email: string | null;
+  displayName: string;
+}
+
+async function resolveSendRecipients(
+  client: PoolClient,
+  orgId: string,
+  input: BulkSendInput,
+): Promise<ResolvedRecipient[]> {
+  const out: ResolvedRecipient[] = [];
+
+  // 1. Filtro completo (legacy / "enviar a toda la audiencia").
+  if (input.filter && (!input.recipientUserIds || input.recipientUserIds.length === 0)) {
+    const all = await listAllRecipients(client, input.filter, orgId);
+    for (const r of all) {
+      out.push({ userId: r.userId, email: r.email, displayName: r.displayName });
+    }
+  }
+
+  // 2. UserIds explícitos.
+  if (input.recipientUserIds && input.recipientUserIds.length > 0) {
+    const { rows } = await client.query<{
+      user_id: string;
+      email: string | null;
+      display_name: string;
+    }>(
+      `SELECT u.user_id::text, u.email::text, u.display_name
+       FROM app_core.users u
+       WHERE u.organization_id = $1::uuid
+         AND u.user_id = ANY($2::uuid[])
+         AND u.is_active = true`,
+      [orgId, input.recipientUserIds],
+    );
+    for (const row of rows) {
+      out.push({
+        userId: row.user_id,
+        email: row.email,
+        displayName: row.display_name,
+      });
+    }
+  }
+
+  // 3. Destinatarios externos (sin cuenta).
+  if (input.externalRecipients && input.externalRecipients.length > 0) {
+    for (const ext of input.externalRecipients) {
+      const email = (ext.email ?? '').trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) continue;
+      out.push({
+        userId: null,
+        email,
+        displayName: ext.name?.trim() || email.split('@')[0] || 'Destinatario',
+      });
+    }
+  }
+
+  // Dedup por (userId || email)
+  const seen = new Set<string>();
+  return out.filter((r) => {
+    const key = r.userId ?? `ext:${r.email}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 export async function sendBulkMessage(
@@ -367,7 +543,10 @@ export async function sendBulkMessage(
     ...(input.variables ?? {}),
   };
 
-  const recipients = await listAllRecipients(client, input.filter, orgId);
+  const recipients = await resolveSendRecipients(client, orgId, input);
+  if (recipients.length === 0) {
+    throw new Error('No hay destinatarios resueltos. Marca usuarios o agrega emails externos.');
+  }
   const batchId = newBatchId();
 
   const result: BulkSendResult = {
@@ -388,9 +567,11 @@ export async function sendBulkMessage(
       nombre: r.displayName?.split(' ')[0] ?? 'Líder',
       nombre_completo: r.displayName,
     };
+    const recipientKey = r.userId ?? r.email ?? 'unknown';
 
     // ── In-app ───────────────────────────────────────────────────────────
-    if (wantInApp) {
+    // Solo aplicable a usuarios de la plataforma (los externos solo email).
+    if (wantInApp && r.userId) {
       try {
         const title = renderTemplate(baseInAppTitle || baseSubject, vars);
         const body = renderTemplate(baseInAppBody || baseText, vars);
@@ -410,7 +591,7 @@ export async function sendBulkMessage(
         result.inAppCreated++;
       } catch (error) {
         result.errors.push({
-          userId: r.userId,
+          userId: recipientKey,
           error: error instanceof Error ? error.message : 'Error in-app desconocido',
         });
       }
@@ -436,7 +617,7 @@ export async function sendBulkMessage(
         // delivered_at quedará NULL hasta que SES webhook reporte Delivery.
         await insertUserNotification(client, {
           organizationId: orgId,
-          userId: r.userId,
+          userId: r.userId, // puede ser null (destinatario externo)
           type: baseInAppType,
           title: subject,
           message: text || stripHtml(html),
@@ -446,6 +627,8 @@ export async function sendBulkMessage(
             channel: 'email',
             html_snapshot: html,
             text_snapshot: text,
+            recipient_display_name: r.displayName,
+            is_external: !r.userId,
           },
           senderUserId: actor.userId,
           batchId,
@@ -458,7 +641,7 @@ export async function sendBulkMessage(
       } catch (error) {
         result.emailsFailed++;
         result.errors.push({
-          userId: r.userId,
+          userId: recipientKey,
           error: error instanceof Error ? error.message : 'Error email desconocido',
         });
       }
@@ -518,7 +701,7 @@ interface HistoryRow {
 
   sender_user_id: string | null;
   sender_name: string | null;
-  recipient_user_id: string;
+  recipient_user_id: string | null;
   recipient_name: string;
   recipient_email: string | null;
 
@@ -589,7 +772,11 @@ export async function listNotificationHistory(
   const limit = Math.min(Math.max(filter.limit ?? 50, 1), 200);
   const offset = Math.max(filter.offset ?? 0, 0);
 
-  const conditions: string[] = ['recipient.organization_id = $1::uuid'];
+  // Incluye notificaciones de la org (por recipient) y notificaciones a
+  // destinatarios externos enviadas por usuarios de la org (por sender).
+  const conditions: string[] = [
+    '(recipient.organization_id = $1::uuid OR sender.organization_id = $1::uuid)',
+  ];
   const params: unknown[] = [orgId];
 
   if (filter.channel) {
@@ -635,7 +822,7 @@ export async function listNotificationHistory(
     const pattern = `%${filter.recipientSearch.trim().toLowerCase()}%`;
     params.push(pattern);
     conditions.push(
-      `(LOWER(recipient.display_name) LIKE $${params.length} OR LOWER(recipient.email::text) LIKE $${params.length} OR LOWER(COALESCE(n.recipient_email, '')) LIKE $${params.length})`,
+      `(LOWER(COALESCE(recipient.display_name, '')) LIKE $${params.length} OR LOWER(COALESCE(recipient.email::text, '')) LIKE $${params.length} OR LOWER(COALESCE(n.recipient_email, '')) LIKE $${params.length})`,
     );
   }
 
@@ -654,7 +841,8 @@ export async function listNotificationHistory(
     `
       SELECT COUNT(*) AS total
       FROM app_core.notifications n
-      JOIN app_core.users recipient ON recipient.user_id = n.user_id
+      LEFT JOIN app_core.users recipient ON recipient.user_id = n.user_id
+      LEFT JOIN app_core.users sender ON sender.user_id = n.sender_user_id
       WHERE ${whereSql}
     `,
     params,
@@ -677,7 +865,12 @@ export async function listNotificationHistory(
         n.sender_user_id::text,
         sender.display_name AS sender_name,
         n.user_id::text AS recipient_user_id,
-        recipient.display_name AS recipient_name,
+        COALESCE(
+          recipient.display_name,
+          NULLIF(n.payload->>'recipient_display_name', ''),
+          n.recipient_email,
+          'Destinatario externo'
+        ) AS recipient_name,
         COALESCE(n.recipient_email, recipient.email::text) AS recipient_email,
         n.created_at::text,
         n.delivered_at::text,
@@ -688,7 +881,7 @@ export async function listNotificationHistory(
         n.failed_at::text,
         n.failure_reason
       FROM app_core.notifications n
-      JOIN app_core.users recipient ON recipient.user_id = n.user_id
+      LEFT JOIN app_core.users recipient ON recipient.user_id = n.user_id
       LEFT JOIN app_core.users sender ON sender.user_id = n.sender_user_id
       WHERE ${whereSql}
       ORDER BY n.created_at DESC
