@@ -67,7 +67,7 @@ function pickRandom(values: string[], fallback = ''): string {
   return values[index] ?? fallback;
 }
 
-type Mode = 'login' | 'register' | 'verify_pending';
+type Mode = 'login' | 'register' | 'verify_pending' | 'forgot' | 'forgot_sent';
 
 interface GooglePrefill {
   email: string;
@@ -89,6 +89,8 @@ export default function LoginPage() {
   const [pendingEmail, setPendingEmail] = React.useState('');
   const [isResending, setIsResending] = React.useState(false);
   const [unverifiedEmail, setUnverifiedEmail] = React.useState('');
+  const [forgotEmail, setForgotEmail] = React.useState('');
+  const [isRequestingReset, setIsRequestingReset] = React.useState(false);
   const googleButtonRef = React.useRef<HTMLDivElement>(null);
   const [googleSso, setGoogleSso] = React.useState<{ enabled: boolean; clientId: string | null }>({ enabled: false, clientId: null });
   const [isSsoLoading, setIsSsoLoading] = React.useState(true);
@@ -300,6 +302,30 @@ export default function LoginPage() {
     }
   };
 
+  const handleRequestReset = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const target = forgotEmail.trim().toLowerCase();
+    if (!target) return;
+
+    setIsRequestingReset(true);
+    try {
+      await fetch('/api/v1/auth/request-password-reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: target }),
+      });
+      setMode('forgot_sent');
+    } catch {
+      await alert({
+        title: 'Error de conexión',
+        message: 'No fue posible solicitar el restablecimiento. Intenta de nuevo en unos segundos.',
+        tone: 'error',
+      });
+    } finally {
+      setIsRequestingReset(false);
+    }
+  };
+
   const handleRegisterSuccess = async (user: SessionUser) => {
     await applySession(user);
     router.push('/dashboard');
@@ -440,7 +466,109 @@ export default function LoginPage() {
 
   const formContainer = (
     <section className={loginCardClassName} style={loginCardStyle}>
-      {mode === 'verify_pending' ? (
+      {mode === 'forgot' ? (
+        <>
+          {logoEl('sm')}
+          <div>
+            <p className={`text-xl font-bold mb-2 text-center ${isCenteredImageLayout ? 'text-white' : 'text-slate-900'}`}>
+              Restablecer contraseña
+            </p>
+            <p className={`text-sm text-center mb-5 ${isCenteredImageLayout ? 'text-white/75' : 'text-slate-600'}`}>
+              Escribe tu correo y te enviaremos un enlace para definir una nueva contraseña. El enlace expira en 1 hora.
+            </p>
+
+            <form onSubmit={handleRequestReset} className="space-y-4">
+              <label className="block">
+                <span className={labelClassName}>Correo</span>
+                <div className={fieldWrapperClassName}>
+                  <Mail size={16} className={isCenteredImageLayout ? 'text-white/55' : 'text-slate-400'} />
+                  <input
+                    type="email"
+                    required
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    placeholder="tu.correo@empresa.com"
+                    className={inputClassName}
+                    autoFocus
+                  />
+                </div>
+              </label>
+
+              <button
+                type="submit"
+                disabled={isRequestingReset}
+                className="w-full mt-1 text-white font-bold py-2.5 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
+                style={{
+                  backgroundColor: tokens.colors.accent,
+                  borderRadius: `calc(${tokens.shape.borderRadiusRem}rem + 0.3rem)`,
+                }}
+              >
+                {isRequestingReset && <Loader2 size={16} className="animate-spin" />}
+                Enviar enlace
+              </button>
+            </form>
+
+            <div
+              className={`mt-6 rounded-xl p-3.5 text-xs ${
+                isCenteredImageLayout
+                  ? 'bg-white/10 border border-white/15 text-white/75'
+                  : 'bg-slate-50 border border-slate-200 text-slate-600'
+              }`}
+            >
+              <p className={`font-semibold mb-1 ${isCenteredImageLayout ? 'text-white' : 'text-slate-800'}`}>
+                ¿No recuerdas tu correo?
+              </p>
+              <p className="leading-relaxed">
+                Escríbenos a{' '}
+                <a
+                  href="mailto:soporte@4shine.co?subject=Recuperar%20mi%20correo%20de%20acceso"
+                  className={`font-semibold underline underline-offset-2 ${
+                    isCenteredImageLayout ? 'text-white' : 'text-slate-800'
+                  }`}
+                >
+                  soporte@4shine.co
+                </a>{' '}
+                con tu nombre completo y nombre de tu organización; te ayudaremos a identificarlo.
+              </p>
+            </div>
+
+            <div className={`mt-4 pt-4 border-t text-center ${isCenteredImageLayout ? 'border-white/15' : 'border-slate-100'}`}>
+              <button
+                type="button"
+                onClick={() => setMode('login')}
+                className={`text-xs ${isCenteredImageLayout ? 'text-white/50 hover:text-white/80' : 'text-slate-400 hover:text-slate-600'} transition-colors`}
+              >
+                ← Volver al inicio de sesión
+              </button>
+            </div>
+          </div>
+        </>
+      ) : mode === 'forgot_sent' ? (
+        <>
+          {logoEl('sm')}
+          <div className="text-center">
+            <p className={`text-xl font-bold mb-2 ${isCenteredImageLayout ? 'text-white' : 'text-slate-900'}`}>
+              Revisa tu correo
+            </p>
+            <p className={`text-sm mb-1 ${isCenteredImageLayout ? 'text-white/70' : 'text-slate-500'}`}>
+              Si <strong className={isCenteredImageLayout ? 'text-white' : 'text-slate-800'}>{forgotEmail}</strong> está
+              registrado en nuestra plataforma, recibirás un enlace para restablecer tu contraseña en los próximos minutos.
+            </p>
+            <p className={`text-xs mt-5 ${isCenteredImageLayout ? 'text-white/55' : 'text-slate-400'}`}>
+              El enlace expira en 1 hora. Revisa la carpeta de spam si no lo encuentras.
+            </p>
+            <div className={`mt-6 pt-4 border-t ${isCenteredImageLayout ? 'border-white/15' : 'border-slate-100'}`}>
+              <button
+                type="button"
+                onClick={() => setMode('login')}
+                className={`text-xs ${isCenteredImageLayout ? 'text-white/50 hover:text-white/80' : 'text-slate-400 hover:text-slate-600'} transition-colors`}
+              >
+                ← Volver al inicio de sesión
+              </button>
+            </div>
+          </div>
+        </>
+      ) : mode === 'verify_pending' ? (
         <>
           {logoEl('sm')}
           <div className="text-center">
@@ -576,6 +704,21 @@ export default function LoginPage() {
               {isHydrating && <Loader2 size={16} className="animate-spin" />}
               Entrar
             </button>
+
+            <div className="text-center -mt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setForgotEmail(email);
+                  setMode('forgot');
+                }}
+                className={`text-xs font-semibold underline underline-offset-2 ${
+                  isCenteredImageLayout ? 'text-white/75 hover:text-white' : 'text-slate-500 hover:text-slate-800'
+                } transition-colors`}
+              >
+                ¿Olvidé mi contraseña o correo?
+              </button>
+            </div>
           </form>
 
           {unverifiedEmail && (

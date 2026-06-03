@@ -1093,6 +1093,264 @@ function buildVerificationEmailPayload(
   return { to: recipient, subject, text, html: buildBrandedEmailHtml(bodyHtml, branding), replyTo: buildReplyTo(config) };
 }
 
+// Public self-service password reset flow.
+// Generates a single-use token, persists its sha256 hash with a 1h expiry,
+// and dispatches the auth.password_reset notification with the reset link.
+// Silently returns true even if the email does not exist to prevent enumeration.
+const PASSWORD_RESET_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
+const PASSWORD_RESET_COOLDOWN_MS = 60 * 1000;    // 1 minute between requests
+
+export async function requestPasswordResetByEmail(emailRaw: string): Promise<void> {
+  const email = emailRaw.trim().toLowerCase();
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return;
+
+  const token = randomBytes(32).toString('hex');
+  const tokenHash = createHash('sha256').update(token).digest('hex');
+  const expiresAt = new Date(Date.now() + PASSWORD_RESET_EXPIRY_MS);
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.4shine.co').trim().replace(/\/$/, '');
+  const resetUrl = `${appUrl}/restablecer?token=${token}`;
+
+  let target: {
+    userId: string;
+    firstName: string;
+    organizationId: string | null;
+  } | null = null;
+
+  await withClient(async (client) => {
+    await client.query('BEGIN');
+    try {
+      await client.query('SELECT set_config($1, $2, true)', ['app.current_role', 'gestor']);
+
+      const { rows } = await client.query<{
+        user_id: string;
+        first_name: string;
+        organization_id: string | null;
+        password_reset_requested_at: string | null;
+      }>(
+        `SELECT u.user_id::text,
+                u.first_name,
+                u.organization_id::text,
+                uc.password_reset_requested_at::text
+         FROM app_core.users u
+         JOIN app_auth.user_credentials uc ON uc.user_id = u.user_id
+         WHERE u.email = $1 AND u.is_active = true
+         LIMIT 1`,
+        [email],
+      );
+
+      const row = rows[0];
+      if (!row) {
+        await client.query('ROLLBACK');
+        return;
+      }
+
+      // Cooldown: don't spam if user clicks multiple times.
+      if (row.password_reset_requested_at) {
+        const lastRequested = new Date(row.password_reset_requested_at).getTime();
+        if (Date.now() - lastRequested < PASSWORD_RESET_COOLDOWN_MS) {
+          await client.query('ROLLBACK');
+          return;
+        }
+      }
+
+      await client.query(
+        `UPDATE app_auth.user_credentials
+         SET password_reset_token = $2,
+             password_reset_expires_at = $3,
+             password_reset_requested_at = now()
+         WHERE user_id = $1`,
+        [row.user_id, tokenHash, expiresAt.toISOString()],
+      );
+
+      await client.query('COMMIT');
+
+      target = {
+        userId: row.user_id,
+        firstName: row.first_name,
+        organizationId: row.organization_id,
+      };
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    }
+  });
+
+  if (!target) return;
+
+  // Send via the notifications engine so admins can customize the template
+  // from /dashboard/administracion/notificaciones. Falls back to a built-in
+  // email if no template is configured.
+  const captured = target as { userId: string; firstName: string; organizationId: string | null };
+  await withClient(async (client) => {
+    await client.query('BEGIN');
+    try {
+      await client.query('SELECT set_config($1, $2, true)', ['app.current_role', 'gestor']);
+
+      const { dispatchNotification } = await import('@/features/notificaciones/engine');
+      const { resolveEventConfig } = await import('@/features/notificaciones/service');
+
+      if (captured.organizationId) {
+        const resolved = await resolveEventConfig(
+          client,
+          captured.organizationId,
+          'auth.password_reset',
+        );
+
+        if (resolved.isEnabled && resolved.template) {
+          await dispatchNotification(client, {
+            organizationId: captured.organizationId,
+            recipientUserId: captured.userId,
+            recipientEmail: email,
+            eventKey: 'auth.password_reset',
+            variables: {
+              nombre: captured.firstName,
+              enlace_reset: resetUrl,
+            },
+          });
+          await client.query('COMMIT');
+          return;
+        }
+      }
+
+      // Fallback: hard-coded email if no template is configured.
+      const outboundConfig = await resolveOutboundConfig(client, captured.organizationId);
+      if (!outboundConfig) {
+        console.warn('[requestPasswordReset] no outbound email config; reset link not delivered for', email);
+        await client.query('COMMIT');
+        return;
+      }
+
+      const brandingQuery = captured.organizationId
+        ? `SELECT platform_name, logo_url, logo_dark_url FROM app_admin.branding_settings WHERE organization_id = $1::uuid LIMIT 1`
+        : `SELECT platform_name, logo_url, logo_dark_url FROM app_admin.branding_settings ORDER BY updated_at DESC LIMIT 1`;
+      const brandingParams = captured.organizationId ? [captured.organizationId] : [];
+      const { rows: brandingRows } = await client.query<{
+        platform_name: string;
+        logo_url: string | null;
+        logo_dark_url: string | null;
+      }>(brandingQuery, brandingParams);
+      const branding: EmailBranding = {
+        platformName: brandingRows[0]?.platform_name || '4Shine',
+        // El header del email es oscuro -> preferimos logo_dark_url.
+        logoUrl: brandingRows[0]?.logo_dark_url ?? brandingRows[0]?.logo_url ?? null,
+      };
+
+      const safeName = captured.firstName.trim() || 'usuario';
+      const subject = `${branding.platformName} · Restablecer tu contraseña`;
+      const text = [
+        `Hola ${safeName},`,
+        '',
+        `Recibimos una solicitud para restablecer tu contraseña en ${branding.platformName}.`,
+        'Abre el siguiente enlace en tu navegador (expira en 1 hora):',
+        resetUrl,
+        '',
+        'Si no fuiste tú, ignora este correo.',
+      ].join('\n');
+      const bodyHtml = `
+        <p style="margin:0 0 16px;font-size:15px;color:#0f172a;">Hola <strong>${safeName}</strong>,</p>
+        <p style="margin:0 0 24px;font-size:15px;color:#334155;line-height:1.6;">Recibimos una solicitud para restablecer tu contraseña en <strong>${branding.platformName}</strong>. Si fuiste tú, abre el siguiente enlace para definir una nueva contraseña. El enlace expira en una hora.</p>
+        <p style="margin:0 0 24px;text-align:center;">
+          <a href="${resetUrl}">Restablecer contraseña</a>
+        </p>
+        <p style="margin:0 0 8px;font-size:13px;color:#64748b;">Si el botón no funciona, copia y pega este enlace en tu navegador:</p>
+        <p style="margin:0 0 24px;font-size:12px;color:#94a3b8;word-break:break-all;">${resetUrl}</p>
+        <p style="margin:0;font-size:13px;color:#94a3b8;">Si no solicitaste este cambio, puedes ignorar este mensaje y tu contraseña seguirá igual.</p>
+      `.trim();
+
+      await sendOutboundEmail(outboundConfig, {
+        to: email,
+        subject,
+        text,
+        html: buildBrandedEmailHtml(bodyHtml, branding),
+        replyTo: buildReplyTo(outboundConfig),
+      });
+
+      await client.query('COMMIT');
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    }
+  });
+}
+
+export async function resetPasswordWithToken(
+  tokenRaw: string,
+  newPassword: string,
+): Promise<{ userId: string }> {
+  const token = tokenRaw.trim();
+  if (!token) throw new Error('Token requerido');
+  if (newPassword.length < 8) {
+    throw new Error('La contraseña debe tener al menos 8 caracteres');
+  }
+
+  const tokenHash = createHash('sha256').update(token).digest('hex');
+  const passwordHash = await hashPassword(newPassword);
+
+  return await withClient(async (client) => {
+    await client.query('BEGIN');
+    try {
+      await client.query('SELECT set_config($1, $2, true)', ['app.current_role', 'gestor']);
+
+      const { rows } = await client.query<{
+        user_id: string;
+        is_active: boolean;
+        expires_at: string | null;
+      }>(
+        `SELECT u.user_id::text,
+                u.is_active,
+                uc.password_reset_expires_at::text AS expires_at
+         FROM app_auth.user_credentials uc
+         JOIN app_core.users u ON u.user_id = uc.user_id
+         WHERE uc.password_reset_token = $1
+         LIMIT 1`,
+        [tokenHash],
+      );
+
+      const row = rows[0];
+      if (!row) {
+        await client.query('ROLLBACK');
+        throw new Error('El enlace de restablecimiento es inválido o ya fue utilizado.');
+      }
+      if (!row.is_active) {
+        await client.query('ROLLBACK');
+        throw new Error('Tu cuenta está inactiva. Contacta a soporte.');
+      }
+      if (row.expires_at && new Date(row.expires_at).getTime() < Date.now()) {
+        await client.query('ROLLBACK');
+        throw new Error('El enlace expiró. Solicita uno nuevo desde la pantalla de acceso.');
+      }
+
+      await client.query(
+        `UPDATE app_auth.user_credentials
+         SET password_hash = $2,
+             password_updated_at = now(),
+             password_reset_token = NULL,
+             password_reset_expires_at = NULL,
+             password_reset_requested_at = NULL,
+             failed_attempts = 0,
+             locked_until = NULL,
+             updated_at = now()
+         WHERE user_id = $1`,
+        [row.user_id, passwordHash],
+      );
+
+      // Invalidate all active refresh sessions: force re-login everywhere.
+      await client.query(
+        `UPDATE app_auth.refresh_sessions
+         SET revoked_at = now()
+         WHERE user_id = $1 AND revoked_at IS NULL`,
+        [row.user_id],
+      );
+
+      await client.query('COMMIT');
+      return { userId: row.user_id };
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    }
+  });
+}
+
 export async function sendVerificationEmail(
   userId: string,
   email: string,
