@@ -21,12 +21,11 @@ import {
   Trash2,
   Image as ImageIcon,
 } from 'lucide-react';
-import { AccessOfferPanel } from '@/components/access/AccessOfferPanel';
+import { ModuleLockedScreen } from '@/components/access/ModuleLockedScreen';
 import { EmptyState } from '@/components/dashboard/EmptyState';
 import { R2UploadButton } from '@/components/ui/R2UploadButton';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useUser } from '@/context/UserContext';
-import { filterCommercialProducts } from '@/features/access/catalog';
 import { createDirectThread } from '@/features/mensajes/client';
 import {
   createCommunity,
@@ -915,8 +914,6 @@ export default function NetworkingPage() {
   const canManageCommunities = can('networking', 'manage');
   const canCreate = can('networking', 'create');
 
-  const programOffers = filterCommercialProducts(viewerAccess?.catalog, { codes: ['program_4shine'] });
-
   const showError = React.useCallback(async (fallbackMessage: string, cause: unknown) => {
     await alert({ title: 'Error', message: cause instanceof Error ? cause.message : fallbackMessage, tone: 'error' });
   }, [alert]);
@@ -1066,47 +1063,18 @@ export default function NetworkingPage() {
 
   // ── Locked ──────────────────────────────────────────────────────────────────
   if (isCommunityLocked) {
-    const NETWORK_FEATURES = [
-      { label: 'Perfiles de líderes', desc: 'Explora quiénes integran la comunidad 4Shine.' },
-      { label: 'Conexiones directas', desc: 'Solicita y acepta conexiones en tu red ejecutiva.' },
-      { label: 'Comunidades temáticas', desc: 'Grupos por industria, función o interés.' },
-      { label: 'Convocatorias', desc: 'Oportunidades, eventos y proyectos del programa.' },
-    ];
     return (
-      <div className="space-y-4">
-        <section className="rounded-[1.5rem] border border-[var(--app-border)] bg-white px-7 py-10 text-center sm:py-12">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[1.1rem]" style={{ background: 'linear-gradient(135deg, #e8f0ff 0%, #e4eeff 100%)' }}>
-            <Users size={22} style={{ color: '#3f5fa8' }} />
-          </div>
-          <h1 className="mt-5 text-[1.6rem] font-black leading-tight text-[var(--app-ink)] sm:text-[1.9rem]">Tu comunidad de líderes<br />está aquí adentro.</h1>
-          <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-[var(--app-muted)]">Networking es el espacio de conexión, colaboración y expansión del programa 4Shine. Se activa junto con tu suscripción.</p>
-          <a href="https://www.4shine.co/planes-precios" target="_blank" rel="noopener noreferrer"
-            className="mt-6 inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:-translate-y-0.5 hover:opacity-90">
-            Activar programa · $3,000 USD
-          </a>
-        </section>
-        <section className="rounded-[1.5rem] border border-[var(--app-border)] bg-white p-5 sm:p-6">
-          <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[var(--app-muted)]">Qué incluye Networking</p>
-          <h2 className="mt-1 text-base font-extrabold text-[var(--app-ink)]">Conecta, colabora y expande tu influencia.</h2>
-          <div className="mt-4 space-y-2 opacity-60">
-            {NETWORK_FEATURES.map((f) => (
-              <div key={f.label} className="flex items-center gap-3.5 rounded-[1rem] bg-[var(--app-surface-muted)] px-4 py-3">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[0.7rem] bg-white">
-                  <Lock size={12} className="text-[var(--app-muted)]" />
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-[var(--app-ink)]">{f.label}</p>
-                  <p className="text-[11px] text-[var(--app-muted)]">{f.desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-        <AccessOfferPanel badge="Acceso bloqueado" title="Desbloquea Networking con el programa 4Shine."
-          description="Networking forma parte de la experiencia completa del programa."
-          products={programOffers} primaryAction={{ href: '/planes-precios', label: 'Ver planes y precios' }}
-          note="Mientras tu cuenta siga en modo free, este módulo no estará disponible." />
-      </div>
+      <ModuleLockedScreen
+        moduleName="Networking"
+        icon={Users}
+        description="El espacio de conexión, colaboración y expansión de la comunidad 4Shine. Encuentra líderes afines, suma a tu red y participa en comunidades temáticas."
+        features={[
+          "Directorio de perfiles de líderes del ecosistema.",
+          "Solicitudes de conexión directas y red personal.",
+          "Comunidades temáticas por industria, función o interés.",
+          "Acceso a oportunidades publicadas en convocatorias.",
+        ]}
+      />
     );
   }
 

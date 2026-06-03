@@ -15,10 +15,8 @@ import {
   Users,
   Video,
 } from "lucide-react";
-import { AccessOfferPanel } from "@/components/access/AccessOfferPanel";
 import { useUser } from "@/context/UserContext";
 import { useBranding } from "@/context/BrandingContext";
-import { filterCommercialProducts } from "@/features/access/catalog";
 import { getMentorshipOverview, type GroupSessionEventRecord } from "@/features/mentorias/client";
 import { PageTitle } from "@/components/dashboard/PageTitle";
 import { StatGrid, type StatItem } from "@/components/dashboard/StatGrid";
@@ -309,16 +307,12 @@ export default function DashboardHomePage() {
     },
   ].filter((item) => item.visible);
 
-  const commercialOffers = filterCommercialProducts(viewerAccess?.catalog, {
-    groups: ["program", "discovery", "mentoring_pack"],
-  });
-
   // ── Free leader view ─────────────────────────────────────────────────────
   if (isOpenLeader) {
     const FREE_SHORTCUTS = [
       { href: "/dashboard/aprendizaje", icon: BookOpen, label: "Aprendizaje", color: "#5b3fa5" },
-      { href: "/dashboard/descubrimiento", icon: Compass, label: "Diagnóstico", color: "#9b3f8a", badge: "$50 USD" },
-      { href: "/dashboard/mentorias", icon: CalendarDays, label: "Mentorías", color: "#3f7ea5", badge: "Desde $50" },
+      { href: "/dashboard/descubrimiento", icon: Compass, label: "Descubrimiento", color: "#9b3f8a" },
+      { href: "/dashboard/mentorias", icon: CalendarDays, label: "Mentorías", color: "#3f7ea5" },
     ];
 
     return (
@@ -381,14 +375,6 @@ export default function DashboardHomePage() {
                   <p className="text-center text-[0.78rem] font-bold leading-snug text-[var(--app-ink)]">
                     {item.label}
                   </p>
-                  {item.badge && (
-                    <span
-                      className="rounded-full px-2.5 py-0.5 text-[10px] font-extrabold"
-                      style={{ backgroundColor: `${item.color}14`, color: item.color }}
-                    >
-                      {item.badge}
-                    </span>
-                  )}
                 </Link>
               );
             })}
@@ -402,15 +388,13 @@ export default function DashboardHomePage() {
               <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[var(--app-muted)]">Con suscripción</p>
               <h2 className="mt-1 text-base font-extrabold text-[var(--app-ink)]">Módulos que se desbloquean</h2>
             </div>
-            <a
-              href="https://www.4shine.co/planes-precios"
-              target="_blank"
-              rel="noopener noreferrer"
+            <Link
+              href="/planes-precios"
               className="shrink-0 rounded-full px-4 py-2 text-xs font-bold text-white transition hover:opacity-90"
               style={{ background: "var(--brand-primary)" }}
             >
-              Ver programa
-            </a>
+              Ver planes y precios
+            </Link>
           </div>
           <div className="mt-4 space-y-2">
             {[
@@ -435,8 +419,9 @@ export default function DashboardHomePage() {
               );
             })}
           </div>
-          <div
-            className="mt-4 flex items-center justify-between rounded-[1rem] border border-dashed px-4 py-3.5"
+          <Link
+            href="/planes-precios"
+            className="mt-4 flex items-center justify-between rounded-[1rem] border border-dashed px-4 py-3.5 transition hover:-translate-y-0.5"
             style={{
               borderColor: "color-mix(in srgb, var(--brand-primary) 22%, transparent)",
               background: "var(--brand-surface)",
@@ -444,12 +429,14 @@ export default function DashboardHomePage() {
           >
             <div>
               <p className="text-sm font-extrabold" style={{ color: "var(--brand-primary)" }}>
-                Programa completo · $3,000 USD
+                Activa tu plan para desbloquearlo todo
               </p>
-              <p className="mt-0.5 text-[11px] text-[var(--app-muted)]">Diagnóstico · 10 mentorías · 24 semanas · comunidad</p>
+              <p className="mt-0.5 text-[11px] text-[var(--app-muted)]">
+                Diagnóstico, mentorías, journey de 24 semanas y comunidad.
+              </p>
             </div>
             <ArrowRight size={16} className="shrink-0" style={{ color: "var(--brand-primary)" }} />
-          </div>
+          </Link>
         </section>
 
       </div>
@@ -498,14 +485,37 @@ export default function DashboardHomePage() {
       <StatGrid stats={roleStats} />
 
       {isOpenLeader ? (
-        <AccessOfferPanel
-          badge="Líder sin suscripción"
-          title="Activa solo lo que necesitas"
-          description="Mantén una entrada simple: contenido free, diagnóstico individual o paquetes de mentoría según tu momento." 
-          products={commercialOffers}
-          primaryAction={{ href: "/dashboard/aprendizaje", label: "Explorar contenido free" }}
-          note="Puedes escalar al programa completo cuando quieras para desbloquear la ruta integral."
-        />
+        <section
+          className="app-panel overflow-hidden"
+        >
+          <div
+            className="px-6 py-8 sm:px-10 sm:py-10 text-white"
+            style={{
+              background:
+                "linear-gradient(140deg, var(--brand-primary) 0%, color-mix(in srgb, var(--brand-primary) 70%, #1e293b) 100%)",
+            }}
+          >
+            <div className="flex items-center gap-2 text-white/75">
+              <span className="text-[10px] font-extrabold uppercase tracking-[0.28em]">
+                Líder sin suscripción
+              </span>
+            </div>
+            <h2 className="mt-4 max-w-xl text-2xl font-semibold leading-tight text-white sm:text-3xl">
+              Activa tu plan para desbloquear todo el journey 4Shine
+            </h2>
+            <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/85">
+              Tu cuenta tiene acceso a Descubrimiento. El resto del programa
+              (Trayectoria, Workbooks, Mentorías, Convocatorias, Networking,
+              Workshops y Mensajes) se desbloquea al activar tu plan.
+            </p>
+            <Link
+              href="/planes-precios"
+              className="mt-6 inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-bold text-[var(--brand-primary)] shadow-sm transition hover:-translate-y-0.5"
+            >
+              Ver planes y precios
+            </Link>
+          </div>
+        </section>
       ) : null}
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.7fr)]">

@@ -18,7 +18,7 @@ import {
   Sparkles,
   Users,
 } from "lucide-react";
-import { AccessOfferPanel } from "@/components/access/AccessOfferPanel";
+import { ModuleLockedScreen } from "@/components/access/ModuleLockedScreen";
 import {
   PolarAngleAxis,
   PolarGrid,
@@ -30,7 +30,6 @@ import {
 import { PageTitle } from "@/components/dashboard/PageTitle";
 import { StatGrid } from "@/components/dashboard/StatGrid";
 import { useUser } from "@/context/UserContext";
-import { filterCommercialProducts } from "@/features/access/catalog";
 import {
   listEarnedCertificates,
   listLearningWorkbooks,
@@ -375,9 +374,6 @@ export default function TrayectoriaPage() {
     currentRole === "lider" &&
     viewerAccess !== null &&
     !viewerAccess.canAccessTrayectoria;
-  const trajectoryOffers = filterCommercialProducts(viewerAccess?.catalog, {
-    codes: ["program_4shine"],
-  });
 
   const firstName = currentUser.name.split(" ")[0] ?? currentUser.name;
   const leaderPhaseModels =
@@ -600,88 +596,19 @@ export default function TrayectoriaPage() {
   }
 
   if (isLockedForViewer) {
-    const PHASES = [
-      { num: "01", label: "Autoconocimiento", weeks: "Sem. 1–4" },
-      { num: "02", label: "Comunicación e influencia", weeks: "Sem. 5–8" },
-      { num: "03", label: "Estrategia y decisión", weeks: "Sem. 9–14" },
-      { num: "04", label: "Liderazgo de equipos", weeks: "Sem. 15–20" },
-      { num: "05", label: "Legado e impacto", weeks: "Sem. 21–24" },
-    ];
     return (
-      <div className="space-y-4">
-
-        {/* Empty-state card */}
-        <section className="rounded-[1.5rem] border border-[var(--app-border)] bg-white px-7 py-10 text-center sm:py-12">
-          <div
-            className="mx-auto flex h-14 w-14 items-center justify-center rounded-[1.1rem]"
-            style={{
-              background:
-                "linear-gradient(135deg, var(--brand-surface-strong) 0%, color-mix(in srgb, var(--brand-accent) 18%, white) 100%)",
-            }}
-          >
-            <Sparkles size={22} style={{ color: "var(--brand-primary)" }} />
-          </div>
-          <h1 className="mt-5 text-[1.6rem] font-black leading-tight text-[var(--app-ink)] sm:text-[1.9rem]">
-            Tu journey de 24 semanas<br />te espera.
-          </h1>
-          <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-[var(--app-muted)]">
-            La Trayectoria conecta diagnóstico, workbooks, mentorías y señales de progreso
-            en una sola línea de tiempo personalizada.
-          </p>
-          <a
-            href="https://www.4shine.co/planes-precios"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-6 inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-bold shadow-sm transition hover:-translate-y-0.5 hover:opacity-90"
-            style={{ background: "var(--brand-primary)", color: "var(--brand-on-dark)" }}
-          >
-            Activar programa · $3,000 USD
-          </a>
-        </section>
-
-        {/* Phase preview */}
-        <section className="rounded-[1.5rem] border border-[var(--app-border)] bg-white p-5 sm:p-6">
-          <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[var(--app-muted)]">Contenido incluido</p>
-          <h2 className="mt-1 text-base font-extrabold text-[var(--app-ink)]">5 fases · 24 semanas de transformación</h2>
-          <div className="mt-4 space-y-2 opacity-60">
-            {PHASES.map((phase) => (
-              <div key={phase.num} className="flex items-center gap-4 rounded-[1rem] bg-[var(--app-surface-muted)] px-4 py-3">
-                <span className="text-[1.1rem] font-black text-[var(--app-muted)]">{phase.num}</span>
-                <div className="flex-1">
-                  <p className="text-sm font-bold text-[var(--app-ink)]">{phase.label}</p>
-                  <p className="text-[11px] text-[var(--app-muted)]">{phase.weeks}</p>
-                </div>
-                <Lock size={12} className="shrink-0 text-[var(--app-muted)]" />
-              </div>
-            ))}
-          </div>
-          <div className="mt-4 grid grid-cols-3 gap-2.5">
-            {[
-              { v: "24", l: "Semanas" },
-              { v: "10", l: "Mentorías" },
-              { v: "5", l: "Workbooks" },
-            ].map((s) => (
-              <div key={s.l} className="rounded-[0.9rem] bg-[var(--brand-surface-strong)] px-3 py-3 text-center">
-                <p className="text-lg font-black text-[var(--brand-primary)]">{s.v}</p>
-                <p className="mt-0.5 text-[10px] font-semibold text-[var(--app-muted)]">{s.l}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <AccessOfferPanel
-          badge="Ruta bloqueada"
-          title="Activa el programa para desbloquear tu trayectoria."
-          description={
-            viewerAccess?.hasAnyPurchase
-              ? "Tu cuenta ya tiene actividad comercial, pero la timeline completa, los hitos y el seguimiento del journey requieren el programa 4Shine."
-              : "Todavía no hay una compra asociada a esta cuenta. Al activar el programa 4Shine se desbloquean los 5 hitos, la timeline de 24 semanas, los workbooks y el progreso integral."
-          }
-          products={trajectoryOffers}
-          primaryAction={{ href: "/planes-precios", label: "Ver planes y precios" }}
-          note="Trayectoria conecta diagnóstico, workbooks, mentorías incluidas y señales del programa en una sola línea de tiempo por usuario."
-        />
-      </div>
+      <ModuleLockedScreen
+        moduleName="Trayectoria"
+        icon={Sparkles}
+        description="Tu hoja de ruta personalizada de 24 semanas que conecta diagnóstico, workbooks, mentorías y señales de progreso en una sola línea de tiempo."
+        features={[
+          "Las 5 fases del journey 4Shine, desde Autoconocimiento hasta Legado e impacto.",
+          "Timeline visual con tus hitos y avance por semana.",
+          "Workbooks integrados a tu progreso real.",
+          "Mentorías sugeridas según tu etapa del journey.",
+        ]}
+        footnote="Trayectoria se desbloquea automáticamente al activar tu plan."
+      />
     );
   }
 

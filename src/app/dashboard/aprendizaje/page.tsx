@@ -29,7 +29,6 @@ import { CertificateBuilder, CertificateBuilderPreview } from "@/components/apre
 import { CertificatePreviewCard } from "@/components/aprendizaje/CertificatePreviewCard";
 import { LearningResourceCard } from "@/components/aprendizaje/LearningResourceCard";
 import { LearningAnalyticsPanel } from "@/components/aprendizaje/LearningAnalyticsPanel";
-import { AccessOfferPanel } from "@/components/access/AccessOfferPanel";
 import { EmptyState } from "@/components/dashboard/EmptyState";
 import { useAppDialog } from "@/components/ui/AppDialogProvider";
 import { R2UploadButton } from "@/components/ui/R2UploadButton";
@@ -2100,18 +2099,16 @@ export default function AprendizajePage() {
                   >
                     <BookOpen size={20} style={{ color: "var(--brand-primary)" }} />
                   </div>
-                  <p className="mt-4 text-base font-extrabold text-[var(--app-ink)]">Cursos disponibles con el programa</p>
+                  <p className="mt-4 text-base font-extrabold text-[var(--app-ink)]">Cursos premium del programa</p>
                   <p className="mx-auto mt-2 max-w-xs text-sm text-[var(--app-muted)]">
-                    Rutas estructuradas con módulos, recursos y certificados. Se activan con el plan 4Shine.
+                    Rutas estructuradas con módulos, recursos y certificados. Se desbloquean al activar tu plan.
                   </p>
-                  <a
-                    href="https://www.4shine.co/planes-precios"
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <Link
+                    href="/planes-precios"
                     className="mt-5 inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-5 py-2.5 text-sm font-bold text-white transition hover:opacity-90"
                   >
-                    Activar programa · $3,000 USD
-                  </a>
+                    Ver planes y precios
+                  </Link>
                 </div>
               ) : null}
 
@@ -2351,18 +2348,16 @@ export default function AprendizajePage() {
                   >
                     <span className="text-xl">📓</span>
                   </div>
-                  <p className="mt-4 text-base font-extrabold text-[var(--app-ink)]">10 workbooks del journey</p>
+                  <p className="mt-4 text-base font-extrabold text-[var(--app-ink)]">Workbooks personales del journey</p>
                   <p className="mx-auto mt-2 max-w-xs text-sm text-[var(--app-muted)]">
-                    Cada workbook es personal y se libera según tu etapa en la trayectoria. Requieren el programa 4Shine.
+                    Cada workbook es personal y se libera según tu etapa en la trayectoria. Se desbloquean al activar tu plan.
                   </p>
-                  <a
-                    href="https://www.4shine.co/planes-precios"
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <Link
+                    href="/planes-precios"
                     className="mt-5 inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-5 py-2.5 text-sm font-bold text-white transition hover:opacity-90"
                   >
-                    Activar programa · $3,000 USD
-                  </a>
+                    Ver planes y precios
+                  </Link>
                 </div>
               ) : (
                 <div className="space-y-4">

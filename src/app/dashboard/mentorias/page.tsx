@@ -29,7 +29,6 @@ import {
   Video,
   X,
 } from 'lucide-react';
-import { AccessOfferPanel } from '@/components/access/AccessOfferPanel';
 import { R2UploadButton } from '@/components/ui/R2UploadButton';
 import { RichTextEditor } from '@/components/ui/RichTextEditor';
 import { EmptyState } from '@/components/dashboard/EmptyState';
@@ -951,17 +950,15 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
           </div>
           <p className="mt-4 text-base font-extrabold text-[var(--app-ink)]">Sesiones grupales del programa</p>
           <p className="mx-auto mt-2 max-w-xs text-sm text-[var(--app-muted)]">
-            Las sesiones grupales en vivo con tu cohorte están disponibles para líderes con suscripción activa.
+            Las sesiones grupales en vivo con tu cohorte se desbloquean al activar tu plan.
           </p>
-          <a
-            href="https://www.4shine.co/planes-precios"
-            target="_blank"
-            rel="noopener noreferrer"
+          <Link
+            href="/planes-precios"
             className="mt-5 inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold transition hover:opacity-90"
             style={{ background: "var(--brand-primary)", color: "var(--brand-on-dark)" }}
           >
-            Activar programa · $3,000 USD
-          </a>
+            Ver planes y precios
+          </Link>
         </div>
       )}
       {(currentRole === 'admin' || currentRole === 'gestor') && (
@@ -2591,18 +2588,16 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
           <div className="flex-1">
             <p className="text-sm font-extrabold text-[var(--brand-primary)]">Sesiones adicionales disponibles para tu cuenta</p>
             <p className="mt-0.5 text-xs leading-relaxed text-[var(--app-muted)]">
-              Puedes reservar sesiones adicionales con los Advisers disponibles. Las mentorías incluidas del journey se activan con el programa 4Shine.
+              Puedes reservar sesiones adicionales con los Advisers disponibles. Las mentorías incluidas del journey se desbloquean al activar tu plan.
             </p>
           </div>
-          <a
-            href="https://www.4shine.co/planes-precios"
-            target="_blank"
-            rel="noopener noreferrer"
+          <Link
+            href="/planes-precios"
             className="shrink-0 rounded-full px-4 py-2 text-xs font-bold transition hover:opacity-90"
             style={{ background: "var(--brand-primary)", color: "var(--brand-on-dark)" }}
           >
-            Ver programa
-          </a>
+            Ver planes y precios
+          </Link>
         </div>
       )}
 
