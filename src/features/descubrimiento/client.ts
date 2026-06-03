@@ -181,6 +181,18 @@ export async function sendDiscoveryReportEmail(
   );
 }
 
+export async function sendDiscoveryReminderEmail(
+  sessionId: string,
+): Promise<{ ok: true; email: string }> {
+  return requestApi<{ ok: true; email: string }>(
+    "/api/v1/modules/descubrimiento/overview/send-reminder",
+    {
+      method: "POST",
+      body: JSON.stringify({ sessionId }),
+    },
+  );
+}
+
 export async function verifyInvitationAccess(input: {
   inviteToken: string;
   accessCode: string;

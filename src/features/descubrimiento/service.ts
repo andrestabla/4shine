@@ -6286,4 +6286,120 @@ export async function deleteDiscoveryInvitation(
 
   if (!rowCount) throw new Error("Invitación no encontrada.");
 }
+
+export async function sendDiscoveryReminder(
+  client: PoolClient,
+  actor: AuthUser,
+  sessionId: string,
+): Promise<{ ok: true; email: string }> {
+  await requireModulePermission(client, "descubrimiento", "update");
+  if (!isAllowedManager(actor)) {
+    throw new Error("Solo admin y gestor pueden enviar recordatorios.");
+  }
+
+  const normalizedSessionId = sessionId.trim();
+  if (!normalizedSessionId) {
+    throw new Error("sessionId es requerido.");
+  }
+
+  const organizationId = await resolveOrganizationIdForActor(client, actor.userId);
+  const baseUrl = resolveAppBaseUrl();
+
+  let recipientEmail = "";
+  let recipientName = "";
+  let recipientUserId = "";
+  let inviteUrl = "";
+  let isCompleted = false;
+
+  if (normalizedSessionId.startsWith("inv-")) {
+    const invitationId = normalizedSessionId.slice(4);
+    const { rows } = await client.query<{
+      invited_email: string;
+      invite_token: string;
+      meta: unknown;
+      session_id: string | null;
+      completed_at: string | null;
+    }>(
+      `SELECT di.invited_email,
+              di.invite_token,
+              di.meta,
+              di.session_id::text AS session_id,
+              ds.completed_at::text AS completed_at
+       FROM app_assessment.discovery_invitations di
+       LEFT JOIN app_assessment.discovery_sessions ds ON ds.session_id = di.session_id
+       WHERE di.invitation_id = $1::uuid
+       LIMIT 1`,
+      [invitationId],
+    );
+    const row = rows[0];
+    if (!row) throw new Error("No se encontró la invitación.");
+    recipientEmail = row.invited_email;
+    inviteUrl = `${baseUrl}/descubrimiento/invitacion/${row.invite_token}`;
+    isCompleted = Boolean(row.completed_at);
+    if (
+      row.meta &&
+      typeof row.meta === "object" &&
+      "participant_name" in row.meta &&
+      typeof (row.meta as Record<string, unknown>).participant_name === "string"
+    ) {
+      recipientName = (row.meta as Record<string, string>).participant_name;
+    } else {
+      recipientName = recipientEmail.split("@")[0] || "Líder";
+    }
+  } else {
+    const { rows } = await client.query<{
+      user_id: string;
+      email: string | null;
+      first_name: string | null;
+      last_name: string | null;
+      name_snapshot: string | null;
+      completed_at: string | null;
+    }>(
+      `SELECT ds.user_id::text,
+              u.email,
+              u.first_name,
+              u.last_name,
+              ds.name_snapshot,
+              ds.completed_at::text AS completed_at
+       FROM app_assessment.discovery_sessions ds
+       LEFT JOIN app_core.users u ON u.user_id = ds.user_id
+       WHERE ds.session_id = $1::uuid
+       LIMIT 1`,
+      [normalizedSessionId],
+    );
+    const row = rows[0];
+    if (!row) throw new Error("No se encontró la sesión del diagnóstico.");
+    recipientUserId = row.user_id ?? "";
+    recipientEmail = (row.email ?? "").trim();
+    recipientName =
+      row.first_name?.trim() ||
+      row.name_snapshot?.split(" ")[0] ||
+      recipientEmail.split("@")[0] ||
+      "Líder";
+    inviteUrl = `${baseUrl}/dashboard/descubrimiento`;
+    isCompleted = Boolean(row.completed_at);
+  }
+
+  if (!recipientEmail) {
+    throw new Error("No se encontró un correo para enviar el recordatorio.");
+  }
+
+  if (isCompleted) {
+    throw new Error("Este diagnóstico ya fue completado, no es necesario enviar recordatorio.");
+  }
+
+  await dispatchNotification(client, {
+    organizationId,
+    recipientUserId,
+    recipientEmail,
+    eventKey: "descubrimiento.reminder",
+    variables: {
+      nombre: recipientName,
+      enlace_plataforma: `${baseUrl}/dashboard/descubrimiento`,
+      enlace_invitacion: inviteUrl,
+    },
+  });
+
+  return { ok: true, email: recipientEmail };
+}
 // Deployment poke Mon Apr 27 22:05:23 -05 2026

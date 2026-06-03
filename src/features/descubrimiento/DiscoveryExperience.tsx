@@ -5,6 +5,7 @@ import clsx from "clsx";
 import { yearsToLabel, YEARS_EXPERIENCE_OPTIONS } from "@/lib/demographics";
 import { read, utils } from "xlsx";
 import {
+  Bell,
   ChevronLeft,
   ChevronRight,
   Compass,
@@ -65,6 +66,7 @@ import {
   resendDiscoveryInvitationRequest,
   resetDiscoveryOverviewAttempt,
   resetDiscoverySessionRequest,
+  sendDiscoveryReminderEmail,
   sendDiscoveryReportEmail,
   shareDiscoverySessionRequest,
   updateDiscoveryFeedbackSettings,
@@ -653,6 +655,52 @@ export function DiscoveryExperience() {
         await alert({
           title: "No se pudo enviar",
           message: error instanceof Error ? error.message : "Error inesperado.",
+          tone: "error",
+        });
+      } finally {
+        setRowActionLoadingKey((current) => (current === loadingKey ? null : current));
+      }
+    },
+    [alert, confirm],
+  );
+
+  const handleSendOverviewReminder = React.useCallback(
+    async (row: DiscoveryOverviewRow) => {
+      if (row.globalIndex !== null) {
+        await alert({
+          title: "Diagnóstico completado",
+          message: "Este participante ya completó el diagnóstico. No es necesario enviar un recordatorio.",
+          tone: "info",
+        });
+        return;
+      }
+
+      const destination = row.invitedEmail || row.participantName;
+      const approved = await confirm({
+        title: "Enviar recordatorio",
+        message: `Se enviará un correo recordatorio a ${destination} para que continúe o termine su diagnóstico. El contenido del mensaje se configura en Administración → Notificaciones → Plantillas (evento "Recordatorio de diagnóstico pendiente"). ¿Continuar?`,
+        tone: "info",
+        confirmText: "Enviar recordatorio",
+        cancelText: "Cancelar",
+      });
+      if (!approved) return;
+
+      const loadingKey = `${row.sessionId}:reminder`;
+      setRowActionLoadingKey(loadingKey);
+      try {
+        const result = await sendDiscoveryReminderEmail(row.sessionId);
+        await alert({
+          title: "Recordatorio enviado",
+          message: `Se envió el recordatorio a ${result.email}.`,
+          tone: "success",
+        });
+      } catch (error) {
+        await alert({
+          title: "No se pudo enviar el recordatorio",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Error inesperado. Verifica que la plantilla de \"Recordatorio de diagnóstico pendiente\" esté configurada y activa.",
           tone: "error",
         });
       } finally {
@@ -2040,6 +2088,25 @@ export function DiscoveryExperience() {
                             )}
                             Enviar
                           </button>
+                          {row.globalIndex === null && (
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                void handleSendOverviewReminder(row);
+                              }}
+                              disabled={rowActionLoadingKey === `${row.sessionId}:reminder`}
+                              title="Enviar recordatorio para terminar el diagnóstico"
+                              className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-white px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {rowActionLoadingKey === `${row.sessionId}:reminder` ? (
+                                <Loader2 size={12} className="animate-spin" />
+                              ) : (
+                                <Bell size={12} />
+                              )}
+                              Recordatorio
+                            </button>
+                          )}
                           {row.sourceType === "invited" && row.invitationId && (
                             <>
                               <button

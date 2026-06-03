@@ -161,7 +161,12 @@ export async function dispatchNotification(
   };
 
   // ── In-app notification ──────────────────────────────────────────────────
-  if (resolved.channelInApp && tmpl.channelInApp && tmpl.inAppTitleTemplate) {
+  if (
+    resolved.channelInApp &&
+    tmpl.channelInApp &&
+    tmpl.inAppTitleTemplate &&
+    ctx.recipientUserId
+  ) {
     const title = renderTemplate(tmpl.inAppTitleTemplate, vars);
     const body = renderTemplate(tmpl.inAppBodyTemplate, vars);
     const actionUrl = tmpl.inAppActionUrlTemplate
