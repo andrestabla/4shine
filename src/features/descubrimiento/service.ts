@@ -6400,13 +6400,53 @@ export async function sendDiscoveryReminder(
     throw new Error("Este diagnóstico ya fue completado, no es necesario enviar recordatorio.");
   }
 
-  // Para invitados: regeneramos access_code + invite_token (mismo patrón que
-  // "Reenviar invitación") e incluimos el código único en el correo. El código
-  // anterior queda invalidado, lo cual es deseable: el usuario perdió el correo
-  // anterior, este es el válido.
+  // Para invitados: regeneramos access_code + invite_token e incluimos el
+  // código único en el correo. El código anterior queda invalidado (deseado:
+  // el usuario perdió el correo previo, este es el válido).
+  // Si recipientUserId está presente (rama "platform" — usuario con cuenta),
+  // pero NO hay invitación en BD, la creamos: garantiza que SIEMPRE haya un
+  // invite_token + code utilizables sin login. Sin esto, recordatorios a
+  // invitados con la invitación eliminada salían con {{codigo_acceso}} vacío.
   let accessCode: string | null = null;
   let inviteUrl = `${baseUrl}/dashboard/descubrimiento`;
-  if (invitationId) {
+
+  // Resolvemos la sesión real (puede ser null si la invitación nunca tuvo session)
+  const realSessionId = normalizedSessionId.startsWith("inv-")
+    ? null
+    : normalizedSessionId;
+
+  if (!invitationId && recipientEmail && recipientUserId) {
+    // No hay invitación: la creamos vinculada a la sesión + usuario invitado
+    const newAccessCode = createAccessCode();
+    const newInviteToken = createInviteToken();
+    const { rows: insRows } = await client.query<{ invitation_id: string }>(
+      `INSERT INTO app_assessment.discovery_invitations (
+         session_id, invited_email, invite_token, access_code_hash,
+         access_code_last4, access_code_sent_at, meta
+       )
+       VALUES ($1::uuid, $2, $3, $4, $5, now(), $6::jsonb)
+       ON CONFLICT (session_id, invited_email) DO UPDATE SET
+         invite_token = EXCLUDED.invite_token,
+         access_code_hash = EXCLUDED.access_code_hash,
+         access_code_last4 = EXCLUDED.access_code_last4,
+         access_code_sent_at = now(),
+         updated_at = now()
+       RETURNING invitation_id::text`,
+      [
+        realSessionId,
+        recipientEmail,
+        newInviteToken,
+        hashAccessCode(newAccessCode),
+        newAccessCode.slice(-4),
+        JSON.stringify({ participant_name: recipientName, source: "reminder_backfill" }),
+      ],
+    );
+    if (insRows[0]) {
+      invitationId = insRows[0].invitation_id;
+      accessCode = newAccessCode;
+      inviteUrl = `${baseUrl}/descubrimiento/invitacion/${newInviteToken}`;
+    }
+  } else if (invitationId) {
     const newAccessCode = createAccessCode();
     const newInviteToken = createInviteToken();
     const { rows: updRows } = await client.query<{ invite_token: string }>(
@@ -6424,6 +6464,25 @@ export async function sendDiscoveryReminder(
       accessCode = newAccessCode;
       inviteUrl = `${baseUrl}/descubrimiento/invitacion/${updRows[0].invite_token}`;
     }
+  }
+
+  // Sincronizar password del usuario con el nuevo código (login funcionará
+  // con email + code en mayúsculas, igual que después de la primera entrada
+  // por invitación). Solo para invitados con cuenta y sin custom password
+  // reciente — los demás usuarios no se ven afectados.
+  if (accessCode && recipientUserId) {
+    const newPasswordHash = await hashPassword(accessCode.trim().toUpperCase());
+    await client.query(
+      `UPDATE app_auth.user_credentials
+       SET password_hash = $2,
+           password_updated_at = now(),
+           email_verified_at = COALESCE(email_verified_at, now()),
+           failed_attempts = 0,
+           locked_until = NULL,
+           updated_at = now()
+       WHERE user_id = $1::uuid`,
+      [recipientUserId, newPasswordHash],
+    );
   }
 
   // Resolve platform name from branding so {{plataforma}} always renders,

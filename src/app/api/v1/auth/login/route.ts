@@ -104,7 +104,10 @@ export async function POST(request: Request) {
           return { status: 401 as const, payload: { ok: false, error: 'Invalid credentials' } };
         }
 
-        if (!authRow.email_verified_at) {
+        // Los invitados ya probaron control del correo al recibir+usar el
+        // código único de invitación; consideramos su correo verificado.
+        // El resto de roles sí debe verificar antes de loguearse.
+        if (!authRow.email_verified_at && authRow.primary_role !== 'invitado') {
           await client.query('ROLLBACK');
           return {
             status: 403 as const,

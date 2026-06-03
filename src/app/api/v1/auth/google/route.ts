@@ -135,12 +135,45 @@ export async function POST(request: Request) {
           };
         }
 
+        // Google ya verifica el ownership del email — si el usuario logra
+        // autenticarse con Google, su email queda implícitamente verificado.
+        // Marcamos email_verified_at para que también pueda usar password login.
         if (!userRow.email_verified_at) {
-          await client.query('COMMIT');
-          return {
-            status: 403 as const,
-            payload: { ok: false, error: 'email_not_verified', email: userRow.email },
-          };
+          await client.query(
+            `UPDATE app_auth.user_credentials
+             SET email_verified_at = now(),
+                 email_verification_token = NULL,
+                 email_verification_expires_at = NULL
+             WHERE user_id = $1::uuid`,
+            [userRow.user_id],
+          );
+        }
+
+        // Auto-promoción: si el usuario era 'invitado', lo promovemos a 'lider'
+        // sin suscripción (mismo flujo que el login por password). Reutiliza
+        // el mismo user_id, NUNCA duplica.
+        let effectiveRole: AuthUser['role'] = userRow.primary_role;
+        if (userRow.primary_role === 'invitado') {
+          await client.query(
+            `UPDATE app_core.users
+             SET primary_role = 'lider', updated_at = now()
+             WHERE user_id = $1`,
+            [userRow.user_id],
+          );
+          await client.query(
+            `UPDATE app_auth.user_roles
+             SET is_default = false
+             WHERE user_id = $1 AND role_code <> 'lider'`,
+            [userRow.user_id],
+          );
+          await client.query(
+            `INSERT INTO app_auth.user_roles (user_id, role_code, is_default, assigned_by)
+             VALUES ($1::uuid, 'lider', true, NULL)
+             ON CONFLICT (user_id, role_code) DO UPDATE
+             SET is_default = true, assigned_at = now()`,
+            [userRow.user_id],
+          );
+          effectiveRole = 'lider';
         }
 
         await client.query('SELECT set_config($1, $2, true)', [
@@ -149,7 +182,7 @@ export async function POST(request: Request) {
         ]);
         await client.query('SELECT set_config($1, $2, true)', [
           'app.current_role',
-          userRow.primary_role,
+          effectiveRole,
         ]);
 
         // Save Google profile picture if the user has accepted the privacy policy and has no avatar yet
@@ -165,7 +198,7 @@ export async function POST(request: Request) {
           userId: userRow.user_id,
           email: userRow.email,
           name: userRow.display_name,
-          role: userRow.primary_role,
+          role: effectiveRole,
         };
 
         const tokens = await issueAuthTokens(
