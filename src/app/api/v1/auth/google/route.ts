@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { withClient } from '@/server/db/pool';
 import { issueAuthTokens } from '@/server/auth/session';
 import { setAuthCookies } from '@/server/auth/cookies';
+import { promoteInvitadoToLider } from '@/server/auth/promote-invitado';
+import { writeAuditLog } from '@/server/audit/service';
 import type { AuthUser } from '@/server/auth/types';
 
 interface GoogleBody {
@@ -150,29 +152,19 @@ export async function POST(request: Request) {
         }
 
         // Auto-promoción: si el usuario era 'invitado', lo promovemos a 'lider'
-        // sin suscripción (mismo flujo que el login por password). Reutiliza
-        // el mismo user_id, NUNCA duplica.
+        // sin suscripción + registramos compra puntual de Descubrimiento
+        // (mismo flujo que el login por password). Reutiliza el mismo user_id,
+        // NUNCA duplica.
         let effectiveRole: AuthUser['role'] = userRow.primary_role;
         if (userRow.primary_role === 'invitado') {
-          await client.query(
-            `UPDATE app_core.users
-             SET primary_role = 'lider', updated_at = now()
-             WHERE user_id = $1`,
-            [userRow.user_id],
-          );
-          await client.query(
-            `UPDATE app_auth.user_roles
-             SET is_default = false
-             WHERE user_id = $1 AND role_code <> 'lider'`,
-            [userRow.user_id],
-          );
-          await client.query(
-            `INSERT INTO app_auth.user_roles (user_id, role_code, is_default, assigned_by)
-             VALUES ($1::uuid, 'lider', true, NULL)
-             ON CONFLICT (user_id, role_code) DO UPDATE
-             SET is_default = true, assigned_at = now()`,
-            [userRow.user_id],
-          );
+          await promoteInvitadoToLider(client, userRow.user_id);
+          await writeAuditLog(client, {
+            actorUserId: userRow.user_id,
+            action: 'auth_invitado_promoted_to_lider',
+            entityTable: 'app_core.users',
+            entityId: userRow.user_id,
+            changeSummary: { previousRole: 'invitado', newRole: 'lider', via: 'login_google' },
+          });
           effectiveRole = 'lider';
         }
 
