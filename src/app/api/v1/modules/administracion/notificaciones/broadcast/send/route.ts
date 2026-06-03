@@ -14,9 +14,24 @@ export async function POST(request: Request) {
   if (!identity) return unauthorizedResponse();
 
   const body = await parseJsonBody<BulkSendInput>(request);
-  if (!body || !body.filter || !body.channels) {
+  if (!body || !Array.isArray(body.channels) || body.channels.length === 0) {
     return NextResponse.json(
-      { ok: false, error: 'Faltan parámetros (filter, channels).' },
+      { ok: false, error: 'Falta el campo channels (selecciona al menos email o in-app).' },
+      { status: 400 },
+    );
+  }
+
+  const hasUserIds = Array.isArray(body.recipientUserIds) && body.recipientUserIds.length > 0;
+  const hasExternals =
+    Array.isArray(body.externalRecipients) && body.externalRecipients.length > 0;
+  const hasFilter = body.filter && Object.keys(body.filter).length > 0;
+  if (!hasUserIds && !hasExternals && !hasFilter) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          'No hay destinatarios. Marca usuarios desde el segmento/búsqueda o agrega emails externos.',
+      },
       { status: 400 },
     );
   }
