@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { CheckCircle2, Eye, EyeOff, Loader2, Lock, ShieldAlert } from 'lucide-react';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
@@ -9,6 +9,20 @@ import { useBranding } from '@/context/BrandingContext';
 type Status = 'form' | 'submitting' | 'done';
 
 export default function RestablecerPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-100 flex items-center justify-center">
+          <Loader2 size={28} className="animate-spin text-slate-400" />
+        </div>
+      }
+    >
+      <RestablecerForm />
+    </Suspense>
+  );
+}
+
+function RestablecerForm() {
   const router = useRouter();
   const params = useSearchParams();
   const { branding, tokens } = useBranding();
