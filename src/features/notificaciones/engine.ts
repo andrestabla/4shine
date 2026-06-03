@@ -147,8 +147,40 @@ async function sendTemplateEmail(
     requireTLS: smtpPort === 587 || !secure,
     auth: { user: config.smtp_user.trim(), pass: config.smtp_password.trim() },
   });
-  const result = await transporter.sendMail({ from, to, subject, text, html, replyTo });
-  return typeof result.messageId === 'string' ? result.messageId : null;
+
+  // Si es SES SMTP y hay un Configuration Set configurado, lo aplicamos via
+  // header. Esto habilita event publishing (Delivery / Open / Bounce) a SNS
+  // → nuestro webhook /api/v1/webhooks/aws/ses → historial de notificaciones.
+  const isSesSmtp =
+    config.provider === 'ses' ||
+    /email-smtp\.[a-z0-9-]+\.amazonaws\.com$/i.test(config.smtp_host.trim());
+  const configurationSet = process.env.AWS_SES_CONFIGURATION_SET?.trim();
+  const headers: Record<string, string> | undefined =
+    isSesSmtp && configurationSet
+      ? { 'X-SES-CONFIGURATION-SET': configurationSet }
+      : undefined;
+
+  const result = await transporter.sendMail({
+    from,
+    to,
+    subject,
+    text,
+    html,
+    replyTo,
+    ...(headers ? { headers } : {}),
+  });
+
+  // Para SES SMTP, el Message-ID que llega en el webhook NO es el de SMTP
+  // (que viene como "<...@email.amazonses.com>"), sino la parte local sin
+  // los chevrones ni dominio. Normalizamos aquí para que el webhook pueda
+  // hacer match por provider_message_id.
+  let messageId =
+    typeof result.messageId === 'string' ? result.messageId : null;
+  if (isSesSmtp && messageId) {
+    // Ej: "<0100019891...@email.amazonses.com>" → "0100019891..."
+    messageId = messageId.replace(/^<|>$/g, '').split('@')[0] ?? messageId;
+  }
+  return messageId;
 }
 
 // ─── Main dispatch function ───────────────────────────────────────────────────
