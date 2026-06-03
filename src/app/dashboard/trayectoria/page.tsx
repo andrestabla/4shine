@@ -678,7 +678,7 @@ export default function TrayectoriaPage() {
               : "Todavía no hay una compra asociada a esta cuenta. Al activar el programa 4Shine se desbloquean los 5 hitos, la timeline de 24 semanas, los workbooks y el progreso integral."
           }
           products={trajectoryOffers}
-          primaryAction={{ href: "/dashboard", label: "Ver plan 4Shine" }}
+          primaryAction={{ href: "/planes-precios", label: "Ver planes y precios" }}
           note="Trayectoria conecta diagnóstico, workbooks, mentorías incluidas y señales del programa en una sola línea de tiempo por usuario."
         />
       </div>

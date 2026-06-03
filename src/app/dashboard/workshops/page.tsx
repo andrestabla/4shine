@@ -280,7 +280,7 @@ export default function WorkshopsPage() {
           title="Activa Workshops con el plan 4Shine."
           description="Los workshops complementan la trayectoria del líder con experiencias grupales, relacionamiento y formación."
           products={programOffers}
-          primaryAction={{ href: '/dashboard', label: 'Ver plan 4Shine' }}
+          primaryAction={{ href: '/planes-precios', label: 'Ver planes y precios' }}
           note="Cuando el programa está activo, Workshops se integra con tu agenda y con el resto de módulos del journey."
         />
       </div>

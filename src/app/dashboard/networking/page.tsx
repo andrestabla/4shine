@@ -1104,7 +1104,7 @@ export default function NetworkingPage() {
         </section>
         <AccessOfferPanel badge="Acceso bloqueado" title="Desbloquea Networking con el programa 4Shine."
           description="Networking forma parte de la experiencia completa del programa."
-          products={programOffers} primaryAction={{ href: '/dashboard', label: 'Ver plan 4Shine' }}
+          products={programOffers} primaryAction={{ href: '/planes-precios', label: 'Ver planes y precios' }}
           note="Mientras tu cuenta siga en modo free, este módulo no estará disponible." />
       </div>
     );

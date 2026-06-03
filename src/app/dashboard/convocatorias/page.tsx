@@ -457,7 +457,7 @@ export default function ConvocatoriasPage() {
           title="Desbloquea Convocatorias con el plan 4Shine."
           description="Con tu suscripción activa tienes acceso a todas las convocatorias abiertas del ecosistema."
           products={programOffers}
-          primaryAction={{ href: '/dashboard', label: 'Ver plan 4Shine' }}
+          primaryAction={{ href: '/planes-precios', label: 'Ver planes y precios' }}
           note="Cuando actives el programa, Convocatorias se integra con tu Trayectoria."
         />
       </div>

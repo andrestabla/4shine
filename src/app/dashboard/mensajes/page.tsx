@@ -575,7 +575,7 @@ export default function MensajesPage() {
           title="Activa Mensajes con el programa 4Shine."
           description="Este módulo forma parte de la experiencia colaborativa del programa. Al activar el plan podrás conversar con tu red, tus Advisers y otros actores del ecosistema."
           products={programOffers}
-          primaryAction={{ href: '/dashboard', label: 'Ver plan 4Shine' }}
+          primaryAction={{ href: '/planes-precios', label: 'Ver planes y precios' }}
           note="La cuenta free conserva acceso a contenido abierto en Aprendizaje y a compra de mentorías adicionales."
         />
       </div>
