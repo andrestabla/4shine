@@ -14,6 +14,8 @@ import {
   type UserJobRoleOption,
 } from '@/lib/user-demographics';
 import { buildBrandedEmailHtml, type EmailBranding } from '@/lib/email-template';
+import { listUserPurchases } from '@/features/access/service';
+import type { UserPurchaseRecord } from '@/features/access/types';
 
 type PlanType = 'standard' | 'premium' | 'vip' | 'empresa_elite';
 type SeniorityLevel = 'senior' | 'c_level' | 'director' | 'manager' | 'vp';
@@ -90,6 +92,7 @@ export interface UserDetailRecord extends UserRecord {
   stats: UserStatsRecord;
   rolePermissions: RolePermissionRecord[];
   policyHistory: UserPolicyAcceptanceRecord[];
+  purchases: UserPurchaseRecord[];
 }
 
 export interface AuditLogRecord {
@@ -1465,11 +1468,12 @@ export async function getUserDetail(client: PoolClient, userId: string): Promise
 
   const user = await getUserById(client, userId);
 
-  const [stats, rolePermissions, policyHistory, sessionMeta] = await Promise.all([
+  const [stats, rolePermissions, policyHistory, sessionMeta, purchases] = await Promise.all([
     getUserStats(client, userId),
     listRolePermissionMatrix(client, user.primaryRole),
     listUserPolicyAcceptances(client, userId, 30),
     getUserSessionMeta(client, userId),
+    listUserPurchases(client, userId),
   ]);
 
   return {
@@ -1479,6 +1483,7 @@ export async function getUserDetail(client: PoolClient, userId: string): Promise
     stats,
     rolePermissions,
     policyHistory,
+    purchases,
   };
 }
 

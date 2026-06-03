@@ -26,6 +26,19 @@ export interface CommercialProductRecord {
   sortOrder: number;
 }
 
+export interface UserPurchaseRecord {
+  productCode: CommercialProductCode;
+  productGroup: CommercialProductGroup;
+  productName: string;
+  priceAmount: number;
+  currencyCode: string;
+  quantity: number;
+  sessionsIncluded: number | null;
+  purchasedAt: string | null;
+  activatedAt: string | null;
+  source: string | null;
+}
+
 export interface ViewerAccessState {
   viewerTier: ViewerAccessTier;
   planTypeCode: PlanTypeCode;

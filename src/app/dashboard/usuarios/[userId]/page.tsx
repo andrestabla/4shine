@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import { EmptyState } from '@/components/dashboard/EmptyState';
+import { PurchasedProductsPanel } from '@/components/dashboard/PurchasedProductsPanel';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useUser } from '@/context/UserContext';
 import {
@@ -703,6 +704,17 @@ export default function UsuarioDetallePage() {
               ))}
             </div>
           </article>
+
+          <PurchasedProductsPanel
+            purchases={detail.purchases}
+            primaryRole={detail.primaryRole}
+            planType={detail.planType}
+            emptyHint={
+              detail.primaryRole === 'invitado'
+                ? 'Aún no se ha registrado la compra de Descubrimiento. Se creará automáticamente al primer login del invitado.'
+                : 'Este usuario no tiene productos puntuales registrados.'
+            }
+          />
 
           {canDelete && (
             <article className="rounded-[1.2rem] border border-red-200 bg-red-50 p-5 shadow-[var(--app-shadow-soft)]">

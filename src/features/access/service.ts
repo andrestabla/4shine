@@ -7,6 +7,7 @@ import type {
   CommercialProductRecord,
   PlanTypeCode,
   PurchaseStatus,
+  UserPurchaseRecord,
   ViewerAccessState,
 } from "./types";
 
@@ -87,6 +88,62 @@ async function readPlanTypeCode(client: PoolClient, userId: string): Promise<Pla
   );
 
   return rows[0]?.plan_type ?? null;
+}
+
+interface UserPurchaseRow {
+  product_code: CommercialProductCode;
+  product_group: CommercialProductGroup;
+  product_name: string;
+  unit_price_amount: string | number | null;
+  currency_code: string;
+  quantity: number;
+  sessions_included: number | null;
+  purchased_at: string | null;
+  activated_at: string | null;
+  metadata: Record<string, unknown> | null;
+}
+
+export async function listUserPurchases(
+  client: PoolClient,
+  userId: string,
+): Promise<UserPurchaseRecord[]> {
+  const { rows } = await client.query<UserPurchaseRow>(
+    `
+      SELECT
+        up.product_code,
+        pc.product_group,
+        pc.name AS product_name,
+        COALESCE(up.unit_price_amount, pc.price_amount) AS unit_price_amount,
+        COALESCE(up.currency_code, pc.currency_code) AS currency_code,
+        up.quantity,
+        pc.sessions_included,
+        up.purchased_at::text,
+        up.activated_at::text,
+        up.metadata
+      FROM app_billing.user_purchases up
+      JOIN app_billing.product_catalog pc ON pc.product_code = up.product_code
+      WHERE up.user_id = $1::uuid
+        AND up.status = 'active'
+      ORDER BY up.purchased_at DESC NULLS LAST, up.created_at DESC
+    `,
+    [userId],
+  );
+
+  return rows.map((row) => ({
+    productCode: row.product_code,
+    productGroup: row.product_group,
+    productName: row.product_name,
+    priceAmount: Number(row.unit_price_amount ?? 0),
+    currencyCode: row.currency_code,
+    quantity: Number(row.quantity ?? 1),
+    sessionsIncluded: row.sessions_included ?? null,
+    purchasedAt: row.purchased_at,
+    activatedAt: row.activated_at,
+    source:
+      row.metadata && typeof row.metadata === "object" && typeof row.metadata.source === "string"
+        ? (row.metadata.source as string)
+        : null,
+  }));
 }
 
 async function listActivePurchases(client: PoolClient, userId: string): Promise<PurchaseRow[]> {

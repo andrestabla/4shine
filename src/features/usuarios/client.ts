@@ -1,4 +1,5 @@
 import { requestApi } from '@/lib/api-client';
+import type { UserPurchaseRecord } from '@/features/access/types';
 
 export type AppRole = 'lider' | 'mentor' | 'gestor' | 'admin' | 'invitado';
 type PlanType = 'standard' | 'premium' | 'vip' | 'empresa_elite';
@@ -74,6 +75,7 @@ export interface UserDetailRecord extends UserRecord {
   stats: UserStatsRecord;
   rolePermissions: RolePermissionRecord[];
   policyHistory: UserPolicyAcceptanceRecord[];
+  purchases: UserPurchaseRecord[];
 }
 
 export interface AuditLogRecord {

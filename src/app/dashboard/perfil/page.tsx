@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { EmptyState } from '@/components/dashboard/EmptyState';
+import { PurchasedProductsPanel } from '@/components/dashboard/PurchasedProductsPanel';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { R2UploadButton } from '@/components/ui/R2UploadButton';
 import { useUser } from '@/context/UserContext';
@@ -645,6 +646,13 @@ export default function PerfilPage() {
               </div>
             )}
           </section>
+
+          <PurchasedProductsPanel
+            purchases={profile.purchases}
+            primaryRole={currentUser?.role ?? 'lider'}
+            planType={profile.planType}
+            emptyHint="Aún no has contratado ningún producto. Visita la sección de planes y precios para activar tu acceso."
+          />
 
           <section className="app-panel p-5">
             <h4 className="mb-3 flex items-center gap-2 text-lg font-bold text-[var(--app-ink)]">

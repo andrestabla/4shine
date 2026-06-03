@@ -1,4 +1,5 @@
 import { requestApi } from '@/lib/api-client';
+import type { UserPurchaseRecord } from '@/features/access/types';
 
 type PlanType = 'standard' | 'premium' | 'vip' | 'empresa_elite';
 type JobRole =
@@ -42,6 +43,7 @@ export interface MyProfileRecord {
   websiteUrl: string | null;
   interests: string[];
   projects: ProfileProjectRecord[];
+  purchases: UserPurchaseRecord[];
   createdAt: string;
   updatedAt: string;
 }

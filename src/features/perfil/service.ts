@@ -9,6 +9,8 @@ import {
   USER_JOB_ROLE_OPTIONS,
   type UserJobRoleOption,
 } from '@/lib/user-demographics';
+import { listUserPurchases } from '@/features/access/service';
+import type { UserPurchaseRecord } from '@/features/access/types';
 
 type PlanType = 'standard' | 'premium' | 'vip' | 'empresa_elite';
 type SeniorityLevel = 'senior' | 'c_level' | 'director' | 'manager' | 'vp';
@@ -48,6 +50,7 @@ export interface MyProfileRecord {
   websiteUrl: string | null;
   interests: string[];
   projects: ProfileProjectRecord[];
+  purchases: UserPurchaseRecord[];
   createdAt: string;
   updatedAt: string;
 }
@@ -325,7 +328,12 @@ function extractYearsExperienceFromText(text: string): number | null {
   return Math.max(0, Math.min(80, Math.floor(parsed)));
 }
 
-function mapProfile(row: ProfileRow, interests: string[], projects: ProfileProjectRecord[]): MyProfileRecord {
+function mapProfile(
+  row: ProfileRow,
+  interests: string[],
+  projects: ProfileProjectRecord[],
+  purchases: UserPurchaseRecord[],
+): MyProfileRecord {
   return {
     userId: row.user_id,
     email: row.email,
@@ -352,6 +360,7 @@ function mapProfile(row: ProfileRow, interests: string[], projects: ProfileProje
     websiteUrl: row.website_url,
     interests,
     projects,
+    purchases,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -514,13 +523,14 @@ async function syncProjects(client: PoolClient, userId: string, projects: Profil
 export async function getMyProfile(client: PoolClient, actor: AuthUser): Promise<MyProfileRecord> {
   await requireModulePermission(client, 'perfil', 'view');
 
-  const [row, interests, projects] = await Promise.all([
+  const [row, interests, projects, purchases] = await Promise.all([
     getProfileRow(client, actor.userId),
     listInterests(client, actor.userId),
     listProjects(client, actor.userId),
+    listUserPurchases(client, actor.userId),
   ]);
 
-  return mapProfile(row, interests, projects);
+  return mapProfile(row, interests, projects, purchases);
 }
 
 export async function updateMyProfile(
