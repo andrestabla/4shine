@@ -6388,6 +6388,15 @@ export async function sendDiscoveryReminder(
     throw new Error("Este diagnóstico ya fue completado, no es necesario enviar recordatorio.");
   }
 
+  // Resolve platform name from branding so {{plataforma}} always renders,
+  // even if notification_global_settings.var_platform_name is empty.
+  const { rows: brandingRows } = await client.query<{ platform_name: string }>(
+    `SELECT platform_name FROM app_admin.branding_settings
+     WHERE organization_id = $1::uuid LIMIT 1`,
+    [organizationId],
+  );
+  const platformName = brandingRows[0]?.platform_name?.trim() || "4Shine";
+
   await dispatchNotification(client, {
     organizationId,
     recipientUserId,
@@ -6395,6 +6404,7 @@ export async function sendDiscoveryReminder(
     eventKey: "descubrimiento.reminder",
     variables: {
       nombre: recipientName,
+      plataforma: platformName,
       enlace_plataforma: `${baseUrl}/dashboard/descubrimiento`,
       enlace_invitacion: inviteUrl,
     },
