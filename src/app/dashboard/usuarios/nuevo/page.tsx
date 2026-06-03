@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import React from 'react';
-import { ArrowLeft, Save, UserPlus } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, Mail, RefreshCw, Save, UserPlus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useUser } from '@/context/UserContext';
@@ -13,6 +13,8 @@ import {
   userTypeLabel,
   type UserTypeOption,
 } from '@/features/usuarios/user-types';
+import { listPlans as listSubscriptionPlans } from '@/features/planes/client';
+import type { SubscriptionPlanWithFeatures } from '@/features/planes/client';
 import { YEARS_EXPERIENCE_OPTIONS, keyToStoredValue } from '@/lib/demographics';
 import {
   USER_COUNTRY_OPTIONS,
@@ -28,10 +30,28 @@ interface FormState {
   email: string;
   password: string;
   userType: UserTypeOption;
+  subscriptionPlanId: string;
   country: string;
   jobRole: UserJobRoleOption | '';
   gender: string;
   yearsExperience: string;
+  sendWelcomeEmail: boolean;
+}
+
+// Genera una contraseña segura: 12 chars mezcla mayúsculas, minúsculas,
+// números y símbolos. Garantiza al menos uno de cada grupo.
+function generatePassword(): string {
+  const upper = 'ABCDEFGHJKMNPQRSTUVWXYZ';   // sin I, L, O para legibilidad
+  const lower = 'abcdefghjkmnpqrstuvwxyz';   // sin i, l, o
+  const digits = '23456789';                  // sin 0, 1
+  const symbols = '!@#$%&*?';
+  const all = upper + lower + digits + symbols;
+  const pick = (set: string) => set[Math.floor(Math.random() * set.length)];
+  const required = [pick(upper), pick(lower), pick(digits), pick(symbols)];
+  const rest = Array.from({ length: 8 }, () => pick(all));
+  return [...required, ...rest]
+    .sort(() => Math.random() - 0.5)
+    .join('');
 }
 
 export default function NuevoUsuarioPage() {
@@ -40,19 +60,44 @@ export default function NuevoUsuarioPage() {
   const { alert } = useAppDialog();
 
   const [submitting, setSubmitting] = React.useState(false);
+  const [showPassword, setShowPassword] = React.useState(false);
+  const [plans, setPlans] = React.useState<SubscriptionPlanWithFeatures[]>([]);
   const [form, setForm] = React.useState<FormState>({
     firstName: '',
     lastName: '',
     email: '',
     password: '',
     userType: 'leader_without_subscription',
+    subscriptionPlanId: '',
     country: '',
     jobRole: '',
     gender: '',
     yearsExperience: '',
+    sendWelcomeEmail: true,
   });
 
   const canCreate = can('usuarios', 'create');
+
+  // Cargar planes de suscripción cuando aplique
+  React.useEffect(() => {
+    if (form.userType !== 'leader_with_subscription') return;
+    if (plans.length > 0) return;
+    let cancelled = false;
+    (async () => {
+      const res = await listSubscriptionPlans(false);
+      if (cancelled) return;
+      if (res.ok && res.data) setPlans(res.data);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [form.userType, plans.length]);
+
+  const handleGeneratePassword = () => {
+    const newPassword = generatePassword();
+    setForm((prev) => ({ ...prev, password: newPassword }));
+    setShowPassword(true);
+  };
 
   const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -68,11 +113,27 @@ export default function NuevoUsuarioPage() {
       });
       return;
     }
+    if (form.password.length < 8) {
+      await alert({
+        title: 'Contraseña débil',
+        message: 'Usa al menos 8 caracteres (o haz clic en "Generar" para una segura).',
+        tone: 'warning',
+      });
+      return;
+    }
     const yearsExperience = keyToStoredValue(form.yearsExperience);
     if (!form.country.trim() || !form.jobRole || !form.gender.trim() || yearsExperience === null) {
       await alert({
         title: 'Campos requeridos',
         message: 'País, cargo, género y años de experiencia son obligatorios.',
+        tone: 'warning',
+      });
+      return;
+    }
+    if (form.userType === 'leader_with_subscription' && !form.subscriptionPlanId) {
+      await alert({
+        title: 'Selecciona un plan',
+        message: 'Para "Líder con suscripción" debes asignar un plan de suscripción específico.',
         tone: 'warning',
       });
       return;
@@ -89,16 +150,21 @@ export default function NuevoUsuarioPage() {
         primaryRole: userTypeSelection.primaryRole,
         password: form.password,
         planType: userTypeSelection.planType,
+        subscriptionPlanId:
+          form.userType === 'leader_with_subscription' && form.subscriptionPlanId
+            ? form.subscriptionPlanId
+            : undefined,
         country: form.country.trim(),
         jobRole: form.jobRole,
         gender: form.gender,
         yearsExperience,
+        sendWelcomeEmail: form.sendWelcomeEmail,
       });
 
       await refreshBootstrap();
       await alert({
         title: 'Usuario creado',
-        message: `Se registró correctamente ${created.displayName}.`,
+        message: `Se registró ${created.displayName}.${form.sendWelcomeEmail ? ' Se envió correo de bienvenida con sus credenciales.' : ''}`,
         tone: 'success',
       });
       router.push(`/dashboard/usuarios/${created.userId}`);
@@ -120,6 +186,8 @@ export default function NuevoUsuarioPage() {
       </div>
     );
   }
+
+  const needsSubscription = form.userType === 'leader_with_subscription';
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-5">
@@ -172,15 +240,41 @@ export default function NuevoUsuarioPage() {
             />
           </label>
 
-          <label>
+          <label className="md:col-span-2">
             <span className="app-field-label">Contraseña Inicial *</span>
-            <input
-              type="password"
-              className="app-input"
-              value={form.password}
-              onChange={(event) => setForm((prev) => ({ ...prev, password: event.target.value }))}
-              required
-            />
+            <div className="flex items-stretch gap-2">
+              <div className="relative flex-1">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  className="app-input pr-10"
+                  value={form.password}
+                  onChange={(event) => setForm((prev) => ({ ...prev, password: event.target.value }))}
+                  minLength={8}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--app-muted)] hover:text-[var(--app-ink)]"
+                  aria-label={showPassword ? 'Ocultar' : 'Mostrar'}
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={handleGeneratePassword}
+                className="inline-flex items-center gap-1 rounded-full border border-[var(--app-border)] bg-white px-4 py-2 text-xs font-bold text-[var(--app-ink)] transition hover:bg-[var(--app-chip)]"
+                title="Generar contraseña segura"
+              >
+                <RefreshCw size={13} />
+                Generar
+              </button>
+            </div>
+            <p className="mt-1 text-xs text-[var(--app-muted)]">
+              Mínimo 8 caracteres. Recomendado: usar el botón &quot;Generar&quot; para una
+              contraseña segura.
+            </p>
           </label>
 
           <label>
@@ -193,9 +287,7 @@ export default function NuevoUsuarioPage() {
             >
               <option value="">{USER_DEMOGRAPHIC_PLACEHOLDERS.country}</option>
               {USER_COUNTRY_OPTIONS.map((country) => (
-                <option key={country} value={country}>
-                  {country}
-                </option>
+                <option key={country} value={country}>{country}</option>
               ))}
             </select>
           </label>
@@ -210,9 +302,7 @@ export default function NuevoUsuarioPage() {
             >
               <option value="">{USER_DEMOGRAPHIC_PLACEHOLDERS.jobRole}</option>
               {USER_JOB_ROLE_OPTIONS.map((jobRole) => (
-                <option key={jobRole} value={jobRole}>
-                  {jobRole}
-                </option>
+                <option key={jobRole} value={jobRole}>{jobRole}</option>
               ))}
             </select>
           </label>
@@ -227,9 +317,7 @@ export default function NuevoUsuarioPage() {
             >
               <option value="">{USER_DEMOGRAPHIC_PLACEHOLDERS.gender}</option>
               {USER_GENDER_OPTIONS.map((gender) => (
-                <option key={gender} value={gender}>
-                  {gender}
-                </option>
+                <option key={gender} value={gender}>{gender}</option>
               ))}
             </select>
           </label>
@@ -254,17 +342,65 @@ export default function NuevoUsuarioPage() {
             <select
               className="app-select"
               value={form.userType}
-              onChange={(event) => setForm((prev) => ({ ...prev, userType: event.target.value as UserTypeOption }))}
+              onChange={(event) =>
+                setForm((prev) => ({
+                  ...prev,
+                  userType: event.target.value as UserTypeOption,
+                  subscriptionPlanId:
+                    event.target.value === 'leader_with_subscription' ? prev.subscriptionPlanId : '',
+                }))
+              }
             >
               {USER_TYPE_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {userTypeLabel(option)}
-                </option>
+                <option key={option} value={option}>{userTypeLabel(option)}</option>
               ))}
             </select>
-            <p className="mt-2 text-sm text-[var(--app-muted)]">
-              Para líderes podrás distinguir si entra con acceso free o con suscripción activa al programa 4Shine.
-            </p>
+          </label>
+
+          {needsSubscription && (
+            <label className="md:col-span-2">
+              <span className="app-field-label">Plan de suscripción *</span>
+              <select
+                className="app-select"
+                value={form.subscriptionPlanId}
+                onChange={(event) => setForm((prev) => ({ ...prev, subscriptionPlanId: event.target.value }))}
+                required
+              >
+                <option value="">{plans.length === 0 ? 'Cargando planes…' : 'Selecciona un plan'}</option>
+                {plans.map((plan) => (
+                  <option key={plan.planId} value={plan.planId}>
+                    {plan.name} · {plan.currencyCode} {plan.priceAmount.toLocaleString('en-US')} · {plan.durationDays}d
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-[var(--app-muted)]">
+                Define el plan activo al momento de crear la cuenta. Puedes cambiarlo después desde
+                el detalle del usuario.
+              </p>
+            </label>
+          )}
+        </div>
+
+        {/* Toggle: enviar correo de bienvenida */}
+        <div className="mt-6 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4">
+          <label className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              className="mt-1 h-4 w-4"
+              checked={form.sendWelcomeEmail}
+              onChange={(event) => setForm((prev) => ({ ...prev, sendWelcomeEmail: event.target.checked }))}
+            />
+            <span>
+              <span className="inline-flex items-center gap-2 text-sm font-bold text-[var(--app-ink)]">
+                <Mail size={14} />
+                Enviar correo de bienvenida con sus credenciales
+              </span>
+              <p className="mt-1 text-xs leading-relaxed text-[var(--app-muted)]">
+                Le llegará al usuario un correo con su email y contraseña inicial para que pueda
+                ingresar. Usa la plantilla del evento &quot;Bienvenida con credenciales&quot; (configurable en
+                Administración → Notificaciones → Plantillas).
+              </p>
+            </span>
           </label>
         </div>
 

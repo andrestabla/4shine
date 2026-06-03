@@ -95,6 +95,19 @@ export interface UserDetailRecord extends UserRecord {
   purchases: UserPurchaseRecord[];
 }
 
+export interface UserSessionRecord {
+  userId: string;
+  displayName: string;
+  email: string;
+  primaryRole: Role;
+  planType: PlanType | null;
+  lastSessionAt: string | null;
+  lastIpAddress: string | null;
+  lastUserAgent: string | null;
+  isOnline: boolean;
+  activeSessionsCount: number;
+}
+
 export interface AuditLogRecord {
   auditId: number;
   actorUserId: string | null;
@@ -127,6 +140,8 @@ export interface CreateUserInput {
   profession?: string | null;
   industry?: string | null;
   planType?: PlanType | null;
+  /** Plan de suscripción específico (solo aplica si primaryRole='lider' y planType es 'premium'/'vip'/'empresa_elite'). */
+  subscriptionPlanId?: string | null;
   seniorityLevel?: SeniorityLevel | null;
   bio?: string | null;
   location?: string | null;
@@ -134,6 +149,8 @@ export interface CreateUserInput {
   jobRole?: JobRole | null;
   gender?: string | null;
   yearsExperience?: number | null;
+  /** Si true, dispara el evento de bienvenida con credenciales al correo del usuario. */
+  sendWelcomeEmail?: boolean;
 }
 
 export interface UpdateUserInput {
@@ -1487,6 +1504,85 @@ export async function getUserDetail(client: PoolClient, userId: string): Promise
   };
 }
 
+/**
+ * Lista de usuarios con metadata de sesión (último acceso, online ahora).
+ * Online = sesión refresh con last_used_at en los últimos N minutos.
+ */
+export async function listUserSessions(
+  client: PoolClient,
+  input: { onlyOnline?: boolean; limit?: number; onlineThresholdMinutes?: number } = {},
+): Promise<UserSessionRecord[]> {
+  await requireModulePermission(client, 'usuarios', 'manage');
+
+  const limit = clampLimit(input.limit, 500);
+  const threshold = Math.max(1, Math.min(input.onlineThresholdMinutes ?? 5, 60));
+
+  const { rows } = await client.query<{
+    user_id: string;
+    display_name: string;
+    email: string;
+    primary_role: Role;
+    plan_type: PlanType | null;
+    last_session_at: string | null;
+    last_ip_address: string | null;
+    last_user_agent: string | null;
+    active_sessions_count: number;
+    is_online: boolean;
+  }>(
+    `
+      SELECT
+        u.user_id::text,
+        u.display_name,
+        u.email::text,
+        u.primary_role,
+        up.plan_type,
+        latest.last_used_at::text   AS last_session_at,
+        latest.ip_address::text     AS last_ip_address,
+        latest.user_agent           AS last_user_agent,
+        COALESCE(active.cnt, 0)::int AS active_sessions_count,
+        (latest.last_used_at IS NOT NULL
+         AND latest.last_used_at > now() - ($1 || ' minutes')::interval) AS is_online
+      FROM app_core.users u
+      LEFT JOIN app_core.user_profiles up ON up.user_id = u.user_id
+      LEFT JOIN LATERAL (
+        SELECT rs.last_used_at, rs.ip_address, rs.user_agent
+        FROM app_auth.refresh_sessions rs
+        WHERE rs.user_id = u.user_id
+        ORDER BY rs.last_used_at DESC NULLS LAST
+        LIMIT 1
+      ) latest ON true
+      LEFT JOIN LATERAL (
+        SELECT COUNT(*) AS cnt
+        FROM app_auth.refresh_sessions rs2
+        WHERE rs2.user_id = u.user_id
+          AND rs2.revoked_at IS NULL
+          AND rs2.expires_at > now()
+      ) active ON true
+      WHERE u.is_active = true
+        AND ($2::boolean = false OR (
+          latest.last_used_at IS NOT NULL
+          AND latest.last_used_at > now() - ($1 || ' minutes')::interval
+        ))
+      ORDER BY latest.last_used_at DESC NULLS LAST
+      LIMIT $3
+    `,
+    [threshold, input.onlyOnline ?? false, limit],
+  );
+
+  return rows.map((row) => ({
+    userId: row.user_id,
+    displayName: row.display_name,
+    email: row.email,
+    primaryRole: row.primary_role,
+    planType: row.plan_type,
+    lastSessionAt: row.last_session_at,
+    lastIpAddress: row.last_ip_address,
+    lastUserAgent: row.last_user_agent,
+    activeSessionsCount: Number(row.active_sessions_count ?? 0),
+    isOnline: row.is_online,
+  }));
+}
+
 export async function listUserNavigationLogs(
   client: PoolClient,
   input: { limit?: number; userId?: string } = {},
@@ -1673,6 +1769,65 @@ export async function createUser(
     role: input.primaryRole,
     planType: resolvedPlanType,
   });
+
+  // Asignar plan de suscripción específico si vino en el input y aplica.
+  if (
+    input.subscriptionPlanId &&
+    input.primaryRole === 'lider' &&
+    resolvedPlanType &&
+    SUBSCRIBED_LEADER_PLAN_TYPES.has(resolvedPlanType)
+  ) {
+    const { rows: planRows } = await client.query<{ duration_days: number }>(
+      `SELECT duration_days FROM app_billing.subscription_plans
+       WHERE plan_id = $1::uuid AND is_active = true LIMIT 1`,
+      [input.subscriptionPlanId],
+    );
+    const durationDays = Number(planRows[0]?.duration_days ?? 0);
+    if (durationDays > 0) {
+      await client.query(
+        `UPDATE app_core.user_profiles
+         SET subscription_plan_id   = $2::uuid,
+             subscription_started_at = now(),
+             subscription_expires_at = now() + ($3::int || ' days')::interval,
+             updated_at = now()
+         WHERE user_id = $1::uuid`,
+        [userId, input.subscriptionPlanId, durationDays],
+      );
+    }
+  }
+
+  // Email de bienvenida con credenciales (si el admin lo solicitó).
+  if (input.sendWelcomeEmail) {
+    try {
+      const { dispatchNotification } = await import('@/features/notificaciones/engine');
+      const { rows: orgRows } = await client.query<{ organization_id: string | null }>(
+        `SELECT organization_id::text FROM app_core.users WHERE user_id = $1::uuid LIMIT 1`,
+        [userId],
+      );
+      const organizationId = orgRows[0]?.organization_id ?? null;
+      const recipientEmail = input.email.trim();
+      if (organizationId && recipientEmail) {
+        const platformUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.4shine.co';
+        await dispatchNotification(client, {
+          organizationId,
+          recipientUserId: userId,
+          recipientEmail,
+          eventKey: 'auth.account_created_by_admin',
+          variables: {
+            nombre: input.firstName,
+            nombre_completo: displayName,
+            correo: recipientEmail,
+            contrasena: input.password,
+            enlace_plataforma: `${platformUrl}/acceso`,
+            remitente_nombre: actor.name ?? actor.email ?? 'Equipo 4Shine',
+          },
+          senderUserId: actor.userId,
+        });
+      }
+    } catch (err) {
+      console.error('[createUser] welcome email dispatch failed:', err);
+    }
+  }
 
   return getUserById(client, userId);
 }

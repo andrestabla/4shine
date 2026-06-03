@@ -2,9 +2,10 @@
 
 import Link from 'next/link';
 import React from 'react';
-import { Eye, Search, ShieldCheck, UserPlus, Users, Lock } from 'lucide-react';
+import { Activity, Eye, Search, ShieldCheck, UserPlus, Users, Lock } from 'lucide-react';
 import { EmptyState } from '@/components/dashboard/EmptyState';
 import { PageTitle } from '@/components/dashboard/PageTitle';
+import { SessionsTabSection } from '@/components/dashboard/usuarios/SessionsTabSection';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useUser } from '@/context/UserContext';
 import { listUsers, type UserRecord } from '@/features/usuarios/client';
@@ -23,7 +24,7 @@ interface ListFilters {
   policyStatus: 'all' | 'accepted' | 'pending';
 }
 
-type Tab = 'usuarios' | 'roles';
+type Tab = 'usuarios' | 'sesiones' | 'roles';
 
 function formatDate(value: string | null): string {
   if (!value) return 'Pendiente';
@@ -162,6 +163,17 @@ export default function UsuariosPage() {
           Usuarios
         </button>
         <button
+          onClick={() => setTab('sesiones')}
+          className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-semibold transition ${
+            tab === 'sesiones'
+              ? 'border-[var(--app-ink)] text-[var(--app-ink)]'
+              : 'border-transparent text-[var(--app-muted)] hover:text-[var(--app-ink)]'
+          }`}
+        >
+          <Activity size={15} />
+          Sesiones
+        </button>
+        <button
           onClick={() => isAdmin && setTab('roles')}
           disabled={!isAdmin}
           title={isAdmin ? '' : 'Sólo el administrador puede gestionar roles'}
@@ -176,6 +188,7 @@ export default function UsuariosPage() {
         </button>
       </div>
 
+      {tab === 'sesiones' && <SessionsTabSection />}
       {tab === 'roles' && isAdmin && <RolesMatrixSection />}
 
       {tab === 'usuarios' && (

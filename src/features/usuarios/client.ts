@@ -78,6 +78,19 @@ export interface UserDetailRecord extends UserRecord {
   purchases: UserPurchaseRecord[];
 }
 
+export interface UserSessionRecord {
+  userId: string;
+  displayName: string;
+  email: string;
+  primaryRole: AppRole;
+  planType: PlanType | null;
+  lastSessionAt: string | null;
+  lastIpAddress: string | null;
+  lastUserAgent: string | null;
+  isOnline: boolean;
+  activeSessionsCount: number;
+}
+
 export interface AuditLogRecord {
   auditId: number;
   actorUserId: string | null;
@@ -108,10 +121,12 @@ export interface CreateUserInput {
   organizationId?: string | null;
   password: string;
   planType?: PlanType | null;
+  subscriptionPlanId?: string | null;
   country?: string | null;
   jobRole?: JobRole | null;
   gender?: string | null;
   yearsExperience?: number | null;
+  sendWelcomeEmail?: boolean;
 }
 
 export interface UpdateUserInput {
@@ -155,6 +170,19 @@ export async function listUsers(input: ListUsersInput = {}): Promise<UserRecord[
 
 export async function getUserDetail(userId: string): Promise<UserDetailRecord> {
   return requestApi<UserDetailRecord>(`/api/v1/modules/usuarios/${userId}`);
+}
+
+export async function listUserSessions(options: {
+  onlyOnline?: boolean;
+  limit?: number;
+} = {}): Promise<UserSessionRecord[]> {
+  const qs = new URLSearchParams();
+  if (options.onlyOnline) qs.set('only_online', 'true');
+  if (options.limit) qs.set('limit', String(options.limit));
+  const query = qs.toString();
+  return requestApi<UserSessionRecord[]>(
+    `/api/v1/modules/usuarios/sessions${query ? `?${query}` : ''}`,
+  );
 }
 
 export async function createUser(input: CreateUserInput): Promise<UserRecord> {

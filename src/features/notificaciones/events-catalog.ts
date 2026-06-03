@@ -153,6 +153,18 @@ export const VARIABLE_DEFS: Record<VariableKey, VariableDef> = {
     description: 'Objetivo de la convocatoria o solicitud',
     example: 'Vincular líderes con empresas del ecosistema',
   },
+  correo: {
+    key: 'correo',
+    label: 'Correo del usuario',
+    description: 'Email del destinatario (útil al enviar credenciales)',
+    example: 'maria.gonzalez@empresa.com',
+  },
+  contrasena: {
+    key: 'contrasena',
+    label: 'Contraseña inicial',
+    description: 'Contraseña asignada/generada al crear la cuenta',
+    example: 'Xz9k!2pQ',
+  },
 };
 
 // ─── Event Catalog ────────────────────────────────────────────────────────────
@@ -185,6 +197,15 @@ export const NOTIFICATION_EVENTS: NotificationEventDef[] = [
     description: 'Se envía cuando el administrador invita a un nuevo usuario.',
     variables: ['nombre', 'plataforma', 'enlace_plataforma', 'remitente_nombre'],
     defaultInAppType: 'info',
+  },
+  {
+    key: 'auth.account_created_by_admin',
+    moduleCode: 'usuarios',
+    moduleLabel: 'Usuarios',
+    label: 'Bienvenida con credenciales (cuenta creada por admin)',
+    description: 'Se envía cuando un admin/gestor crea manualmente una cuenta y marca "enviar correo de bienvenida". Incluye el correo y la contraseña inicial para que el usuario pueda ingresar.',
+    variables: ['nombre', 'correo', 'contrasena', 'plataforma', 'enlace_plataforma', 'remitente_nombre'],
+    defaultInAppType: 'success',
   },
 
   // ── MENTORIAS ─────────────────────────────────────────────────────────────
