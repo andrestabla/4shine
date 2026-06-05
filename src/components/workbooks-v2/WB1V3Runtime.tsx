@@ -7,8 +7,11 @@ import {
     ArrowRight,
     CheckCircle2,
     Download,
+    HelpCircle,
     Loader2,
     Mic,
+    MicOff,
+    Paperclip,
     Pause,
     Play,
     Save,
@@ -185,6 +188,37 @@ async function transcribeAudio(audioUrl: string, fieldId: string): Promise<Trans
     })
 }
 
+type MicPermissionState = 'unknown' | 'prompt' | 'granted' | 'denied' | 'unavailable'
+
+function translateMediaError(err: unknown): { code: 'denied' | 'unavailable' | 'inuse' | 'other'; message: string } {
+    if (err instanceof Error) {
+        const name = err.name || ''
+        if (name === 'NotAllowedError' || name === 'SecurityError' || /Permission denied|permission/i.test(err.message)) {
+            return {
+                code: 'denied',
+                message:
+                    'El navegador bloqueó el acceso al micrófono. Haz click en el candado de la barra de URL → Micrófono → Permitir, luego recarga la página.'
+            }
+        }
+        if (name === 'NotFoundError' || name === 'OverconstrainedError') {
+            return {
+                code: 'unavailable',
+                message:
+                    'No detectamos ningún micrófono. Conecta uno (o revisa Ajustes del sistema → Sonido → Entrada) y vuelve a intentar.'
+            }
+        }
+        if (name === 'NotReadableError' || name === 'AbortError') {
+            return {
+                code: 'inuse',
+                message:
+                    'Otra aplicación está usando el micrófono (Zoom, Meet, Teams…). Ciérrala y vuelve a intentar.'
+            }
+        }
+        return { code: 'other', message: err.message || 'No se pudo acceder al micrófono.' }
+    }
+    return { code: 'other', message: 'No se pudo acceder al micrófono.' }
+}
+
 function AudioRecorder({
     fieldId,
     value,
@@ -207,12 +241,15 @@ function AudioRecorder({
     const [transcribing, setTranscribing] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+    const [micPermission, setMicPermission] = useState<MicPermissionState>('unknown')
+    const [showHelp, setShowHelp] = useState(false)
     const mediaRecorderRef = useRef<MediaRecorder | null>(null)
     const chunksRef = useRef<BlobPart[]>([])
     const startedAtRef = useRef<number>(0)
     const elapsedBeforePauseRef = useRef<number>(0)
     const intervalRef = useRef<number | null>(null)
     const streamRef = useRef<MediaStream | null>(null)
+    const fileInputRef = useRef<HTMLInputElement | null>(null)
 
     const audioUrl = value.audioUrl
     const audioDurationMs = value.audioDurationMs
@@ -224,6 +261,38 @@ function AudioRecorder({
             if (previewUrl) URL.revokeObjectURL(previewUrl)
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
+
+    useEffect(() => {
+        if (typeof navigator === 'undefined') return
+        if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
+            setMicPermission('unavailable')
+            return
+        }
+        const permissions = navigator.permissions as
+            | (Permissions & { query?: (opts: { name: PermissionName }) => Promise<PermissionStatus> })
+            | undefined
+        if (!permissions || typeof permissions.query !== 'function') {
+            setMicPermission('prompt')
+            return
+        }
+        let status: PermissionStatus | null = null
+        let cancelled = false
+        permissions
+            .query({ name: 'microphone' as PermissionName })
+            .then((result) => {
+                if (cancelled) return
+                status = result
+                setMicPermission(result.state as MicPermissionState)
+                result.onchange = () => setMicPermission(result.state as MicPermissionState)
+            })
+            .catch(() => {
+                if (!cancelled) setMicPermission('prompt')
+            })
+        return () => {
+            cancelled = true
+            if (status) status.onchange = null
+        }
     }, [])
 
     const startTick = () => {
@@ -243,9 +312,16 @@ function AudioRecorder({
 
     async function startRecording() {
         setError(null)
+        setShowHelp(false)
+        if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+            setMicPermission('unavailable')
+            setError('Tu navegador no soporta grabación de audio. Usa Chrome, Edge o Firefox actualizados, o adjunta un archivo de audio.')
+            return
+        }
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
             streamRef.current = stream
+            setMicPermission('granted')
             const mimeType = getMicMimeType()
             const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream)
             chunksRef.current = []
@@ -261,8 +337,61 @@ function AudioRecorder({
             setRecording(true)
             setPaused(false)
         } catch (err) {
-            const message = err instanceof Error ? err.message : 'No se pudo acceder al micrófono.'
+            const translated = translateMediaError(err)
+            setError(translated.message)
+            if (translated.code === 'denied') {
+                setMicPermission('denied')
+                setShowHelp(true)
+            } else if (translated.code === 'unavailable') {
+                setMicPermission('unavailable')
+            }
+        }
+    }
+
+    async function handleFilePick(event: React.ChangeEvent<HTMLInputElement>) {
+        const file = event.target.files?.[0]
+        event.target.value = ''
+        if (!file) return
+        setError(null)
+        const maxBytes = 25 * 1024 * 1024
+        if (file.size > maxBytes) {
+            setError('El archivo de audio supera los 25 MB. Comprímelo o recórtalo antes de subirlo.')
+            return
+        }
+        const mimeType = file.type || 'audio/webm'
+
+        if (previewUrl) URL.revokeObjectURL(previewUrl)
+        const localPreview = URL.createObjectURL(file)
+        setPreviewUrl(localPreview)
+
+        if (!workbookId || workbookId === 'preview') {
+            onChange({
+                ...value,
+                audioUrl: localPreview,
+                audioDurationMs: undefined,
+                audioMimeType: mimeType,
+                updatedAt: new Date().toISOString()
+            })
+            return
+        }
+
+        setUploading(true)
+        try {
+            const { url } = await uploadAudioToR2(file, fieldId, workbookId, mimeType)
+            onChange({
+                ...value,
+                audioUrl: url,
+                audioDurationMs: undefined,
+                audioMimeType: mimeType,
+                updatedAt: new Date().toISOString()
+            })
+            if (previewUrl) URL.revokeObjectURL(previewUrl)
+            setPreviewUrl(null)
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'No se pudo subir el audio.'
             setError(message)
+        } finally {
+            setUploading(false)
         }
     }
 
@@ -379,75 +508,130 @@ function AudioRecorder({
         }
     }
 
+    const micBlocked = micPermission === 'denied' || micPermission === 'unavailable'
+
     return (
-        <div className="mt-2 flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-            {!recording && !audioUrl && (
-                <button
-                    type="button"
-                    onClick={startRecording}
-                    disabled={disabled || uploading}
-                    className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-white px-3 py-1 font-semibold text-rose-600 hover:bg-rose-50 disabled:opacity-50"
-                >
-                    <Mic size={12} /> Grabar audio
-                </button>
-            )}
+        <div className="mt-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+            <div className="flex flex-wrap items-center gap-2">
+                {!recording && !audioUrl && !micBlocked && (
+                    <button
+                        type="button"
+                        onClick={startRecording}
+                        disabled={disabled || uploading}
+                        className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-white px-3 py-1 font-semibold text-rose-600 hover:bg-rose-50 disabled:opacity-50"
+                    >
+                        <Mic size={12} /> Grabar audio
+                    </button>
+                )}
 
-            {recording && (
-                <>
-                    <span className="inline-flex items-center gap-1 rounded-full bg-rose-600 px-3 py-1 font-semibold text-white">
-                        <span className="h-2 w-2 animate-pulse rounded-full bg-white" />
-                        {paused ? 'Pausado' : 'Grabando'} · {formatMillis(elapsedMs)}
+                {!recording && !audioUrl && micBlocked && (
+                    <button
+                        type="button"
+                        onClick={() => setShowHelp((current) => !current)}
+                        className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-3 py-1 font-semibold text-rose-700 hover:bg-rose-100"
+                    >
+                        <MicOff size={12} />
+                        {micPermission === 'unavailable' ? 'Mic no disponible' : 'Mic bloqueado'}
+                        <HelpCircle size={12} />
+                    </button>
+                )}
+
+                {!recording && !audioUrl && (
+                    <>
+                        <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={disabled || uploading}
+                            className="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-3 py-1 font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+                        >
+                            <Paperclip size={12} /> Adjuntar audio
+                        </button>
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="audio/*"
+                            className="hidden"
+                            onChange={handleFilePick}
+                        />
+                    </>
+                )}
+
+                {recording && (
+                    <>
+                        <span className="inline-flex items-center gap-1 rounded-full bg-rose-600 px-3 py-1 font-semibold text-white">
+                            <span className="h-2 w-2 animate-pulse rounded-full bg-white" />
+                            {paused ? 'Pausado' : 'Grabando'} · {formatMillis(elapsedMs)}
+                        </span>
+                        <button
+                            type="button"
+                            onClick={pauseRecording}
+                            className="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-3 py-1 font-semibold text-slate-700 hover:bg-slate-100"
+                        >
+                            {paused ? <Play size={12} /> : <Pause size={12} />}
+                            {paused ? 'Reanudar' : 'Pausa'}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={stopRecording}
+                            className="inline-flex items-center gap-1 rounded-full border border-slate-900 bg-slate-900 px-3 py-1 font-semibold text-white hover:bg-slate-800"
+                        >
+                            <Square size={12} /> Detener
+                        </button>
+                    </>
+                )}
+
+                {uploading && (
+                    <span className="inline-flex items-center gap-1 text-slate-500">
+                        <Loader2 size={12} className="animate-spin" /> Subiendo audio…
                     </span>
-                    <button
-                        type="button"
-                        onClick={pauseRecording}
-                        className="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-3 py-1 font-semibold text-slate-700 hover:bg-slate-100"
-                    >
-                        {paused ? <Play size={12} /> : <Pause size={12} />}
-                        {paused ? 'Reanudar' : 'Pausa'}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={stopRecording}
-                        className="inline-flex items-center gap-1 rounded-full border border-slate-900 bg-slate-900 px-3 py-1 font-semibold text-white hover:bg-slate-800"
-                    >
-                        <Square size={12} /> Detener
-                    </button>
-                </>
-            )}
+                )}
 
-            {uploading && (
-                <span className="inline-flex items-center gap-1 text-slate-500">
-                    <Loader2 size={12} className="animate-spin" /> Subiendo audio…
-                </span>
-            )}
+                {audioUrl && !recording && (
+                    <>
+                        <audio controls src={audioUrl} className="h-8 max-w-[280px]" />
+                        {typeof audioDurationMs === 'number' && (
+                            <span className="text-slate-500">{formatMillis(audioDurationMs)}</span>
+                        )}
+                        <button
+                            type="button"
+                            onClick={handleTranscribe}
+                            disabled={transcribing}
+                            className="inline-flex items-center gap-1 rounded-full border border-[var(--brand-accent)]/40 bg-[var(--brand-accent)]/10 px-3 py-1 font-semibold text-[var(--brand-primary)] hover:bg-[var(--brand-accent)]/20 focus:outline-none focus:ring-2 focus:ring-[var(--brand-focus)] disabled:opacity-60"
+                        >
+                            {transcribing ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
+                            {transcribing ? 'Transcribiendo…' : 'Transcribir'}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleDeleteAudio}
+                            className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1 font-semibold text-slate-500 hover:text-rose-600"
+                        >
+                            <Trash2 size={12} /> Borrar
+                        </button>
+                    </>
+                )}
+            </div>
 
-            {audioUrl && !recording && (
-                <>
-                    <audio controls src={audioUrl} className="h-8 max-w-[280px]" />
-                    {typeof audioDurationMs === 'number' && (
-                        <span className="text-slate-500">{formatMillis(audioDurationMs)}</span>
-                    )}
-                    <button
-                        type="button"
-                        onClick={handleTranscribe}
-                        disabled={transcribing}
-                        className="inline-flex items-center gap-1 rounded-full border border-[var(--brand-accent)]/40 bg-[var(--brand-accent)]/10 px-3 py-1 font-semibold text-[var(--brand-primary)] hover:bg-[var(--brand-accent)]/20 focus:outline-none focus:ring-2 focus:ring-[var(--brand-focus)] disabled:opacity-60"
-                    >
-                        {transcribing ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
-                        {transcribing ? 'Transcribiendo…' : 'Transcribir'}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={handleDeleteAudio}
-                        className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1 font-semibold text-slate-500 hover:text-rose-600"
-                    >
-                        <Trash2 size={12} /> Borrar
-                    </button>
-                </>
-            )}
+            {error && <p className="mt-2 text-rose-700">{error}</p>}
 
-            {error && <span className="basis-full text-rose-600">{error}</span>}
+            {(showHelp || (micPermission === 'denied' && error)) && (
+                <div className="mt-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-rose-900">
+                    <p className="font-semibold">¿Cómo desbloquear el micrófono?</p>
+                    <ol className="mt-1 list-decimal space-y-0.5 pl-5">
+                        <li>Haz click en el candado (🔒) al lado de la dirección del sitio.</li>
+                        <li>
+                            Abre <span className="font-semibold">Configuración del sitio</span> y cambia <span className="font-semibold">Micrófono</span> a <span className="font-semibold">Permitir</span>.
+                        </li>
+                        <li>Recarga la página (⌘/Ctrl + R).</li>
+                        <li>
+                            En Mac: revisa <span className="font-semibold">Ajustes del sistema → Privacidad y seguridad → Micrófono</span> y que tu navegador esté activado.
+                        </li>
+                    </ol>
+                    <p className="mt-1">
+                        Mientras tanto puedes usar <span className="font-semibold">Adjuntar audio</span> para subir una grabación hecha con la app de tu teléfono o computadora.
+                    </p>
+                </div>
+            )}
         </div>
     )
 }
