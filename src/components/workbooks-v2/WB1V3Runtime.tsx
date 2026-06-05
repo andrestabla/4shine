@@ -469,31 +469,30 @@ function AudioRecorder({
         }
     }
 
-    const micBlocked = micPermission === 'denied' || micPermission === 'unavailable'
+    const showDeniedGuidance = micPermission === 'denied' || micPermission === 'unavailable'
 
     return (
         <div className="mt-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
             <div className="flex flex-wrap items-center gap-2">
-                {!recording && !audioUrl && !micBlocked && (
+                {!recording && !audioUrl && (
                     <button
                         type="button"
                         onClick={startRecording}
                         disabled={disabled || uploading}
-                        className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-white px-3 py-1 font-semibold text-rose-600 hover:bg-rose-50 disabled:opacity-50"
+                        className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 font-semibold disabled:opacity-50 ${
+                            showDeniedGuidance
+                                ? 'border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100'
+                                : 'border-rose-200 bg-white text-rose-600 hover:bg-rose-50'
+                        }`}
+                        title={
+                            showDeniedGuidance
+                                ? 'El micrófono está bloqueado. Haz click para ver cómo activarlo.'
+                                : 'Pedir acceso al micrófono'
+                        }
                     >
-                        <Mic size={12} /> Grabar audio
-                    </button>
-                )}
-
-                {!recording && !audioUrl && micBlocked && (
-                    <button
-                        type="button"
-                        onClick={() => setShowHelp((current) => !current)}
-                        className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-3 py-1 font-semibold text-rose-700 hover:bg-rose-100"
-                    >
-                        <MicOff size={12} />
-                        {micPermission === 'unavailable' ? 'Mic no disponible' : 'Mic bloqueado'}
-                        <HelpCircle size={12} />
+                        {showDeniedGuidance ? <MicOff size={12} /> : <Mic size={12} />}
+                        {showDeniedGuidance ? 'Activar micrófono' : 'Grabar audio'}
+                        {showDeniedGuidance && <HelpCircle size={12} />}
                     </button>
                 )}
 
