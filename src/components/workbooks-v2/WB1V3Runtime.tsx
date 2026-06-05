@@ -700,13 +700,15 @@ function FieldEditor({
                     </p>
                 </div>
             )}
-            <AudioRecorder
-                fieldId={field.id}
-                value={value}
-                onChange={onChange}
-                workbookId={workbookId}
-                disabled={disabled}
-            />
+            {!field.id.startsWith('wb9v3-0-') && (
+                <AudioRecorder
+                    fieldId={field.id}
+                    value={value}
+                    onChange={onChange}
+                    workbookId={workbookId}
+                    disabled={disabled}
+                />
+            )}
         </div>
     )
 }
