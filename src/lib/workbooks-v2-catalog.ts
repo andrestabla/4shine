@@ -94,9 +94,9 @@ export const WORKBOOKS_V2_CATALOG: WorkbookV2CatalogItem[] = [
         code: 'WB8',
         title: 'Pensamiento estratégico y toma de decisiones',
         pillar: 'Shine Up',
-        statusLabel: 'Construcción activa',
-        progress: 35,
-        summary: 'Portada, presentación y sección Escalera de valor con pasos, ejemplos, validaciones suaves y esquema visual interactivo.',
+        statusLabel: 'V3 — escritura, voz e IA',
+        progress: 100,
+        summary: 'Workbook V3 con escritura y grabación por voz en cada campo, transcripción automática y análisis IA de la sesión de trabajo (admin/gestor/adviser).',
         isImplemented: true,
     },
     {
