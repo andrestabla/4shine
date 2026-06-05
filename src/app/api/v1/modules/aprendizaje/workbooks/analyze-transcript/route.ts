@@ -1,16 +1,18 @@
 import { NextResponse } from 'next/server';
 import { authenticateRequest } from '@/server/auth/request-auth';
 import { withClient, withRoleContext } from '@/server/db/pool';
-import { getIntegrationConfigForActor } from '@/server/integrations/config';
-import { WB1_V3_CONFIG } from '@/lib/workbooks-v2-wb1';
+import { getIntegrationConfigForActor, type ResolvedIntegrationConfig } from '@/server/integrations/config';
+import { WB1_V3_CONFIG, type WB1Section } from '@/lib/workbooks-v2-wb1';
 import { errorResponse, parseJsonBody, unauthorizedResponse } from '../../../_utils';
 
 export const runtime = 'nodejs';
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
 const DEFAULT_MODEL = 'gpt-4.1-mini';
 const ELEVATED_ROLES = new Set(['admin', 'gestor', 'mentor']);
+const PER_SECTION_OUTPUT_TOKENS = 8000;
+const AUTOFILL_OUTPUT_TOKENS = 4000;
 
 interface AnalyzeBody {
     workbookId?: string;
@@ -26,7 +28,12 @@ interface OpenAiChatResponse {
             content?: string | Array<{ type?: string; text?: string }>;
         };
     }>;
+    usage?: {
+        completion_tokens?: number;
+    };
 }
+
+type FieldRef = { id: string; label: string };
 
 function sanitizeBaseUrl(value: string | undefined, fallback: string): string {
     if (!value) return fallback;
@@ -53,20 +60,141 @@ function extractJsonString(content: string): string {
     return content.trim();
 }
 
-function buildFieldCatalog(targetFields?: Array<{ id?: string; label?: string }>) {
-    if (Array.isArray(targetFields) && targetFields.length > 0) {
-        return targetFields
-            .filter((field) => typeof field.id === 'string' && field.id.trim().length > 0)
-            .map((field) => ({ id: String(field.id), label: String(field.label ?? field.id) }));
+// Si OpenAI cortó el JSON a mitad (max_tokens), intentamos parsearlo
+// removiendo la entrada incompleta del final. Repetimos hasta que parsee
+// o devolvemos un objeto vacío para que la sección se reporte como missing.
+function tolerantJsonParse(raw: string): { fields?: Record<string, unknown>; notes?: unknown } {
+    const content = extractJsonString(raw);
+    try {
+        return JSON.parse(content) as { fields?: Record<string, unknown>; notes?: unknown };
+    } catch {
+        // intento de auto-repair: buscar último "id":"texto", terminar string y cerrar objeto
+        for (let i = content.length - 1; i > 200; i--) {
+            const candidate = content.slice(0, i);
+            const lastQuote = candidate.lastIndexOf('"');
+            if (lastQuote < 0) break;
+            try {
+                const repaired = `${candidate.slice(0, lastQuote)}"}}`;
+                return JSON.parse(repaired) as { fields?: Record<string, unknown>; notes?: unknown };
+            } catch {
+                // continúa retrocediendo
+            }
+        }
     }
-    return WB1_V3_CONFIG.sections.flatMap((section) =>
-        section.groups.flatMap((group) =>
+    return {};
+}
+
+function buildSectionPlan(
+    targetFields: Array<{ id?: string; label?: string }> | undefined,
+): Array<{ section: WB1Section | null; label: string; fields: FieldRef[] }> {
+    if (Array.isArray(targetFields) && targetFields.length > 0) {
+        const cleaned = targetFields
+            .filter((field) => typeof field.id === 'string' && field.id.trim().length > 0)
+            .map((field) => ({
+                id: String(field.id),
+                label: String(field.label ?? field.id),
+            }));
+        return [{ section: null, label: 'Campos solicitados', fields: cleaned }];
+    }
+    return WB1_V3_CONFIG.sections.map((section) => ({
+        section,
+        label: section.label,
+        fields: section.groups.flatMap((group) =>
             group.fields.map((field) => ({
                 id: field.id,
-                label: `${section.label} · ${group.title ?? group.id} · ${field.label}`,
+                label: `${group.title ?? group.id} · ${field.label}`,
             })),
         ),
-    );
+    }));
+}
+
+async function callOpenAiForSection(
+    integration: ResolvedIntegrationConfig,
+    baseUrl: string,
+    model: string,
+    temperature: number,
+    maxTokens: number,
+    mode: 'transcript' | 'autofill',
+    section: WB1Section | null,
+    fields: FieldRef[],
+    transcript: string,
+): Promise<{ fields: Record<string, string>; notes: string | null }> {
+    const systemPrompt =
+        mode === 'transcript'
+            ? `Eres un coach ejecutivo de 4Shine. A partir de la transcripción literal de una sesión 1:1 entre un adviser y un líder, redactas el borrador editable de la sección "${section?.label ?? ''}" del Workbook 1 (Creencias, identidad y pilares personales). Respetas las palabras del líder, no inventas hechos, y devuelves SÓLO JSON válido.`
+            : 'Eres un coach ejecutivo de 4Shine. A partir de las respuestas previas del líder, sugieres texto conciso para los campos solicitados sin inventar hechos. Devuelves SÓLO JSON válido.';
+
+    const userPrompt = {
+        instruccion:
+            mode === 'transcript'
+                ? `Lee la transcripción y propon un borrador para los campos de esta sección que aparezcan claramente respondidos por el líder. Si un campo no tiene evidencia clara en la transcripción, devuélvelo como "" (cadena vacía). No copies texto irrelevante. Usa primera persona del líder. Máx ~120 palabras por campo. NO repitas el mismo texto en varios campos.`
+                : 'Con base en las respuestas previas del líder, sugiere texto para los campos solicitados. Si no hay base suficiente, deja el campo "". Máx ~80 palabras por campo.',
+        seccion: section
+            ? {
+                  id: section.id,
+                  label: section.label,
+                  proposito: section.purpose,
+                  conceptos: section.concepts,
+              }
+            : { label: 'Campos solicitados' },
+        campos: fields,
+        transcripcion_o_contexto: transcript,
+        formato_respuesta:
+            'JSON con la forma {"fields": { "<id_de_campo>": "<texto sugerido>" }, "notes": "string corta opcional"}. Incluye TODOS los IDs solicitados, usando "" cuando no haya evidencia.',
+    };
+
+    const response = await fetch(`${baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+            Authorization: `Bearer ${integration.secretValue}`,
+            'Content-Type': 'application/json',
+            ...(integration.wizardData.organizationId
+                ? { 'OpenAI-Organization': integration.wizardData.organizationId }
+                : {}),
+            ...(integration.wizardData.projectId
+                ? { 'OpenAI-Project': integration.wizardData.projectId }
+                : {}),
+        },
+        body: JSON.stringify({
+            model,
+            response_format: { type: 'json_object' },
+            temperature,
+            max_completion_tokens: maxTokens,
+            messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: JSON.stringify(userPrompt) },
+            ],
+        }),
+        cache: 'no-store',
+    });
+
+    if (!response.ok) {
+        const detail = await response.text();
+        throw new Error(`OpenAI respondió ${response.status} para ${section?.label ?? 'sección'}: ${detail.slice(0, 240)}`);
+    }
+
+    const payload = (await response.json()) as OpenAiChatResponse;
+    const raw = parseChatMessageContent(payload.choices);
+    const parsed = tolerantJsonParse(raw);
+
+    const allowedIds = new Set(fields.map((field) => field.id));
+    const normalized: Record<string, string> = {};
+    if (parsed.fields && typeof parsed.fields === 'object') {
+        for (const [id, value] of Object.entries(parsed.fields)) {
+            if (!allowedIds.has(id)) continue;
+            if (typeof value === 'string') {
+                const trimmed = value.trim();
+                if (trimmed.length > 0) {
+                    normalized[id] = trimmed.slice(0, 4000);
+                }
+            }
+        }
+    }
+
+    return {
+        fields: normalized,
+        notes: typeof parsed.notes === 'string' ? parsed.notes.slice(0, 200) : null,
+    };
 }
 
 export async function POST(request: Request) {
@@ -87,12 +215,6 @@ export async function POST(request: Request) {
     }
 
     const mode = body.mode === 'autofill' ? 'autofill' : 'transcript';
-
-    // El modo 'transcript' usa la transcripción literal de una sesión 1:1 con
-    // un adviser, por eso queda restringido a roles elevados. El modo
-    // 'autofill' sólo trabaja con las respuestas que el propio líder ya
-    // escribió en su workbook, así que cualquier usuario autenticado puede
-    // disparar la sugerencia para su propio WB.
     if (mode === 'transcript' && !ELEVATED_ROLES.has(identity.role)) {
         return NextResponse.json(
             { ok: false, error: 'Solo admin, gestor o adviser pueden ejecutar el análisis IA de la transcripción de sesión.' },
@@ -100,7 +222,8 @@ export async function POST(request: Request) {
         );
     }
 
-    const catalog = buildFieldCatalog(body.targetFields);
+    const plan = buildSectionPlan(body.targetFields);
+    const flatCatalog: FieldRef[] = plan.flatMap((entry) => entry.fields);
 
     try {
         const data = await withClient((client) =>
@@ -112,102 +235,62 @@ export async function POST(request: Request) {
 
                 const baseUrl = sanitizeBaseUrl(integration.wizardData.baseUrl, DEFAULT_BASE_URL);
                 const model = integration.wizardData.model?.trim() || DEFAULT_MODEL;
-                const temperature = Number(integration.wizardData.temperature ?? 0.3);
-                const maxTokens = Number(integration.wizardData.maxTokens ?? 2400);
+                const temperature = Number.isFinite(Number(integration.wizardData.temperature))
+                    ? Number(integration.wizardData.temperature)
+                    : 0.3;
+                const baseMaxTokens = Number.isFinite(Number(integration.wizardData.maxTokens))
+                    ? Number(integration.wizardData.maxTokens)
+                    : mode === 'transcript'
+                      ? PER_SECTION_OUTPUT_TOKENS
+                      : AUTOFILL_OUTPUT_TOKENS;
 
-                const systemPrompt =
+                const sectionMaxTokens =
                     mode === 'transcript'
-                        ? 'Eres un coach ejecutivo y editor instruccional de 4Shine. A partir de una transcripción literal de la sesión de trabajo con un líder, redactas un borrador editable de su Workbook 1 (Creencias, identidad y pilares personales). Eres riguroso, respetas las palabras del líder, evitas inventar hechos y devuelves únicamente JSON válido.'
-                        : 'Eres un coach ejecutivo y editor instruccional de 4Shine. A partir de las respuestas ya completadas por el líder en su Workbook 1, generas síntesis o sugerencias para los campos solicitados sin inventar hechos. Devuelves únicamente JSON válido.';
+                        ? Math.max(baseMaxTokens, PER_SECTION_OUTPUT_TOKENS)
+                        : Math.max(baseMaxTokens, AUTOFILL_OUTPUT_TOKENS);
 
-                const userPrompt = {
-                    instruccion:
-                        mode === 'transcript'
-                            ? 'Lee la transcripción y propon un borrador completo de los campos del WB1 que aparezcan claramente respondidos en el discurso del líder. Si un campo no tiene evidencia clara, déjalo como cadena vacía. No copies texto irrelevante. Usa primera persona del líder. Sé conciso (máx ~120 palabras por campo).'
-                            : 'Con base en las respuestas previas del líder, sugiere texto para los campos solicitados. Si no hay base suficiente, deja el campo vacío. Sé conciso (máx ~80 palabras por campo).',
-                    workbook: {
-                        code: WB1_V3_CONFIG.code,
-                        version: WB1_V3_CONFIG.version,
-                        title: WB1_V3_CONFIG.title,
-                        objetivo: WB1_V3_CONFIG.objective,
-                    },
-                    campos: catalog,
-                    transcripcion_o_contexto: transcript,
-                    formato_respuesta: {
-                        fields: 'objeto cuyas claves son los IDs de los campos y los valores son strings con el contenido sugerido',
-                        notes: 'string corta y opcional con observaciones para el adviser',
-                    },
-                };
+                const results = await Promise.all(
+                    plan.map((entry) =>
+                        callOpenAiForSection(
+                            integration,
+                            baseUrl,
+                            model,
+                            temperature,
+                            sectionMaxTokens,
+                            mode,
+                            entry.section,
+                            entry.fields,
+                            transcript,
+                        ).catch((err: unknown) => {
+                            const message = err instanceof Error ? err.message : 'OpenAI error';
+                            return {
+                                fields: {} as Record<string, string>,
+                                notes: `Sección ${entry.label} no procesada: ${message.slice(0, 160)}`,
+                            };
+                        }),
+                    ),
+                );
 
-                const completionResponse = await fetch(`${baseUrl}/chat/completions`, {
-                    method: 'POST',
-                    headers: {
-                        Authorization: `Bearer ${integration.secretValue}`,
-                        'Content-Type': 'application/json',
-                        ...(integration.wizardData.organizationId
-                            ? { 'OpenAI-Organization': integration.wizardData.organizationId }
-                            : {}),
-                        ...(integration.wizardData.projectId
-                            ? { 'OpenAI-Project': integration.wizardData.projectId }
-                            : {}),
-                    },
-                    body: JSON.stringify({
-                        model,
-                        response_format: { type: 'json_object' },
-                        temperature: Number.isFinite(temperature) ? temperature : 0.3,
-                        max_completion_tokens: Number.isFinite(maxTokens) ? maxTokens : 2400,
-                        messages: [
-                            { role: 'system', content: systemPrompt },
-                            { role: 'user', content: JSON.stringify(userPrompt) },
-                        ],
-                    }),
-                    cache: 'no-store',
-                });
-
-                if (!completionResponse.ok) {
-                    const detail = await completionResponse.text();
-                    throw new Error(
-                        `OpenAI respondió ${completionResponse.status}: ${detail.slice(0, 320)}`
-                    );
+                const mergedFields: Record<string, string> = {};
+                const noteLines: string[] = [];
+                for (const result of results) {
+                    Object.assign(mergedFields, result.fields);
+                    if (result.notes) noteLines.push(result.notes);
                 }
 
-                const payload = (await completionResponse.json()) as OpenAiChatResponse;
-                const raw = parseChatMessageContent(payload.choices);
-                if (!raw) {
-                    throw new Error('OpenAI no devolvió contenido utilizable.');
-                }
-                const parsed = JSON.parse(extractJsonString(raw)) as {
-                    fields?: Record<string, unknown>;
-                    notes?: unknown;
-                };
-
-                const labelById = new Map(catalog.map((field) => [field.id, field.label]));
-                const normalizedFields: Record<string, string> = {};
-                if (parsed.fields && typeof parsed.fields === 'object') {
-                    for (const [id, value] of Object.entries(parsed.fields)) {
-                        if (!labelById.has(id)) continue;
-                        if (typeof value === 'string') {
-                            const trimmed = value.trim();
-                            if (trimmed.length > 0) {
-                                normalizedFields[id] = trimmed.slice(0, 4000);
-                            }
-                        }
-                    }
-                }
-
-                const filled = catalog
-                    .filter((field) => normalizedFields[field.id])
+                const filled = flatCatalog
+                    .filter((field) => mergedFields[field.id])
                     .map((field) => ({ id: field.id, label: field.label }));
-                const missing = catalog
-                    .filter((field) => !normalizedFields[field.id])
+                const missing = flatCatalog
+                    .filter((field) => !mergedFields[field.id])
                     .map((field) => ({ id: field.id, label: field.label }));
 
                 return {
-                    fields: normalizedFields,
+                    fields: mergedFields,
                     filled,
                     missing,
-                    totalRequested: catalog.length,
-                    notes: typeof parsed.notes === 'string' ? parsed.notes.slice(0, 320) : null,
+                    totalRequested: flatCatalog.length,
+                    notes: noteLines.length > 0 ? noteLines.join(' · ').slice(0, 480) : null,
                 };
             }),
         );
