@@ -8,9 +8,12 @@ const securityHeaders = [
   // Restrict Referer header to same origin
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   // Disable browser features not needed by the app
+  // microphone=(self) habilita getUserMedia({audio:true}) en 4shine.co para
+  // los workbooks con grabación de voz. camera/geolocation/payment quedan
+  // desactivados por seguridad hasta que algún módulo los necesite.
   {
     key: "Permissions-Policy",
-    value: "camera=(), microphone=(), geolocation=(), payment=()",
+    value: "camera=(), microphone=(self), geolocation=(), payment=()",
   },
   // Force HTTPS for 1 year (only sent over HTTPS, safe to include)
   {

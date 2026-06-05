@@ -192,7 +192,7 @@ function translateMediaError(err: unknown): { code: 'denied' | 'unavailable' | '
             return {
                 code: 'denied',
                 message:
-                    'El navegador bloqueó el acceso al micrófono. Haz click en el candado de la barra de URL → Micrófono → Permitir, luego recarga la página.'
+                    'El navegador bloqueó el acceso al micrófono. Resetea el permiso desde el ícono de la barra de URL o desde chrome://settings/content/microphone y recarga la página.'
             }
         }
         if (name === 'NotFoundError' || name === 'OverconstrainedError') {
