@@ -276,77 +276,19 @@ function resolvePlanTypeForCreate(input: CreateUserInput): PlanType | null {
   return input.planType ?? 'standard';
 }
 
-async function ensureLeaderProgramPurchase(
-  client: PoolClient,
-  userId: string,
-  input: {
-    role: Role;
-    planType: PlanType | null;
-    priceAmount?: number;
-    source?: string;
-  },
-): Promise<void> {
-  const shouldHaveProgramPurchase =
-    input.role === 'lider' &&
-    Boolean(input.planType) &&
-    SUBSCRIBED_LEADER_PLAN_TYPES.has(input.planType as PlanType);
-
-  if (shouldHaveProgramPurchase) {
-    await client.query(
-      `
-        INSERT INTO app_billing.user_purchases (
-          user_id,
-          product_code,
-          status,
-          quantity,
-          unit_price_amount,
-          currency_code,
-          metadata,
-          purchased_at,
-          activated_at
-        )
-        SELECT
-          $1::uuid,
-          'program_4shine',
-          'active',
-          1,
-          COALESCE(pc.price_amount, $2::numeric),
-          COALESCE(pc.currency_code, 'USD'),
-          jsonb_build_object('source', $3::text),
-          now(),
-          now()
-        FROM app_billing.product_catalog pc
-        WHERE pc.product_code = 'program_4shine'
-          AND NOT EXISTS (
-            SELECT 1
-            FROM app_billing.user_purchases up
-            WHERE up.user_id = $1::uuid
-              AND up.product_code = 'program_4shine'
-              AND up.status = 'active'
-          )
-      `,
-      [userId, input.priceAmount ?? 2000, input.source ?? 'manual_user_creation'],
-    );
-    return;
-  }
-
-  await client.query(
-    `
-      UPDATE app_billing.user_purchases
-      SET
-        status = 'cancelled',
-        metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
-          'source', $2::text,
-          'cancelled_at', now()
-        ),
-        updated_at = now()
-      WHERE user_id = $1::uuid
-        AND product_code = 'program_4shine'
-        AND status = 'active'
-    `,
-    [userId, input.source ?? 'manual_user_update'],
-  );
-}
+// ensureLeaderProgramPurchase eliminado.
+//
+// Esta función creaba una entrada sintética en app_billing.user_purchases
+// con product_code='program_4shine' para todo líder con plan_type
+// subscribed. Su razón de ser era detectar al líder como "subscriber" en
+// el modelo previo (cuando todavía no existía
+// app_billing.subscription_plans + plan_module_features).
+//
+// Hoy la fuente de verdad es user_profiles.subscription_plan_id, y el
+// fallback legacy en features/access/service.ts deriva el acceso de
+// plan_type directamente sin necesidad de la compra sintética. Mantenerla
+// generaba ruido visual ("Reemplazado por plan · Legacy") en cada líder
+// nuevo y confusión para el admin (parecía haber dos suscripciones).
 
 async function getUserRoleAndPlan(
   client: PoolClient,
@@ -1795,10 +1737,12 @@ export async function createUser(
     ],
   );
 
-  await ensureLeaderProgramPurchase(client, userId, {
-    role: input.primaryRole,
-    planType: resolvedPlanType,
-  });
+  // Antes aquí se llamaba ensureLeaderProgramPurchase, que insertaba un
+  // user_purchases sintético con product_code='program_4shine' (legacy)
+  // para todo líder con plan_type subscribed. Con el modelo nuevo de
+  // subscription_plans esa inserción es redundante (la licencia ahora es
+  // user_profiles.subscription_plan_id) y aparecía como "Reemplazado por
+  // plan" en el perfil. Se elimina para no crear historial sintético.
 
   // Asignar plan de suscripción específico si vino en el input y aplica.
   if (
@@ -2134,11 +2078,8 @@ export async function updateUser(
     }
   }
 
-  await ensureLeaderProgramPurchase(client, userId, {
-    role: nextRole,
-    planType: resolvedPlanType ?? currentUserState.planType,
-    source: 'manual_user_update',
-  });
+  // Idem createUser: ya no se crea / mantiene la compra sintética
+  // program_4shine. La licencia vive en user_profiles.subscription_plan_id.
 
   return getUserById(client, userId);
 }
