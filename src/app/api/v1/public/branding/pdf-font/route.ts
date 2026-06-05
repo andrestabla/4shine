@@ -1,29 +1,53 @@
 import { NextResponse } from 'next/server';
 
-// Proxy del TTF de Google Fonts para embebido en PDFs (jsPDF requiere TTF).
-// El navegador no puede setear User-Agent, y Google sirve WOFF2 por default
-// a navegadores modernos; usamos un UA legacy para forzar TTF.
+// Proxy del TTF de Google Fonts para embebido en PDFs (jsPDF requiere TTF,
+// no WOFF/WOFF2). Como Google Fonts API ya no entrega TTF, fetcheamos
+// directamente del repo oficial google/fonts via jsDelivr CDN.
 //
-// Public endpoint: cualquier usuario que esté viendo un dashboard 4Shine
-// puede embeber la fuente en su PDF. No expone datos sensibles.
+// Public endpoint: cualquier usuario autenticado puede embeber la fuente.
+// No expone datos sensibles; el TTF es de Google Fonts.
 
 export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
 
-const TTF_USER_AGENT =
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_2) AppleWebKit/537.17 (KHTML, like Gecko) Version/6.0 Safari/537.17';
-
-const ALLOWED_FAMILIES = new Set<string>([
-    'Manrope',
-    'Outfit',
-    'Raleway',
-    'Urbanist',
-    'Montserrat',
-    'Inter',
-    'Poppins',
-    'Roboto',
-    'Nunito Sans',
-]);
+// Mapeo familia → URL del TTF (regular y bold). Cuando el archivo es
+// variable (Manrope[wght].ttf), se usa el mismo archivo para ambos
+// pesos y jsPDF aplica el peso al registrarlo dos veces.
+const FONT_SOURCES: Record<string, { regular: string; bold: string }> = {
+    Manrope: {
+        regular: 'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/manrope/Manrope%5Bwght%5D.ttf',
+        bold: 'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/manrope/Manrope%5Bwght%5D.ttf',
+    },
+    Outfit: {
+        regular: 'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/outfit/Outfit%5Bwght%5D.ttf',
+        bold: 'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/outfit/Outfit%5Bwght%5D.ttf',
+    },
+    Raleway: {
+        regular: 'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/raleway/Raleway%5Bwght%5D.ttf',
+        bold: 'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/raleway/Raleway%5Bwght%5D.ttf',
+    },
+    Urbanist: {
+        regular: 'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/urbanist/Urbanist%5Bwght%5D.ttf',
+        bold: 'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/urbanist/Urbanist%5Bwght%5D.ttf',
+    },
+    Montserrat: {
+        regular: 'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/montserrat/Montserrat%5Bwght%5D.ttf',
+        bold: 'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/montserrat/Montserrat%5Bwght%5D.ttf',
+    },
+    Inter: {
+        regular: 'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/inter/Inter%5Bopsz,wght%5D.ttf',
+        bold: 'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/inter/Inter%5Bopsz,wght%5D.ttf',
+    },
+    Poppins: {
+        regular: 'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/poppins/Poppins-Regular.ttf',
+        bold: 'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/poppins/Poppins-Bold.ttf',
+    },
+    'Nunito Sans': {
+        regular:
+            'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/nunitosans/NunitoSans%5BYTLC,opsz,wdth,wght%5D.ttf',
+        bold:
+            'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/nunitosans/NunitoSans%5BYTLC,opsz,wdth,wght%5D.ttf',
+    },
+};
 
 export async function GET(request: Request) {
     const url = new URL(request.url);
@@ -33,35 +57,17 @@ export async function GET(request: Request) {
     if (!family) {
         return NextResponse.json({ ok: false, error: 'family is required' }, { status: 400 });
     }
-    if (!ALLOWED_FAMILIES.has(family)) {
-        return NextResponse.json({ ok: false, error: `family not allowed: ${family}` }, { status: 400 });
+    const source = FONT_SOURCES[family];
+    if (!source) {
+        return NextResponse.json(
+            { ok: false, error: `family not allowed: ${family}` },
+            { status: 400 },
+        );
     }
-    if (![400, 500, 600, 700, 800].includes(weight)) {
-        return NextResponse.json({ ok: false, error: 'unsupported weight' }, { status: 400 });
-    }
+    const ttfUrl = weight >= 600 ? source.bold : source.regular;
 
     try {
-        const cssUrl = `https://fonts.googleapis.com/css?family=${encodeURIComponent(family)}:${weight}`;
-        const cssResponse = await fetch(cssUrl, {
-            headers: { 'User-Agent': TTF_USER_AGENT },
-            cache: 'no-store',
-        });
-        if (!cssResponse.ok) {
-            return NextResponse.json(
-                { ok: false, error: `Google Fonts CSS returned ${cssResponse.status}` },
-                { status: 502 },
-            );
-        }
-        const css = await cssResponse.text();
-        const match = css.match(/src:[^;]*url\((https:[^)]+\.ttf)\)/i);
-        if (!match) {
-            return NextResponse.json(
-                { ok: false, error: 'TTF url not found in Google Fonts CSS' },
-                { status: 502 },
-            );
-        }
-        const ttfUrl = match[1];
-        const ttfResponse = await fetch(ttfUrl, { cache: 'no-store' });
+        const ttfResponse = await fetch(ttfUrl, { cache: 'force-cache' });
         if (!ttfResponse.ok) {
             return NextResponse.json(
                 { ok: false, error: `TTF fetch returned ${ttfResponse.status}` },
