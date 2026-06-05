@@ -39,6 +39,7 @@ import {
   analyzeInvitationDiscoveryReport,
 } from "./client";
 import { downloadDiscoveryPdfReport } from "./pdf-export";
+import { useBranding } from "@/context/BrandingContext";
 import { getDiscoveryStatus, scoreDiscoveryAnswers } from "./reporting";
 import type {
   DiscoveryAiReports,
@@ -168,6 +169,7 @@ export function ResultsView({
   onFinish,
 }: ResultsViewProps) {
   const { alert } = useAppDialog();
+  const { branding } = useBranding();
   const scoring = React.useMemo(
     () => scoreDiscoveryAnswers(state.answers),
     [state.answers],
@@ -547,6 +549,12 @@ export function ResultsView({
         state,
         scoring,
         reports,
+        branding: {
+          logoDarkUrl: branding.logoDarkUrl,
+          primaryHex: branding.primaryColor,
+          secondaryHex: branding.secondaryColor,
+          accentHex: branding.accentColor,
+        },
       });
     } catch (error) {
       await alert({

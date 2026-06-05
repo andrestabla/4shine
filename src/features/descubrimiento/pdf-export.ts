@@ -3,6 +3,7 @@
 import { jsPDF } from "jspdf";
 import { PILLAR_INFO } from "./DiagnosticsData";
 import { buildDiscoveryReports, getDiscoveryStatus } from "./reporting";
+import { resolvePdfBranding, type PdfBrandingInput, type PdfBrandingResolved } from "@/lib/pdf-branding";
 import type {
   DiscoveryAiReports,
   DiscoveryPillarKey,
@@ -15,6 +16,7 @@ interface DownloadDiscoveryPdfInput {
   state: DiscoveryUserState;
   scoring: DiscoveryScoreResult;
   reports?: DiscoveryAiReports | null;
+  branding?: PdfBrandingInput | null;
 }
 
 const PAGE_WIDTH_MM = 210;
@@ -23,6 +25,48 @@ const PAGE_MARGIN = 16;
 const CONTENT_WIDTH = PAGE_WIDTH_MM - PAGE_MARGIN * 2;
 const BODY_LINE_HEIGHT = 5.8;
 const BODY_GAP = 3.2;
+const BRANDED_HEADER_HEIGHT = 36;
+
+function drawBrandedHeader(pdf: jsPDF, branding: PdfBrandingResolved) {
+  pdf.setFillColor(branding.primary[0], branding.primary[1], branding.primary[2]);
+  pdf.rect(0, 0, PAGE_WIDTH_MM, BRANDED_HEADER_HEIGHT, "F");
+
+  if (branding.logo) {
+    const targetWidth = 30;
+    const aspect = branding.logo.naturalHeight / Math.max(branding.logo.naturalWidth, 1);
+    const targetHeight = Math.min(18, Math.max(8, targetWidth * aspect));
+    const verticalCenter = (BRANDED_HEADER_HEIGHT - targetHeight) / 2;
+    try {
+      pdf.addImage(
+        branding.logo.dataUrl,
+        branding.logo.format,
+        PAGE_MARGIN,
+        verticalCenter,
+        targetWidth,
+        targetHeight,
+        undefined,
+        "FAST",
+      );
+    } catch {
+      // ignora logo si jspdf no puede decodificarlo
+    }
+  }
+
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(9.5);
+  pdf.setTextColor(branding.accent[0], branding.accent[1], branding.accent[2]);
+  pdf.text("DIAGNÓSTICO 4SHINE", PAGE_WIDTH_MM - PAGE_MARGIN, 16, { align: "right" });
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(8.5);
+  pdf.setTextColor(branding.onPrimary[0], branding.onPrimary[1], branding.onPrimary[2]);
+  pdf.text(
+    "Reporte ejecutivo de liderazgo",
+    PAGE_WIDTH_MM - PAGE_MARGIN,
+    22,
+    { align: "right" },
+  );
+}
 
 function sanitizeParticipantName(name: string): string {
   return name
@@ -256,6 +300,7 @@ export async function downloadDiscoveryPdfReport({
   state,
   scoring,
   reports,
+  branding,
 }: DownloadDiscoveryPdfInput): Promise<void> {
   const pdf = new jsPDF({
     orientation: "p",
@@ -263,7 +308,10 @@ export async function downloadDiscoveryPdfReport({
     format: "a4",
     compress: true,
   });
+  const resolvedBranding = await resolvePdfBranding(branding ?? {});
+  drawBrandedHeader(pdf, resolvedBranding);
   const writer = buildWriter(pdf);
+  writer.setY(BRANDED_HEADER_HEIGHT + 8);
   const resolvedReports = reports ?? {};
   const globalStatus = getDiscoveryStatus(scoring.globalIndex);
   const pillars: DiscoveryPillarKey[] = ["within", "out", "up", "beyond"];
@@ -272,7 +320,6 @@ export async function downloadDiscoveryPdfReport({
     timeStyle: "short",
   }).format(new Date());
 
-  writer.writeHeading("DIAGNÓSTICO 4SHINE", "kicker");
   writer.writeHeading("Reporte ejecutivo de liderazgo", "title");
   writer.writeWrappedLines(participantName, {
     fontSize: 12,
@@ -294,12 +341,24 @@ export async function downloadDiscoveryPdfReport({
   pdf.setTextColor(138, 127, 160);
   pdf.text("ÍNDICE GLOBAL", PAGE_MARGIN + 6, summaryCardY + 7);
   pdf.setFontSize(30);
-  pdf.setTextColor(49, 26, 117);
+  pdf.setTextColor(
+    resolvedBranding.primary[0],
+    resolvedBranding.primary[1],
+    resolvedBranding.primary[2],
+  );
   pdf.text(`${scoring.globalIndex}%`, PAGE_MARGIN + 6, summaryCardY + 18);
-  pdf.setFillColor(255, 243, 232);
+  pdf.setFillColor(
+    resolvedBranding.accent[0],
+    resolvedBranding.accent[1],
+    resolvedBranding.accent[2],
+  );
   pdf.roundedRect(PAGE_MARGIN + CONTENT_WIDTH - 42, summaryCardY + 7, 34, 8, 4, 4, "F");
   pdf.setFontSize(9);
-  pdf.setTextColor(210, 98, 28);
+  pdf.setTextColor(
+    resolvedBranding.primary[0],
+    resolvedBranding.primary[1],
+    resolvedBranding.primary[2],
+  );
   pdf.text(globalStatus.label.toUpperCase(), PAGE_MARGIN + CONTENT_WIDTH - 25, summaryCardY + 12.2, {
     align: "center",
   });

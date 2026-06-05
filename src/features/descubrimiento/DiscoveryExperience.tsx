@@ -50,6 +50,7 @@ import { DiscoveryLanding } from "./DiscoveryLanding";
 import { downloadDiscoveryRowResultsWorkbook } from "./admin-results-export";
 import { DB, SCALES } from "./DiagnosticsData";
 import { downloadDiscoveryPdfReport } from "./pdf-export";
+import { useBranding } from "@/context/BrandingContext";
 import {
   DISCOVERY_ITEMS_PER_PAGE,
   calculateDiscoveryCompletionPercent,
@@ -248,6 +249,16 @@ function buildSimulatedDiscoveryState(name: string): DiscoveryUserState {
 export function DiscoveryExperience() {
   const { currentRole, currentUser, viewerAccess } = useUser();
   const { alert, confirm } = useAppDialog();
+  const { branding } = useBranding();
+  const pdfBrandingInput = React.useMemo(
+    () => ({
+      logoDarkUrl: branding.logoDarkUrl,
+      primaryHex: branding.primaryColor,
+      secondaryHex: branding.secondaryColor,
+      accentHex: branding.accentColor,
+    }),
+    [branding.logoDarkUrl, branding.primaryColor, branding.secondaryColor, branding.accentColor],
+  );
   const isManager = currentRole === "admin" || currentRole === "gestor";
 
   const [session, setSession] = React.useState<DiscoverySessionRecord | null>(null);
@@ -564,6 +575,7 @@ export function DiscoveryExperience() {
           state: detail.state,
           scoring: detail.scoring,
           reports: detail.aiReports,
+          branding: pdfBrandingInput,
         });
       } catch (error) {
         await alert({
@@ -575,7 +587,7 @@ export function DiscoveryExperience() {
         setRowActionLoadingKey((current) => (current === loadingKey ? null : current));
       }
     },
-    [alert, ensureOverviewDetail],
+    [alert, ensureOverviewDetail, pdfBrandingInput],
   );
 
   const handleRegenerateOverviewReport = React.useCallback(

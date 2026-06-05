@@ -4,6 +4,7 @@ import React from "react";
 import { Download, FileText, Loader2, CheckCircle2 } from "lucide-react";
 import { downloadDiscoveryPdfReport } from "./pdf-export";
 import { scoreDiscoveryAnswers } from "./reporting";
+import { useBranding } from "@/context/BrandingContext";
 import type { DiscoverySessionRecord } from "./types";
 
 interface PdfDownloadExperienceProps {
@@ -12,6 +13,7 @@ interface PdfDownloadExperienceProps {
 
 export function PdfDownloadExperience({ session }: PdfDownloadExperienceProps) {
   const [status, setStatus] = React.useState<"idle" | "generating" | "ready" | "error">("generating");
+  const { branding } = useBranding();
 
   const handleDownload = React.useCallback(async () => {
     setStatus("generating");
@@ -42,13 +44,19 @@ export function PdfDownloadExperience({ session }: PdfDownloadExperienceProps) {
         },
         scoring,
         reports: session.aiReports,
+        branding: {
+          logoDarkUrl: branding.logoDarkUrl,
+          primaryHex: branding.primaryColor,
+          secondaryHex: branding.secondaryColor,
+          accentHex: branding.accentColor,
+        },
       });
       setStatus("ready");
     } catch (error) {
       console.error("PDF download failed", error);
       setStatus("error");
     }
-  }, [session]);
+  }, [session, branding]);
 
   React.useEffect(() => {
     // Auto-trigger on load
