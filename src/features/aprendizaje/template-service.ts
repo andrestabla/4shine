@@ -5,6 +5,7 @@ import { WB1_V3_CONFIG, type WB1Config } from '@/lib/workbooks-v2-wb1';
 import { WB2_V3_CONFIG } from '@/lib/workbooks-v2-wb2';
 import { WB3_V3_CONFIG } from '@/lib/workbooks-v2-wb3';
 import { WB4_V3_CONFIG } from '@/lib/workbooks-v2-wb4';
+import { WB5_V3_CONFIG } from '@/lib/workbooks-v2-wb5';
 
 export type WorkbookTemplateContent = WB1Config;
 
@@ -47,6 +48,7 @@ const TEMPLATE_FALLBACK_BY_CODE: Record<string, WorkbookTemplateContent> = {
     WB2: WB2_V3_CONFIG,
     WB3: WB3_V3_CONFIG,
     WB4: WB4_V3_CONFIG,
+    WB5: WB5_V3_CONFIG,
 };
 
 const EDITABLE_ROLES = new Set<AuthUser['role']>(['admin', 'gestor']);
