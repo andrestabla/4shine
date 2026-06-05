@@ -86,14 +86,20 @@ export async function POST(request: Request) {
         );
     }
 
-    if (!ELEVATED_ROLES.has(identity.role)) {
+    const mode = body.mode === 'autofill' ? 'autofill' : 'transcript';
+
+    // El modo 'transcript' usa la transcripción literal de una sesión 1:1 con
+    // un adviser, por eso queda restringido a roles elevados. El modo
+    // 'autofill' sólo trabaja con las respuestas que el propio líder ya
+    // escribió en su workbook, así que cualquier usuario autenticado puede
+    // disparar la sugerencia para su propio WB.
+    if (mode === 'transcript' && !ELEVATED_ROLES.has(identity.role)) {
         return NextResponse.json(
-            { ok: false, error: 'Solo admin, gestor o adviser pueden ejecutar el análisis IA del workbook.' },
+            { ok: false, error: 'Solo admin, gestor o adviser pueden ejecutar el análisis IA de la transcripción de sesión.' },
             { status: 403 },
         );
     }
 
-    const mode = body.mode === 'autofill' ? 'autofill' : 'transcript';
     const catalog = buildFieldCatalog(body.targetFields);
 
     try {
