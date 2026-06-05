@@ -1,8 +1,29 @@
 "use client";
 
 import React from "react";
-import { Package, Sparkles, Shield, CalendarClock, Info } from "lucide-react";
+import { Package, Sparkles, Shield, CalendarClock, Info, ArchiveRestore } from "lucide-react";
 import type { UserPurchaseRecord } from "@/features/access/types";
+
+/**
+ * Productos del catálogo histórico que ya no son planes vendibles. Sus
+ * compras quedan archivadas y los accesos se conservan, pero la fuente
+ * de verdad para suscripciones pasa a ser app_billing.subscription_plans
+ * (lo configurado en /dashboard/administracion/planes).
+ *
+ * Para agregar nuevos legacy basta con incluirlos en este set.
+ */
+const LEGACY_PRODUCT_CODES = new Set<string>(["program_4shine"]);
+
+function isLegacyProgramPurchase(
+  purchase: UserPurchaseRecord,
+  hasActivePlan: boolean,
+): boolean {
+  if (!hasActivePlan) return false;
+  if (LEGACY_PRODUCT_CODES.has(purchase.productCode)) return true;
+  // Cualquier compra del grupo 'program' queda relegada a histórico
+  // cuando el usuario ya tiene un plan asignado en subscription_plans.
+  return purchase.productGroup === "program";
+}
 
 export interface ActivePlanSummary {
   planId: string;
@@ -116,6 +137,20 @@ export function PurchasedProductsPanel({
   emptyHint,
 }: PurchasedProductsPanelProps) {
   const summary = userTypeSummary(primaryRole, planType, activePlan?.name ?? null);
+  const hasActivePlan = !!activePlan;
+
+  const { vigentes, archivadas } = React.useMemo(() => {
+    const v: UserPurchaseRecord[] = [];
+    const a: UserPurchaseRecord[] = [];
+    for (const purchase of purchases) {
+      if (isLegacyProgramPurchase(purchase, hasActivePlan)) {
+        a.push(purchase);
+      } else {
+        v.push(purchase);
+      }
+    }
+    return { vigentes: v, archivadas: a };
+  }, [purchases, hasActivePlan]);
 
   return (
     <section className="app-panel p-5">
@@ -184,20 +219,20 @@ export function PurchasedProductsPanel({
       <div className="mt-4">
         <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.18em] text-[var(--app-muted)]">
           <Shield size={12} />
-          Productos contratados anteriormente ({purchases.length})
+          Productos contratados vigentes ({vigentes.length})
         </p>
         <p className="mt-1 text-[11px] text-[var(--app-muted)]">
-          Lo que el usuario ya compró se conserva como acceso permanente, aunque el plan
-          actual no incluya ese módulo.
+          Compras puntuales (Diagnóstico, paquetes de mentoría) que se suman a tu plan.
+          Lo que ya pagaste se conserva como acceso permanente.
         </p>
 
-        {purchases.length === 0 ? (
+        {vigentes.length === 0 ? (
           <p className="mt-2 rounded-[10px] border border-dashed border-[var(--app-border)] p-3 text-xs text-[var(--app-muted)]">
             {emptyHint ?? "Sin productos contratados aún."}
           </p>
         ) : (
           <ul className="mt-2 space-y-2">
-            {purchases.map((purchase) => (
+            {vigentes.map((purchase) => (
               <li
                 key={`${purchase.productCode}-${purchase.purchasedAt ?? "na"}`}
                 className="rounded-[12px] border border-[var(--app-border)] bg-white p-3"
@@ -241,7 +276,7 @@ export function PurchasedProductsPanel({
           </ul>
         )}
 
-        {activePlan && purchases.length > 0 && (
+        {activePlan && vigentes.length > 0 && (
           <p className="mt-3 inline-flex items-start gap-1.5 rounded-[10px] border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
             <Info size={12} className="mt-0.5 shrink-0" />
             El acceso efectivo del usuario es la unión entre lo que habilita su plan
@@ -249,6 +284,64 @@ export function PurchasedProductsPanel({
           </p>
         )}
       </div>
+
+      {archivadas.length > 0 && (
+        <div className="mt-5 rounded-[12px] border border-slate-200 bg-slate-50/60 p-3">
+          <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.18em] text-slate-500">
+            <ArchiveRestore size={12} />
+            Reemplazados por el plan actual ({archivadas.length})
+          </p>
+          <p className="mt-1 text-[11px] text-slate-500">
+            Estos productos pertenecen al catálogo histórico y ya no se venden. Tus
+            accesos quedaron incorporados en el plan{" "}
+            <strong className="text-slate-700">{activePlan?.name}</strong> según las
+            directivas configuradas en /administracion/planes.
+          </p>
+          <ul className="mt-2 space-y-2">
+            {archivadas.map((purchase) => (
+              <li
+                key={`legacy-${purchase.productCode}-${purchase.purchasedAt ?? "na"}`}
+                className="rounded-[10px] border border-slate-200 bg-white p-3 opacity-80"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-semibold text-slate-700">
+                        {purchase.productName}
+                      </span>
+                      <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-700">
+                        Reemplazado por plan
+                      </span>
+                      <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-600 ring-1 ring-slate-200">
+                        Legacy
+                      </span>
+                    </div>
+                    <p className="mt-1 text-[11px] text-slate-500">
+                      Código: <code className="font-mono">{purchase.productCode}</code>
+                      {purchase.sessionsIncluded
+                        ? ` · ${purchase.sessionsIncluded} sesión${purchase.sessionsIncluded === 1 ? "" : "es"} incluida${purchase.sessionsIncluded === 1 ? "" : "s"}`
+                        : ""}
+                    </p>
+                    {purchase.source && (
+                      <p className="mt-1 text-[11px] text-slate-500">
+                        Origen original: {purchase.source.replace(/_/g, " ")}
+                      </p>
+                    )}
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs font-semibold text-slate-600">
+                      {formatMoney(purchase.priceAmount, purchase.currencyCode)}
+                    </p>
+                    <p className="text-[11px] text-slate-500">
+                      {formatDate(purchase.purchasedAt)}
+                    </p>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </section>
   );
 }
