@@ -641,7 +641,8 @@ function GroupEditor({
     workbookId,
     disabled,
     onAutofill,
-    autofillBusy
+    autofillBusy,
+    autofillStatus
 }: {
     group: WB1Group
     values: Record<string, WB1FieldValue>
@@ -650,6 +651,7 @@ function GroupEditor({
     disabled?: boolean
     onAutofill?: (group: WB1Group) => void
     autofillBusy?: boolean
+    autofillStatus?: { kind: 'success' | 'error' | 'empty'; message: string } | null
 }) {
     const completedInGroup = group.fields.reduce(
         (acc, field) => acc + (values[field.id]?.text?.trim() || values[field.id]?.audioUrl ? 1 : 0),
@@ -680,6 +682,19 @@ function GroupEditor({
                     )}
                 </div>
             </div>
+            {autofillStatus && (
+                <div
+                    className={`mt-3 rounded-2xl border px-3 py-2 text-xs ${
+                        autofillStatus.kind === 'success'
+                            ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                            : autofillStatus.kind === 'empty'
+                              ? 'border-amber-200 bg-amber-50 text-amber-800'
+                              : 'border-rose-200 bg-rose-50 text-rose-800'
+                    }`}
+                >
+                    {autofillStatus.message}
+                </div>
+            )}
             <div className="mt-4 grid gap-4 xl:grid-cols-2">
                 {group.fields.map((field) => (
                     <FieldEditor
@@ -703,7 +718,8 @@ function SectionContent({
     workbookId,
     disabled,
     onAutofill,
-    autofillBusyGroupId
+    autofillBusyGroupId,
+    autofillStatusByGroupId
 }: {
     section: WB1Section
     values: Record<string, WB1FieldValue>
@@ -712,6 +728,7 @@ function SectionContent({
     disabled?: boolean
     onAutofill: (group: WB1Group) => void
     autofillBusyGroupId: string | null
+    autofillStatusByGroupId: Record<string, { kind: 'success' | 'error' | 'empty'; message: string } | null>
 }) {
     return (
         <div className="space-y-6">
@@ -770,6 +787,7 @@ function SectionContent({
                         disabled={disabled}
                         onAutofill={onAutofill}
                         autofillBusy={autofillBusyGroupId === group.id}
+                        autofillStatus={autofillStatusByGroupId[group.id] ?? null}
                     />
                 ))}
             </div>
@@ -1060,7 +1078,9 @@ export function WB1V3Runtime() {
     const [lastSavedAt, setLastSavedAt] = useState<string | null>(null)
     const [hydrated, setHydrated] = useState(false)
     const [autofillBusyGroupId, setAutofillBusyGroupId] = useState<string | null>(null)
-    const [autofillError, setAutofillError] = useState<string | null>(null)
+    const [autofillStatusByGroupId, setAutofillStatusByGroupId] = useState<
+        Record<string, { kind: 'success' | 'error' | 'empty'; message: string } | null>
+    >({})
     const [showAdminPanel, setShowAdminPanel] = useState(false)
 
     useEffect(() => {
@@ -1118,7 +1138,7 @@ export function WB1V3Runtime() {
 
     async function handleGroupAutofill(group: WB1Group) {
         setAutofillBusyGroupId(group.id)
-        setAutofillError(null)
+        setAutofillStatusByGroupId((current) => ({ ...current, [group.id]: null }))
         try {
             const context = WB1_V3_CONFIG.sections
                 .flatMap((section) => section.groups)
@@ -1137,6 +1157,18 @@ export function WB1V3Runtime() {
                 .filter(Boolean)
                 .join('\n\n')
 
+            if (context.trim().length < 60) {
+                setAutofillStatusByGroupId((current) => ({
+                    ...current,
+                    [group.id]: {
+                        kind: 'empty',
+                        message:
+                            'Necesitas responder primero las preguntas previas de esta sección. La IA usa tus respuestas como base.'
+                    }
+                }))
+                return
+            }
+
             const result = await requestApi<AnalysisResponse>(
                 '/api/v1/modules/aprendizaje/workbooks/analyze-transcript',
                 {
@@ -1152,9 +1184,31 @@ export function WB1V3Runtime() {
                 }
             )
             applyAiFields(result.fields ?? {})
+            const filled = Object.values(result.fields ?? {}).filter((value) => value && value.trim().length > 0).length
+            if (filled === 0) {
+                setAutofillStatusByGroupId((current) => ({
+                    ...current,
+                    [group.id]: {
+                        kind: 'empty',
+                        message:
+                            'La IA no encontró suficiente información en tus respuestas previas para completar esta tabla. Amplía las preguntas anteriores y vuelve a intentar.'
+                    }
+                }))
+            } else {
+                setAutofillStatusByGroupId((current) => ({
+                    ...current,
+                    [group.id]: {
+                        kind: 'success',
+                        message: `Se completaron ${filled} de ${group.fields.length} campos con sugerencias IA. Revisa y edita si lo necesitas.`
+                    }
+                }))
+            }
         } catch (err) {
             const message = err instanceof Error ? err.message : 'No se pudo autocompletar.'
-            setAutofillError(message)
+            setAutofillStatusByGroupId((current) => ({
+                ...current,
+                [group.id]: { kind: 'error', message }
+            }))
         } finally {
             setAutofillBusyGroupId(null)
         }
@@ -1304,12 +1358,6 @@ export function WB1V3Runtime() {
                             onClose={() => setShowAdminPanel(false)}
                         />
                     )}
-                    {autofillError && (
-                        <div className="rounded-2xl border border-rose-300 bg-rose-50 px-4 py-2 text-xs text-rose-700">
-                            {autofillError}
-                        </div>
-                    )}
-
                     <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:p-7">
                         <div className="inline-flex items-center gap-2 rounded-full border border-[var(--brand-accent)]/40 bg-[var(--brand-accent)]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--brand-primary)]">
                             <Sparkles size={14} />
@@ -1397,6 +1445,7 @@ export function WB1V3Runtime() {
                                     workbookId={workbookId}
                                     onAutofill={handleGroupAutofill}
                                     autofillBusyGroupId={autofillBusyGroupId}
+                                    autofillStatusByGroupId={autofillStatusByGroupId}
                                 />
                             </div>
                         )}
