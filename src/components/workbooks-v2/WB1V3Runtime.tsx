@@ -772,7 +772,7 @@ function downloadHtml(values: Record<string, WB1FieldValue>) {
 
 export function WB1V3Runtime() {
     const searchParams = useSearchParams()
-    const { currentRole } = useUser()
+    const { currentRole, currentUser } = useUser()
     const workbookId = searchParams.get('workbookId')?.trim() || 'preview'
     const isElevated = !!currentRole && ELEVATED_ROLES.has(currentRole)
 
@@ -956,11 +956,23 @@ export function WB1V3Runtime() {
                     </button>
                     <button
                         type="button"
-                        className={WORKBOOK_V2_EDITORIAL.classes.htmlButton}
-                        onClick={() => downloadHtml(values)}
+                        className={WORKBOOK_V2_EDITORIAL.classes.pdfButton}
+                        onClick={async () => {
+                            const { downloadWb1Pdf } = await import('@/components/workbooks-v2/wb1-pdf-export')
+                            await downloadWb1Pdf(values, currentUser?.name ?? 'Líder 4Shine')
+                        }}
                     >
-                        <Download size={14} /> Descargar HTML
+                        <Download size={14} /> Descargar PDF
                     </button>
+                    {isElevated && (
+                        <button
+                            type="button"
+                            className={WORKBOOK_V2_EDITORIAL.classes.htmlButton}
+                            onClick={() => downloadHtml(values)}
+                        >
+                            <Download size={14} /> HTML
+                        </button>
+                    )}
                     {isElevated && (
                         <button
                             type="button"

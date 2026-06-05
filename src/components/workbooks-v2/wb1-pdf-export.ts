@@ -1,0 +1,230 @@
+'use client'
+
+import type { jsPDF } from 'jspdf'
+import { WB1_V3_CONFIG, type WB1Field, type WB1Group, type WB1Section } from '@/lib/workbooks-v2-wb1'
+
+const PAGE_W = 210
+const PAGE_H = 297
+const MARGIN = 18
+const CONTENT_W = PAGE_W - MARGIN * 2
+
+type WB1ValueShape = {
+    text: string
+    audioUrl?: string
+    audioDurationMs?: number
+    aiGenerated?: boolean
+}
+
+type WriterCtx = {
+    pdf: jsPDF
+    y: number
+}
+
+function sanitizeName(value: string): string {
+    return value
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .replace(/[^a-zA-Z0-9\s]/g, '')
+        .trim()
+        .replace(/\s+/g, '_')
+}
+
+function newPage(ctx: WriterCtx) {
+    ctx.pdf.addPage()
+    ctx.y = MARGIN
+}
+
+function ensureSpace(ctx: WriterCtx, required: number) {
+    if (ctx.y + required > PAGE_H - MARGIN) newPage(ctx)
+}
+
+function writeParagraph(ctx: WriterCtx, text: string, options?: { size?: number; bold?: boolean; color?: [number, number, number]; gap?: number }) {
+    if (!text) return
+    const size = options?.size ?? 10
+    const bold = options?.bold ?? false
+    const color = options?.color ?? [30, 41, 59]
+    const gap = options?.gap ?? 2
+
+    ctx.pdf.setFont('helvetica', bold ? 'bold' : 'normal')
+    ctx.pdf.setFontSize(size)
+    ctx.pdf.setTextColor(color[0], color[1], color[2])
+
+    const lines = ctx.pdf.splitTextToSize(text, CONTENT_W) as string[]
+    const lineHeight = size * 0.45 + 0.5
+
+    for (const line of lines) {
+        ensureSpace(ctx, lineHeight)
+        ctx.pdf.text(line, MARGIN, ctx.y)
+        ctx.y += lineHeight
+    }
+    ctx.y += gap
+}
+
+function writeFieldCard(ctx: WriterCtx, field: WB1Field, value: WB1ValueShape | undefined) {
+    const text = value?.text?.trim()
+    if (!text) return
+
+    ctx.pdf.setFont('helvetica', 'bold')
+    ctx.pdf.setFontSize(10)
+    ctx.pdf.setTextColor(15, 23, 42)
+    const labelLines = ctx.pdf.splitTextToSize(field.label, CONTENT_W - 6) as string[]
+    ensureSpace(ctx, labelLines.length * 4.6 + 2)
+    for (const line of labelLines) {
+        ctx.pdf.text(line, MARGIN + 2, ctx.y)
+        ctx.y += 4.6
+    }
+
+    const meta: string[] = []
+    if (value?.audioUrl) {
+        const seconds = value.audioDurationMs ? Math.round(value.audioDurationMs / 1000) : 0
+        meta.push(seconds > 0 ? `Audio adjunto · ${Math.floor(seconds / 60)}:${(seconds % 60).toString().padStart(2, '0')}` : 'Audio adjunto')
+    }
+    if (value?.aiGenerated) meta.push('Sugerencia IA')
+
+    if (meta.length > 0) {
+        ctx.pdf.setFont('helvetica', 'italic')
+        ctx.pdf.setFontSize(8)
+        ctx.pdf.setTextColor(100, 116, 139)
+        ctx.pdf.text(meta.join(' · '), MARGIN + 2, ctx.y)
+        ctx.y += 4
+    }
+
+    ctx.pdf.setFont('helvetica', 'normal')
+    ctx.pdf.setFontSize(10)
+    ctx.pdf.setTextColor(30, 41, 59)
+    const bodyLines = ctx.pdf.splitTextToSize(text, CONTENT_W - 6) as string[]
+    for (const line of bodyLines) {
+        ensureSpace(ctx, 4.6)
+        ctx.pdf.text(line, MARGIN + 2, ctx.y)
+        ctx.y += 4.6
+    }
+
+    ctx.y += 3
+    ctx.pdf.setDrawColor(220, 226, 234)
+    ctx.pdf.setLineWidth(0.2)
+    ctx.pdf.line(MARGIN + 2, ctx.y, MARGIN + CONTENT_W - 2, ctx.y)
+    ctx.y += 3
+}
+
+function writeGroup(ctx: WriterCtx, group: WB1Group, values: Record<string, WB1ValueShape>) {
+    const hasAny = group.fields.some((field) => values[field.id]?.text?.trim())
+    if (!hasAny) return
+
+    if (group.title) {
+        ensureSpace(ctx, 8)
+        writeParagraph(ctx, group.title, { size: 12, bold: true, color: [15, 23, 42], gap: 1 })
+    }
+    if (group.description) {
+        writeParagraph(ctx, group.description, { size: 9, color: [100, 116, 139], gap: 2 })
+    }
+
+    for (const field of group.fields) {
+        writeFieldCard(ctx, field, values[field.id])
+    }
+    ctx.y += 2
+}
+
+function writeSection(ctx: WriterCtx, section: WB1Section, values: Record<string, WB1ValueShape>) {
+    newPage(ctx)
+
+    writeParagraph(ctx, section.label, { size: 18, bold: true, color: [13, 27, 42], gap: 3 })
+    if (section.purpose) {
+        writeParagraph(ctx, section.purpose, { size: 10, color: [71, 85, 105], gap: 4 })
+    }
+
+    if (section.concepts && section.concepts.length > 0) {
+        writeParagraph(ctx, 'Conceptos eje', { size: 9, bold: true, color: [148, 113, 0], gap: 1 })
+        for (const concept of section.concepts) {
+            writeParagraph(ctx, `• ${concept}`, { size: 9, color: [71, 85, 105], gap: 0 })
+        }
+        ctx.y += 2
+    }
+
+    if (section.prompts && section.prompts.length > 0) {
+        writeParagraph(ctx, 'Claves de trabajo', { size: 9, bold: true, color: [148, 113, 0], gap: 1 })
+        for (const prompt of section.prompts) {
+            writeParagraph(ctx, `• ${prompt}`, { size: 9, color: [71, 85, 105], gap: 0 })
+        }
+        ctx.y += 2
+    }
+
+    for (const group of section.groups) {
+        writeGroup(ctx, group, values)
+    }
+}
+
+export async function downloadWb1Pdf(values: Record<string, WB1ValueShape>, leaderName: string) {
+    const { jsPDF } = await import('jspdf')
+    const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' })
+    const ctx: WriterCtx = { pdf, y: MARGIN }
+
+    // Portada
+    ctx.pdf.setFillColor(13, 27, 42)
+    ctx.pdf.rect(0, 0, PAGE_W, 80, 'F')
+
+    ctx.pdf.setFont('helvetica', 'bold')
+    ctx.pdf.setFontSize(11)
+    ctx.pdf.setTextColor(212, 175, 55)
+    ctx.pdf.text(`${WB1_V3_CONFIG.code} ${WB1_V3_CONFIG.version} · ${WB1_V3_CONFIG.pillar}`, MARGIN, 30)
+
+    ctx.pdf.setFont('helvetica', 'bold')
+    ctx.pdf.setFontSize(22)
+    ctx.pdf.setTextColor(255, 255, 255)
+    const titleLines = ctx.pdf.splitTextToSize(WB1_V3_CONFIG.title, CONTENT_W) as string[]
+    let cursorY = 42
+    for (const line of titleLines) {
+        ctx.pdf.text(line, MARGIN, cursorY)
+        cursorY += 9
+    }
+
+    ctx.pdf.setFont('helvetica', 'normal')
+    ctx.pdf.setFontSize(10)
+    ctx.pdf.setTextColor(226, 232, 240)
+    const subtitleLines = ctx.pdf.splitTextToSize(WB1_V3_CONFIG.summary, CONTENT_W) as string[]
+    for (const line of subtitleLines) {
+        if (cursorY > 76) break
+        ctx.pdf.text(line, MARGIN, cursorY)
+        cursorY += 5
+    }
+
+    ctx.y = 100
+    writeParagraph(ctx, `Líder: ${leaderName}`, { size: 11, bold: true, color: [15, 23, 42], gap: 1 })
+    writeParagraph(ctx, `Fecha de exportación: ${new Date().toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' })}`, { size: 9, color: [100, 116, 139], gap: 6 })
+
+    writeParagraph(ctx, 'Objetivo', { size: 12, bold: true, color: [13, 27, 42], gap: 1 })
+    writeParagraph(ctx, WB1_V3_CONFIG.objective, { size: 10, color: [30, 41, 59], gap: 4 })
+
+    writeParagraph(ctx, 'Entregables del workbook', { size: 12, bold: true, color: [13, 27, 42], gap: 1 })
+    for (const deliverable of WB1_V3_CONFIG.deliverables) {
+        writeParagraph(ctx, `• ${deliverable}`, { size: 10, color: [30, 41, 59], gap: 0 })
+    }
+    ctx.y += 4
+
+    writeParagraph(ctx, 'Competencias 4Shine', { size: 12, bold: true, color: [13, 27, 42], gap: 1 })
+    writeParagraph(ctx, WB1_V3_CONFIG.competencies.join(' · '), { size: 10, color: [30, 41, 59], gap: 4 })
+
+    for (const section of WB1_V3_CONFIG.sections) {
+        writeSection(ctx, section, values)
+    }
+
+    // Cierre
+    newPage(ctx)
+    writeParagraph(ctx, 'Cierre reflexivo', { size: 16, bold: true, color: [13, 27, 42], gap: 3 })
+    writeParagraph(ctx, WB1_V3_CONFIG.closing, { size: 10, color: [30, 41, 59], gap: 4 })
+
+    // Pie en cada página
+    const totalPages = pdf.getNumberOfPages()
+    for (let i = 1; i <= totalPages; i++) {
+        pdf.setPage(i)
+        pdf.setFont('helvetica', 'normal')
+        pdf.setFontSize(8)
+        pdf.setTextColor(148, 163, 184)
+        pdf.text(
+            `${WB1_V3_CONFIG.code} · ${sanitizeName(leaderName).replaceAll('_', ' ')} · página ${i}/${totalPages}`,
+            MARGIN,
+            PAGE_H - 8,
+        )
+    }
+
+    pdf.save(`WB1_${sanitizeName(leaderName) || 'lider'}.pdf`)
+}

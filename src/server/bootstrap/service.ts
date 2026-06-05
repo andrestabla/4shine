@@ -590,6 +590,7 @@ async function fetchMentees(client: PoolClient, userMap: Map<string, number>): P
 
     return {
       id: userMap.get(row.user_id) ?? 0,
+      userId: row.user_id,
       name: row.name,
       company: row.company ?? '4Shine',
       progress,

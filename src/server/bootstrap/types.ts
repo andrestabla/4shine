@@ -74,6 +74,7 @@ export interface Mentor {
 
 export interface Mentee {
   id: number;
+  userId: string;
   name: string;
   company: string;
   progress: number;
