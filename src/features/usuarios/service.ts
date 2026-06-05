@@ -41,6 +41,11 @@ export interface UserRecord {
   subscriptionPlanId: string | null;
   subscriptionPlanCode: string | null;
   subscriptionPlanName: string | null;
+  subscriptionPlanGroup: string | null;
+  subscriptionPlanHighlightLabel: string | null;
+  subscriptionPlanPriceAmount: number | null;
+  subscriptionPlanCurrencyCode: string | null;
+  subscriptionExpiresAt: string | null;
   seniorityLevel: SeniorityLevel | null;
   bio: string | null;
   location: string | null;
@@ -206,6 +211,11 @@ interface UserRow {
   subscription_plan_id: string | null;
   subscription_plan_code: string | null;
   subscription_plan_name: string | null;
+  subscription_plan_group: string | null;
+  subscription_plan_highlight_label: string | null;
+  subscription_plan_price_amount: string | number | null;
+  subscription_plan_currency_code: string | null;
+  subscription_expires_at: string | null;
   seniority_level: SeniorityLevel | null;
   bio: string | null;
   location: string | null;
@@ -461,6 +471,11 @@ const BASE_SELECT = `
     p.subscription_plan_id::text AS subscription_plan_id,
     sp.plan_code AS subscription_plan_code,
     sp.name AS subscription_plan_name,
+    sp.plan_group::text AS subscription_plan_group,
+    sp.highlight_label AS subscription_plan_highlight_label,
+    sp.price_amount AS subscription_plan_price_amount,
+    sp.currency_code AS subscription_plan_currency_code,
+    p.subscription_expires_at::text AS subscription_expires_at,
     p.seniority_level,
     p.bio,
     p.location,
@@ -508,6 +523,14 @@ function mapUser(row: UserRow): UserRecord {
     subscriptionPlanId: row.subscription_plan_id,
     subscriptionPlanCode: row.subscription_plan_code,
     subscriptionPlanName: row.subscription_plan_name,
+    subscriptionPlanGroup: row.subscription_plan_group,
+    subscriptionPlanHighlightLabel: row.subscription_plan_highlight_label,
+    subscriptionPlanPriceAmount:
+      row.subscription_plan_price_amount === null || row.subscription_plan_price_amount === undefined
+        ? null
+        : Number(row.subscription_plan_price_amount),
+    subscriptionPlanCurrencyCode: row.subscription_plan_currency_code,
+    subscriptionExpiresAt: row.subscription_expires_at,
     seniorityLevel: row.seniority_level,
     bio: row.bio,
     location: row.location,

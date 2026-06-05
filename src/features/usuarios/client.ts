@@ -27,6 +27,11 @@ export interface UserRecord {
   subscriptionPlanId: string | null;
   subscriptionPlanCode: string | null;
   subscriptionPlanName: string | null;
+  subscriptionPlanGroup: string | null;
+  subscriptionPlanHighlightLabel: string | null;
+  subscriptionPlanPriceAmount: number | null;
+  subscriptionPlanCurrencyCode: string | null;
+  subscriptionExpiresAt: string | null;
   country: string | null;
   jobRole: JobRole | null;
   gender: string | null;

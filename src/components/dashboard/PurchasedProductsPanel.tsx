@@ -1,13 +1,25 @@
 "use client";
 
 import React from "react";
-import { Package } from "lucide-react";
+import { Package, Sparkles, Shield, CalendarClock, Info } from "lucide-react";
 import type { UserPurchaseRecord } from "@/features/access/types";
+
+export interface ActivePlanSummary {
+  planId: string;
+  planCode: string;
+  planGroup: string | null;
+  name: string;
+  highlightLabel: string | null;
+  priceAmount: number | null;
+  currencyCode: string | null;
+  expiresAt: string | null;
+}
 
 interface PurchasedProductsPanelProps {
   purchases: UserPurchaseRecord[];
   primaryRole: string;
   planType: string | null;
+  activePlan?: ActivePlanSummary | null;
   emptyHint?: string;
 }
 
@@ -24,10 +36,18 @@ function productGroupLabel(group: UserPurchaseRecord["productGroup"]): string {
   }
 }
 
-function userTypeSummary(role: string, planType: string | null): {
-  label: string;
-  detail: string;
-} {
+function planGroupLabel(group: string | null): string {
+  if (group === "program") return "Programa";
+  if (group === "circulo") return "Círculo";
+  if (group === "custom") return "Personalizado";
+  return "Plan";
+}
+
+function userTypeSummary(
+  role: string,
+  planType: string | null,
+  activePlanName: string | null,
+): { label: string; detail: string } {
   if (role === "invitado") {
     return {
       label: "Invitado",
@@ -35,18 +55,24 @@ function userTypeSummary(role: string, planType: string | null): {
     };
   }
   if (role === "lider") {
+    if (activePlanName) {
+      return {
+        label: "Líder con suscripción",
+        detail: `Plan activo: ${activePlanName}. El acceso a cada módulo se rige por las directivas configuradas para este plan en /administracion/planes.`,
+      };
+    }
     const isSubscribed =
       planType === "premium" || planType === "vip" || planType === "empresa_elite";
     if (isSubscribed) {
       return {
         label: "Líder con suscripción",
-        detail: "Acceso al programa completo según el plan asignado.",
+        detail: "Acceso al programa completo según el plan legacy asignado.",
       };
     }
     return {
       label: "Líder sin suscripción",
       detail:
-        "Sin plan de programa activo. Acceso limitado a los productos puntuales contratados (ver lista abajo).",
+        "Sin plan de programa activo. El acceso se limita a los productos puntuales contratados que aparecen abajo.",
     };
   }
   if (role === "mentor") {
@@ -61,11 +87,11 @@ function userTypeSummary(role: string, planType: string | null): {
   return { label: role, detail: "" };
 }
 
-function formatMoney(amount: number, currency: string): string {
-  if (!Number.isFinite(amount)) return "—";
+function formatMoney(amount: number | null, currency: string | null): string {
+  if (amount === null || !Number.isFinite(amount)) return "—";
   return new Intl.NumberFormat("es-CO", {
     style: "currency",
-    currency: currency || "USD",
+    currency: (currency ?? "USD").toUpperCase(),
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(amount);
@@ -86,9 +112,10 @@ export function PurchasedProductsPanel({
   purchases,
   primaryRole,
   planType,
+  activePlan,
   emptyHint,
 }: PurchasedProductsPanelProps) {
-  const summary = userTypeSummary(primaryRole, planType);
+  const summary = userTypeSummary(primaryRole, planType, activePlan?.name ?? null);
 
   return (
     <section className="app-panel p-5">
@@ -111,14 +138,62 @@ export function PurchasedProductsPanel({
         )}
       </div>
 
+      {activePlan && (
+        <div className="mt-4 overflow-hidden rounded-[14px] border border-[var(--brand-primary)]/30 bg-gradient-to-br from-[var(--brand-primary)]/5 via-white to-[var(--brand-accent)]/10 p-4 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1 rounded-full bg-[var(--brand-primary)] px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-white">
+                  <Sparkles size={11} />
+                  Plan activo
+                </span>
+                {activePlan.highlightLabel && (
+                  <span className="rounded-full bg-[var(--brand-accent)]/25 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-[var(--brand-primary)]">
+                    {activePlan.highlightLabel}
+                  </span>
+                )}
+                <span className="rounded-full bg-white px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-[var(--app-muted)] ring-1 ring-[var(--app-border)]">
+                  {planGroupLabel(activePlan.planGroup)}
+                </span>
+              </div>
+              <p className="mt-2 text-base font-extrabold text-[var(--app-ink)]">
+                {activePlan.name}
+              </p>
+              <p className="mt-0.5 text-[11px] text-[var(--app-muted)]">
+                Código: <code className="font-mono">{activePlan.planCode}</code>
+              </p>
+              {activePlan.expiresAt && (
+                <p className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[var(--brand-primary)]">
+                  <CalendarClock size={12} />
+                  Vigente hasta {formatDate(activePlan.expiresAt)}
+                </p>
+              )}
+            </div>
+            <div className="text-right">
+              <p className="text-lg font-extrabold text-[var(--brand-primary)]">
+                {formatMoney(activePlan.priceAmount, activePlan.currencyCode)}
+              </p>
+              <p className="text-[10px] uppercase tracking-wider text-[var(--app-muted)]">
+                Precio del plan
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="mt-4">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--app-muted)]">
-          Productos activos ({purchases.length})
+        <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.18em] text-[var(--app-muted)]">
+          <Shield size={12} />
+          Productos contratados anteriormente ({purchases.length})
+        </p>
+        <p className="mt-1 text-[11px] text-[var(--app-muted)]">
+          Lo que el usuario ya compró se conserva como acceso permanente, aunque el plan
+          actual no incluya ese módulo.
         </p>
 
         {purchases.length === 0 ? (
           <p className="mt-2 rounded-[10px] border border-dashed border-[var(--app-border)] p-3 text-xs text-[var(--app-muted)]">
-            {emptyHint ?? "Aún no hay productos contratados."}
+            {emptyHint ?? "Sin productos contratados aún."}
           </p>
         ) : (
           <ul className="mt-2 space-y-2">
@@ -164,6 +239,14 @@ export function PurchasedProductsPanel({
               </li>
             ))}
           </ul>
+        )}
+
+        {activePlan && purchases.length > 0 && (
+          <p className="mt-3 inline-flex items-start gap-1.5 rounded-[10px] border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
+            <Info size={12} className="mt-0.5 shrink-0" />
+            El acceso efectivo del usuario es la unión entre lo que habilita su plan
+            actual y los productos contratados que ya posee.
+          </p>
         )}
       </div>
     </section>

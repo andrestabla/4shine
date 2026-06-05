@@ -709,6 +709,20 @@ export default function UsuarioDetallePage() {
             purchases={detail.purchases}
             primaryRole={detail.primaryRole}
             planType={detail.planType}
+            activePlan={
+              detail.subscriptionPlanId
+                ? {
+                    planId: detail.subscriptionPlanId,
+                    planCode: detail.subscriptionPlanCode ?? '',
+                    planGroup: detail.subscriptionPlanGroup,
+                    name: detail.subscriptionPlanName ?? detail.subscriptionPlanCode ?? '',
+                    highlightLabel: detail.subscriptionPlanHighlightLabel,
+                    priceAmount: detail.subscriptionPlanPriceAmount,
+                    currencyCode: detail.subscriptionPlanCurrencyCode,
+                    expiresAt: detail.subscriptionExpiresAt,
+                  }
+                : null
+            }
             emptyHint={
               detail.primaryRole === 'invitado'
                 ? 'Aún no se ha registrado la compra de Descubrimiento. Se creará automáticamente al primer login del invitado.'

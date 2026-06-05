@@ -31,6 +31,14 @@ export interface MyProfileRecord {
   profession: string | null;
   industry: string | null;
   planType: PlanType | null;
+  subscriptionPlanId: string | null;
+  subscriptionPlanCode: string | null;
+  subscriptionPlanName: string | null;
+  subscriptionPlanGroup: string | null;
+  subscriptionPlanHighlightLabel: string | null;
+  subscriptionPlanPriceAmount: number | null;
+  subscriptionPlanCurrencyCode: string | null;
+  subscriptionExpiresAt: string | null;
   seniorityLevel: string | null;
   bio: string | null;
   location: string | null;

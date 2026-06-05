@@ -651,6 +651,20 @@ export default function PerfilPage() {
             purchases={profile.purchases}
             primaryRole={currentUser?.role ?? 'lider'}
             planType={profile.planType}
+            activePlan={
+              profile.subscriptionPlanId
+                ? {
+                    planId: profile.subscriptionPlanId,
+                    planCode: profile.subscriptionPlanCode ?? '',
+                    planGroup: profile.subscriptionPlanGroup,
+                    name: profile.subscriptionPlanName ?? profile.subscriptionPlanCode ?? '',
+                    highlightLabel: profile.subscriptionPlanHighlightLabel,
+                    priceAmount: profile.subscriptionPlanPriceAmount,
+                    currencyCode: profile.subscriptionPlanCurrencyCode,
+                    expiresAt: profile.subscriptionExpiresAt,
+                  }
+                : null
+            }
             emptyHint="Aún no has contratado ningún producto. Visita la sección de planes y precios para activar tu acceso."
           />
 

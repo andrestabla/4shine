@@ -38,6 +38,14 @@ export interface MyProfileRecord {
   profession: string | null;
   industry: string | null;
   planType: PlanType | null;
+  subscriptionPlanId: string | null;
+  subscriptionPlanCode: string | null;
+  subscriptionPlanName: string | null;
+  subscriptionPlanGroup: string | null;
+  subscriptionPlanHighlightLabel: string | null;
+  subscriptionPlanPriceAmount: number | null;
+  subscriptionPlanCurrencyCode: string | null;
+  subscriptionExpiresAt: string | null;
   seniorityLevel: SeniorityLevel | null;
   bio: string | null;
   location: string | null;
@@ -118,6 +126,14 @@ interface ProfileRow {
   profession: string | null;
   industry: string | null;
   plan_type: PlanType | null;
+  subscription_plan_id: string | null;
+  subscription_plan_code: string | null;
+  subscription_plan_name: string | null;
+  subscription_plan_group: string | null;
+  subscription_plan_highlight_label: string | null;
+  subscription_plan_price_amount: string | number | null;
+  subscription_plan_currency_code: string | null;
+  subscription_expires_at: string | null;
   seniority_level: SeniorityLevel | null;
   bio: string | null;
   location: string | null;
@@ -348,6 +364,17 @@ function mapProfile(
     profession: row.profession,
     industry: row.industry,
     planType: row.plan_type,
+    subscriptionPlanId: row.subscription_plan_id,
+    subscriptionPlanCode: row.subscription_plan_code,
+    subscriptionPlanName: row.subscription_plan_name,
+    subscriptionPlanGroup: row.subscription_plan_group,
+    subscriptionPlanHighlightLabel: row.subscription_plan_highlight_label,
+    subscriptionPlanPriceAmount:
+      row.subscription_plan_price_amount === null || row.subscription_plan_price_amount === undefined
+        ? null
+        : Number(row.subscription_plan_price_amount),
+    subscriptionPlanCurrencyCode: row.subscription_plan_currency_code,
+    subscriptionExpiresAt: row.subscription_expires_at,
     seniorityLevel: row.seniority_level,
     bio: row.bio,
     location: row.location,
@@ -383,6 +410,14 @@ async function getProfileRow(client: PoolClient, userId: string): Promise<Profil
         up.profession,
         up.industry,
         up.plan_type,
+        up.subscription_plan_id::text AS subscription_plan_id,
+        sp.plan_code AS subscription_plan_code,
+        sp.name AS subscription_plan_name,
+        sp.plan_group::text AS subscription_plan_group,
+        sp.highlight_label AS subscription_plan_highlight_label,
+        sp.price_amount AS subscription_plan_price_amount,
+        sp.currency_code AS subscription_plan_currency_code,
+        up.subscription_expires_at::text AS subscription_expires_at,
         up.seniority_level,
         up.bio,
         up.location,
@@ -398,6 +433,7 @@ async function getProfileRow(client: PoolClient, userId: string): Promise<Profil
       FROM app_core.users u
       LEFT JOIN app_core.organizations o ON o.organization_id = u.organization_id
       LEFT JOIN app_core.user_profiles up ON up.user_id = u.user_id
+      LEFT JOIN app_billing.subscription_plans sp ON sp.plan_id = up.subscription_plan_id
       WHERE u.user_id = $1
       LIMIT 1
     `,
