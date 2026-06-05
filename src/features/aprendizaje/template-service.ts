@@ -3,6 +3,7 @@ import { ForbiddenError, requireModulePermission } from '@/server/auth/module-pe
 import type { AuthUser } from '@/server/auth/types';
 import { WB1_V3_CONFIG, type WB1Config } from '@/lib/workbooks-v2-wb1';
 import { WB2_V3_CONFIG } from '@/lib/workbooks-v2-wb2';
+import { WB3_V3_CONFIG } from '@/lib/workbooks-v2-wb3';
 
 export type WorkbookTemplateContent = WB1Config;
 
@@ -43,6 +44,7 @@ function normalizeCoverConfig(raw: unknown): WorkbookCoverConfig {
 const TEMPLATE_FALLBACK_BY_CODE: Record<string, WorkbookTemplateContent> = {
     WB1: WB1_V3_CONFIG,
     WB2: WB2_V3_CONFIG,
+    WB3: WB3_V3_CONFIG,
 };
 
 const EDITABLE_ROLES = new Set<AuthUser['role']>(['admin', 'gestor']);

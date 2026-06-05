@@ -39,9 +39,9 @@ export const WORKBOOKS_V2_CATALOG: WorkbookV2CatalogItem[] = [
         code: 'WB3',
         title: 'Propósito y valores no negociables',
         pillar: 'Shine Within',
-        statusLabel: 'Edición premium activa',
+        statusLabel: 'V3 — escritura, voz e IA',
         progress: 100,
-        summary: 'Versión digital interactiva completa con diseño editorial estandarizado, flujo claro y cierre de evaluación.',
+        summary: 'Workbook V3 con escritura y grabación por voz en cada campo, transcripción automática y análisis IA de la sesión de trabajo (admin/gestor/adviser).',
         isImplemented: true,
     },
     {

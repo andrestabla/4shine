@@ -4,10 +4,12 @@ import { withClient, withRoleContext } from '@/server/db/pool';
 import { getIntegrationConfigForActor, type ResolvedIntegrationConfig } from '@/server/integrations/config';
 import { WB1_V3_CONFIG, type WB1Config, type WB1Section } from '@/lib/workbooks-v2-wb1';
 import { WB2_V3_CONFIG } from '@/lib/workbooks-v2-wb2';
+import { WB3_V3_CONFIG } from '@/lib/workbooks-v2-wb3';
 
 const TEMPLATE_BY_CODE: Record<string, WB1Config> = {
     WB1: WB1_V3_CONFIG,
     WB2: WB2_V3_CONFIG,
+    WB3: WB3_V3_CONFIG,
 };
 
 function resolveTemplate(templateCode: string | undefined): WB1Config {
