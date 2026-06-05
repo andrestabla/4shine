@@ -12,9 +12,9 @@ export const WORKBOOK_V2_EDITORIAL = {
         bottomNavPrev:
             'inline-flex w-full sm:w-auto justify-center items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed',
         bottomNavNext:
-            'inline-flex w-full sm:w-auto justify-center items-center gap-2 rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-semibold hover:bg-slate-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed',
+            'inline-flex w-full sm:w-auto justify-center items-center gap-2 rounded-lg bg-[var(--brand-primary)] text-white px-4 py-2 text-sm font-semibold hover:bg-[var(--brand-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-focus)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed',
         progressPill:
-            'workbook-progress-pill rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-[11px] font-semibold text-blue-700',
+            'workbook-progress-pill rounded-full border border-[var(--brand-accent)]/40 bg-[var(--brand-accent)]/10 px-3 py-1 text-[11px] font-semibold text-[var(--brand-primary)]',
         savedPill:
             'rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-700',
         exportingPill:
@@ -24,7 +24,7 @@ export const WORKBOOK_V2_EDITORIAL = {
         saveButton:
             'inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 transition-colors hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50',
         pdfButton:
-            'inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50',
+            'inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[var(--brand-primary)] px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-[var(--brand-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-focus)] disabled:cursor-not-allowed disabled:opacity-50',
         htmlButton:
             'inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50'
     },

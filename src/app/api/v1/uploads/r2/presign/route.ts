@@ -35,6 +35,20 @@ const PROFILE_CV_EXTRA_MIME_TYPES = [
   'application/msword',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ];
+const WORKBOOK_AUDIO_MIN_MAX_SIZE_MB = 25;
+const WORKBOOK_AUDIO_EXTRA_MIME_TYPES = [
+  'audio/webm',
+  'audio/webm;codecs=opus',
+  'audio/ogg',
+  'audio/ogg;codecs=opus',
+  'audio/mp4',
+  'audio/mpeg',
+  'audio/mp3',
+  'audio/wav',
+  'audio/wave',
+  'audio/x-wav',
+  'audio/x-m4a',
+];
 
 export const runtime = 'nodejs';
 
@@ -80,6 +94,9 @@ export async function POST(request: Request) {
   const isProfileCvUpload =
     moduleCodeInput === 'perfil' &&
     (fieldName === 'cv_url' || (pathPrefix?.startsWith('profiles/') && pathPrefix.includes('/cv')));
+  const isWorkbookAudioUpload =
+    moduleCodeInput === 'aprendizaje' &&
+    (fieldName === 'workbook_audio' || (pathPrefix?.startsWith('aprendizaje/workbooks/') ?? false));
 
   if (!VALID_MODULE_CODES.has(moduleCodeInput)) {
     return NextResponse.json(
@@ -128,6 +145,17 @@ export async function POST(request: Request) {
           );
           const mergedMimeTypes = Array.from(
             new Set([...config.allowedMimeTypes, ...PROFILE_CV_EXTRA_MIME_TYPES]),
+          );
+          config.maxFileSizeBytes = expandedBytes;
+          config.allowedMimeTypes = mergedMimeTypes;
+        }
+        if (isWorkbookAudioUpload) {
+          const expandedBytes = Math.max(
+            config.maxFileSizeBytes,
+            WORKBOOK_AUDIO_MIN_MAX_SIZE_MB * 1024 * 1024,
+          );
+          const mergedMimeTypes = Array.from(
+            new Set([...config.allowedMimeTypes, ...WORKBOOK_AUDIO_EXTRA_MIME_TYPES]),
           );
           config.maxFileSizeBytes = expandedBytes;
           config.allowedMimeTypes = mergedMimeTypes;
