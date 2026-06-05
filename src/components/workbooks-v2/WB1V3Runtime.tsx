@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
+    AlertTriangle,
     ArrowLeft,
     ArrowRight,
     CheckCircle2,
@@ -16,7 +17,8 @@ import {
     Square,
     Trash2,
     Upload,
-    Wand2
+    Wand2,
+    X
 } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
 import { useUser } from '@/context/UserContext'
@@ -52,8 +54,13 @@ type TranscribeResponse = {
     text: string
 }
 
+type AnalysisFieldRef = { id: string; label: string }
+
 type AnalysisResponse = {
     fields: Record<string, string>
+    filled?: AnalysisFieldRef[]
+    missing?: AnalysisFieldRef[]
+    totalRequested?: number
     notes?: string
 }
 
@@ -770,27 +777,34 @@ function SectionContent({
     )
 }
 
-function TranscriptAnalysisPanel({
+function TranscriptAnalysisModal({
     workbookId,
     onApply,
-    visible
+    onClose
 }: {
     workbookId: string
     onApply: (fields: Record<string, string>) => void
-    visible: boolean
+    onClose: () => void
 }) {
     const [transcript, setTranscript] = useState('')
     const [busy, setBusy] = useState(false)
     const [error, setError] = useState<string | null>(null)
-    const [notes, setNotes] = useState<string | null>(null)
+    const [result, setResult] = useState<AnalysisResponse | null>(null)
 
-    if (!visible) return null
+    useEffect(() => {
+        const handler = (event: KeyboardEvent) => {
+            if (event.key === 'Escape' && !busy) onClose()
+        }
+        window.addEventListener('keydown', handler)
+        return () => window.removeEventListener('keydown', handler)
+    }, [busy, onClose])
 
     async function handleAnalyze() {
         setBusy(true)
         setError(null)
+        setResult(null)
         try {
-            const result = await requestApi<AnalysisResponse>(
+            const response = await requestApi<AnalysisResponse>(
                 '/api/v1/modules/aprendizaje/workbooks/analyze-transcript',
                 {
                     method: 'POST',
@@ -799,11 +813,11 @@ function TranscriptAnalysisPanel({
                         templateCode: WB1_V3_CONFIG.code,
                         transcript: transcript.trim()
                     }),
-                    timeoutMs: 120000
+                    timeoutMs: 180000
                 }
             )
-            onApply(result.fields ?? {})
-            setNotes(result.notes ?? null)
+            onApply(response.fields ?? {})
+            setResult(response)
         } catch (err) {
             const message = err instanceof Error ? err.message : 'No se pudo analizar la transcripción.'
             setError(message)
@@ -812,38 +826,173 @@ function TranscriptAnalysisPanel({
         }
     }
 
+    const totalRequested = result?.totalRequested ?? 0
+    const filledCount = result?.filled?.length ?? 0
+    const missingCount = result?.missing?.length ?? 0
+    const successPercent =
+        totalRequested > 0 ? Math.round((filledCount / totalRequested) * 100) : 0
+
     return (
-        <section className="rounded-3xl border border-emerald-300 bg-emerald-50 p-5">
-            <div className="flex flex-wrap items-center gap-2">
-                <Sparkles size={16} className="text-emerald-700" />
-                <p className="text-sm font-semibold text-emerald-800">
-                    Modo gestor · análisis IA desde transcripción de sesión
-                </p>
+        <div
+            role="dialog"
+            aria-modal="true"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4"
+            onClick={(event) => {
+                if (event.target === event.currentTarget && !busy) onClose()
+            }}
+        >
+            <div className="relative flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
+                <header className="flex items-start justify-between gap-3 border-b border-slate-200 bg-[var(--brand-accent)]/10 px-6 py-4">
+                    <div className="flex items-start gap-3">
+                        <div className="rounded-xl bg-[var(--brand-primary)] p-2 text-white">
+                            <Sparkles size={18} />
+                        </div>
+                        <div>
+                            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--brand-primary)]">
+                                Modo adviser · WB1
+                            </p>
+                            <h2 className="mt-1 text-base font-bold text-slate-900">
+                                Completar el workbook con análisis IA
+                            </h2>
+                            <p className="mt-1 text-xs text-slate-600">
+                                Pega la transcripción literal de la sesión. La IA va a redactar un borrador editable de todos
+                                los campos de las 8 secciones del WB1 a partir de lo que el líder dijo.
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => !busy && onClose()}
+                        className="rounded-full p-1 text-slate-500 hover:bg-white hover:text-slate-800 disabled:opacity-40"
+                        disabled={busy}
+                        aria-label="Cerrar"
+                    >
+                        <X size={18} />
+                    </button>
+                </header>
+
+                <div className="flex-1 overflow-y-auto px-6 py-5">
+                    {!result ? (
+                        <>
+                            <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                                Transcripción de la sesión
+                            </label>
+                            <textarea
+                                className="mt-2 min-h-[260px] w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-[var(--brand-primary)] focus:ring-2 focus:ring-[var(--brand-focus)]"
+                                placeholder="Pega aquí la transcripción literal de la sesión (formato libre, sin marcadores especiales)…"
+                                value={transcript}
+                                onChange={(event) => setTranscript(event.target.value)}
+                                disabled={busy}
+                            />
+                            <p className="mt-2 text-xs text-slate-500">
+                                Mínimo 200 caracteres recomendados. La transcripción no se almacena: sólo se envía a OpenAI para
+                                generar los borradores. Cuanto más literal y completa, mejor el resultado.
+                            </p>
+                            {error && (
+                                <div className="mt-3 flex items-start gap-2 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
+                                    <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+                                    <span>{error}</span>
+                                </div>
+                            )}
+                        </>
+                    ) : (
+                        <div className="space-y-4">
+                            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+                                <div className="flex items-center gap-2">
+                                    <CheckCircle2 size={18} className="text-emerald-700" />
+                                    <p className="text-sm font-bold text-emerald-900">
+                                        Análisis IA completado
+                                    </p>
+                                </div>
+                                <p className="mt-1 text-xs text-emerald-900">
+                                    Se procesaron {totalRequested} campos. {filledCount} fueron completados ({successPercent}%)
+                                    y {missingCount} quedaron en blanco porque la transcripción no tenía evidencia suficiente.
+                                </p>
+                                {result.notes && (
+                                    <p className="mt-2 text-xs italic text-emerald-900">Nota IA: {result.notes}</p>
+                                )}
+                            </div>
+
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <div className="rounded-2xl border border-emerald-200 bg-white p-4">
+                                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">
+                                        Completados ({filledCount})
+                                    </p>
+                                    <ul className="mt-2 max-h-64 space-y-1 overflow-y-auto pr-1 text-xs text-slate-700">
+                                        {(result.filled ?? []).map((field) => (
+                                            <li key={field.id} className="flex items-start gap-1">
+                                                <CheckCircle2 size={12} className="mt-0.5 shrink-0 text-emerald-600" />
+                                                <span>{field.label}</span>
+                                            </li>
+                                        ))}
+                                        {(result.filled ?? []).length === 0 && (
+                                            <li className="italic text-slate-500">Ningún campo completado.</li>
+                                        )}
+                                    </ul>
+                                </div>
+                                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-amber-800">
+                                        Sin información ({missingCount})
+                                    </p>
+                                    <p className="mt-1 text-[11px] text-amber-900">
+                                        Hay que completarlos manualmente en una nueva sesión o pedirle al líder que los
+                                        responda.
+                                    </p>
+                                    <ul className="mt-2 max-h-64 space-y-1 overflow-y-auto pr-1 text-xs text-amber-900">
+                                        {(result.missing ?? []).map((field) => (
+                                            <li key={field.id} className="flex items-start gap-1">
+                                                <AlertTriangle size={12} className="mt-0.5 shrink-0 text-amber-700" />
+                                                <span>{field.label}</span>
+                                            </li>
+                                        ))}
+                                        {(result.missing ?? []).length === 0 && (
+                                            <li className="italic text-amber-700">Todos los campos quedaron cubiertos.</li>
+                                        )}
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <p className="text-xs text-slate-500">
+                                Los borradores ya están aplicados al workbook con la etiqueta <em>Sugerencia IA</em>. Cierra
+                                este informe y revísalos antes de guardar.
+                            </p>
+                        </div>
+                    )}
+                </div>
+
+                <footer className="flex flex-wrap items-center justify-end gap-2 border-t border-slate-200 bg-slate-50 px-6 py-3">
+                    {!result ? (
+                        <>
+                            <button
+                                type="button"
+                                onClick={onClose}
+                                disabled={busy}
+                                className="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleAnalyze}
+                                disabled={busy || transcript.trim().length < 20}
+                                className="inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-4 py-2 text-xs font-semibold text-white hover:bg-[var(--brand-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-focus)] disabled:opacity-50"
+                            >
+                                {busy ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                                {busy ? 'Analizando…' : 'Completar con análisis IA'}
+                            </button>
+                        </>
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="rounded-full bg-[var(--brand-primary)] px-4 py-2 text-xs font-semibold text-white hover:bg-[var(--brand-hover)]"
+                        >
+                            Cerrar y revisar borradores
+                        </button>
+                    )}
+                </footer>
             </div>
-            <p className="mt-2 text-xs text-emerald-900">
-                Pega la transcripción literal de la sesión de trabajo con el líder. La IA autocompletará los campos del WB1 con
-                contenido sugerido (que tú y el líder podrán editar). Las sugerencias aparecen marcadas como “Sugerencia IA”.
-            </p>
-            <textarea
-                className="mt-3 min-h-[140px] w-full rounded-2xl border border-emerald-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-[var(--brand-primary)] focus:ring-2 focus:ring-[var(--brand-focus)]"
-                placeholder="Pega aquí la transcripción de la sesión…"
-                value={transcript}
-                onChange={(event) => setTranscript(event.target.value)}
-            />
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-                <button
-                    type="button"
-                    onClick={handleAnalyze}
-                    disabled={busy || transcript.trim().length < 20}
-                    className="inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--brand-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-focus)] disabled:opacity-50"
-                >
-                    {busy ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-                    {busy ? 'Analizando…' : 'Analizar y autocompletar'}
-                </button>
-                {error && <span className="text-xs text-rose-700">{error}</span>}
-                {notes && <span className="text-xs text-emerald-900">{notes}</span>}
-            </div>
-        </section>
+        </div>
     )
 }
 
@@ -1093,11 +1242,11 @@ export function WB1V3Runtime() {
                     {isElevated && (
                         <button
                             type="button"
-                            onClick={() => setShowAdminPanel((current) => !current)}
+                            onClick={() => setShowAdminPanel(true)}
                             className="inline-flex items-center gap-1 rounded-full border border-[var(--brand-accent)]/40 bg-[var(--brand-accent)]/15 px-3 py-1 text-xs font-semibold text-[var(--brand-primary)] hover:bg-[var(--brand-accent)]/25 focus:outline-none focus:ring-2 focus:ring-[var(--brand-focus)]"
                         >
                             <Sparkles size={12} />
-                            {showAdminPanel ? 'Ocultar IA' : 'Análisis IA'}
+                            Completar con IA
                         </button>
                     )}
                 </div>
@@ -1148,11 +1297,13 @@ export function WB1V3Runtime() {
                 </aside>
 
                 <main className="space-y-6">
-                    <TranscriptAnalysisPanel
-                        visible={isElevated && showAdminPanel}
-                        workbookId={workbookId}
-                        onApply={applyAiFields}
-                    />
+                    {isElevated && showAdminPanel && (
+                        <TranscriptAnalysisModal
+                            workbookId={workbookId}
+                            onApply={applyAiFields}
+                            onClose={() => setShowAdminPanel(false)}
+                        />
+                    )}
                     {autofillError && (
                         <div className="rounded-2xl border border-rose-300 bg-rose-50 px-4 py-2 text-xs text-rose-700">
                             {autofillError}

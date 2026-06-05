@@ -181,11 +181,11 @@ export async function POST(request: Request) {
                     notes?: unknown;
                 };
 
-                const allowedIds = new Set(catalog.map((field) => field.id));
+                const labelById = new Map(catalog.map((field) => [field.id, field.label]));
                 const normalizedFields: Record<string, string> = {};
                 if (parsed.fields && typeof parsed.fields === 'object') {
                     for (const [id, value] of Object.entries(parsed.fields)) {
-                        if (!allowedIds.has(id)) continue;
+                        if (!labelById.has(id)) continue;
                         if (typeof value === 'string') {
                             const trimmed = value.trim();
                             if (trimmed.length > 0) {
@@ -195,8 +195,18 @@ export async function POST(request: Request) {
                     }
                 }
 
+                const filled = catalog
+                    .filter((field) => normalizedFields[field.id])
+                    .map((field) => ({ id: field.id, label: field.label }));
+                const missing = catalog
+                    .filter((field) => !normalizedFields[field.id])
+                    .map((field) => ({ id: field.id, label: field.label }));
+
                 return {
                     fields: normalizedFields,
+                    filled,
+                    missing,
+                    totalRequested: catalog.length,
                     notes: typeof parsed.notes === 'string' ? parsed.notes.slice(0, 320) : null,
                 };
             }),
