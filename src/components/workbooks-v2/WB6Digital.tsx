@@ -3533,7 +3533,7 @@ export function WB6Digital() {
         <div className={WORKBOOK_V2_EDITORIAL.classes.shell}>
             <header className={`wb6-toolbar ${WORKBOOK_V2_EDITORIAL.classes.toolbar}`}>
                 <div className={WORKBOOK_V2_EDITORIAL.classes.toolbarInner}>
-                    <Link href="/dashboard/aprendizaje" className={WORKBOOK_V2_EDITORIAL.classes.backButton}>
+                    <Link href="/dashboard/aprendizaje?tab=workbooks" className={WORKBOOK_V2_EDITORIAL.classes.backButton}>
                         <ArrowLeft size={14} />
                         Volver
                     </Link>

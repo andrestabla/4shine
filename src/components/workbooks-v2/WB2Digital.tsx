@@ -3349,7 +3349,7 @@ export function WB2Digital() {
             <header className={`wb2-toolbar ${WORKBOOK_V2_EDITORIAL.classes.toolbar}`}>
                 <div className={WORKBOOK_V2_EDITORIAL.classes.toolbarInner}>
                     <Link
-                        href="/dashboard/aprendizaje"
+                        href="/dashboard/aprendizaje?tab=workbooks"
                         className={WORKBOOK_V2_EDITORIAL.classes.backButton}
                     >
                         <ArrowLeft size={14} />
