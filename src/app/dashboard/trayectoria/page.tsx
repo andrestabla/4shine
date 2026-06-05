@@ -292,7 +292,7 @@ function challengeHref(challenge: { title: string; description: string }): strin
 }
 
 export default function TrayectoriaPage() {
-  const { currentUser, currentRole, bootstrapData, viewerAccess } = useUser();
+  const { currentUser, currentRole, bootstrapData, viewerAccess, refreshBootstrap } = useUser();
   const [isLoading, setIsLoading] = React.useState(false);
   const [loadError, setLoadError] = React.useState<string | null>(null);
   const [workbooks, setWorkbooks] = React.useState<WorkbookRecord[]>([]);
@@ -300,71 +300,129 @@ export default function TrayectoriaPage() {
     React.useState<DiscoverySessionRecord | null>(null);
   const [earnedCertificates, setEarnedCertificates] = React.useState<CourseCertificateData[]>([]);
   const [downloadingCertId, setDownloadingCertId] = React.useState<string | null>(null);
+  const [lastRefreshedAt, setLastRefreshedAt] = React.useState<string | null>(null);
 
-  React.useEffect(() => {
-    if (!currentRole || currentRole !== "lider") {
-      return;
-    }
+  const lastRefreshRef = React.useRef<number>(0);
+  const REFRESH_MIN_INTERVAL_MS = 4000;
 
-    if (viewerAccess && !viewerAccess.canAccessTrayectoria) {
-      setIsLoading(false);
-      setWorkbooks([]);
-      setDiscoverySession(null);
+  const loadJourneyData = React.useCallback(
+    async (options?: { silent?: boolean }) => {
+      if (!currentRole || currentRole !== "lider") return;
+      if (viewerAccess && !viewerAccess.canAccessTrayectoria) {
+        setIsLoading(false);
+        setWorkbooks([]);
+        setDiscoverySession(null);
+        setEarnedCertificates([]);
+        setLoadError(null);
+        return;
+      }
+
+      const now = Date.now();
+      if (options?.silent && now - lastRefreshRef.current < REFRESH_MIN_INTERVAL_MS) {
+        return;
+      }
+      lastRefreshRef.current = now;
+
+      if (!options?.silent) setIsLoading(true);
       setLoadError(null);
-      return;
-    }
 
-    let active = true;
-    setIsLoading(true);
-    setLoadError(null);
-
-    Promise.allSettled([listLearningWorkbooks(), getDiscoverySession(), listEarnedCertificates()])
-      .then(([workbooksResult, discoveryResult, certsResult]) => {
-        if (!active) return;
+      try {
+        const [workbooksResult, discoveryResult, certsResult] = await Promise.allSettled([
+          listLearningWorkbooks(),
+          getDiscoverySession(),
+          listEarnedCertificates(),
+        ]);
 
         const nextErrors: string[] = [];
 
         if (workbooksResult.status === "fulfilled") {
           setWorkbooks(workbooksResult.value);
-        } else {
+        } else if (!options?.silent) {
           setWorkbooks([]);
           nextErrors.push("No pudimos leer los workbooks de esta cuenta.");
         }
 
         if (discoveryResult.status === "fulfilled") {
           setDiscoverySession(discoveryResult.value);
-        } else {
+        } else if (!options?.silent) {
           setDiscoverySession(null);
         }
 
         if (certsResult.status === "fulfilled") {
           setEarnedCertificates(certsResult.value);
-        } else {
+        } else if (!options?.silent) {
           setEarnedCertificates([]);
         }
 
         if (nextErrors.length > 0) {
           setLoadError(nextErrors.join(" "));
         }
-      })
-      .catch((error) => {
-        if (!active) return;
-        setLoadError(
-          error instanceof Error
-            ? error.message
-            : "No pudimos cargar la trayectoria en este momento.",
-        );
-      })
-      .finally(() => {
-        if (active) {
+
+        setLastRefreshedAt(new Date().toISOString());
+
+        // Refresca también bootstrap (mentees, viewerAccess) sin bloquear UI.
+        if (options?.silent) {
+          void refreshBootstrap();
+        }
+      } catch (error) {
+        if (!options?.silent) {
+          setLoadError(
+            error instanceof Error
+              ? error.message
+              : "No pudimos cargar la trayectoria en este momento.",
+          );
+        }
+      } finally {
+        if (!options?.silent) {
           setIsLoading(false);
         }
-      });
+      }
+    },
+    [currentRole, viewerAccess, refreshBootstrap],
+  );
+
+  // Carga inicial cuando cambia rol o acceso.
+  React.useEffect(() => {
+    void loadJourneyData();
+  }, [loadJourneyData]);
+
+  // Refresca en tiempo real cuando el usuario vuelve a la pestaña/ventana
+  // (la fuente de datos son workbooks y otros módulos que se editan en otras vistas).
+  React.useEffect(() => {
+    if (!currentRole || currentRole !== "lider") return;
+
+    function onVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        void loadJourneyData({ silent: true });
+      }
+    }
+    function onFocus() {
+      void loadJourneyData({ silent: true });
+    }
+    function onPageShow(event: PageTransitionEvent) {
+      if (event.persisted) {
+        void loadJourneyData({ silent: true });
+      }
+    }
+    function onStorage(event: StorageEvent) {
+      if (!event.key) return;
+      if (event.key.startsWith("workbooks-v2-") || event.key.includes("discovery")) {
+        void loadJourneyData({ silent: true });
+      }
+    }
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("pageshow", onPageShow);
+    window.addEventListener("storage", onStorage);
 
     return () => {
-      active = false;
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("pageshow", onPageShow);
+      window.removeEventListener("storage", onStorage);
     };
-  }, [currentRole, viewerAccess]);
+  }, [currentRole, loadJourneyData]);
 
   if (!currentUser || !currentRole || !bootstrapData) {
     return null;
@@ -627,7 +685,26 @@ export default function TrayectoriaPage() {
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {lastRefreshedAt && (
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-700"
+              title={`Sincronizado ${new Date(lastRefreshedAt).toLocaleString("es-CO")}`}
+            >
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+              En vivo
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => void loadJourneyData({ silent: false })}
+            disabled={isLoading}
+            className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            title="Volver a leer datos de aprendizaje, descubrimiento y certificados"
+          >
+            {isLoading ? <Loader2 size={14} className="animate-spin" /> : <ArrowRight size={14} className="rotate-[-45deg]" />}
+            Refrescar
+          </button>
           <Link
             href="/dashboard/mensajes"
             className="app-button-secondary"

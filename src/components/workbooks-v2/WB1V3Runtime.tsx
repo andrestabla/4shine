@@ -30,6 +30,7 @@ import { WORKBOOK_V2_EDITORIAL } from '@/lib/workbooks-v2-editorial'
 import type { WB1Config, WB1Field, WB1Group, WB1Section } from '@/lib/workbooks-v2-wb1'
 import { R2UploadButton } from '@/components/ui/R2UploadButton'
 import { resolveWorkbookHelp, type WorkbookHelpContent } from '@/lib/workbooks-v2-help'
+import { updateLearningWorkbook } from '@/features/aprendizaje/client'
 
 function WorkbookHelpModal({ help, onClose }: { help: WorkbookHelpContent; onClose: () => void }) {
     useEffect(() => {
@@ -1307,6 +1308,90 @@ export function WorkbookV3Runtime({ config }: { config: WB1Config }) {
 
     const { done, total } = countCompleted(config, values)
     const completionPercent = total === 0 ? 0 : Math.round((done / total) * 100)
+
+    // Autosave al servidor: empuja statePayload + completionPercent con
+    // debounce de 1500ms. Permite que Trayectoria, Líderes 360 y el index
+    // de Aprendizaje vean progreso real sin requerir un botón Guardar.
+    const lastServerPushRef = useRef<string>('')
+    const pendingPushRef = useRef<NodeJS.Timeout | null>(null)
+    const inFlightPushRef = useRef<boolean>(false)
+
+    useEffect(() => {
+        if (!hydrated) return
+        if (isTemplateView) return
+        if (!workbookId || workbookId === 'preview') return
+
+        const statePayload: Record<string, string> = {}
+        for (const [id, value] of Object.entries(values)) {
+            const text = (value.text ?? '').toString()
+            if (text.trim()) statePayload[id] = text
+        }
+        const snapshot = JSON.stringify({ p: completionPercent, s: statePayload })
+        if (snapshot === lastServerPushRef.current) return
+
+        if (pendingPushRef.current) clearTimeout(pendingPushRef.current)
+        pendingPushRef.current = setTimeout(async () => {
+            if (inFlightPushRef.current) return
+            inFlightPushRef.current = true
+            try {
+                await updateLearningWorkbook(workbookId, {
+                    completionPercent,
+                    statePayload
+                })
+                lastServerPushRef.current = snapshot
+            } catch {
+                // El error de red no debe interrumpir el trabajo del líder; se reintenta en el próximo cambio.
+            } finally {
+                inFlightPushRef.current = false
+            }
+        }, 1500)
+
+        return () => {
+            if (pendingPushRef.current) clearTimeout(pendingPushRef.current)
+        }
+    }, [hydrated, isTemplateView, workbookId, values, completionPercent])
+
+    // Flush al salir / esconder la pestaña — usa sendBeacon como red de seguridad
+    // para garantizar que el último estado quede persistido aunque el usuario
+    // cierre la pestaña o cambie de pantalla.
+    useEffect(() => {
+        if (!hydrated) return
+        if (isTemplateView || !workbookId || workbookId === 'preview') return
+
+        function flushNow() {
+            const statePayload: Record<string, string> = {}
+            for (const [id, value] of Object.entries(values)) {
+                const text = (value.text ?? '').toString()
+                if (text.trim()) statePayload[id] = text
+            }
+            const snapshot = JSON.stringify({ p: completionPercent, s: statePayload })
+            if (snapshot === lastServerPushRef.current) return
+            try {
+                const body = JSON.stringify({ completionPercent, statePayload })
+                // PATCH con keepalive sobrevive a la navegación/cierre de pestaña.
+                void fetch(`/api/v1/modules/aprendizaje/workbooks/${workbookId}`, {
+                    method: 'PATCH',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body,
+                    keepalive: true
+                })
+                lastServerPushRef.current = snapshot
+            } catch {
+                // best-effort
+            }
+        }
+
+        function onVisibility() {
+            if (document.visibilityState === 'hidden') flushNow()
+        }
+        window.addEventListener('pagehide', flushNow)
+        document.addEventListener('visibilitychange', onVisibility)
+        return () => {
+            window.removeEventListener('pagehide', flushNow)
+            document.removeEventListener('visibilitychange', onVisibility)
+        }
+    }, [hydrated, isTemplateView, workbookId, values, completionPercent])
 
     function handleFieldChange(fieldId: string, next: WB1FieldValue) {
         setValues((previous) => ({ ...previous, [fieldId]: next }))
