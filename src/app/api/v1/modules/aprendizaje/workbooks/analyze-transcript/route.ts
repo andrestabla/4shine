@@ -2,7 +2,18 @@ import { NextResponse } from 'next/server';
 import { authenticateRequest } from '@/server/auth/request-auth';
 import { withClient, withRoleContext } from '@/server/db/pool';
 import { getIntegrationConfigForActor, type ResolvedIntegrationConfig } from '@/server/integrations/config';
-import { WB1_V3_CONFIG, type WB1Section } from '@/lib/workbooks-v2-wb1';
+import { WB1_V3_CONFIG, type WB1Config, type WB1Section } from '@/lib/workbooks-v2-wb1';
+import { WB2_V3_CONFIG } from '@/lib/workbooks-v2-wb2';
+
+const TEMPLATE_BY_CODE: Record<string, WB1Config> = {
+    WB1: WB1_V3_CONFIG,
+    WB2: WB2_V3_CONFIG,
+};
+
+function resolveTemplate(templateCode: string | undefined): WB1Config {
+    const code = (templateCode ?? 'WB1').toUpperCase();
+    return TEMPLATE_BY_CODE[code] ?? WB1_V3_CONFIG;
+}
 import { errorResponse, parseJsonBody, unauthorizedResponse } from '../../../_utils';
 
 export const runtime = 'nodejs';
@@ -85,6 +96,7 @@ function tolerantJsonParse(raw: string): { fields?: Record<string, unknown>; not
 }
 
 function buildSectionPlan(
+    template: WB1Config,
     targetFields: Array<{ id?: string; label?: string }> | undefined,
 ): Array<{ section: WB1Section | null; label: string; fields: FieldRef[] }> {
     if (Array.isArray(targetFields) && targetFields.length > 0) {
@@ -96,7 +108,7 @@ function buildSectionPlan(
             }));
         return [{ section: null, label: 'Campos solicitados', fields: cleaned }];
     }
-    return WB1_V3_CONFIG.sections.map((section) => ({
+    return template.sections.map((section) => ({
         section,
         label: section.label,
         fields: section.groups.flatMap((group) =>
@@ -118,10 +130,11 @@ async function callOpenAiForSection(
     section: WB1Section | null,
     fields: FieldRef[],
     transcript: string,
+    template: WB1Config,
 ): Promise<{ fields: Record<string, string>; notes: string | null }> {
     const systemPrompt =
         mode === 'transcript'
-            ? `Eres un coach ejecutivo de 4Shine. A partir de la transcripción literal de una sesión 1:1 entre un adviser y un líder, redactas el borrador editable de la sección "${section?.label ?? ''}" del Workbook 1 (Creencias, identidad y pilares personales). Respetas las palabras del líder, no inventas hechos, y devuelves SÓLO JSON válido.`
+            ? `Eres un coach ejecutivo de 4Shine. A partir de la transcripción literal de una sesión 1:1 entre un adviser y un líder, redactas el borrador editable de la sección "${section?.label ?? ''}" del ${template.code} (${template.title}). Respetas las palabras del líder, no inventas hechos, y devuelves SÓLO JSON válido.`
             : 'Eres un coach ejecutivo de 4Shine. A partir de las respuestas previas del líder, sugieres texto conciso para los campos solicitados sin inventar hechos. Devuelves SÓLO JSON válido.';
 
     const userPrompt = {
@@ -222,7 +235,8 @@ export async function POST(request: Request) {
         );
     }
 
-    const plan = buildSectionPlan(body.targetFields);
+    const template = resolveTemplate(body.templateCode);
+    const plan = buildSectionPlan(template, body.targetFields);
     const flatCatalog: FieldRef[] = plan.flatMap((entry) => entry.fields);
 
     try {
@@ -261,6 +275,7 @@ export async function POST(request: Request) {
                             entry.section,
                             entry.fields,
                             transcript,
+                            template,
                         ).catch((err: unknown) => {
                             const message = err instanceof Error ? err.message : 'OpenAI error';
                             return {

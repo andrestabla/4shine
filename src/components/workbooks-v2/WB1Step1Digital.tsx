@@ -1,7 +1,8 @@
 'use client'
 
-import { WB1V3Runtime } from '@/components/workbooks-v2/WB1V3Runtime'
+import { WorkbookV3Runtime } from '@/components/workbooks-v2/WB1V3Runtime'
+import { WB1_V3_CONFIG } from '@/lib/workbooks-v2-wb1'
 
 export function WB1Step1Digital() {
-    return <WB1V3Runtime />
+    return <WorkbookV3Runtime config={WB1_V3_CONFIG} />
 }

@@ -1,7 +1,7 @@
 'use client'
 
 import type { jsPDF } from 'jspdf'
-import { WB1_V3_CONFIG, type WB1Field, type WB1Group, type WB1Section } from '@/lib/workbooks-v2-wb1'
+import type { WB1Config, WB1Field, WB1Group, WB1Section } from '@/lib/workbooks-v2-wb1'
 
 const PAGE_W = 210
 const PAGE_H = 297
@@ -183,7 +183,8 @@ async function loadLogoDataUrl(url: string | undefined | null): Promise<{
     }
 }
 
-export async function downloadWb1Pdf(
+export async function downloadWorkbookV3Pdf(
+    config: WB1Config,
     values: Record<string, WB1ValueShape>,
     leaderName: string,
     logoDarkUrl?: string | null,
@@ -221,12 +222,12 @@ export async function downloadWb1Pdf(
     ctx.pdf.setFont('helvetica', 'bold')
     ctx.pdf.setFontSize(11)
     ctx.pdf.setTextColor(212, 175, 55)
-    ctx.pdf.text(`${WB1_V3_CONFIG.code} ${WB1_V3_CONFIG.version} · ${WB1_V3_CONFIG.pillar}`, MARGIN, 36)
+    ctx.pdf.text(`${config.code} ${config.version} · ${config.pillar}`, MARGIN, 36)
 
     ctx.pdf.setFont('helvetica', 'bold')
     ctx.pdf.setFontSize(20)
     ctx.pdf.setTextColor(255, 255, 255)
-    const titleLines = ctx.pdf.splitTextToSize(WB1_V3_CONFIG.title, CONTENT_W) as string[]
+    const titleLines = ctx.pdf.splitTextToSize(config.title, CONTENT_W) as string[]
     let cursorY = 48
     for (const line of titleLines) {
         ctx.pdf.text(line, MARGIN, cursorY)
@@ -236,7 +237,7 @@ export async function downloadWb1Pdf(
     ctx.pdf.setFont('helvetica', 'normal')
     ctx.pdf.setFontSize(10)
     ctx.pdf.setTextColor(226, 232, 240)
-    const subtitleLines = ctx.pdf.splitTextToSize(WB1_V3_CONFIG.summary, CONTENT_W) as string[]
+    const subtitleLines = ctx.pdf.splitTextToSize(config.summary, CONTENT_W) as string[]
     for (const line of subtitleLines) {
         if (cursorY > 76) break
         ctx.pdf.text(line, MARGIN, cursorY)
@@ -248,25 +249,25 @@ export async function downloadWb1Pdf(
     writeParagraph(ctx, `Fecha de exportación: ${new Date().toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' })}`, { size: 9, color: [100, 116, 139], gap: 6 })
 
     writeParagraph(ctx, 'Objetivo', { size: 12, bold: true, color: [13, 27, 42], gap: 1 })
-    writeParagraph(ctx, WB1_V3_CONFIG.objective, { size: 10, color: [30, 41, 59], gap: 4 })
+    writeParagraph(ctx, config.objective, { size: 10, color: [30, 41, 59], gap: 4 })
 
     writeParagraph(ctx, 'Entregables del workbook', { size: 12, bold: true, color: [13, 27, 42], gap: 1 })
-    for (const deliverable of WB1_V3_CONFIG.deliverables) {
+    for (const deliverable of config.deliverables) {
         writeParagraph(ctx, `• ${deliverable}`, { size: 10, color: [30, 41, 59], gap: 0 })
     }
     ctx.y += 4
 
     writeParagraph(ctx, 'Competencias 4Shine', { size: 12, bold: true, color: [13, 27, 42], gap: 1 })
-    writeParagraph(ctx, WB1_V3_CONFIG.competencies.join(' · '), { size: 10, color: [30, 41, 59], gap: 4 })
+    writeParagraph(ctx, config.competencies.join(' · '), { size: 10, color: [30, 41, 59], gap: 4 })
 
-    for (const section of WB1_V3_CONFIG.sections) {
+    for (const section of config.sections) {
         writeSection(ctx, section, values)
     }
 
     // Cierre
     newPage(ctx)
     writeParagraph(ctx, 'Cierre reflexivo', { size: 16, bold: true, color: [13, 27, 42], gap: 3 })
-    writeParagraph(ctx, WB1_V3_CONFIG.closing, { size: 10, color: [30, 41, 59], gap: 4 })
+    writeParagraph(ctx, config.closing, { size: 10, color: [30, 41, 59], gap: 4 })
 
     // Pie en cada página
     const totalPages = pdf.getNumberOfPages()
@@ -276,7 +277,7 @@ export async function downloadWb1Pdf(
         pdf.setFontSize(8)
         pdf.setTextColor(148, 163, 184)
         pdf.text(
-            `${WB1_V3_CONFIG.code} · ${sanitizeName(leaderName).replaceAll('_', ' ')} · página ${i}/${totalPages}`,
+            `${config.code} · ${sanitizeName(leaderName).replaceAll('_', ' ')} · página ${i}/${totalPages}`,
             MARGIN,
             PAGE_H - 8,
         )

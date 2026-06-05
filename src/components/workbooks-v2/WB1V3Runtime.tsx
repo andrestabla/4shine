@@ -25,7 +25,7 @@ import { useUser } from '@/context/UserContext'
 import { useBranding } from '@/context/BrandingContext'
 import { requestApi } from '@/lib/api-client'
 import { WORKBOOK_V2_EDITORIAL } from '@/lib/workbooks-v2-editorial'
-import { WB1_V3_CONFIG, type WB1Field, type WB1Group, type WB1Section } from '@/lib/workbooks-v2-wb1'
+import type { WB1Config, WB1Field, WB1Group, WB1Section } from '@/lib/workbooks-v2-wb1'
 
 type WB1FieldValue = {
     text: string
@@ -65,7 +65,6 @@ type AnalysisResponse = {
     notes?: string
 }
 
-const STORAGE_KEY = WB1_V3_CONFIG.storageKey
 const ELEVATED_ROLES = new Set(['admin', 'gestor', 'mentor'])
 
 function parseFieldValue(raw: unknown): WB1FieldValue {
@@ -93,9 +92,9 @@ function serializeFieldValue(value: WB1FieldValue): string {
     return JSON.stringify(value)
 }
 
-function buildInitialValues() {
+function buildInitialValues(config: WB1Config) {
     const seed: Record<string, WB1FieldValue> = {}
-    for (const section of WB1_V3_CONFIG.sections) {
+    for (const section of config.sections) {
         for (const group of section.groups) {
             for (const field of group.fields) {
                 seed[field.id] = { text: '' }
@@ -105,14 +104,14 @@ function buildInitialValues() {
     return seed
 }
 
-function allFields() {
-    return WB1_V3_CONFIG.sections.flatMap((section) => section.groups).flatMap((group) => group.fields)
+function allFieldsOf(config: WB1Config) {
+    return config.sections.flatMap((section) => section.groups).flatMap((group) => group.fields)
 }
 
-function countCompleted(values: Record<string, WB1FieldValue>) {
+function countCompleted(config: WB1Config, values: Record<string, WB1FieldValue>) {
     let total = 0
     let done = 0
-    for (const field of allFields()) {
+    for (const field of allFieldsOf(config)) {
         total += 1
         const value = values[field.id]
         if (value && (value.text?.trim().length || value.audioUrl)) done += 1
@@ -797,10 +796,12 @@ function SectionContent({
 }
 
 function TranscriptAnalysisModal({
+    config,
     workbookId,
     onApply,
     onClose
 }: {
+    config: WB1Config
     workbookId: string
     onApply: (fields: Record<string, string>) => void
     onClose: () => void
@@ -829,7 +830,7 @@ function TranscriptAnalysisModal({
                     method: 'POST',
                     body: JSON.stringify({
                         workbookId,
-                        templateCode: WB1_V3_CONFIG.code,
+                        templateCode: config.code,
                         transcript: transcript.trim()
                     }),
                     timeoutMs: 180000
@@ -1023,8 +1024,8 @@ const escapeHtml = (value: string) =>
         .replaceAll('"', '&quot;')
         .replaceAll("'", '&#39;')
 
-function downloadHtml(values: Record<string, WB1FieldValue>) {
-    const sections = WB1_V3_CONFIG.sections
+function downloadHtml(config: WB1Config, values: Record<string, WB1FieldValue>) {
+    const sections = config.sections
         .map((section) => {
             const groups = section.groups
                 .map((group) => {
@@ -1044,19 +1045,20 @@ function downloadHtml(values: Record<string, WB1FieldValue>) {
         })
         .join('')
 
-    const html = `<!doctype html><html lang="es"><head><meta charset="utf-8" /><title>${escapeHtml(WB1_V3_CONFIG.code)} · ${escapeHtml(WB1_V3_CONFIG.title)}</title></head><body style="font-family:Arial,sans-serif;background:#f4f7fb;color:#0f172a;margin:0;padding:32px;"><main style="max-width:960px;margin:0 auto;background:#fff;border:1px solid #dbe4ee;border-radius:24px;padding:32px;"><div style="display:inline-flex;gap:8px;align-items:center;padding:6px 12px;border-radius:999px;background:#dbeafe;color:#1d4ed8;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;">${escapeHtml(WB1_V3_CONFIG.code)} · ${escapeHtml(WB1_V3_CONFIG.pillar)}</div><h1 style="font-size:30px;margin:18px 0 10px 0;">${escapeHtml(WB1_V3_CONFIG.title)}</h1><p style="font-size:15px;line-height:1.7;color:#334155;">${escapeHtml(WB1_V3_CONFIG.summary)}</p>${sections}</main></body></html>`
+    const html = `<!doctype html><html lang="es"><head><meta charset="utf-8" /><title>${escapeHtml(config.code)} · ${escapeHtml(config.title)}</title></head><body style="font-family:Arial,sans-serif;background:#f4f7fb;color:#0f172a;margin:0;padding:32px;"><main style="max-width:960px;margin:0 auto;background:#fff;border:1px solid #dbe4ee;border-radius:24px;padding:32px;"><div style="display:inline-flex;gap:8px;align-items:center;padding:6px 12px;border-radius:999px;background:#dbeafe;color:#1d4ed8;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;">${escapeHtml(config.code)} · ${escapeHtml(config.pillar)}</div><h1 style="font-size:30px;margin:18px 0 10px 0;">${escapeHtml(config.title)}</h1><p style="font-size:15px;line-height:1.7;color:#334155;">${escapeHtml(config.summary)}</p>${sections}</main></body></html>`
 
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const anchor = document.createElement('a')
     anchor.href = url
-    anchor.download = WB1_V3_CONFIG.downloadFileName
+    anchor.download = config.downloadFileName
     anchor.click()
     URL.revokeObjectURL(url)
 }
 
-export function WB1V3Runtime() {
+export function WorkbookV3Runtime({ config }: { config: WB1Config }) {
     const searchParams = useSearchParams()
+    const STORAGE_KEY = config.storageKey
     const { currentRole, currentUser } = useUser()
     const { branding } = useBranding()
     const workbookId = searchParams.get('workbookId')?.trim() || 'preview'
@@ -1071,17 +1073,17 @@ export function WB1V3Runtime() {
     const pages = useMemo(
         () => [
             { id: 'intro', label: 'Presentación del workbook', shortLabel: 'Intro', section: null as WB1Section | null },
-            ...WB1_V3_CONFIG.sections.map((section) => ({
+            ...config.sections.map((section) => ({
                 id: section.id,
                 label: section.label,
                 shortLabel: section.shortLabel,
                 section
             }))
         ],
-        []
+        [config.sections]
     )
 
-    const [values, setValues] = useState<Record<string, WB1FieldValue>>(() => buildInitialValues())
+    const [values, setValues] = useState<Record<string, WB1FieldValue>>(() => buildInitialValues(config))
     const [activePage, setActivePage] = useState(0)
     const [lastSavedAt, setLastSavedAt] = useState<string | null>(null)
     const [hydrated, setHydrated] = useState(false)
@@ -1099,7 +1101,7 @@ export function WB1V3Runtime() {
                 return
             }
             const parsed = JSON.parse(raw) as { values?: Record<string, unknown>; activePage?: number; lastSavedAt?: string | null }
-            const hydratedValues: Record<string, WB1FieldValue> = buildInitialValues()
+            const hydratedValues: Record<string, WB1FieldValue> = buildInitialValues(config)
             if (parsed.values && typeof parsed.values === 'object') {
                 for (const [key, raw2] of Object.entries(parsed.values)) {
                     hydratedValues[key] = parseFieldValue(raw2)
@@ -1135,9 +1137,9 @@ export function WB1V3Runtime() {
             lastSavedAt: payload.lastSavedAt
         }
         window.localStorage.setItem(STORAGE_KEY, JSON.stringify(flatPayload))
-    }, [activePage, hydrated, lastSavedAt, values])
+    }, [STORAGE_KEY, activePage, hydrated, lastSavedAt, values])
 
-    const { done, total } = countCompleted(values)
+    const { done, total } = countCompleted(config, values)
     const completionPercent = total === 0 ? 0 : Math.round((done / total) * 100)
 
     function handleFieldChange(fieldId: string, next: WB1FieldValue) {
@@ -1148,7 +1150,7 @@ export function WB1V3Runtime() {
         setAutofillBusyGroupId(group.id)
         setAutofillStatusByGroupId((current) => ({ ...current, [group.id]: null }))
         try {
-            const context = WB1_V3_CONFIG.sections
+            const context = config.sections
                 .flatMap((section) => section.groups)
                 .filter((g) => !g.aiAutofill)
                 .map((g) => {
@@ -1183,7 +1185,7 @@ export function WB1V3Runtime() {
                     method: 'POST',
                     body: JSON.stringify({
                         workbookId,
-                        templateCode: WB1_V3_CONFIG.code,
+                        templateCode: config.code,
                         transcript: context,
                         mode: 'autofill',
                         targetFields: group.fields.map((field) => ({ id: field.id, label: field.label }))
@@ -1262,9 +1264,9 @@ export function WB1V3Runtime() {
                     </Link>
                     <div className="min-w-0 flex-1 sm:mr-auto">
                         <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
-                            {WB1_V3_CONFIG.code} {WB1_V3_CONFIG.version} · {WB1_V3_CONFIG.pillar}
+                            {config.code} {config.version} · {config.pillar}
                         </p>
-                        <h1 className="mt-1 text-base font-bold text-slate-900 md:text-lg">{WB1_V3_CONFIG.title}</h1>
+                        <h1 className="mt-1 text-base font-bold text-slate-900 md:text-lg">{config.title}</h1>
                     </div>
                     <span className={`${WORKBOOK_V2_EDITORIAL.classes.progressPill} workbook-progress-pill`}>
                         {completionPercent}% completado
@@ -1286,8 +1288,9 @@ export function WB1V3Runtime() {
                         type="button"
                         className={WORKBOOK_V2_EDITORIAL.classes.pdfButton}
                         onClick={async () => {
-                            const { downloadWb1Pdf } = await import('@/components/workbooks-v2/wb1-pdf-export')
-                            await downloadWb1Pdf(
+                            const { downloadWorkbookV3Pdf } = await import('@/components/workbooks-v2/wb1-pdf-export')
+                            await downloadWorkbookV3Pdf(
+                                config,
                                 values,
                                 currentUser?.name ?? 'Líder 4Shine',
                                 branding.logoDarkUrl,
@@ -1300,7 +1303,7 @@ export function WB1V3Runtime() {
                         <button
                             type="button"
                             className={WORKBOOK_V2_EDITORIAL.classes.htmlButton}
-                            onClick={() => downloadHtml(values)}
+                            onClick={() => downloadHtml(config, values)}
                         >
                             <Download size={14} /> HTML
                         </button>
@@ -1371,12 +1374,12 @@ export function WB1V3Runtime() {
                                         Modo plantilla
                                     </p>
                                     <p className="mt-1 leading-relaxed">
-                                        Estás viendo el contenido <strong>base</strong> del {WB1_V3_CONFIG.code} {WB1_V3_CONFIG.version}. Las respuestas que escribas aquí <strong>no se guardan</strong>, son sólo previsualización. Para abrir el WB de un líder, entra desde <code>/dashboard/lideres</code>.
+                                        Estás viendo el contenido <strong>base</strong> del {config.code} {config.version}. Las respuestas que escribas aquí <strong>no se guardan</strong>, son sólo previsualización. Para abrir el WB de un líder, entra desde <code>/dashboard/lideres</code>.
                                     </p>
                                 </div>
                                 {(currentRole === 'admin' || currentRole === 'gestor') && (
                                     <a
-                                        href={`/dashboard/aprendizaje/workbooks/${WB1_V3_CONFIG.code.toLowerCase()}/editar`}
+                                        href={`/dashboard/aprendizaje/workbooks/${config.code.toLowerCase()}/editar`}
                                         className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[var(--brand-primary)] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[var(--brand-hover)]"
                                     >
                                         Editar plantilla
@@ -1387,6 +1390,7 @@ export function WB1V3Runtime() {
                     )}
                     {isElevated && showAdminPanel && !isTemplateView && (
                         <TranscriptAnalysisModal
+                            config={config}
                             workbookId={workbookId}
                             onApply={applyAiFields}
                             onClose={() => setShowAdminPanel(false)}
@@ -1401,9 +1405,9 @@ export function WB1V3Runtime() {
                         {!currentPage.section ? (
                             <div className="mt-5 space-y-6">
                                 <div>
-                                    <h2 className="text-3xl font-extrabold tracking-tight text-slate-900">{WB1_V3_CONFIG.title}</h2>
+                                    <h2 className="text-3xl font-extrabold tracking-tight text-slate-900">{config.title}</h2>
                                     <p className="mt-3 max-w-4xl text-base leading-relaxed text-slate-600">
-                                        {WB1_V3_CONFIG.summary}
+                                        {config.summary}
                                     </p>
                                 </div>
                                 <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
@@ -1411,7 +1415,7 @@ export function WB1V3Runtime() {
                                         Presentación
                                     </p>
                                     <p className="mt-3 text-sm leading-relaxed text-slate-700">
-                                        {WB1_V3_CONFIG.introduction}
+                                        {config.introduction}
                                     </p>
                                 </div>
                                 <div className="grid gap-4 md:grid-cols-2">
@@ -1420,7 +1424,7 @@ export function WB1V3Runtime() {
                                             Al finalizar tendrás
                                         </p>
                                         <ul className="mt-3 space-y-2 text-sm text-slate-700">
-                                            {WB1_V3_CONFIG.deliverables.map((item) => (
+                                            {config.deliverables.map((item) => (
                                                 <li key={item}>• {item}</li>
                                             ))}
                                         </ul>
@@ -1430,7 +1434,7 @@ export function WB1V3Runtime() {
                                             Competencias 4Shine
                                         </p>
                                         <ul className="mt-3 space-y-2 text-sm text-slate-700">
-                                            {WB1_V3_CONFIG.competencies.map((item) => (
+                                            {config.competencies.map((item) => (
                                                 <li key={item}>• {item}</li>
                                             ))}
                                         </ul>
@@ -1441,7 +1445,7 @@ export function WB1V3Runtime() {
                                         Conductas observables asociadas
                                     </p>
                                     <ul className="mt-3 space-y-2 text-sm text-slate-700">
-                                        {WB1_V3_CONFIG.observableBehaviours.map((item) => (
+                                        {config.observableBehaviours.map((item) => (
                                             <li key={item}>• {item}</li>
                                         ))}
                                     </ul>
@@ -1451,7 +1455,7 @@ export function WB1V3Runtime() {
                                         Reglas de oro
                                     </p>
                                     <ul className="mt-3 space-y-2 text-sm text-amber-900">
-                                        {WB1_V3_CONFIG.rules.map((rule) => (
+                                        {config.rules.map((rule) => (
                                             <li key={rule}>• {rule}</li>
                                         ))}
                                     </ul>
@@ -1491,7 +1495,7 @@ export function WB1V3Runtime() {
                                 Cierre reflexivo
                             </p>
                             <p className="mt-3 text-sm leading-relaxed text-[var(--brand-primary)]">
-                                {WB1_V3_CONFIG.closing}
+                                {config.closing}
                             </p>
                         </section>
                     )}
