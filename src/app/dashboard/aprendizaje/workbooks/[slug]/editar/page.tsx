@@ -739,9 +739,11 @@ export default function WorkbookTemplateEditorPage() {
                                         <h4 className="text-2xl font-extrabold leading-tight">
                                             {editingCoverConfig.title ?? template.title}
                                         </h4>
-                                        <p className="mt-2 text-sm leading-relaxed text-white/80">
-                                            {editingCoverConfig.summary ?? template.description ?? 'Sin descripción.'}
-                                        </p>
+                                        {editingCoverConfig.summary && (
+                                            <p className="mt-2 text-sm leading-relaxed text-white/80">
+                                                {editingCoverConfig.summary}
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
                             </div>

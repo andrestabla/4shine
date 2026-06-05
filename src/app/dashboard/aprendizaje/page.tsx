@@ -2469,11 +2469,15 @@ export default function AprendizajePage() {
                           coverCfg?.kicker ??
                           `Workbook ${String(workbook.sequenceNo).padStart(2, "0")}`;
                         const titleText = coverCfg?.title ?? workbook.title;
-                        const summaryText =
-                          coverCfg?.summary ??
-                          digitalWorkbook?.summary ??
-                          workbook.description ??
-                          "Sin descripción disponible.";
+                        // Si el admin/gestor publicó un coverConfig, su decisión
+                        // manda — incluso si dejó el resumen vacío. Sólo cuando
+                        // no hay coverConfig (nunca se editó) caemos al catálogo.
+                        const hasCoverCfg = coverCfg !== null && coverCfg !== undefined;
+                        const summaryText = hasCoverCfg
+                          ? (coverCfg.summary ?? "")
+                          : (digitalWorkbook?.summary ??
+                             workbook.description ??
+                             "");
 
                         return (
                           <Link
@@ -2519,9 +2523,11 @@ export default function AprendizajePage() {
                                   <h4 className="text-[1.65rem] font-extrabold leading-tight text-white">
                                     {titleText}
                                   </h4>
-                                  <p className="mt-3 max-w-lg text-sm leading-relaxed text-white/80">
-                                    {summaryText}
-                                  </p>
+                                  {summaryText && (
+                                    <p className="mt-3 max-w-lg text-sm leading-relaxed text-white/80">
+                                      {summaryText}
+                                    </p>
+                                  )}
                                 </div>
                               </div>
                             </div>
