@@ -363,29 +363,37 @@ export async function getViewerAccessState(
   const hasAnyPurchase =
     hasProgramSubscription || hasDiscoveryPurchase || mentorshipSessionCredits > 0;
 
-  // Cuando hay plan asignado, los accesos se derivan de plan_module_features.
-  // Cuando no, se conserva la lógica anterior (subscriber ⇒ todo abierto).
+  // Regla clave: las compras y el plan_type legacy son ADQUISICIONES
+  // perpetuas — el plan puede AÑADIR features, nunca REVOCAR lo ya pagado.
+  // Por eso cada canAccessXxx = feature del plan ⋃ grant de compras/legacy.
   const usingPlanFeatures = activePlan !== null;
-  const pf = (key: string, legacy: boolean): boolean =>
-    usingPlanFeatures ? featureEnabled(planFeatures, key) : legacy;
+  const planEnables = (key: string): boolean =>
+    usingPlanFeatures && featureEnabled(planFeatures, key);
 
-  const canAccessTrayectoria = pf("trayectoria", hasProgramSubscription);
-  const canAccessDescubrimiento = pf(
-    "descubrimiento",
-    hasProgramSubscription || hasDiscoveryPurchase,
-  );
-  const canAccessAprendizajeRecursosFree = pf(
-    "aprendizaje_recursos_free",
-    true, // los recursos free siempre fueron accesibles en el modelo legacy
-  );
-  const canAccessAprendizajeCursos = pf("aprendizaje_cursos", hasProgramSubscription);
-  const canAccessProgramWorkbooks = pf("aprendizaje_workbooks", hasProgramSubscription);
-  const canAccessMentoring1on1 = pf("mentorias_1on1", hasProgramSubscription);
-  const canAccessMentoringGroup = pf("mentorias_grupales", hasProgramSubscription);
-  const canAccessNetworking = pf("networking", hasProgramSubscription);
-  const canAccessMensajes = pf("mensajes", hasProgramSubscription);
-  const canAccessConvocatorias = pf("convocatorias", hasProgramSubscription);
-  const canAccessWorkshops = pf("workshops", hasProgramSubscription);
+  // Grants sticky derivados de compras y plan_type legacy.
+  const legacySubscriber = SUBSCRIBED_PLAN_TYPES.has(planTypeCode ?? "standard");
+  const grantsFromProgram = hasProgramPurchase || legacySubscriber;
+  const grantsFromDiscovery = hasDiscoveryPurchase;
+  const grantsFromMentoringPack = mentorshipSessionCredits > 0;
+
+  // Recursos free siempre son libres en el modelo histórico para todo
+  // líder — no se revocan al asignar un plan minimalista.
+  const canAccessAprendizajeRecursosFree = true;
+  const canAccessTrayectoria = planEnables("trayectoria") || grantsFromProgram;
+  const canAccessDescubrimiento =
+    planEnables("descubrimiento") || grantsFromProgram || grantsFromDiscovery;
+  const canAccessAprendizajeCursos =
+    planEnables("aprendizaje_cursos") || grantsFromProgram;
+  const canAccessProgramWorkbooks =
+    planEnables("aprendizaje_workbooks") || grantsFromProgram;
+  const canAccessMentoring1on1 =
+    planEnables("mentorias_1on1") || grantsFromProgram || grantsFromMentoringPack;
+  const canAccessMentoringGroup =
+    planEnables("mentorias_grupales") || grantsFromProgram;
+  const canAccessNetworking = planEnables("networking") || grantsFromProgram;
+  const canAccessMensajes = planEnables("mensajes") || grantsFromProgram;
+  const canAccessConvocatorias = planEnables("convocatorias") || grantsFromProgram;
+  const canAccessWorkshops = planEnables("workshops") || grantsFromProgram;
 
   const canAccessProgramMentorships =
     canAccessMentoring1on1 || canAccessMentoringGroup;
