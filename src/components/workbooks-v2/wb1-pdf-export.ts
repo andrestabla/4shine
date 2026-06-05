@@ -74,18 +74,16 @@ function writeFieldCard(ctx: WriterCtx, field: WB1Field, value: WB1ValueShape | 
         ctx.y += 4.6
     }
 
-    const meta: string[] = []
     if (value?.audioUrl) {
         const seconds = value.audioDurationMs ? Math.round(value.audioDurationMs / 1000) : 0
-        meta.push(seconds > 0 ? `Audio adjunto · ${Math.floor(seconds / 60)}:${(seconds % 60).toString().padStart(2, '0')}` : 'Audio adjunto')
-    }
-    if (value?.aiGenerated) meta.push('Sugerencia IA')
-
-    if (meta.length > 0) {
+        const meta =
+            seconds > 0
+                ? `Audio adjunto · ${Math.floor(seconds / 60)}:${(seconds % 60).toString().padStart(2, '0')}`
+                : 'Audio adjunto'
         ctx.pdf.setFont('helvetica', 'italic')
         ctx.pdf.setFontSize(8)
         ctx.pdf.setTextColor(100, 116, 139)
-        ctx.pdf.text(meta.join(' · '), MARGIN + 2, ctx.y)
+        ctx.pdf.text(meta, MARGIN + 2, ctx.y)
         ctx.y += 4
     }
 
@@ -153,28 +151,86 @@ function writeSection(ctx: WriterCtx, section: WB1Section, values: Record<string
     }
 }
 
-export async function downloadWb1Pdf(values: Record<string, WB1ValueShape>, leaderName: string) {
+async function loadLogoDataUrl(url: string | undefined | null): Promise<{
+    dataUrl: string
+    format: 'PNG' | 'JPEG'
+    naturalWidth: number
+    naturalHeight: number
+} | null> {
+    if (!url || typeof window === 'undefined') return null
+    try {
+        const response = await fetch(url, { cache: 'no-cache', credentials: 'same-origin' })
+        if (!response.ok) return null
+        const blob = await response.blob()
+        const mime = blob.type.toLowerCase()
+        if (mime.includes('svg')) return null
+        const format: 'PNG' | 'JPEG' = mime.includes('jpeg') || mime.includes('jpg') ? 'JPEG' : 'PNG'
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader()
+            reader.onload = () => resolve(String(reader.result))
+            reader.onerror = () => reject(new Error('FileReader failed'))
+            reader.readAsDataURL(blob)
+        })
+        const dimensions = await new Promise<{ w: number; h: number }>((resolve, reject) => {
+            const img = new Image()
+            img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight })
+            img.onerror = () => reject(new Error('Image decode failed'))
+            img.src = dataUrl
+        })
+        return { dataUrl, format, naturalWidth: dimensions.w, naturalHeight: dimensions.h }
+    } catch {
+        return null
+    }
+}
+
+export async function downloadWb1Pdf(
+    values: Record<string, WB1ValueShape>,
+    leaderName: string,
+    logoDarkUrl?: string | null,
+) {
     const { jsPDF } = await import('jspdf')
     const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' })
     const ctx: WriterCtx = { pdf, y: MARGIN }
 
-    // Portada
+    const logo = await loadLogoDataUrl(logoDarkUrl ?? null)
+
+    // Portada — banda navy
     ctx.pdf.setFillColor(13, 27, 42)
     ctx.pdf.rect(0, 0, PAGE_W, 80, 'F')
+
+    if (logo) {
+        const targetWidth = 32
+        const aspect = logo.naturalHeight / Math.max(logo.naturalWidth, 1)
+        const targetHeight = Math.min(16, Math.max(8, targetWidth * aspect))
+        try {
+            ctx.pdf.addImage(
+                logo.dataUrl,
+                logo.format,
+                MARGIN,
+                12,
+                targetWidth,
+                targetHeight,
+                undefined,
+                'FAST',
+            )
+        } catch {
+            // logo opcional, no detener export si falla
+        }
+    }
 
     ctx.pdf.setFont('helvetica', 'bold')
     ctx.pdf.setFontSize(11)
     ctx.pdf.setTextColor(212, 175, 55)
-    ctx.pdf.text(`${WB1_V3_CONFIG.code} ${WB1_V3_CONFIG.version} · ${WB1_V3_CONFIG.pillar}`, MARGIN, 30)
+    ctx.pdf.text(`${WB1_V3_CONFIG.code} ${WB1_V3_CONFIG.version} · ${WB1_V3_CONFIG.pillar}`, MARGIN, 36)
 
     ctx.pdf.setFont('helvetica', 'bold')
-    ctx.pdf.setFontSize(22)
+    ctx.pdf.setFontSize(20)
     ctx.pdf.setTextColor(255, 255, 255)
     const titleLines = ctx.pdf.splitTextToSize(WB1_V3_CONFIG.title, CONTENT_W) as string[]
-    let cursorY = 42
+    let cursorY = 48
     for (const line of titleLines) {
         ctx.pdf.text(line, MARGIN, cursorY)
-        cursorY += 9
+        cursorY += 8.5
     }
 
     ctx.pdf.setFont('helvetica', 'normal')

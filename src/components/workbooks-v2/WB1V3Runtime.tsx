@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
 import { useUser } from '@/context/UserContext'
+import { useBranding } from '@/context/BrandingContext'
 import { requestApi } from '@/lib/api-client'
 import { WORKBOOK_V2_EDITORIAL } from '@/lib/workbooks-v2-editorial'
 import { WB1_V3_CONFIG, type WB1Field, type WB1Group, type WB1Section } from '@/lib/workbooks-v2-wb1'
@@ -1057,6 +1058,7 @@ function downloadHtml(values: Record<string, WB1FieldValue>) {
 export function WB1V3Runtime() {
     const searchParams = useSearchParams()
     const { currentRole, currentUser } = useUser()
+    const { branding } = useBranding()
     const workbookId = searchParams.get('workbookId')?.trim() || 'preview'
     const isElevated = !!currentRole && ELEVATED_ROLES.has(currentRole)
 
@@ -1279,7 +1281,11 @@ export function WB1V3Runtime() {
                         className={WORKBOOK_V2_EDITORIAL.classes.pdfButton}
                         onClick={async () => {
                             const { downloadWb1Pdf } = await import('@/components/workbooks-v2/wb1-pdf-export')
-                            await downloadWb1Pdf(values, currentUser?.name ?? 'Líder 4Shine')
+                            await downloadWb1Pdf(
+                                values,
+                                currentUser?.name ?? 'Líder 4Shine',
+                                branding.logoDarkUrl,
+                            )
                         }}
                     >
                         <Download size={14} /> Descargar PDF
