@@ -679,10 +679,12 @@ export default function WorkbookTemplateEditorPage() {
                                     />
                                 </label>
                                 <label className="block">
-                                    <span className="text-xs font-semibold text-slate-700">Resumen / descripción</span>
+                                    <span className="text-xs font-semibold text-slate-700">
+                                        Resumen / descripción <span className="font-normal text-slate-400">· opcional</span>
+                                    </span>
                                     <textarea
                                         rows={3}
-                                        placeholder={template.description ?? 'Texto descriptivo bajo el título'}
+                                        placeholder="Déjalo vacío si la tarjeta no debe llevar resumen."
                                         value={editingCoverConfig.summary ?? ''}
                                         onChange={(event) => {
                                             setEditingCoverConfig((current) => ({
@@ -693,6 +695,9 @@ export default function WorkbookTemplateEditorPage() {
                                         }}
                                         className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                                     />
+                                    <p className="mt-1 text-[11px] text-slate-500">
+                                        Puede quedar vacío. No se fuerza ninguna entrada.
+                                    </p>
                                 </label>
                             </div>
                         </div>

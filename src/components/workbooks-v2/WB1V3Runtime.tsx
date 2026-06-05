@@ -8,6 +8,7 @@ import {
     ArrowRight,
     CheckCircle2,
     Download,
+    HelpCircle,
     Loader2,
     Mic,
     Pause,
@@ -27,6 +28,56 @@ import { requestApi } from '@/lib/api-client'
 import { WORKBOOK_V2_EDITORIAL } from '@/lib/workbooks-v2-editorial'
 import type { WB1Config, WB1Field, WB1Group, WB1Section } from '@/lib/workbooks-v2-wb1'
 import { R2UploadButton } from '@/components/ui/R2UploadButton'
+import { resolveWorkbookHelp, type WorkbookHelpContent } from '@/lib/workbooks-v2-help'
+
+function WorkbookHelpModal({ help, onClose }: { help: WorkbookHelpContent; onClose: () => void }) {
+    return (
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 px-3 py-6"
+            onClick={onClose}
+        >
+            <div
+                className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl"
+                onClick={(event) => event.stopPropagation()}
+            >
+                <button
+                    type="button"
+                    onClick={onClose}
+                    aria-label="Cerrar ayuda"
+                    className="absolute right-4 top-4 rounded-full p-1 text-slate-500 hover:bg-slate-100"
+                >
+                    <X size={18} />
+                </button>
+                <h2 className="text-xl font-bold text-slate-900">{help.title}</h2>
+                <p className="mt-2 text-sm text-slate-600">{help.intro}</p>
+                <div className="mt-5 space-y-5">
+                    {help.blocks.map((block, idx) => (
+                        <div key={idx} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                            <h3 className="text-sm font-semibold text-slate-900">{block.title}</h3>
+                            <p className="mt-1 text-sm text-slate-700">{block.body}</p>
+                            {block.bullets && block.bullets.length > 0 && (
+                                <ul className="mt-2 space-y-1.5 pl-4 text-sm text-slate-600">
+                                    {block.bullets.map((b, i) => (
+                                        <li key={i} className="list-disc">{b}</li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
+                    ))}
+                </div>
+                <div className="mt-6 text-right">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-[var(--brand-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
+                    >
+                        Entendido
+                    </button>
+                </div>
+            </div>
+        </div>
+    )
+}
 
 const WB9_COLOR_FIELDS = new Set([
     'wb9v3-0-color-primario',
@@ -1171,6 +1222,8 @@ export function WorkbookV3Runtime({ config }: { config: WB1Config }) {
         Record<string, { kind: 'success' | 'error' | 'empty'; message: string } | null>
     >({})
     const [showAdminPanel, setShowAdminPanel] = useState(false)
+    const [showHelp, setShowHelp] = useState(false)
+    const helpContent = useMemo(() => resolveWorkbookHelp(config.code), [config.code])
 
     useEffect(() => {
         try {
@@ -1358,6 +1411,15 @@ export function WorkbookV3Runtime({ config }: { config: WB1Config }) {
                     )}
                     <button
                         type="button"
+                        onClick={() => setShowHelp(true)}
+                        className="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:border-slate-400 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[var(--brand-focus)]"
+                        aria-label="Ayuda para diligenciar el workbook"
+                        title="¿Cómo diligenciar este workbook?"
+                    >
+                        <HelpCircle size={14} /> Ayuda
+                    </button>
+                    <button
+                        type="button"
                         className={WORKBOOK_V2_EDITORIAL.classes.saveButton}
                         onClick={() => setLastSavedAt(new Date().toISOString())}
                     >
@@ -1484,6 +1546,9 @@ export function WorkbookV3Runtime({ config }: { config: WB1Config }) {
                             onApply={applyAiFields}
                             onClose={() => setShowAdminPanel(false)}
                         />
+                    )}
+                    {showHelp && (
+                        <WorkbookHelpModal help={helpContent} onClose={() => setShowHelp(false)} />
                     )}
                     <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:p-7">
                         <div className="inline-flex items-center gap-2 rounded-full border border-[var(--brand-accent)]/40 bg-[var(--brand-accent)]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--brand-primary)]">
