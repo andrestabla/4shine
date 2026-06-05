@@ -3,7 +3,30 @@
 import { jsPDF } from "jspdf";
 import { PILLAR_INFO } from "./DiagnosticsData";
 import { buildDiscoveryReports, getDiscoveryStatus } from "./reporting";
-import { resolvePdfBranding, type PdfBrandingInput, type PdfBrandingResolved } from "@/lib/pdf-branding";
+import { registerBrandFontInPdf, resolvePdfBranding, type PdfBrandingInput, type PdfBrandingResolved } from "@/lib/pdf-branding";
+
+function shade(rgb: [number, number, number], whiteRatio: number): [number, number, number] {
+  const w = Math.max(0, Math.min(1, whiteRatio));
+  return [
+    Math.round(rgb[0] * (1 - w) + 255 * w),
+    Math.round(rgb[1] * (1 - w) + 255 * w),
+    Math.round(rgb[2] * (1 - w) + 255 * w),
+  ];
+}
+
+function pillarPalette(b: PdfBrandingResolved): {
+  within: [number, number, number];
+  out: [number, number, number];
+  up: [number, number, number];
+  beyond: [number, number, number];
+} {
+  return {
+    within: b.primary,
+    out: shade(b.primary, 0.35),
+    up: b.accent,
+    beyond: shade(b.accent, 0.35),
+  };
+}
 import type {
   DiscoveryAiReports,
   DiscoveryPillarKey,
@@ -52,12 +75,12 @@ function drawBrandedHeader(pdf: jsPDF, branding: PdfBrandingResolved) {
     }
   }
 
-  pdf.setFont("helvetica", "bold");
+  pdf.setFont(branding.font.family, "bold");
   pdf.setFontSize(9.5);
   pdf.setTextColor(branding.accent[0], branding.accent[1], branding.accent[2]);
   pdf.text("DIAGNÓSTICO 4SHINE", PAGE_WIDTH_MM - PAGE_MARGIN, 16, { align: "right" });
 
-  pdf.setFont("helvetica", "normal");
+  pdf.setFont(branding.font.family, "normal");
   pdf.setFontSize(8.5);
   pdf.setTextColor(branding.onPrimary[0], branding.onPrimary[1], branding.onPrimary[2]);
   pdf.text(
@@ -113,8 +136,9 @@ function drawRoundedCard(
   pdf.roundedRect(x, y, width, height, 6, 6, "FD");
 }
 
-function buildWriter(pdf: jsPDF) {
+function buildWriter(pdf: jsPDF, branding: PdfBrandingResolved) {
   let currentY = PAGE_MARGIN;
+  const fontFamily = branding.font.family;
 
   const startNewPage = () => {
     pdf.addPage();
@@ -145,14 +169,14 @@ function buildWriter(pdf: jsPDF) {
     const {
       fontSize = 11,
       fontStyle = "normal",
-      color = [46, 40, 76],
+      color = branding.body,
       lineHeight = BODY_LINE_HEIGHT,
       gapAfter = BODY_GAP,
       x = PAGE_MARGIN,
       width = CONTENT_WIDTH,
     } = options ?? {};
 
-    pdf.setFont("helvetica", fontStyle);
+    pdf.setFont(fontFamily, fontStyle);
     pdf.setFontSize(fontSize);
     pdf.setTextColor(...color);
 
@@ -171,12 +195,12 @@ function buildWriter(pdf: jsPDF) {
   ) => {
     const config =
       level === "kicker"
-        ? { size: 10, color: [120, 109, 150] as [number, number, number], lineHeight: 4.6, gap: 3.5 }
+        ? { size: 10, color: branding.muted, lineHeight: 4.6, gap: 3.5 }
         : level === "title"
-          ? { size: 24, color: [33, 24, 67] as [number, number, number], lineHeight: 8.2, gap: 5.5 }
+          ? { size: 24, color: branding.primary, lineHeight: 8.2, gap: 5.5 }
           : level === "section"
-            ? { size: 17, color: [33, 24, 67] as [number, number, number], lineHeight: 6.5, gap: 4.5 }
-            : { size: 12.5, color: [70, 58, 104] as [number, number, number], lineHeight: 5.2, gap: 2.8 };
+            ? { size: 17, color: branding.primary, lineHeight: 6.5, gap: 4.5 }
+            : { size: 12.5, color: shade(branding.primary, 0.25), lineHeight: 5.2, gap: 2.8 };
 
     writeWrappedLines(text, {
       fontSize: config.size,
@@ -203,6 +227,7 @@ function drawGlobalRadarChart(
   y: number,
   size: number,
   scoring: DiscoveryScoreResult,
+  branding: PdfBrandingResolved,
 ) {
   const centerX = x + size / 2;
   const centerY = y + size / 2 + 2;
@@ -224,7 +249,7 @@ function drawGlobalRadarChart(
   };
 
   pdf.setLineWidth(0.2);
-  pdf.setDrawColor(224, 220, 237);
+  pdf.setDrawColor(branding.surfaceMuted[0], branding.surfaceMuted[1], branding.surfaceMuted[2]);
   for (let level = 1; level <= 4; level += 1) {
     const r = level / 4;
     for (let index = 0; index < labels.length; index += 1) {
@@ -240,8 +265,9 @@ function drawGlobalRadarChart(
   }
 
   const chartPoints = values.map((value, index) => pointFor(index, value / 100));
-  pdf.setFillColor(219, 211, 246);
-  pdf.setDrawColor(49, 26, 117);
+  const fillTint = shade(branding.primary, 0.7);
+  pdf.setFillColor(fillTint[0], fillTint[1], fillTint[2]);
+  pdf.setDrawColor(branding.primary[0], branding.primary[1], branding.primary[2]);
   for (let index = 0; index < chartPoints.length; index += 1) {
     const start = chartPoints[index];
     const end = chartPoints[(index + 1) % chartPoints.length];
@@ -249,9 +275,9 @@ function drawGlobalRadarChart(
     pdf.circle(start.x, start.y, 1.2, "F");
   }
 
-  pdf.setFont("helvetica", "bold");
+  pdf.setFont(branding.font.family, "bold");
   pdf.setFontSize(8);
-  pdf.setTextColor(87, 74, 123);
+  pdf.setTextColor(branding.primary[0], branding.primary[1], branding.primary[2]);
   pdf.text("SHINE WITHIN", centerX, centerY - radius - 3.5, { align: "center" });
   pdf.text("SHINE OUT", centerX + radius + 2.5, centerY + 1);
   pdf.text("SHINE UP", centerX, centerY + radius + 5.5, { align: "center" });
@@ -265,12 +291,13 @@ function drawMetricBarChart(
   width: number,
   title: string,
   values: Array<{ label: string; value: number; color: [number, number, number] }>,
+  branding: PdfBrandingResolved,
 ) {
   const cardHeight = Math.max(34, 16 + values.length * 10);
   drawRoundedCard(pdf, x, y, width, cardHeight, [255, 255, 255]);
-  pdf.setFont("helvetica", "bold");
+  pdf.setFont(branding.font.family, "bold");
   pdf.setFontSize(11);
-  pdf.setTextColor(44, 38, 74);
+  pdf.setTextColor(branding.primary[0], branding.primary[1], branding.primary[2]);
   pdf.text(title, x + 4, y + 7);
 
   values.forEach((entry, index) => {
@@ -279,18 +306,18 @@ function drawMetricBarChart(
     const barWidth = width - 68;
     const scoreX = x + width - 5;
 
-    pdf.setFont("helvetica", "bold");
+    pdf.setFont(branding.font.family, "bold");
     pdf.setFontSize(8.5);
-    pdf.setTextColor(98, 90, 125);
+    pdf.setTextColor(branding.muted[0], branding.muted[1], branding.muted[2]);
     pdf.text(entry.label, x + 4, rowY);
 
-    pdf.setFillColor(239, 236, 247);
+    pdf.setFillColor(branding.surfaceMuted[0], branding.surfaceMuted[1], branding.surfaceMuted[2]);
     pdf.roundedRect(barX, rowY - 3.5, barWidth, 4.5, 2, 2, "F");
     pdf.setFillColor(...entry.color);
     pdf.roundedRect(barX, rowY - 3.5, (barWidth * Math.max(0, Math.min(100, entry.value))) / 100, 4.5, 2, 2, "F");
 
-    pdf.setFont("helvetica", "bold");
-    pdf.setTextColor(44, 38, 74);
+    pdf.setFont(branding.font.family, "bold");
+    pdf.setTextColor(branding.primary[0], branding.primary[1], branding.primary[2]);
     pdf.text(`${entry.value}%`, scoreX, rowY, { align: "right" });
   });
 }
@@ -309,8 +336,9 @@ export async function downloadDiscoveryPdfReport({
     compress: true,
   });
   const resolvedBranding = await resolvePdfBranding(branding ?? {});
+  resolvedBranding.font = await registerBrandFontInPdf(pdf, branding?.fontFamily ?? null);
   drawBrandedHeader(pdf, resolvedBranding);
-  const writer = buildWriter(pdf);
+  const writer = buildWriter(pdf, resolvedBranding);
   writer.setY(BRANDED_HEADER_HEIGHT + 8);
   const resolvedReports = reports ?? {};
   const globalStatus = getDiscoveryStatus(scoring.globalIndex);
@@ -323,22 +351,22 @@ export async function downloadDiscoveryPdfReport({
   writer.writeHeading("Reporte ejecutivo de liderazgo", "title");
   writer.writeWrappedLines(participantName, {
     fontSize: 12,
-    color: [100, 89, 128],
+    color: resolvedBranding.body,
     lineHeight: 5.2,
     gapAfter: 3.5,
   });
   writer.writeWrappedLines(`Generado: ${generatedAt}`, {
     fontSize: 9.5,
-    color: [136, 126, 159],
+    color: resolvedBranding.muted,
     lineHeight: 4.3,
     gapAfter: 6,
   });
 
   const summaryCardY = writer.getY();
-  drawRoundedCard(pdf, PAGE_MARGIN, summaryCardY, CONTENT_WIDTH, 24, [249, 248, 252]);
-  pdf.setFont("helvetica", "bold");
+  drawRoundedCard(pdf, PAGE_MARGIN, summaryCardY, CONTENT_WIDTH, 24, resolvedBranding.surface);
+  pdf.setFont(resolvedBranding.font.family, "bold");
   pdf.setFontSize(9);
-  pdf.setTextColor(138, 127, 160);
+  pdf.setTextColor(resolvedBranding.muted[0], resolvedBranding.muted[1], resolvedBranding.muted[2]);
   pdf.text("ÍNDICE GLOBAL", PAGE_MARGIN + 6, summaryCardY + 7);
   pdf.setFontSize(30);
   pdf.setTextColor(
@@ -367,31 +395,26 @@ export async function downloadDiscoveryPdfReport({
   writer.writeHeading("Mapa global de pilares", "section");
   const chartRowY = writer.getY();
   drawRoundedCard(pdf, PAGE_MARGIN, chartRowY, 84, 68, [255, 255, 255]);
-  pdf.setFont("helvetica", "bold");
+  pdf.setFont(resolvedBranding.font.family, "bold");
   pdf.setFontSize(10);
-  pdf.setTextColor(122, 112, 149);
+  pdf.setTextColor(resolvedBranding.muted[0], resolvedBranding.muted[1], resolvedBranding.muted[2]);
   pdf.text("Radar global", PAGE_MARGIN + 4, chartRowY + 7);
-  drawGlobalRadarChart(pdf, PAGE_MARGIN + 8, chartRowY + 10, 66, scoring);
+  drawGlobalRadarChart(pdf, PAGE_MARGIN + 8, chartRowY + 10, 66, scoring, resolvedBranding);
 
   const rightX = PAGE_MARGIN + 90;
+  const pillarColors = pillarPalette(resolvedBranding);
   drawMetricBarChart(
     pdf,
     rightX,
     chartRowY,
     CONTENT_WIDTH - 90,
     "Resumen por pilar",
-    pillars.map((pillar, index) => ({
+    pillars.map((pillar) => ({
       label: PILLAR_INFO[pillar].title,
       value: scoring.pillarMetrics[pillar].total,
-      color:
-        index === 0
-          ? ([85, 61, 185] as [number, number, number])
-          : index === 1
-            ? ([128, 94, 219] as [number, number, number])
-            : index === 2
-              ? ([220, 122, 44] as [number, number, number])
-              : ([185, 128, 75] as [number, number, number]),
-      })),
+      color: pillarColors[pillar],
+    })),
+    resolvedBranding,
   );
   const descY = chartRowY + 74;
   const descWidth = (CONTENT_WIDTH - 4) / 2;
@@ -407,14 +430,14 @@ export async function downloadDiscoveryPdfReport({
     const row = Math.floor(i / 2);
     const x = PAGE_MARGIN + col * (descWidth + 4);
     const y = descY + row * 22;
-    drawRoundedCard(pdf, x, y, descWidth, 18, [249, 248, 252]);
-    pdf.setFont("helvetica", "bold");
+    drawRoundedCard(pdf, x, y, descWidth, 18, resolvedBranding.surface);
+    pdf.setFont(resolvedBranding.font.family, "bold");
     pdf.setFontSize(8);
-    pdf.setTextColor(33, 24, 67);
+    pdf.setTextColor(resolvedBranding.primary[0], resolvedBranding.primary[1], resolvedBranding.primary[2]);
     pdf.text(d.title, x + 3, y + 5);
-    pdf.setFont("helvetica", "normal");
+    pdf.setFont(resolvedBranding.font.family, "normal");
     pdf.setFontSize(7);
-    pdf.setTextColor(100, 89, 128);
+    pdf.setTextColor(resolvedBranding.body[0], resolvedBranding.body[1], resolvedBranding.body[2]);
     const lines = pdf.splitTextToSize(d.text, descWidth - 6);
     pdf.text(lines, x + 3, y + 9);
   });
@@ -436,29 +459,46 @@ export async function downloadDiscoveryPdfReport({
     const sectionChartY = writer.getY();
     if (section.pillar) {
       const metric = scoring.pillarMetrics[section.pillar];
-      drawMetricBarChart(pdf, PAGE_MARGIN, sectionChartY, CONTENT_WIDTH, `Indicadores de ${section.title}`, [
-        { label: "Total", value: metric.total, color: [85, 61, 185] },
-        { label: "Autopercepción", value: metric.likert, color: [220, 122, 44] },
-        { label: "Juicio situacional", value: metric.sjt, color: [124, 111, 163] },
-      ]);
-      
+      const sectionAccent = pillarColors[section.pillar];
+      drawMetricBarChart(
+        pdf,
+        PAGE_MARGIN,
+        sectionChartY,
+        CONTENT_WIDTH,
+        `Indicadores de ${section.title}`,
+        [
+          { label: "Total", value: metric.total, color: sectionAccent },
+          { label: "Autopercepción", value: metric.likert, color: resolvedBranding.accent },
+          { label: "Juicio situacional", value: metric.sjt, color: shade(resolvedBranding.primary, 0.45) },
+        ],
+        resolvedBranding,
+      );
+
       const competenciesY = sectionChartY + 52;
       const comps = scoring.compList.filter((c) => c.pillar === section.pillar);
-      drawMetricBarChart(pdf, PAGE_MARGIN, competenciesY, CONTENT_WIDTH, "Competencias del pilar", comps.map((c) => ({
-        label: c.name,
-        value: Math.round(((c.score - 1) / 4) * 100),
-        color: [124, 111, 163] as [number, number, number]
-      })));
-      
+      drawMetricBarChart(
+        pdf,
+        PAGE_MARGIN,
+        competenciesY,
+        CONTENT_WIDTH,
+        "Competencias del pilar",
+        comps.map((c) => ({
+          label: c.name,
+          value: Math.round(((c.score - 1) / 4) * 100),
+          color: sectionAccent,
+        })),
+        resolvedBranding,
+      );
+
       const compHeight = Math.max(34, 16 + comps.length * 10);
       writer.setY(competenciesY + compHeight + 6);
     } else {
       drawRoundedCard(pdf, PAGE_MARGIN, sectionChartY, CONTENT_WIDTH, 68, [255, 255, 255]);
-      pdf.setFont("helvetica", "bold");
+      pdf.setFont(resolvedBranding.font.family, "bold");
       pdf.setFontSize(10);
-      pdf.setTextColor(122, 112, 149);
+      pdf.setTextColor(resolvedBranding.muted[0], resolvedBranding.muted[1], resolvedBranding.muted[2]);
       pdf.text("Mapa global del diagnóstico", PAGE_MARGIN + 4, sectionChartY + 7);
-      drawGlobalRadarChart(pdf, PAGE_MARGIN + 56, sectionChartY + 9, 66, scoring);
+      drawGlobalRadarChart(pdf, PAGE_MARGIN + 56, sectionChartY + 9, 66, scoring, resolvedBranding);
       writer.setY(sectionChartY + 74);
     }
 
@@ -469,7 +509,7 @@ export async function downloadDiscoveryPdfReport({
       } else {
         writer.writeWrappedLines(block.text, {
           fontSize: 11,
-          color: [46, 40, 76],
+          color: resolvedBranding.body,
           lineHeight: BODY_LINE_HEIGHT,
           gapAfter: BODY_GAP,
         });

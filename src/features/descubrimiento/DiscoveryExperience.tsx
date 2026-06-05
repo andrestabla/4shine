@@ -256,8 +256,15 @@ export function DiscoveryExperience() {
       primaryHex: branding.primaryColor,
       secondaryHex: branding.secondaryColor,
       accentHex: branding.accentColor,
+      fontFamily: branding.typography,
     }),
-    [branding.logoDarkUrl, branding.primaryColor, branding.secondaryColor, branding.accentColor],
+    [
+      branding.logoDarkUrl,
+      branding.primaryColor,
+      branding.secondaryColor,
+      branding.accentColor,
+      branding.typography,
+    ],
   );
   const isManager = currentRole === "admin" || currentRole === "gestor";
 

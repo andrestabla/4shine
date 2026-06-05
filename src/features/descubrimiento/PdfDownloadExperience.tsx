@@ -49,6 +49,7 @@ export function PdfDownloadExperience({ session }: PdfDownloadExperienceProps) {
           primaryHex: branding.primaryColor,
           secondaryHex: branding.secondaryColor,
           accentHex: branding.accentColor,
+          fontFamily: branding.typography,
         },
       });
       setStatus("ready");

@@ -554,6 +554,7 @@ export function ResultsView({
           primaryHex: branding.primaryColor,
           secondaryHex: branding.secondaryColor,
           accentHex: branding.accentColor,
+          fontFamily: branding.typography,
         },
       });
     } catch (error) {
