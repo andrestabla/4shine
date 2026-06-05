@@ -26,6 +26,20 @@ import { useBranding } from '@/context/BrandingContext'
 import { requestApi } from '@/lib/api-client'
 import { WORKBOOK_V2_EDITORIAL } from '@/lib/workbooks-v2-editorial'
 import type { WB1Config, WB1Field, WB1Group, WB1Section } from '@/lib/workbooks-v2-wb1'
+import { R2UploadButton } from '@/components/ui/R2UploadButton'
+
+const WB9_COLOR_FIELDS = new Set([
+    'wb9v3-0-color-primario',
+    'wb9v3-0-color-secundario',
+    'wb9v3-0-color-acento',
+    'wb9v3-0-color-fondo'
+])
+const WB9_COLOR_DEFAULTS: Record<string, string> = {
+    'wb9v3-0-color-primario': '#0D1B2A',
+    'wb9v3-0-color-secundario': '#1B263B',
+    'wb9v3-0-color-acento': '#C9A227',
+    'wb9v3-0-color-fondo': '#F4F1EA'
+}
 
 type WB1FieldValue = {
     text: string
@@ -623,6 +637,69 @@ function FieldEditor({
                     }
                 />
             </label>
+            {field.id === 'wb9v3-0-foto-url' && (
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                    <R2UploadButton
+                        moduleCode="aprendizaje"
+                        action="update"
+                        pathPrefix={`workbooks/wb9/${workbookId}/photo`}
+                        accept="image/png,image/jpeg,image/webp"
+                        buttonLabel="Subir foto del líder"
+                        disabled={disabled}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-[var(--brand-accent)]/40 bg-[var(--brand-accent)]/15 px-3 py-1.5 text-xs font-semibold text-[var(--brand-primary)] hover:bg-[var(--brand-accent)]/25 focus:outline-none focus:ring-2 focus:ring-[var(--brand-focus)] disabled:opacity-60"
+                        onUploaded={(url) =>
+                            onChange({
+                                ...value,
+                                text: url,
+                                aiGenerated: false,
+                                updatedAt: new Date().toISOString()
+                            })
+                        }
+                    />
+                    {value.text && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                            src={value.text}
+                            alt="Foto del líder"
+                            className="h-16 w-16 rounded-2xl border border-slate-200 object-cover shadow-sm"
+                        />
+                    )}
+                    <p className="text-[11px] text-slate-500">
+                        Sube una foto vertical, fondo neutro. Aparecerá en la portada del brochure.
+                    </p>
+                </div>
+            )}
+            {WB9_COLOR_FIELDS.has(field.id) && (
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                    <input
+                        type="color"
+                        className="h-9 w-12 cursor-pointer rounded-lg border border-slate-300 bg-white p-0.5"
+                        value={(/^#[0-9a-f]{6}$/i.test(value.text) ? value.text : WB9_COLOR_DEFAULTS[field.id]) || '#0D1B2A'}
+                        disabled={disabled}
+                        onChange={(event) =>
+                            onChange({
+                                ...value,
+                                text: event.target.value.toUpperCase(),
+                                aiGenerated: false,
+                                updatedAt: new Date().toISOString()
+                            })
+                        }
+                    />
+                    <span
+                        className="inline-flex h-8 items-center gap-2 rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700"
+                        style={{ borderColor: /^#[0-9a-f]{6}$/i.test(value.text) ? value.text : undefined }}
+                    >
+                        Muestra
+                        <span
+                            className="inline-block h-4 w-4 rounded-full border border-slate-300"
+                            style={{ backgroundColor: /^#[0-9a-f]{6}$/i.test(value.text) ? value.text : WB9_COLOR_DEFAULTS[field.id] }}
+                        />
+                    </span>
+                    <p className="text-[11px] text-slate-500">
+                        Default 4Shine: {WB9_COLOR_DEFAULTS[field.id]}
+                    </p>
+                </div>
+            )}
             <AudioRecorder
                 fieldId={field.id}
                 value={value}
