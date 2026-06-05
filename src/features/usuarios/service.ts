@@ -1649,16 +1649,13 @@ export async function createUser(
   const passwordHash = await hashPassword(input.password);
   const displayName = input.displayName ?? `${input.firstName} ${input.lastName}`.trim();
   const resolvedPlanType = resolvePlanTypeForCreate(input);
+  // País, cargo, género y años de experiencia son opcionales al crear el
+  // usuario manualmente (el propio usuario los completa en el onboarding
+  // de su primer ingreso). Se preservan como NULL si no llegan en el input.
   const normalizedCountry = normalizeCountry(input.country ?? null);
   const normalizedJobRole = normalizeJobRole(input.jobRole ?? null);
   const normalizedGender = normalizeGender(input.gender ?? null);
   const normalizedYearsExperience = normalizeYearsExperience(input.yearsExperience ?? null);
-  assertRequiredDemographics({
-    country: normalizedCountry,
-    jobRole: normalizedJobRole,
-    gender: normalizedGender,
-    yearsExperience: normalizedYearsExperience,
-  });
   let organizationId = input.organizationId ?? null;
 
   if (!organizationId) {

@@ -122,14 +122,9 @@ export default function NuevoUsuarioPage() {
       return;
     }
     const yearsExperience = keyToStoredValue(form.yearsExperience);
-    if (!form.country.trim() || !form.jobRole || !form.gender.trim() || yearsExperience === null) {
-      await alert({
-        title: 'Campos requeridos',
-        message: 'País, cargo, género y años de experiencia son obligatorios.',
-        tone: 'warning',
-      });
-      return;
-    }
+    // País, cargo, género y años de experiencia son opcionales al crear el
+    // usuario manualmente. El propio usuario los completará en su primer
+    // ingreso desde el flujo de onboarding (página de perfil).
     if (form.userType === 'leader_with_subscription' && !form.subscriptionPlanId) {
       await alert({
         title: 'Selecciona un plan',
@@ -154,9 +149,9 @@ export default function NuevoUsuarioPage() {
           form.userType === 'leader_with_subscription' && form.subscriptionPlanId
             ? form.subscriptionPlanId
             : undefined,
-        country: form.country.trim(),
-        jobRole: form.jobRole,
-        gender: form.gender,
+        country: form.country.trim() || null,
+        jobRole: form.jobRole || null,
+        gender: form.gender || null,
         yearsExperience,
         sendWelcomeEmail: form.sendWelcomeEmail,
       });
@@ -278,12 +273,13 @@ export default function NuevoUsuarioPage() {
           </label>
 
           <label>
-            <span className="app-field-label">País</span>
+            <span className="app-field-label">
+              País <span className="font-normal text-[var(--app-muted)]">· opcional</span>
+            </span>
             <select
               className="app-select"
               value={form.country}
               onChange={(event) => setForm((prev) => ({ ...prev, country: event.target.value }))}
-              required
             >
               <option value="">{USER_DEMOGRAPHIC_PLACEHOLDERS.country}</option>
               {USER_COUNTRY_OPTIONS.map((country) => (
@@ -293,12 +289,13 @@ export default function NuevoUsuarioPage() {
           </label>
 
           <label>
-            <span className="app-field-label">Cargo</span>
+            <span className="app-field-label">
+              Cargo <span className="font-normal text-[var(--app-muted)]">· opcional</span>
+            </span>
             <select
               className="app-select"
               value={form.jobRole}
               onChange={(event) => setForm((prev) => ({ ...prev, jobRole: event.target.value as FormState['jobRole'] }))}
-              required
             >
               <option value="">{USER_DEMOGRAPHIC_PLACEHOLDERS.jobRole}</option>
               {USER_JOB_ROLE_OPTIONS.map((jobRole) => (
@@ -308,12 +305,13 @@ export default function NuevoUsuarioPage() {
           </label>
 
           <label>
-            <span className="app-field-label">Género</span>
+            <span className="app-field-label">
+              Género <span className="font-normal text-[var(--app-muted)]">· opcional</span>
+            </span>
             <select
               className="app-select"
               value={form.gender}
               onChange={(event) => setForm((prev) => ({ ...prev, gender: event.target.value }))}
-              required
             >
               <option value="">{USER_DEMOGRAPHIC_PLACEHOLDERS.gender}</option>
               {USER_GENDER_OPTIONS.map((gender) => (
@@ -323,12 +321,13 @@ export default function NuevoUsuarioPage() {
           </label>
 
           <label>
-            <span className="app-field-label">Años de Experiencia</span>
+            <span className="app-field-label">
+              Años de Experiencia <span className="font-normal text-[var(--app-muted)]">· opcional</span>
+            </span>
             <select
               className="app-select"
               value={form.yearsExperience}
               onChange={(event) => setForm((prev) => ({ ...prev, yearsExperience: event.target.value }))}
-              required
             >
               <option value="">{USER_DEMOGRAPHIC_PLACEHOLDERS.yearsExperience}</option>
               {YEARS_EXPERIENCE_OPTIONS.map((opt) => (
@@ -336,6 +335,11 @@ export default function NuevoUsuarioPage() {
               ))}
             </select>
           </label>
+
+          <p className="md:col-span-2 -mt-2 text-[11px] text-[var(--app-muted)]">
+            País, cargo, género y años de experiencia son opcionales aquí. El usuario los
+            completará en su primer ingreso desde su perfil.
+          </p>
 
           <label className="md:col-span-2">
             <span className="app-field-label">Tipo de usuario *</span>
