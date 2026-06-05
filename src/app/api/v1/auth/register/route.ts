@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { withClient } from '@/server/db/pool';
 import { buildRequestSummary, writeAuditLog } from '@/server/audit/service';
 import { selfRegisterUser, sendVerificationEmail } from '@/features/usuarios/service';
@@ -102,12 +102,17 @@ export async function POST(request: Request) {
 
         await client.query('COMMIT');
 
-        // Send verification email after COMMIT (non-fatal).
-        try {
-          await sendVerificationEmail(user.userId, user.email, user.firstName, user.organizationId);
-        } catch (emailError) {
-          console.error('Verification email failed (non-fatal)', emailError);
-        }
+        // Encolar el envío del correo después de devolver la respuesta:
+        // así el usuario ve "verifica tu correo" al instante y el correo
+        // viaja por SMTP/SendGrid en segundo plano (es no fatal: el flujo
+        // de "reenviar correo de verificación" cubre cualquier fallo).
+        after(async () => {
+          try {
+            await sendVerificationEmail(user.userId, user.email, user.firstName, user.organizationId);
+          } catch (emailError) {
+            console.error('Verification email failed (non-fatal)', emailError);
+          }
+        });
 
         return { email: user.email };
       } catch (error) {

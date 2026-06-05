@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { requestPasswordResetByEmail } from '@/features/usuarios/service';
 
 interface RequestBody {
@@ -18,13 +18,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: 'Correo requerido' }, { status: 400 });
   }
 
-  // Always succeed silently to avoid email enumeration. Errors are logged
-  // server-side but never bubbled to the caller.
-  try {
-    await requestPasswordResetByEmail(email);
-  } catch (error) {
-    console.error('[request-password-reset] dispatch failed:', error);
-  }
+  // Devuelve respuesta al instante y dispara el correo en background.
+  // Always succeed silently to avoid email enumeration; errores se loguean
+  // server-side y no se filtran al cliente.
+  after(async () => {
+    try {
+      await requestPasswordResetByEmail(email);
+    } catch (error) {
+      console.error('[request-password-reset] dispatch failed:', error);
+    }
+  });
 
   return NextResponse.json({
     ok: true,
