@@ -8,6 +8,7 @@ import { WB3_V3_CONFIG } from '@/lib/workbooks-v2-wb3';
 import { WB4_V3_CONFIG } from '@/lib/workbooks-v2-wb4';
 import { WB5_V3_CONFIG } from '@/lib/workbooks-v2-wb5';
 import { WB6_V3_CONFIG } from '@/lib/workbooks-v2-wb6';
+import { WB7_V3_CONFIG } from '@/lib/workbooks-v2-wb7';
 
 const TEMPLATE_BY_CODE: Record<string, WB1Config> = {
     WB1: WB1_V3_CONFIG,
@@ -16,6 +17,7 @@ const TEMPLATE_BY_CODE: Record<string, WB1Config> = {
     WB4: WB4_V3_CONFIG,
     WB5: WB5_V3_CONFIG,
     WB6: WB6_V3_CONFIG,
+    WB7: WB7_V3_CONFIG,
 };
 
 function resolveTemplate(templateCode: string | undefined): WB1Config {
