@@ -1,8 +1,8 @@
 'use client'
 
-import { WorkbookStructuredDigital } from '@/components/workbooks-v2/WorkbookStructuredDigital'
-import { WB10_STRUCTURED_CONFIG } from '@/lib/workbooks-v2-structured'
+import { WorkbookV3Runtime } from '@/components/workbooks-v2/WB1V3Runtime'
+import { WB10_V3_CONFIG } from '@/lib/workbooks-v2-wb10'
 
 export function WB10Digital() {
-    return <WorkbookStructuredDigital config={WB10_STRUCTURED_CONFIG} />
+    return <WorkbookV3Runtime config={WB10_V3_CONFIG} />
 }
