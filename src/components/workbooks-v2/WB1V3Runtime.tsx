@@ -1061,6 +1061,12 @@ export function WB1V3Runtime() {
     const { branding } = useBranding()
     const workbookId = searchParams.get('workbookId')?.trim() || 'preview'
     const isElevated = !!currentRole && ELEVATED_ROLES.has(currentRole)
+    // Modo plantilla: admin/gestor/adviser entró desde el index de Aprendizaje
+    // sin un workbookId concreto. Está viendo la plantilla base del WB,
+    // no la instancia de un líder. En este modo deshabilitamos el flujo
+    // de IA por sesión (necesita un workbook concreto del líder) y dejamos
+    // marcado el banner correspondiente.
+    const isTemplateView = isElevated && workbookId === 'preview'
 
     const pages = useMemo(
         () => [
@@ -1299,7 +1305,7 @@ export function WB1V3Runtime() {
                             <Download size={14} /> HTML
                         </button>
                     )}
-                    {isElevated && (
+                    {isElevated && !isTemplateView && (
                         <button
                             type="button"
                             onClick={() => setShowAdminPanel(true)}
@@ -1357,7 +1363,21 @@ export function WB1V3Runtime() {
                 </aside>
 
                 <main className="space-y-6">
-                    {isElevated && showAdminPanel && (
+                    {isTemplateView && (
+                        <div className="rounded-3xl border border-[var(--brand-accent)]/40 bg-[var(--brand-accent)]/10 px-5 py-4 text-sm text-[var(--brand-primary)]">
+                            <p className="text-[11px] font-bold uppercase tracking-[0.18em]">
+                                Modo plantilla
+                            </p>
+                            <p className="mt-1 leading-relaxed">
+                                Estás viendo el contenido <strong>base</strong> del WB1 ({WB1_V3_CONFIG.code} {WB1_V3_CONFIG.version}). Las respuestas que escribas aquí <strong>no se guardan</strong>, son sólo previsualización para validar la plantilla.
+                                Para abrir el WB1 de un líder en particular, entra desde su perfil 360 en <code>/dashboard/lideres</code>.
+                            </p>
+                            <p className="mt-2 text-xs text-[var(--brand-primary)]/80">
+                                El editor de plantilla (cover image, secciones, preguntas) está en desarrollo.
+                            </p>
+                        </div>
+                    )}
+                    {isElevated && showAdminPanel && !isTemplateView && (
                         <TranscriptAnalysisModal
                             workbookId={workbookId}
                             onApply={applyAiFields}

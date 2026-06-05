@@ -798,13 +798,22 @@ function pillarLabel(value: string | null | undefined): string {
   return getPillarLabelFromCode(value);
 }
 
-function buildWorkbookDigitalHref(workbook: WorkbookRecord): string {
+function buildWorkbookDigitalHref(workbook: WorkbookRecord, isElevated: boolean): string {
+  const slug = workbook.templateCode.toLowerCase();
+  // Admin/gestor/adviser entran a la plantilla global del WB desde el index de
+  // Aprendizaje. El acceso al WB de un líder concreto se hace exclusivamente
+  // desde su perfil 360 (/dashboard/lideres/[userId]) para evitar editar por
+  // error la instancia de un líder al confundirla con la plantilla base.
+  if (isElevated) {
+    return `/dashboard/aprendizaje/workbooks/${slug}`;
+  }
+
   const params = new URLSearchParams({
     workbookId: workbook.workbookId,
     ownerName: workbook.ownerName,
   });
 
-  return `/dashboard/aprendizaje/workbooks/${workbook.templateCode.toLowerCase()}?${params.toString()}`;
+  return `/dashboard/aprendizaje/workbooks/${slug}?${params.toString()}`;
 }
 
 function clampPercent(value: number | null | undefined): number {
@@ -1135,23 +1144,50 @@ export default function AprendizajePage() {
     ).values(),
   );
 
-  const filteredWorkbooks = workbooks.filter((workbook) => {
-    const matchesOwner =
-      workbookOwnerFilter === "all" ||
-      workbook.ownerUserId === workbookOwnerFilter;
+  const isElevatedRole =
+    currentRole === "admin" || currentRole === "gestor" || currentRole === "mentor";
+
+  const filteredWorkbooks = React.useMemo(() => {
     const normalizedQuery = workbookSearch.trim().toLowerCase();
-    const searchable = [
-      workbook.title,
-      workbook.description ?? "",
-      workbook.ownerName,
-      pillarLabel(workbook.pillarCode),
-    ]
-      .join(" ")
-      .toLowerCase();
-    const matchesSearch =
-      normalizedQuery.length === 0 || searchable.includes(normalizedQuery);
-    return matchesOwner && matchesSearch;
-  });
+
+    // Admin/gestor/adviser: deduplicar por templateCode para mostrar UNA tarjeta
+    // por plantilla (no una por cada usuario). Cada tarjeta abre el WB global.
+    if (isElevatedRole) {
+      const byTemplate = new Map<string, WorkbookRecord>();
+      for (const workbook of workbooks) {
+        const key = workbook.templateCode.toLowerCase();
+        const existing = byTemplate.get(key);
+        if (!existing || workbook.sequenceNo < existing.sequenceNo) {
+          byTemplate.set(key, workbook);
+        }
+      }
+      return Array.from(byTemplate.values())
+        .sort((a, b) => a.sequenceNo - b.sequenceNo)
+        .filter((workbook) => {
+          if (normalizedQuery.length === 0) return true;
+          const searchable = [workbook.title, workbook.description ?? "", pillarLabel(workbook.pillarCode)]
+            .join(" ")
+            .toLowerCase();
+          return searchable.includes(normalizedQuery);
+        });
+    }
+
+    return workbooks.filter((workbook) => {
+      const matchesOwner =
+        workbookOwnerFilter === "all" || workbook.ownerUserId === workbookOwnerFilter;
+      const searchable = [
+        workbook.title,
+        workbook.description ?? "",
+        workbook.ownerName,
+        pillarLabel(workbook.pillarCode),
+      ]
+        .join(" ")
+        .toLowerCase();
+      const matchesSearch =
+        normalizedQuery.length === 0 || searchable.includes(normalizedQuery);
+      return matchesOwner && matchesSearch;
+    });
+  }, [isElevatedRole, workbookOwnerFilter, workbookSearch, workbooks]);
 
   React.useEffect(() => {
     if (
@@ -2387,23 +2423,22 @@ export default function AprendizajePage() {
                         </span>
                       </div>
                     ) : (
-                      <select
-                        className={fieldClass}
-                        value={workbookOwnerFilter}
-                        onChange={(event) =>
-                          setWorkbookOwnerFilter(event.target.value)
-                        }
-                      >
-                        <option value="all">Todos los líderes</option>
-                        {workbookOwners.map((owner) => (
-                          <option key={owner.userId} value={owner.userId}>
-                            {owner.ownerName}
-                          </option>
-                        ))}
-                      </select>
+                      <div className="flex items-center rounded-[18px] border border-[var(--app-border)] bg-white/82 px-4 py-3 text-sm text-[var(--app-muted)] shadow-[0_16px_36px_rgba(0,0,0,0.05)]">
+                        <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--app-muted)]">
+                          Vista
+                        </span>
+                        <span className="ml-3 font-semibold text-[var(--app-ink)]">
+                          Plantilla global
+                        </span>
+                      </div>
                     )}
                   </div>
 
+                  {isElevatedRole && (
+                    <div className="mb-4 rounded-2xl border border-[var(--brand-accent)]/40 bg-[var(--brand-accent)]/10 px-4 py-3 text-xs text-[var(--brand-primary)]">
+                      Estás viendo la <strong>plantilla base</strong> de cada workbook. Para abrir el workbook de un líder específico, entra desde <code>/dashboard/lideres &rarr; Ver 360</code>.
+                    </div>
+                  )}
                   {filteredWorkbooks.length === 0 ? (
                     <EmptyState message="No hay workbooks disponibles con este filtro." />
                   ) : (
@@ -2420,7 +2455,7 @@ export default function AprendizajePage() {
                         return (
                           <Link
                             key={workbook.workbookId}
-                            href={buildWorkbookDigitalHref(workbook)}
+                            href={buildWorkbookDigitalHref(workbook, isElevatedRole)}
                             className="group overflow-hidden rounded-[24px] border border-[var(--app-border)] bg-white/82 text-left text-[var(--app-ink)] shadow-[0_18px_38px_rgba(0,0,0,0.06)] transition hover:-translate-y-1 hover:border-[var(--app-border-strong)] hover:shadow-[0_24px_44px_rgba(0,0,0,0.10)]"
                           >
                             <div
@@ -2454,27 +2489,29 @@ export default function AprendizajePage() {
                             </div>
 
                             <div className="p-4 sm:p-5">
-                              <div className="rounded-[16px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-3">
-                                <div className="flex items-center justify-between gap-3 text-xs text-[var(--app-muted)]">
-                                  <span>Progreso real</span>
-                                  <span className="font-semibold text-[var(--app-ink)]">
-                                    {progress}%
-                                  </span>
+                              {!isElevatedRole && (
+                                <div className="rounded-[16px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-3">
+                                  <div className="flex items-center justify-between gap-3 text-xs text-[var(--app-muted)]">
+                                    <span>Progreso real</span>
+                                    <span className="font-semibold text-[var(--app-ink)]">
+                                      {progress}%
+                                    </span>
+                                  </div>
+                                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/80">
+                                    <div
+                                      className={`h-full rounded-full ${workbookProgressClasses(progress)}`}
+                                      style={{ width: `${progress}%` }}
+                                    />
+                                  </div>
                                 </div>
-                                <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/80">
-                                  <div
-                                    className={`h-full rounded-full ${workbookProgressClasses(progress)}`}
-                                    style={{ width: `${progress}%` }}
-                                  />
-                                </div>
-                              </div>
+                              )}
 
                               <div className="mt-4 flex flex-wrap items-center gap-2">
-                                {currentRole !== "lider" && (
-                                  <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs text-[var(--app-muted)]">
-                                    {workbook.ownerName}
+                                {isElevatedRole ? (
+                                  <span className="rounded-full border border-[var(--brand-accent)]/40 bg-[var(--brand-accent)]/10 px-3 py-1 text-xs font-semibold text-[var(--brand-primary)]">
+                                    Plantilla base
                                   </span>
-                                )}
+                                ) : null}
                                 <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs text-[var(--app-muted)]">
                                   {pillarLabel(workbook.pillarCode)}
                                 </span>
@@ -2486,9 +2523,11 @@ export default function AprendizajePage() {
                               <div className="mt-5 flex items-center justify-between border-t border-[var(--app-border)] pt-4">
                                 <span className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--app-muted)]">
                                   <BookOpen size={16} />
-                                  {progress > 0
-                                    ? "Continuar workbook"
-                                    : "Abrir workbook"}
+                                  {isElevatedRole
+                                    ? "Abrir plantilla"
+                                    : progress > 0
+                                      ? "Continuar workbook"
+                                      : "Abrir workbook"}
                                 </span>
                                 <span className="text-sm font-black text-[var(--app-ink)]">
                                   {digitalWorkbook?.code ??
