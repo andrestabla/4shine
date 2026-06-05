@@ -50,9 +50,9 @@ export const WORKBOOKS_V2_CATALOG: WorkbookV2CatalogItem[] = [
         code: 'WB4',
         title: 'Narrativa profesional y Elevator Pitch',
         pillar: 'Shine Out',
-        statusLabel: 'Construcción activa',
-        progress: 35,
-        summary: 'Portada y presentación informativa activas en formato digital premium, con flujo guiado para primer ingreso y continuidad automática.',
+        statusLabel: 'V3 — escritura, voz e IA',
+        progress: 100,
+        summary: 'Workbook V3 con escritura y grabación por voz en cada campo, transcripción automática y análisis IA de la sesión de trabajo (admin/gestor/adviser).',
         isImplemented: true,
     },
     {
