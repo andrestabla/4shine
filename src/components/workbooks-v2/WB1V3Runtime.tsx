@@ -1288,6 +1288,16 @@ export function WorkbookV3Runtime({ config }: { config: WB1Config }) {
                         type="button"
                         className={WORKBOOK_V2_EDITORIAL.classes.pdfButton}
                         onClick={async () => {
+                            if (config.code === 'WB9') {
+                                const { downloadWb9BrochurePdf } = await import('@/components/workbooks-v2/wb9-brochure-pdf')
+                                await downloadWb9BrochurePdf(
+                                    config,
+                                    values,
+                                    currentUser?.name ?? 'Líder 4Shine',
+                                    branding.logoDarkUrl,
+                                )
+                                return
+                            }
                             const { downloadWorkbookV3Pdf } = await import('@/components/workbooks-v2/wb1-pdf-export')
                             await downloadWorkbookV3Pdf(
                                 config,
@@ -1297,7 +1307,7 @@ export function WorkbookV3Runtime({ config }: { config: WB1Config }) {
                             )
                         }}
                     >
-                        <Download size={14} /> Descargar PDF
+                        <Download size={14} /> {config.code === 'WB9' ? 'Descargar brochure' : 'Descargar PDF'}
                     </button>
                     {isElevated && (
                         <button
