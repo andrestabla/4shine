@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
     AlertTriangle,
     ArrowLeft,
@@ -31,41 +32,65 @@ import { R2UploadButton } from '@/components/ui/R2UploadButton'
 import { resolveWorkbookHelp, type WorkbookHelpContent } from '@/lib/workbooks-v2-help'
 
 function WorkbookHelpModal({ help, onClose }: { help: WorkbookHelpContent; onClose: () => void }) {
-    return (
+    useEffect(() => {
+        const previousOverflow = document.body.style.overflow
+        document.body.style.overflow = 'hidden'
+        const onKey = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') onClose()
+        }
+        window.addEventListener('keydown', onKey)
+        return () => {
+            document.body.style.overflow = previousOverflow
+            window.removeEventListener('keydown', onKey)
+        }
+    }, [onClose])
+
+    if (typeof document === 'undefined') return null
+
+    return createPortal(
         <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 px-3 py-6"
+            className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-900/65 backdrop-blur-sm sm:items-center sm:px-4 sm:py-8"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Ayuda del workbook"
             onClick={onClose}
         >
             <div
-                className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl"
+                className="relative flex max-h-[90dvh] w-full flex-col overflow-hidden bg-white shadow-2xl sm:max-h-[85dvh] sm:max-w-2xl sm:rounded-3xl"
                 onClick={(event) => event.stopPropagation()}
             >
-                <button
-                    type="button"
-                    onClick={onClose}
-                    aria-label="Cerrar ayuda"
-                    className="absolute right-4 top-4 rounded-full p-1 text-slate-500 hover:bg-slate-100"
-                >
-                    <X size={18} />
-                </button>
-                <h2 className="text-xl font-bold text-slate-900">{help.title}</h2>
-                <p className="mt-2 text-sm text-slate-600">{help.intro}</p>
-                <div className="mt-5 space-y-5">
-                    {help.blocks.map((block, idx) => (
-                        <div key={idx} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                            <h3 className="text-sm font-semibold text-slate-900">{block.title}</h3>
-                            <p className="mt-1 text-sm text-slate-700">{block.body}</p>
-                            {block.bullets && block.bullets.length > 0 && (
-                                <ul className="mt-2 space-y-1.5 pl-4 text-sm text-slate-600">
-                                    {block.bullets.map((b, i) => (
-                                        <li key={i} className="list-disc">{b}</li>
-                                    ))}
-                                </ul>
-                            )}
-                        </div>
-                    ))}
+                <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-4 py-4 sm:px-6">
+                    <div>
+                        <h2 className="text-base font-bold text-slate-900 sm:text-lg">{help.title}</h2>
+                        <p className="mt-1 text-xs text-slate-600 sm:text-sm">{help.intro}</p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        aria-label="Cerrar ayuda"
+                        className="shrink-0 rounded-full p-1.5 text-slate-500 hover:bg-slate-100"
+                    >
+                        <X size={18} />
+                    </button>
                 </div>
-                <div className="mt-6 text-right">
+                <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+                    <div className="space-y-4">
+                        {help.blocks.map((block, idx) => (
+                            <div key={idx} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                <h3 className="text-sm font-semibold text-slate-900">{block.title}</h3>
+                                <p className="mt-1 text-sm text-slate-700">{block.body}</p>
+                                {block.bullets && block.bullets.length > 0 && (
+                                    <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm text-slate-600">
+                                        {block.bullets.map((b, i) => (
+                                            <li key={i}>{b}</li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3 sm:px-6">
                     <button
                         type="button"
                         onClick={onClose}
@@ -75,7 +100,8 @@ function WorkbookHelpModal({ help, onClose }: { help: WorkbookHelpContent; onClo
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     )
 }
 
@@ -945,8 +971,13 @@ function TranscriptAnalysisModal({
         const handler = (event: KeyboardEvent) => {
             if (event.key === 'Escape' && !busy) onClose()
         }
+        const previousOverflow = document.body.style.overflow
+        document.body.style.overflow = 'hidden'
         window.addEventListener('keydown', handler)
-        return () => window.removeEventListener('keydown', handler)
+        return () => {
+            document.body.style.overflow = previousOverflow
+            window.removeEventListener('keydown', handler)
+        }
     }, [busy, onClose])
 
     async function handleAnalyze() {
@@ -982,31 +1013,33 @@ function TranscriptAnalysisModal({
     const successPercent =
         totalRequested > 0 ? Math.round((filledCount / totalRequested) * 100) : 0
 
-    return (
+    if (typeof document === 'undefined') return null
+
+    return createPortal(
         <div
             role="dialog"
             aria-modal="true"
-            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4"
+            className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/65 backdrop-blur-sm sm:items-center sm:px-4 sm:py-8"
             onClick={(event) => {
                 if (event.target === event.currentTarget && !busy) onClose()
             }}
         >
-            <div className="relative flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
-                <header className="flex items-start justify-between gap-3 border-b border-slate-200 bg-[var(--brand-accent)]/10 px-6 py-4">
+            <div className="relative flex max-h-[90dvh] w-full flex-col overflow-hidden bg-white shadow-2xl sm:max-h-[85dvh] sm:max-w-3xl sm:rounded-3xl">
+                <header className="flex items-start justify-between gap-3 border-b border-slate-200 bg-[var(--brand-accent)]/10 px-4 py-3 sm:px-6 sm:py-4">
                     <div className="flex items-start gap-3">
                         <div className="rounded-xl bg-[var(--brand-primary)] p-2 text-white">
                             <Sparkles size={18} />
                         </div>
                         <div>
                             <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--brand-primary)]">
-                                Modo adviser · WB1
+                                Modo adviser · {config.code}
                             </p>
-                            <h2 className="mt-1 text-base font-bold text-slate-900">
+                            <h2 className="mt-1 text-sm font-bold text-slate-900 sm:text-base">
                                 Completar el workbook con análisis IA
                             </h2>
                             <p className="mt-1 text-xs text-slate-600">
                                 Pega la transcripción literal de la sesión. La IA va a redactar un borrador editable de todos
-                                los campos de las 8 secciones del WB1 a partir de lo que el líder dijo.
+                                los campos del workbook a partir de lo que el líder dijo.
                             </p>
                         </div>
                     </div>
@@ -1142,7 +1175,8 @@ function TranscriptAnalysisModal({
                     )}
                 </footer>
             </div>
-        </div>
+        </div>,
+        document.body
     )
 }
 
