@@ -1365,16 +1365,24 @@ export function WB1V3Runtime() {
                 <main className="space-y-6">
                     {isTemplateView && (
                         <div className="rounded-3xl border border-[var(--brand-accent)]/40 bg-[var(--brand-accent)]/10 px-5 py-4 text-sm text-[var(--brand-primary)]">
-                            <p className="text-[11px] font-bold uppercase tracking-[0.18em]">
-                                Modo plantilla
-                            </p>
-                            <p className="mt-1 leading-relaxed">
-                                Estás viendo el contenido <strong>base</strong> del WB1 ({WB1_V3_CONFIG.code} {WB1_V3_CONFIG.version}). Las respuestas que escribas aquí <strong>no se guardan</strong>, son sólo previsualización para validar la plantilla.
-                                Para abrir el WB1 de un líder en particular, entra desde su perfil 360 en <code>/dashboard/lideres</code>.
-                            </p>
-                            <p className="mt-2 text-xs text-[var(--brand-primary)]/80">
-                                El editor de plantilla (cover image, secciones, preguntas) está en desarrollo.
-                            </p>
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div>
+                                    <p className="text-[11px] font-bold uppercase tracking-[0.18em]">
+                                        Modo plantilla
+                                    </p>
+                                    <p className="mt-1 leading-relaxed">
+                                        Estás viendo el contenido <strong>base</strong> del {WB1_V3_CONFIG.code} {WB1_V3_CONFIG.version}. Las respuestas que escribas aquí <strong>no se guardan</strong>, son sólo previsualización. Para abrir el WB de un líder, entra desde <code>/dashboard/lideres</code>.
+                                    </p>
+                                </div>
+                                {(currentRole === 'admin' || currentRole === 'gestor') && (
+                                    <a
+                                        href={`/dashboard/aprendizaje/workbooks/${WB1_V3_CONFIG.code.toLowerCase()}/editar`}
+                                        className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[var(--brand-primary)] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[var(--brand-hover)]"
+                                    >
+                                        Editar plantilla
+                                    </a>
+                                )}
+                            </div>
                         </div>
                     )}
                     {isElevated && showAdminPanel && !isTemplateView && (

@@ -2460,6 +2460,15 @@ export default function AprendizajePage() {
                           >
                             <div
                               className={`relative min-h-[220px] p-5 ${workbookVisualClasses(workbook.sequenceNo)}`}
+                              style={
+                                workbook.coverImageUrl
+                                  ? {
+                                      backgroundImage: `linear-gradient(180deg, rgba(13,27,42,0.55), rgba(13,27,42,0.85)), url(${workbook.coverImageUrl})`,
+                                      backgroundSize: 'cover',
+                                      backgroundPosition: 'center',
+                                    }
+                                  : undefined
+                              }
                             >
                               <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.02),rgba(15,23,42,0.3))]" />
                               <div className="relative flex h-full flex-col">

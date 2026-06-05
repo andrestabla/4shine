@@ -149,6 +149,8 @@ export interface WorkbookRecord {
   lastDownloadedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  coverImageUrl: string | null;
+  templateVersionNo: number | null;
 }
 
 export interface UpdateWorkbookInput {
@@ -417,6 +419,8 @@ interface WorkbookRow {
   last_downloaded_at: string | null;
   created_at: string;
   updated_at: string;
+  cover_image_url: string | null;
+  template_version_no: number | null;
 }
 
 type WorkbookEditableFieldsInput = Partial<WorkbookEditableFields> & {
@@ -515,6 +519,8 @@ function mapWorkbookRow(row: WorkbookRow): WorkbookRecord {
     lastDownloadedAt: row.last_downloaded_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    coverImageUrl: row.cover_image_url,
+    templateVersionNo: row.template_version_no,
   };
 }
 
@@ -524,6 +530,14 @@ async function ensureWorkbookInstances(client: PoolClient, ownerUserId?: string)
 
   await client.query(
     `
+      WITH latest_versions AS (
+        SELECT DISTINCT ON (template_id)
+          template_id,
+          version_no,
+          content
+        FROM app_learning.workbook_template_versions
+        ORDER BY template_id, version_no DESC
+      )
       INSERT INTO app_learning.user_workbooks (
         template_id,
         owner_user_id,
@@ -531,7 +545,9 @@ async function ensureWorkbookInstances(client: PoolClient, ownerUserId?: string)
         description,
         available_from,
         editable_fields,
-        completion_percent
+        completion_percent,
+        template_version_no,
+        content_snapshot
       )
       SELECT
         wt.template_id,
@@ -540,9 +556,12 @@ async function ensureWorkbookInstances(client: PoolClient, ownerUserId?: string)
         wt.description,
         u.created_at + make_interval(days => wt.unlock_offset_days),
         wt.default_fields,
-        0
+        0,
+        lv.version_no,
+        lv.content
       FROM app_core.users u
       CROSS JOIN app_learning.workbook_templates wt
+      LEFT JOIN latest_versions lv ON lv.template_id = wt.template_id
       LEFT JOIN app_learning.user_workbooks uw
         ON uw.owner_user_id = u.user_id
        AND uw.template_id = wt.template_id
@@ -652,7 +671,9 @@ async function getWorkbookById(client: PoolClient, workbookId: string): Promise<
         uw.state_payload,
         uw.last_downloaded_at::text,
         uw.created_at::text,
-        uw.updated_at::text
+        uw.updated_at::text,
+        wt.cover_image_url,
+        uw.template_version_no
       FROM app_learning.user_workbooks uw
       JOIN app_learning.workbook_templates wt ON wt.template_id = uw.template_id
       JOIN app_core.users u ON u.user_id = uw.owner_user_id
@@ -1448,7 +1469,9 @@ export async function listWorkbooks(
         NULL::jsonb AS state_payload,
         uw.last_downloaded_at::text,
         uw.created_at::text,
-        uw.updated_at::text
+        uw.updated_at::text,
+        wt.cover_image_url,
+        uw.template_version_no
       FROM app_learning.user_workbooks uw
       JOIN app_learning.workbook_templates wt ON wt.template_id = uw.template_id
       JOIN app_core.users u ON u.user_id = uw.owner_user_id

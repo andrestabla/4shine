@@ -35,6 +35,12 @@ const PROFILE_CV_EXTRA_MIME_TYPES = [
   'application/msword',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ];
+const WORKBOOK_COVER_MIN_MAX_SIZE_MB = 8;
+const WORKBOOK_COVER_EXTRA_MIME_TYPES = [
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+];
 const WORKBOOK_AUDIO_MIN_MAX_SIZE_MB = 25;
 const WORKBOOK_AUDIO_EXTRA_MIME_TYPES = [
   'audio/webm',
@@ -97,6 +103,9 @@ export async function POST(request: Request) {
   const isWorkbookAudioUpload =
     moduleCodeInput === 'aprendizaje' &&
     (fieldName === 'workbook_audio' || (pathPrefix?.startsWith('aprendizaje/workbooks/') ?? false));
+  const isWorkbookCoverUpload =
+    moduleCodeInput === 'aprendizaje' &&
+    (fieldName === 'workbook_cover' || (pathPrefix?.startsWith('aprendizaje/templates/') ?? false));
 
   if (!VALID_MODULE_CODES.has(moduleCodeInput)) {
     return NextResponse.json(
@@ -156,6 +165,17 @@ export async function POST(request: Request) {
           );
           const mergedMimeTypes = Array.from(
             new Set([...config.allowedMimeTypes, ...WORKBOOK_AUDIO_EXTRA_MIME_TYPES]),
+          );
+          config.maxFileSizeBytes = expandedBytes;
+          config.allowedMimeTypes = mergedMimeTypes;
+        }
+        if (isWorkbookCoverUpload) {
+          const expandedBytes = Math.max(
+            config.maxFileSizeBytes,
+            WORKBOOK_COVER_MIN_MAX_SIZE_MB * 1024 * 1024,
+          );
+          const mergedMimeTypes = Array.from(
+            new Set([...config.allowedMimeTypes, ...WORKBOOK_COVER_EXTRA_MIME_TYPES]),
           );
           config.maxFileSizeBytes = expandedBytes;
           config.allowedMimeTypes = mergedMimeTypes;
