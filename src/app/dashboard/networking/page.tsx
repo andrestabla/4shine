@@ -910,7 +910,9 @@ export default function NetworkingPage() {
   const [activeTab, setActiveTab] = React.useState<MainTab>('inicio');
   const [networkSubTab, setNetworkSubTab] = React.useState<NetworkSubTab>('contactos');
 
-  const isCommunityLocked = currentRole === 'lider' && viewerAccess?.viewerTier === 'open_leader';
+  const isCommunityLocked =
+    currentRole === 'lider' &&
+    (viewerAccess?.viewerTier === 'open_leader' || viewerAccess?.canAccessNetworking === false);
   const canManageCommunities = can('networking', 'manage');
   const canCreate = can('networking', 'create');
 

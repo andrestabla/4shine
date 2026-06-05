@@ -339,7 +339,9 @@ export default function ConvocatoriasPage() {
   const [tipoFilter, setTipoFilter] = React.useState<ConvocatoriaTipo | 'all'>('all');
   const [notifInterest, setNotifInterest] = React.useState<boolean>(false);
 
-  const isCommunityLocked = currentRole === 'lider' && viewerAccess?.viewerTier === 'open_leader';
+  const isCommunityLocked =
+    currentRole === 'lider' &&
+    (viewerAccess?.viewerTier === 'open_leader' || viewerAccess?.canAccessConvocatorias === false);
 
   const canManage = can('convocatorias', 'create'); // solo gestor/admin
 

@@ -2,9 +2,11 @@ import type { PoolClient } from "pg";
 import { ForbiddenError } from "@/server/auth/module-permissions";
 import type { AuthUser } from "@/server/auth/types";
 import type {
+  ActivePlanInfo,
   CommercialProductCode,
   CommercialProductGroup,
   CommercialProductRecord,
+  PlanFeatureGrant,
   PlanTypeCode,
   PurchaseStatus,
   UserPurchaseRecord,
@@ -88,6 +90,95 @@ async function readPlanTypeCode(client: PoolClient, userId: string): Promise<Pla
   );
 
   return rows[0]?.plan_type ?? null;
+}
+
+interface ActivePlanRow {
+  plan_id: string;
+  plan_code: string;
+  plan_group: string;
+  name: string;
+  highlight_label: string | null;
+  price_amount: string | number;
+  currency_code: string;
+}
+
+/**
+ * Lee el plan de suscripción activo y vigente del líder (vía
+ * user_profiles.subscription_plan_id) junto con sus features
+ * configuradas en /dashboard/administracion/planes.
+ *
+ * Devuelve null si el líder no tiene plan asignado o el plan no está activo.
+ */
+async function readActivePlanWithFeatures(
+  client: PoolClient,
+  userId: string,
+): Promise<{ plan: ActivePlanInfo; features: Record<string, PlanFeatureGrant> } | null> {
+  const { rows: planRows } = await client.query<ActivePlanRow>(
+    `
+      SELECT
+        sp.plan_id::text,
+        sp.plan_code,
+        sp.plan_group::text AS plan_group,
+        sp.name,
+        sp.highlight_label,
+        sp.price_amount,
+        sp.currency_code
+      FROM app_core.user_profiles up
+      JOIN app_billing.subscription_plans sp
+        ON sp.plan_id = up.subscription_plan_id
+      WHERE up.user_id = $1::uuid
+        AND sp.is_active = true
+      LIMIT 1
+    `,
+    [userId],
+  );
+
+  const planRow = planRows[0];
+  if (!planRow) return null;
+
+  const { rows: featureRows } = await client.query<{
+    feature_key: string;
+    is_enabled: boolean;
+    quota: number | string | null;
+  }>(
+    `
+      SELECT feature_key, is_enabled, quota
+      FROM app_billing.plan_module_features
+      WHERE plan_id = $1::uuid
+    `,
+    [planRow.plan_id],
+  );
+
+  const features: Record<string, PlanFeatureGrant> = {};
+  for (const row of featureRows) {
+    const quotaRaw =
+      row.quota === null || row.quota === undefined ? null : Number(row.quota);
+    features[row.feature_key] = {
+      enabled: !!row.is_enabled,
+      quota: Number.isFinite(quotaRaw) ? quotaRaw : null,
+    };
+  }
+
+  return {
+    plan: {
+      planId: planRow.plan_id,
+      planCode: planRow.plan_code,
+      planGroup: planRow.plan_group,
+      name: planRow.name,
+      highlightLabel: planRow.highlight_label,
+      priceAmount: Number(planRow.price_amount ?? 0),
+      currencyCode: planRow.currency_code,
+    },
+    features,
+  };
+}
+
+function featureEnabled(
+  features: Record<string, PlanFeatureGrant>,
+  key: string,
+): boolean {
+  const grant = features[key];
+  return !!grant && grant.enabled;
 }
 
 interface UserPurchaseRow {
@@ -180,6 +271,8 @@ export async function getViewerAccessState(
       return {
         viewerTier: "staff",
         planTypeCode: null,
+        activePlan: null,
+        planFeatures: {},
         hasProgramSubscription: false,
         hasAnyPurchase: false,
         hasDiscoveryPurchase: true,
@@ -189,16 +282,27 @@ export async function getViewerAccessState(
         canAccessLearningLibrary: false,
         canAccessProgramWorkbooks: false,
         canAccessProgramMentorships: false,
+        canAccessMentoring1on1: false,
+        canAccessMentoringGroup: false,
         canAccessCommunityModules: false,
+        canAccessNetworking: false,
+        canAccessMensajes: false,
+        canAccessConvocatorias: false,
+        canAccessWorkshops: false,
+        canAccessAprendizajeCursos: false,
+        canAccessAprendizajeRecursosFree: false,
         freeLearningOnly: true,
         purchasedProductCodes: [],
         catalog: await catalogPromise,
       };
     }
 
+    // admin / gestor / mentor / adviser → acceso completo, sin gating por plan.
     return {
       viewerTier: "staff",
       planTypeCode: null,
+      activePlan: null,
+      planFeatures: {},
       hasProgramSubscription: true,
       hasAnyPurchase: true,
       hasDiscoveryPurchase: true,
@@ -208,16 +312,25 @@ export async function getViewerAccessState(
       canAccessLearningLibrary: true,
       canAccessProgramWorkbooks: true,
       canAccessProgramMentorships: true,
+      canAccessMentoring1on1: true,
+      canAccessMentoringGroup: true,
       canAccessCommunityModules: true,
+      canAccessNetworking: true,
+      canAccessMensajes: true,
+      canAccessConvocatorias: true,
+      canAccessWorkshops: true,
+      canAccessAprendizajeCursos: true,
+      canAccessAprendizajeRecursosFree: true,
       freeLearningOnly: false,
       purchasedProductCodes: [],
       catalog: await catalogPromise,
     };
   }
 
-  const [planTypeCode, purchases, catalog] = await Promise.all([
+  const [planTypeCode, purchases, planWithFeatures, catalog] = await Promise.all([
     readPlanTypeCode(client, actor.userId),
     listActivePurchases(client, actor.userId),
+    readActivePlanWithFeatures(client, actor.userId),
     catalogPromise,
   ]);
 
@@ -238,25 +351,77 @@ export async function getViewerAccessState(
     return total + Number(purchase.quantity ?? 0) * Number(purchase.sessions_included ?? 0);
   }, 0);
 
+  // Si el líder tiene un plan asignado en /administracion/planes, esa es la
+  // fuente de verdad. Si no, caemos al modelo legacy (plan_type + purchases).
+  const activePlan = planWithFeatures?.plan ?? null;
+  const planFeatures = planWithFeatures?.features ?? {};
+
   const hasProgramSubscription =
-    SUBSCRIBED_PLAN_TYPES.has(planTypeCode ?? "standard") || hasProgramPurchase;
+    activePlan !== null ||
+    SUBSCRIBED_PLAN_TYPES.has(planTypeCode ?? "standard") ||
+    hasProgramPurchase;
   const hasAnyPurchase =
     hasProgramSubscription || hasDiscoveryPurchase || mentorshipSessionCredits > 0;
+
+  // Cuando hay plan asignado, los accesos se derivan de plan_module_features.
+  // Cuando no, se conserva la lógica anterior (subscriber ⇒ todo abierto).
+  const usingPlanFeatures = activePlan !== null;
+  const pf = (key: string, legacy: boolean): boolean =>
+    usingPlanFeatures ? featureEnabled(planFeatures, key) : legacy;
+
+  const canAccessTrayectoria = pf("trayectoria", hasProgramSubscription);
+  const canAccessDescubrimiento = pf(
+    "descubrimiento",
+    hasProgramSubscription || hasDiscoveryPurchase,
+  );
+  const canAccessAprendizajeRecursosFree = pf(
+    "aprendizaje_recursos_free",
+    true, // los recursos free siempre fueron accesibles en el modelo legacy
+  );
+  const canAccessAprendizajeCursos = pf("aprendizaje_cursos", hasProgramSubscription);
+  const canAccessProgramWorkbooks = pf("aprendizaje_workbooks", hasProgramSubscription);
+  const canAccessMentoring1on1 = pf("mentorias_1on1", hasProgramSubscription);
+  const canAccessMentoringGroup = pf("mentorias_grupales", hasProgramSubscription);
+  const canAccessNetworking = pf("networking", hasProgramSubscription);
+  const canAccessMensajes = pf("mensajes", hasProgramSubscription);
+  const canAccessConvocatorias = pf("convocatorias", hasProgramSubscription);
+  const canAccessWorkshops = pf("workshops", hasProgramSubscription);
+
+  const canAccessProgramMentorships =
+    canAccessMentoring1on1 || canAccessMentoringGroup;
+  const canAccessLearningLibrary =
+    canAccessAprendizajeRecursosFree || canAccessAprendizajeCursos || canAccessProgramWorkbooks;
+  const canAccessCommunityModules =
+    canAccessNetworking || canAccessConvocatorias || canAccessWorkshops || canAccessMensajes;
+  const freeLearningOnly =
+    !canAccessProgramWorkbooks &&
+    !canAccessAprendizajeCursos &&
+    canAccessAprendizajeRecursosFree;
 
   return {
     viewerTier: hasProgramSubscription ? "subscriber" : "open_leader",
     planTypeCode,
+    activePlan,
+    planFeatures,
     hasProgramSubscription,
     hasAnyPurchase,
     hasDiscoveryPurchase,
     mentorshipSessionCredits,
-    canAccessTrayectoria: hasProgramSubscription,
-    canAccessDescubrimiento: hasProgramSubscription || hasDiscoveryPurchase,
-    canAccessLearningLibrary: hasProgramSubscription,
-    canAccessProgramWorkbooks: hasProgramSubscription,
-    canAccessProgramMentorships: hasProgramSubscription,
-    canAccessCommunityModules: hasProgramSubscription,
-    freeLearningOnly: !hasProgramSubscription,
+    canAccessTrayectoria,
+    canAccessDescubrimiento,
+    canAccessLearningLibrary,
+    canAccessProgramWorkbooks,
+    canAccessProgramMentorships,
+    canAccessMentoring1on1,
+    canAccessMentoringGroup,
+    canAccessCommunityModules,
+    canAccessNetworking,
+    canAccessMensajes,
+    canAccessConvocatorias,
+    canAccessWorkshops,
+    canAccessAprendizajeCursos,
+    canAccessAprendizajeRecursosFree,
+    freeLearningOnly,
     purchasedProductCodes,
     catalog,
   };
@@ -281,6 +446,46 @@ export async function requireProgramSubscriptionAccess(
     );
   }
   return access;
+}
+
+/**
+ * Tipos seguros: sólo los flags booleanos de ViewerAccessState que
+ * representan permisos por feature. Excluimos los booleanos que no son
+ * acceso de feature (hasProgramSubscription/hasAnyPurchase, etc.) para
+ * evitar usar el helper con la bandera equivocada.
+ */
+export type AccessFlag =
+  | "canAccessTrayectoria"
+  | "canAccessDescubrimiento"
+  | "canAccessLearningLibrary"
+  | "canAccessProgramWorkbooks"
+  | "canAccessProgramMentorships"
+  | "canAccessMentoring1on1"
+  | "canAccessMentoringGroup"
+  | "canAccessCommunityModules"
+  | "canAccessNetworking"
+  | "canAccessMensajes"
+  | "canAccessConvocatorias"
+  | "canAccessWorkshops"
+  | "canAccessAprendizajeCursos"
+  | "canAccessAprendizajeRecursosFree";
+
+/**
+ * Exige que un líder tenga habilitado un flag específico derivado del plan
+ * activo (plan_module_features). Para roles no líderes deja pasar.
+ */
+export async function requireViewerAccessFlag(
+  client: PoolClient,
+  actor: AuthUser,
+  flag: AccessFlag,
+  featureLabel: string,
+): Promise<ViewerAccessState> {
+  const access = await readAccessStateForActor(client, actor);
+  if (actor.role !== "lider") return access;
+  if (access[flag] === true) return access;
+  throw new ForbiddenError(
+    `${featureLabel} no está habilitado en tu plan actual. Pide a tu gestor o adviser ajustar tu plan para acceder.`,
+  );
 }
 
 export async function requireDiscoveryAccess(

@@ -1,5 +1,5 @@
 import type { PoolClient } from 'pg';
-import { getViewerAccessState, requireProgramSubscriptionAccess } from '@/features/access/service';
+import { getViewerAccessState, requireViewerAccessFlag } from '@/features/access/service';
 import {
   buildEmptyLearningCommentReactions,
   isLearningCommentReactionType,
@@ -706,7 +706,12 @@ export async function getWorkbookForActor(
   await requireModulePermission(client, 'aprendizaje', 'view');
 
   if (actor.role === 'lider') {
-    await requireProgramSubscriptionAccess(client, actor, 'Los workbooks del programa');
+    await requireViewerAccessFlag(
+      client,
+      actor,
+      'canAccessProgramWorkbooks',
+      'Los workbooks del programa',
+    );
   }
 
   const workbook = await getWorkbookById(client, workbookId);
@@ -1502,7 +1507,12 @@ export async function updateWorkbook(
   await requireModulePermission(client, 'aprendizaje', 'update');
 
   if (actor.role === 'lider') {
-    await requireProgramSubscriptionAccess(client, actor, 'La edición de workbooks');
+    await requireViewerAccessFlag(
+      client,
+      actor,
+      'canAccessProgramWorkbooks',
+      'La edición de workbooks',
+    );
   }
 
   const current = await getWorkbookById(client, workbookId);

@@ -173,7 +173,9 @@ export default function WorkshopsPage() {
   const [statusFilter, setStatusFilter] = React.useState<WorkshopStatus | 'all'>('all');
   const [typeFilter, setTypeFilter] = React.useState<WorkshopType | 'all'>('all');
 
-  const isCommunityLocked = currentRole === 'lider' && viewerAccess?.viewerTier === 'open_leader';
+  const isCommunityLocked =
+    currentRole === 'lider' &&
+    (viewerAccess?.viewerTier === 'open_leader' || viewerAccess?.canAccessWorkshops === false);
   const canManage = can('workshops', 'manage');
 
   const showError = React.useCallback(

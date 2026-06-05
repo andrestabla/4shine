@@ -1,5 +1,5 @@
 import type { PoolClient } from 'pg';
-import { getViewerAccessState, requireProgramSubscriptionAccess } from '@/features/access/service';
+import { getViewerAccessState, requireViewerAccessFlag } from '@/features/access/service';
 import type { AuthUser } from '@/server/auth/types';
 import { requireModulePermission } from '@/server/auth/module-permissions';
 import { createZoomMeeting } from '@/server/integrations/zoom';
@@ -2309,7 +2309,12 @@ export async function scheduleProgramMentorship(
 ): Promise<MentorshipRecord> {
   assertLeaderActor(actor);
   await requireModulePermission(client, 'mentorias', 'create');
-  await requireProgramSubscriptionAccess(client, actor, 'Las mentorías incluidas del programa');
+  await requireViewerAccessFlag(
+    client,
+    actor,
+    'canAccessMentoring1on1',
+    'Las mentorías 1:1 del programa',
+  );
 
   const entitlement = await getProgramEntitlement(client, input.entitlementId, actor.userId);
   const entitlementList = await listProgramEntitlements(client, actor.userId);

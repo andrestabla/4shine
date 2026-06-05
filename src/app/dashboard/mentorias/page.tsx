@@ -452,7 +452,9 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
 
   const leaderName = currentUser?.name?.split(' ')[0] ?? 'Líder';
   const isOpenLeader =
-    currentRole === 'lider' && viewerAccess?.viewerTier === 'open_leader';
+    currentRole === 'lider' &&
+    (viewerAccess?.viewerTier === 'open_leader' ||
+      viewerAccess?.canAccessProgramMentorships === false);
   const mentorshipOffers = filterCommercialProducts(viewerAccess?.catalog, {
     groups: ['program', 'mentoring_pack'],
   });

@@ -39,9 +39,41 @@ export interface UserPurchaseRecord {
   source: string | null;
 }
 
+/**
+ * Permiso unitario para un feature del plan (mapea a app_billing.plan_module_features).
+ * `quota` queda en null cuando el feature no soporta cupos.
+ */
+export interface PlanFeatureGrant {
+  enabled: boolean;
+  quota: number | null;
+}
+
+/**
+ * Plan de suscripción activo del líder. `null` cuando el líder no tiene plan
+ * asignado en user_profiles.subscription_plan_id (se usa fallback legacy
+ * basado en plan_type / purchases).
+ */
+export interface ActivePlanInfo {
+  planId: string;
+  planCode: string;
+  planGroup: string;
+  name: string;
+  highlightLabel: string | null;
+  priceAmount: number;
+  currencyCode: string;
+}
+
 export interface ViewerAccessState {
   viewerTier: ViewerAccessTier;
   planTypeCode: PlanTypeCode;
+  /** Plan activo del líder (null si no se ha asignado). */
+  activePlan: ActivePlanInfo | null;
+  /**
+   * Diccionario de features del plan activo del líder.
+   * Si activePlan es null, queda vacío y se cae al fallback legacy.
+   * Keys son PlanFeatureKey de @/features/planes/types.
+   */
+  planFeatures: Record<string, PlanFeatureGrant>;
   hasProgramSubscription: boolean;
   hasAnyPurchase: boolean;
   hasDiscoveryPurchase: boolean;
@@ -49,9 +81,21 @@ export interface ViewerAccessState {
   canAccessTrayectoria: boolean;
   canAccessDescubrimiento: boolean;
   canAccessLearningLibrary: boolean;
+  /** Habilita workbooks del programa. */
   canAccessProgramWorkbooks: boolean;
+  /** Habilita mentorías (cualquier modalidad). */
   canAccessProgramMentorships: boolean;
+  /** Mentorías 1:1 individuales (deriva de feature mentorias_1on1 si hay plan). */
+  canAccessMentoring1on1: boolean;
+  /** Mentorías grupales (feature mentorias_grupales). */
+  canAccessMentoringGroup: boolean;
   canAccessCommunityModules: boolean;
+  canAccessNetworking: boolean;
+  canAccessMensajes: boolean;
+  canAccessConvocatorias: boolean;
+  canAccessWorkshops: boolean;
+  canAccessAprendizajeCursos: boolean;
+  canAccessAprendizajeRecursosFree: boolean;
   freeLearningOnly: boolean;
   purchasedProductCodes: CommercialProductCode[];
   catalog: CommercialProductRecord[];

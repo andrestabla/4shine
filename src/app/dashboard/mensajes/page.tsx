@@ -225,7 +225,9 @@ export default function MensajesPage() {
   const typingTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTypingSentRef = React.useRef(0);
 
-  const isCommunityLocked = currentRole === 'lider' && viewerAccess?.viewerTier === 'open_leader';
+  const isCommunityLocked =
+    currentRole === 'lider' &&
+    (viewerAccess?.viewerTier === 'open_leader' || viewerAccess?.canAccessMensajes === false);
 
   const showError = React.useCallback(
     async (msg: string, err: unknown) => {
