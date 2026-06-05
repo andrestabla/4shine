@@ -5,6 +5,40 @@ import { WB1_V3_CONFIG, type WB1Config } from '@/lib/workbooks-v2-wb1';
 
 export type WorkbookTemplateContent = WB1Config;
 
+export interface WorkbookCoverConfig {
+    overlayHex: string;
+    overlayOpacity: number;
+    kicker: string | null;
+    title: string | null;
+    summary: string | null;
+}
+
+export const DEFAULT_COVER_CONFIG: WorkbookCoverConfig = {
+    overlayHex: '#0D1B2A',
+    overlayOpacity: 0.55,
+    kicker: null,
+    title: null,
+    summary: null,
+};
+
+function normalizeCoverConfig(raw: unknown): WorkbookCoverConfig {
+    if (!raw || typeof raw !== 'object') return { ...DEFAULT_COVER_CONFIG };
+    const value = raw as Record<string, unknown>;
+    const overlayOpacityNum = typeof value.overlayOpacity === 'number' ? value.overlayOpacity : Number(value.overlayOpacity);
+    return {
+        overlayHex:
+            typeof value.overlayHex === 'string' && /^#[0-9a-f]{6}$/i.test(value.overlayHex)
+                ? value.overlayHex
+                : DEFAULT_COVER_CONFIG.overlayHex,
+        overlayOpacity: Number.isFinite(overlayOpacityNum)
+            ? Math.max(0, Math.min(1, overlayOpacityNum))
+            : DEFAULT_COVER_CONFIG.overlayOpacity,
+        kicker: typeof value.kicker === 'string' && value.kicker.trim().length > 0 ? value.kicker.trim().slice(0, 80) : null,
+        title: typeof value.title === 'string' && value.title.trim().length > 0 ? value.title.trim().slice(0, 200) : null,
+        summary: typeof value.summary === 'string' && value.summary.trim().length > 0 ? value.summary.trim().slice(0, 480) : null,
+    };
+}
+
 const TEMPLATE_FALLBACK_BY_CODE: Record<string, WorkbookTemplateContent> = {
     WB1: WB1_V3_CONFIG,
 };
@@ -19,10 +53,12 @@ export interface WorkbookTemplateRecord {
     description: string | null;
     pillarCode: string | null;
     coverImageUrl: string | null;
+    coverConfig: WorkbookCoverConfig;
     publishedContent: WorkbookTemplateContent;
     publishedVersionNo: number;
     draftContent: WorkbookTemplateContent | null;
     draftCoverImageUrl: string | null;
+    draftCoverConfig: WorkbookCoverConfig | null;
     draftUpdatedAt: string | null;
     draftUpdatedBy: string | null;
     hasDraft: boolean;
@@ -48,13 +84,16 @@ interface TemplateRow {
     description: string | null;
     pillar_code: string | null;
     cover_image_url: string | null;
+    cover_config: unknown;
     draft_content: WorkbookTemplateContent | null;
     draft_cover_image_url: string | null;
+    draft_cover_config: unknown;
     draft_updated_at: string | null;
     draft_updated_by: string | null;
     current_version_no: number;
     latest_content: WorkbookTemplateContent | null;
     latest_cover_image_url: string | null;
+    latest_cover_config: unknown;
 }
 
 function ensureCanEdit(actor: AuthUser) {
@@ -82,16 +121,19 @@ async function fetchTemplateRow(client: PoolClient, slug: string): Promise<Templ
                 wt.description,
                 wt.pillar_code,
                 wt.cover_image_url,
+                wt.cover_config,
                 wt.draft_content,
                 wt.draft_cover_image_url,
+                wt.draft_cover_config,
                 wt.draft_updated_at,
                 wt.draft_updated_by::text,
                 wt.current_version_no,
                 v.content AS latest_content,
-                v.cover_image_url AS latest_cover_image_url
+                v.cover_image_url AS latest_cover_image_url,
+                v.cover_config AS latest_cover_config
             FROM app_learning.workbook_templates wt
             LEFT JOIN LATERAL (
-                SELECT content, cover_image_url
+                SELECT content, cover_image_url, cover_config
                 FROM app_learning.workbook_template_versions
                 WHERE template_id = wt.template_id
                 ORDER BY version_no DESC
@@ -109,6 +151,11 @@ function buildTemplateRecord(row: TemplateRow, canEdit: boolean): WorkbookTempla
     const fallback = fallbackContent(row.workbook_code);
     const publishedContent = row.latest_content ?? fallback;
     const publishedCover = row.cover_image_url ?? row.latest_cover_image_url ?? null;
+    const publishedCoverConfig = normalizeCoverConfig(row.cover_config ?? row.latest_cover_config ?? null);
+    const draftCoverConfig =
+        row.draft_cover_config === null || row.draft_cover_config === undefined
+            ? null
+            : normalizeCoverConfig(row.draft_cover_config);
     return {
         templateId: row.template_id,
         workbookCode: row.workbook_code,
@@ -117,13 +164,18 @@ function buildTemplateRecord(row: TemplateRow, canEdit: boolean): WorkbookTempla
         description: row.description,
         pillarCode: row.pillar_code,
         coverImageUrl: publishedCover,
+        coverConfig: publishedCoverConfig,
         publishedContent,
         publishedVersionNo: row.current_version_no ?? 0,
         draftContent: row.draft_content ?? null,
         draftCoverImageUrl: row.draft_cover_image_url ?? null,
+        draftCoverConfig: draftCoverConfig,
         draftUpdatedAt: row.draft_updated_at,
         draftUpdatedBy: row.draft_updated_by,
-        hasDraft: !!row.draft_content || !!row.draft_cover_image_url,
+        hasDraft:
+            !!row.draft_content ||
+            !!row.draft_cover_image_url ||
+            !!row.draft_cover_config,
         canEdit,
     };
 }
@@ -144,6 +196,7 @@ export async function getWorkbookTemplate(
 export interface UpdateTemplateDraftInput {
     content?: WorkbookTemplateContent | null;
     coverImageUrl?: string | null;
+    coverConfig?: Partial<WorkbookCoverConfig> | null;
 }
 
 export async function updateWorkbookTemplateDraft(
@@ -162,6 +215,18 @@ export async function updateWorkbookTemplateDraft(
 
     const nextDraftContent = input.content === undefined ? row.draft_content : input.content;
     const nextDraftCover = input.coverImageUrl === undefined ? row.draft_cover_image_url : input.coverImageUrl;
+    let nextDraftCoverConfig: WorkbookCoverConfig | null;
+    if (input.coverConfig === undefined) {
+        nextDraftCoverConfig =
+            row.draft_cover_config === null || row.draft_cover_config === undefined
+                ? null
+                : normalizeCoverConfig(row.draft_cover_config);
+    } else if (input.coverConfig === null) {
+        nextDraftCoverConfig = null;
+    } else {
+        const base = normalizeCoverConfig(row.draft_cover_config ?? row.cover_config ?? null);
+        nextDraftCoverConfig = normalizeCoverConfig({ ...base, ...input.coverConfig });
+    }
 
     await client.query(
         `
@@ -169,14 +234,16 @@ export async function updateWorkbookTemplateDraft(
             SET
                 draft_content = $1,
                 draft_cover_image_url = $2,
+                draft_cover_config = $3::jsonb,
                 draft_updated_at = now(),
-                draft_updated_by = $3::uuid,
+                draft_updated_by = $4::uuid,
                 updated_at = now()
-            WHERE template_id = $4::uuid
+            WHERE template_id = $5::uuid
         `,
         [
             nextDraftContent ? JSON.stringify(nextDraftContent) : null,
             nextDraftCover,
+            nextDraftCoverConfig ? JSON.stringify(nextDraftCoverConfig) : null,
             actor.userId,
             row.template_id,
         ],
@@ -206,6 +273,9 @@ export async function publishWorkbookTemplateVersion(
     const baseContent = row.latest_content ?? fallbackContent(row.workbook_code);
     const contentToPublish = row.draft_content ?? baseContent;
     const coverToPublish = row.draft_cover_image_url ?? row.cover_image_url ?? null;
+    const coverConfigToPublish = normalizeCoverConfig(
+        row.draft_cover_config ?? row.cover_config ?? row.latest_cover_config ?? null,
+    );
     const nextVersionNo = (row.current_version_no ?? 0) + 1;
 
     await client.query('BEGIN');
@@ -216,16 +286,18 @@ export async function publishWorkbookTemplateVersion(
                     template_id,
                     version_no,
                     cover_image_url,
+                    cover_config,
                     content,
                     published_by,
                     notes
                 )
-                VALUES ($1::uuid, $2::int, $3, $4::jsonb, $5::uuid, $6)
+                VALUES ($1::uuid, $2::int, $3, $4::jsonb, $5::jsonb, $6::uuid, $7)
             `,
             [
                 row.template_id,
                 nextVersionNo,
                 coverToPublish,
+                JSON.stringify(coverConfigToPublish),
                 JSON.stringify(contentToPublish),
                 actor.userId,
                 notes && notes.trim().length > 0 ? notes.trim().slice(0, 480) : null,
@@ -238,14 +310,16 @@ export async function publishWorkbookTemplateVersion(
                 SET
                     current_version_no = $1::int,
                     cover_image_url = $2,
+                    cover_config = $3::jsonb,
                     draft_content = NULL,
                     draft_cover_image_url = NULL,
+                    draft_cover_config = NULL,
                     draft_updated_at = NULL,
                     draft_updated_by = NULL,
                     updated_at = now()
-                WHERE template_id = $3::uuid
+                WHERE template_id = $4::uuid
             `,
-            [nextVersionNo, coverToPublish, row.template_id],
+            [nextVersionNo, coverToPublish, JSON.stringify(coverConfigToPublish), row.template_id],
         );
 
         await client.query('COMMIT');

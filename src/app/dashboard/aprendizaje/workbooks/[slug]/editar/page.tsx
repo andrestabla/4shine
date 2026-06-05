@@ -26,7 +26,16 @@ import {
     type WorkbookTemplateRecord,
     type WorkbookTemplateVersionRecord,
     type WorkbookTemplateContent,
+    type WorkbookCoverConfig,
 } from '@/features/aprendizaje/template-client';
+
+const DEFAULT_COVER_CONFIG: WorkbookCoverConfig = {
+    overlayHex: '#0D1B2A',
+    overlayOpacity: 0.55,
+    kicker: null,
+    title: null,
+    summary: null,
+};
 
 type Tab = 'cover' | 'structure' | 'versions';
 
@@ -276,6 +285,7 @@ export default function WorkbookTemplateEditorPage() {
 
     const [editingContent, setEditingContent] = React.useState<WorkbookTemplateContent | null>(null);
     const [editingCover, setEditingCover] = React.useState<string | null>(null);
+    const [editingCoverConfig, setEditingCoverConfig] = React.useState<WorkbookCoverConfig>(DEFAULT_COVER_CONFIG);
     const [isDirty, setIsDirty] = React.useState(false);
 
     const [saving, setSaving] = React.useState(false);
@@ -297,6 +307,7 @@ export default function WorkbookTemplateEditorPage() {
             setVersions(vers);
             setEditingContent(tpl.draftContent ?? tpl.publishedContent);
             setEditingCover(tpl.draftCoverImageUrl ?? tpl.coverImageUrl);
+            setEditingCoverConfig(tpl.draftCoverConfig ?? tpl.coverConfig ?? DEFAULT_COVER_CONFIG);
             setIsDirty(false);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'No se pudo cargar la plantilla.');
@@ -317,6 +328,7 @@ export default function WorkbookTemplateEditorPage() {
             const result = await updateWorkbookTemplateDraft(slug, {
                 content: editingContent,
                 coverImageUrl: editingCover ?? null,
+                coverConfig: editingCoverConfig,
             });
             setTemplate(result);
             setIsDirty(false);
@@ -532,46 +544,203 @@ export default function WorkbookTemplateEditorPage() {
             </div>
 
             {tab === 'cover' && (
-                <div className="grid gap-6 md:grid-cols-[1fr_320px]">
-                    <div className="space-y-3">
-                        <p className="text-sm text-slate-700">
-                            La imagen de carátula se muestra en la tarjeta del workbook en{' '}
-                            <code>/dashboard/aprendizaje?tab=workbooks</code> y como banner en la portada del PDF generado por
-                            el líder. Recomendado: <strong>1600×900px</strong>, formato PNG o JPG, peso menor a 8 MB.
-                        </p>
-                        <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">
-                            {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-                            {uploading ? 'Subiendo…' : 'Subir nueva imagen'}
-                            <input
-                                type="file"
-                                accept="image/png,image/jpeg,image/webp"
-                                className="hidden"
-                                onChange={handleCoverUpload}
-                                disabled={uploading}
-                            />
-                        </label>
-                        {editingCover && (
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setEditingCover(null);
-                                    setIsDirty(true);
-                                }}
-                                className="ml-2 text-xs font-semibold text-rose-700 hover:underline"
-                            >
-                                Quitar carátula
-                            </button>
-                        )}
-                    </div>
-                    <div className="aspect-[16/9] overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
-                        {previewCover ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={previewCover} alt="Carátula" className="h-full w-full object-cover" />
-                        ) : (
-                            <div className="flex h-full w-full items-center justify-center text-xs text-slate-400">
-                                Sin imagen de carátula
+                <div className="grid gap-6 md:grid-cols-[1fr_360px]">
+                    <div className="space-y-5">
+                        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">
+                                Imagen de carátula
+                            </p>
+                            <p className="mt-1 text-xs text-slate-600">
+                                Se muestra en la tarjeta del workbook y como banner del PDF. Recomendado 1600×900px PNG/JPG, max 8 MB.
+                            </p>
+                            <div className="mt-3 flex flex-wrap items-center gap-2">
+                                <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">
+                                    {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                                    {uploading ? 'Subiendo…' : 'Subir nueva imagen'}
+                                    <input
+                                        type="file"
+                                        accept="image/png,image/jpeg,image/webp"
+                                        className="hidden"
+                                        onChange={handleCoverUpload}
+                                        disabled={uploading}
+                                    />
+                                </label>
+                                {editingCover && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setEditingCover(null);
+                                            setIsDirty(true);
+                                        }}
+                                        className="text-xs font-semibold text-rose-700 hover:underline"
+                                    >
+                                        Quitar imagen
+                                    </button>
+                                )}
                             </div>
-                        )}
+                        </div>
+
+                        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">Filtro sobre la imagen</p>
+                            <p className="mt-1 text-xs text-slate-600">
+                                Color y opacidad del overlay que oscurece la foto para que los textos se lean.
+                            </p>
+                            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                                <label className="block">
+                                    <span className="text-xs font-semibold text-slate-700">Color del filtro</span>
+                                    <div className="mt-1 flex items-center gap-2">
+                                        <input
+                                            type="color"
+                                            value={editingCoverConfig.overlayHex}
+                                            onChange={(event) => {
+                                                setEditingCoverConfig((current) => ({
+                                                    ...current,
+                                                    overlayHex: event.target.value,
+                                                }));
+                                                setIsDirty(true);
+                                            }}
+                                            className="h-9 w-12 cursor-pointer rounded-lg border border-slate-300"
+                                        />
+                                        <input
+                                            type="text"
+                                            value={editingCoverConfig.overlayHex}
+                                            onChange={(event) => {
+                                                const value = event.target.value;
+                                                if (!/^#[0-9a-fA-F]{0,6}$/.test(value)) return;
+                                                setEditingCoverConfig((current) => ({
+                                                    ...current,
+                                                    overlayHex: value,
+                                                }));
+                                                setIsDirty(true);
+                                            }}
+                                            className="flex-1 rounded-lg border border-slate-300 px-2 py-1 font-mono text-xs"
+                                        />
+                                    </div>
+                                </label>
+                                <label className="block">
+                                    <span className="text-xs font-semibold text-slate-700">
+                                        Opacidad ({Math.round(editingCoverConfig.overlayOpacity * 100)}%)
+                                    </span>
+                                    <input
+                                        type="range"
+                                        min={0}
+                                        max={1}
+                                        step={0.05}
+                                        value={editingCoverConfig.overlayOpacity}
+                                        onChange={(event) => {
+                                            setEditingCoverConfig((current) => ({
+                                                ...current,
+                                                overlayOpacity: Number(event.target.value),
+                                            }));
+                                            setIsDirty(true);
+                                        }}
+                                        className="mt-2 w-full"
+                                    />
+                                </label>
+                            </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">Textos sobre la carátula</p>
+                            <p className="mt-1 text-xs text-slate-600">
+                                Si dejas un campo vacío, se usará el valor por defecto del workbook (ej. &ldquo;Workbook 01&rdquo;, título, resumen del editor de estructura).
+                            </p>
+                            <div className="mt-3 space-y-3">
+                                <label className="block">
+                                    <span className="text-xs font-semibold text-slate-700">Kicker (etiqueta superior)</span>
+                                    <input
+                                        type="text"
+                                        placeholder={`Workbook ${String(template.sequenceNo).padStart(2, '0')}`}
+                                        value={editingCoverConfig.kicker ?? ''}
+                                        onChange={(event) => {
+                                            setEditingCoverConfig((current) => ({
+                                                ...current,
+                                                kicker: event.target.value || null,
+                                            }));
+                                            setIsDirty(true);
+                                        }}
+                                        className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                                    />
+                                </label>
+                                <label className="block">
+                                    <span className="text-xs font-semibold text-slate-700">Título</span>
+                                    <input
+                                        type="text"
+                                        placeholder={template.title}
+                                        value={editingCoverConfig.title ?? ''}
+                                        onChange={(event) => {
+                                            setEditingCoverConfig((current) => ({
+                                                ...current,
+                                                title: event.target.value || null,
+                                            }));
+                                            setIsDirty(true);
+                                        }}
+                                        className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                                    />
+                                </label>
+                                <label className="block">
+                                    <span className="text-xs font-semibold text-slate-700">Resumen / descripción</span>
+                                    <textarea
+                                        rows={3}
+                                        placeholder={template.description ?? 'Texto descriptivo bajo el título'}
+                                        value={editingCoverConfig.summary ?? ''}
+                                        onChange={(event) => {
+                                            setEditingCoverConfig((current) => ({
+                                                ...current,
+                                                summary: event.target.value || null,
+                                            }));
+                                            setIsDirty(true);
+                                        }}
+                                        className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                                    />
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-slate-500">
+                            Vista previa de la tarjeta
+                        </p>
+                        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                            <div className="relative min-h-[220px] bg-slate-700 p-5">
+                                {previewCover && (
+                                    <div
+                                        className="absolute inset-0"
+                                        style={{
+                                            backgroundImage: `url(${previewCover})`,
+                                            backgroundSize: 'cover',
+                                            backgroundPosition: 'center',
+                                        }}
+                                    />
+                                )}
+                                <div
+                                    className="absolute inset-0"
+                                    style={{
+                                        backgroundColor: editingCoverConfig.overlayHex,
+                                        opacity: editingCoverConfig.overlayOpacity,
+                                    }}
+                                />
+                                <div className="relative flex h-full min-h-[180px] flex-col justify-between text-white">
+                                    <div className="flex items-start justify-between gap-2">
+                                        <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-white/75">
+                                            {editingCoverConfig.kicker ?? `Workbook ${String(template.sequenceNo).padStart(2, '0')}`}
+                                        </p>
+                                        <span className="shrink-0 rounded-full bg-emerald-100/90 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-900">
+                                            Activo
+                                        </span>
+                                    </div>
+                                    <div className="mt-8">
+                                        <h4 className="text-2xl font-extrabold leading-tight">
+                                            {editingCoverConfig.title ?? template.title}
+                                        </h4>
+                                        <p className="mt-2 text-sm leading-relaxed text-white/80">
+                                            {editingCoverConfig.summary ?? template.description ?? 'Sin descripción.'}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}

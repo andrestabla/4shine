@@ -150,6 +150,7 @@ export interface WorkbookRecord {
   createdAt: string;
   updatedAt: string;
   coverImageUrl: string | null;
+  coverConfig: Record<string, unknown> | null;
   templateVersionNo: number | null;
 }
 
@@ -420,6 +421,7 @@ interface WorkbookRow {
   created_at: string;
   updated_at: string;
   cover_image_url: string | null;
+  cover_config: Record<string, unknown> | null;
   template_version_no: number | null;
 }
 
@@ -520,6 +522,7 @@ function mapWorkbookRow(row: WorkbookRow): WorkbookRecord {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     coverImageUrl: row.cover_image_url,
+    coverConfig: row.cover_config,
     templateVersionNo: row.template_version_no,
   };
 }
@@ -534,7 +537,8 @@ async function ensureWorkbookInstances(client: PoolClient, ownerUserId?: string)
         SELECT DISTINCT ON (template_id)
           template_id,
           version_no,
-          content
+          content,
+          cover_config
         FROM app_learning.workbook_template_versions
         ORDER BY template_id, version_no DESC
       )
@@ -547,7 +551,8 @@ async function ensureWorkbookInstances(client: PoolClient, ownerUserId?: string)
         editable_fields,
         completion_percent,
         template_version_no,
-        content_snapshot
+        content_snapshot,
+        cover_config_snapshot
       )
       SELECT
         wt.template_id,
@@ -558,7 +563,8 @@ async function ensureWorkbookInstances(client: PoolClient, ownerUserId?: string)
         wt.default_fields,
         0,
         lv.version_no,
-        lv.content
+        lv.content,
+        COALESCE(lv.cover_config, wt.cover_config)
       FROM app_core.users u
       CROSS JOIN app_learning.workbook_templates wt
       LEFT JOIN latest_versions lv ON lv.template_id = wt.template_id
@@ -673,6 +679,7 @@ async function getWorkbookById(client: PoolClient, workbookId: string): Promise<
         uw.created_at::text,
         uw.updated_at::text,
         wt.cover_image_url,
+        COALESCE(uw.cover_config_snapshot, wt.cover_config) AS cover_config,
         uw.template_version_no
       FROM app_learning.user_workbooks uw
       JOIN app_learning.workbook_templates wt ON wt.template_id = uw.template_id
@@ -1471,6 +1478,7 @@ export async function listWorkbooks(
         uw.created_at::text,
         uw.updated_at::text,
         wt.cover_image_url,
+        COALESCE(uw.cover_config_snapshot, wt.cover_config) AS cover_config,
         uw.template_version_no
       FROM app_learning.user_workbooks uw
       JOIN app_learning.workbook_templates wt ON wt.template_id = uw.template_id

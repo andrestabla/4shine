@@ -10,6 +10,7 @@ export type {
     WorkbookTemplateVersionRecord,
     UpdateTemplateDraftInput,
     WorkbookTemplateContent,
+    WorkbookCoverConfig,
 } from './template-service';
 
 export async function getWorkbookTemplate(slug: string): Promise<WorkbookTemplateRecord> {

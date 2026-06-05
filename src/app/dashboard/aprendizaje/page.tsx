@@ -2451,6 +2451,29 @@ export default function AprendizajePage() {
                         const progress = clampPercent(
                           workbook.completionPercent,
                         );
+                        const coverCfg = workbook.coverConfig as
+                          | {
+                              overlayHex?: string;
+                              overlayOpacity?: number;
+                              kicker?: string | null;
+                              title?: string | null;
+                              summary?: string | null;
+                            }
+                          | null;
+                        const overlayHex = coverCfg?.overlayHex ?? "#0D1B2A";
+                        const overlayOpacity =
+                          typeof coverCfg?.overlayOpacity === "number"
+                            ? Math.max(0, Math.min(1, coverCfg.overlayOpacity))
+                            : 0.55;
+                        const kickerText =
+                          coverCfg?.kicker ??
+                          `Workbook ${String(workbook.sequenceNo).padStart(2, "0")}`;
+                        const titleText = coverCfg?.title ?? workbook.title;
+                        const summaryText =
+                          coverCfg?.summary ??
+                          digitalWorkbook?.summary ??
+                          workbook.description ??
+                          "Sin descripción disponible.";
 
                         return (
                           <Link
@@ -2463,19 +2486,27 @@ export default function AprendizajePage() {
                               style={
                                 workbook.coverImageUrl
                                   ? {
-                                      backgroundImage: `linear-gradient(180deg, rgba(13,27,42,0.55), rgba(13,27,42,0.85)), url(${workbook.coverImageUrl})`,
-                                      backgroundSize: 'cover',
-                                      backgroundPosition: 'center',
+                                      backgroundImage: `url(${workbook.coverImageUrl})`,
+                                      backgroundSize: "cover",
+                                      backgroundPosition: "center",
                                     }
                                   : undefined
                               }
                             >
+                              {workbook.coverImageUrl && (
+                                <div
+                                  className="absolute inset-0"
+                                  style={{
+                                    backgroundColor: overlayHex,
+                                    opacity: overlayOpacity,
+                                  }}
+                                />
+                              )}
                               <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.02),rgba(15,23,42,0.3))]" />
                               <div className="relative flex h-full flex-col">
                                 <div className="flex items-start justify-between gap-3">
                                   <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/72">
-                                    Workbook{" "}
-                                    {String(workbook.sequenceNo).padStart(2, "0")}
+                                    {kickerText}
                                   </p>
                                   <span
                                     className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${workbookStateClasses(workbook.accessState)}`}
@@ -2486,12 +2517,10 @@ export default function AprendizajePage() {
 
                                 <div className="mt-auto">
                                   <h4 className="text-[1.65rem] font-extrabold leading-tight text-white">
-                                    {workbook.title}
+                                    {titleText}
                                   </h4>
                                   <p className="mt-3 max-w-lg text-sm leading-relaxed text-white/80">
-                                    {digitalWorkbook?.summary ??
-                                      workbook.description ??
-                                      "Sin descripción disponible."}
+                                    {summaryText}
                                   </p>
                                 </div>
                               </div>
