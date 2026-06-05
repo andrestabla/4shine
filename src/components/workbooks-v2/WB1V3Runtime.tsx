@@ -11,7 +11,6 @@ import {
     Loader2,
     Mic,
     MicOff,
-    Paperclip,
     Pause,
     Play,
     Save,
@@ -249,7 +248,6 @@ function AudioRecorder({
     const elapsedBeforePauseRef = useRef<number>(0)
     const intervalRef = useRef<number | null>(null)
     const streamRef = useRef<MediaStream | null>(null)
-    const fileInputRef = useRef<HTMLInputElement | null>(null)
 
     const audioUrl = value.audioUrl
     const audioDurationMs = value.audioDurationMs
@@ -348,51 +346,14 @@ function AudioRecorder({
         }
     }
 
-    async function handleFilePick(event: React.ChangeEvent<HTMLInputElement>) {
-        const file = event.target.files?.[0]
-        event.target.value = ''
-        if (!file) return
-        setError(null)
-        const maxBytes = 25 * 1024 * 1024
-        if (file.size > maxBytes) {
-            setError('El archivo de audio supera los 25 MB. Comprímelo o recórtalo antes de subirlo.')
-            return
-        }
-        const mimeType = file.type || 'audio/webm'
-
-        if (previewUrl) URL.revokeObjectURL(previewUrl)
-        const localPreview = URL.createObjectURL(file)
-        setPreviewUrl(localPreview)
-
-        if (!workbookId || workbookId === 'preview') {
-            onChange({
-                ...value,
-                audioUrl: localPreview,
-                audioDurationMs: undefined,
-                audioMimeType: mimeType,
-                updatedAt: new Date().toISOString()
-            })
-            return
-        }
-
-        setUploading(true)
-        try {
-            const { url } = await uploadAudioToR2(file, fieldId, workbookId, mimeType)
-            onChange({
-                ...value,
-                audioUrl: url,
-                audioDurationMs: undefined,
-                audioMimeType: mimeType,
-                updatedAt: new Date().toISOString()
-            })
-            if (previewUrl) URL.revokeObjectURL(previewUrl)
-            setPreviewUrl(null)
-        } catch (err) {
-            const message = err instanceof Error ? err.message : 'No se pudo subir el audio.'
-            setError(message)
-        } finally {
-            setUploading(false)
-        }
+    function detectBrowser(): 'chrome' | 'edge' | 'safari' | 'firefox' | 'other' {
+        if (typeof navigator === 'undefined') return 'other'
+        const ua = navigator.userAgent
+        if (/Edg\//.test(ua)) return 'edge'
+        if (/Chrome\//.test(ua) && !/Edg\//.test(ua)) return 'chrome'
+        if (/Firefox\//.test(ua)) return 'firefox'
+        if (/Safari\//.test(ua) && !/Chrome\//.test(ua)) return 'safari'
+        return 'other'
     }
 
     function pauseRecording() {
@@ -536,26 +497,6 @@ function AudioRecorder({
                     </button>
                 )}
 
-                {!recording && !audioUrl && (
-                    <>
-                        <button
-                            type="button"
-                            onClick={() => fileInputRef.current?.click()}
-                            disabled={disabled || uploading}
-                            className="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-3 py-1 font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50"
-                        >
-                            <Paperclip size={12} /> Adjuntar audio
-                        </button>
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept="audio/*"
-                            className="hidden"
-                            onChange={handleFilePick}
-                        />
-                    </>
-                )}
-
                 {recording && (
                     <>
                         <span className="inline-flex items-center gap-1 rounded-full bg-rose-600 px-3 py-1 font-semibold text-white">
@@ -616,20 +557,68 @@ function AudioRecorder({
 
             {(showHelp || (micPermission === 'denied' && error)) && (
                 <div className="mt-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-rose-900">
-                    <p className="font-semibold">¿Cómo desbloquear el micrófono?</p>
-                    <ol className="mt-1 list-decimal space-y-0.5 pl-5">
-                        <li>Haz click en el candado (🔒) al lado de la dirección del sitio.</li>
-                        <li>
-                            Abre <span className="font-semibold">Configuración del sitio</span> y cambia <span className="font-semibold">Micrófono</span> a <span className="font-semibold">Permitir</span>.
-                        </li>
-                        <li>Recarga la página (⌘/Ctrl + R).</li>
-                        <li>
-                            En Mac: revisa <span className="font-semibold">Ajustes del sistema → Privacidad y seguridad → Micrófono</span> y que tu navegador esté activado.
-                        </li>
-                    </ol>
-                    <p className="mt-1">
-                        Mientras tanto puedes usar <span className="font-semibold">Adjuntar audio</span> para subir una grabación hecha con la app de tu teléfono o computadora.
-                    </p>
+                    <p className="font-semibold">¿Cómo permitir el micrófono?</p>
+                    {detectBrowser() === 'chrome' || detectBrowser() === 'edge' ? (
+                        <>
+                            <p className="mt-1">Opción A — desde la barra de direcciones:</p>
+                            <ol className="mt-1 list-decimal space-y-0.5 pl-5">
+                                <li>
+                                    Haz click en el ícono que aparece a la <span className="font-semibold">izquierda de la URL</span> (ajustes / sliders <span aria-hidden>🎚️</span> en Chrome reciente, o un mini icono de cámara/mic tachado <span aria-hidden>🚫🎤</span> si el navegador te bloqueó automáticamente).
+                                </li>
+                                <li>
+                                    Abre <span className="font-semibold">Configuración del sitio</span> (o &ldquo;Permisos&rdquo;) y cambia <span className="font-semibold">Micrófono</span> a <span className="font-semibold">Permitir</span>.
+                                </li>
+                                <li>Recarga la página (⌘R / Ctrl R).</li>
+                            </ol>
+                            <p className="mt-2">
+                                Opción B — directo en ajustes: pega esto en una pestaña nueva y permite <span className="font-semibold">4shine.co</span>:
+                            </p>
+                            <pre className="mt-1 select-all rounded-md bg-rose-100 px-2 py-1 text-[11px] text-rose-900">
+chrome://settings/content/microphone
+                            </pre>
+                            <p className="mt-2">
+                                Opción C — Mac: <span className="font-semibold">Ajustes del sistema → Privacidad y seguridad → Micrófono</span> y verifica que tu navegador (Chrome / Edge) tenga el toggle <span className="font-semibold">activado</span>. Luego recarga.
+                            </p>
+                        </>
+                    ) : detectBrowser() === 'safari' ? (
+                        <ol className="mt-1 list-decimal space-y-0.5 pl-5">
+                            <li>
+                                Menú <span className="font-semibold">Safari → Ajustes → Sitios web → Micrófono</span>.
+                            </li>
+                            <li>
+                                Encuentra <span className="font-semibold">4shine.co</span> y cámbialo a <span className="font-semibold">Permitir</span>.
+                            </li>
+                            <li>Recarga la pestaña.</li>
+                            <li>
+                                Verifica también <span className="font-semibold">Ajustes del sistema → Privacidad y seguridad → Micrófono → Safari</span>.
+                            </li>
+                        </ol>
+                    ) : detectBrowser() === 'firefox' ? (
+                        <ol className="mt-1 list-decimal space-y-0.5 pl-5">
+                            <li>
+                                Click en el ícono de permisos a la izquierda de la URL (escudo o ajustes).
+                            </li>
+                            <li>
+                                Quita el bloqueo del <span className="font-semibold">Micrófono</span> para 4shine.co.
+                            </li>
+                            <li>Recarga la pestaña.</li>
+                            <li>
+                                Mac: verifica <span className="font-semibold">Ajustes del sistema → Privacidad y seguridad → Micrófono → Firefox</span>.
+                            </li>
+                        </ol>
+                    ) : (
+                        <ol className="mt-1 list-decimal space-y-0.5 pl-5">
+                            <li>
+                                Abre los permisos del sitio en tu navegador (ícono junto a la URL o ajustes del navegador).
+                            </li>
+                            <li>
+                                Permite el <span className="font-semibold">Micrófono</span> para 4shine.co y recarga.
+                            </li>
+                            <li>
+                                Verifica también el permiso de micrófono a nivel del sistema operativo.
+                            </li>
+                        </ol>
+                    )}
                 </div>
             )}
         </div>
