@@ -7,10 +7,8 @@ import {
     ArrowRight,
     CheckCircle2,
     Download,
-    HelpCircle,
     Loader2,
     Mic,
-    MicOff,
     Pause,
     Play,
     Save,
@@ -187,8 +185,6 @@ async function transcribeAudio(audioUrl: string, fieldId: string): Promise<Trans
     })
 }
 
-type MicPermissionState = 'unknown' | 'prompt' | 'granted' | 'denied' | 'unavailable'
-
 function translateMediaError(err: unknown): { code: 'denied' | 'unavailable' | 'inuse' | 'other'; message: string } {
     if (err instanceof Error) {
         const name = err.name || ''
@@ -240,8 +236,7 @@ function AudioRecorder({
     const [transcribing, setTranscribing] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-    const [micPermission, setMicPermission] = useState<MicPermissionState>('unknown')
-    const [showHelp, setShowHelp] = useState(false)
+    const [needsPermissionGuide, setNeedsPermissionGuide] = useState(false)
     const mediaRecorderRef = useRef<MediaRecorder | null>(null)
     const chunksRef = useRef<BlobPart[]>([])
     const startedAtRef = useRef<number>(0)
@@ -261,38 +256,6 @@ function AudioRecorder({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
-    useEffect(() => {
-        if (typeof navigator === 'undefined') return
-        if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
-            setMicPermission('unavailable')
-            return
-        }
-        const permissions = navigator.permissions as
-            | (Permissions & { query?: (opts: { name: PermissionName }) => Promise<PermissionStatus> })
-            | undefined
-        if (!permissions || typeof permissions.query !== 'function') {
-            setMicPermission('prompt')
-            return
-        }
-        let status: PermissionStatus | null = null
-        let cancelled = false
-        permissions
-            .query({ name: 'microphone' as PermissionName })
-            .then((result) => {
-                if (cancelled) return
-                status = result
-                setMicPermission(result.state as MicPermissionState)
-                result.onchange = () => setMicPermission(result.state as MicPermissionState)
-            })
-            .catch(() => {
-                if (!cancelled) setMicPermission('prompt')
-            })
-        return () => {
-            cancelled = true
-            if (status) status.onchange = null
-        }
-    }, [])
-
     const startTick = () => {
         if (intervalRef.current) window.clearInterval(intervalRef.current)
         startedAtRef.current = Date.now()
@@ -310,16 +273,14 @@ function AudioRecorder({
 
     async function startRecording() {
         setError(null)
-        setShowHelp(false)
+        setNeedsPermissionGuide(false)
         if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
-            setMicPermission('unavailable')
-            setError('Tu navegador no soporta grabación de audio. Usa Chrome, Edge o Firefox actualizados, o adjunta un archivo de audio.')
+            setError('Tu navegador no soporta grabación de audio. Usa Chrome, Edge o Firefox actualizados.')
             return
         }
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
             streamRef.current = stream
-            setMicPermission('granted')
             const mimeType = getMicMimeType()
             const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream)
             chunksRef.current = []
@@ -338,10 +299,7 @@ function AudioRecorder({
             const translated = translateMediaError(err)
             setError(translated.message)
             if (translated.code === 'denied') {
-                setMicPermission('denied')
-                setShowHelp(true)
-            } else if (translated.code === 'unavailable') {
-                setMicPermission('unavailable')
+                setNeedsPermissionGuide(true)
             }
         }
     }
@@ -469,8 +427,6 @@ function AudioRecorder({
         }
     }
 
-    const showDeniedGuidance = micPermission === 'denied' || micPermission === 'unavailable'
-
     return (
         <div className="mt-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
             <div className="flex flex-wrap items-center gap-2">
@@ -479,20 +435,9 @@ function AudioRecorder({
                         type="button"
                         onClick={startRecording}
                         disabled={disabled || uploading}
-                        className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 font-semibold disabled:opacity-50 ${
-                            showDeniedGuidance
-                                ? 'border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100'
-                                : 'border-rose-200 bg-white text-rose-600 hover:bg-rose-50'
-                        }`}
-                        title={
-                            showDeniedGuidance
-                                ? 'El micrófono está bloqueado. Haz click para ver cómo activarlo.'
-                                : 'Pedir acceso al micrófono'
-                        }
+                        className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-white px-3 py-1 font-semibold text-rose-600 hover:bg-rose-50 disabled:opacity-50"
                     >
-                        {showDeniedGuidance ? <MicOff size={12} /> : <Mic size={12} />}
-                        {showDeniedGuidance ? 'Activar micrófono' : 'Grabar audio'}
-                        {showDeniedGuidance && <HelpCircle size={12} />}
+                        <Mic size={12} /> Grabar audio
                     </button>
                 )}
 
@@ -554,7 +499,7 @@ function AudioRecorder({
 
             {error && <p className="mt-2 text-rose-700">{error}</p>}
 
-            {(showHelp || (micPermission === 'denied' && error)) && (
+            {needsPermissionGuide && (
                 <div className="mt-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-rose-900">
                     <p className="font-semibold">¿Cómo permitir el micrófono?</p>
                     {detectBrowser() === 'chrome' || detectBrowser() === 'edge' ? (
