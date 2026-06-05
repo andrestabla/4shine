@@ -677,6 +677,91 @@ export default function UsuarioDetallePage() {
                     El usuario es líder con suscripción pero aún no tiene un plan específico asignado.
                   </p>
                 )}
+
+                <div className="mt-4 border-t border-[var(--app-border)] pt-3">
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.18em] text-[var(--app-muted)]">
+                    Vencimiento de la licencia
+                  </label>
+                  {(() => {
+                    const expiresAt = detail.subscriptionExpiresAt
+                      ? new Date(detail.subscriptionExpiresAt)
+                      : null;
+                    const isExpired =
+                      !!expiresAt && !Number.isNaN(expiresAt.getTime()) && expiresAt.getTime() < Date.now();
+                    const isoForInput =
+                      expiresAt && !Number.isNaN(expiresAt.getTime())
+                        ? expiresAt.toISOString().slice(0, 10)
+                        : '';
+                    return (
+                      <>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <input
+                            type="date"
+                            className="app-input flex-1"
+                            defaultValue={isoForInput}
+                            disabled={!canUpdate || processingAction !== null}
+                            onBlur={async (event) => {
+                              const value = event.target.value.trim();
+                              if (!detail.subscriptionPlanId) {
+                                await alert({
+                                  title: 'Asigna primero un plan',
+                                  message: 'Necesitas asignar un plan antes de fijar su vencimiento.',
+                                  tone: 'warning',
+                                });
+                                event.target.value = isoForInput;
+                                return;
+                              }
+                              if (value === isoForInput) return;
+                              const newIso = value ? `${value}T23:59:59.000Z` : null;
+                              setProcessingAction('change-subscription-expires');
+                              try {
+                                await updateUser(detail.userId, {
+                                  primaryRole: 'lider',
+                                  subscriptionExpiresAt: newIso,
+                                });
+                                await refreshBootstrap();
+                                await loadData();
+                              } catch (error) {
+                                await alert({
+                                  title: 'Error',
+                                  message:
+                                    error instanceof Error
+                                      ? error.message
+                                      : 'No se pudo actualizar el vencimiento.',
+                                  tone: 'error',
+                                });
+                                event.target.value = isoForInput;
+                              } finally {
+                                setProcessingAction(null);
+                              }
+                            }}
+                          />
+                          {expiresAt && !Number.isNaN(expiresAt.getTime()) && (
+                            <span
+                              className={`rounded-full px-2 py-1 text-[10px] font-extrabold uppercase tracking-wider ${
+                                isExpired
+                                  ? 'bg-rose-100 text-rose-700'
+                                  : 'bg-emerald-100 text-emerald-700'
+                              }`}
+                            >
+                              {isExpired ? 'Vencido' : 'Vigente'}
+                            </span>
+                          )}
+                          {!expiresAt && detail.subscriptionPlanId && (
+                            <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-700">
+                              Sin vencimiento
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-1 text-[11px] text-[var(--app-muted)]">
+                          {isExpired
+                            ? `Esta licencia venció el ${expiresAt!.toLocaleDateString('es-CO')}. Mientras esté vencida, el líder pasa a "sin suscripción" y pierde el acceso del plan (las compras previas se conservan).`
+                            : 'Editar la fecha extiende o acorta la licencia. Vacío = sin vencimiento.'}
+                        </p>
+                      </>
+                    );
+                  })()}
+                </div>
               </div>
             )}
 

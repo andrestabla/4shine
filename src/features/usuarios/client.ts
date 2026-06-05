@@ -146,6 +146,8 @@ export interface UpdateUserInput {
   password?: string;
   planType?: PlanType | null;
   subscriptionPlanId?: string | null;
+  /** ISO 8601. null limpia el vencimiento; undefined no cambia. */
+  subscriptionExpiresAt?: string | null;
   country?: string | null;
   jobRole?: JobRole | null;
   gender?: string | null;

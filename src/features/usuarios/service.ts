@@ -172,6 +172,16 @@ export interface UpdateUserInput {
   industry?: string | null;
   planType?: PlanType | null;
   subscriptionPlanId?: string | null;
+  /**
+   * ISO 8601 (YYYY-MM-DD o full timestamp) para fijar manualmente la fecha
+   * de vencimiento de la suscripción. Permite al admin extender, acortar o
+   * validar licencias sin reasignar el plan. Si subscriptionPlanId se cambia
+   * en la misma llamada, se aplica DESPUÉS del plan (puede sobrescribir el
+   * `now() + duration_days` automático).
+   * - null limpia la fecha (la suscripción queda sin vencimiento).
+   * - undefined deja la fecha actual sin cambios.
+   */
+  subscriptionExpiresAt?: string | null;
   seniorityLevel?: SeniorityLevel | null;
   bio?: string | null;
   location?: string | null;
@@ -2097,6 +2107,33 @@ export async function updateUser(
     }
   }
 
+  // Override manual de la fecha de vencimiento. Se aplica después de
+  // subscriptionPlanId para permitir que admin extienda o acorte la
+  // licencia. null limpia la fecha (sin vencimiento).
+  if (input.subscriptionExpiresAt !== undefined) {
+    if (input.subscriptionExpiresAt === null) {
+      await client.query(
+        `UPDATE app_core.user_profiles
+         SET subscription_expires_at = NULL,
+             updated_at = now()
+         WHERE user_id = $1::uuid`,
+        [userId],
+      );
+    } else {
+      const parsed = new Date(input.subscriptionExpiresAt);
+      if (Number.isNaN(parsed.getTime())) {
+        throw new Error('subscriptionExpiresAt debe ser una fecha ISO 8601 válida.');
+      }
+      await client.query(
+        `UPDATE app_core.user_profiles
+         SET subscription_expires_at = $2::timestamptz,
+             updated_at = now()
+         WHERE user_id = $1::uuid`,
+        [userId, parsed.toISOString()],
+      );
+    }
+  }
+
   await ensureLeaderProgramPurchase(client, userId, {
     role: nextRole,
     planType: resolvedPlanType ?? currentUserState.planType,
@@ -2227,22 +2264,40 @@ export async function hardDeleteUser(
     throw new Error('No puedes eliminar tu propio usuario desde la sesión actual');
   }
 
+  // Borrado completo. La mayoría de las FK a app_core.users.user_id tienen
+  // ON DELETE CASCADE (workbooks, progreso, mensajes, conexiones, etc.) o
+  // ON DELETE SET NULL (logs de auditoría, plantillas creadas por el
+  // usuario, columnas como created_by en branding/integrations — preserva
+  // el historial del sistema con el creador anonimizado).
+  //
+  // Pero quedan FK con ON DELETE RESTRICT que bloquearían el DELETE final
+  // si el usuario tiene esos registros. Aquí los limpiamos explícitamente
+  // antes del borrado del usuario para garantizar "se borran todos sus
+  // datos e historial" sin dejar huérfanos ni bloquear el delete.
+
+  // --- Aprendizaje
   await client.query(
-    `
-      DELETE FROM app_learning.content_reviews
-      WHERE reviewer_user_id = $1
-    `,
+    `DELETE FROM app_learning.content_reviews WHERE reviewer_user_id = $1`,
+    [userId],
+  );
+  await client.query(
+    `DELETE FROM app_learning.content_items WHERE created_by = $1`,
     [userId],
   );
 
+  // --- Mentoring
   await client.query(
-    `
-      DELETE FROM app_learning.content_items
-      WHERE created_by = $1
-    `,
+    `DELETE FROM app_mentoring.mentorship_session_change_logs WHERE changed_by = $1`,
     [userId],
   );
-
+  await client.query(
+    `DELETE FROM app_mentoring.group_session_events WHERE created_by = $1`,
+    [userId],
+  );
+  await client.query(
+    `DELETE FROM app_mentoring.group_session_recordings WHERE created_by = $1`,
+    [userId],
+  );
   await client.query(
     `
       DELETE FROM app_mentoring.mentorship_sessions

@@ -107,7 +107,13 @@ interface ActivePlanRow {
  * user_profiles.subscription_plan_id) junto con sus features
  * configuradas en /dashboard/administracion/planes.
  *
- * Devuelve null si el líder no tiene plan asignado o el plan no está activo.
+ * Devuelve null si:
+ *  - el líder no tiene plan asignado,
+ *  - el plan está marcado como inactivo,
+ *  - o la suscripción del usuario ya venció (subscription_expires_at < now()).
+ *
+ * Cuando el plan vence, el líder cae automáticamente al fallback de
+ * compras/legacy y aparece como "líder sin suscripción".
  */
 async function readActivePlanWithFeatures(
   client: PoolClient,
@@ -128,6 +134,10 @@ async function readActivePlanWithFeatures(
         ON sp.plan_id = up.subscription_plan_id
       WHERE up.user_id = $1::uuid
         AND sp.is_active = true
+        AND (
+          up.subscription_expires_at IS NULL
+          OR up.subscription_expires_at > now()
+        )
       LIMIT 1
     `,
     [userId],
