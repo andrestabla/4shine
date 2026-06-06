@@ -19,7 +19,12 @@ export async function DELETE(request: Request) {
     try {
         const result = await withClient((client) =>
             withRoleContext(client, identity.userId, identity.role, async () => {
-                const data = await deleteOwnAccount(client, identity)
+                // El audit DEBE escribirse antes del DELETE del usuario:
+                // la FK audit_logs.actor_user_id → users.user_id no es
+                // diferida, así que si insertamos después de borrar al
+                // usuario en la misma transacción, el INSERT falla con
+                // FK violation (ON DELETE SET NULL aplica al commit, no
+                // dentro de la transacción).
                 await logModuleAudit(client, request, identity, {
                     moduleCode: 'usuarios',
                     action: 'self_delete_account',
@@ -27,7 +32,7 @@ export async function DELETE(request: Request) {
                     entityId: identity.userId,
                     changeSummary: { reason: 'user_initiated_deletion' },
                 })
-                return data
+                return deleteOwnAccount(client, identity)
             }),
         )
 
