@@ -73,17 +73,29 @@ export async function DELETE(request: Request, context: ContextParams) {
 
   const { userId } = await context.params;
 
+  // El body es opcional. Si llega, debe contener { reason?: string }.
+  let reason: string | null = null;
+  try {
+    const body = await parseJsonBody<{ reason?: string | null }>(request);
+    if (body && typeof body.reason === 'string') {
+      const trimmed = body.reason.trim();
+      reason = trimmed.length > 0 ? trimmed.slice(0, 1000) : null;
+    }
+  } catch {
+    // Sin body es válido (delete sin motivo, legacy).
+  }
+
   try {
     const data = await withClient((client) =>
       withRoleContext(client, identity.userId, identity.role, async () => {
-        const result = await hardDeleteUser(client, identity, userId);
         await logModuleAudit(client, request, identity, {
           moduleCode: 'usuarios',
           action: 'hard_delete_user',
           entityTable: 'app_core.users',
           entityId: userId,
+          changeSummary: { reason },
         });
-        return result;
+        return hardDeleteUser(client, identity, userId, reason);
       }),
     );
 

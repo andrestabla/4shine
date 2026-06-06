@@ -17,6 +17,7 @@ import {
 import { useParams, useRouter } from 'next/navigation';
 import { EmptyState } from '@/components/dashboard/EmptyState';
 import { PurchasedProductsPanel } from '@/components/dashboard/PurchasedProductsPanel';
+import { DeleteUserReasonModal } from '@/components/dashboard/DeleteUserReasonModal';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useUser } from '@/context/UserContext';
 import {
@@ -120,6 +121,7 @@ export default function UsuarioDetallePage() {
   const [loading, setLoading] = React.useState(true);
   const [processingAction, setProcessingAction] = React.useState<string | null>(null);
   const [availablePlans, setAvailablePlans] = React.useState<SubscriptionPlanWithFeatures[]>([]);
+  const [showDeleteModal, setShowDeleteModal] = React.useState(false);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -319,26 +321,21 @@ export default function UsuarioDetallePage() {
     }
   };
 
-  const onDeleteUser = async () => {
+  const onDeleteUser = () => {
     if (!detail) return;
+    setShowDeleteModal(true);
+  };
 
-    const ok = await confirm({
-      title: 'Eliminar usuario permanentemente',
-      message: `Esta acción eliminará a ${detail.displayName} y sus datos dependientes. ¿Deseas continuar?`,
-      confirmText: 'Eliminar usuario',
-      cancelText: 'Cancelar',
-      tone: 'error',
-    });
-
-    if (!ok) return;
-
+  const confirmDeleteWithReason = async (reason: string | null) => {
+    if (!detail) return;
     setProcessingAction('delete-user');
     try {
-      await hardDeleteUser(detail.userId);
+      await hardDeleteUser(detail.userId, reason);
       await refreshBootstrap();
+      setShowDeleteModal(false);
       await alert({
         title: 'Usuario eliminado',
-        message: 'La cuenta fue eliminada permanentemente.',
+        message: 'La cuenta fue eliminada permanentemente. Queda registro en la pestaña Bajas con el motivo indicado.',
         tone: 'success',
       });
       router.push('/dashboard/usuarios');
@@ -875,6 +872,15 @@ export default function UsuarioDetallePage() {
           </article>
         </section>
       </div>
+
+      <DeleteUserReasonModal
+        mode="admin"
+        targetName={detail?.displayName}
+        open={showDeleteModal}
+        onCancel={() => setShowDeleteModal(false)}
+        onConfirm={confirmDeleteWithReason}
+        confirmingBusy={processingAction === 'delete-user'}
+      />
     </div>
   );
 }

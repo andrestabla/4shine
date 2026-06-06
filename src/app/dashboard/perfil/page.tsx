@@ -14,6 +14,7 @@ import {
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { EmptyState } from '@/components/dashboard/EmptyState';
 import { PurchasedProductsPanel } from '@/components/dashboard/PurchasedProductsPanel';
+import { DeleteUserReasonModal } from '@/components/dashboard/DeleteUserReasonModal';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { R2UploadButton } from '@/components/ui/R2UploadButton';
 import { useUser } from '@/context/UserContext';
@@ -156,29 +157,23 @@ function compactProject(item: ProjectFormItem): ProjectFormItem {
 
 export default function PerfilPage() {
   const { can, refreshBootstrap, updateUser: updateContextUser, currentUser } = useUser();
-  const { alert, confirm } = useAppDialog();
+  const { alert } = useAppDialog();
   const [isDeletingSelf, setIsDeletingSelf] = React.useState(false);
+  const [showDeleteModal, setShowDeleteModal] = React.useState(false);
 
-  async function handleSelfDeleteAccount() {
-    const ok = await confirm({
-      title: 'Eliminar mi cuenta',
-      message:
-        'Vas a eliminar tu cuenta y TODA tu información (workbooks, mensajes, progreso, suscripción, etc.). Esta acción es permanente y no se puede deshacer. ¿Continuar?',
-      confirmText: 'Sí, eliminar mi cuenta',
-      tone: 'error',
-    });
-    if (!ok) return;
+  async function handleConfirmSelfDelete(reason: string | null) {
     setIsDeletingSelf(true);
     try {
       const response = await fetch('/api/v1/me/account', {
         method: 'DELETE',
         credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason }),
       });
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
         throw new Error(body?.error ?? body?.detail ?? 'No se pudo eliminar la cuenta.');
       }
-      // Logout + redirect
       window.location.href = '/acceso?deleted=1';
     } catch (err) {
       await alert({
@@ -187,6 +182,7 @@ export default function PerfilPage() {
         tone: 'error',
       });
       setIsDeletingSelf(false);
+      setShowDeleteModal(false);
     }
   }
 
@@ -918,13 +914,21 @@ export default function PerfilPage() {
             </p>
             <button
               type="button"
-              onClick={handleSelfDeleteAccount}
+              onClick={() => setShowDeleteModal(true)}
               disabled={isDeletingSelf}
               className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-rose-300 bg-white px-4 py-2 text-xs font-semibold text-rose-700 hover:border-rose-400 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Trash2 size={12} />
               {isDeletingSelf ? 'Eliminando…' : 'Eliminar mi cuenta'}
             </button>
+
+            <DeleteUserReasonModal
+              mode="self"
+              open={showDeleteModal}
+              onCancel={() => setShowDeleteModal(false)}
+              onConfirm={handleConfirmSelfDelete}
+              confirmingBusy={isDeletingSelf}
+            />
           </div>
         </div>
       </section>

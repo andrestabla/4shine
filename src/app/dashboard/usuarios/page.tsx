@@ -491,6 +491,7 @@ function DeletedUsersTabSection() {
                 <th>Usuario eliminado</th>
                 <th>Organización</th>
                 <th>Origen</th>
+                <th>Motivo</th>
                 <th>Eliminado por</th>
                 <th>Fecha</th>
               </tr>
@@ -518,6 +519,15 @@ function DeletedUsersTabSection() {
                     >
                       {item.deletedSource === 'self' ? 'Auto-baja' : 'Por admin'}
                     </span>
+                  </td>
+                  <td className="max-w-md text-xs text-[var(--app-ink)]">
+                    {item.reason ? (
+                      <span className="block whitespace-pre-wrap break-words">
+                        {item.reason}
+                      </span>
+                    ) : (
+                      <span className="text-[var(--app-muted)]">Sin motivo registrado</span>
+                    )}
                   </td>
                   <td className="text-sm text-[var(--app-muted)]">
                     {item.deletedSource === 'self' ? (

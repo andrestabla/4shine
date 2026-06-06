@@ -2309,6 +2309,7 @@ export async function hardDeleteUser(
   client: PoolClient,
   actor: AuthUser,
   userId: string,
+  reason?: string | null,
 ): Promise<{ userId: string }> {
   await requireModulePermission(client, 'usuarios', 'delete');
 
@@ -2327,7 +2328,7 @@ export async function hardDeleteUser(
   // antes del borrado del usuario para garantizar "se borran todos sus
   // datos e historial" sin dejar huérfanos ni bloquear el delete.
 
-  await snapshotDeletedUser(client, userId, 'admin', actor);
+  await snapshotDeletedUser(client, userId, 'admin', actor, reason ?? undefined);
   await purgeUserRestrictReferences(client, userId);
 
   const { rows } = await client.query<{ user_id: string }>(
@@ -2432,8 +2433,16 @@ export async function listDeletedUsers(
 export async function deleteOwnAccount(
   client: PoolClient,
   actor: AuthUser,
+  reason?: string | null,
 ): Promise<{ userId: string }> {
-  await snapshotDeletedUser(client, actor.userId, 'self', actor, 'user_initiated_deletion');
+  const trimmed = reason?.trim() ?? '';
+  await snapshotDeletedUser(
+    client,
+    actor.userId,
+    'self',
+    actor,
+    trimmed.length > 0 ? trimmed : 'user_initiated_deletion',
+  );
   await purgeUserRestrictReferences(client, actor.userId);
 
   const { rows } = await client.query<{ user_id: string }>(

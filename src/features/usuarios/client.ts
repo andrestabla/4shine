@@ -225,9 +225,13 @@ export async function updateUser(userId: string, input: UpdateUserInput): Promis
   });
 }
 
-export async function hardDeleteUser(userId: string): Promise<{ userId: string }> {
+export async function hardDeleteUser(
+  userId: string,
+  reason?: string | null,
+): Promise<{ userId: string }> {
   return requestApi<{ userId: string }>(`/api/v1/modules/usuarios/${userId}`, {
     method: 'DELETE',
+    body: JSON.stringify({ reason: reason ?? null }),
   });
 }
 

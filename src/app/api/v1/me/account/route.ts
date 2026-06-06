@@ -16,6 +16,21 @@ export async function DELETE(request: Request) {
     const identity = await authenticateRequest(request)
     if (!identity) return unauthorizedResponse()
 
+    // Motivo opcional desde el body.
+    let reason: string | null = null
+    try {
+        const text = await request.text()
+        if (text) {
+            const parsed = JSON.parse(text) as { reason?: string | null }
+            if (typeof parsed.reason === 'string') {
+                const trimmed = parsed.reason.trim()
+                reason = trimmed.length > 0 ? trimmed.slice(0, 1000) : null
+            }
+        }
+    } catch {
+        // sin body o JSON inválido → reason null
+    }
+
     try {
         const result = await withClient((client) =>
             withRoleContext(client, identity.userId, identity.role, async () => {
@@ -30,9 +45,9 @@ export async function DELETE(request: Request) {
                     action: 'self_delete_account',
                     entityTable: 'app_core.users',
                     entityId: identity.userId,
-                    changeSummary: { reason: 'user_initiated_deletion' },
+                    changeSummary: { reason: reason ?? 'user_initiated_deletion' },
                 })
-                return deleteOwnAccount(client, identity)
+                return deleteOwnAccount(client, identity, reason)
             }),
         )
 
