@@ -62,6 +62,7 @@ import {
   getDiscoveryOverview,
   getDiscoveryOverviewDetail,
   getDiscoverySession,
+  markDiscoveryStartedRequest,
   listDiscoveryInvitations,
   regenerateDiscoveryReport,
   resendDiscoveryInvitationRequest,
@@ -884,6 +885,13 @@ export function DiscoveryExperience() {
             : "instructions",
       completionPercent: current.completionPercent,
     }));
+
+    // Notifica a admin/gestores que el líder inició el diagnóstico. El
+    // endpoint es idempotente, así que un re-click no genera correos
+    // duplicados (clic en "Continuar diagnóstico" tampoco si ya se mandó).
+    void markDiscoveryStartedRequest().catch((err) => {
+      console.warn("[descubrimiento] mark started failed:", err);
+    });
   };
 
   const handleStartQuiz = async () => {

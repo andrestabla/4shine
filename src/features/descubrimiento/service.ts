@@ -859,6 +859,51 @@ async function readDiscoverySessionBySessionId(
   return rows[0] ? mapDiscoverySessionRow(rows[0]) : null;
 }
 
+/**
+ * Marca la sesión de descubrimiento como "iniciada por el líder" y envía
+ * el correo de alerta a admin/gestores una sola vez. Idempotente: si el
+ * flag admin_started_alert_sent_at ya está seteado, no hace nada.
+ *
+ * Diseñado para invocarse desde POST /session/start, que a su vez es
+ * llamado por la UI cuando el líder pulsa "Empezar diagnóstico".
+ */
+export async function markDiscoveryStartedByActor(
+  client: PoolClient,
+  actor: AuthUser,
+): Promise<{ alerted: boolean }> {
+  await requireModulePermission(client, "descubrimiento", "view");
+  await requireDiscoveryAccess(client, actor);
+
+  // CAS-style: sólo actualiza si el flag está nulo. Garantiza idempotencia.
+  const { rows } = await client.query<{
+    session_id: string;
+    diagnostic_identifier: string | null;
+  }>(
+    `
+      UPDATE app_assessment.discovery_sessions
+      SET admin_started_alert_sent_at = now(),
+          updated_at = now()
+      WHERE user_id = $1::uuid
+        AND admin_started_alert_sent_at IS NULL
+      RETURNING session_id::text, diagnostic_identifier
+    `,
+    [actor.userId],
+  );
+
+  const row = rows[0];
+  if (!row) {
+    // Ya estaba seteado (re-click, doble submit, etc.) o no hay sesión todavía.
+    return { alerted: false };
+  }
+
+  await notifyAdminsOfDiscoveryStart(
+    client,
+    actor,
+    row.diagnostic_identifier ?? row.session_id,
+  );
+  return { alerted: true };
+}
+
 async function notifyAdminsOfDiscoveryStart(
   client: PoolClient,
   actor: AuthUser,
@@ -1730,11 +1775,12 @@ export async function getOrCreateDiscoverySession(
   const existing = await readDiscoverySession(client, actor.userId);
   let session = existing ?? (await createDiscoverySession(client, actor));
 
-  if (!existing) {
-    void notifyAdminsOfDiscoveryStart(client, actor, session.diagnosticIdentifier).catch(
-      (err) => console.error("[descubrimiento] admin alert failed:", err),
-    );
-  }
+  // El correo "Diagnóstico iniciado · alerta a administradores" ya NO se
+  // dispara aquí. Antes se mandaba al crear la sesión (que ocurría al
+  // CARGAR la página de Descubrimiento), por lo que admin/gestores
+  // recibían la alerta aunque el líder nunca pulsara "Empezar diagnóstico".
+  // Ahora se dispara desde el endpoint dedicado /session/start, llamado
+  // explícitamente por handleIntroStart en el cliente.
 
   if (session.nameSnapshot !== actor.name) {
     const { rows } = await client.query<DiscoverySessionRow>(

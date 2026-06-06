@@ -57,6 +57,18 @@ export async function resetDiscoverySessionRequest(): Promise<DiscoverySessionRe
   );
 }
 
+/**
+ * Marca el diagnóstico como iniciado por el líder (clic en "Empezar
+ * diagnóstico") y dispara el correo de alerta a admin/gestores una sola
+ * vez. Idempotente.
+ */
+export async function markDiscoveryStartedRequest(): Promise<{ alerted: boolean }> {
+  return requestApi<{ alerted: boolean }>(
+    "/api/v1/modules/descubrimiento/session/start",
+    { method: "POST" },
+  );
+}
+
 export async function shareDiscoverySessionRequest(
   input: UpdateDiscoverySessionInput,
 ): Promise<DiscoverySessionRecord> {
