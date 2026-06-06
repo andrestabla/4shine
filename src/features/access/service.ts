@@ -373,37 +373,56 @@ export async function getViewerAccessState(
   const hasAnyPurchase =
     hasProgramSubscription || hasDiscoveryPurchase || mentorshipSessionCredits > 0;
 
-  // Regla clave: las compras y el plan_type legacy son ADQUISICIONES
-  // perpetuas — el plan puede AÑADIR features, nunca REVOCAR lo ya pagado.
-  // Por eso cada canAccessXxx = feature del plan ⋃ grant de compras/legacy.
+  // === Reglas de acceso ===
+  //
+  // Cuando el líder tiene un plan asignado en /administracion/planes
+  // (activePlan != null), la configuración del plan es la fuente de
+  // verdad ESTRICTA para todos los módulos del programa. Sólo se le
+  // suman dos tipos de adquisiciones individuales que son sticky:
+  //   - Compra standalone de Descubrimiento (product_group='discovery')
+  //     → mantiene canAccessDescubrimiento.
+  //   - Créditos vigentes de paquetes de mentoría (product_group=
+  //     'mentoring_pack') → mantienen canAccessMentoring1on1.
+  // El resto (plan_type legacy 'premium'/'vip'/'empresa_elite', compras
+  // sintéticas del grupo 'program') queda IGNORADO cuando hay plan,
+  // porque generaban accesos no autorizados por la configuración del
+  // plan actual.
+  //
+  // Cuando no hay plan asignado (legado), seguimos derivando el acceso
+  // del plan_type + compras como antes.
   const usingPlanFeatures = activePlan !== null;
   const planEnables = (key: string): boolean =>
     usingPlanFeatures && featureEnabled(planFeatures, key);
 
-  // Grants sticky derivados de compras y plan_type legacy.
-  const legacySubscriber = SUBSCRIBED_PLAN_TYPES.has(planTypeCode ?? "standard");
-  const grantsFromProgram = hasProgramPurchase || legacySubscriber;
   const grantsFromDiscovery = hasDiscoveryPurchase;
   const grantsFromMentoringPack = mentorshipSessionCredits > 0;
+
+  // Grants legacy SÓLO aplican si NO hay plan asignado. Cuando admin
+  // asigna un plan, esos grants se desactivan para que el plan sea la
+  // fuente de verdad de los módulos del programa.
+  const legacySubscriber = SUBSCRIBED_PLAN_TYPES.has(planTypeCode ?? "standard");
+  const legacyProgramGrants = usingPlanFeatures
+    ? false
+    : hasProgramPurchase || legacySubscriber;
 
   // Recursos free siempre son libres en el modelo histórico para todo
   // líder — no se revocan al asignar un plan minimalista.
   const canAccessAprendizajeRecursosFree = true;
-  const canAccessTrayectoria = planEnables("trayectoria") || grantsFromProgram;
+  const canAccessTrayectoria = planEnables("trayectoria") || legacyProgramGrants;
   const canAccessDescubrimiento =
-    planEnables("descubrimiento") || grantsFromProgram || grantsFromDiscovery;
+    planEnables("descubrimiento") || legacyProgramGrants || grantsFromDiscovery;
   const canAccessAprendizajeCursos =
-    planEnables("aprendizaje_cursos") || grantsFromProgram;
+    planEnables("aprendizaje_cursos") || legacyProgramGrants;
   const canAccessProgramWorkbooks =
-    planEnables("aprendizaje_workbooks") || grantsFromProgram;
+    planEnables("aprendizaje_workbooks") || legacyProgramGrants;
   const canAccessMentoring1on1 =
-    planEnables("mentorias_1on1") || grantsFromProgram || grantsFromMentoringPack;
+    planEnables("mentorias_1on1") || legacyProgramGrants || grantsFromMentoringPack;
   const canAccessMentoringGroup =
-    planEnables("mentorias_grupales") || grantsFromProgram;
-  const canAccessNetworking = planEnables("networking") || grantsFromProgram;
-  const canAccessMensajes = planEnables("mensajes") || grantsFromProgram;
-  const canAccessConvocatorias = planEnables("convocatorias") || grantsFromProgram;
-  const canAccessWorkshops = planEnables("workshops") || grantsFromProgram;
+    planEnables("mentorias_grupales") || legacyProgramGrants;
+  const canAccessNetworking = planEnables("networking") || legacyProgramGrants;
+  const canAccessMensajes = planEnables("mensajes") || legacyProgramGrants;
+  const canAccessConvocatorias = planEnables("convocatorias") || legacyProgramGrants;
+  const canAccessWorkshops = planEnables("workshops") || legacyProgramGrants;
 
   const canAccessProgramMentorships =
     canAccessMentoring1on1 || canAccessMentoringGroup;
