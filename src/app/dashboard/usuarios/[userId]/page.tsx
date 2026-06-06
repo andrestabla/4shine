@@ -303,9 +303,12 @@ export default function UsuarioDetallePage() {
 
     setProcessingAction('change-subscription-plan');
     try {
+      // No mandamos planType. La fuente de verdad para el acceso es
+      // subscription_plan_id + plan_module_features. plan_type legacy
+      // queda en NULL para evitar contaminar la lógica de grants.
       await updateUser(detail.userId, {
         primaryRole: 'lider',
-        planType: 'premium',
+        planType: null,
         subscriptionPlanId: planId,
       });
       await refreshBootstrap();

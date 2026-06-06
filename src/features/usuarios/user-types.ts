@@ -64,9 +64,16 @@ export function resolveUserTypeSelection(option: UserTypeOption): {
   }
 }
 
-export function deriveUserTypeSelection(user: Pick<UserRecord, 'primaryRole' | 'planType'>): UserTypeOption {
+export function deriveUserTypeSelection(
+  user: Pick<UserRecord, 'primaryRole' | 'planType' | 'subscriptionPlanId'>,
+): UserTypeOption {
   if (user.primaryRole === 'lider') {
-    return isSubscribedLeaderPlan(user.planType)
+    // Un líder tiene suscripción si:
+    //  - se le asignó un subscription_plan_id en /administracion/planes, o
+    //  - su plan_type legacy es subscribed (premium/vip/empresa_elite),
+    //    para no romper líderes históricos sin plan migrado.
+    const hasPlan = Boolean(user.subscriptionPlanId);
+    return hasPlan || isSubscribedLeaderPlan(user.planType)
       ? 'leader_with_subscription'
       : 'leader_without_subscription';
   }
