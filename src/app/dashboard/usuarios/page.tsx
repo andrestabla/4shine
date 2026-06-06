@@ -2,13 +2,18 @@
 
 import Link from 'next/link';
 import React from 'react';
-import { Activity, Eye, Search, ShieldCheck, UserPlus, Users, Lock } from 'lucide-react';
+import { Activity, Eye, Search, ShieldCheck, UserPlus, Users, UserX, Lock, Loader2 } from 'lucide-react';
 import { EmptyState } from '@/components/dashboard/EmptyState';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { SessionsTabSection } from '@/components/dashboard/usuarios/SessionsTabSection';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useUser } from '@/context/UserContext';
-import { listUsers, type UserRecord } from '@/features/usuarios/client';
+import {
+  listUsers,
+  listDeletedUsersRequest,
+  type UserRecord,
+  type DeletedUserRecord,
+} from '@/features/usuarios/client';
 import {
   deriveUserTypeSelection,
   USER_TYPE_OPTIONS,
@@ -24,7 +29,7 @@ interface ListFilters {
   policyStatus: 'all' | 'accepted' | 'pending';
 }
 
-type Tab = 'usuarios' | 'sesiones' | 'roles';
+type Tab = 'usuarios' | 'sesiones' | 'bajas' | 'roles';
 
 function formatDate(value: string | null): string {
   if (!value) return 'Pendiente';
@@ -174,6 +179,17 @@ export default function UsuariosPage() {
           Sesiones
         </button>
         <button
+          onClick={() => setTab('bajas')}
+          className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-semibold transition ${
+            tab === 'bajas'
+              ? 'border-[var(--app-ink)] text-[var(--app-ink)]'
+              : 'border-transparent text-[var(--app-muted)] hover:text-[var(--app-ink)]'
+          }`}
+        >
+          <UserX size={15} />
+          Bajas
+        </button>
+        <button
           onClick={() => isAdmin && setTab('roles')}
           disabled={!isAdmin}
           title={isAdmin ? '' : 'Sólo el administrador puede gestionar roles'}
@@ -189,6 +205,7 @@ export default function UsuariosPage() {
       </div>
 
       {tab === 'sesiones' && <SessionsTabSection />}
+      {tab === 'bajas' && <DeletedUsersTabSection />}
       {tab === 'roles' && isAdmin && <RolesMatrixSection />}
 
       {tab === 'usuarios' && (
@@ -357,6 +374,169 @@ export default function UsuariosPage() {
             </section>
           )}
         </>
+      )}
+    </div>
+  );
+}
+
+function DeletedUsersTabSection() {
+  const [items, setItems] = React.useState<DeletedUserRecord[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+  const [query, setQuery] = React.useState('');
+  const [sourceFilter, setSourceFilter] = React.useState<'all' | 'self' | 'admin'>('all');
+
+  const reload = React.useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await listDeletedUsersRequest();
+      setItems(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo cargar el reporte.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    void reload();
+  }, [reload]);
+
+  const filtered = React.useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return items.filter((item) => {
+      if (sourceFilter !== 'all' && item.deletedSource !== sourceFilter) return false;
+      if (!q) return true;
+      const hay = [
+        item.email,
+        item.displayName,
+        item.primaryRole,
+        item.organizationName ?? '',
+        item.deletedByEmail ?? '',
+        item.deletedByName ?? '',
+        item.reason ?? '',
+      ]
+        .join(' ')
+        .toLowerCase();
+      return hay.includes(q);
+    });
+  }, [items, query, sourceFilter]);
+
+  function fmtDate(iso: string) {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleString('es-CO', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }
+
+  return (
+    <div className="space-y-4">
+      <section className="app-panel p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <div className="flex-1">
+            <label className="app-field-label">Buscar</label>
+            <div className="relative mt-1">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--app-muted)]" />
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Email, nombre, organización, quién la eliminó, motivo…"
+                className="app-input w-full pl-9"
+              />
+            </div>
+          </div>
+          <div className="sm:w-56">
+            <label className="app-field-label">Origen</label>
+            <select
+              className="app-select mt-1 w-full"
+              value={sourceFilter}
+              onChange={(e) => setSourceFilter(e.target.value as 'all' | 'self' | 'admin')}
+            >
+              <option value="all">Todas las bajas</option>
+              <option value="self">Auto-baja (el propio usuario)</option>
+              <option value="admin">Por admin/gestor</option>
+            </select>
+          </div>
+        </div>
+        <p className="mt-2 text-xs text-[var(--app-muted)]">
+          {filtered.length} de {items.length} bajas. Se conserva snapshot del email,
+          nombre, rol y quién/cómo se eliminó.
+        </p>
+      </section>
+
+      {error && (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          {error}
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex items-center justify-center py-12 text-[var(--app-muted)]">
+          <Loader2 size={20} className="mr-2 animate-spin" /> Cargando bajas…
+        </div>
+      ) : filtered.length === 0 ? (
+        <EmptyState message="No hay bajas registradas que coincidan con el filtro." />
+      ) : (
+        <div className="app-table-shell overflow-x-auto">
+          <table className="app-table text-sm">
+            <thead>
+              <tr className="text-left">
+                <th>Usuario eliminado</th>
+                <th>Organización</th>
+                <th>Origen</th>
+                <th>Eliminado por</th>
+                <th>Fecha</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((item) => (
+                <tr key={item.logId}>
+                  <td className="font-medium text-[var(--app-ink)]">
+                    {item.displayName}
+                    <div className="text-xs text-[var(--app-muted)]">{item.email}</div>
+                    <div className="mt-0.5 text-[10px] uppercase tracking-wider text-[var(--app-muted)]">
+                      {item.primaryRole}
+                    </div>
+                  </td>
+                  <td className="text-sm text-[var(--app-muted)]">
+                    {item.organizationName ?? '—'}
+                  </td>
+                  <td>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider ${
+                        item.deletedSource === 'self'
+                          ? 'bg-amber-100 text-amber-800'
+                          : 'bg-slate-200 text-slate-800'
+                      }`}
+                    >
+                      {item.deletedSource === 'self' ? 'Auto-baja' : 'Por admin'}
+                    </span>
+                  </td>
+                  <td className="text-sm text-[var(--app-muted)]">
+                    {item.deletedSource === 'self' ? (
+                      <span className="italic">El propio usuario</span>
+                    ) : (
+                      <>
+                        {item.deletedByName ?? '—'}
+                        {item.deletedByEmail && (
+                          <div className="text-xs">{item.deletedByEmail}</div>
+                        )}
+                      </>
+                    )}
+                  </td>
+                  <td className="text-xs text-[var(--app-muted)]">{fmtDate(item.deletedAt)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

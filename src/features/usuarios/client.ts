@@ -164,6 +164,25 @@ function buildQuery(input: Record<string, string | number | undefined | null>): 
   return qs ? `?${qs}` : '';
 }
 
+export interface DeletedUserRecord {
+  logId: string;
+  userId: string;
+  email: string;
+  displayName: string;
+  primaryRole: string;
+  organizationName: string | null;
+  deletedAt: string;
+  deletedSource: 'self' | 'admin';
+  deletedById: string | null;
+  deletedByEmail: string | null;
+  deletedByName: string | null;
+  reason: string | null;
+}
+
+export async function listDeletedUsersRequest(): Promise<DeletedUserRecord[]> {
+  return requestApi<DeletedUserRecord[]>('/api/v1/modules/usuarios/deleted');
+}
+
 export async function listUsers(input: ListUsersInput = {}): Promise<UserRecord[]> {
   const query = buildQuery({
     limit: input.limit,

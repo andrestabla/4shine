@@ -2,7 +2,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import nodemailer from 'nodemailer';
 import type { PoolClient } from 'pg';
 import { createDirectThread, sendMessage } from '@/features/mensajes/service';
-import { requireModulePermission } from '@/server/auth/module-permissions';
+import { ForbiddenError, requireModulePermission } from '@/server/auth/module-permissions';
 import { hashPassword } from '@/server/auth/password';
 import { withClient } from '@/server/db/pool';
 import type { Role } from '@/server/bootstrap/types';
@@ -2194,6 +2194,78 @@ export async function sendUserDirectMessage(
 }
 
 /**
+ * Snapshotea la identidad del usuario que está a punto de borrarse en
+ * app_admin.deleted_users_log para que el admin pueda consultar el
+ * reporte de bajas. Debe llamarse ANTES del DELETE FROM users porque
+ * algunos campos (email, display_name, organization) viven en esa tabla.
+ */
+async function snapshotDeletedUser(
+  client: PoolClient,
+  userId: string,
+  source: 'self' | 'admin',
+  actor: AuthUser,
+  reason?: string,
+): Promise<void> {
+  const { rows } = await client.query<{
+    user_id: string;
+    email: string;
+    display_name: string;
+    primary_role: string;
+    organization_id: string | null;
+    organization_name: string | null;
+  }>(
+    `
+      SELECT
+        u.user_id::text,
+        u.email::text,
+        u.display_name,
+        u.primary_role::text,
+        u.organization_id::text,
+        o.name AS organization_name
+      FROM app_core.users u
+      LEFT JOIN app_core.organizations o ON o.organization_id = u.organization_id
+      WHERE u.user_id = $1::uuid
+      LIMIT 1
+    `,
+    [userId],
+  );
+  const target = rows[0];
+  if (!target) return;
+
+  await client.query(
+    `
+      INSERT INTO app_admin.deleted_users_log (
+        user_id,
+        email,
+        display_name,
+        primary_role,
+        organization_id,
+        organization_name,
+        deleted_source,
+        deleted_by_id,
+        deleted_by_email,
+        deleted_by_name,
+        reason
+      )
+      VALUES ($1::uuid, $2, $3, $4, $5::uuid, $6, $7, $8::uuid, $9, $10, $11)
+    `,
+    [
+      target.user_id,
+      target.email,
+      target.display_name,
+      target.primary_role,
+      target.organization_id,
+      target.organization_name,
+      source,
+      source === 'self' ? null : actor.userId,
+      source === 'self' ? null : (actor.email ?? null),
+      source === 'self' ? null : (actor.name ?? null),
+      reason ?? null,
+    ],
+  );
+}
+
+/**
  * Borra explícitamente todas las FK con ON DELETE RESTRICT antes del
  * DELETE FROM app_core.users para garantizar el borrado completo.
  * Compartido entre el flujo admin (hardDeleteUser) y el flujo de
@@ -2255,6 +2327,7 @@ export async function hardDeleteUser(
   // antes del borrado del usuario para garantizar "se borran todos sus
   // datos e historial" sin dejar huérfanos ni bloquear el delete.
 
+  await snapshotDeletedUser(client, userId, 'admin', actor);
   await purgeUserRestrictReferences(client, userId);
 
   const { rows } = await client.query<{ user_id: string }>(
@@ -2282,10 +2355,85 @@ export async function hardDeleteUser(
  * + CASCADE en las FK). No requiere permiso de módulo `usuarios.delete`
  * porque el actor sólo se borra a sí mismo.
  */
+export interface DeletedUserRecord {
+  logId: string;
+  userId: string;
+  email: string;
+  displayName: string;
+  primaryRole: string;
+  organizationName: string | null;
+  deletedAt: string;
+  deletedSource: 'self' | 'admin';
+  deletedById: string | null;
+  deletedByEmail: string | null;
+  deletedByName: string | null;
+  reason: string | null;
+}
+
+export async function listDeletedUsers(
+  client: PoolClient,
+  actor: AuthUser,
+): Promise<DeletedUserRecord[]> {
+  await requireModulePermission(client, 'usuarios', 'view');
+  if (actor.role !== 'admin' && actor.role !== 'gestor') {
+    throw new ForbiddenError('Sólo admin o gestor pueden consultar el reporte de bajas.');
+  }
+
+  const { rows } = await client.query<{
+    log_id: string;
+    user_id: string;
+    email: string;
+    display_name: string;
+    primary_role: string;
+    organization_name: string | null;
+    deleted_at: string;
+    deleted_source: 'self' | 'admin';
+    deleted_by_id: string | null;
+    deleted_by_email: string | null;
+    deleted_by_name: string | null;
+    reason: string | null;
+  }>(
+    `
+      SELECT
+        log_id::text,
+        user_id::text,
+        email,
+        display_name,
+        primary_role,
+        organization_name,
+        deleted_at::text,
+        deleted_source,
+        deleted_by_id::text,
+        deleted_by_email,
+        deleted_by_name,
+        reason
+      FROM app_admin.deleted_users_log
+      ORDER BY deleted_at DESC
+      LIMIT 500
+    `,
+  );
+
+  return rows.map((row) => ({
+    logId: row.log_id,
+    userId: row.user_id,
+    email: row.email,
+    displayName: row.display_name,
+    primaryRole: row.primary_role,
+    organizationName: row.organization_name,
+    deletedAt: row.deleted_at,
+    deletedSource: row.deleted_source,
+    deletedById: row.deleted_by_id,
+    deletedByEmail: row.deleted_by_email,
+    deletedByName: row.deleted_by_name,
+    reason: row.reason,
+  }));
+}
+
 export async function deleteOwnAccount(
   client: PoolClient,
   actor: AuthUser,
 ): Promise<{ userId: string }> {
+  await snapshotDeletedUser(client, actor.userId, 'self', actor, 'user_initiated_deletion');
   await purgeUserRestrictReferences(client, actor.userId);
 
   const { rows } = await client.query<{ user_id: string }>(
