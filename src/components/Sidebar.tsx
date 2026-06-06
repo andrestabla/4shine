@@ -246,25 +246,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const controlBg = isLightPrimary
     ? rgbaFromHex("#0f172a", 0.08)
     : rgbaFromHex("#ffffff", 0.12);
-  const panelBg = isLightPrimary
-    ? rgbaFromHex("#ffffff", 0.88)
-    : rgbaFromHex("#ffffff", 0.12);
   const shellGradient = `linear-gradient(180deg, ${tokens.colors.primary} 0%, color-mix(in srgb, ${tokens.colors.primary} 86%, black 14%) 100%)`;
-  const sidebarHighlights = [
-    {
-      title: currentRole === "lider" ? "Ruta activa" : "Experiencia guiada",
-      text:
-        currentRole === "lider"
-          ? `${currentUser.stats?.progress ?? 0}% de avance visible en tu programa.`
-          : "Acompaña cada recorrido con una vista clara, móvil y accionable.",
-      icon: BookOpen,
-    },
-    {
-      title: "Soporte cercano",
-      text: "Mantén mensajes, mentorías y seguimiento siempre a mano.",
-      icon: MessageSquare,
-    },
-  ];
 
   const onLogoutClick = async () => {
     const approved = await confirm({
@@ -444,44 +426,6 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
               )}
               <div className="space-y-1">{adminNavItems.map(navItem)}</div>
             </>
-          )}
-
-          {!isCollapsed && (
-            <div className="space-y-3 pt-2">
-              {sidebarHighlights.map((item) => (
-                <div
-                  key={item.title}
-                  className="rounded-[1rem] border px-4 py-4"
-                  style={{
-                    backgroundColor: panelBg,
-                    borderColor,
-                  }}
-                >
-                  <div className="flex items-start gap-3">
-                    <div
-                      className="rounded-[0.95rem] bg-white/14 p-2.5"
-                      style={{ color: tokens.colors.accent }}
-                    >
-                      <item.icon size={16} />
-                    </div>
-                    <div>
-                      <p
-                        className="text-sm font-bold"
-                        style={{ color: onPrimaryText }}
-                      >
-                        {item.title}
-                      </p>
-                      <p
-                        className="mt-1 text-xs leading-relaxed"
-                        style={{ color: mutedText }}
-                      >
-                        {item.text}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
           )}
         </nav>
 
