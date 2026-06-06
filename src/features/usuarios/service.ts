@@ -1815,7 +1815,6 @@ export async function updateUser(
   await requireModulePermission(client, 'usuarios', 'update');
   const currentUserState = await getUserRoleAndPlan(client, userId);
   const resolvedPlanType = resolvePlanTypeForUpdate(currentUserState, input);
-  const nextRole = input.primaryRole ?? currentUserState.primaryRole;
   const shouldUpdatePlanType = resolvedPlanType !== undefined;
   const shouldPersistProfile =
     shouldUpdatePlanType ||
@@ -2194,28 +2193,13 @@ export async function sendUserDirectMessage(
   };
 }
 
-export async function hardDeleteUser(
-  client: PoolClient,
-  actor: AuthUser,
-  userId: string,
-): Promise<{ userId: string }> {
-  await requireModulePermission(client, 'usuarios', 'delete');
-
-  if (actor.userId === userId) {
-    throw new Error('No puedes eliminar tu propio usuario desde la sesión actual');
-  }
-
-  // Borrado completo. La mayoría de las FK a app_core.users.user_id tienen
-  // ON DELETE CASCADE (workbooks, progreso, mensajes, conexiones, etc.) o
-  // ON DELETE SET NULL (logs de auditoría, plantillas creadas por el
-  // usuario, columnas como created_by en branding/integrations — preserva
-  // el historial del sistema con el creador anonimizado).
-  //
-  // Pero quedan FK con ON DELETE RESTRICT que bloquearían el DELETE final
-  // si el usuario tiene esos registros. Aquí los limpiamos explícitamente
-  // antes del borrado del usuario para garantizar "se borran todos sus
-  // datos e historial" sin dejar huérfanos ni bloquear el delete.
-
+/**
+ * Borra explícitamente todas las FK con ON DELETE RESTRICT antes del
+ * DELETE FROM app_core.users para garantizar el borrado completo.
+ * Compartido entre el flujo admin (hardDeleteUser) y el flujo de
+ * auto-baja (deleteOwnAccount).
+ */
+async function purgeUserRestrictReferences(client: PoolClient, userId: string): Promise<void> {
   // --- Aprendizaje
   await client.query(
     `DELETE FROM app_learning.content_reviews WHERE reviewer_user_id = $1`,
@@ -2247,6 +2231,31 @@ export async function hardDeleteUser(
     `,
     [userId],
   );
+}
+
+export async function hardDeleteUser(
+  client: PoolClient,
+  actor: AuthUser,
+  userId: string,
+): Promise<{ userId: string }> {
+  await requireModulePermission(client, 'usuarios', 'delete');
+
+  if (actor.userId === userId) {
+    throw new Error('No puedes eliminar tu propio usuario desde la sesión actual');
+  }
+
+  // Borrado completo. La mayoría de las FK a app_core.users.user_id tienen
+  // ON DELETE CASCADE (workbooks, progreso, mensajes, conexiones, etc.) o
+  // ON DELETE SET NULL (logs de auditoría, plantillas creadas por el
+  // usuario, columnas como created_by en branding/integrations — preserva
+  // el historial del sistema con el creador anonimizado).
+  //
+  // Pero quedan FK con ON DELETE RESTRICT que bloquearían el DELETE final
+  // si el usuario tiene esos registros. Aquí los limpiamos explícitamente
+  // antes del borrado del usuario para garantizar "se borran todos sus
+  // datos e historial" sin dejar huérfanos ni bloquear el delete.
+
+  await purgeUserRestrictReferences(client, userId);
 
   const { rows } = await client.query<{ user_id: string }>(
     `
@@ -2265,6 +2274,35 @@ export async function hardDeleteUser(
   return {
     userId: deleted.user_id,
   };
+}
+
+/**
+ * El propio usuario solicita la baja completa de su cuenta. Borra todos
+ * sus datos e historial igual que el flujo admin (purgeUserRestrictReferences
+ * + CASCADE en las FK). No requiere permiso de módulo `usuarios.delete`
+ * porque el actor sólo se borra a sí mismo.
+ */
+export async function deleteOwnAccount(
+  client: PoolClient,
+  actor: AuthUser,
+): Promise<{ userId: string }> {
+  await purgeUserRestrictReferences(client, actor.userId);
+
+  const { rows } = await client.query<{ user_id: string }>(
+    `
+      DELETE FROM app_core.users
+      WHERE user_id = $1
+      RETURNING user_id::text
+    `,
+    [actor.userId],
+  );
+
+  const deleted = rows[0];
+  if (!deleted) {
+    throw new Error('Cuenta no encontrada o ya fue eliminada.');
+  }
+
+  return { userId: deleted.user_id };
 }
 
 export interface SelfRegisterInput {

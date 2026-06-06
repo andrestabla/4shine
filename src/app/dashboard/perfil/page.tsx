@@ -156,7 +156,39 @@ function compactProject(item: ProjectFormItem): ProjectFormItem {
 
 export default function PerfilPage() {
   const { can, refreshBootstrap, updateUser: updateContextUser, currentUser } = useUser();
-  const { alert } = useAppDialog();
+  const { alert, confirm } = useAppDialog();
+  const [isDeletingSelf, setIsDeletingSelf] = React.useState(false);
+
+  async function handleSelfDeleteAccount() {
+    const ok = await confirm({
+      title: 'Eliminar mi cuenta',
+      message:
+        'Vas a eliminar tu cuenta y TODA tu información (workbooks, mensajes, progreso, suscripción, etc.). Esta acción es permanente y no se puede deshacer. ¿Continuar?',
+      confirmText: 'Sí, eliminar mi cuenta',
+      tone: 'error',
+    });
+    if (!ok) return;
+    setIsDeletingSelf(true);
+    try {
+      const response = await fetch('/api/v1/me/account', {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body?.error ?? body?.detail ?? 'No se pudo eliminar la cuenta.');
+      }
+      // Logout + redirect
+      window.location.href = '/acceso?deleted=1';
+    } catch (err) {
+      await alert({
+        title: 'Error al eliminar la cuenta',
+        message: err instanceof Error ? err.message : 'No se pudo completar la operación.',
+        tone: 'error',
+      });
+      setIsDeletingSelf(false);
+    }
+  }
 
   const [profile, setProfile] = React.useState<MyProfileRecord | null>(null);
   const [form, setForm] = React.useState<ProfileFormState | null>(null);
@@ -869,6 +901,33 @@ export default function PerfilPage() {
           </section>
         </aside>
       </div>
+
+      <section className="mt-10 rounded-3xl border border-rose-200 bg-rose-50/50 p-5">
+        <div className="flex items-start gap-3">
+          <div className="rounded-full bg-rose-100 p-2 text-rose-700">
+            <Trash2 size={18} />
+          </div>
+          <div className="flex-1">
+            <h4 className="text-base font-bold text-rose-900">Eliminar mi cuenta</h4>
+            <p className="mt-1 max-w-2xl text-xs leading-relaxed text-rose-700">
+              Al eliminar tu cuenta se borra de forma permanente toda tu información
+              asociada en la plataforma: workbooks y avances, transcripciones, mensajes,
+              suscripción, productos contratados, conexiones de networking, sesiones
+              de mentoría, postulaciones y cualquier dato vinculado a tu usuario.
+              Esta acción no se puede deshacer.
+            </p>
+            <button
+              type="button"
+              onClick={handleSelfDeleteAccount}
+              disabled={isDeletingSelf}
+              className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-rose-300 bg-white px-4 py-2 text-xs font-semibold text-rose-700 hover:border-rose-400 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Trash2 size={12} />
+              {isDeletingSelf ? 'Eliminando…' : 'Eliminar mi cuenta'}
+            </button>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
