@@ -671,6 +671,29 @@ const INTEGRATION_ASSISTANTS: Record<IntegrationKey, AssistantDefinition> = {
         ],
       },
       {
+        id: 'refunds',
+        title: 'Reembolsos (opcional)',
+        description:
+          'Para procesar reembolsos desde el panel admin, ingresa la llave privada de tu comercio y la URL del API.',
+        fields: [
+          {
+            key: 'privateKey',
+            label: 'Llave privada',
+            type: 'password',
+            placeholder: 'prv_test_… o prv_prod_…',
+            helpText:
+              'Solo del lado del servidor. Necesaria para crear refunds y consultar transacciones por referencia.',
+          },
+          {
+            key: 'apiBaseUrl',
+            label: 'API Base URL',
+            type: 'url',
+            defaultValue: 'https://production.wompi.co/v1',
+            helpText: 'Para sandbox: https://sandbox.wompi.co/v1 (verifica con tu comercio).',
+          },
+        ],
+      },
+      {
         id: 'webhooks',
         title: 'Webhook de eventos',
         description:

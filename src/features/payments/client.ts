@@ -25,3 +25,56 @@ export async function createMentorshipCheckout(input: {
     body: JSON.stringify(input),
   });
 }
+
+// ─── Admin (pagos) ───────────────────────────────────────────────────────────
+
+export interface MentorshipPaymentRecord {
+  orderId: string;
+  ownerName: string;
+  ownerEmail: string;
+  mentorName: string | null;
+  title: string;
+  topic: string | null;
+  scheduledStartsAt: string | null;
+  priceAmount: number;
+  currencyCode: string;
+  paymentProvider: PaymentProviderKey | 'manual' | null;
+  paymentStatus: string | null;
+  paymentReference: string | null;
+  paidAt: string | null;
+  refundedAt: string | null;
+  refundReason: string | null;
+  createdAt: string;
+}
+
+export interface PaymentAttemptRecord {
+  attemptId: string;
+  orderId: string;
+  provider: PaymentProviderKey | 'manual';
+  status: string;
+  reference: string | null;
+  errorCode: string | null;
+  errorMessage: string | null;
+  createdAt: string;
+}
+
+export async function listMentorshipPaymentsAdmin(): Promise<MentorshipPaymentRecord[]> {
+  return requestApi<MentorshipPaymentRecord[]>('/api/v1/payments/mentorias/admin/orders');
+}
+
+export async function listPaymentAttemptsAdmin(orderId: string): Promise<PaymentAttemptRecord[]> {
+  return requestApi<PaymentAttemptRecord[]>(
+    `/api/v1/payments/mentorias/admin/orders/${orderId}/attempts`,
+  );
+}
+
+export async function refundMentorshipOrder(input: {
+  orderId: string;
+  reason: string;
+}): Promise<{ orderId: string; provider: string; refundReference: string | null; status: string }> {
+  return requestApi(`/api/v1/payments/mentorias/admin/orders/${input.orderId}/refund`, {
+    method: 'POST',
+    body: JSON.stringify({ reason: input.reason }),
+    timeoutMs: 60000,
+  });
+}

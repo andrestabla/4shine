@@ -81,12 +81,21 @@ export async function POST(request: Request) {
     await withClient(async (client) => {
       await withRoleContext(client, ownerUserId, 'lider', async () => {
         if (tx.status === 'APPROVED') {
-          await markOrderAsPaid(client, { provider: 'wompi', reference });
+          await markOrderAsPaid(client, {
+            provider: 'wompi',
+            reference,
+            rawPayload: {
+              transactionId: tx.id,
+              amountInCents: tx.amount_in_cents,
+              currency: tx.currency,
+            },
+          });
         } else if (tx.status === 'DECLINED' || tx.status === 'ERROR' || tx.status === 'VOIDED') {
           await markOrderAsFailed(client, {
             provider: 'wompi',
             reference,
             reason: tx.status,
+            rawPayload: { transactionId: tx.id, status: tx.status },
           });
         }
       });

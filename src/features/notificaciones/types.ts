@@ -116,7 +116,11 @@ export type VariableKey =
   | 'tipo_convocatoria'
   | 'objetivo'
   | 'correo'
-  | 'contrasena';
+  | 'contrasena'
+  | 'monto'
+  | 'metodo_pago'
+  | 'codigo_reserva'
+  | 'motivo_reembolso';
 
 export interface VariableDef {
   key: VariableKey;

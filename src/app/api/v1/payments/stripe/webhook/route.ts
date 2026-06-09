@@ -91,7 +91,16 @@ export async function POST(request: Request) {
         try {
           await withClient(async (client) => {
             await withRoleContext(client, ownerUserId, "lider", async () => {
-              await markOrderAsPaid(client, { provider: "stripe", reference });
+              await markOrderAsPaid(client, {
+                provider: "stripe",
+                reference,
+                rawPayload: {
+                  eventType: event.type,
+                  amountTotal: session.amount_total,
+                  currency: session.currency,
+                  customerEmail: session.customer_details?.email ?? null,
+                },
+              });
             });
           });
         } catch (error) {
@@ -108,7 +117,12 @@ export async function POST(request: Request) {
         try {
           await withClient(async (client) => {
             await withRoleContext(client, ownerUserId, "lider", async () => {
-              await markOrderAsFailed(client, { provider: "stripe", reference: session.id });
+              await markOrderAsFailed(client, {
+                provider: "stripe",
+                reference: session.id,
+                reason: event.type,
+                rawPayload: { eventType: event.type, paymentStatus: session.payment_status },
+              });
             });
           });
         } catch (error) {

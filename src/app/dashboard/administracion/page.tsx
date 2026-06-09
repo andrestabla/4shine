@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { PageTitle } from '@/components/dashboard/PageTitle';
-import { Settings, Palette, PlugZap, Users, ShieldCheck, Globe, Bell, CreditCard } from 'lucide-react';
+import { Settings, Palette, PlugZap, Users, ShieldCheck, Globe, Bell, CreditCard, Receipt } from 'lucide-react';
 
 const ADMIN_CARDS = [
   {
@@ -31,9 +31,15 @@ const ADMIN_CARDS = [
   },
   {
     title: 'Integraciones',
-    description: 'Administrar conectores: Meet, Calendar, R2, Gemini, SSO Google y OpenAI.',
+    description: 'Administrar conectores: Meet, Calendar, R2, Gemini, SSO Google, OpenAI, Stripe y Wompi.',
     href: '/dashboard/administracion/integraciones',
     icon: PlugZap,
+  },
+  {
+    title: 'Pagos de mentorías',
+    description: 'Historial de transacciones, intentos por proveedor y gestión de reembolsos (Stripe / Wompi).',
+    href: '/dashboard/administracion/pagos',
+    icon: Receipt,
   },
   {
     title: 'Política de Privacidad',
