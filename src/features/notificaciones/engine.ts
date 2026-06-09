@@ -210,15 +210,42 @@ async function sendTemplateEmail(
     ...(headers ? { headers } : {}),
   });
 
-  // Para SES SMTP, el Message-ID que llega en el webhook NO es el de SMTP
-  // (que viene como "<...@email.amazonses.com>"), sino la parte local sin
-  // los chevrones ni dominio. Normalizamos aquí para que el webhook pueda
-  // hacer match por provider_message_id.
-  let messageId =
-    typeof result.messageId === 'string' ? result.messageId : null;
-  if (isSesSmtp && messageId) {
-    // Ej: "<0100019891...@email.amazonses.com>" → "0100019891..."
-    messageId = messageId.replace(/^<|>$/g, '').split('@')[0] ?? messageId;
+  // CRÍTICO para tracking SES.
+  // result.messageId es el Message-ID del HEADER del email — para SES SMTP es
+  // un UUID generado localmente por nodemailer (ej "ff8d3928-...-d2fb74c209b0").
+  // ESE NO es el ID que SES usa internamente para reportar eventos.
+  //
+  // El SES Message-ID real viene en la línea de respuesta SMTP "250 OK <ses_id>"
+  // que nodemailer expone en result.response. Ese es el que viaja en
+  // mail.messageId del JSON de eventos publicado a SNS.
+  //
+  // Sin esta extracción, el webhook nunca encuentra el record (busca por SES
+  // messageId) y los emails se quedan eternamente en "Enviado".
+  let messageId: string | null = null;
+  if (isSesSmtp && typeof result.response === 'string') {
+    // Tomamos el ÚLTIMO match "250 Ok <id>" del response (puede haber varias
+    // líneas 250 durante el handshake; la final, tras DATA, es la que trae el
+    // SES Message-ID).
+    const matches = Array.from(
+      result.response.matchAll(/250(?:\s\d+\.\d+\.\d+)?\s+Ok\s+([\w-]+)/gi),
+    );
+    const last = matches[matches.length - 1];
+    if (last?.[1]) {
+      messageId = last[1].trim();
+    }
+    // Log de diagnóstico — solo se imprime una vez tras el send. Útil para
+    // detectar si el formato del response cambia y el regex no matchea.
+    if (!messageId) {
+      console.warn(
+        '[notif/engine] SES sendMail: no se pudo parsear messageId de response. response =',
+        JSON.stringify(result.response).substring(0, 200),
+        'fallback a result.messageId',
+      );
+    }
+  }
+  // Fallback: si no era SES SMTP o no se pudo parsear, usar el header Message-ID.
+  if (!messageId && typeof result.messageId === 'string') {
+    messageId = result.messageId.replace(/^<|>$/g, '').split('@')[0] ?? result.messageId;
   }
   return messageId;
 }
