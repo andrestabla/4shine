@@ -3,13 +3,17 @@
 import React from 'react';
 import { ArrowDown, ArrowUp, ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
+import { R2UploadButton } from '@/components/ui/R2UploadButton';
 import {
   deleteActivity as deleteActivityApi,
   getActivityForContentAdmin,
   upsertActivity,
   type ActivityRecord,
   type ChoiceOption,
+  type ClassificationPayload,
   type FillBlankPayload,
+  type HotspotPayload,
+  type MatchingPayload,
   type MultipleChoicePayload,
   type NumericPayload,
   type OrderingPayload,
@@ -38,6 +42,16 @@ interface BuilderQuestion {
   numTolerance: string;
   ordItems: { id: string; text: string }[];
   ordCorrectOrder: string[]; // ids
+  // Phase 2
+  matLeft: { id: string; text: string }[];
+  matRight: { id: string; text: string }[];
+  /** Para matching el correctPairs es [leftItems[i].id, rightItems[i].id] por convención del editor. */
+  clsBuckets: { id: string; label: string }[];
+  clsItems: { id: string; text: string; correctBucketId: string }[];
+  hotImageUrl: string;
+  hotX: number; // 0..1
+  hotY: number; // 0..1
+  hotRadius: number; // 0..1
 }
 
 const TYPE_LABELS: Record<QuestionType, string> = {
@@ -47,6 +61,9 @@ const TYPE_LABELS: Record<QuestionType, string> = {
   fill_blank: 'Completar espacios',
   numeric: 'Respuesta numérica',
   ordering: 'Ordenamiento',
+  matching: 'Emparejar',
+  classification: 'Clasificar',
+  hotspot: 'Identificar zona en imagen',
 };
 
 function newId() {
@@ -82,6 +99,23 @@ function emptyQuestion(type: QuestionType): BuilderQuestion {
       { id: newId(), text: 'Paso 3' },
     ],
     ordCorrectOrder: [],
+    matLeft: [
+      { id: newId(), text: 'Concepto A' },
+      { id: newId(), text: 'Concepto B' },
+    ],
+    matRight: [
+      { id: newId(), text: 'Definición A' },
+      { id: newId(), text: 'Definición B' },
+    ],
+    clsBuckets: [
+      { id: newId(), label: 'Categoría 1' },
+      { id: newId(), label: 'Categoría 2' },
+    ],
+    clsItems: [],
+    hotImageUrl: '',
+    hotX: 0.5,
+    hotY: 0.5,
+    hotRadius: 0.08,
   };
 }
 
@@ -115,6 +149,35 @@ function fromActivity(act: ActivityRecord): BuilderQuestion[] {
       const op = p as OrderingPayload;
       base.ordItems = (op?.items ?? []).map((i) => ({ ...i }));
       base.ordCorrectOrder = op?.correctOrder ?? base.ordItems.map((i) => i.id);
+    } else if (q.type === 'matching') {
+      const mp = p as MatchingPayload;
+      const left = (mp?.leftItems ?? []).map((i) => ({ ...i }));
+      const right = (mp?.rightItems ?? []).map((i) => ({ ...i }));
+      // Reordenar `right` para que la posición i tenga la pareja correcta de left[i]
+      const rightById = new Map(right.map((r) => [r.id, r]));
+      const sortedRight: { id: string; text: string }[] = [];
+      const correctPairs = mp?.correctPairs ?? [];
+      for (const l of left) {
+        const pair = correctPairs.find(([ll]) => ll === l.id);
+        if (pair) {
+          const r = rightById.get(pair[1]);
+          if (r) sortedRight.push(r);
+        }
+      }
+      // Rellenar con los restantes
+      for (const r of right) if (!sortedRight.includes(r)) sortedRight.push(r);
+      base.matLeft = left;
+      base.matRight = sortedRight.length === left.length ? sortedRight : right;
+    } else if (q.type === 'classification') {
+      const cp = p as ClassificationPayload;
+      base.clsBuckets = (cp?.buckets ?? []).map((b) => ({ ...b }));
+      base.clsItems = (cp?.items ?? []).map((i) => ({ ...i }));
+    } else if (q.type === 'hotspot') {
+      const hp = p as HotspotPayload;
+      base.hotImageUrl = hp?.imageUrl ?? '';
+      base.hotX = hp?.correctRegion?.x ?? 0.5;
+      base.hotY = hp?.correctRegion?.y ?? 0.5;
+      base.hotRadius = hp?.correctRegion?.radius ?? 0.08;
     }
     return base;
   });
@@ -142,6 +205,18 @@ function toPayload(q: BuilderQuestion): unknown {
         correctOrder: q.ordCorrectOrder.length === q.ordItems.length
           ? q.ordCorrectOrder
           : q.ordItems.map((i) => i.id),
+      };
+    case 'matching': {
+      // Cada left[i] empareja con right[i] (convención del editor).
+      const pairs = q.matLeft.map((l, i): [string, string] => [l.id, q.matRight[i]?.id ?? '']).filter(([, r]) => Boolean(r));
+      return { leftItems: q.matLeft, rightItems: q.matRight, correctPairs: pairs };
+    }
+    case 'classification':
+      return { buckets: q.clsBuckets, items: q.clsItems };
+    case 'hotspot':
+      return {
+        imageUrl: q.hotImageUrl,
+        correctRegion: { x: q.hotX, y: q.hotY, radius: q.hotRadius },
       };
   }
 }
@@ -628,6 +703,18 @@ function QuestionCard(props: {
             <OrderingEditor question={q} onChange={onChange} />
           )}
 
+          {q.type === 'matching' && (
+            <MatchingEditor question={q} onChange={onChange} />
+          )}
+
+          {q.type === 'classification' && (
+            <ClassificationEditor question={q} onChange={onChange} />
+          )}
+
+          {q.type === 'hotspot' && (
+            <HotspotEditor question={q} onChange={onChange} />
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <label>
               <span className="app-field-label">Puntos</span>
@@ -810,3 +897,267 @@ function OrderingEditor({
     </div>
   );
 }
+
+function MatchingEditor({
+  question,
+  onChange,
+}: {
+  question: BuilderQuestion;
+  onChange: (patch: Partial<BuilderQuestion>) => void;
+}) {
+  const updateLeft = (i: number, text: string) =>
+    onChange({ matLeft: question.matLeft.map((it, j) => (j === i ? { ...it, text } : it)) });
+  const updateRight = (i: number, text: string) =>
+    onChange({ matRight: question.matRight.map((it, j) => (j === i ? { ...it, text } : it)) });
+  const addPair = () =>
+    onChange({
+      matLeft: [...question.matLeft, { id: newId(), text: "" }],
+      matRight: [...question.matRight, { id: newId(), text: "" }],
+    });
+  const removePair = (i: number) =>
+    onChange({
+      matLeft: question.matLeft.filter((_, j) => j !== i),
+      matRight: question.matRight.filter((_, j) => j !== i),
+    });
+
+  return (
+    <div className="space-y-2">
+      <span className="app-field-label">Parejas correctas (cada fila es una pareja)</span>
+      {question.matLeft.map((left, i) => (
+        <div key={left.id} className="grid grid-cols-[1fr_auto_1fr_auto] items-center gap-2">
+          <input
+            className="app-input"
+            value={left.text}
+            onChange={(e) => updateLeft(i, e.target.value)}
+            placeholder={`Concepto ${i + 1}`}
+          />
+          <span className="text-[var(--app-muted)]">↔</span>
+          <input
+            className="app-input"
+            value={question.matRight[i]?.text ?? ""}
+            onChange={(e) => updateRight(i, e.target.value)}
+            placeholder={`Pareja ${i + 1}`}
+          />
+          <button
+            type="button"
+            disabled={question.matLeft.length <= 2}
+            onClick={() => removePair(i)}
+            className="rounded-full p-1.5 text-rose-600 hover:bg-rose-50 disabled:opacity-30"
+            aria-label="Eliminar pareja"
+          >
+            <Trash2 size={13} />
+          </button>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={addPair}
+        className="app-button-secondary inline-flex items-center gap-1 px-3 py-1.5 text-xs"
+      >
+        <Plus size={11} />
+        Agregar pareja
+      </button>
+      <p className="text-[11px] text-[var(--app-muted)]">
+        Al líder se le mostrarán las dos columnas con orden mezclado y deberá emparejarlas.
+      </p>
+    </div>
+  );
+}
+
+function ClassificationEditor({
+  question,
+  onChange,
+}: {
+  question: BuilderQuestion;
+  onChange: (patch: Partial<BuilderQuestion>) => void;
+}) {
+  const updateBucket = (i: number, label: string) =>
+    onChange({ clsBuckets: question.clsBuckets.map((b, j) => (j === i ? { ...b, label } : b)) });
+  const addBucket = () =>
+    onChange({ clsBuckets: [...question.clsBuckets, { id: newId(), label: `Categoría ${question.clsBuckets.length + 1}` }] });
+  const removeBucket = (i: number) => {
+    const removedId = question.clsBuckets[i].id;
+    onChange({
+      clsBuckets: question.clsBuckets.filter((_, j) => j !== i),
+      clsItems: question.clsItems.filter((it) => it.correctBucketId !== removedId),
+    });
+  };
+
+  const updateItem = (i: number, patch: Partial<{ text: string; correctBucketId: string }>) =>
+    onChange({ clsItems: question.clsItems.map((it, j) => (j === i ? { ...it, ...patch } : it)) });
+  const addItem = () => {
+    const firstBucket = question.clsBuckets[0]?.id ?? "";
+    onChange({ clsItems: [...question.clsItems, { id: newId(), text: "", correctBucketId: firstBucket }] });
+  };
+  const removeItem = (i: number) => onChange({ clsItems: question.clsItems.filter((_, j) => j !== i) });
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <span className="app-field-label">Categorías</span>
+        <div className="space-y-1.5">
+          {question.clsBuckets.map((b, i) => (
+            <div key={b.id} className="flex items-center gap-2">
+              <input
+                className="app-input flex-1"
+                value={b.label}
+                onChange={(e) => updateBucket(i, e.target.value)}
+                placeholder={`Categoría ${i + 1}`}
+              />
+              <button
+                type="button"
+                disabled={question.clsBuckets.length <= 2}
+                onClick={() => removeBucket(i)}
+                className="rounded-full p-1.5 text-rose-600 hover:bg-rose-50 disabled:opacity-30"
+                aria-label="Eliminar categoría"
+              >
+                <Trash2 size={13} />
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={addBucket}
+            className="app-button-secondary inline-flex items-center gap-1 px-3 py-1.5 text-xs"
+          >
+            <Plus size={11} /> Agregar categoría
+          </button>
+        </div>
+      </div>
+      <div>
+        <span className="app-field-label">Items a clasificar</span>
+        <div className="space-y-1.5">
+          {question.clsItems.map((it, i) => (
+            <div key={it.id} className="grid grid-cols-[1fr_180px_auto] items-center gap-2">
+              <input
+                className="app-input"
+                value={it.text}
+                onChange={(e) => updateItem(i, { text: e.target.value })}
+                placeholder="Texto del item"
+              />
+              <select
+                className="app-select"
+                value={it.correctBucketId}
+                onChange={(e) => updateItem(i, { correctBucketId: e.target.value })}
+              >
+                {question.clsBuckets.map((b) => (
+                  <option key={b.id} value={b.id}>{b.label}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => removeItem(i)}
+                className="rounded-full p-1.5 text-rose-600 hover:bg-rose-50"
+                aria-label="Eliminar item"
+              >
+                <Trash2 size={13} />
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            disabled={question.clsBuckets.length === 0}
+            onClick={addItem}
+            className="app-button-secondary inline-flex items-center gap-1 px-3 py-1.5 text-xs disabled:opacity-50"
+          >
+            <Plus size={11} /> Agregar item
+          </button>
+        </div>
+      </div>
+      <p className="text-[11px] text-[var(--app-muted)]">
+        Al líder se le mostrarán los items mezclados y deberá ponerlos en la categoría correcta.
+      </p>
+    </div>
+  );
+}
+
+function HotspotEditor({
+  question,
+  onChange,
+}: {
+  question: BuilderQuestion;
+  onChange: (patch: Partial<BuilderQuestion>) => void;
+}) {
+  const imgRef = React.useRef<HTMLDivElement | null>(null);
+  const onImageClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!imgRef.current) return;
+    const rect = imgRef.current.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+    onChange({ hotX: Math.max(0, Math.min(1, x)), hotY: Math.max(0, Math.min(1, y)) });
+  };
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <span className="app-field-label">Imagen</span>
+        <div className="flex items-center gap-2">
+          <R2UploadButton
+            moduleCode="aprendizaje"
+            action="update"
+            accept="image/*"
+            pathPrefix="learning/activities/hotspot"
+            entityTable="app_learning.activity_questions"
+            fieldName="payload"
+            buttonLabel={question.hotImageUrl ? "Cambiar imagen" : "Subir imagen"}
+            className="app-button-secondary"
+            onUploaded={(url) => onChange({ hotImageUrl: url })}
+          />
+          {question.hotImageUrl && (
+            <button
+              type="button"
+              className="text-xs font-semibold text-rose-600 hover:underline"
+              onClick={() => onChange({ hotImageUrl: "" })}
+            >
+              Quitar
+            </button>
+          )}
+        </div>
+      </div>
+      {question.hotImageUrl && (
+        <>
+          <div>
+            <span className="app-field-label">Marca la zona correcta (click en la imagen)</span>
+            <div
+              ref={imgRef}
+              onClick={onImageClick}
+              className="relative inline-block w-full max-w-md cursor-crosshair overflow-hidden rounded-[12px] border border-[var(--app-border)] bg-[var(--app-surface-muted)]"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={question.hotImageUrl} alt="Hotspot" className="block w-full" />
+              <div
+                style={{
+                  position: "absolute",
+                  left: `${question.hotX * 100}%`,
+                  top: `${question.hotY * 100}%`,
+                  width: `${question.hotRadius * 2 * 100}%`,
+                  paddingTop: `${question.hotRadius * 2 * 100}%`,
+                  transform: "translate(-50%, -50%)",
+                  border: "2px solid #ef4444",
+                  borderRadius: "50%",
+                  background: "rgba(239,68,68,0.15)",
+                  pointerEvents: "none",
+                }}
+              />
+            </div>
+          </div>
+          <label className="block max-w-md">
+            <span className="app-field-label">Radio de la zona correcta ({Math.round(question.hotRadius * 100)}%)</span>
+            <input
+              type="range"
+              min={2}
+              max={30}
+              value={question.hotRadius * 100}
+              onChange={(e) => onChange({ hotRadius: Number(e.target.value) / 100 })}
+              className="w-full"
+            />
+          </label>
+          <p className="text-[11px] text-[var(--app-muted)]">
+            El líder debe hacer click dentro del círculo rojo para acertar.
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+

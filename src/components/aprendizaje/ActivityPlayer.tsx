@@ -296,6 +296,15 @@ function PlayerQuestion(props: {
           {type === 'ordering' && (
             <OrderingInput payload={payload} value={value} onChange={onChange} />
           )}
+          {type === 'matching' && (
+            <MatchingInput payload={payload} value={value} onChange={onChange} />
+          )}
+          {type === 'classification' && (
+            <ClassificationInput payload={payload} value={value} onChange={onChange} />
+          )}
+          {type === 'hotspot' && (
+            <HotspotInput payload={payload} value={value} onChange={onChange} />
+          )}
         </div>
       )}
     </article>
@@ -486,6 +495,305 @@ function OrderingInput({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// ─── Phase 2 inputs ──────────────────────────────────────────────────────────
+
+interface NamedItem { id: string; text: string }
+
+function shuffled<T>(arr: T[], seed: string): T[] {
+  // Determinístico por seed (questionId) para que no se reordene cada render.
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = ((h << 5) - h + seed.charCodeAt(i)) | 0;
+  const out = [...arr];
+  for (let i = out.length - 1; i > 0; i--) {
+    h = (h * 9301 + 49297) % 233280;
+    const j = Math.floor((h / 233280) * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+function MatchingInput({
+  payload,
+  value,
+  onChange,
+}: {
+  payload: unknown;
+  value: unknown;
+  onChange: (v: unknown) => void;
+}) {
+  const left: NamedItem[] = ((payload as { leftItems?: NamedItem[] })?.leftItems) ?? [];
+  const rightRaw: NamedItem[] = ((payload as { rightItems?: NamedItem[] })?.rightItems) ?? [];
+  const right = React.useMemo(
+    () => shuffled(rightRaw, rightRaw.map((r) => r.id).join('|')),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rightRaw.map((r) => r.id).join('|')],
+  );
+
+  const pairs: Array<[string, string]> = Array.isArray((value as { pairs?: Array<[string, string]> } | null)?.pairs)
+    ? (value as { pairs: Array<[string, string]> }).pairs
+    : [];
+  const [selectedLeft, setSelectedLeft] = React.useState<string | null>(null);
+
+  const pairOf = (id: string, side: 'L' | 'R'): string | undefined => {
+    if (side === 'L') return pairs.find(([l]) => l === id)?.[1];
+    return pairs.find(([, r]) => r === id)?.[0];
+  };
+
+  const togglePair = (leftId: string, rightId: string) => {
+    // Si ya están emparejados, despareja
+    const exists = pairs.some(([l, r]) => l === leftId && r === rightId);
+    let next: Array<[string, string]>;
+    if (exists) {
+      next = pairs.filter(([l, r]) => !(l === leftId && r === rightId));
+    } else {
+      // Remover cualquier pareja previa de leftId o rightId, luego agregar nueva
+      next = pairs.filter(([l, r]) => l !== leftId && r !== rightId);
+      next.push([leftId, rightId]);
+    }
+    onChange({ pairs: next });
+    setSelectedLeft(null);
+  };
+
+  const onLeftClick = (id: string) => {
+    setSelectedLeft((prev) => (prev === id ? null : id));
+  };
+  const onRightClick = (id: string) => {
+    if (selectedLeft) togglePair(selectedLeft, id);
+  };
+
+  // Mapa de colores estables por pareja
+  const colors = ['#7c3aed', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#6366f1'];
+  const colorOfPair = (leftId: string): string | undefined => {
+    const idx = left.findIndex((l) => l.id === leftId);
+    if (idx < 0) return undefined;
+    return colors[idx % colors.length];
+  };
+
+  return (
+    <div className="space-y-2">
+      <p className="text-[11px] text-[var(--app-muted)]">
+        Toca un concepto de la izquierda y luego su pareja de la derecha para conectarlos.
+      </p>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          {left.map((item) => {
+            const matchedRight = pairOf(item.id, 'L');
+            const color = matchedRight ? colorOfPair(item.id) : undefined;
+            const sel = selectedLeft === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => onLeftClick(item.id)}
+                className="flex w-full items-center gap-2 rounded-[10px] border px-3 py-2 text-left text-sm transition"
+                style={{
+                  borderColor: sel ? 'var(--brand-primary)' : color ?? 'var(--app-border)',
+                  background: sel ? 'color-mix(in srgb, var(--brand-primary) 8%, white)' : color ? `color-mix(in srgb, ${color} 8%, white)` : 'white',
+                }}
+              >
+                <span
+                  className="inline-block h-2 w-2 shrink-0 rounded-full"
+                  style={{ background: color ?? '#cbd5e1' }}
+                />
+                <span className="text-[var(--app-ink)]">{item.text}</span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="space-y-1.5">
+          {right.map((item) => {
+            const matchedLeft = pairOf(item.id, 'R');
+            const color = matchedLeft ? colorOfPair(matchedLeft) : undefined;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => onRightClick(item.id)}
+                className="flex w-full items-center gap-2 rounded-[10px] border px-3 py-2 text-left text-sm transition disabled:opacity-50"
+                disabled={!selectedLeft && !matchedLeft}
+                style={{
+                  borderColor: color ?? 'var(--app-border)',
+                  background: color ? `color-mix(in srgb, ${color} 8%, white)` : 'white',
+                }}
+              >
+                <span
+                  className="inline-block h-2 w-2 shrink-0 rounded-full"
+                  style={{ background: color ?? '#cbd5e1' }}
+                />
+                <span className="text-[var(--app-ink)]">{item.text}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ClassificationInput({
+  payload,
+  value,
+  onChange,
+}: {
+  payload: unknown;
+  value: unknown;
+  onChange: (v: unknown) => void;
+}) {
+  const buckets: Array<{ id: string; label: string }> = ((payload as { buckets?: Array<{ id: string; label: string }> })?.buckets) ?? [];
+  const itemsRaw: NamedItem[] = ((payload as { items?: NamedItem[] })?.items) ?? [];
+  const items = React.useMemo(
+    () => shuffled(itemsRaw, itemsRaw.map((i) => i.id).join('|')),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [itemsRaw.map((i) => i.id).join('|')],
+  );
+
+  const assignments: Record<string, string> =
+    ((value as { assignments?: Record<string, string> } | null)?.assignments) ?? {};
+  const [selectedItem, setSelectedItem] = React.useState<string | null>(null);
+
+  const assign = (itemId: string, bucketId: string | null) => {
+    const next = { ...assignments };
+    if (bucketId === null) delete next[itemId];
+    else next[itemId] = bucketId;
+    onChange({ assignments: next });
+    setSelectedItem(null);
+  };
+
+  const unassigned = items.filter((i) => !assignments[i.id]);
+
+  return (
+    <div className="space-y-3">
+      <p className="text-[11px] text-[var(--app-muted)]">
+        Toca un item y luego la categoría a la que pertenece.
+      </p>
+      {unassigned.length > 0 && (
+        <div>
+          <p className="mb-1 text-[10px] font-extrabold uppercase tracking-wider text-[var(--app-muted)]">
+            Por clasificar ({unassigned.length})
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {unassigned.map((it) => (
+              <button
+                key={it.id}
+                type="button"
+                onClick={() => setSelectedItem((prev) => (prev === it.id ? null : it.id))}
+                className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                  selectedItem === it.id
+                    ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)] text-white'
+                    : 'border-[var(--app-border)] bg-white text-[var(--app-ink)]'
+                }`}
+              >
+                {it.text}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        {buckets.map((b) => {
+          const inBucket = items.filter((it) => assignments[it.id] === b.id);
+          return (
+            <div
+              key={b.id}
+              className={`rounded-[12px] border border-dashed p-3 transition ${
+                selectedItem ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)]/5 cursor-pointer' : 'border-[var(--app-border)] bg-white'
+              }`}
+              onClick={() => selectedItem && assign(selectedItem, b.id)}
+            >
+              <p className="mb-2 text-sm font-bold text-[var(--app-ink)]">{b.label}</p>
+              {inBucket.length === 0 ? (
+                <p className="text-[11px] text-[var(--app-muted)]">Vacío</p>
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {inBucket.map((it) => (
+                    <span
+                      key={it.id}
+                      className="inline-flex items-center gap-1 rounded-full border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-2 py-0.5 text-[11px] font-semibold text-[var(--app-ink)]"
+                    >
+                      {it.text}
+                      <button
+                        type="button"
+                        aria-label="Quitar"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          assign(it.id, null);
+                        }}
+                        className="text-rose-500 hover:text-rose-700"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function HotspotInput({
+  payload,
+  value,
+  onChange,
+}: {
+  payload: unknown;
+  value: unknown;
+  onChange: (v: unknown) => void;
+}) {
+  const imageUrl = (payload as { imageUrl?: string })?.imageUrl ?? '';
+  const containerRef = React.useRef<HTMLDivElement | null>(null);
+  const x = Number((value as { x?: number } | null)?.x);
+  const y = Number((value as { y?: number } | null)?.y);
+  const hasPos = Number.isFinite(x) && Number.isFinite(y);
+
+  const onImageClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const nx = (e.clientX - rect.left) / rect.width;
+    const ny = (e.clientY - rect.top) / rect.height;
+    onChange({ x: Math.max(0, Math.min(1, nx)), y: Math.max(0, Math.min(1, ny)) });
+  };
+
+  if (!imageUrl) {
+    return <p className="text-sm text-[var(--app-muted)]">Falta imagen.</p>;
+  }
+
+  return (
+    <div className="space-y-2">
+      <p className="text-[11px] text-[var(--app-muted)]">
+        Haz click sobre la zona de la imagen que responde a la pregunta.
+      </p>
+      <div
+        ref={containerRef}
+        onClick={onImageClick}
+        className="relative inline-block w-full max-w-lg cursor-crosshair overflow-hidden rounded-[12px] border border-[var(--app-border)] bg-[var(--app-surface-muted)]"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={imageUrl} alt="Pregunta" className="block w-full" />
+        {hasPos && (
+          <div
+            style={{
+              position: 'absolute',
+              left: `${x * 100}%`,
+              top: `${y * 100}%`,
+              width: 24,
+              height: 24,
+              transform: 'translate(-50%, -50%)',
+              border: '3px solid var(--brand-primary)',
+              borderRadius: '50%',
+              background: 'rgba(124, 58, 237, 0.2)',
+              pointerEvents: 'none',
+            }}
+          />
+        )}
+      </div>
     </div>
   );
 }

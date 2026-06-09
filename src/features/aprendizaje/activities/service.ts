@@ -10,7 +10,10 @@ import type {
   ActivityUserResult,
   AttemptSummary,
   ChoiceOption,
+  ClassificationPayload,
   FillBlankPayload,
+  HotspotPayload,
+  MatchingPayload,
   MultipleChoicePayload,
   NumericPayload,
   OrderingPayload,
@@ -108,6 +111,50 @@ function gradeOrdering(answer: unknown, payload: OrderingPayload): { correct: bo
   return { correct: exactMatches === correct.length, ratio: exactMatches / correct.length };
 }
 
+function gradeMatching(answer: unknown, payload: MatchingPayload): { correct: boolean; ratio: number } {
+  const rawPairs = (answer as { pairs?: Array<[string, string]> } | null)?.pairs ?? [];
+  // Set de pares correctos como strings "leftId:rightId" para lookup O(1)
+  const correctSet = new Set(payload.correctPairs.map(([l, r]) => `${l}:${r}`));
+  if (correctSet.size === 0) return { correct: false, ratio: 0 };
+
+  let hits = 0;
+  const seen = new Set<string>();
+  for (const [l, r] of rawPairs) {
+    const key = `${l}:${r}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (correctSet.has(key)) hits++;
+  }
+  const ratio = hits / correctSet.size;
+  return { correct: hits === correctSet.size && rawPairs.length === correctSet.size, ratio };
+}
+
+function gradeClassification(
+  answer: unknown,
+  payload: ClassificationPayload,
+): { correct: boolean; ratio: number } {
+  const assignments = (answer as { assignments?: Record<string, string> } | null)?.assignments ?? {};
+  if (payload.items.length === 0) return { correct: false, ratio: 0 };
+  let hits = 0;
+  for (const item of payload.items) {
+    if (assignments[item.id] === item.correctBucketId) hits++;
+  }
+  const ratio = hits / payload.items.length;
+  return { correct: hits === payload.items.length, ratio };
+}
+
+function gradeHotspot(answer: unknown, payload: HotspotPayload): boolean {
+  const x = Number((answer as { x?: number | string } | null)?.x);
+  const y = Number((answer as { y?: number | string } | null)?.y);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
+  const cx = payload.correctRegion?.x ?? 0.5;
+  const cy = payload.correctRegion?.y ?? 0.5;
+  const r = Math.abs(payload.correctRegion?.radius ?? 0.05);
+  const dx = x - cx;
+  const dy = y - cy;
+  return Math.sqrt(dx * dx + dy * dy) <= r;
+}
+
 function sanitizePayloadForLearner(type: QuestionType, payload: unknown): unknown {
   if (type === 'single_choice' || type === 'multiple_choice') {
     const p = payload as { options?: ChoiceOption[]; strictAll?: boolean };
@@ -133,6 +180,26 @@ function sanitizePayloadForLearner(type: QuestionType, payload: unknown): unknow
   if (type === 'true_false') {
     // No exponer correctAnswer
     return {};
+  }
+  if (type === 'matching') {
+    const p = payload as MatchingPayload;
+    return {
+      leftItems: (p?.leftItems ?? []).map((i) => ({ id: i.id, text: i.text })),
+      rightItems: (p?.rightItems ?? []).map((i) => ({ id: i.id, text: i.text })),
+    };
+  }
+  if (type === 'classification') {
+    const p = payload as ClassificationPayload;
+    return {
+      buckets: (p?.buckets ?? []).map((b) => ({ id: b.id, label: b.label })),
+      // items SIN correctBucketId
+      items: (p?.items ?? []).map((i) => ({ id: i.id, text: i.text })),
+    };
+  }
+  if (type === 'hotspot') {
+    const p = payload as HotspotPayload;
+    // Solo la imagen; correctRegion no se expone.
+    return { imageUrl: p?.imageUrl ?? '' };
   }
   return {};
 }
@@ -466,6 +533,22 @@ export async function submitAttempt(
         earned = Math.round(q.points * r.ratio);
         break;
       }
+      case 'matching': {
+        const r = gradeMatching(userAnswer, q.payload as MatchingPayload);
+        isCorrect = r.correct;
+        earned = Math.round(q.points * r.ratio);
+        break;
+      }
+      case 'classification': {
+        const r = gradeClassification(userAnswer, q.payload as ClassificationPayload);
+        isCorrect = r.correct;
+        earned = Math.round(q.points * r.ratio);
+        break;
+      }
+      case 'hotspot':
+        isCorrect = gradeHotspot(userAnswer, q.payload as HotspotPayload);
+        earned = isCorrect ? q.points : 0;
+        break;
     }
     pointsEarned += earned;
 

@@ -4,7 +4,10 @@ export type QuestionType =
   | 'true_false'
   | 'fill_blank'
   | 'numeric'
-  | 'ordering';
+  | 'ordering'
+  | 'matching'
+  | 'classification'
+  | 'hotspot';
 
 export interface ChoiceOption {
   id: string;
@@ -48,13 +51,52 @@ export interface OrderingPayload {
   correctOrder: string[];
 }
 
+// ─── Phase 2 types ──────────────────────────────────────────────────────────
+
+export interface MatchingItem {
+  id: string;
+  text: string;
+}
+
+export interface MatchingPayload {
+  leftItems: MatchingItem[];
+  rightItems: MatchingItem[];
+  /** Pares correctos como tuplas [leftId, rightId]. */
+  correctPairs: Array<[string, string]>;
+}
+
+export interface ClassificationBucket {
+  id: string;
+  label: string;
+}
+
+export interface ClassificationItem {
+  id: string;
+  text: string;
+  correctBucketId: string;
+}
+
+export interface ClassificationPayload {
+  buckets: ClassificationBucket[];
+  items: ClassificationItem[];
+}
+
+export interface HotspotPayload {
+  imageUrl: string;
+  /** Centro y radio en proporciones 0..1 del ancho/alto de la imagen. */
+  correctRegion: { x: number; y: number; radius: number };
+}
+
 export type QuestionPayload =
   | SingleChoicePayload
   | MultipleChoicePayload
   | TrueFalsePayload
   | FillBlankPayload
   | NumericPayload
-  | OrderingPayload;
+  | OrderingPayload
+  | MatchingPayload
+  | ClassificationPayload
+  | HotspotPayload;
 
 export interface ActivityQuestion {
   questionId: string;
