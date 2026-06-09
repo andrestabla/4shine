@@ -85,13 +85,6 @@ export function ActivityPlayer({ contentId }: { contentId: string }) {
   if (loading) return <p className="text-sm text-[var(--app-muted)]">Cargando actividad…</p>;
   if (!activity) return null;
 
-  // TEMP DIAGNÓSTICO: dump del activity completo para identificar shape malformado.
-  // TODO: remover cuando se identifique la causa del crash.
-  if (typeof window !== 'undefined') {
-    (window as unknown as { __activityDump?: unknown }).__activityDump = activity;
-    console.log('[ActivityPlayer] activity dump:', JSON.parse(JSON.stringify(activity)));
-  }
-
   // Defensive: el backend a veces devuelve arrays con elementos null/undefined;
   // filtramos para evitar crashes downstream.
   const safeAttempts = Array.isArray(activity.userAttempts)
@@ -524,12 +517,21 @@ interface NamedItem { id: string; text: string }
 
 function shuffled<T>(arr: T[], seed: string): T[] {
   // Determinístico por seed (questionId) para que no se reordene cada render.
+  // BUG FIX: la versión anterior usaba `((h << 5) - h + ch) | 0` que produce
+  // int32 con signo. Si h queda negativo, `(h * 9301 + 49297) % 233280` da
+  // resultado negativo en JS (a diferencia de Python). Eso convertía j en
+  // negativo y `out[negativeIndex]` era undefined → un swap creaba elementos
+  // undefined en el array, que luego crasheaba en filters downstream con
+  // "Cannot read properties of undefined (reading 'id')".
+  if (!Array.isArray(arr) || arr.length <= 1) return [...(arr ?? [])];
   let h = 0;
-  for (let i = 0; i < seed.length; i++) h = ((h << 5) - h + seed.charCodeAt(i)) | 0;
-  const out = [...arr];
+  for (let i = 0; i < seed.length; i++) {
+    h = (h * 31 + seed.charCodeAt(i)) >>> 0; // unsigned right shift → siempre positivo
+  }
+  const out = arr.filter((x): x is T => x !== null && x !== undefined);
   for (let i = out.length - 1; i > 0; i--) {
-    h = (h * 9301 + 49297) % 233280;
-    const j = Math.floor((h / 233280) * (i + 1));
+    h = (h * 9301 + 49297) >>> 0; // mantener positivo
+    const j = h % (i + 1); // 0..i, siempre válido
     [out[i], out[j]] = [out[j], out[i]];
   }
   return out;
@@ -688,7 +690,7 @@ function ClassificationInput({
     setSelectedItem(null);
   };
 
-  const unassigned = items.filter((i) => !assignments[i.id]);
+  const unassigned = items.filter((i) => Boolean(i && i.id) && !assignments[i.id]);
 
   return (
     <div className="space-y-3">
@@ -720,7 +722,7 @@ function ClassificationInput({
       )}
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {buckets.map((b) => {
-          const inBucket = items.filter((it) => assignments[it.id] === b.id);
+          const inBucket = items.filter((it) => Boolean(it && it.id) && assignments[it.id] === b.id);
           return (
             <div
               key={b.id}
