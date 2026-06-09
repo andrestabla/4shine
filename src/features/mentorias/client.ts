@@ -232,6 +232,38 @@ export async function deleteAvailabilitySlot(input: {
   });
 }
 
+export interface MentorAvailabilityFullRecord {
+  availabilityId: string;
+  startsAt: string;
+  endsAt: string;
+  isBooked: boolean;
+}
+
+export async function listMentorAvailability(
+  mentorUserId: string,
+  options?: { from?: string; to?: string },
+): Promise<MentorAvailabilityFullRecord[]> {
+  const params = new URLSearchParams({ mentorUserId });
+  if (options?.from) params.set('from', options.from);
+  if (options?.to) params.set('to', options.to);
+  return requestApi<MentorAvailabilityFullRecord[]>(
+    `/api/v1/modules/mentorias/availability?${params.toString()}`,
+  );
+}
+
+export async function bulkDeleteMentorAvailability(input: {
+  mentorUserId: string;
+  startsAtList: string[];
+}): Promise<{ deleted: number; skippedBooked: number }> {
+  return requestApi<{ deleted: number; skippedBooked: number }>(
+    '/api/v1/modules/mentorias/availability/bulk-delete',
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  );
+}
+
 export async function dispatchProgramMentorshipReminders(): Promise<{ notified: number }> {
   return requestApi<{ notified: number }>('/api/v1/modules/mentorias/program-reminders/dispatch', {
     method: 'POST',

@@ -294,9 +294,19 @@ export interface BulkMentorAvailabilityInput {
   mentorUserId: string;
   fromDate: string;
   toDate: string;
-  startHour: number;
+  /** Legacy: single base hour. Use startHours for multiple. */
+  startHour?: number;
+  /** Multiple base hours per selected weekday. Takes precedence over startHour. */
+  startHours?: number[];
   weekdays: number[];
   numberOfSlots: number;
+}
+
+export interface MentorAvailabilityFullRecord {
+  availabilityId: string;
+  startsAt: string;
+  endsAt: string;
+  isBooked: boolean;
 }
 
 interface MentorshipRow {
@@ -2470,6 +2480,20 @@ export async function bulkCreateMentorAvailability(
   }
   if (input.numberOfSlots <= 0) return { created: 0 };
 
+  // Normalize base hours: prefer startHours[]; fallback to single startHour.
+  const baseHours: number[] = (() => {
+    if (Array.isArray(input.startHours) && input.startHours.length > 0) {
+      return input.startHours
+        .map((h) => Math.floor(Number(h)))
+        .filter((h) => Number.isInteger(h) && h >= 0 && h <= 23);
+    }
+    if (typeof input.startHour === 'number') {
+      return [Math.floor(input.startHour)];
+    }
+    return [];
+  })();
+  if (baseHours.length === 0) return { created: 0 };
+
   const start = new Date(`${input.fromDate}T00:00:00`);
   const end = new Date(`${input.toDate}T23:59:59`);
   let created = 0;
@@ -2479,30 +2503,113 @@ export async function bulkCreateMentorAvailability(
     const normalizedWeekday = weekday === 0 ? 7 : weekday;
     if (!input.weekdays.includes(normalizedWeekday)) continue;
 
-    for (let slot = 0; slot < input.numberOfSlots; slot += 1) {
-      const startsAt = new Date(d);
-      startsAt.setHours(input.startHour, 0, 0, 0);
-      startsAt.setMinutes(startsAt.getMinutes() + slot * 90);
-      const endsAt = new Date(startsAt);
-      endsAt.setMinutes(endsAt.getMinutes() + 90);
-      const diffMinutes = Math.round((endsAt.getTime() - startsAt.getTime()) / 60000);
-      if (diffMinutes !== 90) continue;
+    for (const baseHour of baseHours) {
+      for (let slot = 0; slot < input.numberOfSlots; slot += 1) {
+        const startsAt = new Date(d);
+        startsAt.setHours(baseHour, 0, 0, 0);
+        startsAt.setMinutes(startsAt.getMinutes() + slot * 90);
+        const endsAt = new Date(startsAt);
+        endsAt.setMinutes(endsAt.getMinutes() + 90);
+        const diffMinutes = Math.round((endsAt.getTime() - startsAt.getTime()) / 60000);
+        if (diffMinutes !== 90) continue;
 
-      const { rowCount } = await client.query(
-        `
-          INSERT INTO app_mentoring.mentor_availability (
-            mentor_user_id, starts_at, ends_at, is_booked
-          )
-          VALUES ($1::uuid, $2::timestamptz, $3::timestamptz, false)
-          ON CONFLICT (mentor_user_id, starts_at, ends_at) DO NOTHING
-        `,
-        [input.mentorUserId, startsAt.toISOString(), endsAt.toISOString()],
-      );
-      created += rowCount ?? 0;
+        const { rowCount } = await client.query(
+          `
+            INSERT INTO app_mentoring.mentor_availability (
+              mentor_user_id, starts_at, ends_at, is_booked
+            )
+            VALUES ($1::uuid, $2::timestamptz, $3::timestamptz, false)
+            ON CONFLICT (mentor_user_id, starts_at, ends_at) DO NOTHING
+          `,
+          [input.mentorUserId, startsAt.toISOString(), endsAt.toISOString()],
+        );
+        created += rowCount ?? 0;
+      }
     }
   }
 
   return { created };
+}
+
+export async function listMentorAvailabilityFull(
+  client: PoolClient,
+  actor: AuthUser,
+  mentorUserId: string,
+  fromIso: string,
+  toIso: string,
+): Promise<MentorAvailabilityFullRecord[]> {
+  if (!['admin', 'gestor', 'mentor', 'lider'].includes(actor.role)) {
+    throw new Error('Sin permiso para consultar disponibilidad.');
+  }
+  await requireModulePermission(client, 'mentorias', 'view');
+  if (actor.role === 'mentor' && actor.userId !== mentorUserId) {
+    throw new Error('Un Adviser solo puede consultar su propia agenda.');
+  }
+  const { rows } = await client.query<{
+    availability_id: string;
+    starts_at: string;
+    ends_at: string;
+    is_booked: boolean;
+  }>(
+    `
+      SELECT
+        availability_id::text,
+        starts_at::text,
+        ends_at::text,
+        is_booked
+      FROM app_mentoring.mentor_availability
+      WHERE mentor_user_id = $1::uuid
+        AND starts_at >= $2::timestamptz
+        AND starts_at <= $3::timestamptz
+      ORDER BY starts_at
+    `,
+    [mentorUserId, fromIso, toIso],
+  );
+  return rows.map((row) => ({
+    availabilityId: row.availability_id,
+    startsAt: row.starts_at,
+    endsAt: row.ends_at,
+    isBooked: row.is_booked,
+  }));
+}
+
+export async function bulkDeleteMentorAvailability(
+  client: PoolClient,
+  actor: AuthUser,
+  mentorUserId: string,
+  startsAtIsoList: string[],
+): Promise<{ deleted: number; skippedBooked: number }> {
+  if (!['admin', 'gestor', 'mentor'].includes(actor.role)) {
+    throw new Error('Sin permiso para eliminar disponibilidad.');
+  }
+  await requireModulePermission(client, 'mentorias', 'update');
+  if (actor.role === 'mentor' && actor.userId !== mentorUserId) {
+    throw new Error('Un Adviser solo puede editar su propia agenda.');
+  }
+  if (!Array.isArray(startsAtIsoList) || startsAtIsoList.length === 0) {
+    return { deleted: 0, skippedBooked: 0 };
+  }
+  const { rows: bookedRows } = await client.query<{ count: string }>(
+    `
+      SELECT count(*)::text AS count
+      FROM app_mentoring.mentor_availability
+      WHERE mentor_user_id = $1::uuid
+        AND starts_at = ANY($2::timestamptz[])
+        AND is_booked = true
+    `,
+    [mentorUserId, startsAtIsoList],
+  );
+  const skippedBooked = Number(bookedRows[0]?.count ?? 0);
+  const { rowCount } = await client.query(
+    `
+      DELETE FROM app_mentoring.mentor_availability
+      WHERE mentor_user_id = $1::uuid
+        AND starts_at = ANY($2::timestamptz[])
+        AND is_booked = false
+    `,
+    [mentorUserId, startsAtIsoList],
+  );
+  return { deleted: rowCount ?? 0, skippedBooked };
 }
 
 export async function dispatchProgramMentorshipReminders(
