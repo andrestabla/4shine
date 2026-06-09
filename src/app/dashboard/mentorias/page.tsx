@@ -42,6 +42,7 @@ import {
   bulkCreateMentorAvailability,
   deleteAvailabilitySlot,
   createAdditionalMentorshipOrder,
+  smartSearchMentors,
   createGroupSession,
   createGroupSessionRecording,
   createMentorship,
@@ -72,6 +73,12 @@ import {
   type MentorshipSessionType,
   type MentorshipStatus,
 } from '@/features/mentorias/client';
+import {
+  createMentorshipCheckout,
+  getEnabledPaymentProviders,
+  type EnabledPaymentProvidersResponse,
+  type PaymentProviderKey,
+} from '@/features/payments/client';
 
 interface ProgramScheduleFormState {
   entitlementId: string;
@@ -354,6 +361,15 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
   const [comprarFilterTopic, setComprarFilterTopic] = React.useState('');
   const [comprarFilterTimeBuckets, setComprarFilterTimeBuckets] = React.useState<Set<TimeBucket>>(new Set());
   const [comprarConfirmedOrderId, setComprarConfirmedOrderId] = React.useState<string | null>(null);
+  const [paymentProviders, setPaymentProviders] = React.useState<EnabledPaymentProvidersResponse | null>(null);
+  const [selectedPaymentProvider, setSelectedPaymentProvider] = React.useState<PaymentProviderKey | 'manual'>('manual');
+  const [redirectingToPayment, setRedirectingToPayment] = React.useState(false);
+  const [profileDrawerMentorId, setProfileDrawerMentorId] = React.useState<string | null>(null);
+  const [smartSearchOpen, setSmartSearchOpen] = React.useState(false);
+  const [smartSearchQuery, setSmartSearchQuery] = React.useState('');
+  const [smartSearchLoading, setSmartSearchLoading] = React.useState(false);
+  const [smartSearchRationale, setSmartSearchRationale] = React.useState<string | null>(null);
+  const [smartSearchOrderedIds, setSmartSearchOrderedIds] = React.useState<string[] | null>(null);
   const [programForm, setProgramForm] = React.useState<ProgramScheduleFormState>({
     entitlementId: '',
     mentorUserId: '',
@@ -494,6 +510,52 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
     }
   }, [forcedSection]);
 
+  // Load payment providers once when entering "comprar".
+  React.useEffect(() => {
+    if (activeSection !== 'comprar' || paymentProviders !== null) return;
+    void getEnabledPaymentProviders()
+      .then((data) => {
+        setPaymentProviders(data);
+        if (data.providers.length > 0) {
+          setSelectedPaymentProvider(data.providers[0].key);
+        } else {
+          setSelectedPaymentProvider('manual');
+        }
+      })
+      .catch(() => {
+        setPaymentProviders({
+          providers: [],
+          manualFallback: {
+            enabled: true,
+            label: 'Coordinar pago con 4Shine',
+            description: 'Reservamos tu sesión y nuestro equipo te contactará para coordinar el pago.',
+          },
+        });
+        setSelectedPaymentProvider('manual');
+      });
+  }, [activeSection, paymentProviders]);
+
+  // Handle return from external payment provider (?payment=success&order=<id>).
+  React.useEffect(() => {
+    if (activeSection !== 'comprar') return;
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const payment = params.get('payment');
+    const orderId = params.get('order');
+    if (!payment || !orderId) return;
+    if (payment === 'success') {
+      setComprarConfirmedOrderId(orderId);
+      setComprarStep('success');
+    } else if (payment === 'cancel') {
+      setComprarStep('configure');
+    }
+    // Clean the URL so re-renders don't re-trigger.
+    const url = new URL(window.location.href);
+    url.searchParams.delete('payment');
+    url.searchParams.delete('order');
+    window.history.replaceState({}, '', url.toString());
+  }, [activeSection]);
+
   const leaderName = currentUser?.name?.split(' ')[0] ?? 'Líder';
   const isOpenLeader =
     currentRole === 'lider' &&
@@ -622,6 +684,28 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
       const createdOrderId =
         (created as { orderId?: string } | null | undefined)?.orderId ?? null;
       setComprarConfirmedOrderId(createdOrderId);
+
+      // If a real payment provider was picked, redirect to the gateway.
+      if (
+        createdOrderId &&
+        selectedPaymentProvider !== 'manual' &&
+        paymentProviders?.providers.some((p) => p.key === selectedPaymentProvider)
+      ) {
+        setRedirectingToPayment(true);
+        try {
+          const checkout = await createMentorshipCheckout({
+            orderId: createdOrderId,
+            provider: selectedPaymentProvider,
+          });
+          window.location.href = checkout.redirectUrl;
+          return;
+        } catch (error) {
+          setRedirectingToPayment(false);
+          await showError('No se pudo iniciar el pago. Confirmamos la reserva en modo manual.', error);
+          // Fall through to success state so the order isn't lost.
+        }
+      }
+
       setComprarStep('success');
       await Promise.all([load(), refreshBootstrap()]);
     } catch (error) {
@@ -644,7 +728,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
   }, []);
 
   const filteredMentorCatalog = React.useMemo(() => {
-    return (overview?.mentorCatalog ?? []).filter((mentor) => {
+    const base = (overview?.mentorCatalog ?? []).filter((mentor) => {
       if (comprarFilterPillars.size > 0) {
         if (!mentor.temas.some((t) => comprarFilterPillars.has(t.pillarCode as AdviserPillarCode))) {
           return false;
@@ -669,7 +753,46 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
       }
       return true;
     });
-  }, [overview, comprarFilterPillars, comprarFilterTopic, comprarFilterTimeBuckets, tz]);
+    if (!smartSearchOrderedIds || smartSearchOrderedIds.length === 0) return base;
+    const rank = new Map(smartSearchOrderedIds.map((id, idx) => [id, idx]));
+    return [...base]
+      .filter((m) => rank.has(m.mentorUserId))
+      .sort((a, b) => (rank.get(a.mentorUserId) ?? 99) - (rank.get(b.mentorUserId) ?? 99));
+  }, [
+    overview,
+    comprarFilterPillars,
+    comprarFilterTopic,
+    comprarFilterTimeBuckets,
+    tz,
+    smartSearchOrderedIds,
+  ]);
+
+  const handleSmartSearch = React.useCallback(async () => {
+    const q = smartSearchQuery.trim();
+    if (!q) return;
+    setSmartSearchLoading(true);
+    try {
+      const result = await smartSearchMentors(q);
+      setSmartSearchOrderedIds(result.mentorIds);
+      setSmartSearchRationale(result.rationale || null);
+      setSmartSearchOpen(false);
+    } catch (error) {
+      await showError('No se pudo ejecutar la búsqueda inteligente.', error);
+    } finally {
+      setSmartSearchLoading(false);
+    }
+  }, [smartSearchQuery, showError]);
+
+  const clearSmartSearch = React.useCallback(() => {
+    setSmartSearchOrderedIds(null);
+    setSmartSearchRationale(null);
+    setSmartSearchQuery('');
+  }, []);
+
+  const profileDrawerMentor = React.useMemo(() => {
+    if (!profileDrawerMentorId) return null;
+    return (overview?.mentorCatalog ?? []).find((m) => m.mentorUserId === profileDrawerMentorId) ?? null;
+  }, [overview, profileDrawerMentorId]);
 
   const comprarSelectedMentor = React.useMemo(() => {
     if (!comprarMentorId) return null;
@@ -2518,7 +2641,15 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
             <>
               {/* Filtros */}
               <section className="app-panel p-4 sm:p-5">
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto] md:items-center">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-[auto_1fr_auto] md:items-center">
+                  <button
+                    type="button"
+                    onClick={() => setSmartSearchOpen(true)}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-[14px] border border-[var(--brand-primary)] bg-[var(--brand-primary)]/10 px-3 py-2.5 text-xs font-bold text-[var(--brand-primary)] hover:bg-[var(--brand-primary)]/20"
+                  >
+                    <Sparkles size={13} />
+                    Búsqueda inteligente
+                  </button>
                   <div className="relative">
                     <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--app-muted)]" />
                     <input
@@ -2540,6 +2671,26 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                     </button>
                   )}
                 </div>
+
+                {smartSearchOrderedIds && (
+                  <div className="mt-3 flex items-start gap-2 rounded-[14px] border border-[var(--brand-primary)]/30 bg-[var(--brand-primary)]/5 px-3 py-2">
+                    <Sparkles size={14} className="mt-0.5 shrink-0 text-[var(--brand-primary)]" />
+                    <div className="flex-1 text-xs">
+                      <p className="font-semibold text-[var(--brand-primary)]">Resultados ordenados por IA</p>
+                      {smartSearchRationale && (
+                        <p className="mt-0.5 text-[var(--app-muted)]">{smartSearchRationale}</p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={clearSmartSearch}
+                      className="rounded-full p-1 text-[var(--app-muted)] hover:bg-white"
+                      aria-label="Limpiar búsqueda inteligente"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                )}
 
                 <div className="mt-4">
                   <p className="mb-2 text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--app-muted)]">
@@ -2759,6 +2910,13 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                         <div className="mt-auto flex gap-2 pt-4">
                           <button
                             type="button"
+                            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-[14px] border border-[var(--app-border)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--app-ink)] transition hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)]"
+                            onClick={() => setProfileDrawerMentorId(mentor.mentorUserId)}
+                          >
+                            Ver perfil
+                          </button>
+                          <button
+                            type="button"
                             disabled={!primaryOffer}
                             className="flex-1 inline-flex items-center justify-center gap-2 rounded-[14px] bg-[var(--brand-primary)] px-4 py-2.5 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-50"
                             onClick={() => {
@@ -2784,6 +2942,236 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                 </div>
               )}
             </>
+          )}
+
+          {/* Modal: Búsqueda inteligente */}
+          {smartSearchOpen && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+              onClick={() => !smartSearchLoading && setSmartSearchOpen(false)}
+            >
+              <div
+                className="w-full max-w-lg rounded-[20px] bg-white p-5 shadow-xl sm:p-6"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="mb-3 flex items-center gap-2">
+                  <Sparkles size={18} className="text-[var(--brand-primary)]" />
+                  <h3 className="text-lg font-black text-[var(--app-ink)]">Búsqueda inteligente</h3>
+                  <button
+                    type="button"
+                    className="ml-auto rounded-full p-1 text-[var(--app-muted)] hover:bg-[var(--app-surface-muted)]"
+                    onClick={() => !smartSearchLoading && setSmartSearchOpen(false)}
+                    aria-label="Cerrar"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+                <p className="mb-3 text-xs text-[var(--app-muted)]">
+                  Describe en lenguaje natural lo que estás buscando. Nuestra IA ordenará los advisers por relevancia.
+                </p>
+                <textarea
+                  className="min-h-[110px] w-full rounded-[14px] border border-[var(--app-border)] bg-white px-3 py-2 text-sm"
+                  placeholder='Ej: "Necesito ayuda para gestionar conflictos en mi equipo remoto y mejorar comunicación con mi jefe directo."'
+                  value={smartSearchQuery}
+                  onChange={(e) => setSmartSearchQuery(e.target.value)}
+                  disabled={smartSearchLoading}
+                />
+                <div className="mt-3 flex flex-wrap justify-end gap-2">
+                  <button
+                    type="button"
+                    className="rounded-[12px] border border-[var(--app-border)] bg-white px-4 py-2 text-xs font-semibold text-[var(--app-muted)]"
+                    onClick={() => setSmartSearchOpen(false)}
+                    disabled={smartSearchLoading}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1.5 rounded-[12px] bg-[var(--brand-primary)] px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
+                    onClick={() => void handleSmartSearch()}
+                    disabled={smartSearchLoading || !smartSearchQuery.trim()}
+                  >
+                    {smartSearchLoading ? (
+                      <>
+                        <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                        Analizando…
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles size={12} />
+                        Buscar con IA
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Drawer: Ver perfil del adviser */}
+          {profileDrawerMentor && (
+            <div
+              className="fixed inset-0 z-50 flex justify-end bg-black/40"
+              onClick={() => setProfileDrawerMentorId(null)}
+            >
+              <aside
+                className="flex h-full w-full max-w-md flex-col overflow-y-auto bg-white shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <header className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-[var(--app-border)] bg-white/95 px-5 py-3 backdrop-blur">
+                  <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[var(--app-muted)]">
+                    Perfil del Adviser
+                  </p>
+                  <button
+                    type="button"
+                    className="rounded-full p-1 text-[var(--app-muted)] hover:bg-[var(--app-surface-muted)]"
+                    onClick={() => setProfileDrawerMentorId(null)}
+                    aria-label="Cerrar"
+                  >
+                    <X size={16} />
+                  </button>
+                </header>
+
+                <div className="space-y-5 p-5">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--app-chip)] text-2xl font-black text-[var(--brand-primary)]">
+                      {profileDrawerMentor.avatarUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={profileDrawerMentor.avatarUrl}
+                          alt={profileDrawerMentor.name}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        profileDrawerMentor.avatarInitial
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xl font-black text-[var(--app-ink)]">
+                        {profileDrawerMentor.name}
+                      </p>
+                      <p className="text-sm text-[var(--app-muted)]">
+                        {profileDrawerMentor.specialty}
+                      </p>
+                      <div className="mt-1 flex items-center gap-2 text-xs text-[var(--app-muted)]">
+                        <Star size={11} className="text-[var(--brand-accent,#f6b74c)]" />
+                        {profileDrawerMentor.ratingAvg.toFixed(1)}
+                        {profileDrawerMentor.ratingCount > 0 && (
+                          <span>({profileDrawerMentor.ratingCount} reseñas)</span>
+                        )}
+                        <span>·</span>
+                        <span className="uppercase tracking-[0.12em]">{profileDrawerMentor.sector}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {profileDrawerMentor.bio && (
+                    <div>
+                      <p className="mb-1 text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--app-muted)]">
+                        Sobre el Adviser
+                      </p>
+                      <p className="whitespace-pre-line text-sm leading-relaxed text-[var(--app-ink)]/90">
+                        {profileDrawerMentor.bio}
+                      </p>
+                    </div>
+                  )}
+
+                  {profileDrawerMentor.experiencia && (
+                    <div>
+                      <p className="mb-1 text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--app-muted)]">
+                        Experiencia como adviser
+                      </p>
+                      <p className="whitespace-pre-line text-sm leading-relaxed text-[var(--app-ink)]/90">
+                        {profileDrawerMentor.experiencia}
+                      </p>
+                    </div>
+                  )}
+
+                  {profileDrawerMentor.temas.length > 0 && (
+                    <div>
+                      <p className="mb-2 text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--app-muted)]">
+                        Temas que trabaja
+                      </p>
+                      <ul className="space-y-1.5">
+                        {profileDrawerMentor.temas.map((topic) => (
+                          <li
+                            key={topic.topicId}
+                            className="flex flex-wrap items-center gap-2 rounded-[12px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-2"
+                          >
+                            <span className="text-sm font-semibold text-[var(--app-ink)]">
+                              {topic.topicLabel}
+                            </span>
+                            <span className="ml-auto rounded-full border border-[var(--brand-primary)]/30 bg-[var(--brand-primary)]/10 px-2 py-0.5 text-[11px] font-semibold text-[var(--brand-primary)]">
+                              {topic.pillarLabel}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {profileDrawerMentor.offers.length > 0 && (
+                    <div>
+                      <p className="mb-2 text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--app-muted)]">
+                        Servicios
+                      </p>
+                      <ul className="space-y-2">
+                        {profileDrawerMentor.offers.map((offer) => (
+                          <li
+                            key={offer.offerId}
+                            className="rounded-[12px] border border-[var(--app-border)] bg-white px-3 py-2"
+                          >
+                            <p className="text-sm font-semibold text-[var(--app-ink)]">{offer.title}</p>
+                            {offer.description && (
+                              <p className="mt-0.5 text-xs text-[var(--app-muted)]">{offer.description}</p>
+                            )}
+                            <div className="mt-1 flex flex-wrap gap-2 text-xs text-[var(--app-muted)]">
+                              <span>{offer.durationMinutes} min</span>
+                              <span>·</span>
+                              <span className="font-semibold text-[var(--app-ink)]">
+                                {formatCurrency(offer.priceAmount, offer.currencyCode)}
+                              </span>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+
+                <footer className="sticky bottom-0 z-10 flex gap-2 border-t border-[var(--app-border)] bg-white/95 p-4 backdrop-blur">
+                  <button
+                    type="button"
+                    className="flex-1 rounded-[12px] border border-[var(--app-border)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--app-ink)]"
+                    onClick={() => setProfileDrawerMentorId(null)}
+                  >
+                    Cerrar
+                  </button>
+                  <button
+                    type="button"
+                    disabled={profileDrawerMentor.offers.length === 0}
+                    className="flex-1 inline-flex items-center justify-center gap-2 rounded-[12px] bg-[var(--brand-primary)] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+                    onClick={() => {
+                      const primary = profileDrawerMentor.offers[0];
+                      if (!primary) return;
+                      setComprarMentorId(profileDrawerMentor.mentorUserId);
+                      setAdditionalForm((prev) => ({
+                        ...prev,
+                        offerId: primary.offerId,
+                        startsAt: profileDrawerMentor.availability[0]
+                          ? toDatetimeLocalInput(profileDrawerMentor.availability[0].startsAt)
+                          : prev.startsAt,
+                      }));
+                      setProfileDrawerMentorId(null);
+                      setComprarStep('configure');
+                    }}
+                  >
+                    <CalendarDays size={14} />
+                    Agendar
+                  </button>
+                </footer>
+              </aside>
+            </div>
           )}
         </div>
       );
@@ -3047,33 +3435,74 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
             <section className="app-panel p-5 sm:p-6">
               <h4 className="mb-3 text-lg font-bold text-[var(--app-ink)]">Métodos de pago</h4>
 
-              <div className="space-y-2">
-                <label className="flex cursor-pointer items-center gap-3 rounded-[14px] border border-[var(--brand-primary)] bg-[var(--brand-primary)]/5 px-4 py-3 ring-1 ring-[var(--brand-primary)]">
-                  <input type="radio" name="payment" checked readOnly className="accent-[var(--brand-primary)]" />
-                  <div className="flex-1">
-                    <p className="text-sm font-bold text-[var(--app-ink)]">Coordinar pago con 4Shine</p>
-                    <p className="text-xs text-[var(--app-muted)]">
-                      Reservamos tu sesión y nuestro equipo te contactará para coordinar el pago.
-                    </p>
-                  </div>
-                </label>
+              {paymentProviders === null ? (
+                <p className="text-sm text-[var(--app-muted)]">Cargando métodos de pago…</p>
+              ) : (
+                <div className="space-y-2">
+                  {paymentProviders.providers.map((provider) => {
+                    const isSelected = selectedPaymentProvider === provider.key;
+                    return (
+                      <label
+                        key={provider.key}
+                        className={clsx(
+                          'flex cursor-pointer items-center gap-3 rounded-[14px] border px-4 py-3 transition',
+                          isSelected
+                            ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)]/5 ring-1 ring-[var(--brand-primary)]'
+                            : 'border-[var(--app-border)] bg-white hover:border-[var(--brand-primary)]',
+                        )}
+                      >
+                        <input
+                          type="radio"
+                          name="payment"
+                          value={provider.key}
+                          checked={isSelected}
+                          onChange={() => setSelectedPaymentProvider(provider.key)}
+                          className="accent-[var(--brand-primary)]"
+                        />
+                        <div className="flex-1">
+                          <p className="text-sm font-bold text-[var(--app-ink)]">{provider.label}</p>
+                          <p className="text-xs text-[var(--app-muted)]">{provider.description}</p>
+                        </div>
+                      </label>
+                    );
+                  })}
 
-                {(['Tarjeta', 'Nequi', 'PSE', 'Bancolombia'] as const).map((method) => (
-                  <label
-                    key={method}
-                    className="flex cursor-not-allowed items-center gap-3 rounded-[14px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-3 opacity-60"
-                  >
-                    <input type="radio" name="payment" disabled className="accent-[var(--brand-primary)]" />
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold text-[var(--app-ink)]">{method}</p>
-                      <p className="text-[11px] text-[var(--app-muted)]">Próximamente</p>
-                    </div>
-                    <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--app-muted)]">
-                      Próximamente
-                    </span>
-                  </label>
-                ))}
-              </div>
+                  {/* Manual fallback (when no provider is active) */}
+                  {paymentProviders.manualFallback.enabled && (
+                    <label
+                      className={clsx(
+                        'flex cursor-pointer items-center gap-3 rounded-[14px] border px-4 py-3 transition',
+                        selectedPaymentProvider === 'manual'
+                          ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)]/5 ring-1 ring-[var(--brand-primary)]'
+                          : 'border-[var(--app-border)] bg-white hover:border-[var(--brand-primary)]',
+                      )}
+                    >
+                      <input
+                        type="radio"
+                        name="payment"
+                        value="manual"
+                        checked={selectedPaymentProvider === 'manual'}
+                        onChange={() => setSelectedPaymentProvider('manual')}
+                        className="accent-[var(--brand-primary)]"
+                      />
+                      <div className="flex-1">
+                        <p className="text-sm font-bold text-[var(--app-ink)]">
+                          {paymentProviders.manualFallback.label}
+                        </p>
+                        <p className="text-xs text-[var(--app-muted)]">
+                          {paymentProviders.manualFallback.description}
+                        </p>
+                      </div>
+                    </label>
+                  )}
+
+                  {paymentProviders.providers.length === 0 && !paymentProviders.manualFallback.enabled && (
+                    <p className="text-sm text-[var(--app-muted)]">
+                      No hay métodos de pago configurados. Contacta al administrador.
+                    </p>
+                  )}
+                </div>
+              )}
             </section>
 
             {/* Resumen */}
@@ -3125,14 +3554,22 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
 
               <button
                 type="button"
-                disabled={submittingAdditional}
+                disabled={submittingAdditional || redirectingToPayment}
                 onClick={() => void handleAdditionalPurchase()}
                 className="mt-4 w-full rounded-[14px] bg-[var(--brand-primary)] px-4 py-3 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-50"
               >
-                {submittingAdditional ? 'Procesando…' : `Confirmar reserva (${priceLabel})`}
+                {redirectingToPayment
+                  ? 'Redirigiendo al pago…'
+                  : submittingAdditional
+                  ? 'Procesando…'
+                  : selectedPaymentProvider === 'manual'
+                  ? `Confirmar reserva (${priceLabel})`
+                  : `Pagar ${priceLabel}`}
               </button>
               <p className="mt-2 text-center text-[11px] text-[var(--app-muted)]">
-                Al confirmar, se crea la reserva y nuestro equipo te contactará para el pago.
+                {selectedPaymentProvider === 'manual'
+                  ? 'Al confirmar, se crea la reserva y nuestro equipo te contactará para el pago.'
+                  : 'Te llevamos al checkout del proveedor seleccionado para completar el pago.'}
               </p>
             </aside>
           </div>

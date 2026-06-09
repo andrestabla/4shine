@@ -7,6 +7,8 @@ export const INTEGRATION_CATALOG = [
   { key: 'openai', label: 'OpenAI', provider: 'OpenAI' },
   { key: 'youtube_data_api', label: 'YouTube Data API', provider: 'Google APIs' },
   { key: 'zoom', label: 'Zoom', provider: 'Zoom Video Communications' },
+  { key: 'stripe', label: 'Stripe', provider: 'Stripe Payments' },
+  { key: 'wompi', label: 'Wompi', provider: 'Wompi (Bancolombia)' },
 ] as const;
 
 export type IntegrationKey = (typeof INTEGRATION_CATALOG)[number]['key'];

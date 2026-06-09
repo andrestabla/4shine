@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { withClient, withRoleContext } from "@/server/db/pool";
+import { markOrderAsFailed, markOrderAsPaid } from "@/features/payments/service";
 
 export const runtime = "nodejs";
 
@@ -72,6 +73,7 @@ export async function POST(request: Request) {
     const session = event.data.object as Stripe.Checkout.Session;
     const userId = session.metadata?.userId ?? session.client_reference_id;
     const productCode = session.metadata?.productCode;
+    const kind = session.metadata?.kind;
 
     if (userId && productCode === "discovery_4shine" && session.payment_status === "paid") {
       try {
@@ -79,6 +81,39 @@ export async function POST(request: Request) {
       } catch (error) {
         console.error("[Stripe webhook] Error recording purchase:", error);
         return NextResponse.json({ ok: false, error: "Error recording purchase." }, { status: 500 });
+      }
+    }
+
+    if (kind === "mentorship_additional_order" && session.payment_status === "paid") {
+      const ownerUserId = session.metadata?.userId;
+      const reference = session.id;
+      if (ownerUserId && reference) {
+        try {
+          await withClient(async (client) => {
+            await withRoleContext(client, ownerUserId, "lider", async () => {
+              await markOrderAsPaid(client, { provider: "stripe", reference });
+            });
+          });
+        } catch (error) {
+          console.error("[Stripe webhook] Error marking mentorship order paid:", error);
+          return NextResponse.json({ ok: false, error: "Error updating order." }, { status: 500 });
+        }
+      }
+    }
+  } else if (event.type === "checkout.session.expired" || event.type === "checkout.session.async_payment_failed") {
+    const session = event.data.object as Stripe.Checkout.Session;
+    if (session.metadata?.kind === "mentorship_additional_order") {
+      const ownerUserId = session.metadata?.userId;
+      if (ownerUserId && session.id) {
+        try {
+          await withClient(async (client) => {
+            await withRoleContext(client, ownerUserId, "lider", async () => {
+              await markOrderAsFailed(client, { provider: "stripe", reference: session.id });
+            });
+          });
+        } catch (error) {
+          console.error("[Stripe webhook] Error marking mentorship order failed:", error);
+        }
       }
     }
   }

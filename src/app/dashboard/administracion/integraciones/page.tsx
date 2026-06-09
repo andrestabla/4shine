@@ -580,6 +580,121 @@ const INTEGRATION_ASSISTANTS: Record<IntegrationKey, AssistantDefinition> = {
       },
     ],
   },
+  stripe: {
+    intro:
+      'Configura Stripe como pasarela de pago para mentorías. El secret puede provenir de variables de entorno (STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET); este wizard te permite sobrescribirlo a nivel de organización.',
+    primarySecretField: 'secretKey',
+    steps: [
+      {
+        id: 'credentials',
+        title: 'Credenciales API',
+        description:
+          'Crea cuenta o entra a dashboard.stripe.com → Developers → API keys. Copia la Secret Key (modo test o live).',
+        fields: [
+          {
+            key: 'secretKey',
+            label: 'Secret Key',
+            type: 'password',
+            required: true,
+            placeholder: 'sk_test_… o sk_live_…',
+            helpText: 'Se guarda cifrada. Si dejas la env STRIPE_SECRET_KEY, tendrá prioridad sobre esta.',
+          },
+          {
+            key: 'publishableKey',
+            label: 'Publishable Key',
+            type: 'text',
+            placeholder: 'pk_test_… o pk_live_…',
+            helpText: 'Solo necesaria si más adelante usas Stripe Elements en el frontend.',
+          },
+        ],
+      },
+      {
+        id: 'webhooks',
+        title: 'Webhook de eventos',
+        description:
+          'Configura el webhook para recibir confirmación de pagos. Tipo de evento mínimo: checkout.session.completed.',
+        fields: [
+          {
+            key: 'webhookSecret',
+            label: 'Webhook Signing Secret',
+            type: 'password',
+            placeholder: 'whsec_…',
+            helpText:
+              'Disponible en Developers → Webhooks tras crear el endpoint apuntando a la URL de abajo. Si usas env STRIPE_WEBHOOK_SECRET tendrá prioridad.',
+          },
+          {
+            key: 'webhookEndpointUrl',
+            label: 'Endpoint URL',
+            type: 'url',
+            defaultValue: `${DEFAULT_PUBLIC_APP_URL}/api/v1/payments/stripe/webhook`,
+            helpText: 'Copia esta URL en Stripe → Developers → Webhooks → Add endpoint.',
+          },
+        ],
+      },
+    ],
+  },
+  wompi: {
+    intro:
+      'Configura Wompi (Bancolombia) para aceptar Bancolombia / Nequi / PSE / tarjeta en COP. Crea una cuenta en comercios.wompi.co y copia las llaves de tu comercio (sandbox o producción).',
+    primarySecretField: 'integritySecret',
+    steps: [
+      {
+        id: 'credentials',
+        title: 'Llaves del comercio',
+        description:
+          'Disponibles en comercios.wompi.co → Desarrolladores. La llave pública va en la URL de Web Checkout; la integrity secret firma cada transacción.',
+        fields: [
+          {
+            key: 'publicKey',
+            label: 'Llave pública',
+            type: 'text',
+            required: true,
+            placeholder: 'pub_test_… o pub_prod_…',
+            helpText: 'Visible para el frontend. Identifica tu comercio en cada checkout.',
+          },
+          {
+            key: 'integritySecret',
+            label: 'Integrity Secret',
+            type: 'password',
+            required: true,
+            placeholder: '••••••••••••',
+            helpText: 'Firma SHA256 del payload de checkout. Solo del lado del servidor.',
+          },
+          {
+            key: 'baseUrl',
+            label: 'Base URL del Web Checkout',
+            type: 'url',
+            defaultValue: 'https://checkout.wompi.co/p/',
+            helpText:
+              'Por defecto producción. Para sandbox usa https://checkout.co.uat.wompi.dev/p/ o la URL que indique Wompi.',
+          },
+        ],
+      },
+      {
+        id: 'webhooks',
+        title: 'Webhook de eventos',
+        description:
+          'Wompi notifica cambios de estado a la URL configurada. Validamos la firma con la "Events secret".',
+        fields: [
+          {
+            key: 'eventsSecret',
+            label: 'Events Secret',
+            type: 'password',
+            placeholder: '••••••••••••',
+            required: true,
+            helpText: 'Disponible en Desarrolladores → Eventos. Si configuras WOMPI_EVENTS_SECRET en env, tendrá prioridad.',
+          },
+          {
+            key: 'webhookEndpointUrl',
+            label: 'Endpoint URL',
+            type: 'url',
+            defaultValue: `${DEFAULT_PUBLIC_APP_URL}/api/v1/payments/wompi/webhook`,
+            helpText: 'Copia esta URL en Wompi → Desarrolladores → Eventos → Eventos a recibir: transaction.updated.',
+          },
+        ],
+      },
+    ],
+  },
 };
 
 const OUTBOUND_EMAIL_ASSISTANT: AssistantDefinition = {

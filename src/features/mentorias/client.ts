@@ -57,6 +57,20 @@ export type {
   UpdateMentorshipInput,
 };
 
+export interface SmartSearchResult {
+  mentorIds: string[];
+  rationale: string;
+  llmAvailable?: boolean;
+}
+
+export async function smartSearchMentors(query: string): Promise<SmartSearchResult> {
+  return requestApi<SmartSearchResult>('/api/v1/modules/mentorias/smart-search', {
+    method: 'POST',
+    body: JSON.stringify({ query }),
+    timeoutMs: 30000,
+  });
+}
+
 export async function listMentorships(): Promise<MentorshipRecord[]> {
   return requestApi<MentorshipRecord[]>('/api/v1/modules/mentorias');
 }
