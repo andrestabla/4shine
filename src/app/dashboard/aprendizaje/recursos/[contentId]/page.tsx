@@ -145,14 +145,20 @@ class CoursePlayerErrorBoundary extends React.Component<
 }
 
 function normalizeLearningResourceRecord(data: LearningResourceRecord): LearningResourceRecord {
-  const fallbackStructure: LearningResourceRecord["structurePayload"] = {
-    kind: data.contentType === "scorm" ? "course" : "resource",
-    modules: [],
+  const defaultKind: LearningResourceRecord["structurePayload"]["kind"] =
+    data.contentType === "scorm" ? "course" : "resource";
+  // Normalizamos structurePayload garantizando que SIEMPRE tenga kind + modules,
+  // aún si el backend devuelve {} (caso común para contenidos sin módulos como
+  // activity, video standalone, etc.). Sin esto, accesos como
+  // structurePayload.modules.length crashean en runtime.
+  const raw =
+    data.structurePayload && typeof data.structurePayload === "object" && !Array.isArray(data.structurePayload)
+      ? (data.structurePayload as Partial<LearningResourceRecord["structurePayload"]>)
+      : {};
+  const normalizedStructure: LearningResourceRecord["structurePayload"] = {
+    kind: raw.kind ?? defaultKind,
+    modules: Array.isArray(raw.modules) ? raw.modules : [],
   };
-  const normalizedStructure =
-    data.structurePayload && typeof data.structurePayload === "object"
-      ? data.structurePayload
-      : fallbackStructure;
 
   return {
     ...data,
@@ -1947,16 +1953,18 @@ export default function LearningResourceDetailPage() {
         )}
       </div>
 
+      {resource.contentType === "activity" ? (
+        // ACTIVITY top-level — render directo sin wrapper de video (necesita
+        // altura natural según el número de preguntas, no aspect-ratio fijo).
+        <div className="w-full">
+          <ActivityPlayer contentId={resource.contentId} />
+        </div>
+      ) : (
       <div
         className="w-full overflow-hidden rounded-[24px] shadow-xl aspect-video md:aspect-[21/9] lg:aspect-video relative flex flex-col items-center justify-center"
         style={{ background: 'var(--brand-darker)' }}
       >
-        {resource.contentType === "activity" ? (
-          // ACTIVITY top-level — el quiz vive en este mismo contentId
-          <div className="absolute inset-0 overflow-y-auto bg-[var(--app-surface-muted)] p-4 sm:p-6">
-            <ActivityPlayer contentId={resource.contentId} />
-          </div>
-        ) : youtubeEmbedUrl ? (
+        {youtubeEmbedUrl ? (
           <iframe
             title={resource.title}
             src={youtubeEmbedUrl}
@@ -2037,6 +2045,7 @@ export default function LearningResourceDetailPage() {
           </div>
         )}
       </div>
+      )}
 
       <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
         <div className="flex-1 space-y-4">
