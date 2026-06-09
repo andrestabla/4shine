@@ -223,23 +223,26 @@ async function sendTemplateEmail(
   // messageId) y los emails se quedan eternamente en "Enviado".
   let messageId: string | null = null;
   if (isSesSmtp && typeof result.response === 'string') {
-    // Tomamos el ÚLTIMO match "250 Ok <id>" del response (puede haber varias
-    // líneas 250 durante el handshake; la final, tras DATA, es la que trae el
-    // SES Message-ID).
+    // El SES Message-ID viene tras "Ok" en el response SMTP. Ej:
+    //   "250 2.0.0 Ok 0100019eaec8b171-e3166ee7-1d2f-4ade-9749-c7e778ffd18e-000000"
+    //   "250 OK 0100019eaec8b171-e3166ee7-..."
+    //   "250 ok 0100019eaec8b171-..."
+    // Regex permisivo: case-insensitive, acepta espacios o tabs y captura el
+    // token hex+guiones de >=40 chars que sigue.
+    // Tomamos el ÚLTIMO match (final del handshake, tras DATA).
     const matches = Array.from(
-      result.response.matchAll(/250(?:\s\d+\.\d+\.\d+)?\s+Ok\s+([\w-]+)/gi),
+      result.response.matchAll(/\bOk\b[\s:]+([0-9a-f][\w-]{30,})/gi),
     );
     const last = matches[matches.length - 1];
     if (last?.[1]) {
       messageId = last[1].trim();
     }
-    // Log de diagnóstico — solo se imprime una vez tras el send. Útil para
-    // detectar si el formato del response cambia y el regex no matchea.
     if (!messageId) {
       console.warn(
-        '[notif/engine] SES sendMail: no se pudo parsear messageId de response. response =',
-        JSON.stringify(result.response).substring(0, 200),
-        'fallback a result.messageId',
+        '[notif/engine] SES sendMail: regex NO MATCHEÓ con result.response. ' +
+          'Revisa el formato exacto abajo y ajusta el regex en engine.ts. ' +
+          'response =',
+        JSON.stringify(result.response).substring(0, 400),
       );
     }
   }

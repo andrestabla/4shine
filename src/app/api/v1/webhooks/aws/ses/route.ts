@@ -35,6 +35,12 @@ interface SesEvent {
   eventType?: 'Delivery' | 'Open' | 'Bounce' | 'Complaint' | 'Reject' | 'Click' | 'Send';
   mail?: {
     messageId?: string;
+    /** Array de headers tal como SES los recibió, incluyendo Message-ID. */
+    headers?: Array<{ name: string; value: string }>;
+    /** Header Message-ID del email originalmente enviado (en alias commonHeaders). */
+    commonHeaders?: {
+      messageId?: string;
+    };
   };
   bounce?: {
     bounceType?: string;
@@ -125,10 +131,43 @@ export async function POST(request: Request) {
       `[SES webhook] applied event: type=${event.eventType} messageId=${providerMessageId} updated=${updated}`,
     );
     if (updated === 0) {
-      console.warn(
-        `[SES webhook] ⚠️ NO MATCH: messageId=${providerMessageId} no coincide con ningún provider_message_id en app_core.notifications. ` +
-          `Verifica que sendTemplateEmail guarde el SES Message-ID real (parseado de result.response) y no el UUID local de nodemailer.`,
-      );
+      // FALLBACK por header Message-ID: SES también incluye el Message-ID
+      // header original (que normalmente nodemailer setea localmente).
+      // Si el match por SES messageId falla, intentamos por ese header
+      // alternativo para no perder eventos legacy / pre-fix.
+      const headerMessageIdRaw =
+        event.mail?.commonHeaders?.messageId ??
+        event.mail?.headers?.find((h) => h?.name?.toLowerCase() === 'message-id')?.value ??
+        null;
+      const headerMessageId = headerMessageIdRaw
+        ? (headerMessageIdRaw.replace(/^<|>$/g, '').split('@')[0] ?? headerMessageIdRaw)
+        : null;
+      if (headerMessageId && headerMessageId !== providerMessageId) {
+        console.log(
+          `[SES webhook] reintentando match por header Message-ID: ${headerMessageId}`,
+        );
+        let retryUpdated = 0;
+        switch (event.eventType) {
+          case 'Delivery':
+            retryUpdated = await applySesEvent(headerMessageId, { type: 'delivery' });
+            break;
+          case 'Open':
+            retryUpdated = await applySesEvent(headerMessageId, { type: 'open' });
+            break;
+        }
+        if (retryUpdated > 0) {
+          console.log(
+            `[SES webhook] ✓ fallback OK: ${retryUpdated} fila(s) actualizada(s) usando header Message-ID`,
+          );
+          updated = retryUpdated;
+        }
+      }
+      if (updated === 0) {
+        console.warn(
+          `[SES webhook] ⚠️ NO MATCH ni por SES messageId (${providerMessageId}) ni por header Message-ID (${headerMessageId}). ` +
+            `Event JSON: ${JSON.stringify(event).substring(0, 600)}`,
+        );
+      }
     }
     return NextResponse.json({ ok: true, updated });
   } catch (error) {
