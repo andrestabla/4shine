@@ -1426,7 +1426,14 @@ export async function sendVerificationEmail(
   // (required by RLS on outbound_email_configs) is properly set regardless of
   // whether the caller already committed its transaction.
   let config: OutboundConfigRow | null = null;
-  let branding: { platformName: string; logoUrl: string | null } = { platformName: '4Shine', logoUrl: null };
+  let branding: {
+    platformName: string;
+    logoUrl: string | null;
+    logoDarkUrl?: string | null;
+    primaryColor?: string | null;
+    accentColor?: string | null;
+    typography?: string | null;
+  } = { platformName: '4Shine', logoUrl: null };
   await withClient(async (client) => {
     await client.query('BEGIN');
     try {
@@ -1444,20 +1451,31 @@ export async function sendVerificationEmail(
 
       config = await resolveOutboundConfig(client, organizationId);
 
-      // branding_settings has a public SELECT policy — no user context required
+      // branding_settings has a public SELECT policy — no user context required.
+      // Traemos también primary_color, accent_color, typography para que
+      // buildBrandedEmailHtml respete las directivas del branding.
+      const brandingCols =
+        'platform_name, logo_url, logo_dark_url, primary_color, accent_color, typography';
       const brandingQuery = organizationId
-        ? `SELECT platform_name, logo_url, logo_dark_url FROM app_admin.branding_settings WHERE organization_id = $1::uuid LIMIT 1`
-        : `SELECT platform_name, logo_url, logo_dark_url FROM app_admin.branding_settings ORDER BY updated_at DESC LIMIT 1`;
+        ? `SELECT ${brandingCols} FROM app_admin.branding_settings WHERE organization_id = $1::uuid LIMIT 1`
+        : `SELECT ${brandingCols} FROM app_admin.branding_settings ORDER BY updated_at DESC LIMIT 1`;
       const brandingParams = organizationId ? [organizationId] : [];
-      const { rows: brandingRows } = await client.query<{ platform_name: string; logo_url: string | null; logo_dark_url: string | null }>(
-        brandingQuery,
-        brandingParams,
-      );
+      const { rows: brandingRows } = await client.query<{
+        platform_name: string;
+        logo_url: string | null;
+        logo_dark_url: string | null;
+        primary_color: string | null;
+        accent_color: string | null;
+        typography: string | null;
+      }>(brandingQuery, brandingParams);
       if (brandingRows[0]) {
         branding = {
           platformName: brandingRows[0].platform_name || '4Shine',
-          // Header del email es oscuro: preferir logo alterno (logo_dark_url).
-          logoUrl: brandingRows[0].logo_dark_url ?? brandingRows[0].logo_url ?? null,
+          logoUrl: brandingRows[0].logo_url ?? null,
+          logoDarkUrl: brandingRows[0].logo_dark_url ?? null,
+          primaryColor: brandingRows[0].primary_color ?? null,
+          accentColor: brandingRows[0].accent_color ?? null,
+          typography: brandingRows[0].typography ?? null,
         };
       }
 
@@ -2206,13 +2224,24 @@ export async function resetUserPassword(
     throw new Error('No fue posible actualizar la contraseña');
   }
 
-  const { rows: brandingRows } = await client.query<{ platform_name: string; logo_url: string | null; logo_dark_url: string | null }>(
-    `SELECT platform_name, logo_url, logo_dark_url FROM app_admin.branding_settings ORDER BY updated_at DESC LIMIT 1`,
+  const { rows: brandingRows } = await client.query<{
+    platform_name: string;
+    logo_url: string | null;
+    logo_dark_url: string | null;
+    primary_color: string | null;
+    accent_color: string | null;
+    typography: string | null;
+  }>(
+    `SELECT platform_name, logo_url, logo_dark_url, primary_color, accent_color, typography
+     FROM app_admin.branding_settings ORDER BY updated_at DESC LIMIT 1`,
   );
   const branding: EmailBranding = {
     platformName: brandingRows[0]?.platform_name || '4Shine',
-    // Header del email es oscuro: preferir logo alterno (logo_dark_url).
-    logoUrl: brandingRows[0]?.logo_dark_url ?? brandingRows[0]?.logo_url ?? null,
+    logoUrl: brandingRows[0]?.logo_url ?? null,
+    logoDarkUrl: brandingRows[0]?.logo_dark_url ?? null,
+    primaryColor: brandingRows[0]?.primary_color ?? null,
+    accentColor: brandingRows[0]?.accent_color ?? null,
+    typography: brandingRows[0]?.typography ?? null,
   };
 
   const payload = buildPasswordResetPayload(outboundConfig, user.email, user.displayName, temporaryPassword, branding);

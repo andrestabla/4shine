@@ -130,6 +130,7 @@ interface BrandingRow {
   accent_color: string;
   logo_url: string | null;
   logo_dark_url: string | null;
+  typography: string | null;
 }
 
 const DISCOVERY_TEST_CODE = "diagnostico_4shine";
@@ -1478,7 +1479,8 @@ async function getBrandingForOrganization(
         primary_color,
         accent_color,
         logo_url,
-        logo_dark_url
+        logo_dark_url,
+        typography
       FROM app_admin.branding_settings
       WHERE organization_id = $1::uuid
       LIMIT 1
@@ -1493,6 +1495,7 @@ async function getBrandingForOrganization(
       accent_color: "#f59e0b",
       logo_url: null,
       logo_dark_url: null,
+      typography: null,
     }
   );
 }
@@ -2304,10 +2307,16 @@ export async function createDiscoveryInvitations(
     sanitizeText(input.emailText, settings.inviteEmailText, 10000) ||
     defaultInviteEmailText(branding.platform_name);
 
-  // Branding passed to buildBrandedEmailHtml — merges global notification settings with org branding.
+  // Branding passed to buildBrandedEmailHtml — merges global notification settings
+  // with org branding (primary_color → header, accent_color → botones pill,
+  // typography → font-family, logo_dark_url → logo del header).
   const emailBranding = {
     platformName: notifSettings.varPlatformName || branding.platform_name,
     logoUrl: branding.logo_url ?? null,
+    logoDarkUrl: branding.logo_dark_url ?? null,
+    primaryColor: branding.primary_color ?? null,
+    accentColor: branding.accent_color ?? null,
+    typography: branding.typography ?? null,
     headerBg: notifSettings.emailHeaderBg || undefined,
     footerTagline: notifSettings.emailFooterTagline || undefined,
     footerSupport: notifSettings.emailFooterSupport || undefined,
@@ -4162,13 +4171,24 @@ export async function sendDiscoveryReportEmail(
     throw new Error("El servicio de correo no está configurado para esta organización.");
   }
 
-  const { rows: brandingRows } = await client.query<{ platform_name: string; logo_url: string | null; logo_dark_url: string | null }>(
-    `SELECT platform_name, logo_url, logo_dark_url FROM app_admin.branding_settings ORDER BY updated_at DESC LIMIT 1`,
+  const { rows: brandingRows } = await client.query<{
+    platform_name: string;
+    logo_url: string | null;
+    logo_dark_url: string | null;
+    primary_color: string | null;
+    accent_color: string | null;
+    typography: string | null;
+  }>(
+    `SELECT platform_name, logo_url, logo_dark_url, primary_color, accent_color, typography
+     FROM app_admin.branding_settings ORDER BY updated_at DESC LIMIT 1`,
   );
   const branding = {
     platformName: brandingRows[0]?.platform_name || "4Shine",
-    // Header del email es oscuro: usar logo alterno si está disponible.
-    logoUrl: brandingRows[0]?.logo_dark_url ?? brandingRows[0]?.logo_url ?? null,
+    logoUrl: brandingRows[0]?.logo_url ?? null,
+    logoDarkUrl: brandingRows[0]?.logo_dark_url ?? null,
+    primaryColor: brandingRows[0]?.primary_color ?? null,
+    accentColor: brandingRows[0]?.accent_color ?? null,
+    typography: brandingRows[0]?.typography ?? null,
   };
 
   const baseUrl = resolveAppBaseUrl();

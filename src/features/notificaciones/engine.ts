@@ -85,8 +85,12 @@ async function fetchBranding(client: PoolClient, organizationId: string) {
     platform_name: string;
     logo_url: string | null;
     logo_dark_url: string | null;
+    primary_color: string | null;
+    accent_color: string | null;
+    typography: string | null;
   }>(
-    `SELECT platform_name, logo_url, logo_dark_url FROM app_admin.branding_settings
+    `SELECT platform_name, logo_url, logo_dark_url, primary_color, accent_color, typography
+     FROM app_admin.branding_settings
      WHERE organization_id = $1 LIMIT 1`,
     [organizationId],
   );
@@ -94,6 +98,9 @@ async function fetchBranding(client: PoolClient, organizationId: string) {
     platformName: rows[0]?.platform_name ?? '4Shine',
     logoUrl: rows[0]?.logo_url ?? null,
     logoDarkUrl: rows[0]?.logo_dark_url ?? null,
+    primaryColor: rows[0]?.primary_color ?? null,
+    accentColor: rows[0]?.accent_color ?? null,
+    typography: rows[0]?.typography ?? null,
   };
 }
 
@@ -102,11 +109,16 @@ async function fetchEmailBranding(client: PoolClient, organizationId: string) {
     fetchBranding(client, organizationId),
     getNotificationSettingsByOrg(client, organizationId),
   ]);
-  // El header del email usa fondo oscuro: si existe logo alterno (logo_dark_url)
-  // se prefiere para garantizar contraste. Fallback al logo estándar.
+  // Branding del email tomado directamente de app_admin.branding_settings:
+  // primary_color → header, accent_color → botones pill, typography → font-family.
+  // logo_dark_url se prefiere sobre logo_url para garantizar contraste.
   return {
     platformName: settings.varPlatformName || base.platformName,
-    logoUrl: base.logoDarkUrl || base.logoUrl,
+    logoUrl: base.logoUrl,
+    logoDarkUrl: base.logoDarkUrl,
+    primaryColor: base.primaryColor,
+    accentColor: base.accentColor,
+    typography: base.typography,
     headerBg: settings.emailHeaderBg || undefined,
     footerTagline: settings.emailFooterTagline || undefined,
     footerSupport: settings.emailFooterSupport || undefined,
