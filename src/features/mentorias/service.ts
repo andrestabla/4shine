@@ -755,6 +755,134 @@ function buildSessionEnlaceSesion(meetingUrl: string | null | undefined): string
   return trimmed || `${appUrl}/dashboard/mentorias`;
 }
 
+// ─── Reminder cron job ───────────────────────────────────────────────────────
+
+export type ReminderWindow = '24h' | '1h';
+
+interface UpcomingSessionRow {
+  session_id: string;
+  title: string;
+  starts_at: string;
+  meeting_url: string | null;
+  mentor_user_id: string;
+  mentor_first_name: string | null;
+  mentor_display_name: string;
+  mentee_user_id: string | null;
+  mentee_first_name: string | null;
+  mentee_display_name: string | null;
+}
+
+/**
+ * Sends "session_reminder" notifications for sessions that fall inside the
+ * given window. Idempotent: each (session_id, window) is recorded in
+ * app_mentoring.session_reminders_sent and only fires once.
+ *
+ * Returns counts for observability.
+ */
+export async function sendSessionReminders(
+  client: PoolClient,
+  window: ReminderWindow,
+): Promise<{ scanned: number; sent: number; alreadySent: number; window: ReminderWindow }> {
+  // Window definition (generous to absorb cron jitter / outages).
+  const definitions: Record<ReminderWindow, { from: string; to: string }> = {
+    '24h': { from: "now() + interval '23 hours'", to: "now() + interval '25 hours'" },
+    '1h': { from: "now() + interval '30 minutes'", to: "now() + interval '90 minutes'" },
+  };
+  const def = definitions[window];
+
+  const { rows } = await client.query<UpcomingSessionRow>(
+    `
+      SELECT
+        ms.session_id::text,
+        ms.title,
+        ms.starts_at::text,
+        ms.meeting_url,
+        ms.mentor_user_id::text,
+        mentor.first_name AS mentor_first_name,
+        mentor.display_name AS mentor_display_name,
+        mentee.mentee_user_id,
+        mentee.mentee_first_name,
+        mentee.mentee_display_name
+      FROM app_mentoring.mentorship_sessions ms
+      JOIN app_core.users mentor ON mentor.user_id = ms.mentor_user_id
+      LEFT JOIN LATERAL (
+        SELECT
+          sp.user_id::text AS mentee_user_id,
+          u.first_name AS mentee_first_name,
+          u.display_name AS mentee_display_name
+        FROM app_mentoring.session_participants sp
+        JOIN app_core.users u ON u.user_id = sp.user_id
+        WHERE sp.session_id = ms.session_id
+          AND sp.participant_role = 'mentee'
+        ORDER BY u.display_name
+        LIMIT 1
+      ) mentee ON true
+      WHERE ms.status = 'scheduled'
+        AND ms.session_type = 'individual'
+        AND ms.starts_at BETWEEN ${def.from} AND ${def.to}
+    `,
+  );
+
+  let sent = 0;
+  let alreadySent = 0;
+
+  for (const row of rows) {
+    // Idempotency lock: try to insert into session_reminders_sent first.
+    // If it already exists, skip the dispatch entirely.
+    const { rowCount } = await client.query(
+      `
+        INSERT INTO app_mentoring.session_reminders_sent (session_id, window_key)
+        VALUES ($1::uuid, $2)
+        ON CONFLICT (session_id, window_key) DO NOTHING
+      `,
+      [row.session_id, window],
+    );
+
+    if (!rowCount) {
+      alreadySent++;
+      continue;
+    }
+
+    const fechaStr = formatFechaCO(row.starts_at);
+    const horaStr = formatHoraCO(row.starts_at);
+    const enlaceSesion = buildSessionEnlaceSesion(row.meeting_url);
+
+    // Notify mentee (líder) if present
+    if (row.mentee_user_id) {
+      await notifyUserFull(client, {
+        recipientUserId: row.mentee_user_id,
+        eventKey: 'mentorias.session_reminder',
+        variables: {
+          nombre:
+            (row.mentee_first_name ?? row.mentee_display_name ?? '').trim() || 'Líder',
+          titulo: row.title,
+          fecha: fechaStr,
+          hora: horaStr,
+          enlace_sesion: enlaceSesion,
+        },
+      });
+    }
+
+    // Notify mentor (adviser)
+    await notifyUserFull(client, {
+      recipientUserId: row.mentor_user_id,
+      eventKey: 'mentorias.session_reminder',
+      variables: {
+        nombre:
+          (row.mentor_first_name ?? row.mentor_display_name ?? '').trim() || 'Adviser',
+        titulo: row.title,
+        fecha: fechaStr,
+        hora: horaStr,
+        enlace_sesion: enlaceSesion,
+      },
+    });
+
+    sent++;
+  }
+
+  return { scanned: rows.length, sent, alreadySent, window };
+}
+
 function diffWeeksFloor(fromIso: string, toDate = new Date()): number {
   const from = new Date(fromIso);
   if (Number.isNaN(from.getTime())) return 1;
