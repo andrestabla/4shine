@@ -3,7 +3,7 @@ import { getViewerAccessState, requireViewerAccessFlag } from '@/features/access
 import type { AuthUser } from '@/server/auth/types';
 import { requireModulePermission } from '@/server/auth/module-permissions';
 import { createZoomMeeting } from '@/server/integrations/zoom';
-import { notifyUser } from '@/features/notificaciones/engine';
+import { notifyUser, notifyUserFull } from '@/features/notificaciones/engine';
 
 export type MentorshipSessionType = 'individual' | 'grupal';
 export type MentorshipStatus =
@@ -690,6 +690,69 @@ function addMinutes(value: string, minutes: number): string {
 
   date.setMinutes(date.getMinutes() + minutes);
   return date.toISOString();
+}
+
+function formatFechaCO(value: string | null | undefined): string {
+  if (!value) return '';
+  try {
+    return new Date(value).toLocaleDateString('es-CO', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+  } catch {
+    return value;
+  }
+}
+
+function formatHoraCO(value: string | null | undefined): string {
+  if (!value) return '';
+  try {
+    return new Date(value).toLocaleTimeString('es-CO', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return value;
+  }
+}
+
+interface SessionParticipantsInfo {
+  menteeFirstName: string;
+  menteeDisplayName: string;
+  mentorFirstName: string;
+  mentorDisplayName: string;
+}
+
+async function loadSessionParticipantsInfo(
+  client: PoolClient,
+  menteeUserId: string,
+  mentorUserId: string,
+): Promise<SessionParticipantsInfo> {
+  const { rows } = await client.query<{
+    user_id: string;
+    first_name: string | null;
+    display_name: string;
+  }>(
+    `SELECT user_id::text, first_name, display_name
+     FROM app_core.users
+     WHERE user_id = ANY($1::uuid[])`,
+    [[menteeUserId, mentorUserId]],
+  );
+  const mentee = rows.find((r) => r.user_id === menteeUserId);
+  const mentor = rows.find((r) => r.user_id === mentorUserId);
+  return {
+    menteeFirstName: (mentee?.first_name ?? mentee?.display_name ?? '').trim() || 'Líder',
+    menteeDisplayName: mentee?.display_name ?? '',
+    mentorFirstName: (mentor?.first_name ?? mentor?.display_name ?? '').trim() || 'Adviser',
+    mentorDisplayName: mentor?.display_name ?? '',
+  };
+}
+
+function buildSessionEnlaceSesion(meetingUrl: string | null | undefined): string {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.4shine.co';
+  const trimmed = (meetingUrl ?? '').trim();
+  return trimmed || `${appUrl}/dashboard/mentorias`;
 }
 
 function diffWeeksFloor(fromIso: string, toDate = new Date()): number {
@@ -1628,6 +1691,40 @@ export async function createGroupSession(
   const events = await listGroupSessionEvents(client, actor, 20);
   const created = events.find((item) => item.sessionId === session.sessionId);
   if (!created) throw new Error('Failed to create group session');
+
+  // Notify all leaders in the organization about the newly published group session.
+  try {
+    const { rows: leaders } = await client.query<{ user_id: string }>(
+      `
+        SELECT u.user_id::text
+        FROM app_core.users u
+        JOIN app_core.organizations o ON o.organization_id = u.organization_id
+        WHERE u.primary_role = 'lider'
+          AND u.organization_id = (SELECT organization_id FROM app_core.users WHERE user_id = $1::uuid)
+      `,
+      [actor.userId],
+    );
+    const fechaStr = formatFechaCO(input.startsAt);
+    const horaStr = formatHoraCO(input.startsAt);
+    for (const leader of leaders) {
+      // Fire-and-forget per leader; notifyUserFull never throws.
+      void notifyUserFull(client, {
+        recipientUserId: leader.user_id,
+        eventKey: 'mentorias.group_session_published',
+        variables: {
+          // nombre will fall back to recipient first name if template uses {{nombre}};
+          // we leave it empty so the template-side default takes precedence.
+          titulo: input.title.trim(),
+          fecha: fechaStr,
+          hora: horaStr,
+          descripcion: input.description?.trim() ?? '',
+        },
+      });
+    }
+  } catch (err) {
+    console.error('[mentorias] group_session_published broadcast failed:', err);
+  }
+
   return created;
 }
 
@@ -1753,9 +1850,14 @@ export async function participateInGroupSession(
     [eventId, actor.userId, input.status],
   );
 
-  const { rows } = await client.query<{ title: string; zoom_join_url: string | null }>(
+  const { rows } = await client.query<{
+    title: string;
+    description: string | null;
+    starts_at: string;
+    zoom_join_url: string | null;
+  }>(
     `
-      SELECT ms.title, gse.zoom_join_url
+      SELECT ms.title, ms.description, ms.starts_at::text AS starts_at, gse.zoom_join_url
       FROM app_mentoring.group_session_events gse
       JOIN app_mentoring.mentorship_sessions ms ON ms.session_id = gse.session_id
       WHERE gse.event_id = $1
@@ -1767,23 +1869,23 @@ export async function participateInGroupSession(
   if (!event) throw new Error('Group session not found');
 
   if (input.status === 'joined') {
-    await client.query(
-      `
-        INSERT INTO app_core.notifications (user_id, notification_type, title, message, payload, action_url)
-        VALUES (
-          $1, 'info', 'Participación confirmada',
-          $2,
-          jsonb_build_object('eventId', $3::text, 'zoomJoinUrl', $4::text),
-          '/dashboard/mentorias'
-        )
-      `,
-      [
-        actor.userId,
-        `Tu participación en "${event.title}" fue confirmada.${event.zoom_join_url ? ' Revisa el enlace de conexión.' : ''}`,
-        eventId,
-        event.zoom_join_url,
-      ],
+    // Resolve actor first name for personalization.
+    const { rows: userRows } = await client.query<{ first_name: string | null; display_name: string }>(
+      `SELECT first_name, display_name FROM app_core.users WHERE user_id = $1::uuid LIMIT 1`,
+      [actor.userId],
     );
+    const firstName = (userRows[0]?.first_name ?? userRows[0]?.display_name ?? '').trim() || 'Líder';
+    await notifyUserFull(client, {
+      recipientUserId: actor.userId,
+      eventKey: 'mentorias.group_session_joined',
+      variables: {
+        nombre: firstName,
+        titulo: event.title,
+        fecha: formatFechaCO(event.starts_at),
+        hora: formatHoraCO(event.starts_at),
+        enlace_sesion: buildSessionEnlaceSesion(event.zoom_join_url),
+      },
+    });
   }
 
   const events = await listGroupSessionEvents(client, actor, 300);
@@ -2474,17 +2576,33 @@ export async function scheduleProgramMentorship(
     [input.entitlementId, session.sessionId],
   );
 
-  await notifyUser(client, {
-    actorUserId: actor.userId,
+  const participants = await loadSessionParticipantsInfo(client, actor.userId, input.mentorUserId);
+  const fechaStr = formatFechaCO(input.startsAt);
+  const horaStr = formatHoraCO(input.startsAt);
+  const enlaceSesion = buildSessionEnlaceSesion(resolvedMeetingUrl);
+  await notifyUserFull(client, {
     recipientUserId: actor.userId,
     eventKey: 'mentorias.session_scheduled_mentee',
-    variables: { nombre: actor.name, titulo: entitlement.title },
+    variables: {
+      nombre: participants.menteeFirstName,
+      titulo: entitlement.title,
+      fecha: fechaStr,
+      hora: horaStr,
+      adviser_nombre: participants.mentorDisplayName,
+      enlace_sesion: enlaceSesion,
+    },
   });
-  await notifyUser(client, {
-    actorUserId: actor.userId,
+  await notifyUserFull(client, {
     recipientUserId: input.mentorUserId,
     eventKey: 'mentorias.session_scheduled_mentor',
-    variables: { titulo: entitlement.title },
+    variables: {
+      nombre: participants.mentorFirstName,
+      titulo: entitlement.title,
+      fecha: fechaStr,
+      hora: horaStr,
+      lider_nombre: participants.menteeDisplayName,
+      enlace_sesion: enlaceSesion,
+    },
   });
 
   return session;
@@ -2576,6 +2694,38 @@ export async function createAdditionalMentorshipOrder(
   if (!inserted) {
     throw new Error('Failed to register the additional mentorship order');
   }
+
+  // Notify both leader and adviser about the new session.
+  // For paid orders the payment_confirmed event also fires later (via webhook);
+  // this dispatch is about the scheduling itself (works in both flows).
+  const participants = await loadSessionParticipantsInfo(client, actor.userId, offer.mentor_user_id);
+  const fechaStr = formatFechaCO(input.startsAt);
+  const horaStr = formatHoraCO(input.startsAt);
+  const enlaceSesion = buildSessionEnlaceSesion(input.meetingUrl);
+  await notifyUserFull(client, {
+    recipientUserId: actor.userId,
+    eventKey: 'mentorias.session_scheduled_mentee',
+    variables: {
+      nombre: participants.menteeFirstName,
+      titulo: offer.title,
+      fecha: fechaStr,
+      hora: horaStr,
+      adviser_nombre: participants.mentorDisplayName,
+      enlace_sesion: enlaceSesion,
+    },
+  });
+  await notifyUserFull(client, {
+    recipientUserId: offer.mentor_user_id,
+    eventKey: 'mentorias.session_scheduled_mentor',
+    variables: {
+      nombre: participants.mentorFirstName,
+      titulo: offer.title,
+      fecha: fechaStr,
+      hora: horaStr,
+      lider_nombre: participants.menteeDisplayName,
+      enlace_sesion: enlaceSesion,
+    },
+  });
 
   return getAdditionalOrderById(client, actor, inserted.order_id);
 }
@@ -2676,11 +2826,22 @@ export async function updateMentorship(
   await syncLinkedMentorshipEntities(client, sessionId);
 
   if (isCancellation && current.menteeUserId) {
-    await notifyUser(client, {
-      actorUserId: actor.userId,
+    const cancelParticipants = await loadSessionParticipantsInfo(
+      client,
+      current.menteeUserId,
+      current.mentorUserId,
+    );
+    await notifyUserFull(client, {
       recipientUserId: current.menteeUserId,
       eventKey: 'mentorias.session_cancelled_mentee',
-      variables: { titulo: current.title },
+      variables: {
+        nombre: cancelParticipants.menteeFirstName,
+        titulo: current.title,
+        fecha: formatFechaCO(current.startsAt),
+        motivo: input.changeReason?.trim() ?? '',
+        nueva_fecha: input.startsAt ? formatFechaCO(input.startsAt) : '',
+        adviser_nombre: cancelParticipants.mentorDisplayName,
+      },
     });
   }
 

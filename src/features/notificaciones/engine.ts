@@ -315,6 +315,37 @@ export async function notifyUser(
   }
 }
 
+// ─── Convenience: dispatch in-app + email to a single user ───────────────────
+// Resolves recipient email and organization from the recipient userId. Used by
+// modules that DO want the configurable email path (not just in-app).
+// Never throws — failure must not break the calling operation.
+export async function notifyUserFull(
+  client: PoolClient,
+  params: {
+    recipientUserId: string;
+    eventKey: string;
+    variables?: Partial<Record<VariableKey, string>>;
+  },
+): Promise<void> {
+  try {
+    const { rows } = await client.query<{ organization_id: string; email: string | null }>(
+      `SELECT organization_id::text, email::text FROM app_core.users WHERE user_id = $1 LIMIT 1`,
+      [params.recipientUserId],
+    );
+    const row = rows[0];
+    if (!row?.organization_id) return;
+    await dispatchNotification(client, {
+      organizationId: row.organization_id,
+      recipientUserId: params.recipientUserId,
+      recipientEmail: row.email ?? '',
+      eventKey: params.eventKey,
+      variables: params.variables ?? {},
+    });
+  } catch (err) {
+    console.error('[notify] full dispatch failed:', err);
+  }
+}
+
 // ─── Direct email sender (uses sample vars, no dispatch context needed) ─────
 // Por defecto registra el envío en app_core.notifications para que aparezca
 // en el historial. El test-send de plantillas pasa record:false para evitar
