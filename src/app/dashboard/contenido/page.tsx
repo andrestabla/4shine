@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { StatGrid } from '@/components/dashboard/StatGrid';
 import { EmptyState } from '@/components/dashboard/EmptyState';
@@ -397,7 +398,15 @@ export default function ContenidoPage() {
                       </td>
                       <td className="text-xs text-[var(--app-muted)]">{toLocalDateTime(item.updatedAt)}</td>
                       <td>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {canUpdateItem && (
+                            <Link
+                              href={`/dashboard/contenido/${item.contentId}/actividad`}
+                              className="app-button-secondary min-h-0 px-3 py-2 text-xs"
+                            >
+                              Actividad
+                            </Link>
+                          )}
                           {canUpdateItem && (
                             <button
                               className="app-button-secondary min-h-0 px-3 py-2 text-xs"

@@ -22,6 +22,7 @@ import {
   Download,
 } from "lucide-react";
 
+import { ActivityPlayer } from "@/components/aprendizaje/ActivityPlayer";
 import { CertificateBuilderPreview } from "@/components/aprendizaje/CertificateBuilder";
 import { LearningResourceCard } from "@/components/aprendizaje/LearningResourceCard";
 import { EmptyState } from "@/components/dashboard/EmptyState";
@@ -2084,6 +2085,11 @@ export default function LearningResourceDetailPage() {
               <span className="hidden md:inline">{resource.likes} Me gusta</span>
             </button>
         </div>
+      </div>
+
+      {/* Actividad de evaluación (si existe) */}
+      <div className="mt-8">
+        <ActivityPlayer contentId={contentId} />
       </div>
 
       <section className="mt-8 rounded-[24px] bg-white p-5 md:p-10 shadow-sm border border-[var(--app-border)]">
