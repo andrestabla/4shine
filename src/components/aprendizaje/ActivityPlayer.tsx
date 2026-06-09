@@ -85,6 +85,13 @@ export function ActivityPlayer({ contentId }: { contentId: string }) {
   if (loading) return <p className="text-sm text-[var(--app-muted)]">Cargando actividad…</p>;
   if (!activity) return null;
 
+  // TEMP DIAGNÓSTICO: dump del activity completo para identificar shape malformado.
+  // TODO: remover cuando se identifique la causa del crash.
+  if (typeof window !== 'undefined') {
+    (window as unknown as { __activityDump?: unknown }).__activityDump = activity;
+    console.log('[ActivityPlayer] activity dump:', JSON.parse(JSON.stringify(activity)));
+  }
+
   // Defensive: el backend a veces devuelve arrays con elementos null/undefined;
   // filtramos para evitar crashes downstream.
   const safeAttempts = Array.isArray(activity.userAttempts)

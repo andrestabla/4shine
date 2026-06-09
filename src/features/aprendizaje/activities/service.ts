@@ -156,17 +156,22 @@ function gradeHotspot(answer: unknown, payload: HotspotPayload): boolean {
 }
 
 function sanitizePayloadForLearner(type: QuestionType, payload: unknown): unknown {
+  // Helpers — filtran nulls antes de proyectar para evitar crashes downstream.
+  const safeArr = <T>(arr: unknown): T[] => (Array.isArray(arr) ? (arr as T[]).filter((x) => x != null) : []);
   if (type === 'single_choice' || type === 'multiple_choice') {
     const p = payload as { options?: ChoiceOption[]; strictAll?: boolean };
     return {
-      options: (p?.options ?? []).map((o) => ({ id: o.id, text: o.text })),
+      options: safeArr<ChoiceOption>(p?.options)
+        .filter((o) => o && typeof o.id === 'string')
+        .map((o) => ({ id: o.id, text: o.text ?? '' })),
       ...(typeof p?.strictAll === 'boolean' ? { strictAll: p.strictAll } : {}),
     };
   }
   if (type === 'ordering') {
     const p = payload as OrderingPayload;
-    // Mostrar items en orden mezclado (presented order = sorted by id) para que el user los ordene.
-    const items = [...(p?.items ?? [])];
+    const items = safeArr<{ id: string; text: string }>(p?.items)
+      .filter((i) => i && typeof i.id === 'string')
+      .map((i) => ({ id: i.id, text: i.text ?? '' }));
     return { items };
   }
   if (type === 'fill_blank') {
@@ -184,16 +189,24 @@ function sanitizePayloadForLearner(type: QuestionType, payload: unknown): unknow
   if (type === 'matching') {
     const p = payload as MatchingPayload;
     return {
-      leftItems: (p?.leftItems ?? []).map((i) => ({ id: i.id, text: i.text })),
-      rightItems: (p?.rightItems ?? []).map((i) => ({ id: i.id, text: i.text })),
+      leftItems: safeArr<{ id: string; text: string }>(p?.leftItems)
+        .filter((i) => i && typeof i.id === 'string')
+        .map((i) => ({ id: i.id, text: i.text ?? '' })),
+      rightItems: safeArr<{ id: string; text: string }>(p?.rightItems)
+        .filter((i) => i && typeof i.id === 'string')
+        .map((i) => ({ id: i.id, text: i.text ?? '' })),
     };
   }
   if (type === 'classification') {
     const p = payload as ClassificationPayload;
     return {
-      buckets: (p?.buckets ?? []).map((b) => ({ id: b.id, label: b.label })),
+      buckets: safeArr<{ id: string; label: string }>(p?.buckets)
+        .filter((b) => b && typeof b.id === 'string')
+        .map((b) => ({ id: b.id, label: b.label ?? '' })),
       // items SIN correctBucketId
-      items: (p?.items ?? []).map((i) => ({ id: i.id, text: i.text })),
+      items: safeArr<{ id: string; text: string }>(p?.items)
+        .filter((i) => i && typeof i.id === 'string')
+        .map((i) => ({ id: i.id, text: i.text ?? '' })),
     };
   }
   if (type === 'hotspot') {
