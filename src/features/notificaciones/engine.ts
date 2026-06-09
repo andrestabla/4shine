@@ -234,6 +234,9 @@ export async function dispatchNotification(
     const subject = renderTemplate(tmpl.subjectTemplate, vars);
     const bodyHtml = renderTemplate(tmpl.bodyHtmlTemplate, vars);
     const bodyText = renderTemplate(tmpl.bodyTextTemplate, vars);
+    const actionUrl = tmpl.inAppActionUrlTemplate
+      ? renderTemplate(tmpl.inAppActionUrlTemplate, vars)
+      : undefined;
 
     const [emailConfig, branding] = await Promise.all([
       fetchOutboundConfig(client, ctx.organizationId),
@@ -241,7 +244,7 @@ export async function dispatchNotification(
     ]);
 
     const fullHtml = buildBrandedEmailHtml(bodyHtml, branding);
-    await sendTemplateEmail(
+    const providerMessageId = await sendTemplateEmail(
       emailConfig,
       ctx.recipientEmail,
       subject,
@@ -249,6 +252,33 @@ export async function dispatchNotification(
       bodyText,
       emailConfig?.reply_to?.trim() || undefined,
     );
+
+    // Registra el envío en app_core.notifications para que aparezca en el
+    // historial. Try/catch porque un fallo de registro no debe abortar el
+    // envío exitoso del correo.
+    try {
+      await insertUserNotification(client, {
+        organizationId: ctx.organizationId,
+        userId: ctx.recipientUserId ?? null,
+        type: tmpl.inAppType,
+        title: subject,
+        message: bodyText || subject,
+        eventKey: ctx.eventKey,
+        actionUrl,
+        payload: {
+          channel: 'email',
+          html_snapshot: fullHtml,
+          text_snapshot: bodyText,
+          is_external: !ctx.recipientUserId,
+        },
+        channel: 'email',
+        recipientEmail: ctx.recipientEmail,
+        providerMessageId,
+        deliveredAt: null,
+      });
+    } catch (err) {
+      console.error('[engine] no se pudo registrar email en historial:', err);
+    }
   }
 }
 
@@ -285,7 +315,10 @@ export async function notifyUser(
   }
 }
 
-// ─── Test email sender (uses sample vars, no dispatch context needed) ─────────
+// ─── Direct email sender (uses sample vars, no dispatch context needed) ─────
+// Por defecto registra el envío en app_core.notifications para que aparezca
+// en el historial. El test-send de plantillas pasa record:false para evitar
+// contaminar el historial con pruebas.
 
 export async function sendEmailToAddress(
   client: PoolClient,
@@ -294,13 +327,20 @@ export async function sendEmailToAddress(
   subject: string,
   bodyHtml: string,
   bodyText: string,
+  options: {
+    record?: boolean;
+    eventKey?: string;
+    recipientUserId?: string | null;
+    senderUserId?: string | null;
+    actionUrl?: string;
+  } = {},
 ): Promise<string | null> {
   const [emailConfig, branding] = await Promise.all([
     fetchOutboundConfig(client, organizationId),
     fetchEmailBranding(client, organizationId),
   ]);
   const fullHtml = buildBrandedEmailHtml(bodyHtml, branding);
-  return await sendTemplateEmail(
+  const providerMessageId = await sendTemplateEmail(
     emailConfig,
     toEmail,
     subject,
@@ -308,6 +348,36 @@ export async function sendEmailToAddress(
     bodyText,
     emailConfig?.reply_to?.trim() || undefined,
   );
+
+  const shouldRecord = options.record !== false;
+  if (shouldRecord) {
+    try {
+      await insertUserNotification(client, {
+        organizationId,
+        userId: options.recipientUserId ?? null,
+        type: 'info',
+        title: subject,
+        message: bodyText || subject,
+        eventKey: options.eventKey ?? 'manual.direct_email',
+        actionUrl: options.actionUrl,
+        payload: {
+          channel: 'email',
+          html_snapshot: fullHtml,
+          text_snapshot: bodyText,
+          is_external: !options.recipientUserId,
+        },
+        senderUserId: options.senderUserId ?? null,
+        channel: 'email',
+        recipientEmail: toEmail,
+        providerMessageId,
+        deliveredAt: null,
+      });
+    } catch (err) {
+      console.error('[engine] no se pudo registrar email directo en historial:', err);
+    }
+  }
+
+  return providerMessageId;
 }
 
 // ─── Preview rendering (no DB side-effects) ───────────────────────────────────

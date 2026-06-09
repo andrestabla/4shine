@@ -955,7 +955,12 @@ export async function messageApplicants(
 <p style="margin:0;"><a href="https://4shine.co/dashboard/convocatorias/${convocatoriaId}">Ver convocatoria</a></p>`;
     const bodyText = `Hola ${nombre},\n\nConvocatoria: ${convTitle}\n\n${input.message}\n\nVer convocatoria: https://4shine.co/dashboard/convocatorias/${convocatoriaId}`;
 
-    void sendEmailToAddress(client, organizationId, app.email, input.subject, bodyHtml, bodyText);
+    void sendEmailToAddress(client, organizationId, app.email, input.subject, bodyHtml, bodyText, {
+      eventKey: 'convocatorias.applicant_message',
+      recipientUserId: app.user_id,
+      senderUserId: actor.userId,
+      actionUrl: `https://4shine.co/dashboard/convocatorias/${convocatoriaId}`,
+    });
     void (await import('@/features/notificaciones/service')).insertUserNotification(client, {
       organizationId,
       userId: app.user_id,

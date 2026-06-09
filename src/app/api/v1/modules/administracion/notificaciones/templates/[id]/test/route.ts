@@ -52,6 +52,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           rendered.subject || `[Prueba] ${tmpl.name}`,
           rendered.bodyHtml,
           rendered.bodyText,
+          { record: false },
         );
       }),
     );

@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer';
 import type { PoolClient } from 'pg';
 import { buildBrandedEmailHtml } from '@/lib/email-template';
+import { insertUserNotification } from '@/features/notificaciones/service';
 import type { AuthUser } from '@/server/auth/types';
 import type { GroupSessionEventRecord, MentorshipRecord } from './service';
 
@@ -64,9 +65,9 @@ async function resolveOutboundConfig(
   return fallback[0] && hasUsableEmail(fallback[0].from_email) ? fallback[0] : null;
 }
 
-async function sendEmail(config: OutboundConfigRow, payload: OutboundEmailPayload): Promise<void> {
+async function sendEmail(config: OutboundConfigRow, payload: OutboundEmailPayload): Promise<string | null> {
   if (config.provider === 'sendgrid') {
-    await fetch('https://api.sendgrid.com/v3/mail/send', {
+    const res = await fetch('https://api.sendgrid.com/v3/mail/send', {
       method: 'POST',
       headers: { Authorization: `Bearer ${config.api_key.trim()}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -77,11 +78,11 @@ async function sendEmail(config: OutboundConfigRow, payload: OutboundEmailPayloa
         ...(payload.replyTo ? { reply_to: { email: payload.replyTo } } : {}),
       }),
     });
-    return;
+    return res.headers.get('x-message-id');
   }
 
   if (config.provider === 'resend') {
-    await fetch('https://api.resend.com/emails', {
+    const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${config.api_key.trim()}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -93,7 +94,8 @@ async function sendEmail(config: OutboundConfigRow, payload: OutboundEmailPayloa
         ...(payload.replyTo ? { reply_to: payload.replyTo } : {}),
       }),
     });
-    return;
+    const body = (await res.json().catch(() => ({}))) as { id?: string };
+    return typeof body?.id === 'string' ? body.id : null;
   }
 
   const smtpPort = Number(config.smtp_port);
@@ -105,7 +107,7 @@ async function sendEmail(config: OutboundConfigRow, payload: OutboundEmailPayloa
     requireTLS: smtpPort === 587 || !secure,
     auth: { user: config.smtp_user.trim(), pass: config.smtp_password.trim() },
   });
-  await transporter.sendMail({
+  const result = await transporter.sendMail({
     from: buildFromHeader(config),
     to: payload.to,
     subject: payload.subject,
@@ -113,6 +115,56 @@ async function sendEmail(config: OutboundConfigRow, payload: OutboundEmailPayloa
     html: payload.html,
     replyTo: payload.replyTo,
   });
+  let messageId = typeof result.messageId === 'string' ? result.messageId : null;
+  const isSesSmtp =
+    config.provider === 'ses' ||
+    /email-smtp\.[a-z0-9-]+\.amazonaws\.com$/i.test(config.smtp_host.trim());
+  if (isSesSmtp && messageId) {
+    messageId = messageId.replace(/^<|>$/g, '').split('@')[0] ?? messageId;
+  }
+  return messageId;
+}
+
+/** Registra un envío de mentorias en app_core.notifications para el historial. */
+async function recordMentoriasEmail(
+  client: PoolClient,
+  params: {
+    organizationId: string;
+    recipientEmail: string;
+    recipientUserId: string | null;
+    recipientDisplayName: string;
+    eventKey: string;
+    subject: string;
+    htmlSnapshot: string;
+    textSnapshot: string;
+    actionUrl?: string;
+    providerMessageId: string | null;
+  },
+): Promise<void> {
+  try {
+    await insertUserNotification(client, {
+      organizationId: params.organizationId,
+      userId: params.recipientUserId,
+      type: 'info',
+      title: params.subject,
+      message: params.textSnapshot || params.subject,
+      eventKey: params.eventKey,
+      actionUrl: params.actionUrl,
+      payload: {
+        channel: 'email',
+        html_snapshot: params.htmlSnapshot,
+        text_snapshot: params.textSnapshot,
+        recipient_display_name: params.recipientDisplayName,
+        is_external: !params.recipientUserId,
+      },
+      channel: 'email',
+      recipientEmail: params.recipientEmail,
+      providerMessageId: params.providerMessageId,
+      deliveredAt: null,
+    });
+  } catch (err) {
+    console.error('[mentorias] no se pudo registrar email en historial:', err);
+  }
 }
 
 // Dates are stored as UTC instants; render them in the institution's timezone
@@ -215,12 +267,26 @@ export async function sendGroupSessionJoinedEmail(
     `Accede a la plataforma de ${platformName} para más detalles.`,
   ].join('\n');
 
-  await sendEmail(config, {
+  const groupSubject = `${platformName} · Participación confirmada: ${event.title}`;
+  const groupHtml = buildBrandedEmailHtml(bodyHtml, branding);
+  const groupMessageId = await sendEmail(config, {
     to: user.email,
-    subject: `${platformName} · Participación confirmada: ${event.title}`,
+    subject: groupSubject,
     text: textBody,
-    html: buildBrandedEmailHtml(bodyHtml, branding),
+    html: groupHtml,
     replyTo: config.reply_to.trim() || undefined,
+  });
+  await recordMentoriasEmail(client, {
+    organizationId: user.organization_id,
+    recipientEmail: user.email,
+    recipientUserId: actor.userId,
+    recipientDisplayName: user.display_name,
+    eventKey: 'mentorias.group_session_joined',
+    subject: groupSubject,
+    htmlSnapshot: groupHtml,
+    textSnapshot: textBody,
+    actionUrl: event.zoomJoinUrl || undefined,
+    providerMessageId: groupMessageId,
   });
 }
 
@@ -320,12 +386,26 @@ export async function sendMentorshipScheduledEmail(
     `Accede a la plataforma de ${platformName} para más detalles.`,
   ].join('\n');
 
-  await sendEmail(config, {
+  const liderSubject = `${platformName} · Mentoría agendada: ${session.title}`;
+  const liderFullHtml = buildBrandedEmailHtml(liderHtml, branding);
+  const liderMessageId = await sendEmail(config, {
     to: lider.email,
-    subject: `${platformName} · Mentoría agendada: ${session.title}`,
+    subject: liderSubject,
     text: liderText,
-    html: buildBrandedEmailHtml(liderHtml, branding),
+    html: liderFullHtml,
     replyTo: config.reply_to.trim() || undefined,
+  });
+  await recordMentoriasEmail(client, {
+    organizationId: lider.organization_id,
+    recipientEmail: lider.email,
+    recipientUserId: lider.user_id,
+    recipientDisplayName: lider.display_name,
+    eventKey: 'mentorias.session_scheduled_mentee',
+    subject: liderSubject,
+    htmlSnapshot: liderFullHtml,
+    textSnapshot: liderText,
+    actionUrl: session.meetingUrl || undefined,
+    providerMessageId: liderMessageId,
   });
 
   // Email to adviser
@@ -354,12 +434,26 @@ export async function sendMentorshipScheduledEmail(
       `Accede a la plataforma de ${platformName} para más detalles.`,
     ].join('\n');
 
-    await sendEmail(config, {
+    const adviserSubject = `${platformName} · Nueva mentoría agendada: ${session.title}`;
+    const adviserFullHtml = buildBrandedEmailHtml(adviserHtml, branding);
+    const adviserMessageId = await sendEmail(config, {
       to: adviser.email,
-      subject: `${platformName} · Nueva mentoría agendada: ${session.title}`,
+      subject: adviserSubject,
       text: adviserText,
-      html: buildBrandedEmailHtml(adviserHtml, branding),
+      html: adviserFullHtml,
       replyTo: config.reply_to.trim() || undefined,
+    });
+    await recordMentoriasEmail(client, {
+      organizationId: adviser.organization_id,
+      recipientEmail: adviser.email,
+      recipientUserId: adviser.user_id,
+      recipientDisplayName: adviser.display_name,
+      eventKey: 'mentorias.session_scheduled_mentor',
+      subject: adviserSubject,
+      htmlSnapshot: adviserFullHtml,
+      textSnapshot: adviserText,
+      actionUrl: session.meetingUrl || undefined,
+      providerMessageId: adviserMessageId,
     });
   }
 }
@@ -460,11 +554,24 @@ export async function sendMentorshipCancelledEmail(
     `Accede a la plataforma de ${platformName} para más detalles.`,
   ].join('\n');
 
-  await sendEmail(config, {
+  const cancelSubject = `${platformName} · Mentoría cancelada: ${session.title}`;
+  const cancelFullHtml = buildBrandedEmailHtml(bodyHtml, branding);
+  const cancelMessageId = await sendEmail(config, {
     to: lider.email,
-    subject: `${platformName} · Mentoría cancelada: ${session.title}`,
+    subject: cancelSubject,
     text: textBody,
-    html: buildBrandedEmailHtml(bodyHtml, branding),
+    html: cancelFullHtml,
     replyTo: config.reply_to.trim() || undefined,
+  });
+  await recordMentoriasEmail(client, {
+    organizationId: lider.organization_id,
+    recipientEmail: lider.email,
+    recipientUserId: menteeId,
+    recipientDisplayName: lider.display_name,
+    eventKey: 'mentorias.session_cancelled_mentee',
+    subject: cancelSubject,
+    htmlSnapshot: cancelFullHtml,
+    textSnapshot: textBody,
+    providerMessageId: cancelMessageId,
   });
 }

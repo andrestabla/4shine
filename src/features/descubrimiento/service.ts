@@ -14,7 +14,7 @@ import { resolveOrganizationIdForActor } from "@/server/integrations/config";
 import type { AuthUser } from "@/server/auth/types";
 import { USER_COUNTRY_SET, USER_GENDER_SET, USER_JOB_ROLE_SET } from "@/lib/user-demographics";
 import { buildBrandedEmailHtml } from "@/lib/email-template";
-import { getNotificationSettingsByOrg, resolveEventConfig } from "@/features/notificaciones/service";
+import { getNotificationSettingsByOrg, resolveEventConfig, insertUserNotification } from "@/features/notificaciones/service";
 import { dispatchNotification } from "@/features/notificaciones/engine";
 import { COMP_DEFINITIONS } from "./DiagnosticsData";
 import {
@@ -1409,7 +1409,61 @@ async function sendOutboundEmail(
     return sendViaResend(config, payload);
   }
 
-  return sendViaSmtp(config, payload);
+  const messageId = await sendViaSmtp(config, payload);
+  // SES SMTP devuelve "<0100019891...@email.amazonses.com>" pero los webhooks
+  // de SES reportan solo la parte local. Normalizamos para que el match por
+  // provider_message_id funcione en el historial.
+  const isSesSmtp =
+    config.provider === "ses" ||
+    /email-smtp\.[a-z0-9-]+\.amazonaws\.com$/i.test(config.smtp_host.trim());
+  if (isSesSmtp && messageId) {
+    return messageId.replace(/^<|>$/g, "").split("@")[0] ?? messageId;
+  }
+  return messageId;
+}
+
+/** Registra un envío de email en app_core.notifications para que aparezca en el historial. */
+async function recordEmailDispatch(
+  client: PoolClient,
+  params: {
+    organizationId: string;
+    recipientEmail: string;
+    recipientUserId: string | null;
+    recipientDisplayName: string;
+    senderUserId: string | null;
+    eventKey: string;
+    subject: string;
+    htmlSnapshot: string;
+    textSnapshot: string;
+    actionUrl?: string;
+    providerMessageId: string | null;
+  },
+): Promise<void> {
+  try {
+    await insertUserNotification(client, {
+      organizationId: params.organizationId,
+      userId: params.recipientUserId,
+      type: "info",
+      title: params.subject,
+      message: params.textSnapshot || params.subject,
+      eventKey: params.eventKey,
+      actionUrl: params.actionUrl,
+      payload: {
+        channel: "email",
+        html_snapshot: params.htmlSnapshot,
+        text_snapshot: params.textSnapshot,
+        recipient_display_name: params.recipientDisplayName,
+        is_external: !params.recipientUserId,
+      },
+      senderUserId: params.senderUserId,
+      channel: "email",
+      recipientEmail: params.recipientEmail,
+      providerMessageId: params.providerMessageId,
+      deliveredAt: null,
+    });
+  } catch (err) {
+    console.error("[descubrimiento] no se pudo registrar envío en historial:", err);
+  }
 }
 
 async function getBrandingForOrganization(
@@ -2388,7 +2442,22 @@ export async function createDiscoveryInvitations(
       filledText = fillTemplate(textTemplate, params);
     }
 
-    await sendOutboundEmail(outboundConfig, { to: email, subject: filledSubject, html: fullHtml, text: filledText });
+    const providerMessageId = await sendOutboundEmail(outboundConfig, { to: email, subject: filledSubject, html: fullHtml, text: filledText });
+    await recordEmailDispatch(client, {
+      organizationId,
+      recipientEmail: email,
+      recipientUserId: null,
+      recipientDisplayName: sharedSession
+        ? `${sharedSession.firstName} ${sharedSession.lastName}`.trim()
+        : email,
+      senderUserId: actor.userId,
+      eventKey: "descubrimiento.invitation",
+      subject: filledSubject,
+      htmlSnapshot: fullHtml,
+      textSnapshot: filledText,
+      actionUrl: inviteUrl,
+      providerMessageId,
+    });
   }
 
   return {
@@ -4118,11 +4187,26 @@ export async function sendDiscoveryReportEmail(
     </p>
   `;
 
-  await sendOutboundEmail(outbound, {
+  const reportHtml = buildBrandedEmailHtml(bodyHtml, branding);
+  const reportText = `Hola ${name},\n\nTu informe de liderazgo ${branding.platformName} ha sido generado. Puedes revisarlo en el siguiente enlace:\n${reportUrl}\n\nSaludos,\nEquipo ${branding.platformName}`;
+  const providerMessageId = await sendOutboundEmail(outbound, {
     to: email,
     subject,
-    html: buildBrandedEmailHtml(bodyHtml, branding),
-    text: `Hola ${name},\n\nTu informe de liderazgo ${branding.platformName} ha sido generado. Puedes revisarlo en el siguiente enlace:\n${reportUrl}\n\nSaludos,\nEquipo ${branding.platformName}`,
+    html: reportHtml,
+    text: reportText,
+  });
+  await recordEmailDispatch(client, {
+    organizationId,
+    recipientEmail: email,
+    recipientUserId: null,
+    recipientDisplayName: name,
+    senderUserId: actor.userId,
+    eventKey: "descubrimiento.report_email",
+    subject,
+    htmlSnapshot: reportHtml,
+    textSnapshot: reportText,
+    actionUrl: reportUrl,
+    providerMessageId,
   });
 
   return { ok: true };
@@ -6189,11 +6273,24 @@ export async function sendDiscoveryResultsEmailViaAdmin(
   const text = `Hola,\n\nTe comparto mi lectura ejecutiva del diagnóstico 4Shine:\n${link}\n\nSaludos.`;
 
   for (const to of emails) {
-    await sendViaSmtp(outboundConfig, {
+    const providerMessageId = await sendOutboundEmail(outboundConfig, {
       to,
       subject,
       text,
       html,
+    });
+    await recordEmailDispatch(client, {
+      organizationId,
+      recipientEmail: to,
+      recipientUserId: null,
+      recipientDisplayName: to,
+      senderUserId: null,
+      eventKey: "descubrimiento.results_share",
+      subject,
+      htmlSnapshot: html,
+      textSnapshot: text,
+      actionUrl: link,
+      providerMessageId,
     });
   }
 }
@@ -6302,11 +6399,29 @@ export async function resendDiscoveryInvitation(
     platform_logo_url: platformLogoUrl,
   };
 
-  await sendOutboundEmail(outboundConfig, {
+  const filledSubject = fillTemplate(subjectTemplate, params);
+  const filledHtml = fillTemplate(htmlTemplateWithLogo, params);
+  const filledText = fillTemplate(textTemplate, params);
+  const providerMessageId = await sendOutboundEmail(outboundConfig, {
     to: invRow.invited_email,
-    subject: fillTemplate(subjectTemplate, params),
-    html: fillTemplate(htmlTemplateWithLogo, params),
-    text: fillTemplate(textTemplate, params),
+    subject: filledSubject,
+    html: filledHtml,
+    text: filledText,
+  });
+  await recordEmailDispatch(client, {
+    organizationId,
+    recipientEmail: invRow.invited_email,
+    recipientUserId: null,
+    recipientDisplayName: session
+      ? `${session.firstName} ${session.lastName}`.trim()
+      : invRow.invited_email,
+    senderUserId: actor.userId,
+    eventKey: "descubrimiento.invitation",
+    subject: filledSubject,
+    htmlSnapshot: filledHtml,
+    textSnapshot: filledText,
+    actionUrl: inviteUrl,
+    providerMessageId,
   });
 
   return {

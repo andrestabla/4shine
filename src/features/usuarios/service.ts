@@ -14,6 +14,7 @@ import {
   type UserJobRoleOption,
 } from '@/lib/user-demographics';
 import { buildBrandedEmailHtml, type EmailBranding } from '@/lib/email-template';
+import { insertUserNotification } from '@/features/notificaciones/service';
 import { listUserPurchases } from '@/features/access/service';
 import type { UserPurchaseRecord } from '@/features/access/types';
 
@@ -1005,7 +1006,56 @@ async function sendOutboundEmail(config: OutboundConfigRow, payload: OutboundEma
     return sendViaResend(config, payload);
   }
 
-  return sendViaSmtp(config, payload);
+  const messageId = await sendViaSmtp(config, payload);
+  const isSesSmtp =
+    config.provider === 'ses' ||
+    /email-smtp\.[a-z0-9-]+\.amazonaws\.com$/i.test(config.smtp_host.trim());
+  if (isSesSmtp && messageId) {
+    return messageId.replace(/^<|>$/g, '').split('@')[0] ?? messageId;
+  }
+  return messageId;
+}
+
+async function recordUsuariosEmail(
+  client: PoolClient,
+  params: {
+    organizationId: string | null;
+    recipientEmail: string;
+    recipientUserId: string | null;
+    senderUserId: string | null;
+    eventKey: string;
+    subject: string;
+    htmlSnapshot: string;
+    textSnapshot: string;
+    actionUrl?: string;
+    providerMessageId: string | null;
+  },
+): Promise<void> {
+  if (!params.organizationId) return;
+  try {
+    await insertUserNotification(client, {
+      organizationId: params.organizationId,
+      userId: params.recipientUserId,
+      type: 'info',
+      title: params.subject,
+      message: params.textSnapshot || params.subject,
+      eventKey: params.eventKey,
+      actionUrl: params.actionUrl,
+      payload: {
+        channel: 'email',
+        html_snapshot: params.htmlSnapshot,
+        text_snapshot: params.textSnapshot,
+        is_external: !params.recipientUserId,
+      },
+      senderUserId: params.senderUserId,
+      channel: 'email',
+      recipientEmail: params.recipientEmail,
+      providerMessageId: params.providerMessageId,
+      deliveredAt: null,
+    });
+  } catch (err) {
+    console.error('[usuarios] no se pudo registrar email en historial:', err);
+  }
 }
 
 function buildPasswordResetPayload(
@@ -1252,12 +1302,25 @@ export async function requestPasswordResetByEmail(emailRaw: string): Promise<voi
         <p style="margin:0;font-size:13px;color:#94a3b8;">Si no solicitaste este cambio, puedes ignorar este mensaje y tu contraseña seguirá igual.</p>
       `.trim();
 
-      await sendOutboundEmail(outboundConfig, {
+      const fullHtml = buildBrandedEmailHtml(bodyHtml, branding);
+      const providerMessageId = await sendOutboundEmail(outboundConfig, {
         to: email,
         subject,
         text,
-        html: buildBrandedEmailHtml(bodyHtml, branding),
+        html: fullHtml,
         replyTo: buildReplyTo(outboundConfig),
+      });
+      await recordUsuariosEmail(client, {
+        organizationId: captured.organizationId,
+        recipientEmail: email,
+        recipientUserId: captured.userId,
+        senderUserId: null,
+        eventKey: 'auth.password_reset',
+        subject,
+        htmlSnapshot: fullHtml,
+        textSnapshot: text,
+        actionUrl: resetUrl,
+        providerMessageId,
       });
 
       await client.query('COMMIT');
@@ -1407,7 +1470,22 @@ export async function sendVerificationEmail(
   }
 
   const payload = buildVerificationEmailPayload(config, email, firstName, verificationUrl, branding);
-  await sendOutboundEmail(config, payload);
+  const providerMessageId = await sendOutboundEmail(config, payload);
+  await withClient(async (client) => {
+    await client.query('SELECT set_config($1, $2, true)', ['app.current_role', 'gestor']);
+    await recordUsuariosEmail(client, {
+      organizationId,
+      recipientEmail: email,
+      recipientUserId: userId,
+      senderUserId: null,
+      eventKey: 'auth.email_verification',
+      subject: payload.subject,
+      htmlSnapshot: payload.html,
+      textSnapshot: payload.text,
+      actionUrl: verificationUrl,
+      providerMessageId,
+    });
+  });
 }
 
 export async function listUsers(client: PoolClient, input: ListUsersInput = {}): Promise<UserRecord[]> {
@@ -2134,6 +2212,17 @@ export async function resetUserPassword(
 
   const payload = buildPasswordResetPayload(outboundConfig, user.email, user.displayName, temporaryPassword, branding);
   const messageId = await sendOutboundEmail(outboundConfig, payload);
+  await recordUsuariosEmail(client, {
+    organizationId: user.organizationId,
+    recipientEmail: user.email,
+    recipientUserId: user.userId,
+    senderUserId: actor.userId,
+    eventKey: 'auth.password_reset_admin',
+    subject: payload.subject,
+    htmlSnapshot: payload.html,
+    textSnapshot: payload.text,
+    providerMessageId: messageId,
+  });
 
   await client.query(
     `
