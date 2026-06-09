@@ -1185,7 +1185,42 @@ export default function LearningResourceDetailPage() {
 
   if (typeof document === "undefined") return null;
 
-  // 1. IMMERSIVE PLAYER LAYOUT (SCORM)
+  // 1. ACTIVITY LAYOUT (early return — no usa la maquinaria de cursos/SCORM/video)
+  if (resource.contentType === "activity") {
+    return (
+      <div className="flex w-full flex-col gap-6 animate-fade-in">
+        <div className="flex items-center justify-between">
+          <Link
+            href={backHref}
+            className="inline-flex items-center gap-2 rounded-full bg-[var(--app-surface-muted)] px-4 py-2 text-sm font-bold text-[var(--app-ink)] transition hover:bg-white hover:text-[var(--brand-primary)]"
+          >
+            <ArrowLeft size={16} />
+            Volver
+          </Link>
+          {canManage && (
+            <div className="flex items-center gap-2">
+              <Link
+                href={`/dashboard/contenido/${resource.contentId}/actividad`}
+                className="app-button-secondary !h-9 !px-3"
+              >
+                <Pencil size={14} />
+                <span className="hidden sm:inline">Editar actividad</span>
+              </Link>
+            </div>
+          )}
+        </div>
+        <div>
+          <h1 className="text-2xl font-black text-[var(--app-ink)] sm:text-3xl">{resource.title}</h1>
+          {resource.description && (
+            <p className="mt-1 text-sm text-[var(--app-muted)]">{resource.description}</p>
+          )}
+        </div>
+        <ActivityPlayer contentId={resource.contentId} />
+      </div>
+    );
+  }
+
+  // 2. IMMERSIVE PLAYER LAYOUT (SCORM)
   if (resource.contentType === "scorm") {
     return createPortal(
       <CoursePlayerErrorBoundary resetKey={`${resource.contentId}:${activeResourceIndex}`}>
@@ -1953,13 +1988,6 @@ export default function LearningResourceDetailPage() {
         )}
       </div>
 
-      {resource.contentType === "activity" ? (
-        // ACTIVITY top-level — render directo sin wrapper de video (necesita
-        // altura natural según el número de preguntas, no aspect-ratio fijo).
-        <div className="w-full">
-          <ActivityPlayer contentId={resource.contentId} />
-        </div>
-      ) : (
       <div
         className="w-full overflow-hidden rounded-[24px] shadow-xl aspect-video md:aspect-[21/9] lg:aspect-video relative flex flex-col items-center justify-center"
         style={{ background: 'var(--brand-darker)' }}
@@ -2045,7 +2073,6 @@ export default function LearningResourceDetailPage() {
           </div>
         )}
       </div>
-      )}
 
       <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
         <div className="flex-1 space-y-4">
