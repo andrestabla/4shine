@@ -20,7 +20,18 @@ import {
 } from '@/features/content/client';
 
 const SCOPE_OPTIONS: ContentScope[] = ['aprendizaje', 'metodologia', 'formacion_mentores', 'formacion_lideres'];
-const TYPE_OPTIONS: ContentType[] = ['video', 'pdf', 'scorm', 'article', 'podcast', 'html', 'ppt'];
+const TYPE_OPTIONS: ContentType[] = ['video', 'pdf', 'scorm', 'article', 'podcast', 'html', 'ppt', 'activity'];
+
+const TYPE_LABELS: Record<ContentType, string> = {
+  video: 'video',
+  pdf: 'pdf',
+  scorm: 'curso (SCORM)',
+  article: 'artículo',
+  podcast: 'podcast',
+  html: 'html',
+  ppt: 'ppt',
+  activity: 'actividad',
+};
 
 const MODULE_BY_SCOPE: Record<ContentScope, ModuleCode> = {
   aprendizaje: 'aprendizaje',
@@ -294,7 +305,7 @@ export default function ContenidoPage() {
             >
               {TYPE_OPTIONS.map((type) => (
                 <option key={type} value={type}>
-                  {type}
+                  {TYPE_LABELS[type]}
                 </option>
               ))}
             </select>
@@ -305,23 +316,31 @@ export default function ContenidoPage() {
             >
               Crear
             </button>
-            <input
-              className="app-input md:col-span-4"
-              placeholder="URL (opcional)"
-              value={createForm.url}
-              onChange={(event) => setCreateForm((prev) => ({ ...prev, url: event.target.value }))}
-            />
-            <R2UploadButton
-              moduleCode={MODULE_BY_SCOPE[createForm.scope]}
-              action="create"
-              fieldName="contentUrl"
-              entityTable="app_learning.content_items"
-              pathPrefix={`contenido/${createForm.scope}/${createForm.contentType}`}
-              accept={ACCEPT_BY_CONTENT_TYPE[createForm.contentType]}
-              buttonLabel="Subir a R2"
-              className="app-button-secondary h-full disabled:opacity-60 inline-flex items-center justify-center gap-2"
-              onUploaded={(url) => setCreateForm((prev) => ({ ...prev, url }))}
-            />
+            {createForm.contentType === 'activity' ? (
+              <div className="md:col-span-6 rounded-[12px] border border-dashed border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-2 text-xs text-[var(--app-muted)]">
+                Para tipo <b>actividad</b> no necesitas URL ni archivo. Crea el contenido y luego haz click en <b>Actividad</b> en su fila para configurar las preguntas.
+              </div>
+            ) : (
+              <>
+                <input
+                  className="app-input md:col-span-4"
+                  placeholder="URL (opcional)"
+                  value={createForm.url}
+                  onChange={(event) => setCreateForm((prev) => ({ ...prev, url: event.target.value }))}
+                />
+                <R2UploadButton
+                  moduleCode={MODULE_BY_SCOPE[createForm.scope]}
+                  action="create"
+                  fieldName="contentUrl"
+                  entityTable="app_learning.content_items"
+                  pathPrefix={`contenido/${createForm.scope}/${createForm.contentType}`}
+                  accept={ACCEPT_BY_CONTENT_TYPE[createForm.contentType]}
+                  buttonLabel="Subir a R2"
+                  className="app-button-secondary h-full disabled:opacity-60 inline-flex items-center justify-center gap-2"
+                  onUploaded={(url) => setCreateForm((prev) => ({ ...prev, url }))}
+                />
+              </>
+            )}
             <input
               className="app-input md:col-span-6"
               placeholder="Descripción (opcional)"
