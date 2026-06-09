@@ -47,6 +47,23 @@ export async function listActivityUsers(activityId: string): Promise<ActivityUse
   );
 }
 
+export interface AvailableActivityRecord {
+  contentId: string;
+  contentTitle: string;
+  contentType: string;
+  category: string | null;
+  scope: string;
+  activityTitle: string;
+  questionCount: number;
+  isActive: boolean;
+}
+
+export async function listAvailableActivities(): Promise<AvailableActivityRecord[]> {
+  return requestApi<AvailableActivityRecord[]>(
+    '/api/v1/modules/aprendizaje/activities/available',
+  );
+}
+
 // ─── Líder (player) ──────────────────────────────────────────────────────────
 
 export async function getActivityForLearner(contentId: string): Promise<ActivityForLearner | null> {

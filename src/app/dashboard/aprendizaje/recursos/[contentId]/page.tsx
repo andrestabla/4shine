@@ -83,6 +83,7 @@ interface CoursePlayerItem {
   description: string | null;
   contentType: string;
   url: string | null;
+  linkedContentId: string | null;
   durationLabel: string | null;
   globalIndex: number;
 }
@@ -280,6 +281,10 @@ export default function LearningResourceDetailPage() {
           url:
             typeof item.url === "string" && item.url.trim().length > 0
               ? item.url.trim()
+              : null,
+          linkedContentId:
+            typeof item.linkedContentId === "string" && item.linkedContentId.trim().length > 0
+              ? item.linkedContentId.trim()
               : null,
           durationLabel:
             typeof item.durationLabel === "string" && item.durationLabel.trim().length > 0
@@ -1748,7 +1753,12 @@ export default function LearningResourceDetailPage() {
                 </div>
               ) : currentItem ? (
                 <div key={`${resource.contentId}-${activeResourceIndex}`} className="w-full">
-                  {currentItem.contentType === "video" && isEmbeddableVideoUrl(currentItem.url) ? (
+                  {currentItem.contentType === "activity" && currentItem.linkedContentId ? (
+                    // ACTIVITY (quiz) — render inline en el contexto del módulo del curso
+                    <div className="rounded-[16px] bg-white p-3">
+                      <ActivityPlayer contentId={currentItem.linkedContentId} />
+                    </div>
+                  ) : currentItem.contentType === "video" && isEmbeddableVideoUrl(currentItem.url) ? (
                     // DIRECT VIDEO PLAYER (mp4/webm/mov + HLS .m3u8 via hls.js)
                     <HlsVideoPlayer src={currentItem.url!} title={currentItem.title || undefined} />
                   ) : currentItem?.contentType === "pdf" && currentItem.url ? (
@@ -1941,7 +1951,12 @@ export default function LearningResourceDetailPage() {
         className="w-full overflow-hidden rounded-[24px] shadow-xl aspect-video md:aspect-[21/9] lg:aspect-video relative flex flex-col items-center justify-center"
         style={{ background: 'var(--brand-darker)' }}
       >
-        {youtubeEmbedUrl ? (
+        {resource.contentType === "activity" ? (
+          // ACTIVITY top-level — el quiz vive en este mismo contentId
+          <div className="absolute inset-0 overflow-y-auto bg-[var(--app-surface-muted)] p-4 sm:p-6">
+            <ActivityPlayer contentId={resource.contentId} />
+          </div>
+        ) : youtubeEmbedUrl ? (
           <iframe
             title={resource.title}
             src={youtubeEmbedUrl}

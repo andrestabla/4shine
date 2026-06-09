@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { CertificateBuilder, CertificateBuilderPreview } from "@/components/aprendizaje/CertificateBuilder";
 import { CertificatePreviewCard } from "@/components/aprendizaje/CertificatePreviewCard";
+import { ActivityPicker } from "@/components/aprendizaje/ActivityPicker";
 import { LearningResourceCard } from "@/components/aprendizaje/LearningResourceCard";
 import { LearningAnalyticsPanel } from "@/components/aprendizaje/LearningAnalyticsPanel";
 import { EmptyState } from "@/components/dashboard/EmptyState";
@@ -216,6 +217,7 @@ const COURSE_MODULE_RESOURCE_TYPE_OPTIONS: CourseModuleResourceType[] = [
   "html",
   "ppt",
   "link",
+  "activity",
 ];
 
 const PROGRAM_STAGE_OPTIONS = LEARNING_PROGRAM_STAGE_OPTIONS;
@@ -317,6 +319,17 @@ const CONTENT_TYPE_EXPERIENCE: Record<
     categoryPresets: ["Curso", "Ruta", "Academia", "Programa"],
     durationPresets: ["15 min", "30 min", "45 min", "60 min", "90 min"],
     tagPresets: ["curso", "ruta", "premium"],
+  },
+  activity: {
+    description: "Quiz o evaluación auto-calificada. Sin video/PDF — el contenido es la actividad misma.",
+    assetLabel: "Actividad (configura en Contenido)",
+    uploadLabel: "",
+    uploadHelp: "Las preguntas se configuran desde Contenido → botón Actividad. Aquí solo defines metadatos.",
+    urlPlaceholder: "",
+    accept: "",
+    categoryPresets: ["Quiz", "Evaluación", "Práctica"],
+    durationPresets: ["5 min", "10 min", "15 min", "20 min"],
+    tagPresets: ["quiz", "evaluacion", "practica"],
   },
 };
 
@@ -766,6 +779,7 @@ function contentTypeLabel(type: ContentType): string {
   if (type === "pdf") return "PDF";
   if (type === "ppt") return "PPT";
   if (type === "scorm") return "Curso";
+  if (type === "activity") return "Actividad";
   return type.charAt(0).toUpperCase() + type.slice(1);
 }
 
@@ -1736,7 +1750,8 @@ export default function AprendizajePage() {
         | "description"
         | "contentType"
         | "url"
-        | "durationLabel",
+        | "durationLabel"
+        | "linkedContentId",
       value: string,
     ) => {
       setResourceForm((prev) => ({
@@ -3998,40 +4013,70 @@ export default function AprendizajePage() {
                                         />
                                       </div>
                                       <div className="lg:col-span-2">
-                                        <label className="app-field-label">URL o activo del recurso</label>
-                                        <input
-                                          className="app-input"
-                                          placeholder="https://..."
-                                          value={courseResource.url ?? ""}
-                                          onChange={(event) =>
-                                            updateCourseModuleResource(
-                                              module.id,
-                                              courseResource.id,
-                                              "url",
-                                              event.target.value,
-                                            )
-                                          }
-                                        />
-                                        <div className="mt-2 text-right">
-                                          <R2UploadButton
-                                            moduleCode="aprendizaje"
-                                            action={editingResourceId ? "update" : "create"}
-                                            entityTable="app_learning.content_items"
-                                            fieldName="structure_payload"
-                                            pathPrefix={`aprendizaje/cursos/${editingResourceId || "new"}/recursos`}
-                                            accept={getContentTypeAccept(courseResource.contentType as ContentType)}
-                                            buttonLabel="Subir activo a R2"
-                                            className="app-button-secondary text-xs"
-                                            onUploaded={(url) => {
-                                              updateCourseModuleResource(
-                                                module.id,
-                                                courseResource.id,
-                                                "url",
-                                                url,
-                                              );
-                                            }}
-                                          />
-                                        </div>
+                                        {courseResource.contentType === "activity" ? (
+                                          <>
+                                            <label className="app-field-label">
+                                              Actividad vinculada
+                                            </label>
+                                            <ActivityPicker
+                                              value={courseResource.linkedContentId}
+                                              onChange={(selection) => {
+                                                updateCourseModuleResource(
+                                                  module.id,
+                                                  courseResource.id,
+                                                  "linkedContentId",
+                                                  selection?.contentId ?? "",
+                                                );
+                                                // Auto-rellenar el título si está vacío
+                                                if (selection && !courseResource.title.trim()) {
+                                                  updateCourseModuleResource(
+                                                    module.id,
+                                                    courseResource.id,
+                                                    "title",
+                                                    selection.title,
+                                                  );
+                                                }
+                                              }}
+                                            />
+                                          </>
+                                        ) : (
+                                          <>
+                                            <label className="app-field-label">URL o activo del recurso</label>
+                                            <input
+                                              className="app-input"
+                                              placeholder="https://..."
+                                              value={courseResource.url ?? ""}
+                                              onChange={(event) =>
+                                                updateCourseModuleResource(
+                                                  module.id,
+                                                  courseResource.id,
+                                                  "url",
+                                                  event.target.value,
+                                                )
+                                              }
+                                            />
+                                            <div className="mt-2 text-right">
+                                              <R2UploadButton
+                                                moduleCode="aprendizaje"
+                                                action={editingResourceId ? "update" : "create"}
+                                                entityTable="app_learning.content_items"
+                                                fieldName="structure_payload"
+                                                pathPrefix={`aprendizaje/cursos/${editingResourceId || "new"}/recursos`}
+                                                accept={getContentTypeAccept(courseResource.contentType as ContentType)}
+                                                buttonLabel="Subir activo a R2"
+                                                className="app-button-secondary text-xs"
+                                                onUploaded={(url) => {
+                                                  updateCourseModuleResource(
+                                                    module.id,
+                                                    courseResource.id,
+                                                    "url",
+                                                    url,
+                                                  );
+                                                }}
+                                              />
+                                            </div>
+                                          </>
+                                        )}
                                       </div>
                                       <div className="lg:col-span-2">
                                         <label className="app-field-label">Nota contextual</label>

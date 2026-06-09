@@ -707,6 +707,69 @@ export async function getActivityAggregateStats(
   };
 }
 
+export interface AvailableActivityRecord {
+  contentId: string;
+  contentTitle: string;
+  contentType: string;
+  category: string | null;
+  scope: string;
+  activityTitle: string;
+  questionCount: number;
+  isActive: boolean;
+}
+
+/**
+ * Lista contenidos que tienen una actividad asociada. Para el "banco" de
+ * actividades reusable desde el editor de cursos.
+ */
+export async function listAvailableActivities(
+  client: PoolClient,
+  actor: AuthUser,
+): Promise<AvailableActivityRecord[]> {
+  assertCanManage(actor);
+  await requireModulePermission(client, 'aprendizaje', 'view');
+  const { rows } = await client.query<{
+    content_id: string;
+    content_title: string;
+    content_type: string;
+    category: string | null;
+    scope: string;
+    activity_title: string;
+    question_count: string;
+    is_active: boolean;
+  }>(
+    `
+      SELECT
+        ci.content_id::text,
+        ci.title AS content_title,
+        ci.content_type,
+        ci.category,
+        ci.scope,
+        ca.title AS activity_title,
+        (
+          SELECT count(*)::text
+          FROM app_learning.activity_questions q
+          WHERE q.activity_id = ca.activity_id
+        ) AS question_count,
+        ca.is_active
+      FROM app_learning.content_activities ca
+      JOIN app_learning.content_items ci ON ci.content_id = ca.content_id
+      ORDER BY ci.title
+      LIMIT 500
+    `,
+  );
+  return rows.map((r) => ({
+    contentId: r.content_id,
+    contentTitle: r.content_title,
+    contentType: r.content_type,
+    category: r.category,
+    scope: r.scope,
+    activityTitle: r.activity_title,
+    questionCount: Number(r.question_count ?? 0),
+    isActive: r.is_active,
+  }));
+}
+
 export async function listActivityUserResults(
   client: PoolClient,
   actor: AuthUser,
