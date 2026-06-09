@@ -22,8 +22,36 @@ import { resolveEventConfig, insertUserNotification, getNotificationSettingsByOr
 
 // ─── Template rendering ───────────────────────────────────────────────────────
 
+/**
+ * Replace {{var}} placeholders with values from `vars`. If a placeholder has
+ * no matching value (or its value is null/undefined/empty), it is REMOVED
+ * from the output instead of being left literal, so end users never see
+ * raw {{key}} fragments in their notifications.
+ *
+ * The function also trims double-spaces and stray "  ,  " that may result
+ * from missing variables embedded mid-sentence.
+ */
 function renderTemplate(template: string, vars: Partial<Record<VariableKey, string>>): string {
-  return template.replace(/\{\{(\w+)\}\}/g, (_, key) => vars[key as VariableKey] ?? `{{${key}}}`);
+  const missing: string[] = [];
+  const replaced = template.replace(/\{\{(\w+)\}\}/g, (_, key) => {
+    const raw = vars[key as VariableKey];
+    if (raw === undefined || raw === null || raw === '') {
+      missing.push(key);
+      return '';
+    }
+    return String(raw);
+  });
+  if (missing.length > 0) {
+    console.warn(
+      `[notifications] Missing template variables in render: ${Array.from(new Set(missing)).join(', ')}`,
+    );
+  }
+  // Clean up artefacts caused by removed variables.
+  return replaced
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\s+([,.;:!?])/g, '$1')
+    .replace(/\(\s*\)/g, '')
+    .trim();
 }
 
 // ─── Email sender (reuses existing outbound config logic) ─────────────────────
