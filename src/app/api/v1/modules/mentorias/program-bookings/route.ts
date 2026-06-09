@@ -3,7 +3,6 @@ import { authenticateRequest } from '@/server/auth/request-auth';
 import { withClient, withRoleContext } from '@/server/db/pool';
 import type { ScheduleProgramMentorshipInput } from '@/features/mentorias/service';
 import { scheduleProgramMentorship } from '@/features/mentorias/service';
-import { sendMentorshipScheduledEmail } from '@/features/mentorias/email';
 import { errorResponse, logModuleAudit, parseJsonBody, unauthorizedResponse } from '../../_utils';
 
 export async function POST(request: Request) {
@@ -34,12 +33,10 @@ export async function POST(request: Request) {
       }),
     );
 
-    // Send emails with a dedicated client so the main transaction is already committed
-    withClient((emailClient) =>
-      withRoleContext(emailClient, identity.userId, identity.role, () =>
-        sendMentorshipScheduledEmail(emailClient, identity, data),
-      ),
-    ).catch((err) => console.error('[email] mentorship scheduled email failed:', err));
+    // Emails y notificaciones in-app se disparan dentro de scheduleProgramMentorship
+    // vía el engine de notificaciones (mentorias.session_scheduled_mentee / _mentor),
+    // que renderiza desde plantillas configurables en Admin → Notificaciones.
+    // No enviamos emails hardcoded para evitar duplicados.
 
     return NextResponse.json({ ok: true, data }, { status: 201 });
   } catch (error) {

@@ -3,7 +3,6 @@ import { authenticateRequest } from '@/server/auth/request-auth';
 import { withClient, withRoleContext } from '@/server/db/pool';
 import type { ParticipateGroupSessionInput } from '@/features/mentorias/service';
 import { participateInGroupSession } from '@/features/mentorias/service';
-import { sendGroupSessionJoinedEmail } from '@/features/mentorias/email';
 import { errorResponse, logModuleAudit, parseJsonBody, unauthorizedResponse } from '../../../../_utils';
 
 interface ContextParams {
@@ -36,13 +35,9 @@ export async function POST(request: Request, context: ContextParams) {
       }),
     );
 
-    if (body.status === 'joined') {
-      withClient((client) =>
-        withRoleContext(client, identity.userId, 'gestor', () =>
-          sendGroupSessionJoinedEmail(client, identity, data),
-        ),
-      ).catch((err) => console.error('[email] group session confirmation failed:', err));
-    }
+    // Email + in-app de confirmación se disparan dentro de participateInGroupSession
+    // vía el engine (mentorias.group_session_joined). No emails hardcoded para
+    // evitar duplicados.
 
     return NextResponse.json({ ok: true, data }, { status: 200 });
   } catch (error) {

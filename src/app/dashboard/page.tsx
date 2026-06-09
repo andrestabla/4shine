@@ -235,6 +235,35 @@ export default function DashboardHomePage() {
   const newsUpdates = bootstrapData.newsUpdates;
   const quote = bootstrapData.quotes[0];
   const mentorshipCount = bootstrapData.mentorships.length;
+
+  // Próximas mentorías programadas — alimentan también el bloque de Novedades
+  // tanto para el líder (muestra el adviser) como para el adviser (muestra el mentee).
+  const upcomingMentorshipsNovedades = React.useMemo(() => {
+    const isAdviser = currentRole === 'mentor';
+    const now = new Date();
+    return bootstrapData.mentorships
+      .filter((m) => m.status === 'scheduled')
+      .filter((m) => {
+        try {
+          // m.date puede venir como ISO o como "DD MMM YYYY"; intentamos parse.
+          const parsed = new Date(`${m.date} ${m.time || ''}`.trim());
+          if (!Number.isNaN(parsed.getTime())) return parsed.getTime() > now.getTime();
+          return new Date(m.date).getTime() > now.getTime();
+        } catch {
+          return true;
+        }
+      })
+      .slice(0, 2)
+      .map((m) => ({
+        id: `mentoria-${m.id}`,
+        category: 'Próxima mentoría',
+        title: isAdviser
+          ? `${m.title} · con ${m.mentee ?? 'el líder'}`
+          : `${m.title} · con ${m.mentor}`,
+        date: `${m.date}${m.time ? ` · ${m.time}` : ''}`,
+        href: '/dashboard/mentorias',
+      }));
+  }, [bootstrapData.mentorships, currentRole]);
   const learningCount = bootstrapData.learningContent.length;
   const menteesCount = bootstrapData.mentees.length;
 
@@ -599,7 +628,20 @@ export default function DashboardHomePage() {
           <section className="app-panel p-5 sm:p-6">
             <p className="app-section-kicker">Novedades</p>
             <div className="mt-4 space-y-3">
-              {newsUpdates.slice(0, 3).map((news) => (
+              {upcomingMentorshipsNovedades.map((item) => (
+                <Link
+                  key={item.id}
+                  href={item.href}
+                  className="block rounded-[14px] border border-[var(--brand-primary)]/30 bg-[var(--brand-primary)]/5 px-4 py-3 transition hover:border-[var(--brand-primary)] hover:bg-[var(--brand-primary)]/10"
+                >
+                  <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-[var(--brand-primary)]">
+                    {item.category}
+                  </p>
+                  <p className="mt-1 font-semibold text-[var(--app-ink)]">{item.title}</p>
+                  <p className="mt-1 text-xs text-[var(--app-muted)]">{item.date}</p>
+                </Link>
+              ))}
+              {newsUpdates.slice(0, Math.max(1, 3 - upcomingMentorshipsNovedades.length)).map((news) => (
                 <article
                   key={news.id}
                   className="rounded-[14px] border border-[var(--app-border)] bg-white/75 px-4 py-3"
@@ -611,7 +653,7 @@ export default function DashboardHomePage() {
                   <p className="mt-1 text-xs text-[var(--app-muted)]">{news.date}</p>
                 </article>
               ))}
-              {newsUpdates.length === 0 ? (
+              {newsUpdates.length === 0 && upcomingMentorshipsNovedades.length === 0 ? (
                 <p className="text-sm text-[var(--app-muted)]">No hay novedades por ahora.</p>
               ) : null}
             </div>

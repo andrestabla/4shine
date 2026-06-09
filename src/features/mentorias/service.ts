@@ -2760,8 +2760,14 @@ export async function scheduleProgramMentorship(
         `SELECT email::text FROM app_core.users WHERE user_id = $1::uuid LIMIT 1`,
         [input.mentorUserId],
       );
+      // Topic: "<título de la mentoría> · <nombre del líder>"
+      // Ayuda al adviser a identificar rápidamente la sesión en su calendar Zoom.
+      const leaderName = (actor.name ?? '').trim();
+      const zoomTopic = leaderName
+        ? `${entitlement.title} · ${leaderName}`
+        : entitlement.title;
       const zoom = await createZoomMeeting(client, actor.userId, {
-        topic: entitlement.title,
+        topic: zoomTopic,
         startsAt: input.startsAt,
         durationMinutes: entitlement.defaultDurationMinutes,
         hostEmail: hostRows[0]?.email ?? undefined,

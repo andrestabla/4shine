@@ -4,7 +4,6 @@ import { withClient, withRoleContext } from '@/server/db/pool';
 import type { UpdateMentorshipInput } from '@/features/mentorias/service';
 import { deleteMentorship, updateMentorship } from '@/features/mentorias/service';
 import { deleteZoomMeeting } from '@/server/integrations/zoom';
-import { sendMentorshipCancelledEmail } from '@/features/mentorias/email';
 import { errorResponse, logModuleAudit, parseJsonBody, unauthorizedResponse } from '../../_utils';
 
 interface ContextParams {
@@ -62,15 +61,9 @@ export async function PATCH(request: Request, context: ContextParams) {
         ).catch((err) => console.error('[zoom] delete meeting failed:', err));
       }
 
-      // Notify lider (fire-and-forget, dedicated client)
-      withClient((emailClient) =>
-        withRoleContext(emailClient, identity.userId, identity.role, () =>
-          sendMentorshipCancelledEmail(emailClient, identity, data, {
-            reason: body.changeReason ?? '',
-            proposedStartsAt: body.proposedStartsAt ?? null,
-          }),
-        ),
-      ).catch((err) => console.error('[email] cancellation email failed:', err));
+      // Notificación de cancelación (email + in-app) se dispara dentro de
+      // updateMentorship vía el engine (mentorias.session_cancelled_mentee).
+      // No emails hardcoded para evitar duplicados.
     }
 
     return NextResponse.json({ ok: true, data }, { status: 200 });
