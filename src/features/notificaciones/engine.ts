@@ -244,9 +244,24 @@ async function sendTemplateEmail(
     }
   }
   // Fallback: si no era SES SMTP o no se pudo parsear, usar el header Message-ID.
-  if (!messageId && typeof result.messageId === 'string') {
-    messageId = result.messageId.replace(/^<|>$/g, '').split('@')[0] ?? result.messageId;
-  }
+  const headerMessageId =
+    typeof result.messageId === 'string'
+      ? (result.messageId.replace(/^<|>$/g, '').split('@')[0] ?? result.messageId)
+      : null;
+  if (!messageId) messageId = headerMessageId;
+  // Log explícito para verificación post-deploy. Aparece en Vercel Logs por
+  // cada email enviado. Permite confirmar que el SES messageId real se está
+  // guardando (no el UUID local de nodemailer).
+  console.log(
+    '[notif/engine] sendMail OK',
+    JSON.stringify({
+      isSesSmtp,
+      configurationSetApplied: Boolean(headers),
+      response: typeof result.response === 'string' ? result.response.substring(0, 120) : null,
+      headerMessageIdNormalized: headerMessageId,
+      savedAsProviderMessageId: messageId,
+    }),
+  );
   return messageId;
 }
 

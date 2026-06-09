@@ -115,7 +115,20 @@ export async function POST(request: Request) {
         });
         break;
       default:
+        console.log(
+          `[SES webhook] event ignored: type=${event.eventType} messageId=${providerMessageId}`,
+        );
         return NextResponse.json({ ok: true, ignored: event.eventType });
+    }
+    // Log explícito del resultado para diagnosticar match issues.
+    console.log(
+      `[SES webhook] applied event: type=${event.eventType} messageId=${providerMessageId} updated=${updated}`,
+    );
+    if (updated === 0) {
+      console.warn(
+        `[SES webhook] ⚠️ NO MATCH: messageId=${providerMessageId} no coincide con ningún provider_message_id en app_core.notifications. ` +
+          `Verifica que sendTemplateEmail guarde el SES Message-ID real (parseado de result.response) y no el UUID local de nodemailer.`,
+      );
     }
     return NextResponse.json({ ok: true, updated });
   } catch (error) {
