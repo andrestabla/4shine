@@ -61,7 +61,9 @@ export function ActivityPlayer({ contentId }: { contentId: string }) {
     if (!attemptId || !activity) return;
     setSubmitting(true);
     try {
-      const payload: SubmitAnswerInput[] = activity.questions.map((q) => ({
+      const payload: SubmitAnswerInput[] = (activity.questions ?? [])
+        .filter((q): q is NonNullable<typeof q> => Boolean(q && q.questionId))
+        .map((q) => ({
         questionId: q.questionId,
         answer: answers[q.questionId] ?? null,
       }));
@@ -83,14 +85,23 @@ export function ActivityPlayer({ contentId }: { contentId: string }) {
   if (loading) return <p className="text-sm text-[var(--app-muted)]">Cargando actividad…</p>;
   if (!activity) return null;
 
+  // Defensive: el backend a veces devuelve arrays con elementos null/undefined;
+  // filtramos para evitar crashes downstream.
+  const safeAttempts = Array.isArray(activity.userAttempts)
+    ? activity.userAttempts.filter((a): a is NonNullable<typeof a> => Boolean(a))
+    : [];
+  const safeQuestions = Array.isArray(activity.questions)
+    ? activity.questions.filter((q): q is NonNullable<typeof q> => Boolean(q && q.questionId))
+    : [];
+
   const passed = result?.passed ?? null;
-  const bestPrevious = activity.userAttempts
+  const bestPrevious = safeAttempts
     .filter((a) => a.status === 'submitted')
     .reduce<number | null>((max, a) => {
       if (a.scorePercent == null) return max;
       return max == null || a.scorePercent > max ? a.scorePercent : max;
     }, null);
-  const attemptsUsed = activity.userAttempts.filter((a) => a.status === 'submitted').length;
+  const attemptsUsed = safeAttempts.filter((a) => a.status === 'submitted').length;
   const attemptsExhausted =
     activity.maxAttempts > 0 && attemptsUsed >= activity.maxAttempts && phase === 'intro';
 
@@ -107,7 +118,7 @@ export function ActivityPlayer({ contentId }: { contentId: string }) {
       {phase === 'intro' && (
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Stat label="Preguntas" value={String(activity.questions.length)} />
+            <Stat label="Preguntas" value={String(safeQuestions.length)} />
             <Stat label="Aprobar con" value={`${activity.passingScore}%`} />
             <Stat
               label="Intentos"
@@ -138,7 +149,7 @@ export function ActivityPlayer({ contentId }: { contentId: string }) {
 
       {phase === 'playing' && (
         <div className="space-y-4">
-          {activity.questions.map((q, idx) => (
+          {safeQuestions.map((q, idx) => (
             <PlayerQuestion
               key={q.questionId}
               index={idx}
@@ -196,7 +207,7 @@ export function ActivityPlayer({ contentId }: { contentId: string }) {
             </p>
           </div>
           <div className="space-y-2">
-            {activity.questions.map((q, idx) => {
+            {safeQuestions.map((q, idx) => {
               const pq = result.perQuestion.find((r) => r.questionId === q.questionId);
               if (!pq) return null;
               return (
@@ -445,7 +456,8 @@ function OrderingInput({
   value: unknown;
   onChange: (v: unknown) => void;
 }) {
-  const items = ((payload as { items?: { id: string; text: string }[] })?.items) ?? [];
+  const rawItems = ((payload as { items?: { id: string; text: string }[] })?.items) ?? [];
+  const items = rawItems.filter((i): i is { id: string; text: string } => Boolean(i && i.id));
   const initialOrder = items.map((i) => i.id);
   const currentOrder: string[] =
     Array.isArray((value as { order?: string[] } | null)?.order) &&
@@ -525,8 +537,10 @@ function MatchingInput({
   value: unknown;
   onChange: (v: unknown) => void;
 }) {
-  const left: NamedItem[] = ((payload as { leftItems?: NamedItem[] })?.leftItems) ?? [];
-  const rightRaw: NamedItem[] = ((payload as { rightItems?: NamedItem[] })?.rightItems) ?? [];
+  const rawLeft = ((payload as { leftItems?: NamedItem[] })?.leftItems) ?? [];
+  const rawRight = ((payload as { rightItems?: NamedItem[] })?.rightItems) ?? [];
+  const left: NamedItem[] = rawLeft.filter((i): i is NamedItem => Boolean(i && i.id));
+  const rightRaw: NamedItem[] = rawRight.filter((i): i is NamedItem => Boolean(i && i.id));
   const right = React.useMemo(
     () => shuffled(rightRaw, rightRaw.map((r) => r.id).join('|')),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -643,8 +657,12 @@ function ClassificationInput({
   value: unknown;
   onChange: (v: unknown) => void;
 }) {
-  const buckets: Array<{ id: string; label: string }> = ((payload as { buckets?: Array<{ id: string; label: string }> })?.buckets) ?? [];
-  const itemsRaw: NamedItem[] = ((payload as { items?: NamedItem[] })?.items) ?? [];
+  const rawBuckets = ((payload as { buckets?: Array<{ id: string; label: string }> })?.buckets) ?? [];
+  const rawItemsClass = ((payload as { items?: NamedItem[] })?.items) ?? [];
+  const buckets = rawBuckets.filter(
+    (b): b is { id: string; label: string } => Boolean(b && b.id),
+  );
+  const itemsRaw: NamedItem[] = rawItemsClass.filter((i): i is NamedItem => Boolean(i && i.id));
   const items = React.useMemo(
     () => shuffled(itemsRaw, itemsRaw.map((i) => i.id).join('|')),
     // eslint-disable-next-line react-hooks/exhaustive-deps
