@@ -348,15 +348,157 @@ function ProgramsSection({ programs, moduleGroups }: ProgramsSectionProps) {
         Cada programa da acceso completo a la plataforma. Lo que varía es la intensidad del acompañamiento, las sesiones incluidas y la duración de la suscripción.
       </p>
 
+      {/* Mobile (<md): stack de cards por plan */}
+      <div className="space-y-4 md:hidden">
+        {programs.map((p) => {
+          const highlighted = Boolean(p.highlightLabel);
+          return (
+            <div
+              key={p.planId}
+              className="overflow-hidden rounded-2xl"
+              style={{
+                border: highlighted
+                  ? '2px solid var(--brand-accent)'
+                  : '1px solid var(--brand-border)',
+                background: 'white',
+                boxShadow: '0 6px 24px rgba(42,20,68,0.06)',
+              }}
+            >
+              <div
+                className="px-5 py-5 text-center"
+                style={
+                  highlighted
+                    ? { background: 'var(--brand-dark)', color: 'white' }
+                    : { background: 'var(--brand-surface)' }
+                }
+              >
+                {p.highlightLabel && (
+                  <span
+                    className="mb-2 inline-block rounded-full px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider"
+                    style={{
+                      background: 'var(--brand-accent)',
+                      color: 'var(--brand-on-accent)',
+                    }}
+                  >
+                    {p.highlightLabel}
+                  </span>
+                )}
+                <p
+                  className="text-base font-black"
+                  style={{
+                    color: highlighted ? 'white' : 'var(--brand-primary)',
+                  }}
+                >
+                  {p.name}
+                </p>
+                <p
+                  className="mt-1 text-3xl font-black"
+                  style={{
+                    color: highlighted ? 'var(--brand-accent)' : 'var(--brand-primary)',
+                  }}
+                >
+                  {formatPrice(p.priceAmount)}{' '}
+                  <span
+                    className="text-xs font-semibold"
+                    style={{ color: highlighted ? 'rgba(255,255,255,0.7)' : 'var(--brand-ink-muted)' }}
+                  >
+                    {p.currencyCode}
+                  </span>
+                </p>
+                <p
+                  className="mt-1 text-xs font-semibold"
+                  style={{ color: highlighted ? 'rgba(255,255,255,0.7)' : 'var(--brand-ink-muted)' }}
+                >
+                  {formatDuration(p.durationDays)}
+                </p>
+              </div>
+
+              <div className="px-5 py-4">
+                {moduleGroups.map((group) => (
+                  <div key={group.moduleCode} className="mb-3 last:mb-0">
+                    <p
+                      className="mb-1 text-[10px] font-extrabold uppercase tracking-widest"
+                      style={{ color: 'var(--brand-ink-muted)' }}
+                    >
+                      {group.moduleLabel}
+                    </p>
+                    <ul className="space-y-1">
+                      {group.features.map((def) => {
+                        const f = p.features.find((x) => x.featureKey === def.key);
+                        const enabled = f?.isEnabled ?? false;
+                        const quota = f?.quota;
+                        return (
+                          <li key={def.key} className="flex items-start justify-between gap-2 text-sm">
+                            <span style={{ color: 'var(--brand-ink-soft)' }}>{def.label}</span>
+                            <span className="shrink-0">
+                              {enabled ? (
+                                quota ? (
+                                  <span
+                                    className="font-extrabold"
+                                    style={{ color: 'var(--brand-primary)' }}
+                                  >
+                                    {quota}
+                                  </span>
+                                ) : (
+                                  <Check
+                                    size={16}
+                                    strokeWidth={2.5}
+                                    style={{ color: 'var(--brand-primary)' }}
+                                  />
+                                )
+                              ) : (
+                                <X
+                                  size={14}
+                                  style={{ color: 'var(--brand-ink-muted)', opacity: 0.55 }}
+                                />
+                              )}
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+
+              <div className="border-t px-5 py-4 text-center" style={{ borderColor: 'var(--brand-border)' }}>
+                <Link
+                  href={`/acceso?plan=${encodeURIComponent(p.planCode)}`}
+                  className="inline-block w-full rounded-full px-6 py-3 text-sm font-extrabold transition"
+                  style={
+                    highlighted
+                      ? {
+                          background: 'var(--brand-accent)',
+                          color: 'var(--brand-on-accent)',
+                        }
+                      : {
+                          border: '2px solid var(--brand-primary)',
+                          color: 'var(--brand-primary)',
+                          background: 'transparent',
+                        }
+                  }
+                >
+                  Comenzar
+                </Link>
+                <p className="mt-2 text-[10px]" style={{ color: 'var(--brand-ink-muted)' }}>
+                  * Precio único. Sin cuotas ocultas.
+                </p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Desktop (md+): tabla comparativa */}
       <div
-        className="overflow-x-auto rounded-2xl"
+        className="hidden overflow-x-auto rounded-2xl md:block"
         style={{
           border: '1px solid var(--brand-border)',
           background: 'white',
           boxShadow: '0 8px 40px rgba(42,20,68,0.07)',
         }}
       >
-        <table className="w-full min-w-[720px] border-collapse">
+        <table className="w-full border-collapse">
           <thead>
             <tr style={{ borderBottom: '1px solid var(--brand-border)' }}>
               <th className="w-56 px-6 py-6 text-left" />

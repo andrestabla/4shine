@@ -238,14 +238,30 @@ export default function LoginPage() {
       },
     });
 
+    // Width responsive: si el container es más angosto que 400 (móviles <432px),
+    // ajustar al ancho disponible para evitar overflow horizontal.
+    const containerWidth = googleButtonRef.current.parentElement?.clientWidth ?? 400;
+    const buttonWidth = Math.max(240, Math.min(400, containerWidth));
     window.google.accounts.id.renderButton(googleButtonRef.current, {
       theme: isCenteredImageLayout ? 'filled_black' : 'outline',
       size: 'large',
-      width: 400,
+      width: buttonWidth,
       locale: 'es',
       text: mode === 'register' ? 'signup_with' : 'signin_with',
     } as Parameters<typeof window.google.accounts.id.renderButton>[1]);
   }, [googleClientId, isCenteredImageLayout, alert, applySession, router, mode]);
+
+  // Re-render Google button on resize (so width adapts to orientation changes).
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handler = () => {
+      if ((mode === 'login' || mode === 'register') && googleButtonRef.current && window.google?.accounts?.id) {
+        initGoogleButton();
+      }
+    };
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, [mode, initGoogleButton]);
 
   React.useEffect(() => {
     if ((mode === 'login' || mode === 'register') && googleButtonRef.current && window.google?.accounts?.id) {

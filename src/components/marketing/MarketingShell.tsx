@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { getSitePages } from '@/lib/site-settings';
 import { loadServerBranding } from '@/lib/server-branding';
+import { MarketingMobileNav } from './MarketingMobileNav';
 
 type NavItem = {
   href: string;
@@ -71,17 +72,20 @@ export async function MarketingShell({ title, subtitle, children }: { title: str
               ))}
             </nav>
           )}
-          <Link
-            href="/acceso"
-            className="px-5 py-2 text-sm font-bold transition hover:opacity-90"
-            style={{
-              background: 'var(--brand-accent)',
-              color: 'var(--brand-on-accent)',
-              borderRadius: 'calc(var(--brand-radius-rem) * 1rem + 0.5rem)',
-            }}
-          >
-            Iniciar sesión
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/acceso"
+              className="hidden px-5 py-2 text-sm font-bold transition hover:opacity-90 md:inline-block"
+              style={{
+                background: 'var(--brand-accent)',
+                color: 'var(--brand-on-accent)',
+                borderRadius: 'calc(var(--brand-radius-rem) * 1rem + 0.5rem)',
+              }}
+            >
+              Iniciar sesión
+            </Link>
+            <MarketingMobileNav items={navItems} />
+          </div>
         </div>
       </header>
 

@@ -313,7 +313,9 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
       <aside
         data-dashboard-sidebar
         className={clsx(
-          "fixed inset-y-0 left-0 z-30 flex h-screen flex-col overflow-x-hidden border-r shadow-[0_18px_40px_rgba(31,16,41,0.18)] transition-all duration-300 md:static md:h-screen",
+          // h-[100dvh] usa el dynamic viewport height (importante en mobile Safari/Chrome
+          // donde 100vh incluye la barra del navegador y empuja el footer fuera de pantalla).
+          "fixed inset-y-0 left-0 z-30 flex h-[100dvh] flex-col overflow-x-hidden border-r shadow-[0_18px_40px_rgba(31,16,41,0.18)] transition-all duration-300 md:static md:h-screen",
           isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
           isCollapsed ? "w-20" : "w-[17.75rem]",
         )}
@@ -403,7 +405,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           </button>
         </div>
 
-        <nav className="flex-1 space-y-4 overflow-y-auto overflow-x-hidden p-4">
+        <nav className="flex-1 min-h-0 space-y-4 overflow-y-auto overflow-x-hidden p-4">
           {mainNavItems.length > 0 ? (
             <div className="space-y-1">{mainNavItems.map(navItem)}</div>
           ) : (
@@ -429,7 +431,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           )}
         </nav>
 
-        <div className="border-t p-4" style={{ borderColor }}>
+        <div className="shrink-0 border-t p-4" style={{ borderColor, background: shellGradient }}>
           <Link
             href="/dashboard/perfil"
             onClick={onClose}
