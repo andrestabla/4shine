@@ -29,6 +29,11 @@ const ActivityPlayer = dynamic(
   () => import("@/components/aprendizaje/ActivityPlayer").then((mod) => ({ default: mod.ActivityPlayer })),
   { ssr: false, loading: () => <p className="text-sm text-[var(--app-muted)]">Cargando actividad…</p> },
 );
+
+const AssignmentPlayer = dynamic(
+  () => import("@/components/aprendizaje/AssignmentPlayer").then((mod) => ({ default: mod.AssignmentPlayer })),
+  { ssr: false, loading: () => <p className="text-sm text-[var(--app-muted)]">Cargando tarea…</p> },
+);
 import { CertificateBuilderPreview } from "@/components/aprendizaje/CertificateBuilder";
 import { LearningResourceCard } from "@/components/aprendizaje/LearningResourceCard";
 import { EmptyState } from "@/components/dashboard/EmptyState";
@@ -1223,6 +1228,43 @@ export default function LearningResourceDetailPage() {
         </div>
         <ActivityErrorBoundary>
           <ActivityPlayer contentId={resource.contentId} />
+        </ActivityErrorBoundary>
+      </div>
+    );
+  }
+
+  // 1b. ASSIGNMENT LAYOUT (early return — solo header + player)
+  if (resource.contentType === "assignment") {
+    return (
+      <div className="flex w-full flex-col gap-6 animate-fade-in">
+        <div className="flex items-center justify-between">
+          <Link
+            href={backHref}
+            className="inline-flex items-center gap-2 rounded-full bg-[var(--app-surface-muted)] px-4 py-2 text-sm font-bold text-[var(--app-ink)] transition hover:bg-white hover:text-[var(--brand-primary)]"
+          >
+            <ArrowLeft size={16} />
+            Volver
+          </Link>
+          {canManage && (
+            <div className="flex items-center gap-2">
+              <Link
+                href={`/dashboard/contenido/${resource.contentId}/tarea`}
+                className="app-button-secondary !h-9 !px-3"
+              >
+                <Pencil size={14} />
+                <span className="hidden sm:inline">Editar tarea</span>
+              </Link>
+            </div>
+          )}
+        </div>
+        <div>
+          <h1 className="text-2xl font-black text-[var(--app-ink)] sm:text-3xl">{resource.title}</h1>
+          {resource.description && (
+            <p className="mt-1 text-sm text-[var(--app-muted)]">{resource.description}</p>
+          )}
+        </div>
+        <ActivityErrorBoundary>
+          <AssignmentPlayer contentId={resource.contentId} />
         </ActivityErrorBoundary>
       </div>
     );

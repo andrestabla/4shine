@@ -605,13 +605,22 @@ export default function ContenidoPage() {
                                 <Eye size={13} />
                                 Visualizar
                               </Link>
-                              {canUpdateItem && (
+                              {canUpdateItem && item.contentType === 'activity' && (
                                 <Link
                                   href={`/dashboard/contenido/${item.contentId}/actividad`}
                                   className="flex items-center gap-2 rounded-[8px] px-3 py-2 text-xs font-semibold text-[var(--app-ink)] hover:bg-[var(--app-surface-muted)]"
                                 >
                                   <Trophy size={13} />
                                   Editar actividad
+                                </Link>
+                              )}
+                              {canUpdateItem && item.contentType === 'assignment' && (
+                                <Link
+                                  href={`/dashboard/contenido/${item.contentId}/tarea`}
+                                  className="flex items-center gap-2 rounded-[8px] px-3 py-2 text-xs font-semibold text-[var(--app-ink)] hover:bg-[var(--app-surface-muted)]"
+                                >
+                                  <ClipboardCheck size={13} />
+                                  Editar tarea
                                 </Link>
                               )}
                               {canUpdateItem && (
@@ -717,13 +726,22 @@ export default function ContenidoPage() {
                           <Eye size={11} />
                           Visualizar
                         </Link>
-                        {canUpdateItem && (
+                        {canUpdateItem && item.contentType === 'activity' && (
                           <Link
                             href={`/dashboard/contenido/${item.contentId}/actividad`}
                             className="inline-flex items-center gap-1 rounded-[10px] border border-[var(--app-border)] bg-white px-2.5 py-1 text-[11px] font-semibold text-[var(--app-ink)]"
                           >
                             <Trophy size={11} />
                             Actividad
+                          </Link>
+                        )}
+                        {canUpdateItem && item.contentType === 'assignment' && (
+                          <Link
+                            href={`/dashboard/contenido/${item.contentId}/tarea`}
+                            className="inline-flex items-center gap-1 rounded-[10px] border border-[var(--app-border)] bg-white px-2.5 py-1 text-[11px] font-semibold text-[var(--app-ink)]"
+                          >
+                            <ClipboardCheck size={11} />
+                            Tarea
                           </Link>
                         )}
                         {canUpdateItem && (
