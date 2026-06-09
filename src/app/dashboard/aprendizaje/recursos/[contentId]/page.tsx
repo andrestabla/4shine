@@ -22,7 +22,13 @@ import {
   Download,
 } from "lucide-react";
 
-import { ActivityPlayer } from "@/components/aprendizaje/ActivityPlayer";
+import dynamic from "next/dynamic";
+import { ActivityErrorBoundary } from "@/components/aprendizaje/ActivityErrorBoundary";
+
+const ActivityPlayer = dynamic(
+  () => import("@/components/aprendizaje/ActivityPlayer").then((mod) => ({ default: mod.ActivityPlayer })),
+  { ssr: false, loading: () => <p className="text-sm text-[var(--app-muted)]">Cargando actividad…</p> },
+);
 import { CertificateBuilderPreview } from "@/components/aprendizaje/CertificateBuilder";
 import { LearningResourceCard } from "@/components/aprendizaje/LearningResourceCard";
 import { EmptyState } from "@/components/dashboard/EmptyState";
@@ -1215,7 +1221,9 @@ export default function LearningResourceDetailPage() {
             <p className="mt-1 text-sm text-[var(--app-muted)]">{resource.description}</p>
           )}
         </div>
-        <ActivityPlayer contentId={resource.contentId} />
+        <ActivityErrorBoundary>
+          <ActivityPlayer contentId={resource.contentId} />
+        </ActivityErrorBoundary>
       </div>
     );
   }
