@@ -1446,15 +1446,19 @@ export async function sendVerificationEmail(
 
       // branding_settings has a public SELECT policy — no user context required
       const brandingQuery = organizationId
-        ? `SELECT platform_name, logo_url FROM app_admin.branding_settings WHERE organization_id = $1::uuid LIMIT 1`
-        : `SELECT platform_name, logo_url FROM app_admin.branding_settings ORDER BY updated_at DESC LIMIT 1`;
+        ? `SELECT platform_name, logo_url, logo_dark_url FROM app_admin.branding_settings WHERE organization_id = $1::uuid LIMIT 1`
+        : `SELECT platform_name, logo_url, logo_dark_url FROM app_admin.branding_settings ORDER BY updated_at DESC LIMIT 1`;
       const brandingParams = organizationId ? [organizationId] : [];
-      const { rows: brandingRows } = await client.query<{ platform_name: string; logo_url: string | null }>(
+      const { rows: brandingRows } = await client.query<{ platform_name: string; logo_url: string | null; logo_dark_url: string | null }>(
         brandingQuery,
         brandingParams,
       );
       if (brandingRows[0]) {
-        branding = { platformName: brandingRows[0].platform_name || '4Shine', logoUrl: brandingRows[0].logo_url ?? null };
+        branding = {
+          platformName: brandingRows[0].platform_name || '4Shine',
+          // Header del email es oscuro: preferir logo alterno (logo_dark_url).
+          logoUrl: brandingRows[0].logo_dark_url ?? brandingRows[0].logo_url ?? null,
+        };
       }
 
       await client.query('COMMIT');
@@ -2202,12 +2206,13 @@ export async function resetUserPassword(
     throw new Error('No fue posible actualizar la contraseña');
   }
 
-  const { rows: brandingRows } = await client.query<{ platform_name: string; logo_url: string | null }>(
-    `SELECT platform_name, logo_url FROM app_admin.branding_settings ORDER BY updated_at DESC LIMIT 1`,
+  const { rows: brandingRows } = await client.query<{ platform_name: string; logo_url: string | null; logo_dark_url: string | null }>(
+    `SELECT platform_name, logo_url, logo_dark_url FROM app_admin.branding_settings ORDER BY updated_at DESC LIMIT 1`,
   );
   const branding: EmailBranding = {
     platformName: brandingRows[0]?.platform_name || '4Shine',
-    logoUrl: brandingRows[0]?.logo_url ?? null,
+    // Header del email es oscuro: preferir logo alterno (logo_dark_url).
+    logoUrl: brandingRows[0]?.logo_dark_url ?? brandingRows[0]?.logo_url ?? null,
   };
 
   const payload = buildPasswordResetPayload(outboundConfig, user.email, user.displayName, temporaryPassword, branding);

@@ -129,6 +129,7 @@ interface BrandingRow {
   primary_color: string;
   accent_color: string;
   logo_url: string | null;
+  logo_dark_url: string | null;
 }
 
 const DISCOVERY_TEST_CODE = "diagnostico_4shine";
@@ -1476,7 +1477,8 @@ async function getBrandingForOrganization(
         platform_name,
         primary_color,
         accent_color,
-        logo_url
+        logo_url,
+        logo_dark_url
       FROM app_admin.branding_settings
       WHERE organization_id = $1::uuid
       LIMIT 1
@@ -1490,6 +1492,7 @@ async function getBrandingForOrganization(
       primary_color: "#311f44",
       accent_color: "#f59e0b",
       logo_url: null,
+      logo_dark_url: null,
     }
   );
 }
@@ -2393,7 +2396,10 @@ export async function createDiscoveryInvitations(
     });
 
     const inviteUrl = `${baseUrl}/descubrimiento/invitacion/${inviteToken}`;
+    // Header del email es oscuro: preferir logo_dark_url (logo alterno) para
+    // garantizar contraste; fallback al logo principal y luego al diamante.
     const platformLogoUrl =
+      branding.logo_dark_url?.trim() ||
       branding.logo_url?.trim() ||
       `${baseUrl}/workbooks-v2/diamond.svg`;
     const params = {
@@ -4156,12 +4162,13 @@ export async function sendDiscoveryReportEmail(
     throw new Error("El servicio de correo no está configurado para esta organización.");
   }
 
-  const { rows: brandingRows } = await client.query<{ platform_name: string; logo_url: string | null }>(
-    `SELECT platform_name, logo_url FROM app_admin.branding_settings ORDER BY updated_at DESC LIMIT 1`,
+  const { rows: brandingRows } = await client.query<{ platform_name: string; logo_url: string | null; logo_dark_url: string | null }>(
+    `SELECT platform_name, logo_url, logo_dark_url FROM app_admin.branding_settings ORDER BY updated_at DESC LIMIT 1`,
   );
   const branding = {
     platformName: brandingRows[0]?.platform_name || "4Shine",
-    logoUrl: brandingRows[0]?.logo_url ?? null,
+    // Header del email es oscuro: usar logo alterno si está disponible.
+    logoUrl: brandingRows[0]?.logo_dark_url ?? brandingRows[0]?.logo_url ?? null,
   };
 
   const baseUrl = resolveAppBaseUrl();
@@ -6386,7 +6393,11 @@ export async function resendDiscoveryInvitation(
   const session = invRow.session_payload ? mapDiscoverySessionRow(invRow.session_payload) : null;
   const baseUrl = resolveAppBaseUrl();
   const inviteUrl = `${baseUrl}/descubrimiento/invitacion/${newInviteToken}`;
-  const platformLogoUrl = branding.logo_url?.trim() || `${baseUrl}/workbooks-v2/diamond.svg`;
+  // Header oscuro: preferir logo alterno (logo_dark_url) sobre el principal.
+  const platformLogoUrl =
+    branding.logo_dark_url?.trim() ||
+    branding.logo_url?.trim() ||
+    `${baseUrl}/workbooks-v2/diamond.svg`;
 
   const params = {
     recipient_email: invRow.invited_email,

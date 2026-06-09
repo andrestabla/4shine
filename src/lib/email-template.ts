@@ -1,6 +1,9 @@
 export interface EmailBranding {
   platformName: string;
+  /** Logo principal (sobre fondos claros). */
   logoUrl: string | null;
+  /** Logo alterno (sobre fondos oscuros). Si no se setea, se usa logoUrl. */
+  logoDarkUrl?: string | null;
   headerBg?: string;
   footerTagline?: string;
   footerSupport?: string;
@@ -31,8 +34,13 @@ export function buildBrandedEmailHtml(bodyHtml: string, branding: EmailBranding)
   const footerSupport = branding.footerSupport || 'soporte@4shine.co';
   const footerLegal = branding.footerLegal || '';
 
-  const headerContent = branding.logoUrl
-    ? `<img src="${branding.logoUrl}" alt="${platformName}" style="height:48px;width:auto;display:block;margin:0 auto;" />`
+  // El header del email tiene fondo oscuro — preferimos el logo alterno
+  // (logoDarkUrl) que está diseñado para contrastar. Si no hay logoDarkUrl,
+  // usamos logoUrl como fallback (degrada a invisible si es un logo de fondo
+  // claro, pero al menos no rompe el render).
+  const headerLogo = branding.logoDarkUrl?.trim() || branding.logoUrl?.trim() || null;
+  const headerContent = headerLogo
+    ? `<img src="${headerLogo}" alt="${platformName}" style="height:48px;width:auto;display:block;margin:0 auto;" />`
     : `<span style="color:#ffffff;font-size:22px;font-weight:700;letter-spacing:0.5px;">${platformName}</span>`;
 
   const processedBody = applyButtonStylesToLinks(bodyHtml, headerBg);
