@@ -17,6 +17,35 @@ export interface ProfileProjectRecord {
   imageUrl: string | null;
 }
 
+export type AdviserPillarCode = 'shine_within' | 'shine_out' | 'shine_up' | 'shine_beyond';
+
+export interface AdviserTopicRecord {
+  topicId: string;
+  topicLabel: string;
+  pillarCode: AdviserPillarCode;
+}
+
+export interface AdviserProfileRecord {
+  experiencia: string | null;
+  precioSesion: number | null;
+  currencyCode: string;
+  temas: AdviserTopicRecord[];
+}
+
+export interface AdviserTopicInput {
+  topicLabel: string;
+  pillarCode: AdviserPillarCode;
+}
+
+export interface AdviserProfileInput {
+  experiencia?: string | null;
+  precioSesion?: number | null;
+  temas?: AdviserTopicInput[];
+}
+
+export const ADVISER_PRECIO_MIN = 180000;
+export const ADVISER_PRECIO_MAX = 500000;
+
 export interface MyProfileRecord {
   userId: string;
   email: string;
@@ -52,6 +81,7 @@ export interface MyProfileRecord {
   interests: string[];
   projects: ProfileProjectRecord[];
   purchases: UserPurchaseRecord[];
+  adviserProfile: AdviserProfileRecord | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -82,6 +112,7 @@ export interface UpdateMyProfileInput {
   websiteUrl?: string | null;
   interests?: string[];
   projects?: ProfileProjectInput[];
+  adviserProfile?: AdviserProfileInput;
 }
 
 export interface ExtractProfileFromCvResult {

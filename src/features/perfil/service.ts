@@ -24,6 +24,42 @@ export interface ProfileProjectRecord {
   imageUrl: string | null;
 }
 
+export type AdviserPillarCode = 'shine_within' | 'shine_out' | 'shine_up' | 'shine_beyond';
+
+export interface AdviserTopicRecord {
+  topicId: string;
+  topicLabel: string;
+  pillarCode: AdviserPillarCode;
+}
+
+export interface AdviserProfileRecord {
+  experiencia: string | null;
+  precioSesion: number | null;
+  currencyCode: string;
+  temas: AdviserTopicRecord[];
+}
+
+export interface AdviserTopicInput {
+  topicLabel: string;
+  pillarCode: AdviserPillarCode;
+}
+
+export interface AdviserProfileInput {
+  experiencia?: string | null;
+  precioSesion?: number | null;
+  temas?: AdviserTopicInput[];
+}
+
+const ADVISER_PILLAR_SET = new Set<AdviserPillarCode>([
+  'shine_within',
+  'shine_out',
+  'shine_up',
+  'shine_beyond',
+]);
+
+const ADVISER_PRECIO_MIN = 180000;
+const ADVISER_PRECIO_MAX = 500000;
+
 export interface MyProfileRecord {
   userId: string;
   email: string;
@@ -59,6 +95,7 @@ export interface MyProfileRecord {
   interests: string[];
   projects: ProfileProjectRecord[];
   purchases: UserPurchaseRecord[];
+  adviserProfile: AdviserProfileRecord | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -89,6 +126,7 @@ export interface UpdateMyProfileInput {
   websiteUrl?: string | null;
   interests?: string[];
   projects?: ProfileProjectInput[];
+  adviserProfile?: AdviserProfileInput;
 }
 
 export interface ExtractProfileFromCvInput {
@@ -344,11 +382,159 @@ function extractYearsExperienceFromText(text: string): number | null {
   return Math.max(0, Math.min(80, Math.floor(parsed)));
 }
 
+function normalizePrecioSesion(value: number | null | undefined): number | null {
+  if (value === undefined || value === null) return null;
+  if (!Number.isFinite(value)) return null;
+  const intValue = Math.round(Number(value));
+  if (intValue < ADVISER_PRECIO_MIN || intValue > ADVISER_PRECIO_MAX) {
+    throw new Error(
+      `Precio sesión debe estar entre ${ADVISER_PRECIO_MIN.toLocaleString('es-CO')} y ${ADVISER_PRECIO_MAX.toLocaleString('es-CO')} COP.`,
+    );
+  }
+  return intValue;
+}
+
+function normalizeAdviserTopics(
+  input: AdviserTopicInput[] | undefined,
+): AdviserTopicInput[] | null {
+  if (!input) return null;
+  const cleaned: AdviserTopicInput[] = [];
+  for (const raw of input) {
+    const label = (raw?.topicLabel ?? '').trim();
+    const pillarCode = (raw?.pillarCode ?? '') as AdviserPillarCode;
+    if (!label) continue;
+    if (!ADVISER_PILLAR_SET.has(pillarCode)) {
+      throw new Error(`Pilar inválido para el tema "${label}".`);
+    }
+    cleaned.push({ topicLabel: label, pillarCode });
+    if (cleaned.length >= 20) break;
+  }
+  return cleaned;
+}
+
+interface AdviserMentorRow {
+  experiencia: string | null;
+  precio_sesion: number | null;
+  currency_code: string | null;
+}
+
+interface AdviserTopicRow {
+  topic_id: string;
+  topic_label: string;
+  pillar_code: AdviserPillarCode;
+}
+
+async function getAdviserProfile(
+  client: PoolClient,
+  userId: string,
+): Promise<AdviserProfileRecord | null> {
+  const { rows } = await client.query<AdviserMentorRow>(
+    `
+      SELECT m.experiencia, m.precio_sesion, m.currency_code
+      FROM app_mentoring.mentors m
+      JOIN app_core.users u ON u.user_id = m.mentor_user_id
+      WHERE m.mentor_user_id = $1::uuid
+        AND u.primary_role = 'mentor'
+      LIMIT 1
+    `,
+    [userId],
+  );
+  const row = rows[0];
+  if (!row) return null;
+
+  const { rows: topicRows } = await client.query<AdviserTopicRow>(
+    `
+      SELECT topic_id::text, topic_label, pillar_code
+      FROM app_mentoring.mentor_topics
+      WHERE mentor_user_id = $1::uuid
+      ORDER BY sort_order, created_at
+    `,
+    [userId],
+  );
+
+  return {
+    experiencia: row.experiencia,
+    precioSesion: row.precio_sesion === null ? null : Number(row.precio_sesion),
+    currencyCode: row.currency_code ?? 'COP',
+    temas: topicRows.map((topic) => ({
+      topicId: topic.topic_id,
+      topicLabel: topic.topic_label,
+      pillarCode: topic.pillar_code,
+    })),
+  };
+}
+
+async function upsertAdviserProfile(
+  client: PoolClient,
+  userId: string,
+  input: AdviserProfileInput,
+): Promise<void> {
+  // Ensure mentor row exists (trigger usually handles this, but be defensive)
+  await client.query(
+    `
+      INSERT INTO app_mentoring.mentors (mentor_user_id)
+      VALUES ($1::uuid)
+      ON CONFLICT (mentor_user_id) DO NOTHING
+    `,
+    [userId],
+  );
+
+  const experiencia = input.experiencia === undefined ? undefined : normalizeText(input.experiencia);
+  const precioSesion =
+    input.precioSesion === undefined ? undefined : normalizePrecioSesion(input.precioSesion);
+
+  if (experiencia !== undefined || precioSesion !== undefined) {
+    await client.query(
+      `
+        UPDATE app_mentoring.mentors
+        SET
+          experiencia   = COALESCE($2, experiencia),
+          precio_sesion = CASE WHEN $3::boolean THEN $4 ELSE precio_sesion END,
+          updated_at    = now()
+        WHERE mentor_user_id = $1::uuid
+      `,
+      [
+        userId,
+        experiencia === undefined ? null : experiencia,
+        precioSesion !== undefined,
+        precioSesion ?? null,
+      ],
+    );
+
+    // experiencia: when explicitly nullified, set to null
+    if (experiencia === null) {
+      await client.query(
+        `UPDATE app_mentoring.mentors SET experiencia = NULL, updated_at = now() WHERE mentor_user_id = $1::uuid`,
+        [userId],
+      );
+    }
+  }
+
+  if (input.temas !== undefined) {
+    const normalizedTopics = normalizeAdviserTopics(input.temas) ?? [];
+    await client.query(
+      `DELETE FROM app_mentoring.mentor_topics WHERE mentor_user_id = $1::uuid`,
+      [userId],
+    );
+    for (let index = 0; index < normalizedTopics.length; index++) {
+      const topic = normalizedTopics[index];
+      await client.query(
+        `
+          INSERT INTO app_mentoring.mentor_topics (mentor_user_id, topic_label, pillar_code, sort_order)
+          VALUES ($1::uuid, $2, $3, $4)
+        `,
+        [userId, topic.topicLabel, topic.pillarCode, index],
+      );
+    }
+  }
+}
+
 function mapProfile(
   row: ProfileRow,
   interests: string[],
   projects: ProfileProjectRecord[],
   purchases: UserPurchaseRecord[],
+  adviserProfile: AdviserProfileRecord | null,
 ): MyProfileRecord {
   return {
     userId: row.user_id,
@@ -388,6 +574,7 @@ function mapProfile(
     interests,
     projects,
     purchases,
+    adviserProfile,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -559,14 +746,15 @@ async function syncProjects(client: PoolClient, userId: string, projects: Profil
 export async function getMyProfile(client: PoolClient, actor: AuthUser): Promise<MyProfileRecord> {
   await requireModulePermission(client, 'perfil', 'view');
 
-  const [row, interests, projects, purchases] = await Promise.all([
+  const [row, interests, projects, purchases, adviserProfile] = await Promise.all([
     getProfileRow(client, actor.userId),
     listInterests(client, actor.userId),
     listProjects(client, actor.userId),
     listUserPurchases(client, actor.userId),
+    getAdviserProfile(client, actor.userId),
   ]);
 
-  return mapProfile(row, interests, projects, purchases);
+  return mapProfile(row, interests, projects, purchases, adviserProfile);
 }
 
 export async function updateMyProfile(
@@ -726,6 +914,10 @@ export async function updateMyProfile(
   const normalizedProjects = normalizeProjects(input.projects);
   if (normalizedProjects) {
     await syncProjects(client, actor.userId, normalizedProjects);
+  }
+
+  if (input.adviserProfile !== undefined && actor.role === 'mentor') {
+    await upsertAdviserProfile(client, actor.userId, input.adviserProfile);
   }
 
   return getMyProfile(client, actor);

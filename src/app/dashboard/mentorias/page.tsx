@@ -2404,6 +2404,41 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                     </div>
                   </div>
 
+                  {mentor.experiencia && (
+                    <div className="mt-4">
+                      <p className="mb-1 text-xs font-extrabold uppercase tracking-[0.18em] text-[var(--app-muted)]">
+                        Experiencia
+                      </p>
+                      <p className="whitespace-pre-line text-sm leading-relaxed text-[var(--app-ink)]/90">
+                        {mentor.experiencia}
+                      </p>
+                    </div>
+                  )}
+
+                  {mentor.temas.length > 0 && (
+                    <div className="mt-4">
+                      <p className="mb-2 text-xs font-extrabold uppercase tracking-[0.18em] text-[var(--app-muted)]">
+                        Temas que trabaja
+                      </p>
+                      <ul className="space-y-1">
+                        {mentor.temas.map((topic) => (
+                          <li key={topic.topicId} className="flex flex-wrap items-center gap-2 text-sm">
+                            <span className="font-semibold text-[var(--app-ink)]">{topic.topicLabel}</span>
+                            <span className="rounded-full border border-[var(--app-border)] bg-white px-2 py-0.5 text-[11px] font-semibold text-[var(--app-muted)]">
+                              {topic.pillarLabel}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {mentor.precioSesion != null && (
+                    <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-[var(--brand-primary)] bg-[var(--brand-primary)]/10 px-3 py-1 text-xs font-bold text-[var(--brand-primary)]">
+                      Sesión: {formatCurrency(mentor.precioSesion, mentor.currencyCode)}
+                    </div>
+                  )}
+
                   {primaryOffer && (
                     <div className="mt-4 rounded-[16px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-3">
                       <p className="text-sm font-semibold text-[var(--app-ink)]">{primaryOffer.title}</p>

@@ -109,6 +109,13 @@ export interface MentorAvailabilitySlot {
   endsAt: string;
 }
 
+export interface MentorTopicRecord {
+  topicId: string;
+  topicLabel: string;
+  pillarCode: 'shine_within' | 'shine_out' | 'shine_up' | 'shine_beyond';
+  pillarLabel: string;
+}
+
 export interface MentorCatalogRecord {
   mentorUserId: string;
   name: string;
@@ -118,6 +125,11 @@ export interface MentorCatalogRecord {
   ratingCount: number;
   avatarInitial: string;
   avatarUrl: string | null;
+  bio: string | null;
+  experiencia: string | null;
+  precioSesion: number | null;
+  currencyCode: string;
+  temas: MentorTopicRecord[];
   availability: MentorAvailabilitySlot[];
   offers: MentorOfferingRecord[];
 }
@@ -337,6 +349,11 @@ interface MentorCatalogRow {
   rating_count: number | null;
   avatar_initial: string | null;
   avatar_url: string | null;
+  bio: string | null;
+  experiencia: string | null;
+  precio_sesion: string | number | null;
+  currency_code: string | null;
+  temas: unknown;
   availability: unknown;
   offers: unknown;
 }
@@ -619,6 +636,32 @@ function parseOffers(value: unknown): MentorOfferingRecord[] {
     .filter(Boolean) as MentorOfferingRecord[];
 }
 
+const PILLAR_LABELS: Record<string, string> = {
+  shine_within: 'Shine Within',
+  shine_out: 'Shine Out',
+  shine_up: 'Shine Up',
+  shine_beyond: 'Shine Beyond',
+};
+
+function parseMentorTopics(raw: unknown): MentorTopicRecord[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((entry) => {
+      if (!entry || typeof entry !== 'object') return null;
+      const item = entry as { topicId?: unknown; topicLabel?: unknown; pillarCode?: unknown };
+      const topicLabel = typeof item.topicLabel === 'string' ? item.topicLabel : '';
+      const pillarCode = typeof item.pillarCode === 'string' ? item.pillarCode : '';
+      if (!topicLabel || !PILLAR_LABELS[pillarCode]) return null;
+      return {
+        topicId: typeof item.topicId === 'string' ? item.topicId : '',
+        topicLabel,
+        pillarCode: pillarCode as MentorTopicRecord['pillarCode'],
+        pillarLabel: PILLAR_LABELS[pillarCode],
+      } satisfies MentorTopicRecord;
+    })
+    .filter(Boolean) as MentorTopicRecord[];
+}
+
 function mapMentorCatalog(row: MentorCatalogRow): MentorCatalogRecord {
   return {
     mentorUserId: row.mentor_user_id,
@@ -629,6 +672,11 @@ function mapMentorCatalog(row: MentorCatalogRow): MentorCatalogRecord {
     ratingCount: Number(row.rating_count ?? 0),
     avatarInitial: row.avatar_initial ?? row.name.charAt(0).toUpperCase() ?? 'I',
     avatarUrl: row.avatar_url ?? null,
+    bio: row.bio ?? null,
+    experiencia: row.experiencia ?? null,
+    precioSesion: row.precio_sesion === null || row.precio_sesion === undefined ? null : Number(row.precio_sesion),
+    currencyCode: row.currency_code ?? 'COP',
+    temas: parseMentorTopics(row.temas),
     availability: parseAvailability(row.availability),
     offers: parseOffers(row.offers),
   };
@@ -1089,6 +1137,11 @@ async function listMentorCatalog(client: PoolClient): Promise<MentorCatalogRecor
         m.rating_count,
         COALESCE(u.avatar_initial, SUBSTRING(u.display_name FROM 1 FOR 1)) AS avatar_initial,
         u.avatar_url,
+        up.bio,
+        m.experiencia,
+        m.precio_sesion,
+        COALESCE(m.currency_code, 'COP') AS currency_code,
+        COALESCE(temas.temas, '[]'::json) AS temas,
         COALESCE(availability.availability, '[]'::json) AS availability,
         COALESCE(offers.offers, '[]'::json) AS offers
       FROM app_mentoring.mentors m
@@ -1100,6 +1153,18 @@ async function listMentorCatalog(client: PoolClient): Promise<MentorCatalogRecor
         JOIN app_assessment.pillars pil ON pil.pillar_code = ms.pillar_code
         WHERE ms.mentor_user_id = m.mentor_user_id
       ) spec ON true
+      LEFT JOIN LATERAL (
+        SELECT json_agg(
+                 json_build_object(
+                   'topicId', mt.topic_id::text,
+                   'topicLabel', mt.topic_label,
+                   'pillarCode', mt.pillar_code
+                 )
+                 ORDER BY mt.sort_order, mt.created_at
+               ) AS temas
+        FROM app_mentoring.mentor_topics mt
+        WHERE mt.mentor_user_id = m.mentor_user_id
+      ) temas ON true
       LEFT JOIN LATERAL (
         SELECT json_agg(
                  json_build_object(

@@ -7,6 +7,7 @@ import {
   Link2,
   Plus,
   Save,
+  Sparkles,
   Trash2,
   UserCircle2,
   X,
@@ -18,7 +19,15 @@ import { DeleteUserReasonModal } from '@/components/dashboard/DeleteUserReasonMo
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { R2UploadButton } from '@/components/ui/R2UploadButton';
 import { useUser } from '@/context/UserContext';
-import { extractProfileFromCv, getMyProfile, updateMyProfile, type MyProfileRecord } from '@/features/perfil/client';
+import {
+  extractProfileFromCv,
+  getMyProfile,
+  updateMyProfile,
+  type MyProfileRecord,
+  type AdviserPillarCode,
+  ADVISER_PRECIO_MIN,
+  ADVISER_PRECIO_MAX,
+} from '@/features/perfil/client';
 import { optimizeAvatarForUpload } from '@/lib/image-processing';
 import { YEARS_EXPERIENCE_OPTIONS, yearsToLabel, yearsToKey, keyToStoredValue } from '@/lib/demographics';
 import {
@@ -35,6 +44,17 @@ interface ProjectFormItem {
   description: string;
   projectRole: string;
   imageUrl: string;
+}
+
+interface AdviserTopicFormItem {
+  topicLabel: string;
+  pillarCode: AdviserPillarCode | '';
+}
+
+interface AdviserFormState {
+  experiencia: string;
+  precioSesion: string;
+  temas: AdviserTopicFormItem[];
 }
 
 interface ProfileFormState {
@@ -54,6 +74,26 @@ interface ProfileFormState {
   websiteUrl: string;
   interestsText: string;
   projects: ProjectFormItem[];
+  adviser: AdviserFormState;
+}
+
+const ADVISER_PILLAR_OPTIONS: Array<{ value: AdviserPillarCode; label: string }> = [
+  { value: 'shine_within', label: 'Shine Within' },
+  { value: 'shine_out', label: 'Shine Out' },
+  { value: 'shine_up', label: 'Shine Up' },
+  { value: 'shine_beyond', label: 'Shine Beyond' },
+];
+
+function buildAdviserForm(profile: MyProfileRecord): AdviserFormState {
+  const adv = profile.adviserProfile;
+  return {
+    experiencia: adv?.experiencia ?? '',
+    precioSesion: adv?.precioSesion != null ? String(adv.precioSesion) : '',
+    temas:
+      adv && adv.temas.length > 0
+        ? adv.temas.map((topic) => ({ topicLabel: topic.topicLabel, pillarCode: topic.pillarCode }))
+        : [{ topicLabel: '', pillarCode: '' }],
+  };
 }
 
 function planLabel(planType: PlanType | null): 'VIP' | 'Premium' | 'Empresa Élite' | 'Standard' {
@@ -118,6 +158,7 @@ function buildForm(profile: MyProfileRecord): ProfileFormState {
             imageUrl: project.imageUrl ?? '',
           }))
         : [{ title: '', description: '', projectRole: '', imageUrl: '' }],
+    adviser: buildAdviserForm(profile),
   };
 }
 
@@ -250,6 +291,52 @@ export default function PerfilPage() {
       return;
     }
 
+    const isAdviser = (currentUser?.role ?? '').toLowerCase() === 'mentor';
+    let adviserPayload:
+      | {
+          experiencia: string | null;
+          precioSesion: number | null;
+          temas: Array<{ topicLabel: string; pillarCode: AdviserPillarCode }>;
+        }
+      | undefined;
+
+    if (isAdviser) {
+      const cleanedTopics = form.adviser.temas
+        .map((topic) => ({ topicLabel: topic.topicLabel.trim(), pillarCode: topic.pillarCode }))
+        .filter((topic) => topic.topicLabel.length > 0);
+
+      const invalidPillar = cleanedTopics.find((topic) => !topic.pillarCode);
+      if (invalidPillar) {
+        await alert({
+          title: 'Tema sin competencia',
+          message: `Selecciona la competencia 4shine asociada al tema "${invalidPillar.topicLabel}".`,
+          tone: 'warning',
+        });
+        return;
+      }
+
+      const trimmedPrecio = form.adviser.precioSesion.trim();
+      let precioSesion: number | null = null;
+      if (trimmedPrecio.length > 0) {
+        const parsed = Number(trimmedPrecio.replace(/[.,\s]/g, ''));
+        if (!Number.isFinite(parsed) || parsed < ADVISER_PRECIO_MIN || parsed > ADVISER_PRECIO_MAX) {
+          await alert({
+            title: 'Precio inválido',
+            message: `El precio de sesión debe estar entre ${ADVISER_PRECIO_MIN.toLocaleString('es-CO')} y ${ADVISER_PRECIO_MAX.toLocaleString('es-CO')} COP.`,
+            tone: 'warning',
+          });
+          return;
+        }
+        precioSesion = parsed;
+      }
+
+      adviserPayload = {
+        experiencia: form.adviser.experiencia.trim() ? form.adviser.experiencia.trim() : null,
+        precioSesion,
+        temas: cleanedTopics as Array<{ topicLabel: string; pillarCode: AdviserPillarCode }>,
+      };
+    }
+
     setIsSaving(true);
     try {
       const splitName = splitDisplayName(trimmedName);
@@ -280,6 +367,7 @@ export default function PerfilPage() {
             projectRole: project.projectRole || null,
             imageUrl: project.imageUrl || null,
           })),
+        ...(adviserPayload ? { adviserProfile: adviserPayload } : {}),
       });
 
       setProfile(updated);
@@ -336,6 +424,17 @@ export default function PerfilPage() {
   const avatarFallback = (profile.avatarInitial || profile.displayName.charAt(0) || 'U').toUpperCase();
   const avatarPreviewUrl = form.avatarUrl.trim().length > 0 ? form.avatarUrl.trim() : null;
   const userType = userTypeLabel(currentUser?.role);
+  const isAdviserRole = (currentUser?.role ?? '').toLowerCase() === 'mentor';
+  const advForm = form.adviser;
+  const adviserData = profile.adviserProfile;
+  const adviserPrecioFormatted =
+    adviserData?.precioSesion != null
+      ? new Intl.NumberFormat('es-CO', {
+          style: 'currency',
+          currency: adviserData.currencyCode || 'COP',
+          maximumFractionDigits: 0,
+        }).format(adviserData.precioSesion)
+      : null;
 
   return (
     <div className="space-y-5">
@@ -674,6 +773,192 @@ export default function PerfilPage() {
               </div>
             )}
           </section>
+
+          {isAdviserRole && (
+            <section className="app-panel p-5">
+              <h4 className="mb-1 flex items-center gap-2 text-lg font-bold text-[var(--app-ink)]">
+                <Sparkles size={18} />
+                Perfil de Adviser
+              </h4>
+              <p className="mb-4 text-xs text-[var(--app-muted)]">
+                Esta información se muestra a los líderes cuando compran mentorías.
+              </p>
+
+              {!isEditing ? (
+                <div className="space-y-4">
+                  <div className="app-panel-soft p-3">
+                    <p className="text-xs text-[var(--app-muted)]">Experiencia como adviser</p>
+                    <p className="mt-1 whitespace-pre-line text-[var(--app-ink)]">
+                      {adviserData?.experiencia ?? 'Aún no has registrado tu experiencia como mentor.'}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <div className="app-panel-soft p-3">
+                      <p className="text-xs text-[var(--app-muted)]">Precio sesión de trabajo</p>
+                      <p className="font-semibold text-[var(--app-ink)]">
+                        {adviserPrecioFormatted ?? 'No definido'}
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-[var(--app-muted)]">
+                        Rango permitido: {ADVISER_PRECIO_MIN.toLocaleString('es-CO')} – {ADVISER_PRECIO_MAX.toLocaleString('es-CO')} COP
+                      </p>
+                    </div>
+                    <div className="app-panel-soft p-3">
+                      <p className="text-xs text-[var(--app-muted)]">Temas que trabaja</p>
+                      {adviserData && adviserData.temas.length > 0 ? (
+                        <ul className="mt-1 space-y-1 text-sm text-[var(--app-ink)]">
+                          {adviserData.temas.map((topic) => (
+                            <li key={topic.topicId} className="flex flex-wrap items-center gap-2">
+                              <span className="font-semibold">{topic.topicLabel}</span>
+                              <span className="rounded-full border border-[var(--app-border)] bg-white px-2 py-0.5 text-[11px] font-semibold text-[var(--app-muted)]">
+                                {ADVISER_PILLAR_OPTIONS.find((opt) => opt.value === topic.pillarCode)?.label ?? topic.pillarCode}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="mt-1 text-sm text-[var(--app-muted)]">Sin temas registrados.</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <label className="block">
+                    <span className="app-field-label">Experiencia como adviser (mentor)</span>
+                    <textarea
+                      className="app-textarea min-h-28"
+                      placeholder="Cuéntale a los líderes tu trayectoria como mentor: años, tipos de equipos, sectores, logros más relevantes…"
+                      value={advForm.experiencia}
+                      onChange={(event) =>
+                        setForm((prev) =>
+                          prev
+                            ? { ...prev, adviser: { ...prev.adviser, experiencia: event.target.value } }
+                            : prev,
+                        )
+                      }
+                    />
+                  </label>
+
+                  <label className="block max-w-sm">
+                    <span className="app-field-label">
+                      Precio sesión de trabajo (COP)
+                    </span>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min={ADVISER_PRECIO_MIN}
+                      max={ADVISER_PRECIO_MAX}
+                      step={5000}
+                      className="app-input"
+                      placeholder="Ej: 250000"
+                      value={advForm.precioSesion}
+                      onChange={(event) =>
+                        setForm((prev) =>
+                          prev
+                            ? { ...prev, adviser: { ...prev.adviser, precioSesion: event.target.value } }
+                            : prev,
+                        )
+                      }
+                    />
+                    <p className="mt-1 text-[11px] text-[var(--app-muted)]">
+                      Debe estar entre {ADVISER_PRECIO_MIN.toLocaleString('es-CO')} y {ADVISER_PRECIO_MAX.toLocaleString('es-CO')} COP.
+                    </p>
+                  </label>
+
+                  <div>
+                    <span className="app-field-label">Temas que trabaja</span>
+                    <p className="mb-2 text-[11px] text-[var(--app-muted)]">
+                      Un ítem por tema. Cada tema se asocia a una de las 4 competencias 4shine.
+                    </p>
+                    <div className="space-y-2">
+                      {advForm.temas.map((topic, index) => (
+                        <div
+                          key={`adv-topic-${index}`}
+                          className="grid grid-cols-1 gap-2 rounded-[14px] border border-[var(--app-border)] bg-white p-2 md:grid-cols-[1fr_220px_auto]"
+                        >
+                          <input
+                            className="app-input"
+                            placeholder="Tema (ej: Comunicación con equipos remotos)"
+                            value={topic.topicLabel}
+                            onChange={(event) =>
+                              setForm((prev) => {
+                                if (!prev) return prev;
+                                const next = [...prev.adviser.temas];
+                                next[index] = { ...next[index], topicLabel: event.target.value };
+                                return { ...prev, adviser: { ...prev.adviser, temas: next } };
+                              })
+                            }
+                          />
+                          <select
+                            className="app-select"
+                            value={topic.pillarCode}
+                            onChange={(event) =>
+                              setForm((prev) => {
+                                if (!prev) return prev;
+                                const next = [...prev.adviser.temas];
+                                next[index] = {
+                                  ...next[index],
+                                  pillarCode: event.target.value as AdviserPillarCode | '',
+                                };
+                                return { ...prev, adviser: { ...prev.adviser, temas: next } };
+                              })
+                            }
+                          >
+                            <option value="">Competencia 4shine…</option>
+                            {ADVISER_PILLAR_OPTIONS.map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            className="inline-flex items-center justify-center gap-1 rounded-[10px] border border-red-200 px-2 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
+                            onClick={() =>
+                              setForm((prev) => {
+                                if (!prev) return prev;
+                                const next = prev.adviser.temas.filter((_, i) => i !== index);
+                                return {
+                                  ...prev,
+                                  adviser: {
+                                    ...prev.adviser,
+                                    temas: next.length > 0 ? next : [{ topicLabel: '', pillarCode: '' }],
+                                  },
+                                };
+                              })
+                            }
+                            aria-label="Eliminar tema"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      className="app-button-secondary mt-2 inline-flex items-center gap-1 px-3 py-1.5 text-xs"
+                      onClick={() =>
+                        setForm((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                adviser: {
+                                  ...prev.adviser,
+                                  temas: [...prev.adviser.temas, { topicLabel: '', pillarCode: '' }],
+                                },
+                              }
+                            : prev,
+                        )
+                      }
+                    >
+                      <Plus size={13} />
+                      Agregar tema
+                    </button>
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
 
           <PurchasedProductsPanel
             purchases={profile.purchases}
