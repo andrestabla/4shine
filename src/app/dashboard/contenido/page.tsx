@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {
   Archive,
   CheckCircle2,
+  ClipboardCheck,
   ExternalLink,
   Eye,
   EyeOff,
@@ -41,7 +42,7 @@ import {
 } from '@/features/content/client';
 
 const SCOPE_OPTIONS: ContentScope[] = ['aprendizaje', 'metodologia', 'formacion_mentores', 'formacion_lideres'];
-const TYPE_OPTIONS: ContentType[] = ['video', 'pdf', 'scorm', 'article', 'podcast', 'html', 'ppt', 'activity'];
+const TYPE_OPTIONS: ContentType[] = ['video', 'pdf', 'scorm', 'article', 'podcast', 'html', 'ppt', 'activity', 'assignment'];
 
 const SCOPE_LABELS: Record<ContentScope, string> = {
   aprendizaje: 'Aprendizaje',
@@ -59,6 +60,7 @@ const TYPE_LABELS: Record<ContentType, string> = {
   html: 'HTML',
   ppt: 'Presentación',
   activity: 'Actividad',
+  assignment: 'Tarea',
 };
 
 const TYPE_ICONS: Record<ContentType, React.ComponentType<{ size?: number; className?: string }>> = {
@@ -70,6 +72,7 @@ const TYPE_ICONS: Record<ContentType, React.ComponentType<{ size?: number; class
   html: Globe,
   ppt: Presentation,
   activity: Trophy,
+  assignment: ClipboardCheck,
 };
 
 const TYPE_TINTS: Record<ContentType, { bg: string; fg: string }> = {
@@ -81,6 +84,7 @@ const TYPE_TINTS: Record<ContentType, { bg: string; fg: string }> = {
   html: { bg: 'bg-cyan-100', fg: 'text-cyan-700' },
   ppt: { bg: 'bg-orange-100', fg: 'text-orange-700' },
   activity: { bg: 'bg-emerald-100', fg: 'text-emerald-700' },
+  assignment: { bg: 'bg-sky-100', fg: 'text-sky-700' },
 };
 
 const STATUS_LABELS: Record<ContentItemRecord['status'], string> = {

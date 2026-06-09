@@ -218,6 +218,7 @@ const COURSE_MODULE_RESOURCE_TYPE_OPTIONS: CourseModuleResourceType[] = [
   "ppt",
   "link",
   "activity",
+  "assignment",
 ];
 
 const PROGRAM_STAGE_OPTIONS = LEARNING_PROGRAM_STAGE_OPTIONS;
@@ -330,6 +331,17 @@ const CONTENT_TYPE_EXPERIENCE: Record<
     categoryPresets: ["Quiz", "Evaluación", "Práctica"],
     durationPresets: ["5 min", "10 min", "15 min", "20 min"],
     tagPresets: ["quiz", "evaluacion", "practica"],
+  },
+  assignment: {
+    description: "Tarea o entrega del líder. Sube archivos o URL para revisión y calificación por adviser/gestor/admin.",
+    assetLabel: "Tarea (configura en Contenido)",
+    uploadLabel: "",
+    uploadHelp: "Las instrucciones, criterios y formatos aceptados se configuran desde Contenido → botón Tarea.",
+    urlPlaceholder: "",
+    accept: "",
+    categoryPresets: ["Tarea", "Proyecto", "Entrega"],
+    durationPresets: ["30 min", "1 h", "2 h", "1 día", "1 semana"],
+    tagPresets: ["tarea", "proyecto", "entrega"],
   },
 };
 
@@ -780,6 +792,7 @@ function contentTypeLabel(type: ContentType): string {
   if (type === "ppt") return "PPT";
   if (type === "scorm") return "Curso";
   if (type === "activity") return "Actividad";
+  if (type === "assignment") return "Tarea";
   return type.charAt(0).toUpperCase() + type.slice(1);
 }
 

@@ -4,7 +4,7 @@ import { ForbiddenError, requireModulePermission } from '@/server/auth/module-pe
 import type { ModuleCode } from '@/lib/permissions';
 
 export type ContentScope = 'aprendizaje' | 'metodologia' | 'formacion_mentores' | 'formacion_lideres';
-export type ContentType = 'video' | 'pdf' | 'scorm' | 'article' | 'podcast' | 'html' | 'ppt' | 'activity';
+export type ContentType = 'video' | 'pdf' | 'scorm' | 'article' | 'podcast' | 'html' | 'ppt' | 'activity' | 'assignment';
 export type ContentStatus = 'draft' | 'pending_review' | 'published' | 'archived' | 'rejected';
 export type ContentCompetencyMetadata = Record<string, string | null>;
 export type CourseModuleResourceType = Exclude<ContentType, 'scorm'> | 'link';

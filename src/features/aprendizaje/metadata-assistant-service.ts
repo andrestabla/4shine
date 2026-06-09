@@ -34,6 +34,7 @@ const DEFAULT_CATEGORY_BY_CONTENT_TYPE: Record<ContentType, string> = {
   ppt: 'Presentación',
   scorm: 'Curso',
   activity: 'Actividad',
+  assignment: 'Tarea',
 };
 
 interface YoutubeVideoMetadata {
