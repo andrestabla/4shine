@@ -218,6 +218,45 @@ function formatWeekday(value: Date): string {
   });
 }
 
+type ComprarStep = 'list' | 'configure' | 'pay' | 'success';
+type TimeBucket = 'early' | 'morning' | 'midday' | 'afternoon' | 'night';
+type AdviserPillarCode = 'shine_within' | 'shine_out' | 'shine_up' | 'shine_beyond';
+
+const COMPRAR_PILLAR_FILTERS: Array<{ value: AdviserPillarCode; label: string }> = [
+  { value: 'shine_within', label: 'Shine Within' },
+  { value: 'shine_out', label: 'Shine Out' },
+  { value: 'shine_up', label: 'Shine Up' },
+  { value: 'shine_beyond', label: 'Shine Beyond' },
+];
+
+const COMPRAR_TIME_BUCKETS: Array<{ key: TimeBucket; label: string; from: number; to: number }> = [
+  { key: 'early', label: 'Temprano: Antes de las 9 am', from: 0, to: 9 },
+  { key: 'morning', label: 'En la mañana: Entre las 9 am - 12 pm', from: 9, to: 12 },
+  { key: 'midday', label: 'A medio día: Entre 12 - 2 pm', from: 12, to: 14 },
+  { key: 'afternoon', label: 'En la tarde: Entre 2 - 6 pm', from: 14, to: 18 },
+  { key: 'night', label: 'En la noche: Después de las 6 pm', from: 18, to: 24 },
+];
+
+function hourInBucket(hour: number, bucket: TimeBucket): boolean {
+  const def = COMPRAR_TIME_BUCKETS.find((b) => b.key === bucket);
+  if (!def) return false;
+  return hour >= def.from && hour < def.to;
+}
+
+function slotHourInTz(isoStart: string, timezone?: string): number {
+  try {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      hour: 'numeric',
+      hour12: false,
+      timeZone: timezone || undefined,
+    });
+    const value = Number(formatter.format(new Date(isoStart)));
+    return Number.isFinite(value) ? value % 24 : new Date(isoStart).getHours();
+  } catch {
+    return new Date(isoStart).getHours();
+  }
+}
+
 function formatCurrency(value: number, currencyCode: string): string {
   if (value <= 0) {
     return 'Precio a coordinar';
@@ -309,7 +348,12 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
   const [opsWizardStep, setOpsWizardStep] = React.useState<WizardStep>(1);
   const [programWizardStep, setProgramWizardStep] = React.useState<WizardStep>(1);
   const [additionalWizardStep, setAdditionalWizardStep] = React.useState<WizardStep>(1);
-  const [activeAdviserId, setActiveAdviserId] = React.useState<string | null>(null);
+  const [comprarStep, setComprarStep] = React.useState<ComprarStep>('list');
+  const [comprarMentorId, setComprarMentorId] = React.useState<string | null>(null);
+  const [comprarFilterPillars, setComprarFilterPillars] = React.useState<Set<AdviserPillarCode>>(new Set());
+  const [comprarFilterTopic, setComprarFilterTopic] = React.useState('');
+  const [comprarFilterTimeBuckets, setComprarFilterTimeBuckets] = React.useState<Set<TimeBucket>>(new Set());
+  const [comprarConfirmedOrderId, setComprarConfirmedOrderId] = React.useState<string | null>(null);
   const [programForm, setProgramForm] = React.useState<ProgramScheduleFormState>({
     entitlementId: '',
     mentorUserId: '',
@@ -561,26 +605,24 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
     }
   };
 
-  const handleAdditionalPurchase = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const handleAdditionalPurchase = async (event?: React.FormEvent<HTMLFormElement>) => {
+    if (event) event.preventDefault();
     if (!additionalForm.offerId || !additionalForm.startsAt) {
       return;
     }
 
     setSubmittingAdditional(true);
     try {
-      await createAdditionalMentorshipOrder({
+      const created = await createAdditionalMentorshipOrder({
         offerId: additionalForm.offerId,
         startsAt: toIso(additionalForm.startsAt),
         topic: additionalForm.topic.trim() || null,
         note: additionalForm.note.trim() || null,
       });
-      setAdditionalForm((prev) => ({
-        ...prev,
-        startsAt: nextSlotValue(),
-        topic: '',
-        note: '',
-      }));
+      const createdOrderId =
+        (created as { orderId?: string } | null | undefined)?.orderId ?? null;
+      setComprarConfirmedOrderId(createdOrderId);
+      setComprarStep('success');
       await Promise.all([load(), refreshBootstrap()]);
     } catch (error) {
       await showError('No se pudo registrar la sesión adicional.', error);
@@ -588,6 +630,60 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
       setSubmittingAdditional(false);
     }
   };
+
+  const resetComprarWizard = React.useCallback(() => {
+    setComprarStep('list');
+    setComprarMentorId(null);
+    setComprarConfirmedOrderId(null);
+    setAdditionalForm({
+      offerId: '',
+      startsAt: nextSlotValue(),
+      topic: '',
+      note: '',
+    });
+  }, []);
+
+  const filteredMentorCatalog = React.useMemo(() => {
+    return (overview?.mentorCatalog ?? []).filter((mentor) => {
+      if (comprarFilterPillars.size > 0) {
+        if (!mentor.temas.some((t) => comprarFilterPillars.has(t.pillarCode as AdviserPillarCode))) {
+          return false;
+        }
+      }
+      const q = comprarFilterTopic.trim().toLowerCase();
+      if (q.length > 0) {
+        const matchTopic = mentor.temas.some((t) => t.topicLabel.toLowerCase().includes(q));
+        const matchSpecialty = (mentor.specialty ?? '').toLowerCase().includes(q);
+        const matchName = (mentor.name ?? '').toLowerCase().includes(q);
+        if (!matchTopic && !matchSpecialty && !matchName) return false;
+      }
+      if (comprarFilterTimeBuckets.size > 0) {
+        const slots = mentor.availability ?? [];
+        const matchSlot = slots.some((slot) => {
+          const hour = slotHourInTz(slot.startsAt, tz);
+          return Array.from(comprarFilterTimeBuckets).some((bucket) =>
+            hourInBucket(hour, bucket),
+          );
+        });
+        if (!matchSlot) return false;
+      }
+      return true;
+    });
+  }, [overview, comprarFilterPillars, comprarFilterTopic, comprarFilterTimeBuckets, tz]);
+
+  const comprarSelectedMentor = React.useMemo(() => {
+    if (!comprarMentorId) return null;
+    return (overview?.mentorCatalog ?? []).find((m) => m.mentorUserId === comprarMentorId) ?? null;
+  }, [overview, comprarMentorId]);
+
+  const comprarSelectedOffer = React.useMemo(() => {
+    if (!comprarSelectedMentor) return null;
+    return (
+      comprarSelectedMentor.offers.find((o) => o.offerId === additionalForm.offerId) ??
+      comprarSelectedMentor.offers[0] ??
+      null
+    );
+  }, [comprarSelectedMentor, additionalForm.offerId]);
 
   const handleOpsCreate = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -2334,261 +2430,773 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
   }
 
   if (activeSection === 'comprar') {
-    return (
-      <div className="space-y-8">
-        <PageTitle
-          title="Mentorías"
-          subtitle="Reserva sesiones individuales con nuestros Advisers especializados."
-        />
-        {sectionTabs}
+    const totalAdvisers = overview.mentorCatalog.length;
+    const filteredCount = filteredMentorCatalog.length;
 
-        {overview.additionalOrders.length > 0 && (
-          <section className="app-panel p-5 sm:p-6">
-            <div className="mb-4 flex items-center gap-2">
-              <CheckCircle2 size={16} className="text-[var(--brand-primary)]" />
-              <p className="app-section-kicker">Mis sesiones adicionales</p>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {overview.additionalOrders.map((order: AdditionalMentorshipOrderRecord) => (
-                <article key={order.orderId} className="rounded-[18px] border border-[var(--app-border)] bg-white/84 px-4 py-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="truncate font-bold text-[var(--app-ink)]">{order.title}</p>
-                      <p className="mt-1 text-sm text-[var(--app-muted)]">
-                        {order.mentorName} · {formatDateTime(order.scheduledStartsAt, tz)}
-                      </p>
-                      {order.topic && <p className="mt-1 text-xs text-[var(--app-muted)]">{order.topic}</p>}
-                    </div>
-                    <span className={clsx('shrink-0 rounded-full px-3 py-1 text-xs font-bold', ORDER_STATUS_META[order.status].tone)}>
-                      {ORDER_STATUS_META[order.status].label}
-                    </span>
+    const togglePillarFilter = (code: AdviserPillarCode) => {
+      setComprarFilterPillars((prev) => {
+        const next = new Set(prev);
+        if (next.has(code)) next.delete(code);
+        else next.add(code);
+        return next;
+      });
+    };
+    const toggleTimeBucket = (bucket: TimeBucket) => {
+      setComprarFilterTimeBuckets((prev) => {
+        const next = new Set(prev);
+        if (next.has(bucket)) next.delete(bucket);
+        else next.add(bucket);
+        return next;
+      });
+    };
+    const clearFilters = () => {
+      setComprarFilterPillars(new Set());
+      setComprarFilterTopic('');
+      setComprarFilterTimeBuckets(new Set());
+    };
+    const hasActiveFilters =
+      comprarFilterPillars.size > 0 ||
+      comprarFilterTopic.trim().length > 0 ||
+      comprarFilterTimeBuckets.size > 0;
+
+    const stepperLabels = ['Especialista', 'Día y hora', 'Confirmación'];
+    const currentStepIndex =
+      comprarStep === 'list' ? 0 : comprarStep === 'configure' ? 1 : comprarStep === 'pay' ? 2 : 2;
+
+    const Stepper = () => (
+      <div className="flex items-center gap-2 text-xs font-semibold text-[var(--app-muted)]">
+        {stepperLabels.map((label, idx) => {
+          const done = idx < currentStepIndex;
+          const active = idx === currentStepIndex;
+          return (
+            <React.Fragment key={label}>
+              <span
+                className={clsx(
+                  'inline-flex items-center gap-1.5 rounded-full px-3 py-1',
+                  active
+                    ? 'bg-[var(--brand-primary)] text-white'
+                    : done
+                    ? 'bg-[var(--brand-primary)]/15 text-[var(--brand-primary)]'
+                    : 'bg-[var(--app-surface-muted)] text-[var(--app-muted)]',
+                )}
+              >
+                <span
+                  className={clsx(
+                    'flex h-4 w-4 items-center justify-center rounded-full text-[10px]',
+                    active || done ? 'bg-white/30 text-white' : 'bg-white text-[var(--app-muted)]',
+                  )}
+                >
+                  {done ? <CheckCircle2 size={12} /> : idx + 1}
+                </span>
+                {label}
+              </span>
+              {idx < stepperLabels.length - 1 && (
+                <span className="h-px w-6 bg-[var(--app-border)]" />
+              )}
+            </React.Fragment>
+          );
+        })}
+      </div>
+    );
+
+    // ============ STEP: LIST ============
+    if (comprarStep === 'list') {
+      return (
+        <div className="space-y-6">
+          <PageTitle
+            title="Comprar mentorías"
+            subtitle="Reserva sesiones individuales con nuestros Advisers especializados."
+          />
+          {sectionTabs}
+          <Stepper />
+
+          {overview.mentorCatalog.length === 0 ? (
+            <section className="app-panel p-5 sm:p-6">
+              <EmptyState message="Aún no hay Advisers disponibles para reserva. Pronto encontrarás aquí los especialistas del programa." />
+            </section>
+          ) : (
+            <>
+              {/* Filtros */}
+              <section className="app-panel p-4 sm:p-5">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto] md:items-center">
+                  <div className="relative">
+                    <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--app-muted)]" />
+                    <input
+                      type="text"
+                      placeholder="Buscar por tema, especialidad o nombre…"
+                      value={comprarFilterTopic}
+                      onChange={(e) => setComprarFilterTopic(e.target.value)}
+                      className="w-full rounded-[14px] border border-[var(--app-border)] bg-white pl-9 pr-3 py-2.5 text-sm"
+                    />
                   </div>
-                </article>
-              ))}
-            </div>
-          </section>
-        )}
+                  {hasActiveFilters && (
+                    <button
+                      type="button"
+                      onClick={clearFilters}
+                      className="inline-flex items-center gap-1 rounded-[12px] border border-[var(--app-border)] bg-white px-3 py-2 text-xs font-semibold text-[var(--app-muted)] hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)]"
+                    >
+                      <X size={12} />
+                      Limpiar filtros
+                    </button>
+                  )}
+                </div>
 
-        {overview.mentorCatalog.length === 0 ? (
-          <section className="app-panel p-5 sm:p-6">
-            <EmptyState message="Aún no hay Advisers disponibles para reserva. Pronto encontrarás aquí los especialistas del programa." />
-          </section>
-        ) : (
-          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-            {overview.mentorCatalog.map((mentor) => {
-              const isActive = activeAdviserId === mentor.mentorUserId;
-              const primaryOffer = mentor.offers[0];
-
-              return (
-                <article key={mentor.mentorUserId} className="app-panel flex flex-col p-5 sm:p-6">
-                  <div className="flex items-start gap-4">
-                    <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--app-chip)] text-xl font-black text-[var(--brand-primary)]">
-                      {mentor.avatarUrl ? (
-                        <img src={mentor.avatarUrl} alt={mentor.name} className="h-full w-full object-cover" />
-                      ) : (
-                        mentor.avatarInitial
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-lg font-black text-[var(--app-ink)]">{mentor.name}</p>
-                      <p className="mt-0.5 text-sm text-[var(--app-muted)]">{mentor.specialty}</p>
-                      <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-[var(--app-muted)]">
-                        <span className="inline-flex items-center gap-1">
-                          <Star size={11} className="text-[var(--brand-accent,#f6b74c)]" />
-                          {mentor.ratingAvg.toFixed(1)}
-                          {mentor.ratingCount > 0 && <span>({mentor.ratingCount})</span>}
-                        </span>
-                        <span>·</span>
-                        <span className="uppercase tracking-[0.12em]">{mentor.sector}</span>
-                      </div>
-                    </div>
+                <div className="mt-4">
+                  <p className="mb-2 text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--app-muted)]">
+                    Competencia 4shine
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {COMPRAR_PILLAR_FILTERS.map((opt) => {
+                      const active = comprarFilterPillars.has(opt.value);
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => togglePillarFilter(opt.value)}
+                          className={clsx(
+                            'rounded-full border px-3 py-1.5 text-xs font-semibold transition',
+                            active
+                              ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)] text-white'
+                              : 'border-[var(--app-border)] bg-white text-[var(--app-ink)] hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)]',
+                          )}
+                        >
+                          {opt.label}
+                        </button>
+                      );
+                    })}
                   </div>
+                </div>
 
-                  {mentor.experiencia && (
-                    <div className="mt-4">
-                      <p className="mb-1 text-xs font-extrabold uppercase tracking-[0.18em] text-[var(--app-muted)]">
-                        Experiencia
-                      </p>
-                      <p className="whitespace-pre-line text-sm leading-relaxed text-[var(--app-ink)]/90">
-                        {mentor.experiencia}
-                      </p>
-                    </div>
-                  )}
+                <div className="mt-4">
+                  <p className="mb-2 text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--app-muted)]">
+                    Hora de la cita
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {COMPRAR_TIME_BUCKETS.map((bucket) => {
+                      const active = comprarFilterTimeBuckets.has(bucket.key);
+                      return (
+                        <button
+                          key={bucket.key}
+                          type="button"
+                          onClick={() => toggleTimeBucket(bucket.key)}
+                          className={clsx(
+                            'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition',
+                            active
+                              ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)] text-white'
+                              : 'border-[var(--app-border)] bg-white text-[var(--app-ink)] hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)]',
+                          )}
+                        >
+                          <Clock3 size={12} />
+                          {bucket.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </section>
 
-                  {mentor.temas.length > 0 && (
-                    <div className="mt-4">
-                      <p className="mb-2 text-xs font-extrabold uppercase tracking-[0.18em] text-[var(--app-muted)]">
-                        Temas que trabaja
-                      </p>
-                      <ul className="space-y-1">
-                        {mentor.temas.map((topic) => (
-                          <li key={topic.topicId} className="flex flex-wrap items-center gap-2 text-sm">
-                            <span className="font-semibold text-[var(--app-ink)]">{topic.topicLabel}</span>
-                            <span className="rounded-full border border-[var(--app-border)] bg-white px-2 py-0.5 text-[11px] font-semibold text-[var(--app-muted)]">
-                              {topic.pillarLabel}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {mentor.precioSesion != null && (
-                    <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-[var(--brand-primary)] bg-[var(--brand-primary)]/10 px-3 py-1 text-xs font-bold text-[var(--brand-primary)]">
-                      Sesión: {formatCurrency(mentor.precioSesion, mentor.currencyCode)}
-                    </div>
-                  )}
-
-                  {primaryOffer && (
-                    <div className="mt-4 rounded-[16px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-3">
-                      <p className="text-sm font-semibold text-[var(--app-ink)]">{primaryOffer.title}</p>
-                      {primaryOffer.description && (
-                        <p className="mt-1 text-xs leading-relaxed text-[var(--app-muted)]">{primaryOffer.description}</p>
-                      )}
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--app-muted)]">
-                          {primaryOffer.durationMinutes} min
-                        </span>
-                        <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--app-muted)]">
-                          {formatCurrency(primaryOffer.priceAmount, primaryOffer.currencyCode)}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                  {mentor.availability.length > 0 && (
-                    <div className="mt-4">
-                      <p className="mb-2 text-xs font-extrabold uppercase tracking-[0.18em] text-[var(--app-muted)]">Próximos espacios</p>
-                      <div className="flex flex-wrap gap-2">
-                        {mentor.availability.slice(0, 3).map((slot) => (
-                          <button
-                            key={slot.startsAt}
-                            type="button"
-                            className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--app-ink)] transition hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)]"
-                            onClick={() => {
-                              setAdditionalForm((prev) => ({
-                                ...prev,
-                                offerId: primaryOffer?.offerId ?? prev.offerId,
-                                startsAt: toDatetimeLocalInput(slot.startsAt),
-                              }));
-                              setActiveAdviserId(mentor.mentorUserId);
-                            }}
+              {overview.additionalOrders.length > 0 && (
+                <section className="app-panel p-4 sm:p-5">
+                  <div className="mb-3 flex items-center gap-2">
+                    <CheckCircle2 size={15} className="text-[var(--brand-primary)]" />
+                    <p className="app-section-kicker">Mis sesiones reservadas</p>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {overview.additionalOrders.map((order: AdditionalMentorshipOrderRecord) => (
+                      <article
+                        key={order.orderId}
+                        className="rounded-[16px] border border-[var(--app-border)] bg-white/84 px-4 py-3"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-bold text-[var(--app-ink)]">{order.title}</p>
+                            <p className="mt-0.5 text-xs text-[var(--app-muted)]">
+                              {order.mentorName} · {formatDateTime(order.scheduledStartsAt, tz)}
+                            </p>
+                            {order.topic && (
+                              <p className="mt-0.5 text-[11px] text-[var(--app-muted)]">{order.topic}</p>
+                            )}
+                          </div>
+                          <span
+                            className={clsx(
+                              'shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-bold',
+                              ORDER_STATUS_META[order.status].tone,
+                            )}
                           >
-                            {formatDateTime(slot.startsAt, tz)}
-                          </button>
-                        ))}
-                        {mentor.availability.length > 3 && (
-                          <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--app-muted)]">
-                            +{mentor.availability.length - 3} más
+                            {ORDER_STATUS_META[order.status].label}
+                          </span>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {/* Conteo */}
+              <p className="text-sm text-[var(--app-ink)]">
+                <span className="font-bold">{filteredCount}</span>{' '}
+                <span className="text-[var(--app-muted)]">
+                  {filteredCount === 1 ? 'Adviser disponible' : 'Advisers disponibles'} para ti
+                  {hasActiveFilters && filteredCount !== totalAdvisers && (
+                    <span className="ml-1 text-[var(--app-muted)]">(de {totalAdvisers} en total)</span>
+                  )}
+                </span>
+              </p>
+
+              {/* Cards */}
+              {filteredCount === 0 ? (
+                <section className="app-panel p-5 sm:p-6">
+                  <EmptyState message="No encontramos advisers con los filtros seleccionados. Ajusta o limpia los filtros para ver más opciones." />
+                </section>
+              ) : (
+                <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+                  {filteredMentorCatalog.map((mentor) => {
+                    const primaryOffer = mentor.offers[0];
+                    const nextSlot = mentor.availability[0];
+                    const distinctPillars = Array.from(
+                      new Map(mentor.temas.map((t) => [t.pillarCode, t.pillarLabel])).entries(),
+                    );
+                    const isFeatured = mentor.ratingAvg >= 4.5;
+
+                    return (
+                      <article
+                        key={mentor.mentorUserId}
+                        className="app-panel relative flex flex-col p-5 sm:p-6"
+                      >
+                        {isFeatured && (
+                          <span className="absolute -top-2 left-5 inline-flex items-center gap-1 rounded-full bg-[var(--brand-primary)] px-3 py-0.5 text-[11px] font-bold text-white shadow">
+                            <BadgeCheck size={11} />
+                            Adviser destacado
                           </span>
                         )}
-                      </div>
-                    </div>
-                  )}
-                  {mentor.availability.length === 0 && (
-                    <p className="mt-4 text-xs text-[var(--app-muted)]">Disponibilidad por coordinar directamente.</p>
-                  )}
 
-                  <div className="mt-auto pt-5">
-                    {!isActive ? (
-                      <button
-                        className="inline-flex w-full items-center justify-center gap-2 rounded-[14px] bg-[var(--brand-primary)] px-5 py-3 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-50"
-                        type="button"
-                        disabled={!primaryOffer}
-                        onClick={() => {
-                          if (!primaryOffer) return;
-                          setAdditionalForm((prev) => ({ ...prev, offerId: primaryOffer.offerId }));
-                          setActiveAdviserId(mentor.mentorUserId);
-                        }}
-                      >
-                        <ShoppingBag size={15} />
-                        Reservar sesión
-                      </button>
-                    ) : (
-                      <form className="space-y-3 border-t border-[var(--app-border)] pt-4" onSubmit={handleAdditionalPurchase}>
-                        {mentor.offers.length > 1 && (
-                          <select
-                            className="w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
-                            value={additionalForm.offerId}
-                            onChange={(e) => setAdditionalForm((prev) => ({ ...prev, offerId: e.target.value }))}
-                            required
-                          >
-                            <option value="">Selecciona una oferta</option>
-                            {mentor.offers.map((offer) => (
-                              <option key={offer.offerId} value={offer.offerId}>
-                                {offer.title} · {offer.durationMinutes} min · {formatCurrency(offer.priceAmount, offer.currencyCode)}
-                              </option>
+                        <div className="flex items-start gap-4">
+                          <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--app-chip)] text-xl font-black text-[var(--brand-primary)]">
+                            {mentor.avatarUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={mentor.avatarUrl}
+                                alt={mentor.name}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              mentor.avatarInitial
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-lg font-black text-[var(--app-ink)]">{mentor.name}</p>
+                            <p className="mt-0.5 text-xs text-[var(--app-muted)]">{mentor.specialty}</p>
+                            <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-[var(--app-muted)]">
+                              <span className="inline-flex items-center gap-1">
+                                <Star size={11} className="text-[var(--brand-accent,#f6b74c)]" />
+                                {mentor.ratingAvg.toFixed(1)}
+                                {mentor.ratingCount > 0 && <span>({mentor.ratingCount})</span>}
+                              </span>
+                              <span>·</span>
+                              <span className="uppercase tracking-[0.12em]">{mentor.sector}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {distinctPillars.length > 0 && (
+                          <div className="mt-3 flex flex-wrap gap-1.5">
+                            {distinctPillars.map(([code, label]) => (
+                              <span
+                                key={code}
+                                className="rounded-full border border-[var(--brand-primary)]/30 bg-[var(--brand-primary)]/10 px-2 py-0.5 text-[11px] font-semibold text-[var(--brand-primary)]"
+                              >
+                                {label}
+                              </span>
                             ))}
-                          </select>
+                          </div>
                         )}
-                        {mentor.availability.length === 0 ? (
-                          <p className="rounded-[14px] border border-[var(--app-border)] px-4 py-3 text-sm text-[var(--app-muted)]">
-                            Este adviser no tiene horarios disponibles en este momento.
-                          </p>
-                        ) : (
-                          <div>
-                            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--app-muted)]">Horarios disponibles</p>
-                            <div className="flex flex-wrap gap-2">
-                              {mentor.availability.map((slot) => {
-                                const val = toDatetimeLocalInput(slot.startsAt);
-                                return (
-                                  <button
-                                    key={slot.startsAt}
-                                    type="button"
-                                    className={clsx(
-                                      'rounded-full border px-3 py-1.5 text-xs font-semibold transition',
-                                      additionalForm.startsAt === val
-                                        ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)] text-white'
-                                        : 'border-[var(--app-border)] text-[var(--app-ink)] hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)]',
-                                    )}
-                                    onClick={() => setAdditionalForm((prev) => ({ ...prev, startsAt: val }))}
-                                  >
-                                    {formatDateTime(slot.startsAt, tz)}
-                                  </button>
-                                );
-                              })}
+
+                        {mentor.temas.length > 0 && (
+                          <div className="mt-3">
+                            <p className="text-[11px] font-semibold text-[var(--app-muted)]">
+                              Se especializa en:
+                            </p>
+                            <div className="mt-1.5 flex flex-wrap gap-1.5">
+                              {mentor.temas.slice(0, 6).map((topic) => (
+                                <span
+                                  key={topic.topicId}
+                                  className="rounded-full border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-2 py-0.5 text-[11px] font-semibold text-[var(--app-ink)]"
+                                >
+                                  {topic.topicLabel}
+                                </span>
+                              ))}
+                              {mentor.temas.length > 6 && (
+                                <span className="rounded-full border border-[var(--app-border)] bg-white px-2 py-0.5 text-[11px] font-semibold text-[var(--app-muted)]">
+                                  +{mentor.temas.length - 6}
+                                </span>
+                              )}
                             </div>
                           </div>
                         )}
-                        <input
-                          className="w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
-                          placeholder="Tema o reto que quieres trabajar"
-                          value={additionalForm.topic}
-                          onChange={(e) => setAdditionalForm((prev) => ({ ...prev, topic: e.target.value }))}
-                        />
-                        <textarea
-                          className="min-h-[80px] w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
-                          placeholder="Notas adicionales para orientar la sesión."
-                          value={additionalForm.note}
-                          onChange={(e) => setAdditionalForm((prev) => ({ ...prev, note: e.target.value }))}
-                        />
-                        <div className="flex gap-2">
+
+                        <div className="mt-4 flex items-baseline justify-between border-t border-dashed border-[var(--app-border)] pt-3 text-sm">
+                          <span className="text-xs text-[var(--app-muted)]">Servicios desde:</span>
+                          <span className="font-bold text-[var(--app-ink)]">
+                            {mentor.precioSesion != null
+                              ? formatCurrency(mentor.precioSesion, mentor.currencyCode)
+                              : primaryOffer
+                              ? formatCurrency(primaryOffer.priceAmount, primaryOffer.currencyCode)
+                              : 'Por coordinar'}
+                          </span>
+                        </div>
+
+                        {nextSlot ? (
+                          <p className="mt-2 text-xs text-[var(--app-muted)]">
+                            <span className="font-semibold text-[var(--app-ink)]">Disponible </span>
+                            {formatDateTime(nextSlot.startsAt, tz)}
+                          </p>
+                        ) : (
+                          <p className="mt-2 text-xs text-[var(--app-muted)]">
+                            Disponibilidad por coordinar directamente.
+                          </p>
+                        )}
+
+                        <div className="mt-auto flex gap-2 pt-4">
                           <button
                             type="button"
-                            className="rounded-[12px] border border-[var(--app-border)] px-4 py-2.5 text-sm font-semibold text-[var(--app-ink)]"
+                            disabled={!primaryOffer}
+                            className="flex-1 inline-flex items-center justify-center gap-2 rounded-[14px] bg-[var(--brand-primary)] px-4 py-2.5 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-50"
                             onClick={() => {
-                              setActiveAdviserId(null);
-                              setAdditionalForm((prev) => ({ ...prev, offerId: '' }));
+                              if (!primaryOffer) return;
+                              setComprarMentorId(mentor.mentorUserId);
+                              setAdditionalForm((prev) => ({
+                                ...prev,
+                                offerId: primaryOffer.offerId,
+                                startsAt: nextSlot
+                                  ? toDatetimeLocalInput(nextSlot.startsAt)
+                                  : prev.startsAt,
+                              }));
+                              setComprarStep('configure');
                             }}
                           >
-                            Cancelar
-                          </button>
-                          <button
-                            type="submit"
-                            className="flex-1 rounded-[12px] bg-[var(--brand-primary)] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
-                            disabled={submittingAdditional || !additionalForm.offerId}
-                          >
-                            {submittingAdditional ? 'Procesando…' : 'Confirmar reserva'}
+                            <CalendarDays size={15} />
+                            Agendar
                           </button>
                         </div>
-                      </form>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      );
+    }
+
+    // ============ STEP: CONFIGURE ============
+    if (comprarStep === 'configure' && comprarSelectedMentor) {
+      const mentor = comprarSelectedMentor;
+      const slotsByDay = mentor.availability.reduce<Record<string, typeof mentor.availability>>(
+        (acc, slot) => {
+          const day = new Date(slot.startsAt).toLocaleDateString('es-CO', {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+            timeZone: tz || undefined,
+          });
+          if (!acc[day]) acc[day] = [];
+          acc[day].push(slot);
+          return acc;
+        },
+        {},
+      );
+
+      const canContinue =
+        Boolean(additionalForm.offerId) && Boolean(additionalForm.startsAt);
+
+      return (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => setComprarStep('list')}
+              className="inline-flex items-center gap-1.5 rounded-[12px] border border-[var(--app-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--app-muted)] hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)]"
+            >
+              <ArrowLeft size={13} />
+              Volver
+            </button>
+            <Stepper />
+          </div>
+
+          {/* Header del mentor */}
+          <section className="app-panel flex items-center gap-3 p-4 sm:p-5">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--app-chip)] text-lg font-black text-[var(--brand-primary)]">
+              {mentor.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={mentor.avatarUrl} alt={mentor.name} className="h-full w-full object-cover" />
+              ) : (
+                mentor.avatarInitial
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="font-black text-[var(--app-ink)]">{mentor.name}</p>
+              <p className="text-xs text-[var(--app-muted)]">{mentor.specialty}</p>
+            </div>
+          </section>
+
+          {/* Tipo de servicio */}
+          <section className="app-panel p-5 sm:p-6">
+            <h4 className="mb-1 text-lg font-bold text-[var(--app-ink)]">Elige el tipo de servicio</h4>
+            <p className="mb-4 text-xs text-[var(--app-muted)]">
+              Selecciona el formato de sesión que quieres reservar con este adviser.
+            </p>
+            {mentor.offers.length === 0 ? (
+              <EmptyState message="Este adviser aún no tiene ofertas disponibles." />
+            ) : (
+              <div className="space-y-3">
+                {mentor.offers.map((offer) => {
+                  const selected = additionalForm.offerId === offer.offerId;
+                  return (
+                    <button
+                      key={offer.offerId}
+                      type="button"
+                      className={clsx(
+                        'w-full rounded-[16px] border px-4 py-4 text-left transition',
+                        selected
+                          ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)]/5 ring-1 ring-[var(--brand-primary)]'
+                          : 'border-[var(--app-border)] bg-white hover:border-[var(--brand-primary)]',
+                      )}
+                      onClick={() =>
+                        setAdditionalForm((prev) => ({ ...prev, offerId: offer.offerId }))
+                      }
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold text-[var(--app-ink)]">{offer.title}</p>
+                          {offer.description && (
+                            <p className="mt-1 text-xs leading-relaxed text-[var(--app-muted)]">
+                              {offer.description}
+                            </p>
+                          )}
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--app-border)] bg-white px-2.5 py-0.5 text-[11px] font-semibold text-[var(--app-muted)]">
+                              <Clock3 size={11} /> {offer.durationMinutes} min
+                            </span>
+                            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--app-border)] bg-white px-2.5 py-0.5 text-[11px] font-semibold text-[var(--app-muted)]">
+                              <CircleDollarSign size={11} />
+                              {formatCurrency(offer.priceAmount, offer.currencyCode)}
+                            </span>
+                          </div>
+                        </div>
+                        <span
+                          className={clsx(
+                            'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border',
+                            selected
+                              ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)] text-white'
+                              : 'border-[var(--app-border)] bg-white',
+                          )}
+                        >
+                          {selected && <CheckCircle2 size={14} />}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+          {/* Día y hora */}
+          <section className="app-panel p-5 sm:p-6">
+            <h4 className="mb-1 text-lg font-bold text-[var(--app-ink)]">Elige el día y hora</h4>
+            <p className="mb-4 text-xs text-[var(--app-muted)]">
+              Los horarios se muestran según tu zona horaria configurada: <b>{tz || 'tu zona local'}</b>.
+            </p>
+            {mentor.availability.length === 0 ? (
+              <p className="rounded-[14px] border border-dashed border-[var(--app-border)] px-4 py-3 text-sm text-[var(--app-muted)]">
+                Este adviser no tiene horarios disponibles. Solicita disponibilidad personalizada al equipo.
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {Object.entries(slotsByDay).map(([day, slots]) => (
+                  <div key={day}>
+                    <p className="mb-2 text-xs font-extrabold uppercase tracking-[0.18em] text-[var(--app-muted)]">
+                      {day}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {slots.map((slot) => {
+                        const val = toDatetimeLocalInput(slot.startsAt);
+                        const selected = additionalForm.startsAt === val;
+                        return (
+                          <button
+                            key={slot.startsAt}
+                            type="button"
+                            className={clsx(
+                              'rounded-full border px-3 py-1.5 text-xs font-semibold transition',
+                              selected
+                                ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)] text-white'
+                                : 'border-[var(--app-border)] bg-white text-[var(--app-ink)] hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)]',
+                            )}
+                            onClick={() =>
+                              setAdditionalForm((prev) => ({ ...prev, startsAt: val }))
+                            }
+                          >
+                            {formatTime(slot.startsAt, tz)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* Temas */}
+          <section className="app-panel p-5 sm:p-6">
+            <h4 className="mb-1 text-lg font-bold text-[var(--app-ink)]">
+              Temas que quieres trabajar
+            </h4>
+            <p className="mb-4 text-xs text-[var(--app-muted)]">
+              Cuéntale al adviser qué quieres abordar para que prepare mejor la sesión.
+            </p>
+            {mentor.temas.length > 0 && (
+              <div className="mb-3">
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--app-muted)]">
+                  Sugeridos por este adviser
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {mentor.temas.map((topic) => (
+                    <button
+                      key={topic.topicId}
+                      type="button"
+                      className="inline-flex items-center gap-1 rounded-full border border-[var(--app-border)] bg-white px-2.5 py-1 text-xs font-semibold text-[var(--app-ink)] hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)]"
+                      onClick={() =>
+                        setAdditionalForm((prev) => ({
+                          ...prev,
+                          topic: prev.topic.trim()
+                            ? `${prev.topic.trim()}, ${topic.topicLabel}`
+                            : topic.topicLabel,
+                        }))
+                      }
+                    >
+                      <Sparkles size={11} />
+                      {topic.topicLabel}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <input
+              className="w-full rounded-[14px] border border-[var(--app-border)] bg-white px-4 py-2.5 text-sm"
+              placeholder="Tema o reto que quieres trabajar"
+              value={additionalForm.topic}
+              onChange={(e) => setAdditionalForm((prev) => ({ ...prev, topic: e.target.value }))}
+            />
+            <textarea
+              className="mt-3 min-h-[90px] w-full rounded-[14px] border border-[var(--app-border)] bg-white px-4 py-2.5 text-sm"
+              placeholder="Notas adicionales para orientar la sesión (opcional)."
+              value={additionalForm.note}
+              onChange={(e) => setAdditionalForm((prev) => ({ ...prev, note: e.target.value }))}
+            />
+          </section>
+
+          {/* Acciones */}
+          <div className="sticky bottom-2 z-10 flex flex-col-reverse gap-2 rounded-[16px] border border-[var(--app-border)] bg-white/95 p-3 shadow-sm backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+            <button
+              type="button"
+              className="rounded-[12px] border border-[var(--app-border)] px-4 py-2.5 text-sm font-semibold text-[var(--app-ink)]"
+              onClick={() => setComprarStep('list')}
+            >
+              Volver
+            </button>
+            <button
+              type="button"
+              className="inline-flex items-center justify-center gap-2 rounded-[14px] bg-[var(--brand-primary)] px-5 py-2.5 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-40"
+              disabled={!canContinue}
+              onClick={() => setComprarStep('pay')}
+            >
+              Continuar
+              <ArrowRight size={15} />
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // ============ STEP: PAY ============
+    if (comprarStep === 'pay' && comprarSelectedMentor && comprarSelectedOffer) {
+      const mentor = comprarSelectedMentor;
+      const offer = comprarSelectedOffer;
+      const priceLabel = formatCurrency(offer.priceAmount, offer.currencyCode);
+
+      return (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => setComprarStep('configure')}
+              className="inline-flex items-center gap-1.5 rounded-[12px] border border-[var(--app-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--app-muted)] hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)]"
+            >
+              <ArrowLeft size={13} />
+              Volver
+            </button>
+            <Stepper />
+          </div>
+
+          <PageTitle title="Confirmación y pago" subtitle="Revisa tu reserva y confirma." />
+
+          <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
+            {/* Métodos de pago */}
+            <section className="app-panel p-5 sm:p-6">
+              <h4 className="mb-3 text-lg font-bold text-[var(--app-ink)]">Métodos de pago</h4>
+
+              <div className="space-y-2">
+                <label className="flex cursor-pointer items-center gap-3 rounded-[14px] border border-[var(--brand-primary)] bg-[var(--brand-primary)]/5 px-4 py-3 ring-1 ring-[var(--brand-primary)]">
+                  <input type="radio" name="payment" checked readOnly className="accent-[var(--brand-primary)]" />
+                  <div className="flex-1">
+                    <p className="text-sm font-bold text-[var(--app-ink)]">Coordinar pago con 4Shine</p>
+                    <p className="text-xs text-[var(--app-muted)]">
+                      Reservamos tu sesión y nuestro equipo te contactará para coordinar el pago.
+                    </p>
+                  </div>
+                </label>
+
+                {(['Tarjeta', 'Nequi', 'PSE', 'Bancolombia'] as const).map((method) => (
+                  <label
+                    key={method}
+                    className="flex cursor-not-allowed items-center gap-3 rounded-[14px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-3 opacity-60"
+                  >
+                    <input type="radio" name="payment" disabled className="accent-[var(--brand-primary)]" />
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-[var(--app-ink)]">{method}</p>
+                      <p className="text-[11px] text-[var(--app-muted)]">Próximamente</p>
+                    </div>
+                    <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--app-muted)]">
+                      Próximamente
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </section>
+
+            {/* Resumen */}
+            <aside className="app-panel h-fit p-5 sm:p-6">
+              <h4 className="mb-3 text-lg font-bold text-[var(--app-ink)]">Resumen de pago</h4>
+
+              <div className="rounded-[14px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--app-chip)] text-base font-black text-[var(--brand-primary)]">
+                    {mentor.avatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={mentor.avatarUrl} alt={mentor.name} className="h-full w-full object-cover" />
+                    ) : (
+                      mentor.avatarInitial
                     )}
                   </div>
-                </article>
-              );
-            })}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-[var(--app-muted)]">{offer.title} con:</p>
+                    <p className="truncate font-bold text-[var(--app-ink)]">{mentor.name}</p>
+                  </div>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2 text-xs text-[var(--app-muted)]">
+                  <span className="inline-flex items-center gap-1">
+                    <CalendarDays size={12} />
+                    {formatDateTime(toIso(additionalForm.startsAt), tz)}
+                  </span>
+                  <span>·</span>
+                  <span className="inline-flex items-center gap-1">
+                    <Video size={12} /> Video llamada
+                  </span>
+                </div>
+                {additionalForm.topic && (
+                  <p className="mt-2 text-xs text-[var(--app-muted)]">
+                    <span className="font-semibold text-[var(--app-ink)]">Tema:</span> {additionalForm.topic}
+                  </p>
+                )}
+              </div>
+
+              <div className="mt-4 space-y-1 border-t border-dashed border-[var(--app-border)] pt-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-[var(--app-muted)]">{offer.title}</span>
+                  <span className="font-semibold text-[var(--app-ink)]">{priceLabel}</span>
+                </div>
+                <div className="flex items-center justify-between border-t border-[var(--app-border)] pt-2 text-base font-black">
+                  <span>Total</span>
+                  <span>{priceLabel}</span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                disabled={submittingAdditional}
+                onClick={() => void handleAdditionalPurchase()}
+                className="mt-4 w-full rounded-[14px] bg-[var(--brand-primary)] px-4 py-3 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-50"
+              >
+                {submittingAdditional ? 'Procesando…' : `Confirmar reserva (${priceLabel})`}
+              </button>
+              <p className="mt-2 text-center text-[11px] text-[var(--app-muted)]">
+                Al confirmar, se crea la reserva y nuestro equipo te contactará para el pago.
+              </p>
+            </aside>
           </div>
-        )}
+        </div>
+      );
+    }
+
+    // ============ STEP: SUCCESS ============
+    if (comprarStep === 'success') {
+      const mentor = comprarSelectedMentor;
+      const offer = comprarSelectedOffer;
+      return (
+        <div className="space-y-6">
+          <PageTitle title="¡Reserva confirmada!" subtitle="Tu sesión quedó registrada en el sistema." />
+
+          <section className="app-panel p-6 sm:p-8 text-center">
+            <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--brand-primary)]/10 text-[var(--brand-primary)]">
+              <PartyPopper size={28} />
+            </div>
+            <h3 className="text-xl font-black text-[var(--app-ink)]">¡Listo!</h3>
+            <p className="mt-1 text-sm text-[var(--app-muted)]">
+              Reservaste {offer ? <b>{offer.title}</b> : 'tu sesión'}
+              {mentor && <> con <b>{mentor.name}</b></>}
+              {' '}para el {formatDateTime(toIso(additionalForm.startsAt), tz)}.
+            </p>
+            {comprarConfirmedOrderId && (
+              <p className="mt-1 text-[11px] text-[var(--app-muted)]">
+                Código de reserva: <span className="font-mono">{comprarConfirmedOrderId.slice(0, 8)}</span>
+              </p>
+            )}
+            <p className="mt-3 text-xs text-[var(--app-muted)]">
+              Nuestro equipo te contactará para coordinar el pago y enviarte el enlace de la sesión.
+            </p>
+
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={resetComprarWizard}
+                className="inline-flex items-center gap-2 rounded-[14px] bg-[var(--brand-primary)] px-5 py-2.5 text-sm font-bold text-white"
+              >
+                <ShoppingBag size={15} />
+                Reservar otra
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  resetComprarWizard();
+                }}
+                className="inline-flex items-center gap-2 rounded-[14px] border border-[var(--app-border)] bg-white px-5 py-2.5 text-sm font-semibold text-[var(--app-ink)]"
+              >
+                Ver mis reservas
+                <ArrowRight size={14} />
+              </button>
+            </div>
+          </section>
+        </div>
+      );
+    }
+
+    // Fallback: si los condicionales no aplican (mentor seleccionado inválido), reset suave.
+    setTimeout(() => resetComprarWizard(), 0);
+    return (
+      <div className="app-panel p-5 sm:p-6">
+        <EmptyState message="Algo no salió como esperábamos. Volvamos al inicio." />
       </div>
     );
   }
