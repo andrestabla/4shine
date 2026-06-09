@@ -702,25 +702,63 @@ function addMinutes(value: string, minutes: number): string {
   return date.toISOString();
 }
 
-function formatFechaCO(value: string | null | undefined): string {
+/**
+ * Default timezone for notifications when an organization hasn't customized
+ * branding. The platform's primary market is Colombia (COP) so 'America/Bogota'
+ * is the safe default — without it, server-side rendering (Vercel runs in UTC)
+ * would put +5h on every time displayed in emails / notifications.
+ */
+const DEFAULT_NOTIFICATION_TIMEZONE = 'America/Bogota';
+
+async function resolveActorOrgTimezone(
+  client: PoolClient,
+  actorUserId: string,
+): Promise<string> {
+  try {
+    const { rows } = await client.query<{ tz: string | null }>(
+      `
+        SELECT bs.institution_timezone AS tz
+        FROM app_core.users u
+        LEFT JOIN app_admin.branding_settings bs ON bs.organization_id = u.organization_id
+        WHERE u.user_id = $1::uuid
+        LIMIT 1
+      `,
+      [actorUserId],
+    );
+    const tz = rows[0]?.tz?.trim();
+    return tz && tz.length > 0 ? tz : DEFAULT_NOTIFICATION_TIMEZONE;
+  } catch {
+    return DEFAULT_NOTIFICATION_TIMEZONE;
+  }
+}
+
+function formatFechaCO(
+  value: string | null | undefined,
+  timeZone: string = DEFAULT_NOTIFICATION_TIMEZONE,
+): string {
   if (!value) return '';
   try {
     return new Date(value).toLocaleDateString('es-CO', {
       day: 'numeric',
       month: 'long',
       year: 'numeric',
+      timeZone,
     });
   } catch {
     return value;
   }
 }
 
-function formatHoraCO(value: string | null | undefined): string {
+function formatHoraCO(
+  value: string | null | undefined,
+  timeZone: string = DEFAULT_NOTIFICATION_TIMEZONE,
+): string {
   if (!value) return '';
   try {
     return new Date(value).toLocaleTimeString('es-CO', {
       hour: '2-digit',
       minute: '2-digit',
+      timeZone,
     });
   } catch {
     return value;
@@ -853,8 +891,10 @@ export async function sendSessionReminders(
       continue;
     }
 
-    const fechaStr = formatFechaCO(row.starts_at);
-    const horaStr = formatHoraCO(row.starts_at);
+    // Resolve tz from the mentor's org (mentor + mentee share org in practice).
+    const tz = await resolveActorOrgTimezone(client, row.mentor_user_id);
+    const fechaStr = formatFechaCO(row.starts_at, tz);
+    const horaStr = formatHoraCO(row.starts_at, tz);
     const enlaceSesion = buildSessionEnlaceSesion(row.meeting_url);
 
     // Notify mentee (líder) if present
@@ -1842,8 +1882,9 @@ export async function createGroupSession(
       `,
       [actor.userId],
     );
-    const fechaStr = formatFechaCO(input.startsAt);
-    const horaStr = formatHoraCO(input.startsAt);
+    const tz = await resolveActorOrgTimezone(client, actor.userId);
+    const fechaStr = formatFechaCO(input.startsAt, tz);
+    const horaStr = formatHoraCO(input.startsAt, tz);
     for (const leader of leaders) {
       // Fire-and-forget per leader; notifyUserFull never throws.
       void notifyUserFull(client, {
@@ -2013,14 +2054,15 @@ export async function participateInGroupSession(
       [actor.userId],
     );
     const firstName = (userRows[0]?.first_name ?? userRows[0]?.display_name ?? '').trim() || 'Líder';
+    const tz = await resolveActorOrgTimezone(client, actor.userId);
     await notifyUserFull(client, {
       recipientUserId: actor.userId,
       eventKey: 'mentorias.group_session_joined',
       variables: {
         nombre: firstName,
         titulo: event.title,
-        fecha: formatFechaCO(event.starts_at),
-        hora: formatHoraCO(event.starts_at),
+        fecha: formatFechaCO(event.starts_at, tz),
+        hora: formatHoraCO(event.starts_at, tz),
         enlace_sesion: buildSessionEnlaceSesion(event.zoom_join_url),
       },
     });
@@ -2818,8 +2860,9 @@ export async function scheduleProgramMentorship(
   );
 
   const participants = await loadSessionParticipantsInfo(client, actor.userId, input.mentorUserId);
-  const fechaStr = formatFechaCO(input.startsAt);
-  const horaStr = formatHoraCO(input.startsAt);
+  const tz = await resolveActorOrgTimezone(client, actor.userId);
+  const fechaStr = formatFechaCO(input.startsAt, tz);
+  const horaStr = formatHoraCO(input.startsAt, tz);
   const enlaceSesion = buildSessionEnlaceSesion(resolvedMeetingUrl);
   await notifyUserFull(client, {
     recipientUserId: actor.userId,
@@ -2940,8 +2983,9 @@ export async function createAdditionalMentorshipOrder(
   // For paid orders the payment_confirmed event also fires later (via webhook);
   // this dispatch is about the scheduling itself (works in both flows).
   const participants = await loadSessionParticipantsInfo(client, actor.userId, offer.mentor_user_id);
-  const fechaStr = formatFechaCO(input.startsAt);
-  const horaStr = formatHoraCO(input.startsAt);
+  const tz = await resolveActorOrgTimezone(client, actor.userId);
+  const fechaStr = formatFechaCO(input.startsAt, tz);
+  const horaStr = formatHoraCO(input.startsAt, tz);
   const enlaceSesion = buildSessionEnlaceSesion(input.meetingUrl);
   await notifyUserFull(client, {
     recipientUserId: actor.userId,
@@ -3072,15 +3116,16 @@ export async function updateMentorship(
       current.menteeUserId,
       current.mentorUserId,
     );
+    const tz = await resolveActorOrgTimezone(client, actor.userId);
     await notifyUserFull(client, {
       recipientUserId: current.menteeUserId,
       eventKey: 'mentorias.session_cancelled_mentee',
       variables: {
         nombre: cancelParticipants.menteeFirstName,
         titulo: current.title,
-        fecha: formatFechaCO(current.startsAt),
+        fecha: formatFechaCO(current.startsAt, tz),
         motivo: input.changeReason?.trim() ?? '',
-        nueva_fecha: input.startsAt ? formatFechaCO(input.startsAt) : '',
+        nueva_fecha: input.startsAt ? formatFechaCO(input.startsAt, tz) : '',
         adviser_nombre: cancelParticipants.mentorDisplayName,
       },
     });

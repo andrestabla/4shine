@@ -354,21 +354,48 @@ function formatMontoCop(amount: number, currency: string): string {
   }
 }
 
-function formatFecha(value: string | null): string {
+const PAYMENT_NOTIFICATION_DEFAULT_TZ = 'America/Bogota';
+
+function formatFecha(value: string | null, timeZone: string = PAYMENT_NOTIFICATION_DEFAULT_TZ): string {
   if (!value) return 'Por coordinar';
   try {
-    return new Date(value).toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' });
+    return new Date(value).toLocaleDateString('es-CO', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      timeZone,
+    });
   } catch {
     return value;
   }
 }
 
-function formatHora(value: string | null): string {
+function formatHora(value: string | null, timeZone: string = PAYMENT_NOTIFICATION_DEFAULT_TZ): string {
   if (!value) return '';
   try {
-    return new Date(value).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+    return new Date(value).toLocaleTimeString('es-CO', {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone,
+    });
   } catch {
     return value;
+  }
+}
+
+async function resolveOrgTimezoneById(
+  client: PoolClient,
+  organizationId: string,
+): Promise<string> {
+  try {
+    const { rows } = await client.query<{ tz: string | null }>(
+      `SELECT institution_timezone AS tz FROM app_admin.branding_settings WHERE organization_id = $1::uuid LIMIT 1`,
+      [organizationId],
+    );
+    const tz = rows[0]?.tz?.trim();
+    return tz && tz.length > 0 ? tz : PAYMENT_NOTIFICATION_DEFAULT_TZ;
+  } catch {
+    return PAYMENT_NOTIFICATION_DEFAULT_TZ;
   }
 }
 
@@ -447,6 +474,7 @@ async function notifyOrderPaid(client: PoolClient, orderId: string): Promise<voi
     const info = await loadOrderForNotification(client, orderId);
     if (!info) return;
     const platformUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.4shine.co';
+    const tz = await resolveOrgTimezoneById(client, info.organizationId);
     await dispatchNotification(client, {
       organizationId: info.organizationId,
       recipientUserId: info.ownerUserId,
@@ -455,8 +483,8 @@ async function notifyOrderPaid(client: PoolClient, orderId: string): Promise<voi
       variables: {
         nombre: info.ownerFirstName,
         titulo: info.title,
-        fecha: formatFecha(info.scheduledStartsAt),
-        hora: formatHora(info.scheduledStartsAt),
+        fecha: formatFecha(info.scheduledStartsAt, tz),
+        hora: formatHora(info.scheduledStartsAt, tz),
         adviser_nombre: info.mentorName ?? '',
         monto: formatMontoCop(info.priceAmount, info.currencyCode),
         metodo_pago: PROVIDER_LABELS[info.paymentProvider ?? 'manual'],
