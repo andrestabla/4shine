@@ -2,8 +2,29 @@
 
 import React from 'react';
 import Link from 'next/link';
+import {
+  Archive,
+  CheckCircle2,
+  ExternalLink,
+  Eye,
+  EyeOff,
+  FileText,
+  Film,
+  Globe,
+  Headphones,
+  Layers,
+  Link2,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Presentation,
+  Search,
+  Star,
+  Trash2,
+  Trophy,
+  X,
+} from 'lucide-react';
 import { PageTitle } from '@/components/dashboard/PageTitle';
-import { StatGrid } from '@/components/dashboard/StatGrid';
 import { EmptyState } from '@/components/dashboard/EmptyState';
 import { R2UploadButton } from '@/components/ui/R2UploadButton';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
@@ -22,15 +43,60 @@ import {
 const SCOPE_OPTIONS: ContentScope[] = ['aprendizaje', 'metodologia', 'formacion_mentores', 'formacion_lideres'];
 const TYPE_OPTIONS: ContentType[] = ['video', 'pdf', 'scorm', 'article', 'podcast', 'html', 'ppt', 'activity'];
 
+const SCOPE_LABELS: Record<ContentScope, string> = {
+  aprendizaje: 'Aprendizaje',
+  metodologia: 'Metodología',
+  formacion_mentores: 'Formación Advisers',
+  formacion_lideres: 'Formación Líderes',
+};
+
 const TYPE_LABELS: Record<ContentType, string> = {
-  video: 'video',
-  pdf: 'pdf',
-  scorm: 'curso (SCORM)',
-  article: 'artículo',
-  podcast: 'podcast',
-  html: 'html',
-  ppt: 'ppt',
-  activity: 'actividad',
+  video: 'Video',
+  pdf: 'PDF',
+  scorm: 'Curso (SCORM)',
+  article: 'Artículo',
+  podcast: 'Podcast',
+  html: 'HTML',
+  ppt: 'Presentación',
+  activity: 'Actividad',
+};
+
+const TYPE_ICONS: Record<ContentType, React.ComponentType<{ size?: number; className?: string }>> = {
+  video: Film,
+  pdf: FileText,
+  scorm: Layers,
+  article: FileText,
+  podcast: Headphones,
+  html: Globe,
+  ppt: Presentation,
+  activity: Trophy,
+};
+
+const TYPE_TINTS: Record<ContentType, { bg: string; fg: string }> = {
+  video: { bg: 'bg-rose-100', fg: 'text-rose-700' },
+  pdf: { bg: 'bg-red-100', fg: 'text-red-700' },
+  scorm: { bg: 'bg-violet-100', fg: 'text-violet-700' },
+  article: { bg: 'bg-amber-100', fg: 'text-amber-700' },
+  podcast: { bg: 'bg-purple-100', fg: 'text-purple-700' },
+  html: { bg: 'bg-cyan-100', fg: 'text-cyan-700' },
+  ppt: { bg: 'bg-orange-100', fg: 'text-orange-700' },
+  activity: { bg: 'bg-emerald-100', fg: 'text-emerald-700' },
+};
+
+const STATUS_LABELS: Record<ContentItemRecord['status'], string> = {
+  draft: 'Borrador',
+  pending_review: 'En revisión',
+  published: 'Publicado',
+  archived: 'Archivado',
+  rejected: 'Rechazado',
+};
+
+const STATUS_STYLE: Record<ContentItemRecord['status'], string> = {
+  draft: 'bg-slate-100 text-slate-700',
+  pending_review: 'bg-amber-100 text-amber-800',
+  published: 'bg-emerald-100 text-emerald-800',
+  archived: 'bg-slate-200 text-slate-700',
+  rejected: 'bg-rose-100 text-rose-800',
 };
 
 const MODULE_BY_SCOPE: Record<ContentScope, ModuleCode> = {
@@ -50,6 +116,8 @@ const ACCEPT_BY_CONTENT_TYPE: Partial<Record<ContentType, string>> = {
 };
 
 type ScopeFilter = 'all' | ContentScope;
+type TypeFilter = 'all' | ContentType;
+type StatusFilter = 'all' | ContentItemRecord['status'];
 
 interface CreateFormState {
   scope: ContentScope;
@@ -60,11 +128,52 @@ interface CreateFormState {
   description: string;
 }
 
-function toLocalDateTime(value: string): string {
-  return new Date(value).toLocaleString('es-CO', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
+function toLocalDate(value: string): string {
+  return new Date(value).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function toRelativeTime(value: string): string {
+  const diff = Date.now() - new Date(value).getTime();
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return 'ahora mismo';
+  if (minutes < 60) return `hace ${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `hace ${hours} h`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `hace ${days} d`;
+  return toLocalDate(value);
+}
+
+function StatCard({
+  label,
+  value,
+  hint,
+  icon: Icon,
+  tint,
+}: {
+  label: string;
+  value: number;
+  hint: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  tint: string;
+}) {
+  return (
+    <div className="app-panel relative overflow-hidden p-4">
+      <div className={`absolute -right-3 -top-3 h-16 w-16 rounded-full ${tint} opacity-20`} />
+      <div className="relative flex items-start justify-between">
+        <div>
+          <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[var(--app-muted)]">
+            {label}
+          </p>
+          <p className="mt-1 text-3xl font-black text-[var(--app-ink)]">{value}</p>
+          <p className="mt-0.5 text-xs text-[var(--app-muted)]">{hint}</p>
+        </div>
+        <div className={`flex h-9 w-9 items-center justify-center rounded-[12px] ${tint}`}>
+          <Icon size={16} className="text-[var(--brand-primary)]" />
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function ContenidoPage() {
@@ -74,6 +183,11 @@ export default function ContenidoPage() {
   const [loading, setLoading] = React.useState(true);
   const [submitting, setSubmitting] = React.useState(false);
   const [scopeFilter, setScopeFilter] = React.useState<ScopeFilter>('all');
+  const [typeFilter, setTypeFilter] = React.useState<TypeFilter>('all');
+  const [statusFilter, setStatusFilter] = React.useState<StatusFilter>('all');
+  const [search, setSearch] = React.useState('');
+  const [createOpen, setCreateOpen] = React.useState(false);
+  const [openMenuId, setOpenMenuId] = React.useState<string | null>(null);
 
   const creatableScopes = React.useMemo(
     () => SCOPE_OPTIONS.filter((scope) => can(MODULE_BY_SCOPE[scope], 'create')),
@@ -102,10 +216,7 @@ export default function ContenidoPage() {
 
   React.useEffect(() => {
     if (creatableScopes.length && !creatableScopes.includes(createForm.scope)) {
-      setCreateForm((prev) => ({
-        ...prev,
-        scope: creatableScopes[0],
-      }));
+      setCreateForm((prev) => ({ ...prev, scope: creatableScopes[0] }));
     }
   }, [createForm.scope, creatableScopes]);
 
@@ -125,6 +236,14 @@ export default function ContenidoPage() {
     void load();
   }, [load]);
 
+  // Cerrar dropdown de acciones al hacer click afuera
+  React.useEffect(() => {
+    if (!openMenuId) return;
+    const close = () => setOpenMenuId(null);
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [openMenuId]);
+
   const onCreate = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!createForm.title.trim() || !createForm.category.trim()) return;
@@ -140,15 +259,8 @@ export default function ContenidoPage() {
         description: createForm.description.trim() || null,
         status: 'draft',
       });
-
-      setCreateForm((prev) => ({
-        ...prev,
-        title: '',
-        category: '',
-        url: '',
-        description: '',
-      }));
-
+      setCreateForm((prev) => ({ ...prev, title: '', category: '', url: '', description: '' }));
+      setCreateOpen(false);
       await Promise.all([load(), refreshBootstrap()]);
     } catch (createError) {
       await showError('No se pudo crear el contenido', createError);
@@ -159,9 +271,7 @@ export default function ContenidoPage() {
 
   const onToggleRecommended = async (item: ContentItemRecord) => {
     try {
-      await updateContent(item.contentId, {
-        isRecommended: !item.isRecommended,
-      });
+      await updateContent(item.contentId, { isRecommended: !item.isRecommended });
       await Promise.all([load(), refreshBootstrap()]);
     } catch (updateError) {
       await showError('No se pudo actualizar el contenido', updateError);
@@ -180,13 +290,12 @@ export default function ContenidoPage() {
   const onDelete = async (item: ContentItemRecord) => {
     const isConfirmed = await confirm({
       title: 'Eliminar contenido',
-      message: `¿Deseas eliminar "${item.title}"?`,
+      message: `¿Deseas eliminar "${item.title}"? Esta acción no se puede deshacer.`,
       confirmText: 'Eliminar',
       cancelText: 'Cancelar',
       tone: 'warning',
     });
     if (!isConfirmed) return;
-
     try {
       await deleteContent(item.contentId);
       await Promise.all([load(), refreshBootstrap()]);
@@ -206,9 +315,7 @@ export default function ContenidoPage() {
       cancelText: 'Cancelar',
       tone: 'info',
     });
-
     if (!title || !title.trim() || title.trim() === item.title) return;
-
     try {
       await updateContent(item.contentId, { title: title.trim() });
       await Promise.all([load(), refreshBootstrap()]);
@@ -217,232 +324,335 @@ export default function ContenidoPage() {
     }
   };
 
-  const filtered = React.useMemo(
-    () => (scopeFilter === 'all' ? items : items.filter((item) => item.scope === scopeFilter)),
-    [items, scopeFilter],
-  );
+  const filtered = React.useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return items.filter((item) => {
+      if (scopeFilter !== 'all' && item.scope !== scopeFilter) return false;
+      if (typeFilter !== 'all' && item.contentType !== typeFilter) return false;
+      if (statusFilter !== 'all' && item.status !== statusFilter) return false;
+      if (q) {
+        const hay = `${item.title} ${item.category} ${item.description ?? ''}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [items, scopeFilter, typeFilter, statusFilter, search]);
 
   const canCreate = creatableScopes.length > 0;
   const canApproveAny = SCOPE_OPTIONS.some((scope) => can(MODULE_BY_SCOPE[scope], 'approve'));
 
+  const stats = React.useMemo(
+    () => ({
+      total: items.length,
+      published: items.filter((i) => i.status === 'published').length,
+      draft: items.filter((i) => i.status === 'draft').length,
+      recommended: items.filter((i) => i.isRecommended).length,
+      activities: items.filter((i) => i.contentType === 'activity').length,
+    }),
+    [items],
+  );
+
   return (
-    <div className="space-y-4">
-      <PageTitle title="Gestión Contenido" subtitle="CRUD real para biblioteca académica y recursos de formación." />
-
-      <StatGrid
-        stats={[
-          { label: 'Total', value: items.length, hint: 'Registros cargados' },
-          {
-            label: 'Publicado',
-            value: items.filter((item) => item.status === 'published').length,
-            hint: 'Contenido público',
-          },
-          {
-            label: 'Borrador',
-            value: items.filter((item) => item.status === 'draft').length,
-            hint: 'Pendiente de publicar',
-          },
-          {
-            label: 'Recomendados',
-            value: items.filter((item) => item.isRecommended).length,
-            hint: 'Destacados',
-          },
-        ]}
-      />
-
-      <section className="app-panel p-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-medium text-[var(--app-ink)]">Filtrar alcance:</span>
-          <select
-            className="app-select min-h-0 w-auto px-3 py-2 text-sm"
-            value={scopeFilter}
-            onChange={(event) => setScopeFilter(event.target.value as ScopeFilter)}
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <PageTitle
+          title="Gestión de Contenido"
+          subtitle="Biblioteca académica y recursos de formación. Crea, organiza y publica."
+        />
+        {canCreate && (
+          <button
+            type="button"
+            className="app-button-primary inline-flex items-center gap-2"
+            onClick={() => setCreateOpen(true)}
           >
-            <option value="all">Todos</option>
+            <Plus size={15} />
+            Nuevo contenido
+          </button>
+        )}
+      </div>
+
+      {/* Stats con branding */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-5">
+        <StatCard
+          label="Total"
+          value={stats.total}
+          hint="Registros cargados"
+          icon={Layers}
+          tint="bg-[var(--brand-primary)]/10"
+        />
+        <StatCard
+          label="Publicado"
+          value={stats.published}
+          hint="Contenido público"
+          icon={CheckCircle2}
+          tint="bg-emerald-100"
+        />
+        <StatCard
+          label="Borrador"
+          value={stats.draft}
+          hint="Sin publicar"
+          icon={EyeOff}
+          tint="bg-slate-100"
+        />
+        <StatCard
+          label="Recomendados"
+          value={stats.recommended}
+          hint="Destacados"
+          icon={Star}
+          tint="bg-amber-100"
+        />
+        <StatCard
+          label="Actividades"
+          value={stats.activities}
+          hint="Quizzes activos"
+          icon={Trophy}
+          tint="bg-violet-100"
+        />
+      </div>
+
+      {/* Filtros */}
+      <section className="app-panel p-4">
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_auto_auto_auto_auto]">
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--app-muted)]" />
+            <input
+              type="text"
+              className="w-full rounded-[12px] border border-[var(--app-border)] bg-white pl-9 pr-3 py-2 text-sm"
+              placeholder="Buscar por título, categoría o descripción…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <select
+            className="rounded-[12px] border border-[var(--app-border)] bg-white px-3 py-2 text-sm"
+            value={scopeFilter}
+            onChange={(e) => setScopeFilter(e.target.value as ScopeFilter)}
+          >
+            <option value="all">Todos los alcances</option>
             {SCOPE_OPTIONS.map((scope) => (
               <option key={scope} value={scope}>
-                {scope}
+                {SCOPE_LABELS[scope]}
               </option>
             ))}
           </select>
+          <select
+            className="rounded-[12px] border border-[var(--app-border)] bg-white px-3 py-2 text-sm"
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value as TypeFilter)}
+          >
+            <option value="all">Todos los tipos</option>
+            {TYPE_OPTIONS.map((type) => (
+              <option key={type} value={type}>
+                {TYPE_LABELS[type]}
+              </option>
+            ))}
+          </select>
+          <select
+            className="rounded-[12px] border border-[var(--app-border)] bg-white px-3 py-2 text-sm"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+          >
+            <option value="all">Todos los estados</option>
+            {(Object.keys(STATUS_LABELS) as ContentItemRecord['status'][]).map((s) => (
+              <option key={s} value={s}>
+                {STATUS_LABELS[s]}
+              </option>
+            ))}
+          </select>
+          <p className="self-center text-xs text-[var(--app-muted)]">
+            <b className="text-[var(--app-ink)]">{filtered.length}</b> resultado{filtered.length === 1 ? '' : 's'}
+          </p>
         </div>
-
-        {canCreate && (
-          <form className="grid grid-cols-1 md:grid-cols-6 gap-2 mt-4" onSubmit={onCreate}>
-            <select
-              className="app-select"
-              value={createForm.scope}
-              onChange={(event) =>
-                setCreateForm((prev) => ({ ...prev, scope: event.target.value as ContentScope }))
-              }
-            >
-              {creatableScopes.map((scope) => (
-                <option key={scope} value={scope}>
-                  {scope}
-                </option>
-              ))}
-            </select>
-            <input
-              className="app-input md:col-span-2"
-              placeholder="Título"
-              value={createForm.title}
-              onChange={(event) => setCreateForm((prev) => ({ ...prev, title: event.target.value }))}
-              required
-            />
-            <input
-              className="app-input"
-              placeholder="Categoría"
-              value={createForm.category}
-              onChange={(event) => setCreateForm((prev) => ({ ...prev, category: event.target.value }))}
-              required
-            />
-            <select
-              className="app-select"
-              value={createForm.contentType}
-              onChange={(event) =>
-                setCreateForm((prev) => ({ ...prev, contentType: event.target.value as ContentType }))
-              }
-            >
-              {TYPE_OPTIONS.map((type) => (
-                <option key={type} value={type}>
-                  {TYPE_LABELS[type]}
-                </option>
-              ))}
-            </select>
-            <button
-              className="app-button-primary disabled:opacity-50"
-              type="submit"
-              disabled={submitting}
-            >
-              Crear
-            </button>
-            {createForm.contentType === 'activity' ? (
-              <div className="md:col-span-6 rounded-[12px] border border-dashed border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-2 text-xs text-[var(--app-muted)]">
-                Para tipo <b>actividad</b> no necesitas URL ni archivo. Crea el contenido y luego haz click en <b>Actividad</b> en su fila para configurar las preguntas.
-              </div>
-            ) : (
-              <>
-                <input
-                  className="app-input md:col-span-4"
-                  placeholder="URL (opcional)"
-                  value={createForm.url}
-                  onChange={(event) => setCreateForm((prev) => ({ ...prev, url: event.target.value }))}
-                />
-                <R2UploadButton
-                  moduleCode={MODULE_BY_SCOPE[createForm.scope]}
-                  action="create"
-                  fieldName="contentUrl"
-                  entityTable="app_learning.content_items"
-                  pathPrefix={`contenido/${createForm.scope}/${createForm.contentType}`}
-                  accept={ACCEPT_BY_CONTENT_TYPE[createForm.contentType]}
-                  buttonLabel="Subir a R2"
-                  className="app-button-secondary h-full disabled:opacity-60 inline-flex items-center justify-center gap-2"
-                  onUploaded={(url) => setCreateForm((prev) => ({ ...prev, url }))}
-                />
-              </>
-            )}
-            <input
-              className="app-input md:col-span-6"
-              placeholder="Descripción (opcional)"
-              value={createForm.description}
-              onChange={(event) => setCreateForm((prev) => ({ ...prev, description: event.target.value }))}
-            />
-          </form>
-        )}
       </section>
+
+      {/* Lista de contenidos */}
       {loading ? (
-        <div className="app-panel px-4 py-5 text-sm text-[var(--app-muted)]">Cargando...</div>
+        <div className="app-panel p-6 text-center text-sm text-[var(--app-muted)]">Cargando contenido…</div>
       ) : filtered.length === 0 ? (
-        <EmptyState message="No hay contenido para el filtro seleccionado." />
+        <section className="app-panel p-6">
+          <EmptyState message="No hay contenido para el filtro seleccionado." />
+        </section>
       ) : (
-        <div className="app-table-shell">
-          <div className="overflow-x-auto">
-            <table className="app-table text-sm">
-              <thead>
-                <tr className="text-left">
-                  <th>Título</th>
-                  <th>Alcance</th>
-                  <th>Tipo</th>
-                  <th>Estado</th>
-                  <th>Recomendado</th>
-                  <th>Actualizado</th>
-                  <th>Acciones</th>
+        <section className="app-panel overflow-hidden p-0">
+          {/* Desktop table */}
+          <div className="hidden overflow-x-auto md:block">
+            <table className="min-w-full text-sm">
+              <thead className="bg-[var(--app-surface-muted)] text-left text-[11px] font-bold uppercase tracking-wider text-[var(--app-muted)]">
+                <tr>
+                  <th className="px-4 py-3">Contenido</th>
+                  <th className="px-4 py-3">Alcance</th>
+                  <th className="px-4 py-3">Estado</th>
+                  <th className="px-4 py-3 text-center">Destacado</th>
+                  <th className="px-4 py-3">Actualizado</th>
+                  <th className="px-4 py-3 text-right">Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((item) => {
+                  const Icon = TYPE_ICONS[item.contentType];
+                  const tint = TYPE_TINTS[item.contentType];
                   const moduleCode = MODULE_BY_SCOPE[item.scope];
                   const canUpdateItem = can(moduleCode, 'update');
                   const canDeleteItem = can(moduleCode, 'delete');
                   const canApproveItem = can(moduleCode, 'approve');
-
                   return (
-                    <tr key={item.contentId} className="align-top">
-                      <td>
-                        <p className="font-medium text-[var(--app-ink)]">{item.title}</p>
-                        <p className="text-xs text-[var(--app-muted)]">{item.category}</p>
+                    <tr
+                      key={item.contentId}
+                      className="border-t border-[var(--app-border)] transition hover:bg-[var(--app-surface-muted)]/30"
+                    >
+                      <td className="px-4 py-3">
+                        <div className="flex items-start gap-3">
+                          <div
+                            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] ${tint.bg}`}
+                          >
+                            <Icon size={16} className={tint.fg} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-bold text-[var(--app-ink)]">{item.title}</p>
+                            <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-[var(--app-muted)]">
+                              <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${tint.bg} ${tint.fg}`}>
+                                {TYPE_LABELS[item.contentType]}
+                              </span>
+                              <span>·</span>
+                              <span>{item.category}</span>
+                              {item.url && (
+                                <a
+                                  href={item.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-0.5 hover:text-[var(--brand-primary)]"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <ExternalLink size={10} />
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        </div>
                       </td>
-                      <td className="text-[var(--app-muted)]">{item.scope}</td>
-                      <td className="text-[var(--app-muted)]">{item.contentType}</td>
-                      <td>
+                      <td className="px-4 py-3 text-xs text-[var(--app-muted)]">{SCOPE_LABELS[item.scope]}</td>
+                      <td className="px-4 py-3">
                         {canUpdateItem ? (
                           <select
-                            className="app-select min-h-0 px-3 py-2 text-xs"
+                            className={`rounded-full border-0 px-2.5 py-1 text-[11px] font-bold ${STATUS_STYLE[item.status]}`}
                             value={item.status}
-                            onChange={(event) =>
-                              onStatusChange(item, event.target.value as ContentItemRecord['status'])
+                            onChange={(e) =>
+                              void onStatusChange(item, e.target.value as ContentItemRecord['status'])
                             }
                           >
-                            <option value="draft">draft</option>
-                            <option value="pending_review">pending_review</option>
-                            {canApproveItem && <option value="published">published</option>}
-                            <option value="archived">archived</option>
-                            {canApproveItem && <option value="rejected">rejected</option>}
+                            <option value="draft">{STATUS_LABELS.draft}</option>
+                            <option value="pending_review">{STATUS_LABELS.pending_review}</option>
+                            {canApproveItem && <option value="published">{STATUS_LABELS.published}</option>}
+                            <option value="archived">{STATUS_LABELS.archived}</option>
+                            {canApproveItem && <option value="rejected">{STATUS_LABELS.rejected}</option>}
                           </select>
                         ) : (
-                          <span className="app-badge app-badge-muted">{item.status}</span>
+                          <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${STATUS_STYLE[item.status]}`}>
+                            {STATUS_LABELS[item.status]}
+                          </span>
                         )}
                       </td>
-                      <td>
+                      <td className="px-4 py-3 text-center">
                         {canUpdateItem ? (
-                          <input
-                            type="checkbox"
-                            checked={item.isRecommended}
-                            onChange={() => void onToggleRecommended(item)}
-                            className="h-4 w-4"
-                          />
-                        ) : (
-                          <span className="text-xs text-[var(--app-muted)]">{item.isRecommended ? 'Sí' : 'No'}</span>
-                        )}
+                          <button
+                            type="button"
+                            onClick={() => void onToggleRecommended(item)}
+                            className={`rounded-full p-1.5 transition ${
+                              item.isRecommended
+                                ? 'bg-amber-100 text-amber-600'
+                                : 'text-[var(--app-muted)] hover:bg-[var(--app-surface-muted)]'
+                            }`}
+                            aria-label={item.isRecommended ? 'Quitar destacado' : 'Marcar destacado'}
+                          >
+                            <Star size={14} fill={item.isRecommended ? 'currentColor' : 'none'} />
+                          </button>
+                        ) : item.isRecommended ? (
+                          <Star size={14} className="mx-auto text-amber-600" fill="currentColor" />
+                        ) : null}
                       </td>
-                      <td className="text-xs text-[var(--app-muted)]">{toLocalDateTime(item.updatedAt)}</td>
-                      <td>
-                        <div className="flex flex-wrap items-center gap-2">
-                          {canUpdateItem && (
-                            <Link
-                              href={`/dashboard/contenido/${item.contentId}/actividad`}
-                              className="app-button-secondary min-h-0 px-3 py-2 text-xs"
+                      <td className="px-4 py-3 text-xs text-[var(--app-muted)]">
+                        <span title={new Date(item.updatedAt).toLocaleString('es-CO')}>
+                          {toRelativeTime(item.updatedAt)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="relative inline-block">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenMenuId((prev) => (prev === item.contentId ? null : item.contentId));
+                            }}
+                            className="rounded-full p-1.5 text-[var(--app-muted)] hover:bg-[var(--app-surface-muted)]"
+                            aria-label="Más acciones"
+                          >
+                            <MoreHorizontal size={16} />
+                          </button>
+                          {openMenuId === item.contentId && (
+                            <div
+                              className="absolute right-0 z-20 mt-1 w-48 rounded-[12px] border border-[var(--app-border)] bg-white p-1 shadow-xl"
+                              onClick={(e) => e.stopPropagation()}
                             >
-                              Actividad
-                            </Link>
-                          )}
-                          {canUpdateItem && (
-                            <button
-                              className="app-button-secondary min-h-0 px-3 py-2 text-xs"
-                              onClick={() => void onRename(item)}
-                              type="button"
-                            >
-                              Renombrar
-                            </button>
-                          )}
-                          {canDeleteItem && (
-                            <button
-                              className="rounded-full border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50"
-                              onClick={() => void onDelete(item)}
-                              type="button"
-                            >
-                              Eliminar
-                            </button>
+                              {canUpdateItem && (
+                                <Link
+                                  href={`/dashboard/contenido/${item.contentId}/actividad`}
+                                  className="flex items-center gap-2 rounded-[8px] px-3 py-2 text-xs font-semibold text-[var(--app-ink)] hover:bg-[var(--app-surface-muted)]"
+                                >
+                                  <Trophy size={13} />
+                                  Editar actividad
+                                </Link>
+                              )}
+                              {canUpdateItem && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenMenuId(null);
+                                    void onRename(item);
+                                  }}
+                                  className="flex w-full items-center gap-2 rounded-[8px] px-3 py-2 text-xs font-semibold text-[var(--app-ink)] hover:bg-[var(--app-surface-muted)]"
+                                >
+                                  <Pencil size={13} />
+                                  Renombrar
+                                </button>
+                              )}
+                              {canUpdateItem && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenMenuId(null);
+                                    void onStatusChange(item, 'archived');
+                                  }}
+                                  className="flex w-full items-center gap-2 rounded-[8px] px-3 py-2 text-xs font-semibold text-[var(--app-ink)] hover:bg-[var(--app-surface-muted)]"
+                                >
+                                  <Archive size={13} />
+                                  Archivar
+                                </button>
+                              )}
+                              {item.url && (
+                                <a
+                                  href={item.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="flex items-center gap-2 rounded-[8px] px-3 py-2 text-xs font-semibold text-[var(--app-ink)] hover:bg-[var(--app-surface-muted)]"
+                                >
+                                  <Eye size={13} />
+                                  Abrir URL
+                                </a>
+                              )}
+                              {canDeleteItem && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenMenuId(null);
+                                    void onDelete(item);
+                                  }}
+                                  className="flex w-full items-center gap-2 rounded-[8px] px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50"
+                                >
+                                  <Trash2 size={13} />
+                                  Eliminar
+                                </button>
+                              )}
+                            </div>
                           )}
                         </div>
                       </td>
@@ -452,13 +662,235 @@ export default function ContenidoPage() {
               </tbody>
             </table>
           </div>
-        </div>
+
+          {/* Mobile cards */}
+          <div className="space-y-2 p-2 md:hidden">
+            {filtered.map((item) => {
+              const Icon = TYPE_ICONS[item.contentType];
+              const tint = TYPE_TINTS[item.contentType];
+              const moduleCode = MODULE_BY_SCOPE[item.scope];
+              const canUpdateItem = can(moduleCode, 'update');
+              const canDeleteItem = can(moduleCode, 'delete');
+              return (
+                <article key={item.contentId} className="rounded-[14px] border border-[var(--app-border)] bg-white p-3">
+                  <div className="flex items-start gap-3">
+                    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] ${tint.bg}`}>
+                      <Icon size={16} className={tint.fg} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold text-[var(--app-ink)]">{item.title}</p>
+                      <p className="text-xs text-[var(--app-muted)]">
+                        {SCOPE_LABELS[item.scope]} · {item.category}
+                      </p>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${tint.bg} ${tint.fg}`}>
+                          {TYPE_LABELS[item.contentType]}
+                        </span>
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${STATUS_STYLE[item.status]}`}>
+                          {STATUS_LABELS[item.status]}
+                        </span>
+                        {item.isRecommended && (
+                          <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                            <Star size={9} fill="currentColor" />
+                            Destacado
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {canUpdateItem && (
+                          <Link
+                            href={`/dashboard/contenido/${item.contentId}/actividad`}
+                            className="inline-flex items-center gap-1 rounded-[10px] border border-[var(--app-border)] bg-white px-2.5 py-1 text-[11px] font-semibold text-[var(--app-ink)]"
+                          >
+                            <Trophy size={11} />
+                            Actividad
+                          </Link>
+                        )}
+                        {canUpdateItem && (
+                          <button
+                            type="button"
+                            onClick={() => void onRename(item)}
+                            className="inline-flex items-center gap-1 rounded-[10px] border border-[var(--app-border)] bg-white px-2.5 py-1 text-[11px] font-semibold text-[var(--app-ink)]"
+                          >
+                            <Pencil size={11} />
+                            Renombrar
+                          </button>
+                        )}
+                        {canDeleteItem && (
+                          <button
+                            type="button"
+                            onClick={() => void onDelete(item)}
+                            className="inline-flex items-center gap-1 rounded-[10px] border border-rose-200 bg-white px-2.5 py-1 text-[11px] font-bold text-rose-600"
+                          >
+                            <Trash2 size={11} />
+                            Eliminar
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
       )}
 
       {canApproveAny && (
         <p className="text-xs text-[var(--app-muted)]">
-          Publicación controlada por permiso <code>approve</code> por módulo.
+          <Eye size={11} className="mr-1 inline" />
+          La publicación está controlada por permiso <code className="rounded bg-[var(--app-surface-muted)] px-1.5 py-0.5">approve</code> por módulo.
         </p>
+      )}
+
+      {/* Modal: Nuevo contenido */}
+      {createOpen && canCreate && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
+          onClick={() => !submitting && setCreateOpen(false)}
+        >
+          <div
+            className="w-full max-w-2xl rounded-t-[24px] bg-white shadow-2xl sm:rounded-[20px]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-[var(--app-border)] px-5 py-3">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-[var(--brand-primary)]/10">
+                  <Plus size={15} className="text-[var(--brand-primary)]" />
+                </div>
+                <h3 className="text-lg font-black text-[var(--app-ink)]">Nuevo contenido</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => !submitting && setCreateOpen(false)}
+                className="rounded-full p-1.5 text-[var(--app-muted)] hover:bg-[var(--app-surface-muted)]"
+                aria-label="Cerrar"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <form className="space-y-4 p-5" onSubmit={onCreate}>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="block">
+                  <span className="app-field-label">Alcance</span>
+                  <select
+                    className="app-select"
+                    value={createForm.scope}
+                    onChange={(e) =>
+                      setCreateForm((prev) => ({ ...prev, scope: e.target.value as ContentScope }))
+                    }
+                  >
+                    {creatableScopes.map((scope) => (
+                      <option key={scope} value={scope}>
+                        {SCOPE_LABELS[scope]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="app-field-label">Tipo</span>
+                  <select
+                    className="app-select"
+                    value={createForm.contentType}
+                    onChange={(e) =>
+                      setCreateForm((prev) => ({ ...prev, contentType: e.target.value as ContentType }))
+                    }
+                  >
+                    {TYPE_OPTIONS.map((type) => (
+                      <option key={type} value={type}>
+                        {TYPE_LABELS[type]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block sm:col-span-2">
+                  <span className="app-field-label">Título</span>
+                  <input
+                    className="app-input"
+                    placeholder="Ej. Comunicación efectiva en equipos remotos"
+                    value={createForm.title}
+                    onChange={(e) => setCreateForm((prev) => ({ ...prev, title: e.target.value }))}
+                    required
+                  />
+                </label>
+                <label className="block">
+                  <span className="app-field-label">Categoría</span>
+                  <input
+                    className="app-input"
+                    placeholder="Ej. Masterclass, Quiz, Recurso…"
+                    value={createForm.category}
+                    onChange={(e) => setCreateForm((prev) => ({ ...prev, category: e.target.value }))}
+                    required
+                  />
+                </label>
+              </div>
+
+              {createForm.contentType === 'activity' ? (
+                <div className="flex items-start gap-2 rounded-[12px] border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">
+                  <Trophy size={14} className="mt-0.5 shrink-0" />
+                  <p>
+                    Para <b>actividad</b> no se requiere URL ni archivo. Una vez creado el contenido, haz click
+                    en <b>"Editar actividad"</b> del menú de acciones para configurar las preguntas (9 tipos
+                    disponibles).
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <label className="block">
+                    <span className="app-field-label">URL del recurso (opcional)</span>
+                    <input
+                      className="app-input"
+                      placeholder="https://… o subir archivo abajo"
+                      value={createForm.url}
+                      onChange={(e) => setCreateForm((prev) => ({ ...prev, url: e.target.value }))}
+                    />
+                  </label>
+                  <div className="text-right">
+                    <R2UploadButton
+                      moduleCode={MODULE_BY_SCOPE[createForm.scope]}
+                      action="create"
+                      fieldName="contentUrl"
+                      entityTable="app_learning.content_items"
+                      pathPrefix={`contenido/${createForm.scope}/${createForm.contentType}`}
+                      accept={ACCEPT_BY_CONTENT_TYPE[createForm.contentType]}
+                      buttonLabel="Subir archivo a R2"
+                      className="app-button-secondary inline-flex items-center gap-1.5"
+                      onUploaded={(url) => setCreateForm((prev) => ({ ...prev, url }))}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <label className="block">
+                <span className="app-field-label">Descripción (opcional)</span>
+                <textarea
+                  className="app-textarea min-h-20"
+                  placeholder="Breve descripción del contenido."
+                  value={createForm.description}
+                  onChange={(e) => setCreateForm((prev) => ({ ...prev, description: e.target.value }))}
+                />
+              </label>
+
+              <div className="flex flex-col-reverse justify-end gap-2 border-t border-[var(--app-border)] pt-3 sm:flex-row">
+                <button
+                  type="button"
+                  className="rounded-[12px] border border-[var(--app-border)] bg-white px-4 py-2 text-sm font-semibold text-[var(--app-ink)]"
+                  onClick={() => !submitting && setCreateOpen(false)}
+                  disabled={submitting}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="app-button-primary inline-flex items-center gap-2"
+                  disabled={submitting}
+                >
+                  {submitting ? 'Creando…' : 'Crear contenido'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );
