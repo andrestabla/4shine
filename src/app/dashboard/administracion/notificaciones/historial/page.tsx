@@ -10,6 +10,8 @@ import {
   Eye,
   Loader2,
   Mail,
+  Pause,
+  Play,
   RefreshCw,
   Search,
   X,
@@ -75,23 +77,59 @@ export default function HistorialPage() {
   const [total, setTotal] = React.useState(0);
   const [loading, setLoading] = React.useState(false);
   const [selected, setSelected] = React.useState<NotificationHistoryRow | null>(null);
+  // Auto-refresh: polling cada 20 s. Toggle pausable por el usuario.
+  // 20 s es lo suficientemente rápido para que se sientan "en tiempo real"
+  // sin saturar el servidor con queries.
+  const AUTO_REFRESH_MS = 20_000;
+  const [autoRefresh, setAutoRefresh] = React.useState(true);
+  const [lastFetched, setLastFetched] = React.useState<number | null>(null);
+  const [nowTick, setNowTick] = React.useState(Date.now());
 
-  const load = React.useCallback(async () => {
-    setLoading(true);
+  const load = React.useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const data = await listHistory(filter);
       setRows(data.rows);
       setTotal(data.total);
+      setLastFetched(Date.now());
     } catch (error) {
       console.error('[historial]', error);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [filter]);
 
   React.useEffect(() => {
     void load();
   }, [load]);
+
+  // Polling silencioso cada AUTO_REFRESH_MS si autoRefresh está on.
+  // Pausa si la pestaña está oculta (no malgastamos requests).
+  React.useEffect(() => {
+    if (!autoRefresh) return;
+    const tick = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      void load(true);
+    };
+    const id = window.setInterval(tick, AUTO_REFRESH_MS);
+    return () => window.clearInterval(id);
+  }, [autoRefresh, load]);
+
+  // Ticker independiente para refrescar el "hace X segundos" del indicador
+  // sin re-disparar fetch (cada 5 s).
+  React.useEffect(() => {
+    const id = window.setInterval(() => setNowTick(Date.now()), 5_000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const lastFetchedLabel = React.useMemo(() => {
+    if (!lastFetched) return '—';
+    const seconds = Math.max(0, Math.floor((nowTick - lastFetched) / 1000));
+    if (seconds < 5) return 'hace un instante';
+    if (seconds < 60) return `hace ${seconds}s`;
+    const minutes = Math.floor(seconds / 60);
+    return `hace ${minutes} min`;
+  }, [lastFetched, nowTick]);
 
   const updateFilter = (next: Partial<NotificationHistoryFilter>) => {
     setFilter((prev) => ({ ...prev, ...next, offset: 0 }));
@@ -172,7 +210,7 @@ export default function HistorialPage() {
             </select>
           </label>
         </div>
-        <div className="mt-3 flex items-center gap-3">
+        <div className="mt-3 flex flex-wrap items-center gap-3">
           <button
             type="button"
             onClick={() => void load()}
@@ -182,8 +220,27 @@ export default function HistorialPage() {
             {loading ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
             Actualizar
           </button>
+          <button
+            type="button"
+            onClick={() => setAutoRefresh((v) => !v)}
+            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold transition ${
+              autoRefresh
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                : 'border-[var(--app-border)] bg-white text-[var(--app-muted)]'
+            }`}
+            title={autoRefresh ? 'Auto-refresh activo' : 'Auto-refresh pausado'}
+          >
+            {autoRefresh ? <Pause size={11} /> : <Play size={11} />}
+            {autoRefresh ? 'Auto cada 20s' : 'Auto pausado'}
+            {autoRefresh && (
+              <span className="ml-1 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+            )}
+          </button>
           <span className="text-xs text-[var(--app-muted)]">
             {loading ? 'Cargando…' : `${total} registros`}
+            {lastFetched && !loading && (
+              <span className="ml-2 text-[var(--app-muted)]">· actualizado {lastFetchedLabel}</span>
+            )}
           </span>
         </div>
       </section>
