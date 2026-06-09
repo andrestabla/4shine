@@ -593,6 +593,14 @@ export default function ContenidoPage() {
                               className="absolute right-0 z-20 mt-1 w-48 rounded-[12px] border border-[var(--app-border)] bg-white p-1 shadow-xl"
                               onClick={(e) => e.stopPropagation()}
                             >
+                              <Link
+                                href={`/dashboard/aprendizaje/recursos/${item.contentId}`}
+                                target="_blank"
+                                className="flex items-center gap-2 rounded-[8px] px-3 py-2 text-xs font-semibold text-[var(--brand-primary)] hover:bg-[var(--brand-primary)]/10"
+                              >
+                                <Eye size={13} />
+                                Visualizar
+                              </Link>
                               {canUpdateItem && (
                                 <Link
                                   href={`/dashboard/contenido/${item.contentId}/actividad`}
@@ -635,8 +643,8 @@ export default function ContenidoPage() {
                                   rel="noreferrer"
                                   className="flex items-center gap-2 rounded-[8px] px-3 py-2 text-xs font-semibold text-[var(--app-ink)] hover:bg-[var(--app-surface-muted)]"
                                 >
-                                  <Eye size={13} />
-                                  Abrir URL
+                                  <ExternalLink size={13} />
+                                  URL externa
                                 </a>
                               )}
                               {canDeleteItem && (
@@ -697,6 +705,14 @@ export default function ContenidoPage() {
                         )}
                       </div>
                       <div className="mt-2 flex flex-wrap gap-1">
+                        <Link
+                          href={`/dashboard/aprendizaje/recursos/${item.contentId}`}
+                          target="_blank"
+                          className="inline-flex items-center gap-1 rounded-[10px] border border-[var(--brand-primary)] bg-[var(--brand-primary)]/10 px-2.5 py-1 text-[11px] font-semibold text-[var(--brand-primary)]"
+                        >
+                          <Eye size={11} />
+                          Visualizar
+                        </Link>
                         {canUpdateItem && (
                           <Link
                             href={`/dashboard/contenido/${item.contentId}/actividad`}
