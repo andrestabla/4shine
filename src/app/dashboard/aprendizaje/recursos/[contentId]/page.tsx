@@ -35,6 +35,7 @@ const AssignmentPlayer = dynamic(
   { ssr: false, loading: () => <p className="text-sm text-[var(--app-muted)]">Cargando tarea…</p> },
 );
 import { CertificateBuilderPreview } from "@/components/aprendizaje/CertificateBuilder";
+import { CourseParticipationPanel } from "@/components/aprendizaje/CourseParticipationPanel";
 import { LearningResourceCard } from "@/components/aprendizaje/LearningResourceCard";
 import { EmptyState } from "@/components/dashboard/EmptyState";
 import { useAppDialog } from "@/components/ui/AppDialogProvider";
@@ -205,7 +206,7 @@ export default function LearningResourceDetailPage() {
   const [togglingCommentReaction, setTogglingCommentReaction] = React.useState<string | null>(null);
   const [deleting, setDeleting] = React.useState(false);
   
-  const [activeTab, setActiveTab] = React.useState<"temario" | "discusion">("temario");
+  const [activeTab, setActiveTab] = React.useState<"temario" | "discusion" | "reportes">("temario");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [activeResourceIndex, setActiveResourceIndex] = React.useState(-1);
   const [suggestedResources, setSuggestedResources] = React.useState<LearningResourceRecord[]>([]);
@@ -1371,6 +1372,16 @@ export default function LearningResourceDetailPage() {
             >
               Discusión
             </button>
+            {canManage && (
+              <button
+                onClick={() => setActiveTab("reportes")}
+                className={`flex-1 border-b-2 px-1 py-3 text-xs font-bold uppercase tracking-wider transition ${
+                  activeTab === "reportes" ? "border-[var(--brand-primary)] text-[var(--brand-primary)]" : "border-transparent text-[var(--app-muted)] hover:text-[var(--app-ink)]"
+                }`}
+              >
+                Reportes
+              </button>
+            )}
           </div>
 
           <div className="flex-1 overflow-y-auto">
@@ -1508,6 +1519,8 @@ export default function LearningResourceDetailPage() {
                   </div>
                 )}
               </div>
+            ) : activeTab === "reportes" && canManage ? (
+              <CourseParticipationPanel contentId={resource.contentId} />
             ) : (
               <div className="flex h-full flex-col">
                 <div className="flex-1 space-y-4 p-4 overflow-y-auto">
