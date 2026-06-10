@@ -1332,9 +1332,14 @@ export default function LearningResourceDetailPage() {
           </button>
         </div>
 
-        {/* SIDEBAR: Temario y Discusión */}
+        {/* SIDEBAR: Temario, Discusión, Reportes.
+            Cuando la tab activa es "reportes", el sidebar se expande a 50% del
+            ancho disponible (md+) para que la tabla de participación tenga
+            espacio para columnas y filas legibles. Lleva una transición suave. */}
         {(!isCoursePackage || isSidebarOpen) && (
-        <aside className={`flex h-full shrink-0 flex-col bg-white transition-all duration-300 md:relative md:w-80 lg:w-96 md:flex ${
+        <aside className={`flex h-full shrink-0 flex-col bg-white transition-all duration-300 md:relative md:flex ${
+          activeTab === "reportes" ? "md:w-1/2 lg:w-1/2" : "md:w-80 lg:w-96"
+        } ${
           isCoursePackage
             ? (isSidebarOpen
                 ? "fixed inset-0 z-[110] w-full md:inset-auto md:z-auto"
