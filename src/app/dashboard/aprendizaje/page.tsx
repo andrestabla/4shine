@@ -28,6 +28,7 @@ import {
 import { CertificateBuilder, CertificateBuilderPreview } from "@/components/aprendizaje/CertificateBuilder";
 import { CertificatePreviewCard } from "@/components/aprendizaje/CertificatePreviewCard";
 import { ActivityPicker } from "@/components/aprendizaje/ActivityPicker";
+import { AssignmentPicker } from "@/components/aprendizaje/AssignmentPicker";
 import { LearningResourceCard } from "@/components/aprendizaje/LearningResourceCard";
 import { LearningAnalyticsPanel } from "@/components/aprendizaje/LearningAnalyticsPanel";
 import { EmptyState } from "@/components/dashboard/EmptyState";
@@ -4041,6 +4042,31 @@ export default function AprendizajePage() {
                                                   selection?.contentId ?? "",
                                                 );
                                                 // Auto-rellenar el título si está vacío
+                                                if (selection && !courseResource.title.trim()) {
+                                                  updateCourseModuleResource(
+                                                    module.id,
+                                                    courseResource.id,
+                                                    "title",
+                                                    selection.title,
+                                                  );
+                                                }
+                                              }}
+                                            />
+                                          </>
+                                        ) : courseResource.contentType === "assignment" ? (
+                                          <>
+                                            <label className="app-field-label">
+                                              Tarea vinculada
+                                            </label>
+                                            <AssignmentPicker
+                                              value={courseResource.linkedContentId}
+                                              onChange={(selection) => {
+                                                updateCourseModuleResource(
+                                                  module.id,
+                                                  courseResource.id,
+                                                  "linkedContentId",
+                                                  selection?.contentId ?? "",
+                                                );
                                                 if (selection && !courseResource.title.trim()) {
                                                   updateCourseModuleResource(
                                                     module.id,

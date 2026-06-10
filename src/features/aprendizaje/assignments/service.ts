@@ -23,7 +23,7 @@ function assertCanManage(actor: AuthUser): void {
 }
 
 interface AssignmentRow {
-  assignment_id: string;
+  task_id: string;
   content_id: string;
   title: string;
   instructions: string;
@@ -42,7 +42,7 @@ interface AssignmentRow {
 
 function mapAssignmentRow(row: AssignmentRow): ContentAssignmentRecord {
   return {
-    assignmentId: row.assignment_id,
+    assignmentId: row.task_id,
     contentId: row.content_id,
     title: row.title,
     instructions: row.instructions ?? '',
@@ -62,7 +62,7 @@ function mapAssignmentRow(row: AssignmentRow): ContentAssignmentRecord {
 
 interface SubmissionRow {
   submission_id: string;
-  assignment_id: string;
+  task_id: string;
   user_id: string;
   status: SubmissionStatus;
   submission_text: string | null;
@@ -96,7 +96,7 @@ function safeFiles(value: unknown): AssignmentFile[] {
 function mapSubmissionRow(row: SubmissionRow): SubmissionRecord {
   return {
     submissionId: row.submission_id,
-    assignmentId: row.assignment_id,
+    assignmentId: row.task_id,
     userId: row.user_id,
     status: row.status,
     submissionText: row.submission_text,
@@ -136,7 +136,7 @@ export async function upsertAssignment(
 
   const { rows } = await client.query<AssignmentRow>(
     `
-      INSERT INTO app_learning.content_assignments (
+      INSERT INTO app_learning.content_tasks (
         content_id, title, instructions, evaluation_criteria,
         max_score, passing_score, accept_files, accept_url, accept_text,
         max_files, allow_multiple_submissions, is_active, created_by
@@ -158,7 +158,7 @@ export async function upsertAssignment(
         is_active = EXCLUDED.is_active,
         updated_at = now()
       RETURNING
-        assignment_id::text, content_id::text, title, instructions, evaluation_criteria,
+        task_id::text, content_id::text, title, instructions, evaluation_criteria,
         max_score, passing_score, accept_files, accept_url, accept_text,
         max_files, allow_multiple_submissions, is_active,
         created_at::text, updated_at::text
@@ -192,11 +192,11 @@ export async function getAssignmentForContent(
   const { rows } = await client.query<AssignmentRow>(
     `
       SELECT
-        assignment_id::text, content_id::text, title, instructions, evaluation_criteria,
+        task_id::text, content_id::text, title, instructions, evaluation_criteria,
         max_score, passing_score, accept_files, accept_url, accept_text,
         max_files, allow_multiple_submissions, is_active,
         created_at::text, updated_at::text
-      FROM app_learning.content_assignments
+      FROM app_learning.content_tasks
       WHERE content_id = $1::uuid
       LIMIT 1
     `,
@@ -213,7 +213,7 @@ export async function deleteAssignment(
   assertCanManage(actor);
   await requireModulePermission(client, 'aprendizaje', 'delete');
   await client.query(
-    `DELETE FROM app_learning.content_assignments WHERE content_id = $1::uuid`,
+    `DELETE FROM app_learning.content_tasks WHERE content_id = $1::uuid`,
     [contentId],
   );
 }
@@ -229,11 +229,11 @@ export async function getAssignmentForLearner(
   const { rows } = await client.query<AssignmentRow>(
     `
       SELECT
-        assignment_id::text, content_id::text, title, instructions, evaluation_criteria,
+        task_id::text, content_id::text, title, instructions, evaluation_criteria,
         max_score, passing_score, accept_files, accept_url, accept_text,
         max_files, allow_multiple_submissions, is_active,
         created_at::text, updated_at::text
-      FROM app_learning.content_assignments
+      FROM app_learning.content_tasks
       WHERE content_id = $1::uuid AND is_active = true
       LIMIT 1
     `,
@@ -253,16 +253,16 @@ async function listSubmissionsForUser(
   const { rows } = await client.query<SubmissionRow>(
     `
       SELECT
-        s.submission_id::text, s.assignment_id::text, s.user_id::text, s.status,
+        s.submission_id::text, s.task_id::text, s.user_id::text, s.status,
         s.submission_text, s.submission_url, s.submission_files,
         s.score, s.passed, s.grader_feedback,
         s.graded_by::text AS grader_id,
         gu.display_name AS grader_name,
         s.graded_at::text, s.submitted_at::text,
         s.created_at::text, s.updated_at::text
-      FROM app_learning.assignment_submissions s
+      FROM app_learning.task_submissions s
       LEFT JOIN app_core.users gu ON gu.user_id = s.graded_by
-      WHERE s.assignment_id = $1::uuid AND s.user_id = $2::uuid
+      WHERE s.task_id = $1::uuid AND s.user_id = $2::uuid
       ORDER BY s.created_at DESC
       LIMIT 50
     `,
@@ -291,8 +291,8 @@ export async function upsertMySubmission(
   }>(
     `
       SELECT is_active, accept_files, accept_url, accept_text, max_files, allow_multiple_submissions
-      FROM app_learning.content_assignments
-      WHERE assignment_id = $1::uuid
+      FROM app_learning.content_tasks
+      WHERE task_id = $1::uuid
     `,
     [assignmentId],
   );
@@ -310,8 +310,8 @@ export async function upsertMySubmission(
   const { rows: existingRows } = await client.query<{ submission_id: string; status: SubmissionStatus }>(
     `
       SELECT submission_id::text, status
-      FROM app_learning.assignment_submissions
-      WHERE assignment_id = $1::uuid AND user_id = $2::uuid
+      FROM app_learning.task_submissions
+      WHERE task_id = $1::uuid AND user_id = $2::uuid
       ORDER BY created_at DESC
       LIMIT 1
     `,
@@ -325,7 +325,7 @@ export async function upsertMySubmission(
     submissionId = existing.submission_id;
     await client.query(
       `
-        UPDATE app_learning.assignment_submissions
+        UPDATE app_learning.task_submissions
         SET
           submission_text = $2,
           submission_url = $3,
@@ -343,8 +343,8 @@ export async function upsertMySubmission(
     }
     const { rows } = await client.query<{ submission_id: string }>(
       `
-        INSERT INTO app_learning.assignment_submissions (
-          assignment_id, user_id, status, submission_text, submission_url, submission_files,
+        INSERT INTO app_learning.task_submissions (
+          task_id, user_id, status, submission_text, submission_url, submission_files,
           submitted_at
         )
         VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6::jsonb, $7::timestamptz)
@@ -378,16 +378,16 @@ export async function gradeSubmission(
   assertCanManage(actor);
   await requireModulePermission(client, 'aprendizaje', 'update');
 
-  const { rows: subRows } = await client.query<{ assignment_id: string }>(
-    `SELECT assignment_id::text FROM app_learning.assignment_submissions WHERE submission_id = $1::uuid`,
+  const { rows: subRows } = await client.query<{ task_id: string }>(
+    `SELECT task_id::text FROM app_learning.task_submissions WHERE submission_id = $1::uuid`,
     [submissionId],
   );
   const sub = subRows[0];
   if (!sub) throw new Error('Entrega no encontrada.');
 
   const { rows: assignmentRows } = await client.query<{ max_score: number; passing_score: number }>(
-    `SELECT max_score, passing_score FROM app_learning.content_assignments WHERE assignment_id = $1::uuid`,
-    [sub.assignment_id],
+    `SELECT max_score, passing_score FROM app_learning.content_tasks WHERE task_id = $1::uuid`,
+    [sub.task_id],
   );
   const a = assignmentRows[0];
   if (!a) throw new Error('Tarea no encontrada.');
@@ -398,7 +398,7 @@ export async function gradeSubmission(
 
   await client.query(
     `
-      UPDATE app_learning.assignment_submissions
+      UPDATE app_learning.task_submissions
       SET
         score = $2,
         passed = $3,
@@ -415,14 +415,14 @@ export async function gradeSubmission(
   const { rows } = await client.query<SubmissionRow & { user_id: string }>(
     `
       SELECT
-        s.submission_id::text, s.assignment_id::text, s.user_id::text, s.status,
+        s.submission_id::text, s.task_id::text, s.user_id::text, s.status,
         s.submission_text, s.submission_url, s.submission_files,
         s.score, s.passed, s.grader_feedback,
         s.graded_by::text AS grader_id,
         gu.display_name AS grader_name,
         s.graded_at::text, s.submitted_at::text,
         s.created_at::text, s.updated_at::text
-      FROM app_learning.assignment_submissions s
+      FROM app_learning.task_submissions s
       LEFT JOIN app_core.users gu ON gu.user_id = s.graded_by
       WHERE s.submission_id = $1::uuid
     `,
@@ -443,7 +443,7 @@ export async function listSubmissionsForAssignment(
   const { rows } = await client.query<SubmissionRow & { user_name: string; user_email: string }>(
     `
       SELECT
-        s.submission_id::text, s.assignment_id::text, s.user_id::text, s.status,
+        s.submission_id::text, s.task_id::text, s.user_id::text, s.status,
         s.submission_text, s.submission_url, s.submission_files,
         s.score, s.passed, s.grader_feedback,
         s.graded_by::text AS grader_id,
@@ -452,10 +452,10 @@ export async function listSubmissionsForAssignment(
         s.created_at::text, s.updated_at::text,
         u.display_name AS user_name,
         u.email::text AS user_email
-      FROM app_learning.assignment_submissions s
+      FROM app_learning.task_submissions s
       JOIN app_core.users u ON u.user_id = s.user_id
       LEFT JOIN app_core.users gu ON gu.user_id = s.graded_by
-      WHERE s.assignment_id = $1::uuid
+      WHERE s.task_id = $1::uuid
       ORDER BY
         CASE s.status WHEN 'submitted' THEN 0 WHEN 'revision_requested' THEN 1 ELSE 2 END,
         s.submitted_at DESC NULLS LAST
@@ -495,7 +495,7 @@ export async function listAvailableAssignments(
         ci.title AS content_title,
         ca.title AS assignment_title,
         ca.is_active
-      FROM app_learning.content_assignments ca
+      FROM app_learning.content_tasks ca
       JOIN app_learning.content_items ci ON ci.content_id = ca.content_id
       ORDER BY ci.title
       LIMIT 500

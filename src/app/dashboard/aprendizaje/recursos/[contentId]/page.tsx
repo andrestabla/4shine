@@ -1849,6 +1849,11 @@ export default function LearningResourceDetailPage() {
                     <div className="rounded-[16px] bg-white p-3">
                       <ActivityPlayer contentId={currentItem.linkedContentId} />
                     </div>
+                  ) : currentItem.contentType === "assignment" && currentItem.linkedContentId ? (
+                    // ASSIGNMENT (tarea) — render inline en el contexto del módulo del curso
+                    <div className="rounded-[16px] bg-white p-3">
+                      <AssignmentPlayer contentId={currentItem.linkedContentId} />
+                    </div>
                   ) : currentItem.contentType === "video" && isEmbeddableVideoUrl(currentItem.url) ? (
                     // DIRECT VIDEO PLAYER (mp4/webm/mov + HLS .m3u8 via hls.js)
                     <HlsVideoPlayer src={currentItem.url!} title={currentItem.title || undefined} />
