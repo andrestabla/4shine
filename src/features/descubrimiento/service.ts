@@ -2864,7 +2864,7 @@ export async function verifyDiscoveryInvitationAccessAndProvisionInvitedUser(
   return { access, authUser };
 }
 
-async function resolveDiscoveryInvitationByToken(
+export async function resolveDiscoveryInvitationByToken(
   client: PoolClient,
   inviteToken: string,
 ): Promise<DiscoveryInvitationRow & { session_payload: DiscoverySessionRow | null }> {
@@ -5267,7 +5267,7 @@ interface InvitationStoredReports {
   beyond?: string;
 }
 
-function parseInvitationStoredReports(meta: unknown): InvitationStoredReports {
+export function parseInvitationStoredReports(meta: unknown): InvitationStoredReports {
   if (!meta || typeof meta !== "object" || Array.isArray(meta)) return {};
   const record = meta as Record<string, unknown>;
   const raw = record.ai_reports;
