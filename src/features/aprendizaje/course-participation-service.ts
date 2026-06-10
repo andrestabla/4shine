@@ -237,7 +237,7 @@ export async function getCourseParticipationReport(
       `SELECT
          user_id::text,
          activity_id::text,
-         COUNT(*)::int FILTER (WHERE status = 'submitted') AS attempts,
+         (COUNT(*) FILTER (WHERE status = 'submitted'))::int AS attempts,
          MAX(score_percent)::float AS best_score,
          BOOL_OR(passed) AS passed,
          MAX(COALESCE(submitted_at, started_at))::text AS last_attempt_at
