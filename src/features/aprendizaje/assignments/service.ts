@@ -22,6 +22,43 @@ function assertCanManage(actor: AuthUser): void {
   }
 }
 
+/**
+ * Las tareas solo se consumen dentro de un curso. Verifica que la tarea esté
+ * vinculada como linkedContentId en al menos un curso publicado. Si no, el
+ * líder no debería poder cargar la tarea ni enviar entregas.
+ * Manager roles (admin/gestor/adviser) bypasan este check para QA.
+ */
+async function assertTaskAccessibleViaCourse(
+  client: PoolClient,
+  actor: AuthUser,
+  taskContentId: string,
+): Promise<void> {
+  if (MANAGE_ROLES.has(actor.role)) return;
+  const { rows } = await client.query<{ exists: boolean }>(
+    `
+      SELECT EXISTS (
+        SELECT 1
+        FROM app_learning.content_items courses,
+             LATERAL jsonb_array_elements(
+               COALESCE(courses.structure_payload->'modules', '[]'::jsonb)
+             ) AS mod,
+             LATERAL jsonb_array_elements(
+               COALESCE(mod->'resources', '[]'::jsonb)
+             ) AS res
+        WHERE courses.content_type = 'scorm'
+          AND courses.status = 'published'
+          AND (res->>'linkedContentId') = $1
+      ) AS exists
+    `,
+    [taskContentId],
+  );
+  if (!rows[0]?.exists) {
+    throw new Error(
+      'Esta tarea no está disponible. Solo se puede acceder a tareas que forman parte de un curso publicado.',
+    );
+  }
+}
+
 interface AssignmentRow {
   task_id: string;
   content_id: string;
@@ -226,6 +263,8 @@ export async function getAssignmentForLearner(
   contentId: string,
 ): Promise<AssignmentForLearner | null> {
   await requireModulePermission(client, 'aprendizaje', 'view');
+  // Solo accesible si la tarea está vinculada a un curso publicado.
+  await assertTaskAccessibleViaCourse(client, actor, contentId);
   const { rows } = await client.query<AssignmentRow>(
     `
       SELECT
@@ -282,6 +321,7 @@ export async function upsertMySubmission(
   await requireModulePermission(client, 'aprendizaje', 'update');
 
   const { rows: assignmentRows } = await client.query<{
+    content_id: string;
     is_active: boolean;
     accept_files: boolean;
     accept_url: boolean;
@@ -290,7 +330,7 @@ export async function upsertMySubmission(
     allow_multiple_submissions: boolean;
   }>(
     `
-      SELECT is_active, accept_files, accept_url, accept_text, max_files, allow_multiple_submissions
+      SELECT content_id::text, is_active, accept_files, accept_url, accept_text, max_files, allow_multiple_submissions
       FROM app_learning.content_tasks
       WHERE task_id = $1::uuid
     `,
@@ -298,6 +338,8 @@ export async function upsertMySubmission(
   );
   const a = assignmentRows[0];
   if (!a || !a.is_active) throw new Error('Tarea no disponible.');
+  // Solo permitir enviar entregas si la tarea está vinculada a un curso publicado.
+  await assertTaskAccessibleViaCourse(client, actor, a.content_id);
 
   const files = Array.isArray(input.submissionFiles)
     ? input.submissionFiles.slice(0, a.max_files).filter((f) => f && typeof f.url === 'string' && f.url.length > 0)
