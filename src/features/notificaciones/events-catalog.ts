@@ -189,6 +189,18 @@ export const VARIABLE_DEFS: Record<VariableKey, VariableDef> = {
     description: 'Razón ingresada por el administrador al reembolsar',
     example: 'Cancelación solicitada por el líder',
   },
+  estado_inscripcion: {
+    key: 'estado_inscripcion',
+    label: 'Estado de inscripción',
+    description: 'Si quedó registrado o en lista de espera tras pagar un workshop',
+    example: 'Inscrito',
+  },
+  enlace_workshop: {
+    key: 'enlace_workshop',
+    label: 'Enlace al workshop',
+    description: 'URL al detalle del workshop dentro de la plataforma',
+    example: 'https://4shine.co/dashboard/workshops/abc-123',
+  },
 };
 
 // ─── Event Catalog ────────────────────────────────────────────────────────────
@@ -317,6 +329,47 @@ export const NOTIFICATION_EVENTS: NotificationEventDef[] = [
       'nombre',
       'titulo',
       'adviser_nombre',
+      'monto',
+      'metodo_pago',
+      'codigo_reserva',
+      'motivo_reembolso',
+      'plataforma',
+    ],
+    defaultInAppType: 'info',
+  },
+
+  // ── WORKSHOPS (pago) ──────────────────────────────────────────────────────
+  // Pagos de workshops siguen el mismo patrón que mentorías adicionales:
+  // un evento para pago confirmado y otro para reembolso.
+  {
+    key: 'workshops.payment_confirmed',
+    moduleCode: 'workshops',
+    moduleLabel: 'Workshops',
+    label: 'Pago confirmado (workshop)',
+    description: 'Se envía al líder cuando el webhook del proveedor confirma el pago de un workshop. Indica si quedó registrado o en lista de espera.',
+    variables: [
+      'nombre',
+      'titulo',
+      'fecha',
+      'hora',
+      'monto',
+      'metodo_pago',
+      'codigo_reserva',
+      'estado_inscripcion', // 'registered' | 'waitlist'
+      'enlace_workshop',
+      'plataforma',
+    ],
+    defaultInAppType: 'success',
+  },
+  {
+    key: 'workshops.payment_refunded',
+    moduleCode: 'workshops',
+    moduleLabel: 'Workshops',
+    label: 'Pago reembolsado (workshop)',
+    description: 'Se envía al líder cuando un administrador procesa el reembolso de un workshop pagado.',
+    variables: [
+      'nombre',
+      'titulo',
       'monto',
       'metodo_pago',
       'codigo_reserva',

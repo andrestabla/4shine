@@ -497,6 +497,154 @@ async function notifyOrderPaid(client: PoolClient, orderId: string): Promise<voi
   }
 }
 
+// ─── Notificaciones de workshops ─────────────────────────────────────────────
+//
+// Mismo esquema que mentorías: cargamos los datos del workshop + comprador
+// con un SELECT, formateamos y disparamos el evento. Los templates concretos
+// (asunto, body) los configura admin en /dashboard/administracion/notificaciones/plantillas.
+//
+// Si admin no creó la plantilla para 'workshops.payment_confirmed' o
+// 'workshops.payment_refunded', dispatchNotification es no-op (no rompe).
+
+interface WorkshopOrderForNotification {
+  orderId: string;
+  ownerUserId: string;
+  organizationId: string;
+  ownerEmail: string;
+  ownerFirstName: string;
+  workshopId: string;
+  workshopTitle: string;
+  startsAt: string | null;
+  priceAmount: number;
+  currencyCode: string;
+  paymentProvider: PaymentProviderKey | 'manual' | null;
+  attendanceStatus: 'registered' | 'waitlist' | 'invited' | 'attended' | 'no_show' | 'cancelled' | null;
+}
+
+async function loadWorkshopOrderForNotification(
+  client: PoolClient,
+  orderId: string,
+): Promise<WorkshopOrderForNotification | null> {
+  interface Row {
+    order_id: string;
+    owner_user_id: string;
+    organization_id: string | null;
+    owner_email: string;
+    owner_first_name: string | null;
+    workshop_id: string;
+    workshop_title: string;
+    starts_at: string | null;
+    price_amount: string | number;
+    currency_code: string;
+    payment_provider: PaymentProviderKey | 'manual' | null;
+    attendance_status: WorkshopOrderForNotification['attendanceStatus'];
+  }
+  const { rows } = await client.query<Row>(
+    `
+      SELECT
+        wo.order_id::text,
+        wo.owner_user_id::text,
+        u.organization_id::text,
+        u.email::text AS owner_email,
+        u.first_name AS owner_first_name,
+        w.workshop_id::text,
+        w.title AS workshop_title,
+        w.starts_at::text,
+        wo.price_amount,
+        wo.currency_code,
+        wo.payment_provider,
+        wa.attendance_status
+      FROM app_networking.workshop_orders wo
+      JOIN app_networking.workshops w ON w.workshop_id = wo.workshop_id
+      JOIN app_core.users u ON u.user_id = wo.owner_user_id
+      LEFT JOIN app_networking.workshop_attendees wa
+        ON wa.workshop_id = wo.workshop_id
+       AND wa.user_id = wo.owner_user_id
+      WHERE wo.order_id = $1::uuid
+      LIMIT 1
+    `,
+    [orderId],
+  );
+  const row = rows[0];
+  if (!row || !row.organization_id || !row.owner_email) return null;
+  return {
+    orderId: row.order_id,
+    ownerUserId: row.owner_user_id,
+    organizationId: row.organization_id,
+    ownerEmail: row.owner_email,
+    ownerFirstName: (row.owner_first_name ?? '').trim() || row.owner_email,
+    workshopId: row.workshop_id,
+    workshopTitle: row.workshop_title,
+    startsAt: row.starts_at,
+    priceAmount: Number(row.price_amount),
+    currencyCode: row.currency_code,
+    paymentProvider: row.payment_provider,
+    attendanceStatus: row.attendance_status,
+  };
+}
+
+export async function notifyWorkshopOrderPaid(
+  client: PoolClient,
+  orderId: string,
+): Promise<void> {
+  try {
+    const info = await loadWorkshopOrderForNotification(client, orderId);
+    if (!info) return;
+    const platformUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.4shine.co';
+    const tz = await resolveOrgTimezoneById(client, info.organizationId);
+    const estadoInscripcion =
+      info.attendanceStatus === 'waitlist'
+        ? 'En lista de espera'
+        : 'Inscrito';
+    await dispatchNotification(client, {
+      organizationId: info.organizationId,
+      recipientUserId: info.ownerUserId,
+      recipientEmail: info.ownerEmail,
+      eventKey: 'workshops.payment_confirmed',
+      variables: {
+        nombre: info.ownerFirstName,
+        titulo: info.workshopTitle,
+        fecha: formatFecha(info.startsAt, tz),
+        hora: formatHora(info.startsAt, tz),
+        monto: formatMontoCop(info.priceAmount, info.currencyCode),
+        metodo_pago: PROVIDER_LABELS[info.paymentProvider ?? 'manual'],
+        codigo_reserva: info.orderId.slice(0, 8),
+        estado_inscripcion: estadoInscripcion,
+        enlace_workshop: `${platformUrl}/dashboard/workshops/${info.workshopId}`,
+      },
+    });
+  } catch (err) {
+    console.error('[payments] notifyWorkshopOrderPaid failed:', err);
+  }
+}
+
+async function notifyWorkshopOrderRefunded(
+  client: PoolClient,
+  orderId: string,
+  reason: string,
+): Promise<void> {
+  try {
+    const info = await loadWorkshopOrderForNotification(client, orderId);
+    if (!info) return;
+    await dispatchNotification(client, {
+      organizationId: info.organizationId,
+      recipientUserId: info.ownerUserId,
+      recipientEmail: info.ownerEmail,
+      eventKey: 'workshops.payment_refunded',
+      variables: {
+        nombre: info.ownerFirstName,
+        titulo: info.workshopTitle,
+        monto: formatMontoCop(info.priceAmount, info.currencyCode),
+        metodo_pago: PROVIDER_LABELS[info.paymentProvider ?? 'manual'],
+        codigo_reserva: info.orderId.slice(0, 8),
+        motivo_reembolso: reason,
+      },
+    });
+  } catch (err) {
+    console.error('[payments] notifyWorkshopOrderRefunded failed:', err);
+  }
+}
+
 async function notifyOrderRefunded(
   client: PoolClient,
   orderId: string,
@@ -1188,6 +1336,9 @@ export async function refundWorkshopOrder(
     refundReference ?? `manual_${Date.now()}`,
     reason,
   );
+
+  // Notificamos al líder. Best-effort: si falla no abortamos.
+  await notifyWorkshopOrderRefunded(client, orderId, reason);
 
   return {
     orderId,

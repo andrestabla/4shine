@@ -120,7 +120,9 @@ export type VariableKey =
   | 'monto'
   | 'metodo_pago'
   | 'codigo_reserva'
-  | 'motivo_reembolso';
+  | 'motivo_reembolso'
+  | 'estado_inscripcion'
+  | 'enlace_workshop';
 
 export interface VariableDef {
   key: VariableKey;

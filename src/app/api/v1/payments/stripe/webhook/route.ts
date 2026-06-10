@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { withClient, withRoleContext } from "@/server/db/pool";
-import { markOrderAsFailed, markOrderAsPaid } from "@/features/payments/service";
+import {
+  markOrderAsFailed,
+  markOrderAsPaid,
+  notifyWorkshopOrderPaid,
+} from "@/features/payments/service";
 import {
   markWorkshopOrderAsFailed,
   markWorkshopOrderAsPaid,
@@ -123,7 +127,7 @@ export async function POST(request: Request) {
         try {
           await withClient(async (client) => {
             await withRoleContext(client, ownerUserId, "lider", async () => {
-              await markWorkshopOrderAsPaid(client, {
+              const result = await markWorkshopOrderAsPaid(client, {
                 provider: "stripe",
                 reference,
                 rawPayload: {
@@ -133,6 +137,12 @@ export async function POST(request: Request) {
                   customerEmail: session.customer_details?.email ?? null,
                 },
               });
+              // Notificamos al líder solo en la primera confirmación. Si el
+              // webhook se re-dispara (Stripe a veces los manda 2x), la
+              // segunda vez alreadyPaid=true y NO mandamos otro correo.
+              if (result.orderId && !result.alreadyPaid) {
+                await notifyWorkshopOrderPaid(client, result.orderId);
+              }
             });
           });
         } catch (error) {

@@ -1,7 +1,11 @@
 import { createHash } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { withClient, withRoleContext } from '@/server/db/pool';
-import { markOrderAsFailed, markOrderAsPaid } from '@/features/payments/service';
+import {
+  markOrderAsFailed,
+  markOrderAsPaid,
+  notifyWorkshopOrderPaid,
+} from '@/features/payments/service';
 import {
   markWorkshopOrderAsFailed,
   markWorkshopOrderAsPaid,
@@ -116,7 +120,7 @@ export async function POST(request: Request) {
               },
             });
           } else {
-            await markWorkshopOrderAsPaid(client, {
+            const result = await markWorkshopOrderAsPaid(client, {
               provider: 'wompi',
               reference,
               rawPayload: {
@@ -125,6 +129,11 @@ export async function POST(request: Request) {
                 currency: tx.currency,
               },
             });
+            // Notificamos solo en la primera confirmación (Wompi también
+            // re-envía eventos en algunos casos).
+            if (result.orderId && !result.alreadyPaid) {
+              await notifyWorkshopOrderPaid(client, result.orderId);
+            }
           }
         } else if (tx.status === 'DECLINED' || tx.status === 'ERROR' || tx.status === 'VOIDED') {
           if (domain === 'mentorship') {
