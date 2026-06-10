@@ -784,11 +784,36 @@ async function resolveDiscoveryTestId(client: PoolClient): Promise<string> {
   return rows[0].test_id;
 }
 
+// Merge de aiReports: el job de IA para invitados escribe los reportes en
+// discovery_invitations.meta.ai_reports (porque solo conoce el invite_token),
+// no en discovery_sessions.ai_reports. Toda función que devuelva un
+// DiscoverySessionRecord al UI tiene que reconciliar ambas fuentes para
+// no devolver reportes "vacíos" cuando el contenido real está del otro lado.
+//
+// Regla de prioridad: empezamos con los reportes de la invitación y
+// sobreescribimos solo donde sessions.ai_reports tenga contenido no-trivial,
+// asumiendo que ahí escriben las regeneraciones manuales (más recientes).
+function mergeSessionAndInvitationReports(
+  sessionReports: DiscoveryAiReports | null | undefined,
+  invitationMeta: unknown,
+): DiscoveryAiReports {
+  const invitationReports = parseInvitationStoredReports(invitationMeta);
+  const merged: DiscoveryAiReports = { ...invitationReports };
+  for (const [key, value] of Object.entries(sessionReports ?? {}) as Array<
+    [DiscoveryReportFilter, string | undefined]
+  >) {
+    if (typeof value === "string" && value.trim().length > 0) {
+      merged[key] = value;
+    }
+  }
+  return merged;
+}
+
 async function readDiscoverySession(
   client: PoolClient,
   userId: string,
 ): Promise<DiscoverySessionRecord | null> {
-  const { rows } = await client.query<DiscoverySessionRow>(
+  const { rows } = await client.query<DiscoverySessionRow & { invitation_meta: unknown }>(
     `
       SELECT
         ds.session_id::text,
@@ -812,22 +837,31 @@ async function readDiscoverySession(
         ds.feedback_survey,
         ds.ai_reports,
         ds.created_at::text,
-        ds.updated_at::text
+        ds.updated_at::text,
+        di.meta AS invitation_meta
       FROM app_assessment.discovery_sessions ds
+      LEFT JOIN app_assessment.discovery_invitations di
+        ON di.session_id = ds.session_id
       WHERE ds.user_id = $1::uuid
       LIMIT 1
     `,
     [userId],
   );
 
-  return rows[0] ? mapDiscoverySessionRow(rows[0]) : null;
+  const row = rows[0];
+  if (!row) return null;
+  const session = mapDiscoverySessionRow(row);
+  return {
+    ...session,
+    aiReports: mergeSessionAndInvitationReports(session.aiReports, row.invitation_meta),
+  };
 }
 
 async function readDiscoverySessionBySessionId(
   client: PoolClient,
   sessionId: string,
 ): Promise<DiscoverySessionRecord | null> {
-  const { rows } = await client.query<DiscoverySessionRow>(
+  const { rows } = await client.query<DiscoverySessionRow & { invitation_meta: unknown }>(
     `
       SELECT
         ds.session_id::text,
@@ -851,14 +885,23 @@ async function readDiscoverySessionBySessionId(
         ds.feedback_survey,
         ds.ai_reports,
         ds.created_at::text,
-        ds.updated_at::text
+        ds.updated_at::text,
+        di.meta AS invitation_meta
       FROM app_assessment.discovery_sessions ds
+      LEFT JOIN app_assessment.discovery_invitations di
+        ON di.session_id = ds.session_id
       WHERE ds.session_id = $1::uuid
       LIMIT 1
     `,
     [sessionId],
   );
-  return rows[0] ? mapDiscoverySessionRow(rows[0]) : null;
+  const row = rows[0];
+  if (!row) return null;
+  const session = mapDiscoverySessionRow(row);
+  return {
+    ...session,
+    aiReports: mergeSessionAndInvitationReports(session.aiReports, row.invitation_meta),
+  };
 }
 
 /**
@@ -2110,7 +2153,12 @@ export async function getDiscoverySessionByPublicId(
   client: PoolClient,
   publicId: string,
 ): Promise<DiscoverySessionRecord | null> {
-  const { rows } = await client.query<DiscoverySessionRow>(
+  // LEFT JOIN con discovery_invitations: para participantes invitados, el
+  // job de IA escribe los reportes en invitations.meta.ai_reports porque
+  // solo conoce el invite_token. Esta página pública (la que el admin manda
+  // por correo al líder) lee por publicId, así que también necesita
+  // reconciliar ambas fuentes igual que getDiscoveryOverviewDetail.
+  const { rows } = await client.query<DiscoverySessionRow & { invitation_meta: unknown }>(
     `
       SELECT
         ds.session_id::text,
@@ -2134,8 +2182,11 @@ export async function getDiscoverySessionByPublicId(
         ds.feedback_survey,
         ds.ai_reports,
         ds.created_at::text,
-        ds.updated_at::text
+        ds.updated_at::text,
+        di.meta AS invitation_meta
       FROM app_assessment.discovery_sessions ds
+      LEFT JOIN app_assessment.discovery_invitations di
+        ON di.session_id = ds.session_id
       WHERE ds.public_id = $1
         AND ds.shared_at IS NOT NULL
       LIMIT 1
@@ -2143,7 +2194,14 @@ export async function getDiscoverySessionByPublicId(
     [publicId],
   );
 
-  return rows[0] ? mapDiscoverySessionRow(rows[0]) : null;
+  const row = rows[0];
+  if (!row) return null;
+
+  const session = mapDiscoverySessionRow(row);
+  return {
+    ...session,
+    aiReports: mergeSessionAndInvitationReports(session.aiReports, row.invitation_meta),
+  };
 }
 
 export async function shareDiscoverySession(
@@ -3779,20 +3837,10 @@ export async function getDiscoveryOverviewDetail(
   }
 
   const session = mapDiscoverySessionRow(row);
-
-  // Combinamos los reportes: empezamos con los de la invitación (si los hay)
-  // y dejamos que los de la sesión SOBREESCRIBAN solo donde tengan contenido
-  // no-trivial. Así nunca "pisamos" un reporte real con un vacío.
-  const invitationReports = parseInvitationStoredReports(row.invitation_meta);
-  const sessionReports = session.aiReports ?? {};
-  const mergedReports: DiscoveryAiReports = { ...invitationReports };
-  for (const [key, value] of Object.entries(sessionReports) as Array<
-    [DiscoveryReportFilter, string | undefined]
-  >) {
-    if (typeof value === "string" && value.trim().length > 0) {
-      mergedReports[key] = value;
-    }
-  }
+  const mergedReports = mergeSessionAndInvitationReports(
+    session.aiReports,
+    row.invitation_meta,
+  );
 
   return {
     state: buildUserStateFromSession(session),
