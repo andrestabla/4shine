@@ -756,6 +756,9 @@ export async function listLearningResources(
       FROM app_learning.content_items ci
       WHERE ci.scope = 'aprendizaje'
         AND ($1::boolean = true OR ci.status = 'published')
+        -- Las tareas (assignment) solo se consumen dentro de un curso, nunca
+        -- en listados públicos (ni "Cursos", ni "Contenidos libres").
+        AND ci.content_type <> 'assignment'
         AND (
           $2::boolean = false
           OR COALESCE(ci.competency_metadata->>'audience', '') = 'all'
@@ -874,6 +877,8 @@ export async function listLearningResources(
        AND cp.user_id = $1
       WHERE ci.scope = 'aprendizaje'
         AND ($2::boolean = true OR ci.status = 'published')
+        -- Las tareas (assignment) solo se consumen dentro de un curso.
+        AND ci.content_type <> 'assignment'
         AND (
           $3::boolean = false
           OR COALESCE(ci.competency_metadata->>'audience', '') = 'all'
