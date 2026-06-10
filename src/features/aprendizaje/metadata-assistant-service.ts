@@ -109,7 +109,12 @@ function normalizeCourseModuleResourceType(value: unknown): CourseModuleResource
   if (typeof value !== 'string') return 'link';
 
   const normalized = value.trim().toLowerCase();
-  if (['video', 'pdf', 'article', 'podcast', 'html', 'ppt', 'link'].includes(normalized)) {
+  // Mantener en sync con CourseModuleResourceType.
+  if (
+    ['video', 'pdf', 'article', 'podcast', 'html', 'ppt', 'activity', 'assignment', 'link'].includes(
+      normalized,
+    )
+  ) {
     return normalized as CourseModuleResourceType;
   }
 

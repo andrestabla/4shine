@@ -256,6 +256,10 @@ function normalizeCourseModuleResource(input: unknown): CourseModuleResource | n
   }
 
   const rawType = typeof resource.contentType === 'string' ? resource.contentType.trim() : 'link';
+  // Whitelist sincronizada con CourseModuleResourceType (Exclude<ContentType,'scorm'>|'link').
+  // OJO: si agregas un nuevo content type al union, agrégalo aquí también — sino
+  // el backend lo convierte silenciosamente a 'link' (bug original con activity
+  // y assignment que hacía que los recursos en cursos se renderizaran como video).
   const contentType: CourseModuleResourceType =
     rawType === 'video' ||
     rawType === 'pdf' ||
@@ -263,6 +267,8 @@ function normalizeCourseModuleResource(input: unknown): CourseModuleResource | n
     rawType === 'podcast' ||
     rawType === 'html' ||
     rawType === 'ppt' ||
+    rawType === 'activity' ||
+    rawType === 'assignment' ||
     rawType === 'link'
       ? rawType
       : 'link';
