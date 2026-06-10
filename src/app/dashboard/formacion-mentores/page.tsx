@@ -2,57 +2,27 @@
 
 import React from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import {
-  ArrowLeft,
-  ArrowRight,
-  Pencil,
-  Plus,
-  Search,
-  X,
-} from 'lucide-react';
+import { ArrowLeft, ArrowRight, Plus, Search } from 'lucide-react';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { EmptyState } from '@/components/dashboard/EmptyState';
 import { LearningResourceCard } from '@/components/aprendizaje/LearningResourceCard';
-import { R2UploadButton } from '@/components/ui/R2UploadButton';
+import {
+  LearningCourseEditor,
+  type ResourceEditorKind,
+} from '@/components/aprendizaje/LearningCourseEditor';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useUser } from '@/context/UserContext';
 import {
-  listLearningResources,
   getLearningResourceDetail,
+  listCertificateTemplates,
+  listLearningResources,
+  type CertificateTemplateRecord,
   type LearningResourceRecord,
 } from '@/features/aprendizaje/client';
-import {
-  createContent,
-  deleteContent,
-  updateContent,
-  type ContentStatus,
-  type ContentType,
-} from '@/features/content/client';
+import { deleteContent, type ContentStatus } from '@/features/content/client';
 
 const SCOPE = 'formacion_mentores' as const;
 const PAGE_SIZE = 18;
-
-const TYPE_OPTIONS: ContentType[] = [
-  'scorm',
-  'video',
-  'pdf',
-  'article',
-  'podcast',
-  'html',
-  'ppt',
-];
-
-const TYPE_LABELS: Record<ContentType, string> = {
-  video: 'Video',
-  pdf: 'PDF',
-  scorm: 'Curso (SCORM)',
-  article: 'Artículo',
-  podcast: 'Podcast',
-  html: 'HTML',
-  ppt: 'Presentación',
-  activity: 'Actividad',
-  assignment: 'Tarea',
-};
 
 const STATUS_LABELS: Record<ContentStatus, string> = {
   draft: 'Borrador',
@@ -60,35 +30,6 @@ const STATUS_LABELS: Record<ContentStatus, string> = {
   published: 'Publicado',
   archived: 'Archivado',
   rejected: 'Rechazado',
-};
-
-const ACCEPT_BY_CONTENT_TYPE: Partial<Record<ContentType, string>> = {
-  video: 'video/*',
-  pdf: 'application/pdf',
-  scorm: '.zip,application/zip,application/x-zip-compressed',
-  podcast: 'audio/*',
-  html: 'text/html,.html,.htm',
-  ppt: '.ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation',
-};
-
-interface CourseFormState {
-  title: string;
-  category: string;
-  contentType: ContentType;
-  url: string;
-  description: string;
-  durationLabel: string;
-  status: ContentStatus;
-}
-
-const EMPTY_FORM: CourseFormState = {
-  title: '',
-  category: 'Curso',
-  contentType: 'scorm',
-  url: '',
-  description: '',
-  durationLabel: '',
-  status: 'draft',
 };
 
 export default function FormacionMentoresPage() {
@@ -102,21 +43,27 @@ export default function FormacionMentoresPage() {
   const [total, setTotal] = React.useState(0);
   const [totalPages, setTotalPages] = React.useState(1);
   const [page, setPage] = React.useState(1);
+  const [certificateTemplates, setCertificateTemplates] = React.useState<
+    CertificateTemplateRecord[]
+  >([]);
 
   const [loading, setLoading] = React.useState(true);
-  const [submitting, setSubmitting] = React.useState(false);
   const [search, setSearch] = React.useState('');
   const [statusFilter, setStatusFilter] = React.useState<'all' | ContentStatus>('all');
 
-  const [editorOpen, setEditorOpen] = React.useState(false);
-  const [editingId, setEditingId] = React.useState<string | null>(null);
-  const [form, setForm] = React.useState<CourseFormState>(EMPTY_FORM);
+  // Estado del editor (lo monta el componente compartido <LearningCourseEditor>).
+  const [isEditorOpen, setIsEditorOpen] = React.useState(false);
+  const [editingResource, setEditingResource] =
+    React.useState<LearningResourceRecord | null>(null);
+  const [editorInitialKind, setEditorInitialKind] =
+    React.useState<ResourceEditorKind>('course');
 
   const canCreate = can(SCOPE, 'create');
   const canUpdate = can(SCOPE, 'update');
   const canDelete = can(SCOPE, 'delete');
   const canApprove = can(SCOPE, 'approve');
   const canManage = canCreate || canUpdate || canDelete;
+  const isResourceManager = canCreate || canUpdate;
 
   const deferredSearch = React.useDeferredValue(search);
 
@@ -134,63 +81,70 @@ export default function FormacionMentoresPage() {
   const load = React.useCallback(async () => {
     setLoading(true);
     try {
-      const result = await listLearningResources({
-        scope: SCOPE,
-        q: deferredSearch,
-        status: canManage && statusFilter !== 'all' ? statusFilter : null,
-        page,
-        pageSize: PAGE_SIZE,
-      });
+      // Las plantillas de certificado son globales; solo las pedimos si el
+      // usuario tiene permisos de gestión (gestor/admin).
+      const certificatesRequest = canApprove
+        ? listCertificateTemplates().catch(() => [] as CertificateTemplateRecord[])
+        : Promise.resolve([] as CertificateTemplateRecord[]);
+
+      const [result, templates] = await Promise.all([
+        listLearningResources({
+          scope: SCOPE,
+          q: deferredSearch,
+          status: canManage && statusFilter !== 'all' ? statusFilter : null,
+          page,
+          pageSize: PAGE_SIZE,
+        }),
+        certificatesRequest,
+      ]);
       setItems(result.items);
       setTotal(result.total);
       setTotalPages(result.totalPages);
+      setCertificateTemplates(templates);
     } catch (loadError) {
       await showError('No se pudieron cargar los cursos de formación', loadError);
     } finally {
       setLoading(false);
     }
-  }, [canManage, deferredSearch, page, statusFilter, showError]);
+  }, [canApprove, canManage, deferredSearch, page, statusFilter, showError]);
 
   React.useEffect(() => {
     void load();
   }, [load]);
 
-  // Resetea a página 1 cuando cambian filtros/búsqueda
   React.useEffect(() => {
     setPage(1);
   }, [deferredSearch, statusFilter]);
 
-  const populateFormFromRecord = React.useCallback((record: LearningResourceRecord) => {
-    setEditingId(record.contentId);
-    setForm({
-      title: record.title,
-      category: record.category,
-      contentType: record.contentType,
-      url: record.url ?? '',
-      description: record.description ?? '',
-      durationLabel: record.durationLabel ?? '',
-      status: record.status,
-    });
-    setEditorOpen(true);
+  const openCreate = React.useCallback(() => {
+    setEditingResource(null);
+    setEditorInitialKind('course');
+    setIsEditorOpen(true);
   }, []);
 
-  const openCreate = () => {
-    setEditingId(null);
-    setForm(EMPTY_FORM);
-    setEditorOpen(true);
-  };
+  const openEdit = React.useCallback(
+    (resource: LearningResourceRecord) => {
+      setEditingResource(resource);
+      setIsEditorOpen(true);
+    },
+    [],
+  );
 
-  const openEdit = (contentId: string) => {
-    const existing = items.find((item) => item.contentId === contentId);
-    if (existing) {
-      populateFormFromRecord(existing);
-    }
-  };
+  const closeEditor = React.useCallback(() => {
+    setIsEditorOpen(false);
+    setEditingResource(null);
+  }, []);
 
-  // Si llegamos desde el detalle con `?edit=<id>`, abrimos automáticamente el
-  // editor (mismo patrón que la página de aprendizaje).
+  const onSaved = React.useCallback(() => {
+    void Promise.all([load(), refreshBootstrap()]).catch((error) => {
+      console.error('Formacion mentores background refresh failed', error);
+    });
+  }, [load, refreshBootstrap]);
+
+  // Soporte para `?edit=<contentId>` (lo usa la página de detalle al hacer
+  // click en "Editar"): resolvemos el recurso y abrimos el editor.
   React.useEffect(() => {
-    if (!editRequestedId || !canUpdate || editorOpen) return;
+    if (!editRequestedId || !canUpdate || isEditorOpen) return;
     let cancelled = false;
     const openRequested = async () => {
       try {
@@ -198,12 +152,15 @@ export default function FormacionMentoresPage() {
           items.find((item) => item.contentId === editRequestedId) ??
           (await getLearningResourceDetail(editRequestedId));
         if (cancelled) return;
-        populateFormFromRecord(record);
+        openEdit(record);
+
         const nextParams = new URLSearchParams(searchParams.toString());
         nextParams.delete('edit');
         const nextQuery = nextParams.toString();
         router.replace(
-          nextQuery ? `/dashboard/formacion-mentores?${nextQuery}` : '/dashboard/formacion-mentores',
+          nextQuery
+            ? `/dashboard/formacion-mentores?${nextQuery}`
+            : '/dashboard/formacion-mentores',
           { scroll: false },
         );
       } catch (error) {
@@ -216,80 +173,47 @@ export default function FormacionMentoresPage() {
     return () => {
       cancelled = true;
     };
-  }, [editRequestedId, canUpdate, editorOpen, items, populateFormFromRecord, router, searchParams, showError]);
+  }, [
+    editRequestedId,
+    canUpdate,
+    isEditorOpen,
+    items,
+    openEdit,
+    router,
+    searchParams,
+    showError,
+  ]);
 
-  const closeEditor = () => {
-    if (submitting) return;
-    setEditorOpen(false);
-    setEditingId(null);
-    setForm(EMPTY_FORM);
-  };
+  const onEditById = React.useCallback(
+    (contentId: string) => {
+      const target = items.find((item) => item.contentId === contentId);
+      if (target) openEdit(target);
+    },
+    [items, openEdit],
+  );
 
-  const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!form.title.trim() || !form.category.trim()) {
-      await alert({
-        title: 'Completa los datos base',
-        message: 'Agrega al menos un título y una categoría para guardar el curso.',
+  const onDelete = React.useCallback(
+    async (contentId: string) => {
+      const target = items.find((item) => item.contentId === contentId);
+      const accepted = await confirm({
+        title: 'Eliminar curso',
+        message: target
+          ? `¿Deseas eliminar "${target.title}"? Esta acción no se puede deshacer.`
+          : '¿Deseas eliminar este curso? Esta acción no se puede deshacer.',
+        confirmText: 'Eliminar',
+        cancelText: 'Cancelar',
         tone: 'warning',
       });
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      if (editingId) {
-        await updateContent(editingId, {
-          title: form.title.trim(),
-          category: form.category.trim(),
-          contentType: form.contentType,
-          url: form.url.trim() || null,
-          description: form.description.trim() || null,
-          durationLabel: form.durationLabel.trim() || null,
-          status: form.status,
-        });
-      } else {
-        await createContent({
-          scope: SCOPE,
-          title: form.title.trim(),
-          category: form.category.trim(),
-          contentType: form.contentType,
-          url: form.url.trim() || null,
-          description: form.description.trim() || null,
-          durationLabel: form.durationLabel.trim() || null,
-          status: form.status,
-        });
+      if (!accepted) return;
+      try {
+        await deleteContent(contentId);
+        await Promise.all([load(), refreshBootstrap()]);
+      } catch (deleteError) {
+        await showError('No se pudo eliminar el curso', deleteError);
       }
-      setEditorOpen(false);
-      setEditingId(null);
-      setForm(EMPTY_FORM);
-      await Promise.all([load(), refreshBootstrap()]);
-    } catch (submitError) {
-      await showError('No se pudo guardar el curso', submitError);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const onDelete = async (contentId: string) => {
-    const target = items.find((item) => item.contentId === contentId);
-    const accepted = await confirm({
-      title: 'Eliminar curso',
-      message: target
-        ? `¿Deseas eliminar "${target.title}"? Esta acción no se puede deshacer.`
-        : '¿Deseas eliminar este curso? Esta acción no se puede deshacer.',
-      confirmText: 'Eliminar',
-      cancelText: 'Cancelar',
-      tone: 'warning',
-    });
-    if (!accepted) return;
-    try {
-      await deleteContent(contentId);
-      await Promise.all([load(), refreshBootstrap()]);
-    } catch (deleteError) {
-      await showError('No se pudo eliminar el curso', deleteError);
-    }
-  };
+    },
+    [confirm, items, load, refreshBootstrap, showError],
+  );
 
   const visibleStart = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
   const visibleEnd = total === 0 ? 0 : visibleStart + items.length - 1;
@@ -321,7 +245,10 @@ export default function FormacionMentoresPage() {
       <section className="app-panel p-4">
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_auto_auto]">
           <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--app-muted)]" />
+            <Search
+              size={14}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--app-muted)]"
+            />
             <input
               type="text"
               className="w-full rounded-[12px] border border-[var(--app-border)] bg-white pl-9 pr-3 py-2 text-sm"
@@ -334,7 +261,9 @@ export default function FormacionMentoresPage() {
             <select
               className="rounded-[12px] border border-[var(--app-border)] bg-white px-3 py-2 text-sm"
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as 'all' | ContentStatus)}
+              onChange={(e) =>
+                setStatusFilter(e.target.value as 'all' | ContentStatus)
+              }
             >
               <option value="all">Todos los estados</option>
               {(Object.keys(STATUS_LABELS) as ContentStatus[]).map((status) => (
@@ -375,7 +304,7 @@ export default function FormacionMentoresPage() {
                 resource={item}
                 href={`/dashboard/formacion-mentores/${item.contentId}`}
                 canManage={canManage}
-                onEdit={canUpdate ? openEdit : undefined}
+                onEdit={canUpdate ? onEditById : undefined}
                 onDelete={canDelete ? onDelete : undefined}
               />
             ))}
@@ -425,163 +354,18 @@ export default function FormacionMentoresPage() {
         </>
       )}
 
-      {editorOpen && canManage && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
-          onClick={closeEditor}
-        >
-          <div
-            className="w-full max-w-2xl rounded-t-[24px] bg-white shadow-2xl sm:rounded-[20px]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-[var(--app-border)] px-5 py-3">
-              <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-[var(--brand-primary)]/10">
-                  {editingId ? (
-                    <Pencil size={15} className="text-[var(--brand-primary)]" />
-                  ) : (
-                    <Plus size={15} className="text-[var(--brand-primary)]" />
-                  )}
-                </div>
-                <h3 className="text-lg font-black text-[var(--app-ink)]">
-                  {editingId ? 'Editar curso' : 'Nuevo curso'}
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={closeEditor}
-                className="rounded-full p-1.5 text-[var(--app-muted)] hover:bg-[var(--app-surface-muted)]"
-                aria-label="Cerrar"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            <form className="space-y-4 p-5" onSubmit={onSubmit}>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <label className="block sm:col-span-2">
-                  <span className="app-field-label">Título</span>
-                  <input
-                    className="app-input"
-                    placeholder="Ej. Acompañamiento del adviser en sesión 1"
-                    value={form.title}
-                    onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
-                    required
-                  />
-                </label>
-                <label className="block">
-                  <span className="app-field-label">Categoría</span>
-                  <input
-                    className="app-input"
-                    placeholder="Ej. Curso, Masterclass, Ruta…"
-                    value={form.category}
-                    onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))}
-                    required
-                  />
-                </label>
-                <label className="block">
-                  <span className="app-field-label">Tipo</span>
-                  <select
-                    className="app-select"
-                    value={form.contentType}
-                    onChange={(e) =>
-                      setForm((prev) => ({ ...prev, contentType: e.target.value as ContentType }))
-                    }
-                  >
-                    {TYPE_OPTIONS.map((type) => (
-                      <option key={type} value={type}>
-                        {TYPE_LABELS[type]}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="block">
-                  <span className="app-field-label">Duración (opcional)</span>
-                  <input
-                    className="app-input"
-                    placeholder="Ej. 45 min, 1 h, 2 sesiones"
-                    value={form.durationLabel}
-                    onChange={(e) => setForm((prev) => ({ ...prev, durationLabel: e.target.value }))}
-                  />
-                </label>
-                <label className="block">
-                  <span className="app-field-label">Estado</span>
-                  <select
-                    className="app-select"
-                    value={form.status}
-                    onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value as ContentStatus }))}
-                  >
-                    <option value="draft">{STATUS_LABELS.draft}</option>
-                    <option value="pending_review">{STATUS_LABELS.pending_review}</option>
-                    {canApprove && <option value="published">{STATUS_LABELS.published}</option>}
-                    <option value="archived">{STATUS_LABELS.archived}</option>
-                    {canApprove && <option value="rejected">{STATUS_LABELS.rejected}</option>}
-                  </select>
-                </label>
-              </div>
-
-              <div className="space-y-2">
-                <label className="block">
-                  <span className="app-field-label">URL del curso (opcional)</span>
-                  <input
-                    className="app-input"
-                    placeholder="https://… o sube el archivo abajo"
-                    value={form.url}
-                    onChange={(e) => setForm((prev) => ({ ...prev, url: e.target.value }))}
-                  />
-                </label>
-                <div className="text-right">
-                  <R2UploadButton
-                    moduleCode={SCOPE}
-                    action={editingId ? 'update' : 'create'}
-                    fieldName="contentUrl"
-                    entityTable="app_learning.content_items"
-                    pathPrefix={`contenido/${SCOPE}/${form.contentType}`}
-                    accept={ACCEPT_BY_CONTENT_TYPE[form.contentType]}
-                    buttonLabel="Subir archivo a R2"
-                    className="app-button-secondary inline-flex items-center gap-1.5"
-                    onUploaded={(url) => setForm((prev) => ({ ...prev, url }))}
-                  />
-                </div>
-              </div>
-
-              <label className="block">
-                <span className="app-field-label">Descripción (opcional)</span>
-                <textarea
-                  className="app-textarea min-h-24"
-                  placeholder="Resumen breve del curso, objetivos y a quién va dirigido."
-                  value={form.description}
-                  onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
-                />
-              </label>
-
-              <div className="flex flex-col-reverse justify-end gap-2 border-t border-[var(--app-border)] pt-3 sm:flex-row">
-                <button
-                  type="button"
-                  className="rounded-[12px] border border-[var(--app-border)] bg-white px-4 py-2 text-sm font-semibold text-[var(--app-ink)]"
-                  onClick={closeEditor}
-                  disabled={submitting}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="app-button-primary inline-flex items-center gap-2"
-                  disabled={submitting}
-                >
-                  {submitting
-                    ? editingId
-                      ? 'Guardando…'
-                      : 'Creando…'
-                    : editingId
-                      ? 'Guardar cambios'
-                      : 'Crear curso'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <LearningCourseEditor
+        open={isEditorOpen}
+        scope={SCOPE}
+        editingResource={editingResource}
+        initialKind={editorInitialKind}
+        resources={items}
+        certificateTemplates={certificateTemplates}
+        isResourceManager={isResourceManager}
+        backLabel="Volver a Formación Advisers"
+        onClose={closeEditor}
+        onSaved={onSaved}
+      />
     </div>
   );
 }
