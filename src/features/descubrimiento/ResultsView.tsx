@@ -215,6 +215,13 @@ export function ResultsView({
   const [analysisCompletedCount, setAnalysisCompletedCount] = React.useState(0);
   const [analysisBatchPending, setAnalysisBatchPending] = React.useState(false);
   const [analysisActiveCount, setAnalysisActiveCount] = React.useState(0);
+  // Set de pilares ya completados, para mostrar en el progress UI cuáles
+  // específicamente están listos (no solo el count).
+  const [completedPillarsSet, setCompletedPillarsSet] = React.useState<Set<DiscoveryReportFilter>>(
+    () => new Set(),
+  );
+  // Timestamp del primer call de análisis — para mostrar tiempo transcurrido.
+  const [analysisStartedAt, setAnalysisStartedAt] = React.useState<number | null>(null);
   const surveyPromptTimerRef = React.useRef<number | null>(null);
 
   React.useEffect(() => {
@@ -224,6 +231,7 @@ export function ResultsView({
       analysisCacheRef.current.add(filterName);
     }
     setAnalysisCompletedCount(initiallyCachedFilters.length);
+    setCompletedPillarsSet(new Set(initiallyCachedFilters));
     setAnalysisActiveCount(0);
     setAnalysisBatchPending(false);
     analysisAliveRef.current = true;
@@ -295,6 +303,7 @@ export function ResultsView({
     }
     analysisCacheRef.current = known;
     setAnalysisCompletedCount(Math.min(5, known.size));
+    setCompletedPillarsSet(new Set(known));
   }, []);
 
   const generateAnalysisForFilter = React.useCallback(
@@ -305,6 +314,8 @@ export function ResultsView({
 
       analysisInFlightRef.current.add(target);
       setAnalysisActiveCount((current) => current + 1);
+      // Marca el inicio de generación la primera vez que arranca cualquier pilar.
+      setAnalysisStartedAt((current) => current ?? Date.now());
       try {
         let attempt = 0;
         while (analysisAliveRef.current && !analysisCacheRef.current.has(target)) {
@@ -757,22 +768,12 @@ export function ResultsView({
           </div>
         </div>
 
-        {isInvitationExperience && analysisCompletedCount < 5 && (
-          <div className="mt-4 rounded-[14px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-3">
-            <div className="flex items-center justify-between gap-3 text-xs font-semibold text-[var(--app-muted)]">
-              <span>Generando análisis</span>
-              <span>{analysisCompletedCount}/5</span>
-            </div>
-            <p className="mt-2 text-[11px] text-[var(--app-muted)]">
-              Puede tardar hasta 10 minutos dependiendo de tu conexión a Internet.
-            </p>
-            <div className="mt-2 h-2 overflow-hidden rounded-full bg-white">
-              <div
-                className="h-full rounded-full bg-[var(--brand-primary)] transition-all duration-500"
-                style={{ width: `${displayedProgressPercent}%` }}
-              />
-            </div>
-          </div>
+        {analysisCompletedCount < 5 && (analysisBatchPending || analysisActiveCount > 0 || analysisStartedAt !== null) && (
+          <AnalysisProgressPanel
+            completedPillars={completedPillarsSet}
+            startedAt={analysisStartedAt}
+            displayedProgressPercent={displayedProgressPercent}
+          />
         )}
 
         {sharedPublicId && (
@@ -1262,6 +1263,123 @@ export function ResultsView({
         </div>
       )}
 
+    </div>
+  );
+}
+
+// ─── Progress panel para generación AI ────────────────────────────────────────
+// Muestra estado por pilar (✓ completo / ⏳ pendiente), tiempo transcurrido y
+// progreso global. El usuario sabe exactamente qué está pasando en lugar de
+// quedarse mirando un spinner ambiguo.
+
+const PILLAR_DETAILS: Array<{ key: DiscoveryReportFilter; label: string; description: string }> = [
+  { key: 'all', label: 'Síntesis general', description: 'Resumen ejecutivo de tu perfil' },
+  { key: 'within', label: 'Shine Within', description: 'Tu esencia y autoconocimiento' },
+  { key: 'out', label: 'Shine Out', description: 'Tu presencia estratégica' },
+  { key: 'up', label: 'Shine Up', description: 'Tu ecosistema relacional' },
+  { key: 'beyond', label: 'Shine Beyond', description: 'Tu legado e impacto' },
+];
+
+function formatElapsed(ms: number): string {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (minutes === 0) return `${seconds}s`;
+  return `${minutes}m ${seconds.toString().padStart(2, '0')}s`;
+}
+
+function AnalysisProgressPanel({
+  completedPillars,
+  startedAt,
+  displayedProgressPercent,
+}: {
+  completedPillars: Set<DiscoveryReportFilter>;
+  startedAt: number | null;
+  displayedProgressPercent: number;
+}) {
+  // Ticker para mantener actualizado el "tiempo transcurrido" sin re-fetch.
+  const [, forceTick] = React.useReducer((x: number) => x + 1, 0);
+  React.useEffect(() => {
+    if (startedAt === null) return;
+    const id = window.setInterval(forceTick, 1000);
+    return () => window.clearInterval(id);
+  }, [startedAt]);
+
+  const elapsedMs = startedAt !== null ? Date.now() - startedAt : 0;
+  const completedCount = PILLAR_DETAILS.filter((p) => completedPillars.has(p.key)).length;
+  const allDone = completedCount >= PILLAR_DETAILS.length;
+
+  return (
+    <div className="mt-4 rounded-[16px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          {!allDone && (
+            <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-[var(--brand-primary)]" />
+          )}
+          <p className="text-sm font-bold text-[var(--app-ink)]">
+            {allDone ? 'Análisis completado' : 'Generando tu análisis personalizado…'}
+          </p>
+        </div>
+        <span className="text-xs font-bold text-[var(--app-muted)]">
+          {completedCount}/{PILLAR_DETAILS.length}
+        </span>
+      </div>
+
+      {!allDone && (
+        <p className="mt-1 text-[11px] text-[var(--app-muted)]">
+          Esto puede tomar 2–4 minutos. Puedes cerrar y volver a abrir la página
+          cuando quieras — el análisis continúa procesándose en segundo plano.
+        </p>
+      )}
+
+      {/* Barra global */}
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-white">
+        <div
+          className="h-full rounded-full bg-[var(--brand-primary)] transition-all duration-500"
+          style={{ width: `${displayedProgressPercent}%` }}
+        />
+      </div>
+
+      {/* Lista de pilares con estado individual */}
+      <ul className="mt-3 space-y-1.5">
+        {PILLAR_DETAILS.map((pillar) => {
+          const isDone = completedPillars.has(pillar.key);
+          return (
+            <li
+              key={pillar.key}
+              className={`flex items-center gap-2.5 rounded-[10px] px-2 py-1.5 transition ${
+                isDone ? 'bg-emerald-50' : 'bg-white/60'
+              }`}
+            >
+              <span
+                className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
+                  isDone
+                    ? 'bg-emerald-600 text-white'
+                    : 'border border-[var(--app-border)] bg-white text-[var(--app-muted)]'
+                }`}
+                aria-label={isDone ? 'Completado' : 'Pendiente'}
+              >
+                {isDone ? '✓' : '⋯'}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className={`text-xs font-bold ${isDone ? 'text-emerald-900' : 'text-[var(--app-ink)]'}`}>
+                  {pillar.label}
+                </p>
+                <p className="text-[10px] text-[var(--app-muted)]">{pillar.description}</p>
+              </div>
+              {!isDone && startedAt !== null && (
+                <span className="text-[10px] font-semibold text-[var(--app-muted)]">…</span>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+
+      {startedAt !== null && !allDone && (
+        <p className="mt-3 text-[10px] font-semibold uppercase tracking-wider text-[var(--app-muted)]">
+          Tiempo transcurrido: {formatElapsed(elapsedMs)}
+        </p>
+      )}
     </div>
   );
 }

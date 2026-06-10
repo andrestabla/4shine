@@ -11,7 +11,8 @@
  */
 
 import type { PoolClient } from 'pg';
-import { withClient } from '@/server/db/pool';
+import { withClient, withRoleContext } from '@/server/db/pool';
+import type { AuthUser } from '@/server/auth/types';
 import type {
   DiscoveryReportFilter,
   DiscoveryScoreResult,
@@ -251,6 +252,8 @@ export async function processAiJob(
   args: {
     inviteToken?: string;
     accessCode?: string;
+    sessionId?: string;
+    actorUserId?: string;
     username: string;
     role: string;
     scores: DiscoveryScoreResult;
@@ -258,25 +261,87 @@ export async function processAiJob(
   },
 ): Promise<void> {
   // Importes lazy para evitar circular deps.
-  const { generateDiscoveryInvitationAnalysisContract } = await import('./service');
+  const {
+    generateDiscoveryInvitationAnalysisContract,
+    generateDiscoveryAnalysisContract,
+    generateDiscoveryGuestSessionAnalysisContract,
+  } = await import('./service');
+
+  // Para flujos auth (session/guest), reconstruimos un AuthUser mínimo desde
+  // el user_id guardado en el job. El worker corre fuera del context HTTP
+  // original, así que necesita su propio contexto.
+  let actor: AuthUser | null = null;
+  if ((args.scope === 'session' || args.scope === 'guest') && args.actorUserId) {
+    actor = await withClient(async (c) => {
+      const { rows } = await c.query<{
+        user_id: string;
+        email: string;
+        display_name: string;
+        role: string;
+      }>(
+        `SELECT user_id::text, email::text, display_name, role
+         FROM app_core.users WHERE user_id = $1::uuid LIMIT 1`,
+        [args.actorUserId],
+      );
+      const r = rows[0];
+      if (!r) return null;
+      return {
+        userId: r.user_id,
+        email: r.email,
+        name: r.display_name,
+        role: r.role as AuthUser['role'],
+        ...(args.scope === 'guest' && args.inviteToken
+          ? { guestScope: 'descubrimiento' as const, inviteToken: args.inviteToken }
+          : {}),
+      };
+    });
+  }
 
   const generateOne = async (pillar: DiscoveryReportFilter): Promise<{ ok: boolean; err?: string }> => {
-    if (args.scope !== 'invitation' || !args.inviteToken || !args.accessCode) {
-      return { ok: false, err: `scope ${args.scope} sin handler` };
-    }
     try {
-      await withClient(async (c) => {
-        await generateDiscoveryInvitationAnalysisContract(c, {
-          inviteToken: args.inviteToken!,
-          accessCode: args.accessCode!,
-          username: args.username,
-          role: args.role,
-          scores: args.scores,
-          pillar,
+      if (args.scope === 'invitation' && args.inviteToken && args.accessCode) {
+        await withClient(async (c) => {
+          await generateDiscoveryInvitationAnalysisContract(c, {
+            inviteToken: args.inviteToken!,
+            accessCode: args.accessCode!,
+            username: args.username,
+            role: args.role,
+            scores: args.scores,
+            pillar,
+          });
+          await markPillarCompleted(c, jobId, pillar);
         });
-        await markPillarCompleted(c, jobId, pillar);
-      });
-      return { ok: true };
+        return { ok: true };
+      }
+      if (args.scope === 'guest' && args.inviteToken && actor) {
+        await withClient(async (c) => {
+          await generateDiscoveryGuestSessionAnalysisContract(c, {
+            inviteToken: args.inviteToken!,
+            username: args.username,
+            role: args.role,
+            scores: args.scores,
+            pillar,
+          });
+          await markPillarCompleted(c, jobId, pillar);
+        });
+        return { ok: true };
+      }
+      if (args.scope === 'session' && actor) {
+        await withClient(async (c) => {
+          await withRoleContext(c, actor!.userId, actor!.role, async () => {
+            await generateDiscoveryAnalysisContract(c, actor!, {
+              sessionId: args.sessionId,
+              username: args.username,
+              role: args.role,
+              scores: args.scores,
+              pillar,
+            });
+            await markPillarCompleted(c, jobId, pillar);
+          });
+        });
+        return { ok: true };
+      }
+      return { ok: false, err: `scope ${args.scope} sin handler o falta data` };
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       console.error(`[ai-job ${jobId}] pillar ${pillar} FAILED:`, msg);
