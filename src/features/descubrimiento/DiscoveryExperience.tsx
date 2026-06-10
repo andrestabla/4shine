@@ -438,9 +438,27 @@ export function DiscoveryExperience() {
   );
 
   const ensureOverviewDetail = React.useCallback(
-    async (sessionId: string): Promise<DiscoveryOverviewDetailPayload> => {
-      const cached = overviewDetailCacheRef.current.get(sessionId);
-      if (cached) return cached;
+    async (
+      sessionId: string,
+      options?: { force?: boolean },
+    ): Promise<DiscoveryOverviewDetailPayload> => {
+      const force = options?.force ?? false;
+
+      if (!force) {
+        const cached = overviewDetailCacheRef.current.get(sessionId);
+        // Solo confiamos en el cache si tiene al menos un reporte IA con
+        // contenido. Si la última vez que pedimos el detalle el job de IA
+        // aún no había terminado, `aiReports` viene como objeto vacío {}
+        // y NO debemos cachearlo: hay que re-pedir al servidor para
+        // recoger el reporte que ya quedó persistido en BD.
+        if (cached) {
+          const hasAnyReport = Object.values(cached.aiReports ?? {}).some(
+            (report) => typeof report === "string" && report.trim().length > 0,
+          );
+          if (hasAnyReport) return cached;
+        }
+      }
+
       const detail = await getDiscoveryOverviewDetail(sessionId);
       overviewDetailCacheRef.current.set(sessionId, detail);
       return detail;
@@ -577,7 +595,12 @@ export function DiscoveryExperience() {
       const loadingKey = `${row.sessionId}:pdf`;
       setRowActionLoadingKey(loadingKey);
       try {
-        const detail = await ensureOverviewDetail(row.sessionId);
+        // Forzamos refetch al descargar PDF: aunque el guard de
+        // ensureOverviewDetail ya descarta caches "vacíos", queremos también
+        // recoger reportes que hayan llegado entre dos clicks consecutivos
+        // (admin abrió la pestaña → IA terminó → admin descarga). El costo
+        // es un request por click, despreciable.
+        const detail = await ensureOverviewDetail(row.sessionId, { force: true });
         await downloadDiscoveryPdfReport({
           participantName: row.participantName,
           state: detail.state,
