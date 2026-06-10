@@ -4,6 +4,7 @@ import type { PoolClient } from 'pg';
 import { createDirectThread, sendMessage } from '@/features/mensajes/service';
 import { ForbiddenError, requireModulePermission } from '@/server/auth/module-permissions';
 import { hashPassword } from '@/server/auth/password';
+import { revokeAllUserSessions } from '@/server/auth/session';
 import { withClient } from '@/server/db/pool';
 import type { Role } from '@/server/bootstrap/types';
 import type { AuthUser } from '@/server/auth/types';
@@ -1943,6 +1944,13 @@ export async function updateUser(
     ],
   );
 
+  // Detectamos si efectivamente CAMBIÓ el rol (no solo si vino en el input).
+  // Esto importa para decidir si invalidar las sesiones del usuario.
+  const roleChanged =
+    input.primaryRole !== undefined &&
+    input.primaryRole !== currentUserState.primaryRole;
+  const userDeactivated = input.isActive === false;
+
   if (input.primaryRole) {
     await client.query(
       `
@@ -1964,6 +1972,15 @@ export async function updateUser(
       `,
       [userId, input.primaryRole, actor.userId],
     );
+  }
+
+  // Si cambió el rol o se desactivó al usuario, revocamos TODAS sus sesiones
+  // de refresh activas. Combinado con la re-lectura del rol en
+  // authenticateRequest, esto garantiza que en el próximo request el usuario
+  // sea forzado a hacer login y reciba un JWT con el rol nuevo, evitando
+  // que siga viendo acciones/datos del rol anterior.
+  if (roleChanged || userDeactivated) {
+    await revokeAllUserSessions(client, userId);
   }
 
   if (input.password) {

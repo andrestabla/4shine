@@ -746,12 +746,22 @@ async function syncProjects(client: PoolClient, userId: string, projects: Profil
 export async function getMyProfile(client: PoolClient, actor: AuthUser): Promise<MyProfileRecord> {
   await requireModulePermission(client, 'perfil', 'view');
 
+  // El perfil de adviser (experiencia, precio de sesión, etc.) solo aplica
+  // si el usuario es actualmente mentor. Si fue mentor antes y ahora es otro
+  // rol (ej. líder), la fila en app_mentoring.mentors puede seguir existiendo
+  // como dato histórico, pero NO debe filtrarse al perfil actual del usuario.
+  // El rol viene de authenticateRequest, que ya lee primary_role vigente del DB.
+  const adviserProfilePromise =
+    actor.role === 'mentor'
+      ? getAdviserProfile(client, actor.userId)
+      : Promise.resolve(null);
+
   const [row, interests, projects, purchases, adviserProfile] = await Promise.all([
     getProfileRow(client, actor.userId),
     listInterests(client, actor.userId),
     listProjects(client, actor.userId),
     listUserPurchases(client, actor.userId),
-    getAdviserProfile(client, actor.userId),
+    adviserProfilePromise,
   ]);
 
   return mapProfile(row, interests, projects, purchases, adviserProfile);
