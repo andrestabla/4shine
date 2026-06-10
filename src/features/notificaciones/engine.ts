@@ -176,96 +176,23 @@ async function sendTemplateEmail(
     return typeof body?.id === 'string' ? body.id : null;
   }
 
-  // SMTP fallback (incluye AWS SES SMTP). SES retorna su Message-ID via header.
-  const { default: nodemailer } = await import('nodemailer');
-  const smtpPort = Number(config.smtp_port);
-  const secure = smtpPort === 465 ? true : config.smtp_secure && smtpPort !== 587;
-  const transporter = nodemailer.createTransport({
-    host: config.smtp_host.trim(),
-    port: smtpPort,
-    secure,
-    requireTLS: smtpPort === 587 || !secure,
-    auth: { user: config.smtp_user.trim(), pass: config.smtp_password.trim() },
-  });
-
-  // Si es SES SMTP y hay un Configuration Set configurado, lo aplicamos via
-  // header. Esto habilita event publishing (Delivery / Open / Bounce) a SNS
-  // → nuestro webhook /api/v1/webhooks/aws/ses → historial de notificaciones.
-  const isSesSmtp =
-    config.provider === 'ses' ||
-    /email-smtp\.[a-z0-9-]+\.amazonaws\.com$/i.test(config.smtp_host.trim());
-  const configurationSet = process.env.AWS_SES_CONFIGURATION_SET?.trim();
-  const headers: Record<string, string> | undefined =
-    isSesSmtp && configurationSet
-      ? { 'X-SES-CONFIGURATION-SET': configurationSet }
-      : undefined;
-
-  const result = await transporter.sendMail({
+  // SMTP fallback (incluye AWS SES SMTP). Delegamos en smtpSend que:
+  //  - Aplica header X-SES-CONFIGURATION-SET cuando corresponde.
+  //  - Parsea el SES Message-ID real de result.response.
+  //  - Loggea diagnóstico estructurado.
+  // Mantener este path delgado es crítico: hay 4 sitios en el monorepo que
+  // antes duplicaban este código, varios sin los fixes. Hoy todos pasan por
+  // src/lib/smtp-send.ts y el comportamiento es consistente.
+  const { smtpSend } = await import('@/lib/smtp-send');
+  const result = await smtpSend(config, {
     from,
     to,
     subject,
     text,
     html,
-    replyTo,
-    ...(headers ? { headers } : {}),
+    ...(replyTo ? { replyTo } : {}),
   });
-
-  // CRÍTICO para tracking SES.
-  // result.messageId es el Message-ID del HEADER del email — para SES SMTP es
-  // un UUID generado localmente por nodemailer (ej "ff8d3928-...-d2fb74c209b0").
-  // ESE NO es el ID que SES usa internamente para reportar eventos.
-  //
-  // El SES Message-ID real viene en la línea de respuesta SMTP "250 OK <ses_id>"
-  // que nodemailer expone en result.response. Ese es el que viaja en
-  // mail.messageId del JSON de eventos publicado a SNS.
-  //
-  // Sin esta extracción, el webhook nunca encuentra el record (busca por SES
-  // messageId) y los emails se quedan eternamente en "Enviado".
-  let messageId: string | null = null;
-  if (isSesSmtp && typeof result.response === 'string') {
-    // El SES Message-ID viene tras "Ok" en el response SMTP. Ej:
-    //   "250 2.0.0 Ok 0100019eaec8b171-e3166ee7-1d2f-4ade-9749-c7e778ffd18e-000000"
-    //   "250 OK 0100019eaec8b171-e3166ee7-..."
-    //   "250 ok 0100019eaec8b171-..."
-    // Regex permisivo: case-insensitive, acepta espacios o tabs y captura el
-    // token hex+guiones de >=40 chars que sigue.
-    // Tomamos el ÚLTIMO match (final del handshake, tras DATA).
-    const matches = Array.from(
-      result.response.matchAll(/\bOk\b[\s:]+([0-9a-f][\w-]{30,})/gi),
-    );
-    const last = matches[matches.length - 1];
-    if (last?.[1]) {
-      messageId = last[1].trim();
-    }
-    if (!messageId) {
-      console.warn(
-        '[notif/engine] SES sendMail: regex NO MATCHEÓ con result.response. ' +
-          'Revisa el formato exacto abajo y ajusta el regex en engine.ts. ' +
-          'response =',
-        JSON.stringify(result.response).substring(0, 400),
-      );
-    }
-  }
-  // Fallback: si no era SES SMTP o no se pudo parsear, usar el header Message-ID.
-  const headerMessageId =
-    typeof result.messageId === 'string'
-      ? (result.messageId.replace(/^<|>$/g, '').split('@')[0] ?? result.messageId)
-      : null;
-  if (!messageId) messageId = headerMessageId;
-  // Log explícito para verificación post-deploy. Aparece en Vercel Logs por
-  // cada email enviado. Permite confirmar que el SES messageId real se está
-  // guardando (no el UUID local de nodemailer).
-  console.log(
-    '[notif/engine] sendMail OK',
-    JSON.stringify({
-      isSesSmtp,
-      configurationSetApplied: Boolean(headers),
-      response: typeof result.response === 'string' ? result.response.substring(0, 120) : null,
-      headerMessageIdNormalized: headerMessageId,
-      savedAsProviderMessageId: messageId,
-    }),
-  );
-  return messageId;
+  return result.providerMessageId;
 }
 
 // ─── Main dispatch function ───────────────────────────────────────────────────

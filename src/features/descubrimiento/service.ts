@@ -1295,30 +1295,12 @@ async function sendViaSmtp(
   config: OutboundConfigRow,
   payload: { to: string; subject: string; text: string; html: string },
 ): Promise<string | null> {
-  const smtpHost = config.smtp_host.trim();
-  const smtpUser = config.smtp_user.trim();
-  const smtpPassword = config.smtp_password.trim();
-  const smtpPort = Number(config.smtp_port);
-
-  if (!smtpHost || !smtpUser || !smtpPassword || !Number.isFinite(smtpPort) || smtpPort <= 0) {
-    throw new Error("SMTP configuration is incomplete");
-  }
-
-  const secure = smtpPort === 465 ? true : config.smtp_secure && smtpPort !== 587;
-  const requireTLS = smtpPort === 587 || !secure;
-
-  const transporter = nodemailer.createTransport({
-    host: smtpHost,
-    port: smtpPort,
-    secure,
-    requireTLS,
-    auth: {
-      user: smtpUser,
-      pass: smtpPassword,
-    },
-  });
-
-  const result = await transporter.sendMail({
+  // Delegamos en smtpSend que añade X-SES-CONFIGURATION-SET (cuando aplica)
+  // y extrae el SES Message-ID real de result.response. Sin esto, los
+  // emails de descubrimiento no recibían eventos Delivery / Open y se
+  // quedaban eternamente en "Enviado".
+  const { smtpSend } = await import('@/lib/smtp-send');
+  const result = await smtpSend(config, {
     from: buildFromHeader(config),
     to: payload.to,
     subject: payload.subject,
@@ -1326,8 +1308,7 @@ async function sendViaSmtp(
     html: payload.html,
     replyTo: buildReplyTo(config),
   });
-
-  return typeof result.messageId === "string" ? result.messageId : null;
+  return result.providerMessageId;
 }
 
 async function sendViaSendgrid(

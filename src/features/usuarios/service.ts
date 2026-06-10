@@ -895,30 +895,8 @@ async function resolveOutboundConfig(
 }
 
 async function sendViaSmtp(config: OutboundConfigRow, payload: OutboundEmailPayload): Promise<string | null> {
-  const smtpHost = config.smtp_host.trim();
-  const smtpUser = config.smtp_user.trim();
-  const smtpPassword = config.smtp_password.trim();
-  const smtpPort = Number(config.smtp_port);
-
-  if (!smtpHost || !smtpUser || !smtpPassword || !Number.isFinite(smtpPort) || smtpPort <= 0) {
-    throw new Error('SMTP configuration is incomplete');
-  }
-
-  const secure = smtpPort === 465 ? true : config.smtp_secure && smtpPort !== 587;
-  const requireTLS = smtpPort === 587 || !secure;
-
-  const transporter = nodemailer.createTransport({
-    host: smtpHost,
-    port: smtpPort,
-    secure,
-    requireTLS,
-    auth: {
-      user: smtpUser,
-      pass: smtpPassword,
-    },
-  });
-
-  const result = await transporter.sendMail({
+  const { smtpSend } = await import('@/lib/smtp-send');
+  const result = await smtpSend(config, {
     from: buildFromHeader(config),
     to: payload.to,
     subject: payload.subject,
@@ -926,8 +904,7 @@ async function sendViaSmtp(config: OutboundConfigRow, payload: OutboundEmailPayl
     html: payload.html,
     replyTo: payload.replyTo,
   });
-
-  return typeof result.messageId === 'string' ? result.messageId : null;
+  return result.providerMessageId;
 }
 
 async function sendViaSendgrid(config: OutboundConfigRow, payload: OutboundEmailPayload): Promise<string | null> {

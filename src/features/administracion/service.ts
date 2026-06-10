@@ -961,33 +961,20 @@ async function sendViaSmtp(
   config: OutboundEmailConfigRecord,
   recipient: string,
 ): Promise<string | null> {
-  const smtpHost = config.smtpHost.trim();
-  const smtpUser = config.smtpUser.trim();
-  const smtpPassword = config.smtpPassword.trim();
-  const smtpPort = Number.parseInt(config.smtpPort, 10);
-
-  if (!smtpHost || !smtpUser || !smtpPassword || !Number.isFinite(smtpPort)) {
-    throw new Error('SMTP configuration is incomplete');
-  }
-
-  // Port 465 expects implicit TLS, while 587 is STARTTLS.
-  const secure = smtpPort === 465 ? true : config.smtpSecure && smtpPort !== 587;
-  const requireTLS = smtpPort === 587 || !secure;
-
-  const transporter = nodemailer.createTransport({
-    host: smtpHost,
-    port: smtpPort,
-    secure,
-    requireTLS,
-    auth: {
-      user: smtpUser,
-      pass: smtpPassword,
-    },
-  });
-
+  const { smtpSend } = await import('@/lib/smtp-send');
   const payload = buildTestEmailPayload(config, recipient);
-  const result = await transporter.sendMail(payload);
-  return typeof result.messageId === 'string' ? result.messageId : null;
+  const result = await smtpSend(
+    {
+      smtp_host: config.smtpHost,
+      smtp_port: config.smtpPort,
+      smtp_user: config.smtpUser,
+      smtp_password: config.smtpPassword,
+      smtp_secure: config.smtpSecure,
+      provider: config.provider,
+    },
+    payload,
+  );
+  return result.providerMessageId;
 }
 
 async function sendViaSendgrid(
