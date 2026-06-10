@@ -770,7 +770,7 @@ export async function listLearningResources(
         AND (
           $3::text IS NULL
           OR ($3::text = 'course' AND ci.content_type = 'scorm')
-          OR ($3::text = 'resource' AND ci.content_type <> 'scorm')
+          OR ($3::text = 'resource' AND ci.content_type NOT IN ('scorm', 'assignment'))
         )
         AND ($4::text IS NULL OR ci.content_type = $4)
         AND ($5::text IS NULL OR ci.status = $5)
@@ -888,7 +888,7 @@ export async function listLearningResources(
         AND (
           $4::text IS NULL
           OR ($4::text = 'course' AND ci.content_type = 'scorm')
-          OR ($4::text = 'resource' AND ci.content_type <> 'scorm')
+          OR ($4::text = 'resource' AND ci.content_type NOT IN ('scorm', 'assignment'))
         )
         AND ($5::text IS NULL OR ci.content_type = $5)
         AND ($6::text IS NULL OR ci.status = $6)

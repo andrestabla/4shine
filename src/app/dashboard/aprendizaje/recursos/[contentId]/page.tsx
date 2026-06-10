@@ -1234,8 +1234,41 @@ export default function LearningResourceDetailPage() {
     );
   }
 
-  // 1b. ASSIGNMENT LAYOUT (early return — solo header + player)
+  // 1b. ASSIGNMENT LAYOUT (early return).
+  // Las tareas solo se publican dentro del contexto de un curso.
+  // Si un líder llega aquí por URL directa, le mostramos un mensaje y le
+  // redirigimos a sus cursos. Para canManage (admin/gestor/adviser) sí
+  // permitimos preview directo (botón Visualizar de /dashboard/contenido).
   if (resource.contentType === "assignment") {
+    if (!canManage) {
+      return (
+        <div className="flex w-full max-w-2xl flex-col gap-6 animate-fade-in">
+          <Link
+            href="/dashboard/aprendizaje?tab=cursos"
+            className="inline-flex items-center gap-2 rounded-full bg-[var(--app-surface-muted)] px-4 py-2 text-sm font-bold text-[var(--app-ink)] transition hover:bg-white hover:text-[var(--brand-primary)]"
+          >
+            <ArrowLeft size={16} />
+            Volver a mis cursos
+          </Link>
+          <section className="app-panel p-6">
+            <h1 className="text-xl font-black text-[var(--app-ink)] sm:text-2xl">
+              Esta tarea solo se puede ver dentro de un curso
+            </h1>
+            <p className="mt-2 text-sm text-[var(--app-muted)]">
+              Las tareas de entrega se publican como parte de un curso. Ingresa al
+              curso correspondiente desde tu listado de cursos y navega hasta el
+              módulo donde está asignada.
+            </p>
+            <Link
+              href="/dashboard/aprendizaje?tab=cursos"
+              className="mt-4 inline-flex items-center gap-2 rounded-[12px] bg-[var(--brand-primary)] px-4 py-2 text-sm font-bold text-white"
+            >
+              Ver mis cursos
+            </Link>
+          </section>
+        </div>
+      );
+    }
     return (
       <div className="flex w-full flex-col gap-6 animate-fade-in">
         <div className="flex items-center justify-between">

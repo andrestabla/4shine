@@ -97,13 +97,17 @@ export interface UpdateContentInput {
   certificateTemplateId?: string | null;
 }
 
-// Solo los cursos (content_type='scorm') pueden vivir en cualquier
-// ubicación. Cualquier otro tipo se fuerza a 'contenidos_libres'.
+// Política de ubicación:
+//   - scorm puede vivir en cualquiera (cursos o contenidos_libres).
+//   - assignment SIEMPRE 'cursos' — las tareas solo se consumen dentro
+//     de un curso, nunca como contenido suelto.
+//   - todo lo demás (video, pdf, article, activity, etc.) → 'contenidos_libres'.
 function resolveLibraryLocation(
   contentType: ContentType,
   requested: LibraryLocation | undefined,
   fallback: LibraryLocation = 'contenidos_libres',
 ): LibraryLocation {
+  if (contentType === 'assignment') return 'cursos';
   if (contentType !== 'scorm') return 'contenidos_libres';
   if (requested === 'cursos' || requested === 'contenidos_libres') return requested;
   return fallback;
