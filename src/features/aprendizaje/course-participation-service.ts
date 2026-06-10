@@ -207,14 +207,14 @@ export async function getCourseParticipationReport(
     name: string;
     email: string;
     progress_percent: number;
-    updated_at: string | null;
+    last_viewed_at: string | null;
   }>(
     `SELECT
        u.user_id::text,
        u.display_name AS name,
        u.email::text AS email,
        COALESCE(cp.progress_percent, 0)::float AS progress_percent,
-       cp.updated_at::text
+       cp.last_viewed_at::text
      FROM app_learning.content_progress cp
      JOIN app_core.users u ON u.user_id = cp.user_id
      WHERE cp.content_id = $1::uuid
@@ -334,7 +334,7 @@ export async function getCourseParticipationReport(
       name: u.name,
       email: u.email,
       progressPercent: progress?.progress_percent ?? 0,
-      lastSeenAt: progress?.updated_at ?? null,
+      lastSeenAt: progress?.last_viewed_at ?? null,
       activityResults: Object.fromEntries(activityResults.get(userId) ?? new Map()),
       taskResults: Object.fromEntries(taskResults.get(userId) ?? new Map()),
     });
