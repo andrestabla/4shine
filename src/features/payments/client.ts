@@ -26,6 +26,49 @@ export async function createMentorshipCheckout(input: {
   });
 }
 
+// ─── Workshops ───────────────────────────────────────────────────────────────
+
+export interface WorkshopOrderRecord {
+  orderId: string;
+  workshopId: string;
+  workshopTitle: string;
+  ownerUserId: string;
+  priceAmount: number;
+  currencyCode: string;
+  status: 'pending_payment' | 'paid' | 'cancelled' | 'refunded';
+  paymentProvider: PaymentProviderKey | 'manual' | null;
+  paymentReference: string | null;
+  paymentStatus: string;
+  paymentRedirectUrl: string | null;
+  paidAt: string | null;
+  refundedAt: string | null;
+  refundReference: string | null;
+  refundReason: string | null;
+  attendanceStatus: 'registered' | 'waitlist' | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function createWorkshopOrder(workshopId: string): Promise<{
+  order: WorkshopOrderRecord;
+  reused: boolean;
+}> {
+  return requestApi(`/api/v1/modules/workshops/${workshopId}/orders`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+}
+
+export async function createWorkshopCheckout(input: {
+  orderId: string;
+  provider: PaymentProviderKey;
+}): Promise<PaymentInitiationResult> {
+  return requestApi<PaymentInitiationResult>('/api/v1/payments/workshops/checkout', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
 // ─── Admin (pagos) ───────────────────────────────────────────────────────────
 
 export interface MentorshipPaymentRecord {

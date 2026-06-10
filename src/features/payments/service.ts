@@ -906,3 +906,293 @@ export async function listPaymentAttemptsForOrder(
     createdAt: row.created_at,
   }));
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+// WORKSHOPS — checkout (espejo del de mentorías).
+//
+// El service de órdenes de workshop vive en src/features/workshops/orders-service
+// para mantener la separación por dominio. Aquí solo orquestamos el handshake
+// con Stripe / Wompi, igual que hacemos con mentorías.
+//
+// Las diferencias vs. mentorias son mínimas:
+//   - metadata.kind = 'workshop_order' (para que el webhook enrute)
+//   - reference de Wompi usa prefijo 'workshop_' (para que el webhook
+//     filtre por dominio antes de tocar la tabla)
+//   - success/cancel URL apuntan a /dashboard/workshops
+//   - los helpers que persisten estado llaman al service de workshops, no
+//     al de mentorías
+// ════════════════════════════════════════════════════════════════════════════
+
+import {
+  applyWorkshopOrderRefundLocally,
+  loadWorkshopOrderForCheckout,
+  markWorkshopOrderPending,
+  type OrderForCheckoutSnapshot as WorkshopOrderSnapshot,
+} from '@/features/workshops/orders-service';
+
+async function recordWorkshopPaymentAttempt(
+  client: PoolClient,
+  input: {
+    orderId: string;
+    provider: PaymentProviderKey | 'manual';
+    status: 'initiated' | 'awaiting_payment' | 'succeeded' | 'failed' | 'refunded' | 'refund_failed';
+    reference?: string | null;
+    errorCode?: string | null;
+    errorMessage?: string | null;
+    rawPayload?: Record<string, unknown> | null;
+    createdBy?: string | null;
+  },
+): Promise<void> {
+  await client.query(
+    `
+      INSERT INTO app_networking.workshop_payment_attempts (
+        order_id, provider, status, reference, error_code, error_message, raw_payload, created_by
+      )
+      VALUES ($1::uuid, $2, $3, $4, $5, $6, $7::jsonb, $8)
+    `,
+    [
+      input.orderId,
+      input.provider,
+      input.status,
+      input.reference ?? null,
+      input.errorCode ?? null,
+      input.errorMessage ?? null,
+      JSON.stringify(input.rawPayload ?? {}),
+      input.createdBy ?? null,
+    ],
+  );
+}
+
+async function createStripeCheckoutForWorkshopOrder(
+  client: PoolClient,
+  actorUserId: string,
+  order: WorkshopOrderSnapshot,
+): Promise<PaymentInitiationResult> {
+  const credentials = await resolveStripeCredentials(client, actorUserId);
+  if (!credentials) {
+    throw new Error('Stripe no está configurado.');
+  }
+  const stripe = getStripeClient(credentials.secretKey);
+  const appUrl = getAppUrl();
+  const session = await stripe.checkout.sessions.create({
+    mode: 'payment',
+    client_reference_id: order.orderId,
+    metadata: {
+      kind: 'workshop_order',
+      orderId: order.orderId,
+      userId: order.ownerUserId,
+      workshopId: order.workshopId,
+    },
+    line_items: [
+      {
+        quantity: 1,
+        price_data: {
+          currency: order.currencyCode.toLowerCase(),
+          unit_amount: Math.round(order.priceAmount * 100),
+          product_data: {
+            name: order.title,
+            description: 'Workshop 4Shine',
+          },
+        },
+      },
+    ],
+    // Volvemos al detalle del workshop, no al catálogo. Si no hay startsAt
+    // tampoco lo necesitamos para la URL.
+    success_url: `${appUrl}/dashboard/workshops/${order.workshopId}?payment=success&order=${order.orderId}`,
+    cancel_url: `${appUrl}/dashboard/workshops/${order.workshopId}?payment=cancel&order=${order.orderId}`,
+  });
+  if (!session.url) throw new Error('Stripe no devolvió URL de checkout.');
+  await markWorkshopOrderPending(client, order.orderId, 'stripe', session.id, session.url);
+  await recordWorkshopPaymentAttempt(client, {
+    orderId: order.orderId,
+    provider: 'stripe',
+    status: 'awaiting_payment',
+    reference: session.id,
+    createdBy: actorUserId,
+    rawPayload: { sessionId: session.id, amount: session.amount_total, currency: session.currency },
+  });
+  return { redirectUrl: session.url, reference: session.id, provider: 'stripe' };
+}
+
+async function createWompiCheckoutForWorkshopOrder(
+  client: PoolClient,
+  actorUserId: string,
+  order: WorkshopOrderSnapshot,
+): Promise<PaymentInitiationResult> {
+  const credentials = await resolveWompiCredentials(client, actorUserId);
+  if (!credentials) {
+    throw new Error('Wompi no está configurado.');
+  }
+  const amountInCents = Math.round(order.priceAmount * 100);
+  const currency = order.currencyCode.toUpperCase();
+  // Prefijo distinto para que el webhook de Wompi pueda enrutar antes de
+  // tocar tabla. mentorias usa 'mentorship_'.
+  const reference = `workshop_${order.orderId}`;
+  const signaturePayload = `${reference}${amountInCents}${currency}${credentials.integritySecret}`;
+  const integritySignature = sha256Hex(signaturePayload);
+  const appUrl = getAppUrl();
+  const redirectUrl = `${appUrl}/dashboard/workshops/${order.workshopId}?payment=success&order=${order.orderId}`;
+
+  const params = new URLSearchParams({
+    'public-key': credentials.publicKey,
+    currency,
+    'amount-in-cents': String(amountInCents),
+    reference,
+    'redirect-url': redirectUrl,
+    'signature:integrity': integritySignature,
+  });
+  const fullUrl = `${credentials.baseUrl}?${params.toString()}`;
+  await markWorkshopOrderPending(client, order.orderId, 'wompi', reference, fullUrl);
+  await recordWorkshopPaymentAttempt(client, {
+    orderId: order.orderId,
+    provider: 'wompi',
+    status: 'awaiting_payment',
+    reference,
+    createdBy: actorUserId,
+    rawPayload: { amountInCents, currency },
+  });
+  return { redirectUrl: fullUrl, reference, provider: 'wompi' };
+}
+
+export async function createWorkshopCheckoutForOrder(
+  client: PoolClient,
+  actorUserId: string,
+  orderId: string,
+  provider: PaymentProviderKey,
+): Promise<PaymentInitiationResult> {
+  const order = await loadWorkshopOrderForCheckout(client, orderId, actorUserId);
+  if (provider === 'stripe') {
+    return createStripeCheckoutForWorkshopOrder(client, actorUserId, order);
+  }
+  if (provider === 'wompi') {
+    return createWompiCheckoutForWorkshopOrder(client, actorUserId, order);
+  }
+  throw new Error(`Proveedor no soportado: ${provider}`);
+}
+
+// ─── Refund de workshop (admin/gestor) ───────────────────────────────────────
+//
+// Replica refundOrder pero apunta a workshops. El gate de permisos se hace
+// en el endpoint (requireModulePermission 'workshops', 'approve' o similar).
+
+export async function refundWorkshopOrder(
+  client: PoolClient,
+  actorUserId: string,
+  orderId: string,
+  reason: string,
+): Promise<RefundResult> {
+  interface Row {
+    order_id: string;
+    payment_provider: PaymentProviderKey | 'manual' | null;
+    payment_reference: string | null;
+    payment_status: string | null;
+  }
+  const { rows } = await client.query<Row>(
+    `
+      SELECT order_id::text, payment_provider, payment_reference, payment_status
+      FROM app_networking.workshop_orders
+      WHERE order_id = $1::uuid
+      LIMIT 1
+    `,
+    [orderId],
+  );
+  const order = rows[0];
+  if (!order) throw new Error('Orden de workshop no encontrada.');
+  if (order.payment_status === 'refunded') {
+    throw new Error('Esta orden ya fue reembolsada.');
+  }
+  if (order.payment_status !== 'paid') {
+    throw new Error('Solo se pueden reembolsar órdenes pagadas.');
+  }
+
+  const provider = order.payment_provider ?? 'manual';
+  let refundReference: string | null = null;
+
+  if (provider === 'stripe' && order.payment_reference) {
+    try {
+      const credentials = await resolveStripeCredentials(client, actorUserId);
+      if (!credentials) throw new Error('Stripe no está configurado.');
+      const stripe = getStripeClient(credentials.secretKey);
+      const session = await stripe.checkout.sessions.retrieve(order.payment_reference);
+      const paymentIntent =
+        typeof session.payment_intent === 'string'
+          ? session.payment_intent
+          : session.payment_intent?.id ?? null;
+      if (!paymentIntent) {
+        throw new Error('No se pudo resolver el payment_intent de la sesión.');
+      }
+      const refund = await stripe.refunds.create({
+        payment_intent: paymentIntent,
+        metadata: { orderId: order.order_id, reason, kind: 'workshop_order' },
+      });
+      refundReference = refund.id;
+    } catch (error) {
+      await recordWorkshopPaymentAttempt(client, {
+        orderId: order.order_id,
+        provider: 'stripe',
+        status: 'refund_failed',
+        reference: order.payment_reference,
+        errorMessage: error instanceof Error ? error.message : 'Error desconocido',
+        createdBy: actorUserId,
+      });
+      throw error;
+    }
+  } else if (provider === 'wompi' && order.payment_reference) {
+    try {
+      const credentials = await resolveWompiCredentials(client, actorUserId);
+      if (!credentials?.privateKey) {
+        throw new Error('Wompi requiere private key configurada para reembolsos.');
+      }
+      const txLookup = await fetch(
+        `${credentials.apiBaseUrl}/transactions?reference=${encodeURIComponent(order.payment_reference)}`,
+        { headers: { Authorization: `Bearer ${credentials.privateKey}` } },
+      );
+      if (!txLookup.ok) {
+        throw new Error(`Wompi tx lookup falló: HTTP ${txLookup.status}`);
+      }
+      const txData = (await txLookup.json()) as {
+        data?: Array<{ id?: string; status?: string }>;
+      };
+      const txId = txData.data?.find((t) => t.status === 'APPROVED')?.id;
+      if (!txId) throw new Error('No se encontró transacción APROBADA en Wompi.');
+      const refundResp = await fetch(`${credentials.apiBaseUrl}/refunds`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${credentials.privateKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ transaction_id: txId }),
+      });
+      if (!refundResp.ok) {
+        throw new Error(`Wompi refund falló: HTTP ${refundResp.status}`);
+      }
+      const refundData = (await refundResp.json()) as { data?: { id?: string } };
+      refundReference = refundData.data?.id ?? null;
+    } catch (error) {
+      await recordWorkshopPaymentAttempt(client, {
+        orderId: order.order_id,
+        provider: 'wompi',
+        status: 'refund_failed',
+        reference: order.payment_reference,
+        errorMessage: error instanceof Error ? error.message : 'Error desconocido',
+        createdBy: actorUserId,
+      });
+      throw error;
+    }
+  }
+
+  // Persistimos efecto en BD + quitamos al asistente.
+  await applyWorkshopOrderRefundLocally(
+    client,
+    orderId,
+    refundReference ?? `manual_${Date.now()}`,
+    reason,
+  );
+
+  return {
+    orderId,
+    provider,
+    refundReference,
+    status: provider === 'manual' ? 'manual_marked' : 'refunded',
+  };
+}

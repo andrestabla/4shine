@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { withClient, withRoleContext } from "@/server/db/pool";
 import { markOrderAsFailed, markOrderAsPaid } from "@/features/payments/service";
+import {
+  markWorkshopOrderAsFailed,
+  markWorkshopOrderAsPaid,
+} from "@/features/workshops/orders-service";
 
 export const runtime = "nodejs";
 
@@ -109,9 +113,41 @@ export async function POST(request: Request) {
         }
       }
     }
+
+    // Workshops — paralelo a mentorship_additional_order. Mismo handshake
+    // pero apunta a app_networking.workshop_orders.
+    if (kind === "workshop_order" && session.payment_status === "paid") {
+      const ownerUserId = session.metadata?.userId;
+      const reference = session.id;
+      if (ownerUserId && reference) {
+        try {
+          await withClient(async (client) => {
+            await withRoleContext(client, ownerUserId, "lider", async () => {
+              await markWorkshopOrderAsPaid(client, {
+                provider: "stripe",
+                reference,
+                rawPayload: {
+                  eventType: event.type,
+                  amountTotal: session.amount_total,
+                  currency: session.currency,
+                  customerEmail: session.customer_details?.email ?? null,
+                },
+              });
+            });
+          });
+        } catch (error) {
+          console.error("[Stripe webhook] Error marking workshop order paid:", error);
+          return NextResponse.json(
+            { ok: false, error: "Error updating workshop order." },
+            { status: 500 },
+          );
+        }
+      }
+    }
   } else if (event.type === "checkout.session.expired" || event.type === "checkout.session.async_payment_failed") {
     const session = event.data.object as Stripe.Checkout.Session;
-    if (session.metadata?.kind === "mentorship_additional_order") {
+    const kind = session.metadata?.kind;
+    if (kind === "mentorship_additional_order") {
       const ownerUserId = session.metadata?.userId;
       if (ownerUserId && session.id) {
         try {
@@ -127,6 +163,25 @@ export async function POST(request: Request) {
           });
         } catch (error) {
           console.error("[Stripe webhook] Error marking mentorship order failed:", error);
+        }
+      }
+    }
+    if (kind === "workshop_order") {
+      const ownerUserId = session.metadata?.userId;
+      if (ownerUserId && session.id) {
+        try {
+          await withClient(async (client) => {
+            await withRoleContext(client, ownerUserId, "lider", async () => {
+              await markWorkshopOrderAsFailed(client, {
+                provider: "stripe",
+                reference: session.id,
+                reason: event.type,
+                rawPayload: { eventType: event.type, paymentStatus: session.payment_status },
+              });
+            });
+          });
+        } catch (error) {
+          console.error("[Stripe webhook] Error marking workshop order failed:", error);
         }
       }
     }

@@ -37,6 +37,13 @@ import {
   type WorkshopForumPostRecord,
   type WorkshopRecord,
 } from '@/features/workshops/client';
+import {
+  createWorkshopCheckout,
+  createWorkshopOrder,
+  getEnabledPaymentProviders,
+  type EnabledPaymentProvidersResponse,
+  type PaymentProviderKey,
+} from '@/features/payments/client';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -144,6 +151,16 @@ export default function WorkshopDetailPage() {
   const [faqA, setFaqA] = React.useState('');
   const [savingFaq, setSavingFaq] = React.useState(false);
 
+  // ── Pago: estado del flujo de compra para workshops con price > 0 ───────
+  const [showPaymentModal, setShowPaymentModal] = React.useState(false);
+  const [paymentProviders, setPaymentProviders] =
+    React.useState<EnabledPaymentProvidersResponse | null>(null);
+  const [selectedProvider, setSelectedProvider] =
+    React.useState<PaymentProviderKey | 'manual'>('stripe');
+  const [purchasing, setPurchasing] = React.useState(false);
+  const [paymentBanner, setPaymentBanner] =
+    React.useState<{ kind: 'success' | 'cancel'; orderId?: string } | null>(null);
+
   const canManage = can('workshops', 'manage');
   const isAdmin = ['gestor', 'admin'].includes(currentRole ?? '');
 
@@ -174,6 +191,52 @@ export default function WorkshopDetailPage() {
   }, [workshopId, showError, router]);
 
   React.useEffect(() => { void load(); }, [load]);
+
+  // Si volvemos del proveedor de pago (?payment=success|cancel), mostramos
+  // el banner y limpiamos la URL para que un refresh no re-dispare. Si fue
+  // success, recargamos para que se vea el estado "Inscrito" / "Waitlist".
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const payment = params.get('payment');
+    const orderId = params.get('order') ?? undefined;
+    if (payment !== 'success' && payment !== 'cancel') return;
+
+    setPaymentBanner({ kind: payment, orderId });
+    const url = new URL(window.location.href);
+    url.searchParams.delete('payment');
+    url.searchParams.delete('order');
+    window.history.replaceState({}, '', url.toString());
+    if (payment === 'success') {
+      void load();
+    }
+  }, [load]);
+
+  // Cargar proveedores cuando el usuario abra el modal de pago.
+  React.useEffect(() => {
+    if (!showPaymentModal || paymentProviders !== null) return;
+    void getEnabledPaymentProviders()
+      .then((data) => {
+        setPaymentProviders(data);
+        if (data.providers.length > 0) {
+          setSelectedProvider(data.providers[0].key);
+        } else {
+          setSelectedProvider('manual');
+        }
+      })
+      .catch(() => {
+        setPaymentProviders({
+          providers: [],
+          manualFallback: {
+            enabled: true,
+            label: 'Coordinar pago con 4Shine',
+            description:
+              'Reservamos tu cupo y nuestro equipo te contactará para coordinar el pago.',
+          },
+        });
+        setSelectedProvider('manual');
+      });
+  }, [showPaymentModal, paymentProviders]);
 
   const onApply = async () => {
     if (!workshop) return;
@@ -206,6 +269,42 @@ export default function WorkshopDetailPage() {
       await showError('No se pudo cancelar la inscripción', err);
     } finally {
       setApplying(false);
+    }
+  };
+
+  // Compra del workshop. Crea una orden (o reutiliza la pending) y arranca
+  // el checkout del proveedor elegido. Si solo hay fallback manual, marca
+  // la intención y muestra al usuario un aviso de coordinación.
+  const onPurchase = async () => {
+    if (!workshop) return;
+    setPurchasing(true);
+    try {
+      const created = await createWorkshopOrder(workshop.workshopId);
+      const orderId = created.order.orderId;
+
+      const providerKey = selectedProvider;
+      if (
+        providerKey === 'manual' ||
+        !paymentProviders?.providers.some((p) => p.key === providerKey)
+      ) {
+        // Sin proveedor real: la orden queda en pending_payment para que
+        // admin la concilie manualmente.
+        await alert({
+          title: 'Compra registrada',
+          message:
+            'Tu reserva quedó pendiente. Nuestro equipo te contactará para coordinar el pago.',
+          tone: 'info',
+        });
+        setShowPaymentModal(false);
+        return;
+      }
+
+      const checkout = await createWorkshopCheckout({ orderId, provider: providerKey });
+      window.location.href = checkout.redirectUrl;
+    } catch (err) {
+      await showError('No se pudo iniciar la compra', err);
+    } finally {
+      setPurchasing(false);
     }
   };
 
@@ -348,6 +447,16 @@ export default function WorkshopDetailPage() {
         </div>
 
         <div className="mt-4 space-y-2.5 border-t border-[var(--app-border)] pt-4">
+          {paymentBanner?.kind === 'success' && (
+            <div className="rounded-xl bg-[#e8fff3] px-4 py-2.5 text-sm font-semibold text-[#2d8a5b]">
+              ✓ Pago confirmado. Te inscribimos al workshop.
+            </div>
+          )}
+          {paymentBanner?.kind === 'cancel' && (
+            <div className="rounded-xl bg-[#fef3c7] px-4 py-2.5 text-sm font-semibold text-[#92400e]">
+              Cancelaste el pago. Tu reserva sigue pendiente.
+            </div>
+          )}
           {isUpcoming && (
             isRegistered ? (
               <>
@@ -373,7 +482,17 @@ export default function WorkshopDetailPage() {
                   Cancelar inscripción
                 </button>
               </>
+            ) : workshop.price !== null && Number(workshop.price) > 0 ? (
+              // Workshop de pago: botón "Comprar" abre selector de proveedor.
+              <button
+                onClick={() => setShowPaymentModal(true)}
+                disabled={applying || purchasing}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--brand-primary)] px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:opacity-90 disabled:opacity-50"
+              >
+                Comprar · {workshop.currency} {Number(workshop.price).toLocaleString('es-CO')}
+              </button>
             ) : (
+              // Workshop gratis: flujo de inscripción directa (sin órdenes).
               <button
                 onClick={() => void onApply()}
                 disabled={applying}
@@ -752,6 +871,115 @@ export default function WorkshopDetailPage() {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal de pago: aparece cuando el usuario da click en "Comprar". */}
+      {showPaymentModal && workshop && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
+          onClick={() => !purchasing && setShowPaymentModal(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-t-[24px] bg-white shadow-2xl sm:rounded-[20px]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-[var(--app-border)] px-5 py-3">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">
+                  Workshop
+                </p>
+                <h3 className="text-base font-extrabold text-[var(--app-ink)]">
+                  {workshop.title}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => !purchasing && setShowPaymentModal(false)}
+                className="rounded-full p-1.5 text-[var(--app-muted)] hover:bg-[var(--app-surface-muted)]"
+                aria-label="Cerrar"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="space-y-4 p-5">
+              <div className="rounded-2xl bg-[var(--app-surface-muted)] px-4 py-3 text-sm">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-[var(--app-muted)]">
+                  Total a pagar
+                </p>
+                <p className="mt-1 text-2xl font-black text-[var(--app-ink)]">
+                  {workshop.currency} {Number(workshop.price ?? 0).toLocaleString('es-CO')}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-[var(--app-muted)]">
+                  Método de pago
+                </p>
+                <div className="mt-2 space-y-2">
+                  {paymentProviders === null ? (
+                    <p className="text-sm text-[var(--app-muted)]">Cargando opciones…</p>
+                  ) : paymentProviders.providers.length === 0 ? (
+                    <p className="text-sm text-[var(--app-muted)]">
+                      {paymentProviders.manualFallback.description}
+                    </p>
+                  ) : (
+                    paymentProviders.providers.map((p) => {
+                      const isActive = selectedProvider === p.key;
+                      return (
+                        <button
+                          key={p.key}
+                          type="button"
+                          onClick={() => setSelectedProvider(p.key)}
+                          className={`flex w-full items-start gap-3 rounded-xl border px-4 py-3 text-left transition ${
+                            isActive
+                              ? 'border-[var(--brand-primary)] bg-[color-mix(in_srgb,var(--brand-primary)_8%,transparent)]'
+                              : 'border-[var(--app-border)] bg-white hover:border-[var(--app-border-strong)]'
+                          }`}
+                        >
+                          <span
+                            className={`mt-1 inline-block h-3 w-3 shrink-0 rounded-full border-2 ${
+                              isActive
+                                ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)]'
+                                : 'border-[var(--app-border)] bg-white'
+                            }`}
+                          />
+                          <div>
+                            <p className="text-sm font-semibold text-[var(--app-ink)]">
+                              {p.label}
+                            </p>
+                            <p className="mt-0.5 text-xs text-[var(--app-muted)]">
+                              {p.description}
+                            </p>
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              <div className="flex flex-col-reverse gap-2 border-t border-[var(--app-border)] pt-3 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => !purchasing && setShowPaymentModal(false)}
+                  disabled={purchasing}
+                  className="rounded-xl border border-[var(--app-border)] bg-white px-4 py-2 text-sm font-semibold text-[var(--app-ink)] disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void onPurchase()}
+                  disabled={purchasing || paymentProviders === null}
+                  className="rounded-xl bg-[var(--brand-primary)] px-4 py-2 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-50"
+                >
+                  {purchasing ? 'Procesando…' : 'Ir a pagar'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

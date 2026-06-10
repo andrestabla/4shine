@@ -2,6 +2,10 @@ import { createHash } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { withClient, withRoleContext } from '@/server/db/pool';
 import { markOrderAsFailed, markOrderAsPaid } from '@/features/payments/service';
+import {
+  markWorkshopOrderAsFailed,
+  markWorkshopOrderAsPaid,
+} from '@/features/workshops/orders-service';
 
 export const runtime = 'nodejs';
 
@@ -55,48 +59,89 @@ export async function POST(request: Request) {
   }
 
   const reference = tx.reference;
-  if (!reference || !reference.startsWith('mentorship_')) {
-    return NextResponse.json({ ok: true, ignored: 'not a mentorship reference' });
+  if (!reference) {
+    return NextResponse.json({ ok: true, ignored: 'no reference' });
   }
 
-  // Resolve ownerUserId by looking up the order before mutating it.
+  // Wompi no soporta metadata libre como Stripe: enrutamos por el prefijo
+  // de la referencia. Mentorías usa 'mentorship_<orderId>'; workshops usa
+  // 'workshop_<orderId>'. Si no calza con ninguno, ignoramos.
+  const isMentorshipRef = reference.startsWith('mentorship_');
+  const isWorkshopRef = reference.startsWith('workshop_');
+  if (!isMentorshipRef && !isWorkshopRef) {
+    return NextResponse.json({ ok: true, ignored: 'unknown reference prefix' });
+  }
+
   try {
     const orderInfo = await withClient(async (client) => {
+      if (isMentorshipRef) {
+        const { rows } = await client.query<{ owner_user_id: string }>(
+          `
+            SELECT owner_user_id::text
+            FROM app_mentoring.additional_mentorship_orders
+            WHERE payment_provider = 'wompi' AND payment_reference = $1
+            LIMIT 1
+          `,
+          [reference],
+        );
+        return rows[0] ? { ownerUserId: rows[0].owner_user_id, domain: 'mentorship' as const } : null;
+      }
       const { rows } = await client.query<{ owner_user_id: string }>(
         `
           SELECT owner_user_id::text
-          FROM app_mentoring.additional_mentorship_orders
+          FROM app_networking.workshop_orders
           WHERE payment_provider = 'wompi' AND payment_reference = $1
           LIMIT 1
         `,
         [reference],
       );
-      return rows[0] ?? null;
+      return rows[0] ? { ownerUserId: rows[0].owner_user_id, domain: 'workshop' as const } : null;
     });
     if (!orderInfo) {
       return NextResponse.json({ ok: true, ignored: 'reference not found' });
     }
 
-    const ownerUserId = orderInfo.owner_user_id;
+    const { ownerUserId, domain } = orderInfo;
     await withClient(async (client) => {
       await withRoleContext(client, ownerUserId, 'lider', async () => {
         if (tx.status === 'APPROVED') {
-          await markOrderAsPaid(client, {
-            provider: 'wompi',
-            reference,
-            rawPayload: {
-              transactionId: tx.id,
-              amountInCents: tx.amount_in_cents,
-              currency: tx.currency,
-            },
-          });
+          if (domain === 'mentorship') {
+            await markOrderAsPaid(client, {
+              provider: 'wompi',
+              reference,
+              rawPayload: {
+                transactionId: tx.id,
+                amountInCents: tx.amount_in_cents,
+                currency: tx.currency,
+              },
+            });
+          } else {
+            await markWorkshopOrderAsPaid(client, {
+              provider: 'wompi',
+              reference,
+              rawPayload: {
+                transactionId: tx.id,
+                amountInCents: tx.amount_in_cents,
+                currency: tx.currency,
+              },
+            });
+          }
         } else if (tx.status === 'DECLINED' || tx.status === 'ERROR' || tx.status === 'VOIDED') {
-          await markOrderAsFailed(client, {
-            provider: 'wompi',
-            reference,
-            reason: tx.status,
-            rawPayload: { transactionId: tx.id, status: tx.status },
-          });
+          if (domain === 'mentorship') {
+            await markOrderAsFailed(client, {
+              provider: 'wompi',
+              reference,
+              reason: tx.status,
+              rawPayload: { transactionId: tx.id, status: tx.status },
+            });
+          } else {
+            await markWorkshopOrderAsFailed(client, {
+              provider: 'wompi',
+              reference,
+              reason: tx.status,
+              rawPayload: { transactionId: tx.id, status: tx.status },
+            });
+          }
         }
       });
     });
