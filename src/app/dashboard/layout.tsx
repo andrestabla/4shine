@@ -81,6 +81,12 @@ function resolveRouteAccess(pathname: string): RouteAccess | undefined {
     return { moduleCode: "aprendizaje" };
   }
 
+  // Detalle de un curso de formación de advisers: gateado igual que el
+  // home /dashboard/formacion-mentores. Cubre /dashboard/formacion-mentores/<id>.
+  if (pathname.startsWith("/dashboard/formacion-mentores/")) {
+    return { moduleCode: "formacion_mentores" };
+  }
+
   if (pathname.startsWith("/dashboard/usuarios/")) {
     return { moduleCode: "usuarios", action: "view" };
   }

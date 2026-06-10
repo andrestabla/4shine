@@ -8,13 +8,38 @@ import {
   type LearningCommentReactionType,
 } from '@/features/aprendizaje/comment-reactions';
 import type { AuthUser } from '@/server/auth/types';
-import { ForbiddenError, requireModulePermission } from '@/server/auth/module-permissions';
+import { ForbiddenError, hasModulePermission, requireModulePermission } from '@/server/auth/module-permissions';
+import type { ModuleCode } from '@/lib/permissions';
 import type {
   ContentCompetencyMetadata,
   ContentStructurePayload,
   ContentStatus,
   ContentType,
 } from '@/features/content/service';
+
+// Scopes de contenido que comparten la experiencia "Learning" (recursos, cursos,
+// detalle con comentarios, likes, progreso, certificados). Ambos viven en
+// app_learning.content_items y la diferencia entre uno y otro es solo:
+//   - permisos: cada scope se gatea con su propio módulo (`aprendizaje` vs
+//     `formacion_mentores`).
+//   - audiencia: aprendizaje es general; formacion_mentores es la ruta de
+//     capacitación interna para advisers.
+export type LearningScope = 'aprendizaje' | 'formacion_mentores';
+
+const LEARNING_SCOPES: readonly LearningScope[] = ['aprendizaje', 'formacion_mentores'];
+
+const SCOPE_TO_MODULE: Record<LearningScope, ModuleCode> = {
+  aprendizaje: 'aprendizaje',
+  formacion_mentores: 'formacion_mentores',
+};
+
+function isLearningScope(value: string | null | undefined): value is LearningScope {
+  return value === 'aprendizaje' || value === 'formacion_mentores';
+}
+
+function moduleForScope(scope: LearningScope): ModuleCode {
+  return SCOPE_TO_MODULE[scope];
+}
 
 export interface LearningCommentRecord {
   commentId: string;
@@ -33,6 +58,7 @@ export type LearningLibraryLocation = 'contenidos_libres' | 'cursos';
 
 export interface LearningResourceRecord {
   contentId: string;
+  scope: LearningScope;
   title: string;
   description: string | null;
   contentType: ContentType;
@@ -64,6 +90,7 @@ export interface LearningResourceRecord {
 
 
 export interface LearningResourceListQuery {
+  scope?: LearningScope;
   q?: string;
   family?: 'resource' | 'course' | null;
   libraryLocation?: LearningLibraryLocation | null;
@@ -185,6 +212,7 @@ interface LearningCommentRow {
 
 interface LearningResourceRow {
   content_id: string;
+  scope: LearningScope;
   title: string;
   description: string | null;
   content_type: ContentType;
@@ -369,6 +397,7 @@ function mapLearningResourceRow(row: LearningResourceRow): LearningResourceRecor
 
   return {
     contentId: row.content_id,
+    scope: isLearningScope(row.scope) ? row.scope : 'aprendizaje',
     title: row.title,
     description: row.description,
     contentType: row.content_type,
@@ -602,19 +631,28 @@ async function getAccessibleLearningItem(
   client: PoolClient,
   actor: AuthUser,
   contentId: string,
-): Promise<{ contentId: string; status: ContentStatus; isFree: boolean }> {
-  await requireModulePermission(client, 'aprendizaje', 'view');
-
+): Promise<{ contentId: string; scope: LearningScope; status: ContentStatus; isFree: boolean }> {
   const canManage = actor.role === 'gestor' || actor.role === 'admin';
   const access =
     actor.role === 'lider'
       ? await getViewerAccessState(client, actor, { includeCatalog: false })
       : null;
 
-  const { rows } = await client.query<{ content_id: string; status: ContentStatus; is_free: boolean; audience: string }>(
+  // Resolvemos primero el scope desde la BD: el contenido puede vivir en
+  // 'aprendizaje' o en 'formacion_mentores'. El módulo de permisos que se
+  // verifica depende del scope real almacenado (cada uno tiene su propio
+  // módulo en role_module_permissions).
+  const { rows } = await client.query<{
+    content_id: string;
+    scope: string;
+    status: ContentStatus;
+    is_free: boolean;
+    audience: string;
+  }>(
     `
       SELECT
         ci.content_id::text,
+        ci.scope,
         ci.status,
         COALESCE(ci.competency_metadata->>'audience', 'all') AS audience,
         EXISTS (
@@ -626,16 +664,19 @@ async function getAccessibleLearningItem(
         ) AS is_free
       FROM app_learning.content_items ci
       WHERE ci.content_id = $1
-        AND ci.scope = 'aprendizaje'
+        AND ci.scope = ANY($2::text[])
       LIMIT 1
     `,
-    [contentId],
+    [contentId, LEARNING_SCOPES as readonly string[]],
   );
 
   const item = rows[0];
-  if (!item) {
+  if (!item || !isLearningScope(item.scope)) {
     throw new ForbiddenError('Learning resource not found or not accessible');
   }
+
+  const scope = item.scope;
+  await requireModulePermission(client, moduleForScope(scope), 'view');
 
   if (!canManage && item.status !== 'published') {
     throw new ForbiddenError('Learning resource not found or not accessible');
@@ -652,6 +693,7 @@ async function getAccessibleLearningItem(
 
   return {
     contentId: item.content_id,
+    scope,
     status: item.status,
     isFree: item.is_free,
   };
@@ -735,7 +777,8 @@ export async function listLearningResources(
   actor: AuthUser,
   query?: LearningResourceListQuery,
 ): Promise<LearningResourceListResult> {
-  await requireModulePermission(client, 'aprendizaje', 'view');
+  const scope: LearningScope = query?.scope ?? 'aprendizaje';
+  await requireModulePermission(client, moduleForScope(scope), 'view');
   const canManage = actor.role === 'gestor' || actor.role === 'admin';
   const access =
     actor.role === 'lider'
@@ -754,7 +797,7 @@ export async function listLearningResources(
     `
       SELECT COUNT(*)::text AS total
       FROM app_learning.content_items ci
-      WHERE ci.scope = 'aprendizaje'
+      WHERE ci.scope = $10::text
         AND ($1::boolean = true OR ci.status = 'published')
         -- Las tareas (assignment) solo se consumen dentro de un curso, nunca
         -- en listados públicos (ni "Cursos", ni "Contenidos libres").
@@ -814,6 +857,7 @@ export async function listLearningResources(
       normalizedQuery,
       actor.role,
       libraryLocationFilter,
+      scope,
     ],
   );
 
@@ -823,6 +867,7 @@ export async function listLearningResources(
     `
       SELECT
         ci.content_id::text,
+        ci.scope,
         ci.title,
         ci.description,
         ci.content_type,
@@ -875,7 +920,7 @@ export async function listLearningResources(
       LEFT JOIN app_learning.content_progress cp
         ON cp.content_id = ci.content_id
        AND cp.user_id = $1
-      WHERE ci.scope = 'aprendizaje'
+      WHERE ci.scope = $13::text
         AND ($2::boolean = true OR ci.status = 'published')
         -- Las tareas (assignment) solo se consumen dentro de un curso.
         AND ci.content_type <> 'assignment'
@@ -950,6 +995,7 @@ export async function listLearningResources(
       offset,
       actor.role,
       libraryLocationFilter,
+      scope,
     ],
   );
 
@@ -973,6 +1019,7 @@ export async function getLearningResourceDetail(
     `
       SELECT
         ci.content_id::text,
+        ci.scope,
         ci.title,
         ci.description,
         ci.content_type,
@@ -1075,11 +1122,11 @@ export async function getLearningResourceDetail(
         ) reaction_rows ON true
         GROUP BY cc.content_id
       ) comments ON comments.content_id = ci.content_id
-      WHERE ci.scope = 'aprendizaje'
-        AND ci.content_id = $2
+      WHERE ci.content_id = $2
+        AND ci.scope = ANY($3::text[])
       LIMIT 1
     `,
-    [actor.userId, contentId],
+    [actor.userId, contentId, LEARNING_SCOPES as readonly string[]],
   );
 
   const row = rows[0];
@@ -1095,13 +1142,13 @@ export async function createLearningComment(
   actor: AuthUser,
   input: CreateLearningCommentInput,
 ): Promise<LearningCommentRecord> {
-  await requireModulePermission(client, 'aprendizaje', 'view');
-
   const commentText = input.commentText.trim();
   if (!commentText) {
     throw new Error('Comment text is required');
   }
 
+  // getAccessibleLearningItem resuelve el scope desde la BD y verifica el
+  // permiso `view` contra el módulo correcto (aprendizaje vs formacion_mentores).
   await getAccessibleLearningItem(client, actor, input.contentId);
 
   const { rows } = await client.query<LearningCommentRow>(
@@ -1200,8 +1247,6 @@ export async function toggleLearningCommentReaction(
   actor: AuthUser,
   input: ToggleLearningCommentReactionInput,
 ): Promise<LearningCommentReactionToggleResult> {
-  await requireModulePermission(client, 'aprendizaje', 'view');
-
   if (!isLearningCommentReactionType(input.reactionType)) {
     throw new Error('Invalid reaction type');
   }
@@ -1272,7 +1317,6 @@ export async function updateLearningProgress(
   contentId: string,
   input: LearningProgressUpdateInput,
 ): Promise<LearningProgressUpdateResult> {
-  await requireModulePermission(client, 'aprendizaje', 'view');
   const resource = await getLearningResourceDetail(client, actor, contentId);
   const normalizedResourceId =
     typeof input.resourceId === 'string' ? input.resourceId.trim() : '';
@@ -1397,7 +1441,6 @@ export async function toggleLearningLike(
   actor: AuthUser,
   contentId: string,
 ): Promise<LearningLikeToggleResult> {
-  await requireModulePermission(client, 'aprendizaje', 'view');
   await getAccessibleLearningItem(client, actor, contentId);
 
   const existing = await client.query<{ content_id: string }>(
@@ -1849,7 +1892,8 @@ export async function getCourseCertificateData(
   actor: AuthUser,
   contentId: string,
 ): Promise<CourseCertificateData> {
-  await requireModulePermission(client, 'aprendizaje', 'view');
+  // Resuelve el módulo de permisos a partir del scope real del item.
+  await getAccessibleLearningItem(client, actor, contentId);
 
   const { rows } = await client.query(
     `${CERT_SELECT} AND ci.content_id = $2::uuid`,
@@ -1868,7 +1912,14 @@ export async function listUserEarnedCertificates(
   client: PoolClient,
   actor: AuthUser,
 ): Promise<CourseCertificateData[]> {
-  await requireModulePermission(client, 'aprendizaje', 'view');
+  // Un usuario puede tener certificados de ambos scopes (aprendizaje y
+  // formacion_mentores). Basta con que tenga `view` en alguno para listar los
+  // suyos; el SELECT ya está filtrado por user_id.
+  const aprendizajeOk = await hasModulePermission(client, 'aprendizaje', 'view');
+  const formacionOk = await hasModulePermission(client, 'formacion_mentores', 'view');
+  if (!aprendizajeOk && !formacionOk) {
+    throw new ForbiddenError('No tienes acceso a los certificados de aprendizaje');
+  }
 
   const { rows } = await client.query(
     `${CERT_SELECT} ORDER BY cp.completed_at DESC NULLS LAST`,

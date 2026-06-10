@@ -20,6 +20,7 @@ import type {
   LearningResourceRecord,
   LearningProgressUpdateInput,
   LearningProgressUpdateResult,
+  LearningScope,
   UpdateCertificateTemplateInput,
   UpdateWorkbookInput,
   WorkbookEditableFields,
@@ -43,6 +44,7 @@ export type {
   LearningResourceRecord,
   LearningProgressUpdateInput,
   LearningProgressUpdateResult,
+  LearningScope,
   UpdateCertificateTemplateInput,
   UpdateWorkbookInput,
   WorkbookEditableFields,
@@ -54,6 +56,7 @@ export async function listLearningResources(
   query: LearningResourceListQuery = {},
 ): Promise<LearningResourceListResult> {
   const params = new URLSearchParams();
+  if (query.scope) params.set('scope', query.scope);
   if (query.q?.trim()) params.set('q', query.q.trim());
   if (query.family) params.set('family', query.family);
   if (query.libraryLocation) params.set('libraryLocation', query.libraryLocation);

@@ -1049,10 +1049,16 @@ export default function LearningResourceDetailPage() {
     try {
       const data = await getLearningResourceDetail(contentId);
       setResource(normalizeLearningResourceRecord(data));
-      
+
       if (data.contentType !== "scorm") {
         try {
-          const suggResult = await listLearningResources({ family: "resource" });
+          // Las sugerencias se piden del mismo scope que el recurso actual
+          // (aprendizaje vs formacion_mentores) para mantener la coherencia
+          // del contexto donde el usuario está navegando.
+          const suggResult = await listLearningResources({
+            scope: data.scope,
+            family: "resource",
+          });
           setSuggestedResources(suggResult.items.filter(r => r.contentId !== contentId).slice(0, 4));
         } catch (e) {
           console.error(e);
@@ -1160,9 +1166,16 @@ export default function LearningResourceDetailPage() {
     setDeleting(true);
     try {
       await deleteContent(resource.contentId);
-      const fallbackTab = resource.contentType === "scorm" ? "cursos" : "recursos";
-      const nextTab = requestedTab === "cursos" || requestedTab === "recursos" ? requestedTab : fallbackTab;
-      router.push(nextTab === "recursos" ? "/dashboard/aprendizaje" : `/dashboard/aprendizaje?tab=${nextTab}`);
+      // Cada scope tiene su propio home: aprendizaje vuelve a /dashboard/aprendizaje,
+      // formacion_mentores a /dashboard/formacion-mentores (donde NO existe el
+      // sistema de tabs, así que ignoramos requestedTab).
+      if (resource.scope === "formacion_mentores") {
+        router.push("/dashboard/formacion-mentores");
+      } else {
+        const fallbackTab = resource.contentType === "scorm" ? "cursos" : "recursos";
+        const nextTab = requestedTab === "cursos" || requestedTab === "recursos" ? requestedTab : fallbackTab;
+        router.push(nextTab === "recursos" ? "/dashboard/aprendizaje" : `/dashboard/aprendizaje?tab=${nextTab}`);
+      }
     } catch (error) {
       await showError("No se pudo eliminar el recurso", error);
       setDeleting(false);
@@ -1184,10 +1197,27 @@ export default function LearningResourceDetailPage() {
 
   const safeComments = Array.isArray(resource.comments) ? resource.comments : [];
   const safeTags = Array.isArray(resource.tags) ? resource.tags : [];
+  // Scope-aware navigation: el recurso puede pertenecer a aprendizaje
+  // (con tabs cursos/recursos) o a formacion_mentores (página plana, sin tabs).
+  const isFormacionMentoresScope = resource.scope === "formacion_mentores";
+  const learningHomeHref = isFormacionMentoresScope
+    ? "/dashboard/formacion-mentores"
+    : "/dashboard/aprendizaje";
+  const coursesHomeHref = isFormacionMentoresScope
+    ? "/dashboard/formacion-mentores"
+    : "/dashboard/aprendizaje?tab=cursos";
   const fallbackTab = resource.contentType === "scorm" ? "cursos" : "recursos";
   const backTab = requestedTab === "cursos" || requestedTab === "recursos" ? requestedTab : fallbackTab;
-  const backHref = backTab === "recursos" ? "/dashboard/aprendizaje" : `/dashboard/aprendizaje?tab=${backTab}`;
-  const editHref = backTab === "recursos"
+  const backHref = isFormacionMentoresScope
+    ? "/dashboard/formacion-mentores"
+    : backTab === "recursos"
+      ? "/dashboard/aprendizaje"
+      : `/dashboard/aprendizaje?tab=${backTab}`;
+  // Editar abre el modal del listado correspondiente. La página de
+  // formacion-mentores acepta `?edit=<contentId>` igual que /dashboard/aprendizaje.
+  const editHref = isFormacionMentoresScope
+    ? `/dashboard/formacion-mentores?edit=${resource.contentId}`
+    : backTab === "recursos"
       ? `/dashboard/aprendizaje?edit=${resource.contentId}`
       : `/dashboard/aprendizaje?tab=${backTab}&edit=${resource.contentId}`;
   // Paquetes-curso (SCORM o HTML) usan el toggle scormSidebarOpen para
@@ -1244,7 +1274,7 @@ export default function LearningResourceDetailPage() {
       return (
         <div className="flex w-full max-w-2xl flex-col gap-6 animate-fade-in">
           <Link
-            href="/dashboard/aprendizaje?tab=cursos"
+            href={coursesHomeHref}
             className="inline-flex items-center gap-2 rounded-full bg-[var(--app-surface-muted)] px-4 py-2 text-sm font-bold text-[var(--app-ink)] transition hover:bg-white hover:text-[var(--brand-primary)]"
           >
             <ArrowLeft size={16} />
@@ -1260,7 +1290,7 @@ export default function LearningResourceDetailPage() {
               módulo donde está asignada.
             </p>
             <Link
-              href="/dashboard/aprendizaje?tab=cursos"
+              href={coursesHomeHref}
               className="mt-4 inline-flex items-center gap-2 rounded-[12px] bg-[var(--brand-primary)] px-4 py-2 text-sm font-bold text-white"
             >
               Ver mis cursos

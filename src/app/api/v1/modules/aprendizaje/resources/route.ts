@@ -2,8 +2,16 @@ import { NextResponse } from 'next/server';
 import { authenticateRequest } from '@/server/auth/request-auth';
 import { withClient, withRoleContext } from '@/server/db/pool';
 import type { ContentStatus, ContentType } from '@/features/content/service';
-import { listLearningResources, type LearningLibraryLocation } from '@/features/aprendizaje/service';
+import {
+  listLearningResources,
+  type LearningLibraryLocation,
+  type LearningScope,
+} from '@/features/aprendizaje/service';
 import { errorResponse, logModuleAudit, unauthorizedResponse } from '../../_utils';
+
+function parseLearningScope(value: string | null): LearningScope {
+  return value === 'formacion_mentores' ? 'formacion_mentores' : 'aprendizaje';
+}
 
 export async function GET(request: Request) {
   const identity = await authenticateRequest(request);
@@ -11,7 +19,9 @@ export async function GET(request: Request) {
 
   try {
     const url = new URL(request.url);
+    const scope = parseLearningScope(url.searchParams.get('scope'));
     const query = {
+      scope,
       q: url.searchParams.get('q') ?? undefined,
       family:
         (url.searchParams.get('family') as 'resource' | 'course' | null) ??
@@ -30,10 +40,10 @@ export async function GET(request: Request) {
       withRoleContext(client, identity.userId, identity.role, async () => {
         const result = await listLearningResources(client, identity, query);
         await logModuleAudit(client, request, identity, {
-          moduleCode: 'aprendizaje',
+          moduleCode: scope,
           action: 'query_learning_resources',
           entityTable: 'app_learning.content_items',
-          changeSummary: { total: result.total, page: result.page, pageSize: result.pageSize },
+          changeSummary: { scope, total: result.total, page: result.page, pageSize: result.pageSize },
         });
         return result;
       }),
