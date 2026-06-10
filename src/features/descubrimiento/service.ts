@@ -3729,7 +3729,14 @@ export async function getDiscoveryOverviewDetail(
     };
   }
 
-  const { rows } = await client.query<DiscoverySessionRow>(
+  // LEFT JOIN con discovery_invitations: cuando el participante es un
+  // invitado que completó el diagnóstico a través de un link de invitación,
+  // el job de IA escribe los reportes en `invitations.meta.ai_reports`
+  // (porque solo conoce el invite_token, no el session_id). Para que el
+  // admin vea esos reportes al descargar el PDF, hay que leer de ambos
+  // lados y combinarlos. Si la sesión tiene reportes propios usamos esos;
+  // si no, fallback a los de la invitación.
+  const { rows } = await client.query<DiscoverySessionRow & { invitation_meta: unknown }>(
     `
       SELECT
         ds.session_id::text,
@@ -3753,9 +3760,12 @@ export async function getDiscoveryOverviewDetail(
         ds.feedback_survey,
         ds.ai_reports,
         ds.created_at::text,
-        ds.updated_at::text
+        ds.updated_at::text,
+        di.meta AS invitation_meta
       FROM app_assessment.discovery_sessions ds
       JOIN app_core.users u ON u.user_id = ds.user_id
+      LEFT JOIN app_assessment.discovery_invitations di
+        ON di.session_id = ds.session_id
       WHERE ds.session_id = $1::uuid
         AND u.primary_role IN ('lider', 'invitado')
       LIMIT 1
@@ -3769,11 +3779,26 @@ export async function getDiscoveryOverviewDetail(
   }
 
   const session = mapDiscoverySessionRow(row);
+
+  // Combinamos los reportes: empezamos con los de la invitación (si los hay)
+  // y dejamos que los de la sesión SOBREESCRIBAN solo donde tengan contenido
+  // no-trivial. Así nunca "pisamos" un reporte real con un vacío.
+  const invitationReports = parseInvitationStoredReports(row.invitation_meta);
+  const sessionReports = session.aiReports ?? {};
+  const mergedReports: DiscoveryAiReports = { ...invitationReports };
+  for (const [key, value] of Object.entries(sessionReports) as Array<
+    [DiscoveryReportFilter, string | undefined]
+  >) {
+    if (typeof value === "string" && value.trim().length > 0) {
+      mergedReports[key] = value;
+    }
+  }
+
   return {
     state: buildUserStateFromSession(session),
     scoring: scoreDiscoveryAnswers(session.answers),
     experienceSurvey: session.experienceSurvey,
-    aiReports: session.aiReports,
+    aiReports: mergedReports,
   };
 }
 
