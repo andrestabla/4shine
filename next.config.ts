@@ -25,6 +25,12 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  async redirects() {
+    return [
+      // La página de afiliados/advisers vive ahora en /advisers
+      { source: "/afiliados", destination: "/advisers", permanent: true },
+    ];
+  },
   async headers() {
     return [
       {

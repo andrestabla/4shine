@@ -74,7 +74,7 @@ export async function listPublicNavItems(): Promise<PublicNavItem[]> {
       { href: '/metodologia', label: 'Metodología', pageKey: 'metodologia' },
       { href: '/descubrimiento', label: 'Descubrimiento', pageKey: 'descubrimiento' },
       { href: '/planes-precios', label: 'Planes y precios', pageKey: 'planes_precios' },
-      { href: '/afiliados', label: 'Afiliados', pageKey: 'afiliados' },
+      { href: '/advisers', label: 'Afiliados', pageKey: 'afiliados' },
     ];
   }
 }

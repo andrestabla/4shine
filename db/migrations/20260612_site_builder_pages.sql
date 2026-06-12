@@ -239,7 +239,7 @@ CROSS JOIN (
       ]
     $met$),
     ('planes_precios', 'Planes y Precios', 'planes-precios', 'Planes y precios', true, 3, '[]'),
-    ('afiliados', 'Afiliados', 'afiliados', 'Afiliados', true, 4, $afi$
+    ('afiliados', 'Afiliados', 'advisers', 'Afiliados', true, 4, $afi$
       [
         {
           "blockId": "seed-afi-hero",

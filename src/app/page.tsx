@@ -473,7 +473,7 @@ export default async function HomeMarketingPage() {
               Resultados reales en líderes reales.
             </h2>
             <Link
-              href="/afiliados"
+              href="/advisers"
               className="whitespace-nowrap text-sm font-bold underline underline-offset-4 hover:opacity-80"
               style={{ color: 'var(--brand-accent)' }}
             >
@@ -646,7 +646,7 @@ export default async function HomeMarketingPage() {
                 Acompañan sesiones individuales y grupales, retroalimentan con profundidad y se convierten en aliados del desarrollo de cada líder en el programa.
               </p>
               <Link
-                href="/afiliados"
+                href="/advisers"
                 className="mt-8 inline-flex items-center gap-2 text-sm font-bold underline underline-offset-4 hover:opacity-70"
                 style={{ color: 'var(--brand-primary)' }}
               >
@@ -690,7 +690,7 @@ export default async function HomeMarketingPage() {
             </p>
             <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
               <Link
-                href="/afiliados"
+                href="/advisers"
                 className="rounded-full px-8 py-3.5 text-sm font-extrabold transition hover:opacity-90"
                 style={{ background: 'var(--brand-accent)', color: 'var(--brand-on-accent)' }}
               >

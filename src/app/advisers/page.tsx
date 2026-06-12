@@ -14,7 +14,7 @@ export default async function AfiliadosPage() {
   if (builderPage && !builderPage.isVisible) notFound();
   if (builderPage?.useBuilder && builderPage.sections.length > 0) {
     // La URL pudo cambiar desde el builder: la ruta original redirige a la nueva.
-    if (builderPage.slug && builderPage.slug !== 'afiliados') redirect(`/${builderPage.slug}`);
+    if (builderPage.slug && builderPage.slug !== 'advisers') redirect(`/${builderPage.slug}`);
     return (
       <MarketingShell>
         <BlockRenderer sections={builderPage.sections} />
