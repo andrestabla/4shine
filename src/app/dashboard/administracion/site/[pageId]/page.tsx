@@ -24,11 +24,13 @@ import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useUser } from '@/context/UserContext';
 import { SiteBlockView } from '@/components/site-builder/BlockRenderer';
 import {
+  BLOCK_CATEGORIES,
   BLOCK_DEFINITIONS,
   BLOCK_DEFINITION_MAP,
   createBlock,
   type BlockField,
 } from '@/features/site-builder/registry';
+import { SITE_ICONS, SITE_ICON_NAMES } from '@/features/site-builder/icons';
 import { getSitePage, updateSitePage } from '@/features/site-builder/client';
 import type { SiteBlock, SitePage } from '@/features/site-builder/types';
 
@@ -145,6 +147,62 @@ function FieldInput({
           className={inputClass}
         />
       );
+    case 'range': {
+      const min = field.min ?? 0;
+      const max = field.max ?? 100;
+      const current = typeof value === 'number' ? value : max;
+      return (
+        <div className="flex items-center gap-2">
+          <input
+            type="range"
+            min={min}
+            max={max}
+            step={field.step ?? 1}
+            value={current}
+            onChange={(e) => onChange(Number(e.target.value))}
+            className="flex-1 accent-[var(--app-accent)]"
+          />
+          <span className="w-10 shrink-0 text-right text-[11px] font-mono text-[var(--app-muted)]">{current}</span>
+        </div>
+      );
+    }
+    case 'icon': {
+      const selected = typeof value === 'string' ? value : '';
+      return (
+        <div className="grid grid-cols-8 gap-1">
+          <button
+            type="button"
+            title="Sin ícono"
+            onClick={() => onChange('')}
+            className={`flex h-7 w-7 items-center justify-center rounded border text-[10px] transition ${
+              selected === ''
+                ? 'border-[var(--app-accent)] text-[var(--app-accent)]'
+                : 'border-[var(--app-border)] text-[var(--app-muted)] hover:border-[var(--app-accent)]'
+            }`}
+          >
+            ∅
+          </button>
+          {SITE_ICON_NAMES.map((name) => {
+            const Icon = SITE_ICONS[name];
+            return (
+              <button
+                key={name}
+                type="button"
+                title={name}
+                onClick={() => onChange(name)}
+                className={`flex h-7 w-7 items-center justify-center rounded border transition ${
+                  selected === name
+                    ? 'border-[var(--app-accent)] bg-[var(--app-surface)] text-[var(--app-accent)]'
+                    : 'border-[var(--app-border)] text-[var(--app-muted)] hover:border-[var(--app-accent)] hover:text-[var(--app-ink)]'
+                }`}
+              >
+                <Icon size={13} />
+              </button>
+            );
+          })}
+        </div>
+      );
+    }
     case 'toggle':
       return (
         <button
@@ -231,7 +289,9 @@ function FieldInput({
                   </button>
                 </div>
               </div>
-              {(field.itemFields ?? []).map((itemField) => (
+              {(field.itemFields ?? [])
+                .filter((itemField) => !itemField.showIf || itemField.showIf(item))
+                .map((itemField) => (
                 <div key={itemField.key} className="space-y-1">
                   <label className="text-[10px] font-semibold text-[var(--app-muted)]">{itemField.label}</label>
                   <FieldInput
@@ -252,7 +312,16 @@ function FieldInput({
             onClick={() => {
               const empty: Record<string, unknown> = {};
               for (const itemField of field.itemFields ?? []) {
-                empty[itemField.key] = itemField.type === 'toggle' ? false : '';
+                empty[itemField.key] =
+                  itemField.type === 'toggle'
+                    ? false
+                    : itemField.type === 'select'
+                      ? itemField.options?.[0]?.value ?? ''
+                      : itemField.type === 'number' || itemField.type === 'range'
+                        ? itemField.min ?? 0
+                        : itemField.type === 'color'
+                          ? '#D4AF37'
+                          : '';
               }
               onChange([...list, empty]);
             }}
@@ -285,6 +354,7 @@ export default function SiteBuilderEditorPage() {
   const [isDirty, setIsDirty] = React.useState(false);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const [panelMode, setPanelMode] = React.useState<'block' | 'page'>('page');
+  const [fieldTab, setFieldTab] = React.useState<'content' | 'style'>('content');
   const [showPalette, setShowPalette] = React.useState(false);
   const [dragIndex, setDragIndex] = React.useState<number | null>(null);
 
@@ -580,21 +650,29 @@ export default function SiteBuilderEditorPage() {
           </div>
 
           {showPalette && (
-            <div className="app-panel p-3 space-y-1.5">
-              <span className="block px-1 pb-1 text-[10px] font-bold uppercase tracking-wider text-[var(--app-muted)]">
-                Tipos de bloque
-              </span>
-              {BLOCK_DEFINITIONS.map((def) => (
-                <button
-                  key={def.type}
-                  type="button"
-                  onClick={() => addBlock(def.type)}
-                  className="w-full rounded-lg border border-[var(--app-border)] px-2.5 py-2 text-left transition hover:border-[var(--app-accent)]"
-                >
-                  <span className="block text-xs font-semibold text-[var(--app-ink)]">{def.label}</span>
-                  <span className="block text-[11px] leading-snug text-[var(--app-muted)]">{def.description}</span>
-                </button>
-              ))}
+            <div className="app-panel p-3 space-y-3">
+              {BLOCK_CATEGORIES.map((category) => {
+                const defs = BLOCK_DEFINITIONS.filter((d) => d.category === category);
+                if (defs.length === 0) return null;
+                return (
+                  <div key={category} className="space-y-1.5">
+                    <span className="block px-1 text-[10px] font-bold uppercase tracking-wider text-[var(--app-muted)]">
+                      {category}
+                    </span>
+                    {defs.map((def) => (
+                      <button
+                        key={def.type}
+                        type="button"
+                        onClick={() => addBlock(def.type)}
+                        className="w-full rounded-lg border border-[var(--app-border)] px-2.5 py-2 text-left transition hover:border-[var(--app-accent)]"
+                      >
+                        <span className="block text-xs font-semibold text-[var(--app-ink)]">{def.label}</span>
+                        <span className="block text-[11px] leading-snug text-[var(--app-muted)]">{def.description}</span>
+                      </button>
+                    ))}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -652,17 +730,36 @@ export default function SiteBuilderEditorPage() {
                     <Settings size={14} />
                   </button>
                 </div>
-                {selectedDef.fields.map((field) => (
-                  <div key={field.key} className="space-y-1">
-                    <label className="text-[11px] font-semibold text-[var(--app-muted)]">{field.label}</label>
-                    <FieldInput
-                      field={field}
-                      value={selectedBlock.props[field.key]}
-                      onChange={(next) => updateBlockProp(field.key, next)}
-                    />
-                    {field.help && <p className="text-[10px] text-[var(--app-muted)]">{field.help}</p>}
-                  </div>
-                ))}
+                <div className="flex rounded-lg border border-[var(--app-border)] p-0.5">
+                  {(['content', 'style'] as const).map((tab) => (
+                    <button
+                      key={tab}
+                      type="button"
+                      onClick={() => setFieldTab(tab)}
+                      className={`flex-1 rounded-md py-1.5 text-[11px] font-bold transition ${
+                        fieldTab === tab
+                          ? 'bg-[var(--app-surface)] text-[var(--app-accent)]'
+                          : 'text-[var(--app-muted)] hover:text-[var(--app-ink)]'
+                      }`}
+                    >
+                      {tab === 'content' ? 'Contenido' : 'Estilo'}
+                    </button>
+                  ))}
+                </div>
+                {selectedDef.fields
+                  .filter((field) => (field.group ?? 'content') === fieldTab)
+                  .filter((field) => !field.showIf || field.showIf(selectedBlock.props))
+                  .map((field) => (
+                    <div key={field.key} className="space-y-1">
+                      <label className="text-[11px] font-semibold text-[var(--app-muted)]">{field.label}</label>
+                      <FieldInput
+                        field={field}
+                        value={selectedBlock.props[field.key]}
+                        onChange={(next) => updateBlockProp(field.key, next)}
+                      />
+                      {field.help && <p className="text-[10px] text-[var(--app-muted)]">{field.help}</p>}
+                    </div>
+                  ))}
               </>
             ) : (
               <>
