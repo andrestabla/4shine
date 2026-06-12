@@ -2,6 +2,7 @@ import Link from 'next/link';
 import ReactMarkdown from 'react-markdown';
 import type { CSSProperties, ReactNode } from 'react';
 import type { SiteBlock, SiteBlockProps } from '@/features/site-builder/types';
+import { SECTION_LAYOUTS } from '@/features/site-builder/registry';
 import { SITE_ICONS, hasSiteIcon } from '@/features/site-builder/icons';
 
 /* ─────────────────────────── Prop helpers ─────────────────────────── */
@@ -88,6 +89,10 @@ export function resolveSectionPalette(props: SiteBlockProps): SectionPalette {
   let onAccent = false;
 
   switch (backgroundKind) {
+    case 'inherit':
+      baseStyle.background = 'transparent';
+      isDark = props.__parentDark === true;
+      break;
     case 'surface':
       baseStyle.background = 'var(--brand-surface)';
       break;
@@ -177,7 +182,7 @@ export function resolveSectionPalette(props: SiteBlockProps): SectionPalette {
   };
 }
 
-function SectionShell({
+export function SectionShell({
   props,
   palette,
   children,
@@ -479,6 +484,77 @@ function gridColsClass(columns: number): string {
     default:
       return 'sm:grid-cols-2 lg:grid-cols-4';
   }
+}
+
+/* ─────────────────── Sección > Columna > Widget ───────────────────
+ * Modelo tipo Elementor: una sección contenedora define la distribución
+ * de columnas (grid + fracciones fr); cada columna apila widgets en
+ * flex-direction column. Los widgets embebidos heredan la paleta de la
+ * sección (fondo 'inherit') y no gestionan su propio ancho/espaciado.
+ */
+
+export function sectionGridAttrs(props: SiteBlockProps): { className: string; style: CSSProperties } {
+  const layout = str(props, 'layout') || '1-1';
+  const widths = SECTION_LAYOUTS[layout] ?? [1, 1];
+  const gap = str(props, 'gap') || 'md';
+  const gapClass = gap === 'sm' ? 'gap-4' : gap === 'lg' ? 'gap-14' : 'gap-8';
+  const align = str(props, 'verticalAlign') || 'top';
+  const alignClass = align === 'center' ? 'items-center' : align === 'stretch' ? 'items-stretch' : 'items-start';
+  return {
+    className: `grid grid-cols-1 ${gapClass} ${alignClass} md:[grid-template-columns:var(--site-cols)]`,
+    style: { '--site-cols': widths.map((w) => `${w}fr`).join(' ') } as CSSProperties,
+  };
+}
+
+export function sectionColumns(props: SiteBlockProps): { columnId: string; blocks: SiteBlock[] }[] {
+  const value = props.columns;
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((col): col is SiteBlockProps => !!col && typeof col === 'object')
+    .map((col, i) => ({
+      columnId: typeof col.columnId === 'string' && col.columnId ? col.columnId : `col_${i}`,
+      blocks: Array.isArray(col.blocks)
+        ? (col.blocks as unknown[]).filter(
+            (b): b is SiteBlock => !!b && typeof b === 'object' && typeof (b as SiteBlock).blockId === 'string',
+          )
+        : [],
+    }));
+}
+
+/** Renderiza un widget dentro de una columna: hereda tono de la sección y cede el control de espaciado/ancho a la columna. */
+export function EmbeddedBlock({ block, parentDark }: { block: SiteBlock; parentDark: boolean }) {
+  const overridden: SiteBlock = {
+    ...block,
+    props: {
+      ...block.props,
+      background: typeof block.props.background === 'string' && block.props.background ? block.props.background : 'inherit',
+      paddingY: 'none',
+      contentWidth: 'full',
+      __parentDark: parentDark,
+    },
+  };
+  return <SiteBlockView block={overridden} />;
+}
+
+function SectionContainerBlock({ props }: { props: SiteBlockProps }) {
+  const palette = resolveSectionPalette(props);
+  const columns = sectionColumns(props);
+  const grid = sectionGridAttrs(props);
+  return (
+    <SectionShell props={props} palette={palette}>
+      <div className={grid.className} style={grid.style}>
+        {columns.map((column) => (
+          <div key={column.columnId} className="flex min-w-0 flex-col gap-8">
+            {column.blocks
+              .filter((child) => child.isVisible !== false)
+              .map((child) => (
+                <EmbeddedBlock key={child.blockId} block={child} parentDark={palette.isDark} />
+              ))}
+          </div>
+        ))}
+      </div>
+    </SectionShell>
+  );
 }
 
 /* ─────────────────────────── Bloques ─────────────────────────── */
@@ -1397,6 +1473,8 @@ function SpacerBlock({ props }: { props: SiteBlockProps }) {
 
 export function SiteBlockView({ block }: { block: SiteBlock }) {
   switch (block.type) {
+    case 'section':
+      return <SectionContainerBlock props={block.props} />;
     case 'hero':
       return <HeroBlock props={block.props} />;
     case 'stats':

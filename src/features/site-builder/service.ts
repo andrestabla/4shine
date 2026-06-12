@@ -51,23 +51,41 @@ interface SitePageRow {
   updated_at: string;
 }
 
-export function sanitizeSections(value: unknown): SiteBlock[] {
+function sanitizeBlocks(value: unknown, depth: number): SiteBlock[] {
   if (!Array.isArray(value)) return [];
   const sections: SiteBlock[] = [];
   for (const entry of value) {
     if (!entry || typeof entry !== 'object') continue;
     const raw = entry as Record<string, unknown>;
     if (!isKnownBlockType(raw.type)) continue;
+    // Las secciones contenedoras solo se permiten en el nivel superior (Sección > Columna > Widget).
+    if (raw.type === 'section' && depth > 0) continue;
     const blockId =
       typeof raw.blockId === 'string' && raw.blockId.length > 0 && raw.blockId.length <= 64
         ? raw.blockId
         : `blk_${Math.random().toString(36).slice(2, 10)}`;
     const props = raw.props && typeof raw.props === 'object' && !Array.isArray(raw.props)
-      ? (raw.props as Record<string, unknown>)
+      ? ({ ...(raw.props as Record<string, unknown>) } as Record<string, unknown>)
       : {};
+    if (raw.type === 'section') {
+      const rawColumns = Array.isArray(props.columns) ? props.columns : [];
+      props.columns = rawColumns
+        .filter((col): col is Record<string, unknown> => !!col && typeof col === 'object')
+        .map((col) => ({
+          columnId:
+            typeof col.columnId === 'string' && col.columnId.length > 0 && col.columnId.length <= 64
+              ? col.columnId
+              : `col_${Math.random().toString(36).slice(2, 10)}`,
+          blocks: sanitizeBlocks(col.blocks, depth + 1),
+        }));
+    }
     sections.push({ blockId, type: raw.type, isVisible: raw.isVisible !== false, props });
   }
   return sections;
+}
+
+export function sanitizeSections(value: unknown): SiteBlock[] {
+  return sanitizeBlocks(value, 0);
 }
 
 function sanitizeSeo(value: unknown): SitePageSeo {

@@ -1,4 +1,5 @@
 export type SiteBlockType =
+  | 'section'
   | 'hero'
   | 'stats'
   | 'richText'
@@ -29,6 +30,12 @@ export interface SiteBlock {
   type: SiteBlockType;
   isVisible: boolean;
   props: SiteBlockProps;
+}
+
+/** Columna dentro de un bloque 'section' (modelo Sección > Columna > Widget). */
+export interface SiteColumn {
+  columnId: string;
+  blocks: SiteBlock[];
 }
 
 export interface SitePageSeo {

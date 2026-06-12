@@ -57,6 +57,7 @@ export interface BlockDefinition {
  */
 
 export const BACKGROUND_OPTIONS: BlockFieldOption[] = [
+  { value: 'inherit', label: 'Transparente / heredar' },
   { value: 'light', label: 'Blanco' },
   { value: 'surface', label: 'Superficie clara (marca)' },
   { value: 'dark', label: 'Oscuro (marca)' },
@@ -316,7 +317,78 @@ function def(definition: BlockDefinition): BlockDefinition {
 
 /* ─────────────────────── Definiciones de bloques ─────────────────────── */
 
+/** Layouts de columnas disponibles para el bloque 'section' (valores en fracciones fr). */
+export const SECTION_LAYOUTS: Record<string, number[]> = {
+  '1': [1],
+  '1-1': [1, 1],
+  '1-1-1': [1, 1, 1],
+  '1-1-1-1': [1, 1, 1, 1],
+  '1-2': [1, 2],
+  '2-1': [2, 1],
+  '1-3': [1, 3],
+  '3-1': [3, 1],
+  '1-1-2': [1, 1, 2],
+  '2-1-1': [2, 1, 1],
+};
+
+export function makeColumn(): { columnId: string; blocks: never[] } {
+  return { columnId: `col_${Math.random().toString(36).slice(2, 10)}`, blocks: [] };
+}
+
 export const BLOCK_DEFINITIONS: BlockDefinition[] = [
+  def({
+    type: 'section',
+    label: 'Sección (columnas)',
+    description: 'Contenedor con columnas; en cada columna apilas uno o más componentes.',
+    category: 'Estructura',
+    fields: [
+      {
+        key: 'layout',
+        label: 'Distribución de columnas',
+        type: 'select',
+        options: [
+          { value: '1', label: '1 columna' },
+          { value: '1-1', label: '2 columnas (50/50)' },
+          { value: '1-2', label: '2 columnas (33/66)' },
+          { value: '2-1', label: '2 columnas (66/33)' },
+          { value: '1-3', label: '2 columnas (25/75)' },
+          { value: '3-1', label: '2 columnas (75/25)' },
+          { value: '1-1-1', label: '3 columnas iguales' },
+          { value: '1-1-2', label: '3 columnas (25/25/50)' },
+          { value: '2-1-1', label: '3 columnas (50/25/25)' },
+          { value: '1-1-1-1', label: '4 columnas iguales' },
+        ],
+      },
+      {
+        key: 'gap',
+        label: 'Separación entre columnas',
+        type: 'select',
+        group: 'style',
+        options: [
+          { value: 'sm', label: 'Pequeña' },
+          { value: 'md', label: 'Mediana' },
+          { value: 'lg', label: 'Grande' },
+        ],
+      },
+      {
+        key: 'verticalAlign',
+        label: 'Alineación vertical',
+        type: 'select',
+        group: 'style',
+        options: [
+          { value: 'top', label: 'Arriba' },
+          { value: 'center', label: 'Centrada' },
+          { value: 'stretch', label: 'Estirada' },
+        ],
+      },
+    ],
+    defaults: {
+      layout: '1-1',
+      gap: 'md',
+      verticalAlign: 'top',
+      columns: [makeColumn(), makeColumn()],
+    },
+  }),
   def({
     type: 'hero',
     label: 'Hero',
@@ -1152,10 +1224,45 @@ export function isKnownBlockType(value: unknown): value is SiteBlockType {
 
 export function createBlock(type: SiteBlockType): SiteBlock {
   const definition = BLOCK_DEFINITION_MAP[type];
+  const props = JSON.parse(JSON.stringify(definition?.defaults ?? {})) as SiteBlockProps;
+  if (type === 'section') {
+    const layout = typeof props.layout === 'string' ? props.layout : '1-1';
+    const count = SECTION_LAYOUTS[layout]?.length ?? 2;
+    props.columns = Array.from({ length: count }, () => makeColumn());
+  }
   return {
     blockId: `blk_${Math.random().toString(36).slice(2, 10)}`,
     type,
     isVisible: true,
-    props: JSON.parse(JSON.stringify(definition?.defaults ?? {})) as SiteBlockProps,
+    props,
   };
+}
+
+/** Crea un widget destinado a vivir dentro de una columna: hereda el fondo de la sección y no gestiona su propio espaciado. */
+export function createEmbeddedBlock(type: SiteBlockType): SiteBlock {
+  const block = createBlock(type);
+  block.props.background = 'inherit';
+  block.props.paddingY = 'none';
+  block.props.contentWidth = 'full';
+  return block;
+}
+
+/** Ajusta el arreglo de columnas de una sección cuando cambia el layout: conserva los widgets y funde las columnas sobrantes en la última. */
+export function reconcileSectionColumns(props: SiteBlockProps, layout: string): SiteBlockProps {
+  const widths = SECTION_LAYOUTS[layout] ?? [1, 1];
+  const existing = Array.isArray(props.columns) ? (props.columns as { columnId?: string; blocks?: unknown[] }[]) : [];
+  const columns = existing
+    .filter((col) => col && typeof col === 'object')
+    .map((col) => ({
+      columnId: typeof col.columnId === 'string' && col.columnId ? col.columnId : makeColumn().columnId,
+      blocks: Array.isArray(col.blocks) ? col.blocks : [],
+    }));
+  while (columns.length < widths.length) columns.push(makeColumn() as { columnId: string; blocks: unknown[] });
+  while (columns.length > widths.length) {
+    const removed = columns.pop();
+    if (removed && columns.length > 0) {
+      columns[columns.length - 1].blocks = [...columns[columns.length - 1].blocks, ...removed.blocks];
+    }
+  }
+  return { ...props, layout, columns };
 }

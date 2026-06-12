@@ -22,17 +22,38 @@ import {
 } from 'lucide-react';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useUser } from '@/context/UserContext';
-import { SiteBlockView } from '@/components/site-builder/BlockRenderer';
+import {
+  EmbeddedBlock,
+  SectionShell,
+  SiteBlockView,
+  resolveSectionPalette,
+  sectionColumns,
+  sectionGridAttrs,
+} from '@/components/site-builder/BlockRenderer';
 import {
   BLOCK_CATEGORIES,
   BLOCK_DEFINITIONS,
   BLOCK_DEFINITION_MAP,
   createBlock,
+  createEmbeddedBlock,
+  reconcileSectionColumns,
   type BlockField,
 } from '@/features/site-builder/registry';
 import { SITE_ICONS, SITE_ICON_NAMES } from '@/features/site-builder/icons';
 import { getSitePage, updateSitePage } from '@/features/site-builder/client';
-import type { SiteBlock, SitePage } from '@/features/site-builder/types';
+import type { SiteBlock, SiteBlockType, SitePage } from '@/features/site-builder/types';
+
+interface BlockSelection {
+  blockId: string;
+  columnIndex?: number;
+  childId?: string;
+}
+
+type SectionColumn = { columnId: string; blocks: SiteBlock[] };
+
+function columnsOf(block: SiteBlock): SectionColumn[] {
+  return Array.isArray(block.props.columns) ? (block.props.columns as SectionColumn[]) : [];
+}
 
 const PREVIEW_WIDTH = 1240;
 
@@ -338,6 +359,116 @@ function FieldInput({
   }
 }
 
+/* ───────────────── Vista previa editable de secciones con columnas ───────────────── */
+
+function EditorSectionPreview({
+  block,
+  selection,
+  canEdit,
+  onSelectChild,
+  onAddWidget,
+  onMoveChild,
+  onRemoveChild,
+}: {
+  block: SiteBlock;
+  selection: BlockSelection | null;
+  canEdit: boolean;
+  onSelectChild: (columnIndex: number, childId: string) => void;
+  onAddWidget: (columnIndex: number) => void;
+  onMoveChild: (columnIndex: number, index: number, delta: number) => void;
+  onRemoveChild: (columnIndex: number, childId: string) => void;
+}) {
+  const palette = resolveSectionPalette(block.props);
+  const grid = sectionGridAttrs(block.props);
+  const columns = sectionColumns(block.props);
+  const guideColor = palette.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(13,27,42,0.2)';
+
+  return (
+    <SectionShell props={block.props} palette={palette}>
+      <div className={grid.className} style={grid.style}>
+        {columns.map((column, columnIndex) => (
+          <div
+            key={column.columnId}
+            className="flex min-h-24 min-w-0 flex-col gap-8 rounded-lg p-1.5"
+            style={{ outline: `1px dashed ${guideColor}`, outlineOffset: '-1px' }}
+          >
+            {column.blocks.map((child, index) => {
+              const isChildSelected =
+                selection?.blockId === block.blockId &&
+                selection?.columnIndex === columnIndex &&
+                selection?.childId === child.blockId;
+              return (
+                <div
+                  key={child.blockId}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelectChild(columnIndex, child.blockId);
+                  }}
+                  className={`relative ${child.isVisible ? '' : 'opacity-40'}`}
+                  style={
+                    isChildSelected
+                      ? { outline: '2px solid var(--app-accent, #D4AF37)', outlineOffset: '-2px' }
+                      : undefined
+                  }
+                >
+                  {isChildSelected && canEdit && (
+                    <div
+                      className="absolute -top-3 right-2 z-10 flex items-center gap-1 rounded-lg border border-[var(--app-border)] bg-[var(--app-bg,#fff)] px-1.5 py-1 shadow"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <button
+                        type="button"
+                        title="Subir"
+                        onClick={() => onMoveChild(columnIndex, index, -1)}
+                        disabled={index === 0}
+                        className="text-[var(--app-muted)] hover:text-[var(--app-ink)] disabled:opacity-30"
+                      >
+                        <ChevronUp size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        title="Bajar"
+                        onClick={() => onMoveChild(columnIndex, index, 1)}
+                        disabled={index === column.blocks.length - 1}
+                        className="text-[var(--app-muted)] hover:text-[var(--app-ink)] disabled:opacity-30"
+                      >
+                        <ChevronDown size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        title="Eliminar widget"
+                        onClick={() => onRemoveChild(columnIndex, child.blockId)}
+                        className="text-[var(--app-muted)] hover:text-red-500"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  )}
+                  <EmbeddedBlock block={child} parentDark={palette.isDark} />
+                </div>
+              );
+            })}
+            {canEdit && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAddWidget(columnIndex);
+                }}
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg py-3 text-sm font-semibold transition hover:opacity-80"
+                style={{ border: `1px dashed ${guideColor}`, color: palette.muted }}
+              >
+                <Plus size={15} />
+                Widget
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+    </SectionShell>
+  );
+}
+
 /* ───────────────────────── Editor page ───────────────────────── */
 
 export default function SiteBuilderEditorPage() {
@@ -352,10 +483,11 @@ export default function SiteBuilderEditorPage() {
   const [loadError, setLoadError] = React.useState<string | null>(null);
   const [isSaving, setIsSaving] = React.useState(false);
   const [isDirty, setIsDirty] = React.useState(false);
-  const [selectedId, setSelectedId] = React.useState<string | null>(null);
+  const [selection, setSelection] = React.useState<BlockSelection | null>(null);
   const [panelMode, setPanelMode] = React.useState<'block' | 'page'>('page');
   const [fieldTab, setFieldTab] = React.useState<'content' | 'style'>('content');
   const [showPalette, setShowPalette] = React.useState(false);
+  const [paletteTarget, setPaletteTarget] = React.useState<{ blockId: string; columnIndex: number } | null>(null);
   const [dragIndex, setDragIndex] = React.useState<number | null>(null);
 
   const [previewScale, setPreviewScale] = React.useState(0.5);
@@ -392,8 +524,13 @@ export default function SiteBuilderEditorPage() {
     mutatePage((prev) => ({ ...prev, sections: updater(prev.sections) }));
   };
 
-  const selectedBlock = page?.sections.find((b) => b.blockId === selectedId) ?? null;
+  const topBlock = page?.sections.find((b) => b.blockId === selection?.blockId) ?? null;
+  const selectedBlock =
+    topBlock && selection?.childId && typeof selection.columnIndex === 'number'
+      ? columnsOf(topBlock)[selection.columnIndex]?.blocks.find((b) => b.blockId === selection.childId) ?? null
+      : topBlock;
   const selectedDef = selectedBlock ? BLOCK_DEFINITION_MAP[selectedBlock.type] : null;
+  const isChildSelection = Boolean(selection?.childId);
 
   const handleSave = async () => {
     if (!page || isSaving) return;
@@ -430,12 +567,52 @@ export default function SiteBuilderEditorPage() {
     router.push('/dashboard/administracion/site');
   };
 
-  const addBlock = (type: SiteBlock['type']) => {
-    const block = createBlock(type);
-    mutateSections((sections) => [...sections, block]);
-    setSelectedId(block.blockId);
+  const mutateColumn = (
+    blockId: string,
+    columnIndex: number,
+    updater: (blocks: SiteBlock[]) => SiteBlock[],
+  ) => {
+    mutateSections((sections) =>
+      sections.map((b) => {
+        if (b.blockId !== blockId) return b;
+        const columns = columnsOf(b).map((col, ci) =>
+          ci === columnIndex ? { ...col, blocks: updater(col.blocks) } : col,
+        );
+        return { ...b, props: { ...b.props, columns } };
+      }),
+    );
+  };
+
+  const addBlock = (type: SiteBlockType) => {
+    if (paletteTarget) {
+      const widget = createEmbeddedBlock(type);
+      mutateColumn(paletteTarget.blockId, paletteTarget.columnIndex, (blocks) => [...blocks, widget]);
+      setSelection({ blockId: paletteTarget.blockId, columnIndex: paletteTarget.columnIndex, childId: widget.blockId });
+    } else {
+      const block = createBlock(type);
+      mutateSections((sections) => [...sections, block]);
+      setSelection({ blockId: block.blockId });
+    }
     setPanelMode('block');
+    setFieldTab('content');
     setShowPalette(false);
+    setPaletteTarget(null);
+  };
+
+  const moveChild = (blockId: string, columnIndex: number, index: number, delta: number) => {
+    mutateColumn(blockId, columnIndex, (blocks) => {
+      const to = index + delta;
+      if (to < 0 || to >= blocks.length) return blocks;
+      const next = [...blocks];
+      const [moved] = next.splice(index, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+  };
+
+  const removeChild = (blockId: string, columnIndex: number, childId: string) => {
+    mutateColumn(blockId, columnIndex, (blocks) => blocks.filter((b) => b.blockId !== childId));
+    setSelection({ blockId });
   };
 
   const moveBlock = (from: number, to: number) => {
@@ -464,13 +641,32 @@ export default function SiteBuilderEditorPage() {
 
   const removeBlock = (index: number) => {
     mutateSections((sections) => sections.filter((_, i) => i !== index));
-    setSelectedId(null);
+    setSelection(null);
   };
 
   const updateBlockProp = (key: string, value: unknown) => {
-    if (!selectedBlock) return;
+    if (!selection) return;
     mutateSections((sections) =>
-      sections.map((b) => (b.blockId === selectedBlock.blockId ? { ...b, props: { ...b.props, [key]: value } } : b)),
+      sections.map((b) => {
+        if (b.blockId !== selection.blockId) return b;
+        if (selection.childId && typeof selection.columnIndex === 'number') {
+          const columns = columnsOf(b).map((col, ci) =>
+            ci === selection.columnIndex
+              ? {
+                  ...col,
+                  blocks: col.blocks.map((child) =>
+                    child.blockId === selection.childId ? { ...child, props: { ...child.props, [key]: value } } : child,
+                  ),
+                }
+              : col,
+          );
+          return { ...b, props: { ...b.props, columns } };
+        }
+        if (b.type === 'section' && key === 'layout' && typeof value === 'string') {
+          return { ...b, props: reconcileSectionColumns(b.props, value) };
+        }
+        return { ...b, props: { ...b.props, [key]: value } };
+      }),
     );
   };
 
@@ -567,7 +763,7 @@ export default function SiteBuilderEditorPage() {
             )}
             {page.sections.map((block, index) => {
               const def = BLOCK_DEFINITION_MAP[block.type];
-              const isSelected = selectedId === block.blockId && panelMode === 'block';
+              const isSelected = selection?.blockId === block.blockId && !selection?.childId && panelMode === 'block';
               return (
                 <div
                   key={block.blockId}
@@ -582,7 +778,7 @@ export default function SiteBuilderEditorPage() {
                   }}
                   onDragEnd={() => setDragIndex(null)}
                   onClick={() => {
-                    setSelectedId(block.blockId);
+                    setSelection({ blockId: block.blockId });
                     setPanelMode('block');
                   }}
                   className={`group flex cursor-pointer items-center gap-1.5 rounded-lg border px-2 py-2 transition ${
@@ -640,7 +836,10 @@ export default function SiteBuilderEditorPage() {
             {canEdit && (
               <button
                 type="button"
-                onClick={() => setShowPalette((v) => !v)}
+                onClick={() => {
+                  setPaletteTarget(null);
+                  setShowPalette((v) => !v);
+                }}
                 className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--app-border)] py-2 text-xs font-semibold text-[var(--app-muted)] transition hover:border-[var(--app-accent)] hover:text-[var(--app-accent)]"
               >
                 {showPalette ? <X size={13} /> : <Plus size={13} />}
@@ -651,8 +850,15 @@ export default function SiteBuilderEditorPage() {
 
           {showPalette && (
             <div className="app-panel p-3 space-y-3">
+              {paletteTarget && (
+                <p className="rounded-lg bg-amber-50 border border-amber-200 px-2.5 py-1.5 text-[11px] font-semibold text-amber-700">
+                  Agregando widget a la columna {paletteTarget.columnIndex + 1}
+                </p>
+              )}
               {BLOCK_CATEGORIES.map((category) => {
-                const defs = BLOCK_DEFINITIONS.filter((d) => d.category === category);
+                const defs = BLOCK_DEFINITIONS.filter(
+                  (d) => d.category === category && (!paletteTarget || d.type !== 'section'),
+                );
                 if (defs.length === 0) return null;
                 return (
                   <div key={category} className="space-y-1.5">
@@ -694,18 +900,37 @@ export default function SiteBuilderEditorPage() {
                 </div>
               ) : (
                 page.sections.map((block) => {
-                  const isSelected = selectedId === block.blockId && panelMode === 'block';
+                  const isSelected = selection?.blockId === block.blockId && !selection?.childId && panelMode === 'block';
                   return (
                     <div
                       key={block.blockId}
                       onClick={() => {
-                        setSelectedId(block.blockId);
+                        setSelection({ blockId: block.blockId });
                         setPanelMode('block');
                       }}
                       className={`relative cursor-pointer transition ${block.isVisible ? '' : 'opacity-40'}`}
                       style={isSelected ? { outline: '3px solid var(--app-accent, #D4AF37)', outlineOffset: '-3px' } : undefined}
                     >
-                      <SiteBlockView block={block} />
+                      {block.type === 'section' ? (
+                        <EditorSectionPreview
+                          block={block}
+                          selection={selection}
+                          canEdit={canEdit}
+                          onSelectChild={(columnIndex, childId) => {
+                            setSelection({ blockId: block.blockId, columnIndex, childId });
+                            setPanelMode('block');
+                            setFieldTab('content');
+                          }}
+                          onAddWidget={(columnIndex) => {
+                            setPaletteTarget({ blockId: block.blockId, columnIndex });
+                            setShowPalette(true);
+                          }}
+                          onMoveChild={(columnIndex, index, delta) => moveChild(block.blockId, columnIndex, index, delta)}
+                          onRemoveChild={(columnIndex, childId) => removeChild(block.blockId, columnIndex, childId)}
+                        />
+                      ) : (
+                        <SiteBlockView block={block} />
+                      )}
                     </div>
                   );
                 })
@@ -719,8 +944,25 @@ export default function SiteBuilderEditorPage() {
           <div className="app-panel p-4 space-y-3">
             {panelMode === 'block' && selectedBlock && selectedDef ? (
               <>
+                {isChildSelection && selection && (
+                  <button
+                    type="button"
+                    onClick={() => setSelection({ blockId: selection.blockId })}
+                    className="flex items-center gap-1 text-[11px] font-semibold text-[var(--app-muted)] transition hover:text-[var(--app-accent)]"
+                  >
+                    <ArrowLeft size={12} />
+                    Volver a la sección
+                  </button>
+                )}
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-[var(--app-ink)]">{selectedDef.label}</h3>
+                  <h3 className="text-sm font-bold text-[var(--app-ink)]">
+                    {selectedDef.label}
+                    {isChildSelection && typeof selection?.columnIndex === 'number' && (
+                      <span className="ml-1.5 text-[10px] font-semibold text-[var(--app-muted)]">
+                        · Columna {selection.columnIndex + 1}
+                      </span>
+                    )}
+                  </h3>
                   <button
                     type="button"
                     onClick={() => setPanelMode('page')}
