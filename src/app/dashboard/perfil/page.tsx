@@ -534,8 +534,11 @@ export default function PerfilPage() {
                           const lastName = extracted.lastName?.trim() || '';
                           const nextDisplayName =
                             [firstName, lastName].filter(Boolean).join(' ').trim() || prev.displayName;
-                          const hasProjects = prev.projects.some((project) => project.title.trim().length > 0);
-                          const extractedProjects = (extracted.projects ?? []).filter((p) => p.title.trim());
+                          const existingProjects = prev.projects.filter((project) => project.title.trim().length > 0);
+                          const existingTitles = new Set(existingProjects.map((p) => p.title.trim().toLowerCase()));
+                          const extractedProjects = (extracted.projects ?? []).filter(
+                            (p) => p.title.trim() && !existingTitles.has(p.title.trim().toLowerCase()),
+                          );
                           const hasTemas = prev.adviser.temas.some((tema) => tema.topicLabel.trim().length > 0);
                           const extractedTemas = extracted.adviserTemas ?? [];
                           return {
@@ -561,13 +564,16 @@ export default function PerfilPage() {
                                 : yearsToKey(extracted.yearsExperience),
                             timezone: prev.timezone.trim() ? prev.timezone : extracted.timezone || prev.timezone,
                             projects:
-                              !hasProjects && extractedProjects.length > 0
-                                ? extractedProjects.map((project) => ({
-                                    title: project.title,
-                                    description: project.description,
-                                    projectRole: project.projectRole,
-                                    imageUrl: '',
-                                  }))
+                              extractedProjects.length > 0
+                                ? [
+                                    ...existingProjects,
+                                    ...extractedProjects.map((project) => ({
+                                      title: project.title,
+                                      description: project.description,
+                                      projectRole: project.projectRole,
+                                      imageUrl: '',
+                                    })),
+                                  ]
                                 : prev.projects,
                             adviser: {
                               ...prev.adviser,

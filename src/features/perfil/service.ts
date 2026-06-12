@@ -995,8 +995,8 @@ export async function extractProfileFromCv(
       'bio: redacta 2 a 4 frases en primera persona y en español que resuman el perfil profesional (trayectoria, foco y fortalezas), a partir de todo el CV. Escríbela siempre que haya información suficiente.',
       'profession: el título profesional principal (ej. "Consultor en transformación digital"). industry: sector(es) principal(es).',
       'location: ciudad de residencia si aparece o se infiere. timezone: zona horaria IANA inferida del país/ciudad (ej. America/Bogota, America/Mexico_City, America/Argentina/Buenos_Aires, Europe/Madrid); si no es inferible, string vacío.',
-      'interests: arreglo de máximo 8 intereses profesionales concretos en español.',
-      'projects: arreglo de hasta 4 proyectos o logros destacados del CV, cada uno {title, description (1-2 frases), projectRole (rol que desempeñó)}. Elige los más relevantes y recientes.',
+      'interests: infiere SIEMPRE entre 4 y 8 intereses profesionales concretos en español. No te limites a lo que el CV liste de forma explícita: dedúcelos del sector, las herramientas, los temas recurrentes, las certificaciones y el tipo de proyectos (ej. "Transformación digital", "Liderazgo de equipos", "Educación corporativa").',
+      'projects: genera UN registro por CADA experiencia laboral y por CADA proyecto relevante del CV (hasta 12 registros, ordenados del más reciente al más antiguo). Cada registro: {title (nombre del proyecto, o cargo + empresa para experiencias laborales), description (1-3 frases con responsabilidades y logros concretos), projectRole (rol o cargo desempeñado)}. No omitas experiencias: cada empleo del CV debe producir su registro.',
       'adviserExperiencia: párrafo de 2 a 4 frases, en primera persona y en español, que resuma la experiencia de la persona como mentor, docente, consultor o asesor de otros profesionales (si el CV lo evidencia; si no, string vacío).',
       'adviserTemas: arreglo de hasta 5 temas en los que la persona puede mentorear a otros líderes, cada uno {topicLabel (tema corto en español), pillarCode}. pillarCode permitido: shine_within (autoliderazgo, identidad, propósito, inteligencia emocional) | shine_out (comunicación, influencia, presencia ejecutiva, relaciones) | shine_up (estrategia, visión, toma de decisiones, gestión) | shine_beyond (equipos, cultura, transformación organizacional, legado).',
       'Si un dato no se puede inferir de forma confiable, devuelve string vacío, null o arreglo vacío según corresponda.',
@@ -1012,7 +1012,7 @@ export async function extractProfileFromCv(
       body: JSON.stringify({
         model: openAiIntegration.wizardData.model?.trim() || 'gpt-4.1',
         temperature: 0.1,
-        max_tokens: 1600,
+        max_tokens: 3000,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
@@ -1058,7 +1058,7 @@ export async function extractProfileFromCv(
             projectRole: typeof item.projectRole === 'string' ? item.projectRole.trim().slice(0, 120) : '',
           }))
           .filter((item) => item.title.length > 0)
-          .slice(0, 4)
+          .slice(0, 12)
       : [];
 
     const adviserExperiencia =
