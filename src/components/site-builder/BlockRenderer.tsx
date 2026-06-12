@@ -646,7 +646,11 @@ function StatsBlock({ props }: { props: SiteBlockProps }) {
   const palette = resolveSectionPalette({ background: 'darker', paddingY: 'compact', ...props });
   const list = items(props);
   if (list.length === 0) return null;
-  const valueColor = brandColorOption(str(props, 'valueColor') || 'accent', str(props, 'valueColorCustom'));
+  const valueKind = str(props, 'valueColor') || 'accent';
+  const valueColor =
+    valueKind === 'auto' ? palette.heading : brandColorOption(valueKind, str(props, 'valueColorCustom'));
+  const labelColor =
+    str(props, 'labelColor') === 'custom' ? str(props, 'labelColorCustom') || palette.muted : palette.muted;
   const showDividers = bool(props, 'showDividers', true);
   return (
     <SectionShell props={props} palette={palette}>
@@ -662,7 +666,7 @@ function StatsBlock({ props }: { props: SiteBlockProps }) {
             <span className="text-4xl font-black md:text-5xl" style={{ color: valueColor }}>
               {typeof item.value === 'string' ? item.value : ''}
             </span>
-            <span className="mt-2 text-xs font-semibold uppercase tracking-widest" style={{ color: palette.muted }}>
+            <span className="mt-2 text-xs font-semibold uppercase tracking-widest" style={{ color: labelColor }}>
               {typeof item.label === 'string' ? item.label : ''}
             </span>
           </div>

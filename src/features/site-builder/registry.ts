@@ -307,13 +307,21 @@ const columnsField = (max: 2 | 3 | 4 | 5 = 4): BlockField => ({
   })),
 });
 
-function def(definition: BlockDefinition): BlockDefinition {
+/** hideStyleFields: controles de estilo compartidos que el bloque no renderiza (p. ej. título en Métricas). */
+function def(definition: BlockDefinition & { hideStyleFields?: string[] }): BlockDefinition {
+  const { hideStyleFields, ...rest } = definition;
   return {
-    ...definition,
-    fields: [...definition.fields, ...styleFields()],
-    defaults: { ...STYLE_DEFAULTS, ...definition.defaults },
+    ...rest,
+    fields: [
+      ...rest.fields,
+      ...styleFields().filter((field) => !hideStyleFields || !hideStyleFields.includes(field.key)),
+    ],
+    defaults: { ...STYLE_DEFAULTS, ...rest.defaults },
   };
 }
+
+const TITLE_STYLE_FIELDS = ['titleSize', 'titleColor', 'titleColorCustom'];
+const TEXT_STYLE_FIELDS = ['textColor', 'textColorCustom'];
 
 /* ─────────────────────── Definiciones de bloques ─────────────────────── */
 
@@ -460,6 +468,7 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
     label: 'Métricas',
     description: 'Fila de cifras destacadas (ej. +1.000 líderes).',
     category: 'Contenido',
+    hideStyleFields: TITLE_STYLE_FIELDS,
     fields: [
       {
         key: 'valueColor',
@@ -468,9 +477,27 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
         group: 'style',
         options: [
           { value: 'accent', label: 'Acento (marca)' },
-          { value: 'auto', label: 'Automático' },
+          { value: 'primary', label: 'Primario (marca)' },
+          { value: 'auto', label: 'Automático (según fondo)' },
           { value: 'custom', label: 'Personalizado' },
         ],
+      },
+      {
+        key: 'labelColor',
+        label: 'Color de las etiquetas',
+        type: 'select',
+        group: 'style',
+        options: [
+          { value: 'auto', label: 'Automático (según fondo)' },
+          { value: 'custom', label: 'Personalizado' },
+        ],
+      },
+      {
+        key: 'labelColorCustom',
+        label: 'Etiquetas — color personalizado',
+        type: 'color',
+        group: 'style',
+        showIf: (p) => p.labelColor === 'custom',
       },
       { key: 'valueColorCustom', label: 'Cifras — color personalizado', type: 'color', group: 'style', showIf: (p) => p.valueColor === 'custom' },
       { key: 'showDividers', label: 'Líneas divisorias', type: 'toggle', group: 'style' },
@@ -489,6 +516,8 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
       background: 'darker',
       valueColor: 'accent',
       valueColorCustom: '#D4AF37',
+      labelColor: 'auto',
+      labelColorCustom: '#FFFFFF',
       showDividers: true,
       paddingY: 'compact',
       items: [
@@ -1092,6 +1121,7 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
     label: 'Banner / Franja',
     description: 'Franja angosta con mensaje y botón, ideal para anuncios.',
     category: 'Conversión',
+    hideStyleFields: TITLE_STYLE_FIELDS,
     fields: [
       { key: 'text', label: 'Mensaje', type: 'text' },
       buttonsField('Botón'),
@@ -1125,6 +1155,7 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
     label: 'Imagen',
     description: 'Imagen destacada con pie opcional.',
     category: 'Media',
+    hideStyleFields: TITLE_STYLE_FIELDS,
     fields: [
       { key: 'imageUrl', label: 'Imagen', type: 'image' },
       { key: 'caption', label: 'Pie de imagen', type: 'text' },
@@ -1147,6 +1178,7 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
     label: 'HTML personalizado',
     description: 'Inserta HTML libre (avanzado).',
     category: 'Avanzado',
+    hideStyleFields: [...TITLE_STYLE_FIELDS, ...TEXT_STYLE_FIELDS],
     fields: [{ key: 'html', label: 'HTML', type: 'textarea' }],
     defaults: {
       html: '<div style="padding:40px;text-align:center;">Contenido personalizado</div>',
@@ -1159,6 +1191,7 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
     label: 'Separador',
     description: 'Línea divisoria entre secciones.',
     category: 'Estructura',
+    hideStyleFields: [...TITLE_STYLE_FIELDS, ...TEXT_STYLE_FIELDS],
     fields: [
       {
         key: 'lineColor',
@@ -1200,6 +1233,7 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
     label: 'Espaciador',
     description: 'Espacio vertical entre secciones.',
     category: 'Estructura',
+    hideStyleFields: [...TITLE_STYLE_FIELDS, ...TEXT_STYLE_FIELDS],
     fields: [{ key: 'height', label: 'Altura (px)', type: 'range', min: 8, max: 320, step: 8 }],
     defaults: { height: 64, paddingY: 'none' },
   }),
