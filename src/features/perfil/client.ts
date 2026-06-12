@@ -136,6 +136,10 @@ export interface ExtractProfileFromCvResult {
     | '';
   gender: 'Hombre' | 'Mujer' | 'Prefiero no decirlo' | '';
   yearsExperience: number | null;
+  timezone: string;
+  projects: { title: string; description: string; projectRole: string }[];
+  adviserExperiencia: string;
+  adviserTemas: { topicLabel: string; pillarCode: 'shine_within' | 'shine_out' | 'shine_up' | 'shine_beyond' }[];
 }
 
 export async function getMyProfile(): Promise<MyProfileRecord> {

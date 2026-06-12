@@ -133,6 +133,17 @@ export interface ExtractProfileFromCvInput {
   fileUrl: string;
 }
 
+export interface ExtractedCvProject {
+  title: string;
+  description: string;
+  projectRole: string;
+}
+
+export interface ExtractedAdviserTopic {
+  topicLabel: string;
+  pillarCode: 'shine_within' | 'shine_out' | 'shine_up' | 'shine_beyond';
+}
+
 export interface ExtractProfileFromCvResult {
   firstName: string;
   lastName: string;
@@ -148,6 +159,10 @@ export interface ExtractProfileFromCvResult {
   jobRole: JobRole | '';
   gender: 'Hombre' | 'Mujer' | 'Prefiero no decirlo' | '';
   yearsExperience: number | null;
+  timezone: string;
+  projects: ExtractedCvProject[];
+  adviserExperiencia: string;
+  adviserTemas: ExtractedAdviserTopic[];
 }
 
 interface ProfileRow {
@@ -957,6 +972,10 @@ export async function extractProfileFromCv(
     jobRole: (current.jobRole ?? '') as JobRole | '',
     gender: (current.gender as ExtractProfileFromCvResult['gender']) ?? '',
     yearsExperience: current.yearsExperience ?? extractYearsExperienceFromText(text),
+    timezone: '',
+    projects: [],
+    adviserExperiencia: '',
+    adviserTemas: [],
   };
 
   if (!text) return fallback;
@@ -967,14 +986,20 @@ export async function extractProfileFromCv(
 
     const endpoint = `${sanitizeOpenAiBaseUrl(openAiIntegration.wizardData.baseUrl)}/chat/completions`;
     const systemPrompt = [
-      'Extrae datos de perfil de un CV y devuelve SOLO JSON válido.',
+      'Extrae datos de perfil de un CV y devuelve SOLO JSON válido (un único objeto).',
       'Haz lectura semántica: infiere datos faltantes con alta probabilidad según experiencia, sector, responsabilidades y contexto.',
-      'Campos: firstName, lastName, profession, industry, location, bio, linkedinUrl, twitterUrl, websiteUrl, interests, country, jobRole, gender, yearsExperience.',
+      'Campos: firstName, lastName, profession, industry, location, bio, linkedinUrl, twitterUrl, websiteUrl, interests, country, jobRole, gender, yearsExperience, timezone, projects, adviserExperiencia, adviserTemas.',
       `jobRole permitido: ${USER_JOB_ROLE_OPTIONS.join(' | ')}`,
       'gender permitido: Hombre | Mujer | Prefiero no decirlo',
       `country permitido: ${Array.from(USER_COUNTRY_SET).join(' | ')}`,
+      'bio: redacta 2 a 4 frases en primera persona y en español que resuman el perfil profesional (trayectoria, foco y fortalezas), a partir de todo el CV. Escríbela siempre que haya información suficiente.',
+      'profession: el título profesional principal (ej. "Consultor en transformación digital"). industry: sector(es) principal(es).',
+      'location: ciudad de residencia si aparece o se infiere. timezone: zona horaria IANA inferida del país/ciudad (ej. America/Bogota, America/Mexico_City, America/Argentina/Buenos_Aires, Europe/Madrid); si no es inferible, string vacío.',
       'interests: arreglo de máximo 8 intereses profesionales concretos en español.',
-      'Si un dato no se puede inferir de forma confiable, devuelve string vacío o null.',
+      'projects: arreglo de hasta 4 proyectos o logros destacados del CV, cada uno {title, description (1-2 frases), projectRole (rol que desempeñó)}. Elige los más relevantes y recientes.',
+      'adviserExperiencia: párrafo de 2 a 4 frases, en primera persona y en español, que resuma la experiencia de la persona como mentor, docente, consultor o asesor de otros profesionales (si el CV lo evidencia; si no, string vacío).',
+      'adviserTemas: arreglo de hasta 5 temas en los que la persona puede mentorear a otros líderes, cada uno {topicLabel (tema corto en español), pillarCode}. pillarCode permitido: shine_within (autoliderazgo, identidad, propósito, inteligencia emocional) | shine_out (comunicación, influencia, presencia ejecutiva, relaciones) | shine_up (estrategia, visión, toma de decisiones, gestión) | shine_beyond (equipos, cultura, transformación organizacional, legado).',
+      'Si un dato no se puede inferir de forma confiable, devuelve string vacío, null o arreglo vacío según corresponda.',
     ].join('\n');
     const userPrompt = `CV:\n${text.slice(0, 16000)}`;
 
@@ -987,7 +1012,7 @@ export async function extractProfileFromCv(
       body: JSON.stringify({
         model: openAiIntegration.wizardData.model?.trim() || 'gpt-4.1',
         temperature: 0.1,
-        max_tokens: 400,
+        max_tokens: 1600,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
@@ -1021,6 +1046,39 @@ export async function extractProfileFromCv(
           .slice(0, 8)
       : fallback.interests;
 
+    const timezoneRaw = typeof parsed.timezone === 'string' ? parsed.timezone.trim() : '';
+    const timezone = /^[A-Za-z_]+\/[A-Za-z0-9_+\-/]+$/.test(timezoneRaw) ? timezoneRaw : '';
+
+    const projects: ExtractedCvProject[] = Array.isArray(parsed.projects)
+      ? (parsed.projects as unknown[])
+          .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object')
+          .map((item) => ({
+            title: typeof item.title === 'string' ? item.title.trim().slice(0, 160) : '',
+            description: typeof item.description === 'string' ? item.description.trim().slice(0, 600) : '',
+            projectRole: typeof item.projectRole === 'string' ? item.projectRole.trim().slice(0, 120) : '',
+          }))
+          .filter((item) => item.title.length > 0)
+          .slice(0, 4)
+      : [];
+
+    const adviserExperiencia =
+      typeof parsed.adviserExperiencia === 'string' ? parsed.adviserExperiencia.trim().slice(0, 2000) : '';
+
+    const ADVISER_PILLARS = new Set(['shine_within', 'shine_out', 'shine_up', 'shine_beyond']);
+    const adviserTemas: ExtractedAdviserTopic[] = Array.isArray(parsed.adviserTemas)
+      ? (parsed.adviserTemas as unknown[])
+          .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object')
+          .map((item) => ({
+            topicLabel: typeof item.topicLabel === 'string' ? item.topicLabel.trim().slice(0, 80) : '',
+            pillarCode: typeof item.pillarCode === 'string' ? item.pillarCode.trim() : '',
+          }))
+          .filter(
+            (item): item is ExtractedAdviserTopic =>
+              item.topicLabel.length > 0 && ADVISER_PILLARS.has(item.pillarCode),
+          )
+          .slice(0, 5)
+      : [];
+
     return {
       firstName,
       lastName,
@@ -1036,6 +1094,10 @@ export async function extractProfileFromCv(
       jobRole: jobRole ?? '',
       gender: (gender ?? '') as ExtractProfileFromCvResult['gender'],
       yearsExperience,
+      timezone,
+      projects,
+      adviserExperiencia,
+      adviserTemas,
     };
   } catch {
     return fallback;

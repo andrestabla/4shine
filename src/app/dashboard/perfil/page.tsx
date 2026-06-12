@@ -534,6 +534,10 @@ export default function PerfilPage() {
                           const lastName = extracted.lastName?.trim() || '';
                           const nextDisplayName =
                             [firstName, lastName].filter(Boolean).join(' ').trim() || prev.displayName;
+                          const hasProjects = prev.projects.some((project) => project.title.trim().length > 0);
+                          const extractedProjects = (extracted.projects ?? []).filter((p) => p.title.trim());
+                          const hasTemas = prev.adviser.temas.some((tema) => tema.topicLabel.trim().length > 0);
+                          const extractedTemas = extracted.adviserTemas ?? [];
                           return {
                             ...prev,
                             displayName: prev.displayName.trim() ? prev.displayName : nextDisplayName,
@@ -555,11 +559,35 @@ export default function PerfilPage() {
                               extracted.yearsExperience === null
                                 ? prev.yearsExperience
                                 : yearsToKey(extracted.yearsExperience),
+                            timezone: prev.timezone.trim() ? prev.timezone : extracted.timezone || prev.timezone,
+                            projects:
+                              !hasProjects && extractedProjects.length > 0
+                                ? extractedProjects.map((project) => ({
+                                    title: project.title,
+                                    description: project.description,
+                                    projectRole: project.projectRole,
+                                    imageUrl: '',
+                                  }))
+                                : prev.projects,
+                            adviser: {
+                              ...prev.adviser,
+                              experiencia: prev.adviser.experiencia.trim()
+                                ? prev.adviser.experiencia
+                                : extracted.adviserExperiencia || prev.adviser.experiencia,
+                              temas:
+                                !hasTemas && extractedTemas.length > 0
+                                  ? extractedTemas.map((tema) => ({
+                                      topicLabel: tema.topicLabel,
+                                      pillarCode: tema.pillarCode,
+                                    }))
+                                  : prev.adviser.temas,
+                            },
                           };
                         });
                         await alert({
                           title: 'Datos detectados',
-                          message: 'Se autocompletaron campos faltantes desde tu CV. Revisa y guarda.',
+                          message:
+                            'Se autocompletaron los campos faltantes desde tu CV (perfil, redes, intereses, proyectos y perfil de adviser si aplica). Revisa, ajusta lo necesario y guarda.',
                           tone: 'success',
                         });
                       } catch (error) {
