@@ -1,12 +1,18 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { MarketingShell } from "@/components/marketing/MarketingShell";
 import { loadServerBranding } from "@/lib/server-branding";
+import { BlockRenderer } from "@/components/site-builder/BlockRenderer";
+import { getPublicPageByKey } from "@/lib/site-pages";
+
 import {
   DiscoveryRadarChart,
   DiscoveryCompetenciesChart,
   GlobalIndexDisplay,
   PillarScoreBars,
 } from "./DiscoveryShowcaseCharts";
+
+export const dynamic = 'force-dynamic';
 
 const PILLARS = [
   {
@@ -75,7 +81,18 @@ const SAMPLE_REPORT = `Tu perfil muestra una orientación estratégica sólida �
 Shine Out es el área con mayor potencial de desarrollo: la brecha entre tu visión (Up, 81) y tu capacidad de comunicarla con impacto (Out, 58) es frecuente en líderes técnicos que han crecido por resultados más que por influencia directa. Desarrollar deliberadamente tu presencia ejecutiva y comunicación estratégica es la palanca de mayor retorno en esta etapa de tu carrera.`;
 
 export default async function DescubrimientoPublicPage() {
-  const branding = await loadServerBranding();
+  const [branding, builderPage] = await Promise.all([
+    loadServerBranding(),
+    getPublicPageByKey('descubrimiento'),
+  ]);
+  if (builderPage && !builderPage.isVisible) notFound();
+  if (builderPage?.useBuilder && builderPage.sections.length > 0) {
+    return (
+      <MarketingShell>
+        <BlockRenderer sections={builderPage.sections} />
+      </MarketingShell>
+    );
+  }
   const platformName = branding.settings.platformName?.trim() || '4Shine';
 
   return (

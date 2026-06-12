@@ -1,29 +1,14 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { getSitePages } from '@/lib/site-settings';
+import { listPublicNavItems } from '@/lib/site-pages';
 import { loadServerBranding } from '@/lib/server-branding';
 import { MarketingMobileNav } from './MarketingMobileNav';
 
-type NavItem = {
-  href: string;
-  label: string;
-  pageKey: string;
-};
-
-const ALL_NAV_ITEMS: NavItem[] = [
-  { href: '/metodologia', label: 'Metodología', pageKey: 'metodologia' },
-  { href: '/descubrimiento', label: 'Descubrimiento', pageKey: 'descubrimiento' },
-  { href: '/planes-precios', label: 'Planes y precios', pageKey: 'planes_precios' },
-  { href: '/afiliados', label: 'Afiliados', pageKey: 'afiliados' },
-];
-
-export async function MarketingShell({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
-  const [enabledPages, branding] = await Promise.all([
-    getSitePages(),
+export async function MarketingShell({ title, subtitle, children }: { title?: string; subtitle?: string; children: ReactNode }) {
+  const [navItems, branding] = await Promise.all([
+    listPublicNavItems(),
     loadServerBranding(),
   ]);
-
-  const navItems = ALL_NAV_ITEMS.filter((item) => enabledPages[item.pageKey] !== false);
   const platformName = branding.settings.platformName?.trim() || '4Shine';
   const logoDarkUrl =
     branding.settings.logoDarkUrl?.trim() ||
@@ -89,20 +74,24 @@ export async function MarketingShell({ title, subtitle, children }: { title: str
         </div>
       </header>
 
-      <section className="mx-auto w-full max-w-[1240px] px-6 pb-8 pt-14 md:px-10 lg:px-14">
-        <p
-          className="text-xs font-black uppercase tracking-[0.3em]"
-          style={{ color: 'var(--brand-accent)' }}
-        >
-          {kickerLabel}
-        </p>
-        <h1 className="mt-3 max-w-[18ch] text-5xl font-black leading-[0.95] tracking-tight text-white md:text-6xl">
-          {title}
-        </h1>
-        <p className="mt-5 max-w-[68ch] text-base text-white/70 md:text-lg">
-          {subtitle}
-        </p>
-      </section>
+      {title && (
+        <section className="mx-auto w-full max-w-[1240px] px-6 pb-8 pt-14 md:px-10 lg:px-14">
+          <p
+            className="text-xs font-black uppercase tracking-[0.3em]"
+            style={{ color: 'var(--brand-accent)' }}
+          >
+            {kickerLabel}
+          </p>
+          <h1 className="mt-3 max-w-[18ch] text-5xl font-black leading-[0.95] tracking-tight text-white md:text-6xl">
+            {title}
+          </h1>
+          {subtitle && (
+            <p className="mt-5 max-w-[68ch] text-base text-white/70 md:text-lg">
+              {subtitle}
+            </p>
+          )}
+        </section>
+      )}
 
       {children}
 

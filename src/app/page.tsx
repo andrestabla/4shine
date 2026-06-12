@@ -1,7 +1,11 @@
 import Link from 'next/link';
 import { Compass, MessageSquare, TrendingUp, Globe, Map, BarChart2, Users } from 'lucide-react';
-import { getSitePages } from '@/lib/site-settings';
 import { loadServerBranding } from '@/lib/server-branding';
+import { MarketingShell } from '@/components/marketing/MarketingShell';
+import { BlockRenderer } from '@/components/site-builder/BlockRenderer';
+import { getPublicPageByKey, listPublicNavItems } from '@/lib/site-pages';
+
+export const dynamic = 'force-dynamic';
 
 type PillarKey = 'within' | 'out' | 'up' | 'beyond';
 
@@ -179,19 +183,22 @@ const platformFeatures = [
   },
 ];
 
-const HOME_NAV_ITEMS = [
-  { href: '/metodologia', label: 'Metodología', pageKey: 'metodologia' },
-  { href: '/descubrimiento', label: 'Descubrimiento', pageKey: 'descubrimiento' },
-  { href: '/planes-precios', label: 'Planes y precios', pageKey: 'planes_precios' },
-  { href: '/afiliados', label: 'Afiliados', pageKey: 'afiliados' },
-] as const;
-
 export default async function HomeMarketingPage() {
-  const [enabledPages, branding] = await Promise.all([
-    getSitePages(),
+  const [navItems, branding, builderPage] = await Promise.all([
+    listPublicNavItems(),
     loadServerBranding(),
+    getPublicPageByKey('home'),
   ]);
-  const navItems = HOME_NAV_ITEMS.filter((item) => enabledPages[item.pageKey] !== false);
+
+  // Contenido gestionado desde el site builder (Administración → Site)
+  if (builderPage?.useBuilder && builderPage.sections.length > 0) {
+    return (
+      <MarketingShell>
+        <BlockRenderer sections={builderPage.sections} />
+      </MarketingShell>
+    );
+  }
+
   const platformName = branding.settings.platformName?.trim() || '4Shine';
   const showPlatformName = branding.settings.showPlatformName !== false;
   const logoUrl = branding.settings.logoUrl?.trim() || '/branding/4shine-logo-mixto.png';

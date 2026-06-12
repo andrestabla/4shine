@@ -1,8 +1,24 @@
+import { notFound } from 'next/navigation';
 import { MarketingShell } from '@/components/marketing/MarketingShell';
 import { loadServerBranding } from '@/lib/server-branding';
+import { BlockRenderer } from '@/components/site-builder/BlockRenderer';
+import { getPublicPageByKey } from '@/lib/site-pages';
+
+export const dynamic = 'force-dynamic';
 
 export default async function AfiliadosPage() {
-  const branding = await loadServerBranding();
+  const [branding, builderPage] = await Promise.all([
+    loadServerBranding(),
+    getPublicPageByKey('afiliados'),
+  ]);
+  if (builderPage && !builderPage.isVisible) notFound();
+  if (builderPage?.useBuilder && builderPage.sections.length > 0) {
+    return (
+      <MarketingShell>
+        <BlockRenderer sections={builderPage.sections} />
+      </MarketingShell>
+    );
+  }
   const platformName = branding.settings.platformName?.trim() || '4Shine';
 
   return (
