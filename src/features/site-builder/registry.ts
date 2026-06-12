@@ -310,13 +310,16 @@ const columnsField = (max: 2 | 3 | 4 | 5 = 4): BlockField => ({
 /** hideStyleFields: controles de estilo compartidos que el bloque no renderiza (p. ej. título en Métricas). */
 function def(definition: BlockDefinition & { hideStyleFields?: string[] }): BlockDefinition {
   const { hideStyleFields, ...rest } = definition;
+  // Todos los bloques aceptan botones; los que no definen su propio campo lo reciben aquí.
+  const hasButtonsField = rest.fields.some((field) => field.key === 'buttons');
   return {
     ...rest,
     fields: [
       ...rest.fields,
+      ...(hasButtonsField ? [] : [buttonsField('Botones (opcional)')]),
       ...styleFields().filter((field) => !hideStyleFields || !hideStyleFields.includes(field.key)),
     ],
-    defaults: { ...STYLE_DEFAULTS, ...rest.defaults },
+    defaults: { buttons: [], ...STYLE_DEFAULTS, ...rest.defaults },
   };
 }
 

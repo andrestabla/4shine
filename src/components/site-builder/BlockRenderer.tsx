@@ -553,6 +553,7 @@ function SectionContainerBlock({ props }: { props: SiteBlockProps }) {
           </div>
         ))}
       </div>
+      <ButtonsRow props={props} palette={palette} className="mt-10" />
     </SectionShell>
   );
 }
@@ -672,6 +673,7 @@ function StatsBlock({ props }: { props: SiteBlockProps }) {
           </div>
         ))}
       </div>
+      <ButtonsRow props={props} palette={palette} center className="mt-8" />
     </SectionShell>
   );
 }
@@ -711,6 +713,7 @@ function TextColumnsBlock({ props }: { props: SiteBlockProps }) {
           </div>
         ))}
       </div>
+      <ButtonsRow props={props} palette={palette} className="mt-10" />
     </SectionShell>
   );
 }
@@ -855,6 +858,7 @@ function CardsBlock({ props }: { props: SiteBlockProps }) {
           );
         })}
       </div>
+      <ButtonsRow props={props} palette={palette} className="mt-10" />
     </SectionShell>
   );
 }
@@ -883,6 +887,7 @@ function FeaturesBlock({ props }: { props: SiteBlockProps }) {
           </div>
         ))}
       </div>
+      <ButtonsRow props={props} palette={palette} center={center} className="mt-10" />
     </SectionShell>
   );
 }
@@ -937,6 +942,7 @@ function StepsBlock({ props }: { props: SiteBlockProps }) {
           ))}
         </div>
       )}
+      <ButtonsRow props={props} palette={palette} className="mt-10" />
     </SectionShell>
   );
 }
@@ -1000,6 +1006,7 @@ function TestimonialsBlock({ props }: { props: SiteBlockProps }) {
           );
         })}
       </div>
+      <ButtonsRow props={props} palette={palette} className="mt-12" />
     </SectionShell>
   );
 }
@@ -1037,6 +1044,7 @@ function QuoteBlock({ props }: { props: SiteBlockProps }) {
             </div>
           </figcaption>
         )}
+        <ButtonsRow props={props} palette={palette} center className="mt-8" />
       </figure>
     </SectionShell>
   );
@@ -1082,6 +1090,7 @@ function TeamBlock({ props }: { props: SiteBlockProps }) {
           );
         })}
       </div>
+      <ButtonsRow props={props} palette={palette} className="mt-10" />
     </SectionShell>
   );
 }
@@ -1119,6 +1128,7 @@ function LogosBlock({ props }: { props: SiteBlockProps }) {
           );
         })}
       </div>
+      <ButtonsRow props={props} palette={palette} center className="mt-8" />
     </SectionShell>
   );
 }
@@ -1160,6 +1170,7 @@ function GalleryBlock({ props }: { props: SiteBlockProps }) {
           );
         })}
       </div>
+      <ButtonsRow props={props} palette={palette} className="mt-8" />
     </SectionShell>
   );
 }
@@ -1255,6 +1266,7 @@ function PricingBlock({ props }: { props: SiteBlockProps }) {
           );
         })}
       </div>
+      <ButtonsRow props={props} palette={palette} center className="mt-10" />
     </SectionShell>
   );
 }
@@ -1291,6 +1303,7 @@ function FaqBlock({ props }: { props: SiteBlockProps }) {
           </details>
         ))}
       </div>
+      <ButtonsRow props={props} palette={palette} className="mt-8" />
     </SectionShell>
   );
 }
@@ -1404,6 +1417,7 @@ function VideoBlock({ props }: { props: SiteBlockProps }) {
           {str(props, 'caption')}
         </p>
       )}
+      <ButtonsRow props={props} palette={palette} center className="mt-8" />
     </SectionShell>
   );
 }
@@ -1432,15 +1446,22 @@ function ImageBlock({ props }: { props: SiteBlockProps }) {
           {str(props, 'caption')}
         </p>
       )}
+      <ButtonsRow props={props} palette={palette} center className="mt-6" />
     </SectionShell>
   );
 }
 
 function HtmlBlock({ props }: { props: SiteBlockProps }) {
   const palette = resolveSectionPalette(props);
+  const buttons = resolveButtons(props);
   return (
     <section className="relative overflow-hidden" style={palette.baseStyle}>
       <div dangerouslySetInnerHTML={{ __html: str(props, 'html') }} />
+      {buttons.length > 0 && (
+        <div className="mx-auto w-full max-w-[1240px] px-6 pb-10 md:px-10 lg:px-14">
+          <ButtonsRow props={props} palette={palette} center className="mt-2" />
+        </div>
+      )}
     </section>
   );
 }
@@ -1464,13 +1485,23 @@ function DividerBlock({ props }: { props: SiteBlockProps }) {
         className={`border-0 ${widthClass}`}
         style={{ height: num(props, 'thickness', 1), background: withAlpha(color, num(props, 'lineOpacity', 100)) }}
       />
+      <ButtonsRow props={props} palette={palette} center className="mt-6" />
     </SectionShell>
   );
 }
 
 function SpacerBlock({ props }: { props: SiteBlockProps }) {
   const palette = resolveSectionPalette({ paddingY: 'none', ...props });
-  return <div style={{ ...palette.baseStyle, height: `${num(props, 'height', 64)}px` }} aria-hidden="true" />;
+  const buttons = resolveButtons(props);
+  return (
+    <div
+      className={buttons.length > 0 ? 'flex items-center justify-center' : undefined}
+      style={{ ...palette.baseStyle, minHeight: `${num(props, 'height', 64)}px` }}
+      aria-hidden={buttons.length === 0 ? 'true' : undefined}
+    >
+      {buttons.length > 0 && <ButtonsRow props={props} palette={palette} center className="" />}
+    </div>
+  );
 }
 
 /* ─────────────────────────── Renderer ─────────────────────────── */
