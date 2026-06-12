@@ -191,7 +191,7 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
             </button>
 
             {showNotifications && (
-              <div className="app-panel-strong absolute right-0 mt-4 w-[22rem] origin-top-right overflow-hidden animate-fade-in">
+              <div className="app-panel-strong fixed inset-x-3 top-[84px] z-[90] origin-top overflow-hidden bg-white shadow-2xl animate-fade-in md:absolute md:inset-x-auto md:right-0 md:top-full md:mt-4 md:w-[22rem] md:origin-top-right">
                 <div className="flex items-center justify-between border-b border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-4">
                   <h3 className="text-sm font-bold text-[var(--app-ink)]">
                     Notificaciones
@@ -205,7 +205,7 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
                     </button>
                   )}
                 </div>
-                <div className="max-h-96 overflow-y-auto">
+                <div className="max-h-[65vh] overflow-y-auto md:max-h-96">
                   {notifications.length > 0 ? (
                     notifications.map((notif) => (
                       <div
@@ -219,16 +219,16 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
                         <div className="mt-1 shrink-0">
                           {getIcon(notif.type)}
                         </div>
-                        <div className="flex-1">
+                        <div className="min-w-0 flex-1">
                           <p
                             className={clsx(
-                              "text-sm text-[var(--app-ink)]",
+                              "break-words text-sm text-[var(--app-ink)]",
                               !notif.read ? "font-bold" : "",
                             )}
                           >
                             {notif.title}
                           </p>
-                          <p className="mt-1 text-xs leading-snug text-[var(--app-muted)]">
+                          <p className="mt-1 break-words text-xs leading-snug text-[var(--app-muted)]">
                             {notif.message}
                           </p>
                           <p className="mt-2 text-[10px] text-[var(--app-muted)]/80">

@@ -674,7 +674,36 @@ export default function AprendizajePage() {
         </div>
       </section>
 
-      <nav className={`grid grid-cols-1 gap-3 ${isResourceManager ? "md:grid-cols-4" : "md:grid-cols-3"}`}>
+      <nav className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 md:hidden">
+        {LEARNING_TABS.filter((tab) => !tab.adminOnly || isResourceManager).map((tab) => {
+          const isActive = tab.key === activeLearningTab;
+          const Icon =
+            tab.key === "recursos"
+              ? BookOpen
+              : tab.key === "cursos"
+                ? Layers3
+                : tab.key === "certificados"
+                  ? Award
+                  : CalendarClock;
+
+          return (
+            <Link
+              key={tab.key}
+              href={buildLearningTabHref(tab.key)}
+              className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-2 text-sm font-semibold transition ${
+                isActive
+                  ? "border-[var(--brand-primary)] bg-[color-mix(in_srgb,var(--brand-primary)_10%,transparent)] text-[var(--brand-primary)]"
+                  : "border-[var(--app-border)] bg-white/82 text-[var(--app-ink)]"
+              }`}
+            >
+              <Icon size={15} />
+              {tab.label}
+            </Link>
+          );
+        })}
+      </nav>
+
+      <nav className={`hidden grid-cols-1 gap-3 md:grid ${isResourceManager ? "md:grid-cols-4" : "md:grid-cols-3"}`}>
         {LEARNING_TABS.filter((tab) => !tab.adminOnly || isResourceManager).map((tab) => {
           const isActive = tab.key === activeLearningTab;
           const Icon =

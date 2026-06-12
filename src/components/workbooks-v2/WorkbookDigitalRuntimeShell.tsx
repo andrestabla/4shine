@@ -389,41 +389,6 @@ export function WorkbookDigitalRuntimeShell({
                         padding-right: 0.75rem !important;
                     }
 
-                    .workbook-digital-shell .wb1-toolbar > div,
-                    .workbook-digital-shell .wb2-toolbar > div,
-                    .workbook-digital-shell .wb3-toolbar > div,
-                    .workbook-digital-shell .wb4-toolbar > div,
-                    .workbook-digital-shell .wb5-toolbar > div,
-                    .workbook-digital-shell .wb6-toolbar > div,
-                    .workbook-digital-shell .wb7-toolbar > div,
-                    .workbook-digital-shell .wb8-toolbar > div {
-                        align-items: stretch !important;
-                    }
-
-                    .workbook-digital-shell .wb1-toolbar button,
-                    .workbook-digital-shell .wb1-toolbar a,
-                    .workbook-digital-shell .wb2-toolbar button,
-                    .workbook-digital-shell .wb2-toolbar a,
-                    .workbook-digital-shell .wb3-toolbar button,
-                    .workbook-digital-shell .wb3-toolbar a,
-                    .workbook-digital-shell .wb4-toolbar button,
-                    .workbook-digital-shell .wb4-toolbar a,
-                    .workbook-digital-shell .wb5-toolbar button,
-                    .workbook-digital-shell .wb5-toolbar a,
-                    .workbook-digital-shell .wb6-toolbar button,
-                    .workbook-digital-shell .wb6-toolbar a,
-                    .workbook-digital-shell .wb7-toolbar button,
-                    .workbook-digital-shell .wb7-toolbar a,
-                    .workbook-digital-shell .wb8-toolbar button,
-                    .workbook-digital-shell .wb8-toolbar a,
-                    .workbook-digital-shell .wb9-toolbar button,
-                    .workbook-digital-shell .wb9-toolbar a,
-                    .workbook-digital-shell .wb10-toolbar button,
-                    .workbook-digital-shell .wb10-toolbar a {
-                        width: 100% !important;
-                        justify-content: center !important;
-                    }
-
                     .workbook-digital-shell .wb1-cover-layout,
                     .workbook-digital-shell .wb2-cover-layout,
                     .workbook-digital-shell .wb3-cover-layout,

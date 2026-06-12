@@ -310,7 +310,7 @@ export function AssignmentPlayer({ contentId }: { contentId: string }) {
           <div className="flex flex-wrap justify-end gap-2 border-t border-[var(--app-border)] pt-3">
             <button
               type="button"
-              className="rounded-[12px] border border-[var(--app-border)] bg-white px-4 py-2 text-sm font-semibold text-[var(--app-ink)]"
+              className="flex-1 rounded-[12px] border border-[var(--app-border)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--app-ink)] sm:flex-none sm:py-2"
               disabled={submitting}
               onClick={() => void doSubmit(false)}
             >
@@ -318,7 +318,7 @@ export function AssignmentPlayer({ contentId }: { contentId: string }) {
             </button>
             <button
               type="button"
-              className="app-button-primary inline-flex items-center gap-1.5"
+              className="app-button-primary inline-flex flex-1 items-center justify-center gap-1.5 sm:flex-none"
               disabled={submitting}
               onClick={() => void onConfirmSubmit()}
             >

@@ -1716,7 +1716,7 @@ export default function LearningResourceDetailPage() {
             />
           )}
           {((!isScormPackage && !isHtmlOnlyPackage) || (isScormPackage && activeResourceIndex === totalItems && hasCertificateScreen)) && (
-          <section className="relative z-20 flex flex-1 items-center justify-center overflow-auto p-4 sm:p-8 pb-24">
+          <section className="relative z-20 flex flex-1 items-center justify-center overflow-auto p-4 pb-6 sm:p-8 sm:pb-8 md:pb-24">
             <div className="w-full max-w-5xl">
               {(!resource) ? (
                 <div className="flex flex-col items-center justify-center p-12 text-slate-500">
@@ -2047,7 +2047,7 @@ export default function LearningResourceDetailPage() {
 
           {!isScormPackage && !isHtmlOnlyPackage && (
             <div
-              className="absolute bottom-0 left-0 right-0 z-20 flex h-20 items-center justify-between border-t px-6 text-white md:px-12"
+              className="relative z-20 flex h-14 shrink-0 items-center justify-between border-t px-4 text-white md:absolute md:bottom-0 md:left-0 md:right-0 md:h-20 md:px-12"
               style={{
                 background: 'var(--brand-dark)',
                 borderColor: 'color-mix(in srgb, var(--brand-primary) 30%, transparent)',
@@ -2060,7 +2060,7 @@ export default function LearningResourceDetailPage() {
              >
                <ArrowLeft size={16} /> Anterior
              </button>
-             <div className="text-sm font-semibold text-white/60">
+             <div className="px-2 text-center text-xs font-semibold text-white/60 md:text-sm">
                {activeResourceIndex === -1
                   ? "Introducción"
                   : activeResourceIndex === totalItems && hasCertificateScreen
@@ -2075,7 +2075,7 @@ export default function LearningResourceDetailPage() {
                  totalItems === 0 ||
                  activeResourceIndex >= (hasCertificateScreen ? totalItems : totalItems - 1)
                }
-               className="flex h-10 items-center justify-center gap-2 rounded-[8px] px-5 text-sm font-bold transition hover:opacity-90 disabled:opacity-50"
+               className="flex h-10 items-center justify-center gap-2 rounded-[8px] px-4 text-sm font-bold transition hover:opacity-90 disabled:opacity-50 md:px-5"
                style={{
                  background: 'var(--brand-accent)',
                  color: 'var(--brand-on-accent)',

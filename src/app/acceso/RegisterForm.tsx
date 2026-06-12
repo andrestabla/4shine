@@ -77,9 +77,10 @@ export function RegisterForm({
     jobRole: '',
   });
 
+  // text-base en móvil (≥16px) evita el zoom automático de iOS al enfocar el select.
   const selectClassName = isCenteredImageLayout
-    ? 'bg-transparent outline-none w-full text-sm text-white appearance-none cursor-pointer'
-    : 'bg-transparent outline-none w-full text-sm text-slate-900 appearance-none cursor-pointer';
+    ? 'bg-transparent outline-none w-full text-base md:text-sm text-white appearance-none cursor-pointer'
+    : 'bg-transparent outline-none w-full text-base md:text-sm text-slate-900 appearance-none cursor-pointer';
 
   const buttonStyle: React.CSSProperties = {
     backgroundColor: accentColor,
@@ -297,7 +298,7 @@ export function RegisterForm({
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full mt-2 text-white font-bold py-2.5 transition-opacity flex items-center justify-center gap-2"
+            className="w-full mt-2 text-white font-bold py-3 md:py-2.5 transition-opacity flex items-center justify-center gap-2"
             style={buttonStyle}
           >
             {isSubmitting ? (
@@ -423,7 +424,7 @@ export function RegisterForm({
 
         <button
           type="submit"
-          className="w-full mt-2 text-white font-bold py-2.5 transition-opacity flex items-center justify-center gap-2"
+          className="w-full mt-2 text-white font-bold py-3 md:py-2.5 transition-opacity flex items-center justify-center gap-2"
           style={buttonStyle}
         >
           Siguiente

@@ -399,13 +399,14 @@ export default function LoginPage() {
         backgroundImage: `radial-gradient(circle at 12% 16%, color-mix(in srgb, ${tokens.colors.accent} 30%, transparent), transparent 45%), linear-gradient(120deg, color-mix(in srgb, ${tokens.colors.primary} 90%, black), color-mix(in srgb, ${tokens.colors.secondary} 78%, black))`,
       };
 
+  // text-base en móvil (≥16px) evita el zoom automático de iOS al enfocar inputs.
   const inputClassName = isCenteredImageLayout
-    ? 'bg-black/20 outline-none w-full text-sm text-white placeholder:text-white/45'
-    : 'bg-transparent outline-none w-full text-sm text-slate-900 placeholder:text-slate-400';
+    ? 'bg-black/20 outline-none w-full text-base md:text-sm text-white placeholder:text-white/45'
+    : 'bg-transparent outline-none w-full text-base md:text-sm text-slate-900 placeholder:text-slate-400';
 
   const fieldWrapperClassName = isCenteredImageLayout
-    ? 'mt-1 flex items-center gap-2 rounded-xl border border-white/25 bg-black/20 px-3 py-2 focus-within:border-white/50'
-    : 'mt-1 flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 focus-within:border-slate-500';
+    ? 'mt-1 flex items-center gap-2 rounded-xl border border-white/25 bg-black/20 px-3 py-2.5 md:py-2 focus-within:border-white/50'
+    : 'mt-1 flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2.5 md:py-2 focus-within:border-slate-500';
 
   const labelClassName = `text-xs font-semibold tracking-wide ${
     isCenteredImageLayout ? 'text-white/75' : 'text-slate-600'
@@ -513,7 +514,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={isRequestingReset}
-                className="w-full mt-1 text-white font-bold py-2.5 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
+                className="w-full mt-1 text-white font-bold py-3 md:py-2.5 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
                 style={{
                   backgroundColor: tokens.colors.accent,
                   borderRadius: `calc(${tokens.shape.borderRadiusRem}rem + 0.3rem)`,
@@ -711,7 +712,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isHydrating}
-              className="w-full mt-1 text-white font-bold py-2.5 transition-colors flex items-center justify-center gap-2"
+              className="w-full mt-1 text-white font-bold py-3 md:py-2.5 transition-colors flex items-center justify-center gap-2"
               style={{
                 backgroundColor: tokens.colors.accent,
                 borderRadius: `calc(${tokens.shape.borderRadiusRem}rem + 0.3rem)`,

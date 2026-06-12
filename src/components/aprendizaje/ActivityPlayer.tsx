@@ -149,22 +149,24 @@ export function ActivityPlayer({ contentId }: { contentId: string }) {
 
       {phase === 'playing' && (
         <div className="space-y-4">
-          {safeQuestions.map((q, idx) => (
-            <PlayerQuestion
-              key={q.questionId}
-              index={idx}
-              type={q.type}
-              prompt={q.prompt}
-              points={q.points}
-              payload={q.payload}
-              value={answers[q.questionId]}
-              onChange={(v) => setAnswers((prev) => ({ ...prev, [q.questionId]: v }))}
-            />
-          ))}
-          <div className="sticky bottom-2 z-10 flex justify-end gap-2 rounded-[16px] border border-[var(--app-border)] bg-white/95 p-3 shadow-sm backdrop-blur">
+          <div className="space-y-4 pb-24 sm:pb-0">
+            {safeQuestions.map((q, idx) => (
+              <PlayerQuestion
+                key={q.questionId}
+                index={idx}
+                type={q.type}
+                prompt={q.prompt}
+                points={q.points}
+                payload={q.payload}
+                value={answers[q.questionId]}
+                onChange={(v) => setAnswers((prev) => ({ ...prev, [q.questionId]: v }))}
+              />
+            ))}
+          </div>
+          <div className="sticky bottom-0 z-10 -mx-5 flex gap-2 border-t border-[var(--app-border)] bg-white px-4 py-3 sm:bottom-2 sm:mx-0 sm:justify-end sm:rounded-[16px] sm:border sm:bg-white/95 sm:shadow-sm sm:backdrop-blur">
             <button
               type="button"
-              className="rounded-[12px] border border-[var(--app-border)] px-4 py-2 text-sm font-semibold text-[var(--app-ink)]"
+              className="flex-1 rounded-[12px] border border-[var(--app-border)] px-4 py-2.5 text-sm font-semibold text-[var(--app-ink)] sm:flex-none sm:py-2"
               onClick={() => {
                 setPhase('intro');
                 setAttemptId(null);
@@ -175,7 +177,7 @@ export function ActivityPlayer({ contentId }: { contentId: string }) {
             </button>
             <button
               type="button"
-              className="app-button-primary"
+              className="app-button-primary flex-1 sm:flex-none"
               disabled={submitting}
               onClick={() => void onSubmit()}
             >
@@ -612,7 +614,7 @@ function MatchingInput({
                 key={item.id}
                 type="button"
                 onClick={() => onLeftClick(item.id)}
-                className="flex w-full items-center gap-2 rounded-[10px] border px-3 py-2 text-left text-sm transition"
+                className="flex w-full items-center gap-2 rounded-[10px] border px-3 py-2.5 text-left text-sm transition sm:py-2"
                 style={{
                   borderColor: sel ? 'var(--brand-primary)' : color ?? 'var(--app-border)',
                   background: sel ? 'color-mix(in srgb, var(--brand-primary) 8%, white)' : color ? `color-mix(in srgb, ${color} 8%, white)` : 'white',
@@ -636,7 +638,7 @@ function MatchingInput({
                 key={item.id}
                 type="button"
                 onClick={() => onRightClick(item.id)}
-                className="flex w-full items-center gap-2 rounded-[10px] border px-3 py-2 text-left text-sm transition disabled:opacity-50"
+                className="flex w-full items-center gap-2 rounded-[10px] border px-3 py-2.5 text-left text-sm transition disabled:opacity-50 sm:py-2"
                 disabled={!selectedLeft && !matchedLeft}
                 style={{
                   borderColor: color ?? 'var(--app-border)',
@@ -708,7 +710,7 @@ function ClassificationInput({
                 key={it.id}
                 type="button"
                 onClick={() => setSelectedItem((prev) => (prev === it.id ? null : it.id))}
-                className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                className={`rounded-full border px-3.5 py-2.5 text-xs font-semibold transition sm:px-3 sm:py-1.5 ${
                   selectedItem === it.id
                     ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)] text-white'
                     : 'border-[var(--app-border)] bg-white text-[var(--app-ink)]'
@@ -726,7 +728,7 @@ function ClassificationInput({
           return (
             <div
               key={b.id}
-              className={`rounded-[12px] border border-dashed p-3 transition ${
+              className={`min-h-[72px] rounded-[12px] border border-dashed p-3 transition sm:min-h-0 ${
                 selectedItem ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)]/5 cursor-pointer' : 'border-[var(--app-border)] bg-white'
               }`}
               onClick={() => selectedItem && assign(selectedItem, b.id)}
@@ -739,7 +741,7 @@ function ClassificationInput({
                   {inBucket.map((it) => (
                     <span
                       key={it.id}
-                      className="inline-flex items-center gap-1 rounded-full border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-2 py-0.5 text-[11px] font-semibold text-[var(--app-ink)]"
+                      className="inline-flex items-center gap-1 rounded-full border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-2.5 py-1.5 text-[11px] font-semibold text-[var(--app-ink)] sm:px-2 sm:py-0.5"
                     >
                       {it.text}
                       <button
@@ -749,7 +751,7 @@ function ClassificationInput({
                           e.stopPropagation();
                           assign(it.id, null);
                         }}
-                        className="text-rose-500 hover:text-rose-700"
+                        className="-my-1 px-1 text-base leading-none text-rose-500 hover:text-rose-700 sm:text-sm"
                       >
                         ×
                       </button>

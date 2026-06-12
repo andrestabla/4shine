@@ -442,7 +442,7 @@ export default function PerfilPage() {
 
       <section className="app-panel p-5 md:p-7">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-4">
+          <div className="flex min-w-0 items-center gap-4">
             <div className="space-y-2">
               <div
                 className={`relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl ${currentUser?.color ?? 'bg-slate-900'} text-3xl font-bold text-white`}
@@ -492,8 +492,8 @@ export default function PerfilPage() {
                 </div>
               )}
             </div>
-            <div>
-              <h3 className="text-3xl font-bold text-[var(--app-ink)]">{profile.displayName}</h3>
+            <div className="min-w-0">
+              <h3 className="break-words text-2xl font-bold text-[var(--app-ink)] md:text-3xl">{profile.displayName}</h3>
               <p className="text-[var(--app-muted)]">
                 {profile.profession ?? 'Profesional'}
                 {profile.organizationName ? ` · ${profile.organizationName}` : ''}
@@ -502,7 +502,7 @@ export default function PerfilPage() {
           </div>
 
           {canEditProfile && (
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
               {!isEditing ? (
                 <button
                   type="button"
@@ -1149,7 +1149,7 @@ export default function PerfilPage() {
             </h4>
 
             {!isEditing ? (
-              <div className="space-y-2 text-sm text-[var(--app-ink)]">
+              <div className="space-y-2 break-words text-sm text-[var(--app-ink)]">
                 <p>{profile.linkedinUrl || 'LinkedIn no configurado'}</p>
                 <p>{profile.twitterUrl || 'Twitter no configurado'}</p>
                 <p>{profile.websiteUrl || 'Sitio web no configurado'}</p>

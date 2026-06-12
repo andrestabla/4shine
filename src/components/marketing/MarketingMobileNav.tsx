@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { Menu, X } from 'lucide-react';
 
 interface NavItem {
@@ -36,9 +37,11 @@ export function MarketingMobileNav({ items }: { items: NavItem[] }) {
         <Menu size={22} />
       </button>
 
-      {open && (
+      {/* Portal a document.body: el header usa backdrop-blur, que crea un
+          containing block y rompe el posicionamiento fixed del overlay. */}
+      {open && createPortal(
         <div
-          className="fixed inset-0 z-50 flex md:hidden"
+          className="fixed inset-0 z-[100] flex md:hidden"
           role="dialog"
           aria-modal="true"
         >
@@ -47,7 +50,7 @@ export function MarketingMobileNav({ items }: { items: NavItem[] }) {
             onClick={() => setOpen(false)}
           />
           <aside
-            className="relative ml-auto flex h-full w-[80%] max-w-[320px] flex-col"
+            className="relative ml-auto flex h-full w-[80%] max-w-[320px] flex-col shadow-2xl"
             style={{ background: 'var(--brand-dark)' }}
           >
             <div className="flex items-center justify-end p-4">
@@ -86,7 +89,8 @@ export function MarketingMobileNav({ items }: { items: NavItem[] }) {
               </Link>
             </div>
           </aside>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );

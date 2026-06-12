@@ -3136,7 +3136,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
       comprarStep === 'list' ? 0 : comprarStep === 'configure' ? 1 : comprarStep === 'pay' ? 2 : 2;
 
     const Stepper = () => (
-      <div className="flex items-center gap-2 text-xs font-semibold text-[var(--app-muted)]">
+      <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto text-xs font-semibold text-[var(--app-muted)] sm:gap-2">
         {stepperLabels.map((label, idx) => {
           const done = idx < currentStepIndex;
           const active = idx === currentStepIndex;
@@ -3144,7 +3144,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
             <React.Fragment key={label}>
               <span
                 className={clsx(
-                  'inline-flex items-center gap-1.5 rounded-full px-3 py-1',
+                  'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1',
                   active
                     ? 'bg-[var(--brand-primary)] text-white'
                     : done
@@ -3163,7 +3163,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                 {label}
               </span>
               {idx < stepperLabels.length - 1 && (
-                <span className="h-px w-6 bg-[var(--app-border)]" />
+                <span className="h-px w-4 shrink-0 bg-[var(--app-border)] sm:w-6" />
               )}
             </React.Fragment>
           );
@@ -3500,7 +3500,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
               onClick={() => !smartSearchLoading && setSmartSearchOpen(false)}
             >
               <div
-                className="w-full max-w-lg rounded-[20px] bg-white p-5 shadow-xl sm:p-6"
+                className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-[20px] bg-white p-5 shadow-xl sm:p-6"
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="mb-3 flex items-center gap-2">
@@ -3528,7 +3528,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                 <div className="mt-3 flex flex-wrap justify-end gap-2">
                   <button
                     type="button"
-                    className="rounded-[12px] border border-[var(--app-border)] bg-white px-4 py-2 text-xs font-semibold text-[var(--app-muted)]"
+                    className="min-h-11 flex-1 rounded-[12px] border border-[var(--app-border)] bg-white px-4 py-2 text-xs font-semibold text-[var(--app-muted)] sm:min-h-0 sm:flex-none"
                     onClick={() => setSmartSearchOpen(false)}
                     disabled={smartSearchLoading}
                   >
@@ -3536,7 +3536,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                   </button>
                   <button
                     type="button"
-                    className="inline-flex items-center gap-1.5 rounded-[12px] bg-[var(--brand-primary)] px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
+                    className="inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-[12px] bg-[var(--brand-primary)] px-4 py-2 text-xs font-bold text-white disabled:opacity-50 sm:min-h-0 sm:flex-none"
                     onClick={() => void handleSmartSearch()}
                     disabled={smartSearchLoading || !smartSearchQuery.trim()}
                   >
@@ -3691,7 +3691,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                 <footer className="sticky bottom-0 z-10 flex gap-2 border-t border-[var(--app-border)] bg-white/95 p-4 backdrop-blur">
                   <button
                     type="button"
-                    className="flex-1 rounded-[12px] border border-[var(--app-border)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--app-ink)]"
+                    className="min-h-11 flex-1 rounded-[12px] border border-[var(--app-border)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--app-ink)]"
                     onClick={() => setProfileDrawerMentorId(null)}
                   >
                     Cerrar
@@ -3699,7 +3699,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                   <button
                     type="button"
                     disabled={profileDrawerMentor.offers.length === 0}
-                    className="flex-1 inline-flex items-center justify-center gap-2 rounded-[12px] bg-[var(--brand-primary)] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+                    className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-[12px] bg-[var(--brand-primary)] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
                     onClick={() => {
                       const primary = profileDrawerMentor.offers[0];
                       if (!primary) return;
@@ -3753,7 +3753,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
             <button
               type="button"
               onClick={() => setComprarStep('list')}
-              className="inline-flex items-center gap-1.5 rounded-[12px] border border-[var(--app-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--app-muted)] hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)]"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-[12px] border border-[var(--app-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--app-muted)] hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)]"
             >
               <ArrowLeft size={13} />
               Volver
@@ -3938,14 +3938,14 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
           <div className="sticky bottom-2 z-10 flex flex-col-reverse gap-2 rounded-[16px] border border-[var(--app-border)] bg-white/95 p-3 shadow-sm backdrop-blur sm:flex-row sm:items-center sm:justify-between">
             <button
               type="button"
-              className="rounded-[12px] border border-[var(--app-border)] px-4 py-2.5 text-sm font-semibold text-[var(--app-ink)]"
+              className="min-h-11 rounded-[12px] border border-[var(--app-border)] px-4 py-2.5 text-sm font-semibold text-[var(--app-ink)]"
               onClick={() => setComprarStep('list')}
             >
               Volver
             </button>
             <button
               type="button"
-              className="inline-flex items-center justify-center gap-2 rounded-[14px] bg-[var(--brand-primary)] px-5 py-2.5 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-40"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[14px] bg-[var(--brand-primary)] px-5 py-2.5 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-40"
               disabled={!canContinue}
               onClick={() => setComprarStep('pay')}
             >
@@ -3969,7 +3969,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
             <button
               type="button"
               onClick={() => setComprarStep('configure')}
-              className="inline-flex items-center gap-1.5 rounded-[12px] border border-[var(--app-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--app-muted)] hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)]"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-[12px] border border-[var(--app-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--app-muted)] hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)]"
             >
               <ArrowLeft size={13} />
               Volver
@@ -4105,7 +4105,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                 type="button"
                 disabled={submittingAdditional || redirectingToPayment}
                 onClick={() => void handleAdditionalPurchase()}
-                className="mt-4 w-full rounded-[14px] bg-[var(--brand-primary)] px-4 py-3 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-50"
+                className="mt-4 min-h-11 w-full rounded-[14px] bg-[var(--brand-primary)] px-4 py-3 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-50"
               >
                 {redirectingToPayment
                   ? 'Redirigiendo al pago…'

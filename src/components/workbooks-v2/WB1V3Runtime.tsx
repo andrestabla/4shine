@@ -1509,21 +1509,29 @@ export function WorkbookV3Runtime({ config }: { config: WB1Config }) {
         <div className={WORKBOOK_V2_EDITORIAL.classes.shell}>
             <header className={`${WORKBOOK_V2_EDITORIAL.classes.toolbar} wb1-toolbar`}>
                 <div className={WORKBOOK_V2_EDITORIAL.classes.toolbarInner}>
-                    <Link href="/dashboard/aprendizaje?tab=workbooks" className={WORKBOOK_V2_EDITORIAL.classes.backButton}>
-                        <ArrowLeft size={16} />
-                        Volver
-                    </Link>
-                    <div className="min-w-0 flex-1 sm:mr-auto">
-                        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
-                            {config.code} {config.version} · {config.pillar}
-                        </p>
-                        <h1 className="mt-1 text-base font-bold text-slate-900 md:text-lg">{config.title}</h1>
+                    <div className="flex w-full items-start gap-2 md:contents">
+                        <Link href="/dashboard/aprendizaje?tab=workbooks" className={WORKBOOK_V2_EDITORIAL.classes.backButton}>
+                            <ArrowLeft size={16} />
+                            Volver
+                        </Link>
+                        <div className="min-w-0 flex-1 sm:mr-auto">
+                            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                                {config.code} {config.version} · {config.pillar}
+                            </p>
+                            <h1 className="mt-1 text-base font-bold text-slate-900 md:text-lg">{config.title}</h1>
+                            <p className="mt-0.5 text-[11px] font-semibold text-slate-500 md:hidden">
+                                {completionPercent}% completado
+                                {lastSavedAt
+                                    ? ` · Guardado ${new Date(lastSavedAt).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}`
+                                    : ''}
+                            </p>
+                        </div>
                     </div>
-                    <span className={`${WORKBOOK_V2_EDITORIAL.classes.progressPill} workbook-progress-pill`}>
+                    <span className={`${WORKBOOK_V2_EDITORIAL.classes.progressPill} workbook-progress-pill max-md:hidden`}>
                         {completionPercent}% completado
                     </span>
                     {lastSavedAt && (
-                        <span className={WORKBOOK_V2_EDITORIAL.classes.savedPill}>
+                        <span className={`${WORKBOOK_V2_EDITORIAL.classes.savedPill} max-md:hidden`}>
                             Guardado{' '}
                             {new Date(lastSavedAt).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
                         </span>

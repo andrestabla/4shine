@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Compass, MessageSquare, TrendingUp, Globe, Map, BarChart2, Users } from 'lucide-react';
 import { loadServerBranding } from '@/lib/server-branding';
 import { MarketingShell } from '@/components/marketing/MarketingShell';
+import { MarketingMobileNav } from '@/components/marketing/MarketingMobileNav';
 import { BlockRenderer } from '@/components/site-builder/BlockRenderer';
 import { getPublicPageByKey, listPublicNavItems } from '@/lib/site-pages';
 
@@ -259,16 +260,19 @@ export default async function HomeMarketingPage() {
                 ))}
               </nav>
             )}
-            <Link
-              href="/acceso"
-              className="rounded-full px-5 py-2 text-sm font-extrabold transition hover:opacity-90"
-              style={{
-                background: 'var(--brand-accent)',
-                color: 'var(--brand-on-accent)',
-              }}
-            >
-              Ingresar
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/acceso"
+                className="hidden rounded-full px-5 py-2 text-sm font-extrabold transition hover:opacity-90 md:inline-block"
+                style={{
+                  background: 'var(--brand-accent)',
+                  color: 'var(--brand-on-accent)',
+                }}
+              >
+                Ingresar
+              </Link>
+              <MarketingMobileNav items={navItems} />
+            </div>
           </header>
 
           <div className="grid items-center gap-12 lg:grid-cols-[1.1fr_0.9fr]">
