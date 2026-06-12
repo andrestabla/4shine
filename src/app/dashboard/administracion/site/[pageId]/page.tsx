@@ -129,6 +129,91 @@ function ImageFieldInput({ value, onChange }: { value: string; onChange: (next: 
   );
 }
 
+interface AdviserOption {
+  userId: string;
+  name: string;
+  photoUrl: string;
+  profession: string;
+}
+
+function AdvisersPickerInput({ value, onChange }: { value: unknown; onChange: (next: unknown) => void }) {
+  const [advisers, setAdvisers] = React.useState<AdviserOption[] | null>(null);
+  const selected = Array.isArray(value) ? (value as string[]).filter((id) => typeof id === 'string') : [];
+
+  React.useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch('/api/v1/public/site/advisers', { cache: 'no-store', credentials: 'include' });
+        const json = (await res.json()) as { ok: boolean; data?: AdviserOption[] };
+        if (!cancelled) setAdvisers(json.ok && Array.isArray(json.data) ? json.data : []);
+      } catch {
+        if (!cancelled) setAdvisers([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (advisers === null) {
+    return (
+      <div className="flex items-center gap-2 text-[11px] text-[var(--app-muted)]">
+        <Loader2 size={12} className="animate-spin" />
+        Cargando advisers...
+      </div>
+    );
+  }
+
+  if (advisers.length === 0) {
+    return <p className="text-[11px] text-[var(--app-muted)]">No hay advisers activos en la plataforma.</p>;
+  }
+
+  const toggle = (userId: string) => {
+    onChange(selected.includes(userId) ? selected.filter((id) => id !== userId) : [...selected, userId]);
+  };
+
+  return (
+    <div className="space-y-1.5">
+      {advisers.map((adviser) => {
+        const isChecked = selected.includes(adviser.userId);
+        const order = selected.indexOf(adviser.userId);
+        return (
+          <button
+            key={adviser.userId}
+            type="button"
+            onClick={() => toggle(adviser.userId)}
+            className={`flex w-full items-center gap-2.5 rounded-lg border px-2.5 py-2 text-left transition ${
+              isChecked ? 'border-[var(--app-accent)] bg-[var(--app-surface)]' : 'border-[var(--app-border)] hover:border-[var(--app-accent)]'
+            }`}
+          >
+            {adviser.photoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={adviser.photoUrl} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover" />
+            ) : (
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--app-surface)] text-[10px] font-bold text-[var(--app-muted)]">
+                {adviser.name.charAt(0)}
+              </span>
+            )}
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-xs font-semibold text-[var(--app-ink)]">{adviser.name}</span>
+              {adviser.profession && (
+                <span className="block truncate text-[10px] text-[var(--app-muted)]">{adviser.profession}</span>
+              )}
+            </span>
+            {isChecked && (
+              <span className="shrink-0 rounded-full bg-[var(--app-accent)] px-1.5 py-0.5 text-[10px] font-bold text-white">
+                {order + 1}
+              </span>
+            )}
+          </button>
+        );
+      })}
+      <p className="text-[10px] text-[var(--app-muted)]">El número indica el orden en que aparecerán.</p>
+    </div>
+  );
+}
+
 function FieldInput({
   field,
   value,
@@ -276,6 +361,8 @@ function FieldInput({
       );
     case 'image':
       return <ImageFieldInput value={typeof value === 'string' ? value : ''} onChange={onChange} />;
+    case 'advisers':
+      return <AdvisersPickerInput value={value} onChange={onChange} />;
     case 'list': {
       const list = Array.isArray(value) ? (value as Record<string, unknown>[]) : [];
       const itemLabel = field.itemLabel ?? 'Elemento';

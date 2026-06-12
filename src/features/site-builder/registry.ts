@@ -11,6 +11,7 @@ export type BlockFieldType =
   | 'number'
   | 'range'
   | 'icon'
+  | 'advisers'
   | 'list';
 
 export type BlockFieldGroup = 'content' | 'style';
@@ -941,7 +942,34 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
       { key: 'kicker', label: 'Kicker', type: 'text' },
       { key: 'title', label: 'Título', type: 'textarea' },
       { key: 'subtitle', label: 'Subtítulo', type: 'textarea' },
-      columnsField(4),
+      {
+        key: 'layout',
+        label: 'Presentación',
+        type: 'select',
+        options: [
+          { value: 'grid', label: 'Grilla simple' },
+          { value: 'cards', label: 'Tarjetas' },
+          { value: 'accordion', label: 'Acordeón' },
+          { value: 'slider', label: 'Slider / carrusel' },
+        ],
+      },
+      {
+        key: 'mode',
+        label: '¿Quiénes se muestran?',
+        type: 'select',
+        options: [
+          { value: 'all', label: 'Todos los advisers activos' },
+          { value: 'selected', label: 'Solo los seleccionados' },
+        ],
+        help: 'Los advisers desactivados en la plataforma nunca se muestran.',
+      },
+      {
+        key: 'selectedIds',
+        label: 'Selecciona los advisers',
+        type: 'advisers',
+        showIf: (p) => p.mode === 'selected',
+      },
+      { ...columnsField(4), showIf: (p) => p.layout === 'grid' || p.layout === 'cards' },
       {
         key: 'limit',
         label: 'Máximo de advisers (0 = todos)',
@@ -951,7 +979,11 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
         step: 1,
       },
       { key: 'showBio', label: 'Mostrar biografía', type: 'toggle' },
+      { key: 'showTopics', label: 'Mostrar temas que trabaja', type: 'toggle' },
+      { key: 'showLocation', label: 'Mostrar ubicación', type: 'toggle' },
+      { key: 'showExperience', label: 'Mostrar años de experiencia', type: 'toggle' },
       { key: 'showLinkedIn', label: 'Mostrar LinkedIn', type: 'toggle' },
+      { key: 'showWebsite', label: 'Mostrar sitio web y Twitter/X', type: 'toggle' },
       {
         key: 'photoShape',
         label: 'Forma de la foto',
@@ -968,10 +1000,17 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
       kicker: 'Nuestros Advisers',
       title: 'Aprende de quienes ya lo han vivido.',
       subtitle: 'Practicantes del liderazgo que acompañan desde la experiencia real.',
+      layout: 'grid',
+      mode: 'all',
+      selectedIds: [],
       columns: '3',
       limit: 0,
       showBio: true,
+      showTopics: true,
+      showLocation: true,
+      showExperience: true,
       showLinkedIn: true,
+      showWebsite: true,
       photoShape: 'circle',
     },
   }),

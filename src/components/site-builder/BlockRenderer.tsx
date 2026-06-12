@@ -1101,16 +1101,28 @@ function AdvisersBlock({ props }: { props: SiteBlockProps }) {
   const columns = Math.min(4, Math.max(2, parseInt(str(props, 'columns') || '3', 10) || 3));
   const photoShape = str(props, 'photoShape') || 'circle';
   const photoClass = photoShape === 'circle' ? 'rounded-full' : photoShape === 'rounded' ? 'rounded-2xl' : 'rounded-none';
+  const layoutRaw = str(props, 'layout');
+  const layout = layoutRaw === 'cards' || layoutRaw === 'accordion' || layoutRaw === 'slider' ? layoutRaw : 'grid';
+  const selectedIds = Array.isArray(props.selectedIds)
+    ? (props.selectedIds as unknown[]).filter((id): id is string => typeof id === 'string')
+    : [];
 
   return (
     <SectionShell props={props} palette={palette}>
       <SectionHeading props={props} palette={palette} className="mb-12" />
       <AdvisersBlockClient
+        layout={layout}
         columnsClass={gridColsClass(columns)}
         photoClass={photoClass}
+        mode={str(props, 'mode') === 'selected' ? 'selected' : 'all'}
+        selectedIds={selectedIds}
+        limit={num(props, 'limit', 0)}
         showBio={bool(props, 'showBio', true)}
         showLinkedIn={bool(props, 'showLinkedIn', true)}
-        limit={num(props, 'limit', 0)}
+        showLocation={bool(props, 'showLocation', true)}
+        showExperience={bool(props, 'showExperience', true)}
+        showTopics={bool(props, 'showTopics', true)}
+        showWebsite={bool(props, 'showWebsite', true)}
         headingColor={palette.heading}
         textColor={palette.text}
         mutedColor={palette.muted}
