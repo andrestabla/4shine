@@ -34,6 +34,15 @@ const RESERVED_SLUGS = new Set([
 
 const SLUG_PATTERN = /^[a-z0-9-]{1,80}$/;
 
+/** Slug canónico de cada página de sistema (la ruta codificada original). */
+export const SYSTEM_CANONICAL_SLUGS: Record<string, string> = {
+  home: '',
+  descubrimiento: 'descubrimiento',
+  metodologia: 'metodologia',
+  planes_precios: 'planes-precios',
+  afiliados: 'afiliados',
+};
+
 interface SitePageRow {
   page_id: string;
   page_key: string;
@@ -252,11 +261,20 @@ export async function updateSitePage(
   const existing = await getSitePageById(client, organizationId, pageId);
   if (!existing) throw new SiteBuilderError('Página no encontrada.', 404);
 
+  const useBuilder = typeof input.useBuilder === 'boolean' ? input.useBuilder : existing.useBuilder;
+  const canonicalSlug = SYSTEM_CANONICAL_SLUGS[existing.pageKey];
+
   let slug = existing.slug;
-  if (typeof input.slug === 'string' && !existing.isSystem) {
+  // La home siempre vive en '/'; las demás páginas de sistema solo pueden cambiar
+  // de URL cuando el builder está activo (la ruta original redirige a la nueva).
+  const slugLocked = existing.isSystem && (existing.pageKey === 'home' || !useBuilder);
+  if (typeof input.slug === 'string' && !slugLocked) {
     slug = normalizeSlug(input.slug);
     if (!slug) throw new SiteBuilderError('Slug inválido.');
-    assertValidSlug(slug);
+    if (slug !== canonicalSlug) assertValidSlug(slug);
+  }
+  if (existing.isSystem && !useBuilder && canonicalSlug !== undefined) {
+    slug = canonicalSlug;
   }
 
   const title = typeof input.title === 'string' && input.title.trim() ? input.title.trim().slice(0, 160) : existing.title;
@@ -264,7 +282,6 @@ export async function updateSitePage(
   const showInNav = typeof input.showInNav === 'boolean' ? input.showInNav : existing.showInNav;
   const navOrder = typeof input.navOrder === 'number' && Number.isFinite(input.navOrder) ? Math.round(input.navOrder) : existing.navOrder;
   const isVisible = typeof input.isVisible === 'boolean' ? input.isVisible : existing.isVisible;
-  const useBuilder = typeof input.useBuilder === 'boolean' ? input.useBuilder : existing.useBuilder;
   const sections = input.sections !== undefined ? sanitizeSections(input.sections) : existing.sections;
   const seo = input.seo !== undefined ? sanitizeSeo(input.seo) : existing.seo;
 

@@ -537,7 +537,7 @@ export default function SiteBuilderEditorPage() {
     setIsSaving(true);
     const res = await updateSitePage(page.pageId, {
       title: page.title,
-      slug: page.isSystem ? undefined : page.slug,
+      slug: page.slug,
       navLabel: page.navLabel,
       showInNav: page.showInNav,
       isVisible: page.isVisible,
@@ -1020,13 +1020,21 @@ export default function SiteBuilderEditorPage() {
                   <input
                     type="text"
                     value={page.slug}
-                    disabled={page.isSystem}
+                    disabled={page.isSystem && (page.pageKey === 'home' || !page.useBuilder)}
                     onChange={(e) => mutatePage((prev) => ({ ...prev, slug: e.target.value }))}
                     className={`${inputClass} font-mono disabled:opacity-50`}
                   />
-                  {page.isSystem && (
-                    <p className="text-[10px] text-[var(--app-muted)]">Las páginas del sistema mantienen su URL.</p>
-                  )}
+                  {page.isSystem && page.pageKey === 'home' ? (
+                    <p className="text-[10px] text-[var(--app-muted)]">La página de inicio siempre vive en /.</p>
+                  ) : page.isSystem && !page.useBuilder ? (
+                    <p className="text-[10px] text-[var(--app-muted)]">
+                      Activa “Usar builder” para poder cambiar la URL. Mientras tanto la página mantiene su ruta original.
+                    </p>
+                  ) : page.isSystem ? (
+                    <p className="text-[10px] text-[var(--app-muted)]">
+                      Si cambias la URL, la ruta original redirigirá automáticamente a la nueva.
+                    </p>
+                  ) : null}
                 </div>
                 <div className="space-y-1">
                   <label className="text-[11px] font-semibold text-[var(--app-muted)]">Etiqueta en el menú</label>

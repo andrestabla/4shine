@@ -11,6 +11,7 @@ export type SiteBlockType =
   | 'testimonials'
   | 'quote'
   | 'team'
+  | 'advisers'
   | 'logos'
   | 'gallery'
   | 'pricing'

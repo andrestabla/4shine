@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Compass, MessageSquare, TrendingUp, Globe } from 'lucide-react';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { MarketingShell } from '@/components/marketing/MarketingShell';
 import { loadServerBranding } from '@/lib/server-branding';
 import { BlockRenderer } from '@/components/site-builder/BlockRenderer';
@@ -111,6 +111,8 @@ export default async function MetodologiaPage() {
   ]);
   if (builderPage && !builderPage.isVisible) notFound();
   if (builderPage?.useBuilder && builderPage.sections.length > 0) {
+    // La URL pudo cambiar desde el builder: la ruta original redirige a la nueva.
+    if (builderPage.slug && builderPage.slug !== 'metodologia') redirect(`/${builderPage.slug}`);
     return (
       <MarketingShell>
         <BlockRenderer sections={builderPage.sections} />

@@ -4,6 +4,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import type { SiteBlock, SiteBlockProps } from '@/features/site-builder/types';
 import { SECTION_LAYOUTS } from '@/features/site-builder/registry';
 import { SITE_ICONS, hasSiteIcon } from '@/features/site-builder/icons';
+import { AdvisersBlockClient } from './AdvisersBlockClient';
 
 /* ─────────────────────────── Prop helpers ─────────────────────────── */
 
@@ -1095,6 +1096,31 @@ function TeamBlock({ props }: { props: SiteBlockProps }) {
   );
 }
 
+function AdvisersBlock({ props }: { props: SiteBlockProps }) {
+  const palette = resolveSectionPalette(props);
+  const columns = Math.min(4, Math.max(2, parseInt(str(props, 'columns') || '3', 10) || 3));
+  const photoShape = str(props, 'photoShape') || 'circle';
+  const photoClass = photoShape === 'circle' ? 'rounded-full' : photoShape === 'rounded' ? 'rounded-2xl' : 'rounded-none';
+
+  return (
+    <SectionShell props={props} palette={palette}>
+      <SectionHeading props={props} palette={palette} className="mb-12" />
+      <AdvisersBlockClient
+        columnsClass={gridColsClass(columns)}
+        photoClass={photoClass}
+        showBio={bool(props, 'showBio', true)}
+        showLinkedIn={bool(props, 'showLinkedIn', true)}
+        limit={num(props, 'limit', 0)}
+        headingColor={palette.heading}
+        textColor={palette.text}
+        mutedColor={palette.muted}
+        isDark={palette.isDark}
+      />
+      <ButtonsRow props={props} palette={palette} className="mt-10" />
+    </SectionShell>
+  );
+}
+
 function LogosBlock({ props }: { props: SiteBlockProps }) {
   const palette = resolveSectionPalette({ paddingY: 'compact', ...props });
   const list = items(props);
@@ -1532,6 +1558,8 @@ export function SiteBlockView({ block }: { block: SiteBlock }) {
       return <QuoteBlock props={block.props} />;
     case 'team':
       return <TeamBlock props={block.props} />;
+    case 'advisers':
+      return <AdvisersBlock props={block.props} />;
     case 'logos':
       return <LogosBlock props={block.props} />;
     case 'gallery':
