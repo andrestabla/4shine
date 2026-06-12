@@ -149,7 +149,7 @@ export function ActivityPlayer({ contentId }: { contentId: string }) {
 
       {phase === 'playing' && (
         <div className="space-y-4">
-          <div className="space-y-4 pb-24 sm:pb-0">
+          <div className="space-y-4">
             {safeQuestions.map((q, idx) => (
               <PlayerQuestion
                 key={q.questionId}
@@ -163,7 +163,9 @@ export function ActivityPlayer({ contentId }: { contentId: string }) {
               />
             ))}
           </div>
-          <div className="sticky bottom-0 z-10 -mx-5 flex gap-2 border-t border-[var(--app-border)] bg-white px-4 py-3 sm:bottom-2 sm:mx-0 sm:justify-end sm:rounded-[16px] sm:border sm:bg-white/95 sm:shadow-sm sm:backdrop-blur">
+          {/* En móvil la barra va al final del flujo (nunca tapa las categorías al clasificar);
+              en sm+ vuelve a ser sticky flotante como tarjeta. */}
+          <div className="z-10 flex gap-2 border-t border-[var(--app-border)] bg-white pt-3 sm:sticky sm:bottom-2 sm:justify-end sm:rounded-[16px] sm:border sm:bg-white/95 sm:px-4 sm:py-3 sm:shadow-sm sm:backdrop-blur">
             <button
               type="button"
               className="flex-1 rounded-[12px] border border-[var(--app-border)] px-4 py-2.5 text-sm font-semibold text-[var(--app-ink)] sm:flex-none sm:py-2"

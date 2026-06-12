@@ -1716,8 +1716,11 @@ export default function LearningResourceDetailPage() {
             />
           )}
           {((!isScormPackage && !isHtmlOnlyPackage) || (isScormPackage && activeResourceIndex === totalItems && hasCertificateScreen)) && (
-          <section className="relative z-20 flex flex-1 items-center justify-center overflow-auto p-4 pb-6 sm:p-8 sm:pb-8 md:pb-24">
-            <div className="w-full max-w-5xl">
+          /* m-auto en el hijo (no items/justify-center en el contenedor): centra cuando el
+             contenido cabe y permite alcanzar el inicio con scroll cuando es más alto que
+             el viewport — items-center + overflow recorta la parte superior sin acceso. */
+          <section className="relative z-20 flex flex-1 overflow-auto p-4 pb-6 sm:p-8 sm:pb-8 md:pb-24">
+            <div className="m-auto w-full max-w-5xl">
               {(!resource) ? (
                 <div className="flex flex-col items-center justify-center p-12 text-slate-500">
                   <Loader2 className="animate-spin mb-4" size={32} />
