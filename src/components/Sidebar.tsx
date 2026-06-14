@@ -141,12 +141,6 @@ const MAIN_NAV_ITEMS: NavItem[] = [
     icon: PieChart,
     path: "/dashboard/analitica",
   },
-  {
-    moduleCode: "perfil",
-    label: "Mi suscripción",
-    icon: CreditCard,
-    path: "/dashboard/suscripcion",
-  },
 ];
 
 const ADMIN_NAV_ITEMS: NavItem[] = [

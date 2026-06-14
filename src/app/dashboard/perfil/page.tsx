@@ -15,6 +15,7 @@ import {
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { EmptyState } from '@/components/dashboard/EmptyState';
 import { PurchasedProductsPanel } from '@/components/dashboard/PurchasedProductsPanel';
+import { MySubscriptionSection } from '@/components/dashboard/MySubscriptionSection';
 import { DeleteUserReasonModal } from '@/components/dashboard/DeleteUserReasonModal';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { R2UploadButton } from '@/components/ui/R2UploadButton';
@@ -993,6 +994,11 @@ export default function PerfilPage() {
               )}
             </section>
           )}
+
+          <MySubscriptionSection
+            currentPlanId={profile.subscriptionPlanId ?? null}
+            expiresAt={profile.subscriptionExpiresAt ?? null}
+          />
 
           <PurchasedProductsPanel
             purchases={profile.purchases}

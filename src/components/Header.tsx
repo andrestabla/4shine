@@ -11,9 +11,11 @@ import {
   Info,
   AlertCircle,
   MessageSquare,
+  LogOut,
 } from "lucide-react";
 import clsx from "clsx";
 import { usePathname, useRouter } from "next/navigation";
+import { useAppDialog } from "@/components/ui/AppDialogProvider";
 import {
   markAllNotificationsRead,
   markNotificationRead,
@@ -61,8 +63,9 @@ function resolvePageTitle(pathname: string): string {
 }
 
 export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
-  const { currentUser, bootstrapData } = useUser();
+  const { currentUser, bootstrapData, logout } = useUser();
   const { branding, tokens } = useBranding();
+  const { confirm } = useAppDialog();
   const headerPlatformName = branding.platformName?.trim() || "";
   const showHeaderPlatformName =
     branding.showPlatformName !== false && headerPlatformName.length > 0;
@@ -104,6 +107,18 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
   const markAllRead = () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     void markAllNotificationsRead();
+  };
+
+  const handleLogout = async () => {
+    const approved = await confirm({
+      title: "¿Cerrar sesión?",
+      message: "¿Estás seguro que deseas salir de la plataforma?",
+      tone: "warning",
+      confirmText: "Sí, salir",
+      cancelText: "Cancelar",
+    });
+    if (!approved) return;
+    await logout();
   };
 
   const openNotification = (notif: Notification) => {
@@ -261,7 +276,12 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 
           <div className="hidden h-8 w-px bg-[var(--app-border)] md:block" />
 
-          <div className="flex items-center gap-3 rounded-[1.1rem] border border-[var(--app-border)] bg-white/92 px-2 py-1.5 sm:px-2.5">
+          <button
+            type="button"
+            onClick={() => router.push("/dashboard/perfil")}
+            title="Ver mi perfil"
+            className="flex items-center gap-3 rounded-[1.1rem] border border-[var(--app-border)] bg-white/92 px-2 py-1.5 transition hover:bg-white hover:border-[var(--app-border-strong)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-border-strong)] sm:px-2.5"
+          >
             <div className="hidden text-right md:block">
               <p className="text-sm font-extrabold text-[var(--app-ink)]">
                 {currentUser?.name}
@@ -285,7 +305,17 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
                 (currentUser?.avatar ?? currentUser?.name.charAt(0) ?? "U")
               )}
             </div>
-          </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => void handleLogout()}
+            title="Cerrar sesión"
+            aria-label="Cerrar sesión"
+            className="flex h-12 w-12 items-center justify-center rounded-[1rem] border border-[var(--app-border)] bg-white/88 text-[var(--app-muted)] transition hover:bg-white hover:text-rose-600"
+          >
+            <LogOut size={18} />
+          </button>
         </div>
       </div>
     </header>
