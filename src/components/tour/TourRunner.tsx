@@ -93,7 +93,9 @@ export default function TourRunner({
     setRect(null);
 
     const anchor = step.anchor;
-    if (anchor.area === "sidebar") forceSidebarOpen(true);
+    // En móvil el menú lateral es off-canvas: ábrelo para los pasos del sidebar
+    // y ciérralo para los de la barra superior (si no, el panel abierto los tapa).
+    forceSidebarOpen(anchor.area === "sidebar");
     if (anchor.route && pathname !== anchor.route) {
       router.push(anchor.route);
     }
@@ -151,6 +153,7 @@ export default function TourRunner({
   }, [index, step?.anchor.selector]);
 
   const handleClose = React.useCallback(() => {
+    forceSidebarOpen(false);
     void apiFinishTour({
       status: "dismissed",
       lastStepKey: step?.stepKey,
@@ -158,9 +161,10 @@ export default function TourRunner({
       totalSteps: total,
     });
     onClose();
-  }, [index, onClose, step?.stepKey, total]);
+  }, [index, onClose, step?.stepKey, total, forceSidebarOpen]);
 
   const handleComplete = React.useCallback(() => {
+    forceSidebarOpen(false);
     void apiFinishTour({
       status: "completed",
       lastStepKey: step?.stepKey,
@@ -168,7 +172,10 @@ export default function TourRunner({
       totalSteps: total,
     });
     onComplete();
-  }, [index, onComplete, step?.stepKey, total]);
+  }, [index, onComplete, step?.stepKey, total, forceSidebarOpen]);
+
+  // Restaura el menú lateral si el componente se desmonta sin pasar por los handlers.
+  React.useEffect(() => () => forceSidebarOpen(false), [forceSidebarOpen]);
 
   const goNext = React.useCallback(() => {
     if (index >= total - 1) {
@@ -202,19 +209,33 @@ export default function TourRunner({
   const isNarrow = vw < 768;
 
   let cardStyle: React.CSSProperties;
-  if (!rect) {
+  if (isNarrow) {
+    // Móvil: hoja inferior (bottom sheet) a ancho completo, con scroll propio.
+    // Evita solaparse con el menú off-canvas abierto y los desbordes de texto.
+    cardStyle = {
+      left: 12,
+      right: 12,
+      bottom: 12,
+      maxHeight: "62vh",
+      overflowY: "auto",
+    };
+  } else if (!rect) {
     cardStyle = {
       top: "50%",
       left: "50%",
       transform: "translate(-50%, -50%)",
       width: Math.min(CARD_WIDTH, vw - 32),
+      maxHeight: "80vh",
+      overflowY: "auto",
     };
-  } else if (!isNarrow && rect.left + rect.width + CARD_GAP + CARD_WIDTH < vw) {
+  } else if (rect.left + rect.width + CARD_GAP + CARD_WIDTH < vw) {
     // a la derecha
     cardStyle = {
       top: Math.min(Math.max(rect.top, 16), vh - 240),
       left: rect.left + rect.width + CARD_GAP,
       width: CARD_WIDTH,
+      maxHeight: "80vh",
+      overflowY: "auto",
     };
   } else {
     // debajo (o encima si no cabe), centrado horizontalmente respecto al objetivo
@@ -227,6 +248,8 @@ export default function TourRunner({
       top: fitsBelow ? below : Math.max(16, rect.top - CARD_GAP - 220),
       left,
       width,
+      maxHeight: "80vh",
+      overflowY: "auto",
     };
   }
 
