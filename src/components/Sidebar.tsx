@@ -34,6 +34,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
 import type { ModuleCode, PermissionAction } from "@/lib/permissions";
+import { anchorKeyForPath } from "@/features/tour/catalog";
 import { getOnColorText, rgbaFromHex } from "@/lib/color-contrast";
 
 interface SidebarProps {
@@ -261,6 +262,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
       <Link
         key={item.path}
         href={item.path}
+        data-tour={anchorKeyForPath(item.path)}
         onClick={onClose}
         className={clsx(
           "group relative flex w-full items-center gap-3 rounded-[1rem] px-3 py-3 text-left text-sm font-semibold transition-all duration-200",

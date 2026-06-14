@@ -2,6 +2,9 @@
 
 import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
+import TourRunner from "@/components/tour/TourRunner";
+import { getMyTour } from "@/features/tour/client";
+import type { MyTourPayload } from "@/features/tour/types";
 import { R2UploadButton } from "@/components/ui/R2UploadButton";
 import { useUser } from "@/context/UserContext";
 import { useBranding } from "@/context/BrandingContext";
@@ -65,6 +68,10 @@ const ACCESS_BY_PATH: Record<string, RouteAccess> = {
     moduleCode: "usuarios",
     action: "manage",
   },
+  "/dashboard/administracion/tour": {
+    moduleCode: "usuarios",
+    action: "manage",
+  },
   "/dashboard/contenido": { moduleCode: "contenido" },
   "/dashboard/analitica": { moduleCode: "analitica" },
 };
@@ -118,6 +125,9 @@ export default function DashboardLayout({
     yearsExperienceKey: "",
   });
   const didTrackLoad = useRef(false);
+  const [tourPayload, setTourPayload] = useState<MyTourPayload | null>(null);
+  const [tourActive, setTourActive] = useState(false);
+  const didFetchTour = useRef(false);
   const routeAccess = resolveRouteAccess(pathname);
   const canViewRoute = routeAccess
     ? can(routeAccess.moduleCode, routeAccess.action ?? "view")
@@ -204,6 +214,23 @@ export default function DashboardLayout({
       cancelled = true;
     };
   }, [isAuthenticated, isHydrating]);
+
+  // Tour de onboarding: tras resolver el modal de perfil, si el usuario no ha
+  // completado/cerrado el tour de la versión actual, arranca automáticamente.
+  useEffect(() => {
+    if (isHydrating || !isAuthenticated) return;
+    if (isCheckingOnboarding || showOnboarding) return;
+    if (didFetchTour.current) return;
+    didFetchTour.current = true;
+    void (async () => {
+      const res = await getMyTour();
+      if (!res.ok || !res.data) return;
+      setTourPayload(res.data);
+      if (res.data.enabled && res.data.shouldAutoStart && res.data.steps.length > 0) {
+        setTourActive(true);
+      }
+    })();
+  }, [isAuthenticated, isHydrating, isCheckingOnboarding, showOnboarding]);
 
   const saveOnboardingProfile = async () => {
     const yearsExperience = keyToStoredValue(onboardingForm.yearsExperienceKey);
@@ -469,6 +496,16 @@ export default function DashboardLayout({
             </div>
           </div>
         </div>
+      )}
+
+      {tourActive && tourPayload && tourPayload.steps.length > 0 && (
+        <TourRunner
+          steps={tourPayload.steps}
+          startIndex={tourPayload.resumeIndex}
+          forceSidebarOpen={setIsSidebarOpen}
+          onClose={() => setTourActive(false)}
+          onComplete={() => setTourActive(false)}
+        />
       )}
     </div>
   );

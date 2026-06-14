@@ -46,6 +46,7 @@ const PATH_TITLES: Record<string, string> = {
   "/dashboard/administracion/notificaciones/eventos": "Configuración de eventos",
   "/dashboard/administracion/planes": "Planes y Precios",
   "/dashboard/administracion/planes/nuevo": "Nuevo plan",
+  "/dashboard/administracion/tour": "Tour de Onboarding",
   "/dashboard/suscripcion": "Mi suscripción",
   "/dashboard/contenido": "Gestión Contenido",
   "/dashboard/analitica": "Analítica",
@@ -194,6 +195,7 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 
           <div className="relative" ref={notificationsRef}>
             <button
+              data-tour="header-notifications"
               onClick={() => setShowNotifications(!showNotifications)}
               className="relative flex h-12 w-12 items-center justify-center rounded-[1rem] border border-[var(--app-border)] bg-white/88 text-[var(--app-muted)] transition hover:bg-white hover:text-[var(--app-ink)]"
             >
@@ -278,6 +280,7 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 
           <button
             type="button"
+            data-tour="header-profile"
             onClick={() => router.push("/dashboard/perfil")}
             title="Ver mi perfil"
             className="flex items-center gap-3 rounded-[1.1rem] border border-[var(--app-border)] bg-white/92 px-2 py-1.5 transition hover:bg-white hover:border-[var(--app-border-strong)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-border-strong)] sm:px-2.5"
@@ -309,6 +312,7 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 
           <button
             type="button"
+            data-tour="header-logout"
             onClick={() => void handleLogout()}
             title="Cerrar sesión"
             aria-label="Cerrar sesión"

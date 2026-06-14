@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { PageTitle } from '@/components/dashboard/PageTitle';
-import { Settings, Palette, PlugZap, Users, ShieldCheck, Globe, Bell, CreditCard, Receipt } from 'lucide-react';
+import { Settings, Palette, PlugZap, Users, ShieldCheck, Globe, Bell, CreditCard, Receipt, Compass } from 'lucide-react';
 
 const ADMIN_CARDS = [
   {
@@ -52,6 +52,12 @@ const ADMIN_CARDS = [
     description: 'Habilitar u ocultar las páginas públicas del sitio: home, diagnóstico, metodología, precios y afiliados.',
     href: '/dashboard/administracion/site',
     icon: Globe,
+  },
+  {
+    title: 'Tour de Onboarding',
+    description: 'Configurar el recorrido guiado del primer ingreso: pasos por rol, reinicio para todos y analítica de vistas.',
+    href: '/dashboard/administracion/tour',
+    icon: Compass,
   },
 ] as const;
 
