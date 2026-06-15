@@ -556,7 +556,7 @@ function mapWorkbookRow(row: WorkbookRow): WorkbookRecord {
   };
 }
 
-async function ensureWorkbookInstances(client: PoolClient, ownerUserId?: string) {
+export async function ensureWorkbookInstances(client: PoolClient, ownerUserId?: string) {
   const params = ownerUserId ? [ownerUserId] : [];
   const ownerFilter = ownerUserId ? 'AND u.user_id = $1' : '';
 
@@ -603,12 +603,30 @@ async function ensureWorkbookInstances(client: PoolClient, ownerUserId?: string)
       WHERE u.primary_role = 'lider'
         AND u.is_active = true
         AND (
+          -- Plan dinámico que habilita la feature de workbooks (fuente de verdad
+          -- actual; alinea el aprovisionamiento con app_billing.plan_module_features,
+          -- igual que getViewerAccessState.canAccessProgramWorkbooks).
           EXISTS (
+            SELECT 1
+            FROM app_core.user_profiles up
+            JOIN app_billing.subscription_plans sp
+              ON sp.plan_id = up.subscription_plan_id
+            JOIN app_billing.plan_module_features pmf
+              ON pmf.plan_id = sp.plan_id
+            WHERE up.user_id = u.user_id
+              AND sp.is_active = true
+              AND pmf.feature_key = 'aprendizaje_workbooks'
+              AND pmf.is_enabled = true
+              AND (up.subscription_expires_at IS NULL OR up.subscription_expires_at > now())
+          )
+          -- Compatibilidad legacy: plan_type histórico…
+          OR EXISTS (
             SELECT 1
             FROM app_core.user_profiles up
             WHERE up.user_id = u.user_id
               AND up.plan_type IN ('premium', 'vip', 'empresa_elite')
           )
+          -- …o compra activa del programa.
           OR EXISTS (
             SELECT 1
             FROM app_billing.user_purchases purchase

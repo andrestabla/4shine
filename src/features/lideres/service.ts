@@ -1,6 +1,7 @@
 import type { PoolClient } from 'pg';
 import { ForbiddenError, requireModulePermission } from '@/server/auth/module-permissions';
 import type { AuthUser } from '@/server/auth/types';
+import { ensureWorkbookInstances } from '@/features/aprendizaje/service';
 
 export interface LeaderWorkbookSummary {
     workbookId: string;
@@ -623,6 +624,10 @@ export async function getLeader360Snapshot(
 ): Promise<Leader360Snapshot> {
     await requireModulePermission(client, 'lideres', 'view');
     await ensureLeaderAccess(actor, targetUserId);
+
+    // Provisiona los workbooks del líder según su plan (incl. planes dinámicos)
+    // para que el panel los muestre aunque el líder aún no haya abierto Aprendizaje.
+    await ensureWorkbookInstances(client, targetUserId).catch(() => {});
 
     const [profile, workbooks, diagnostic, mentorship, content, networking, convocatorias, workshops] =
         await Promise.all([
