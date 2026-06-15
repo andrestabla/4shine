@@ -177,9 +177,13 @@ export async function POST(request: Request) {
           effectiveRole,
         ]);
 
-        // Save Google profile picture if the user has accepted the privacy policy and has no avatar yet
+        // Sincroniza la foto de Google si el usuario aún no tiene avatar propio.
+        // No se condiciona a la aceptación de la política: en el primer ingreso
+        // esta todavía no está aceptada, y como solo se intenta durante el login
+        // de Google, antes la foto nunca llegaba a guardarse. Se respeta una foto
+        // ya subida por el usuario (no se sobrescribe).
         const googlePicture = tokenInfo.picture?.trim() || null;
-        if (googlePicture && userRow.privacy_policy_accepted_at && !userRow.avatar_url) {
+        if (googlePicture && !userRow.avatar_url) {
           await client.query(
             `UPDATE app_core.users SET avatar_url = $2, updated_at = now() WHERE user_id = $1::uuid`,
             [userRow.user_id, googlePicture],
