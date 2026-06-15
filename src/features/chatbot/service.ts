@@ -7,6 +7,9 @@ import { getMyProfile } from '@/features/perfil/service';
 import { getMyDashboard } from '@/features/dashboard/service';
 import { listProgramEntitlements } from '@/features/mentorias/service';
 import { listConvocatorias } from '@/features/convocatorias/service';
+import { listWorkshops } from '@/features/workshops/service';
+import { listWorkbooks } from '@/features/aprendizaje/service';
+import { listConnections } from '@/features/networking/service';
 import { subscriptionStatus, formatExpiry } from '@/features/usuarios/subscription-status';
 import type {
   AdminConversation,
@@ -365,6 +368,15 @@ async function buildUserContext(client: PoolClient, actor: AuthUser): Promise<st
   const convocatoriasBlock = await buildConvocatoriasBlock(client, actor);
   if (convocatoriasBlock) lines.push(convocatoriasBlock);
 
+  const workshopsBlock = await buildWorkshopsBlock(client, actor);
+  if (workshopsBlock) lines.push(workshopsBlock);
+
+  const learningBlock = await buildLearningBlock(client, actor);
+  if (learningBlock) lines.push(learningBlock);
+
+  const networkingBlock = await buildNetworkingBlock(client, actor);
+  if (networkingBlock) lines.push(networkingBlock);
+
   return lines.join('\n');
 }
 
@@ -401,6 +413,79 @@ async function buildConvocatoriasBlock(client: PoolClient, actor: AuthUser): Pro
     const aplicado = c.hasApplied ? ' · YA APLICÓ (puede retirar su aplicación)' : '';
     const lugar = c.location ? ` · ${c.location}` : '';
     out.push(`- «${c.title}» (${estado}${lugar})${aplicado} → /dashboard/convocatorias/${c.convocatoriaId}`);
+  }
+  return out.join('\n');
+}
+
+/** Estado real de workshops: inscritos, próximos y enlace directo a cada uno. */
+async function buildWorkshopsBlock(client: PoolClient, actor: AuthUser): Promise<string | null> {
+  const all = await listWorkshops(client, actor, 100).catch(() => []);
+  if (all.length === 0) return null;
+
+  const isRegistered = (s: string | null) => s === 'registered' || s === 'attended';
+  const upcoming = all.filter((w) => w.status === 'upcoming');
+  const registered = all.filter((w) => isRegistered(w.myAttendanceStatus));
+  const statusLabel: Record<string, string> = { upcoming: 'próximo', completed: 'realizado', cancelled: 'cancelado' };
+
+  const out: string[] = [
+    'ESTADO REAL DE WORKSHOPS (enlaza el workshop ESPECÍFICO, no solo la sección):',
+    `Resumen: próximos ${upcoming.length} · inscrito en ${registered.length}.`,
+    'Cada workshop tiene su página /dashboard/workshops/<id>. Si el usuario ya está inscrito, díselo (y puede cancelar su inscripción ahí); si está cancelado o ya se realizó, indícalo.',
+    'Listado:',
+  ];
+  for (const w of all.slice(0, 25)) {
+    const estado = statusLabel[w.status] ?? w.status;
+    const inscrito = isRegistered(w.myAttendanceStatus) ? ' · YA INSCRITO' : '';
+    const cuando = w.startsAt ? ` · ${fmtDate(w.startsAt)}` : '';
+    const lugar = w.locationName ? ` · ${w.locationName}` : '';
+    out.push(`- «${w.title}» (${estado}${cuando}${lugar})${inscrito} → /dashboard/workshops/${w.workshopId}`);
+  }
+  return out.join('\n');
+}
+
+/** Estado real de aprendizaje: workbooks y su avance, próximo pendiente. */
+async function buildLearningBlock(client: PoolClient, actor: AuthUser): Promise<string | null> {
+  const workbooks = await listWorkbooks(client, actor).catch(() => []);
+  if (workbooks.length === 0) return null;
+
+  const sorted = [...workbooks].sort((a, b) => a.sequenceNo - b.sequenceNo);
+  const completed = sorted.filter((w) => w.completionPercent >= 100).length;
+  const nextPending = sorted.find((w) => w.completionPercent < 100 && w.accessState === 'active');
+
+  const out: string[] = [
+    'ESTADO REAL DE APRENDIZAJE / WORKBOOKS (usa estos datos; el módulo está en /dashboard/aprendizaje):',
+    `Resumen: ${sorted.length} workbooks · completados ${completed}.`,
+  ];
+  if (nextPending) {
+    out.push(
+      `Siguiente pendiente sugerido: ${nextPending.templateCode} «${nextPending.title}» (${Math.round(nextPending.completionPercent)}%). Invítalo a continuarlo en /dashboard/aprendizaje.`,
+    );
+  } else if (completed === sorted.length) {
+    out.push('Tiene todos sus workbooks completados.');
+  }
+  out.push('Detalle:');
+  for (const w of sorted.slice(0, 15)) {
+    out.push(`- ${w.templateCode} «${w.title}»: ${Math.round(w.completionPercent)}%${w.accessState !== 'active' ? ' (no disponible aún)' : ''}.`);
+  }
+  return out.join('\n');
+}
+
+/** Estado real de networking: conexiones y solicitudes pendientes por responder. */
+async function buildNetworkingBlock(client: PoolClient, actor: AuthUser): Promise<string | null> {
+  const connections = await listConnections(client, actor, 200).catch(() => []);
+  if (connections.length === 0) return null;
+
+  const connected = connections.filter((c) => c.status === 'connected').length;
+  // Pendientes que le llegaron a él (no las que él envió) = requieren su acción.
+  const incomingPending = connections.filter((c) => c.status === 'pending' && c.requesterUserId !== actor.userId).length;
+  const sentPending = connections.filter((c) => c.status === 'pending' && c.requesterUserId === actor.userId).length;
+
+  const out: string[] = [
+    'ESTADO REAL DE NETWORKING (módulo en /dashboard/networking):',
+    `Conexiones activas: ${connected} · solicitudes recibidas por responder: ${incomingPending} · solicitudes enviadas pendientes: ${sentPending}.`,
+  ];
+  if (incomingPending > 0) {
+    out.push(`Tiene ${incomingPending} solicitud(es) de conexión esperando su respuesta; sugiérele revisarlas en /dashboard/networking.`);
   }
   return out.join('\n');
 }
