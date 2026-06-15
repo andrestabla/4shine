@@ -34,11 +34,14 @@ export async function GET(request: Request) {
         primary_role: string;
         is_active: boolean;
         privacy_policy_accepted_at: string | null;
+        must_change_password: boolean;
       }>(
         `
           SELECT u.user_id, u.email, u.display_name, u.primary_role, u.is_active,
+                 uc.must_change_password,
                  lpa.accepted_at::text AS privacy_policy_accepted_at
           FROM app_core.users u
+          JOIN app_auth.user_credentials uc ON uc.user_id = u.user_id
           LEFT JOIN LATERAL (
             SELECT accepted_at
             FROM app_auth.user_policy_acceptances
@@ -82,6 +85,7 @@ export async function GET(request: Request) {
         name: result.display_name,
         role: result.primary_role,
         privacyPolicyAccepted: !!result.privacy_policy_accepted_at,
+        mustChangePassword: !!result.must_change_password,
       },
     },
     { status: 200 },

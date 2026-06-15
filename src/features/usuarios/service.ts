@@ -2692,3 +2692,189 @@ export async function selfRegisterUser(
 
   return getUserById(client, userId);
 }
+
+// ─── Acciones masivas (admin) ───────────────────────────────────────────────
+
+export interface BulkActionResult {
+  affected: number;
+  errors: Array<{ userId: string; error: string }>;
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+export async function bulkExtendSubscription(
+  client: PoolClient,
+  _actor: AuthUser,
+  userIds: string[],
+  days: number,
+): Promise<BulkActionResult> {
+  await requireModulePermission(client, 'usuarios', 'update');
+  if (!Number.isFinite(days) || days <= 0) throw new Error('Número de días inválido');
+  if (userIds.length === 0) return { affected: 0, errors: [] };
+  const { rowCount } = await client.query(
+    `UPDATE app_core.user_profiles
+     SET subscription_expires_at = GREATEST(COALESCE(subscription_expires_at, now()), now()) + ($2 || ' days')::interval,
+         updated_at = now()
+     WHERE user_id = ANY($1::uuid[])`,
+    [userIds, String(Math.floor(days))],
+  );
+  return { affected: rowCount ?? 0, errors: [] };
+}
+
+export async function bulkRevokeSessions(
+  client: PoolClient,
+  _actor: AuthUser,
+  userIds: string[],
+): Promise<BulkActionResult> {
+  await requireModulePermission(client, 'usuarios', 'manage');
+  if (userIds.length === 0) return { affected: 0, errors: [] };
+  await client.query(
+    `UPDATE app_auth.refresh_sessions SET revoked_at = now()
+     WHERE user_id = ANY($1::uuid[]) AND revoked_at IS NULL`,
+    [userIds],
+  );
+  return { affected: userIds.length, errors: [] };
+}
+
+export async function bulkForcePasswordChange(
+  client: PoolClient,
+  _actor: AuthUser,
+  userIds: string[],
+): Promise<BulkActionResult> {
+  await requireModulePermission(client, 'usuarios', 'manage');
+  if (userIds.length === 0) return { affected: 0, errors: [] };
+  await client.query(
+    `UPDATE app_auth.user_credentials SET must_change_password = true, updated_at = now()
+     WHERE user_id = ANY($1::uuid[])`,
+    [userIds],
+  );
+  // Revocamos sesiones para forzar el re-login y que pasen por el gate.
+  await client.query(
+    `UPDATE app_auth.refresh_sessions SET revoked_at = now()
+     WHERE user_id = ANY($1::uuid[]) AND revoked_at IS NULL`,
+    [userIds],
+  );
+  return { affected: userIds.length, errors: [] };
+}
+
+export async function bulkSendMessage(
+  client: PoolClient,
+  actor: AuthUser,
+  userIds: string[],
+  input: { title: string; body: string; channels: Array<'in_app' | 'email'> },
+): Promise<BulkActionResult> {
+  await requireModulePermission(client, 'usuarios', 'manage');
+  if (userIds.length === 0) return { affected: 0, errors: [] };
+  const title = input.title.trim();
+  const body = input.body.trim();
+  if (!title || !body) throw new Error('El título y el mensaje son obligatorios.');
+  const channels = input.channels.length > 0 ? input.channels : (['in_app'] as Array<'in_app' | 'email'>);
+
+  const { sendBulkMessage: sendBulk } = await import('@/features/notificaciones/bulk-service');
+  const result = await sendBulk(client, actor, {
+    recipientUserIds: userIds,
+    channels,
+    custom: {
+      subject: title,
+      bodyHtml: `<p>${escapeHtml(body).replace(/\n/g, '<br/>')}</p>`,
+      bodyText: body,
+      inAppTitle: title,
+      inAppBody: body,
+      inAppType: 'message',
+    },
+  });
+  return { affected: result.totalRecipients, errors: result.errors };
+}
+
+// ─── Resumen de Networking de un usuario (para el detalle admin) ─────────────
+
+export interface UserNetworkingCommunity {
+  name: string;
+  memberCount: number;
+}
+
+export interface UserNetworkingSummary {
+  networkingEnabled: boolean;
+  contacts: number;
+  pending: number;
+  communities: UserNetworkingCommunity[];
+}
+
+export async function getUserNetworkingSummary(
+  client: PoolClient,
+  targetUserId: string,
+): Promise<UserNetworkingSummary> {
+  await requireModulePermission(client, 'usuarios', 'view');
+
+  const { rows: userRows } = await client.query<{ primary_role: string }>(
+    `SELECT primary_role FROM app_core.users WHERE user_id = $1::uuid LIMIT 1`,
+    [targetUserId],
+  );
+  const role = userRows[0]?.primary_role ?? '';
+  if (!role) {
+    return { networkingEnabled: false, contacts: 0, pending: 0, communities: [] };
+  }
+
+  // Gating: roles operativos (admin/gestor/mentor) tienen networking; el
+  // invitado no; el líder depende de las features de su plan activo.
+  let networkingEnabled: boolean;
+  if (role === 'invitado') {
+    networkingEnabled = false;
+  } else if (role !== 'lider') {
+    networkingEnabled = true;
+  } else {
+    const { rows } = await client.query<{ is_enabled: boolean }>(
+      `SELECT pmf.is_enabled
+       FROM app_core.user_profiles up
+       JOIN app_billing.subscription_plans sp
+         ON sp.plan_id = up.subscription_plan_id AND sp.is_active = true
+       JOIN app_billing.plan_module_features pmf
+         ON pmf.plan_id = sp.plan_id AND pmf.feature_key = 'networking'
+       WHERE up.user_id = $1::uuid
+         AND (up.subscription_expires_at IS NULL OR up.subscription_expires_at > now())
+       LIMIT 1`,
+      [targetUserId],
+    );
+    networkingEnabled = rows[0]?.is_enabled ?? false;
+  }
+
+  if (!networkingEnabled) {
+    return { networkingEnabled: false, contacts: 0, pending: 0, communities: [] };
+  }
+
+  const [{ rows: contactRows }, { rows: pendingRows }, { rows: communityRows }] = await Promise.all([
+    client.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM app_networking.connections
+       WHERE status = 'connected' AND (requester_user_id = $1::uuid OR addressee_user_id = $1::uuid)`,
+      [targetUserId],
+    ),
+    client.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM app_networking.connections
+       WHERE status = 'pending' AND addressee_user_id = $1::uuid`,
+      [targetUserId],
+    ),
+    client.query<{ name: string; member_count: number }>(
+      `SELECT ig.name,
+              (SELECT count(*)::int FROM app_networking.group_memberships gm2 WHERE gm2.group_id = ig.group_id) AS member_count
+       FROM app_networking.group_memberships gm
+       JOIN app_networking.interest_groups ig ON ig.group_id = gm.group_id
+       WHERE gm.user_id = $1::uuid AND ig.is_active = true
+       ORDER BY ig.is_general DESC, ig.created_at DESC
+       LIMIT 50`,
+      [targetUserId],
+    ),
+  ]);
+
+  return {
+    networkingEnabled: true,
+    contacts: contactRows[0]?.n ?? 0,
+    pending: pendingRows[0]?.n ?? 0,
+    communities: communityRows.map((c) => ({ name: c.name, memberCount: c.member_count })),
+  };
+}

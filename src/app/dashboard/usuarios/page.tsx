@@ -2,17 +2,24 @@
 
 import Link from 'next/link';
 import React from 'react';
-import { Activity, Eye, Search, ShieldCheck, UserPlus, Users, UserX, Lock, Loader2 } from 'lucide-react';
+import {
+  Activity, Eye, Search, ShieldCheck, UserPlus, Users, UserX, Lock, Loader2,
+  FileSpreadsheet, FileText, CalendarClock, Send, LogOut, KeyRound, X,
+} from 'lucide-react';
 import { EmptyState } from '@/components/dashboard/EmptyState';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { SessionsTabSection } from '@/components/dashboard/usuarios/SessionsTabSection';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
+import { useBranding } from '@/context/BrandingContext';
 import { useUser } from '@/context/UserContext';
 import {
   listUsers,
   listDeletedUsersRequest,
+  bulkUserAction,
   type UserRecord,
   type DeletedUserRecord,
+  type BulkAction,
+  type BulkActionParams,
 } from '@/features/usuarios/client';
 import {
   deriveUserTypeSelection,
@@ -20,6 +27,8 @@ import {
   userTypeLabel,
   type UserTypeOption,
 } from '@/features/usuarios/user-types';
+import { subscriptionStatus, formatExpiry, type SubscriptionStatus } from '@/features/usuarios/subscription-status';
+import { exportUsersXlsx, exportUsersPdf } from '@/features/usuarios/export';
 import { RolesMatrixSection } from '@/components/dashboard/usuarios/RolesMatrixSection';
 
 interface ListFilters {
@@ -27,6 +36,8 @@ interface ListFilters {
   userType: UserTypeOption | 'all';
   status: 'all' | 'active' | 'inactive';
   policyStatus: 'all' | 'accepted' | 'pending';
+  plan: string; // 'all' | 'none' | planId
+  validity: 'all' | SubscriptionStatus;
 }
 
 type Tab = 'usuarios' | 'sesiones' | 'bajas' | 'roles';
@@ -68,7 +79,8 @@ function statusBadge(isActive: boolean) {
 
 export default function UsuariosPage() {
   const { can, currentRole } = useUser();
-  const { alert } = useAppDialog();
+  const { alert, confirm, prompt } = useAppDialog();
+  const { branding, tokens } = useBranding();
   const [tab, setTab] = React.useState<Tab>('usuarios');
   const [users, setUsers] = React.useState<UserRecord[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -77,9 +89,19 @@ export default function UsuariosPage() {
     userType: 'all',
     status: 'all',
     policyStatus: 'all',
+    plan: 'all',
+    validity: 'all',
   });
+  const [selected, setSelected] = React.useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = React.useState(false);
+  const [msgModal, setMsgModal] = React.useState(false);
+  const [msgTitle, setMsgTitle] = React.useState('');
+  const [msgBody, setMsgBody] = React.useState('');
+  const [msgInApp, setMsgInApp] = React.useState(true);
+  const [msgEmail, setMsgEmail] = React.useState(false);
 
   const isAdmin = currentRole === 'admin';
+  const canManage = can('usuarios', 'manage');
 
   // Mapeamos el filtro de tipo de usuario al rol base que entiende el endpoint;
   // los matices de subscripción los filtramos localmente con deriveUserTypeSelection.
@@ -123,12 +145,25 @@ export default function UsuariosPage() {
     }
   }, [alert, baseRoleForFilter, filters.policyStatus, filters.search, filters.status]);
 
-  // Filtra localmente los matices que el endpoint no distingue
-  // (leader_with_subscription vs leader_without_subscription).
+  // Opciones de plan derivadas de los usuarios cargados.
+  const planOptions = React.useMemo(() => {
+    const map = new Map<string, string>();
+    for (const u of users) {
+      if (u.subscriptionPlanId && u.subscriptionPlanName) map.set(u.subscriptionPlanId, u.subscriptionPlanName);
+    }
+    return [...map.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [users]);
+
+  // Filtra localmente: matiz de suscripción (leader_with/without), plan y vigencia.
   const visibleUsers = React.useMemo(() => {
-    if (filters.userType === 'all') return users;
-    return users.filter((user) => deriveUserTypeSelection(user) === filters.userType);
-  }, [users, filters.userType]);
+    return users.filter((user) => {
+      if (filters.userType !== 'all' && deriveUserTypeSelection(user) !== filters.userType) return false;
+      if (filters.plan === 'none' && user.subscriptionPlanId) return false;
+      if (filters.plan !== 'all' && filters.plan !== 'none' && user.subscriptionPlanId !== filters.plan) return false;
+      if (filters.validity !== 'all' && subscriptionStatus(user.subscriptionExpiresAt).status !== filters.validity) return false;
+      return true;
+    });
+  }, [users, filters.userType, filters.plan, filters.validity]);
 
   React.useEffect(() => {
     if (tab !== 'usuarios') return;
@@ -138,6 +173,120 @@ export default function UsuariosPage() {
 
     return () => window.clearTimeout(timer);
   }, [loadUsers, tab]);
+
+  // Limpia la selección cuando cambian los usuarios visibles.
+  React.useEffect(() => {
+    setSelected((prev) => {
+      const visibleIds = new Set(visibleUsers.map((u) => u.userId));
+      const next = new Set([...prev].filter((id) => visibleIds.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [visibleUsers]);
+
+  const selectedUsers = React.useMemo(
+    () => visibleUsers.filter((u) => selected.has(u.userId)),
+    [visibleUsers, selected],
+  );
+  const allVisibleSelected = visibleUsers.length > 0 && visibleUsers.every((u) => selected.has(u.userId));
+
+  const toggleAll = () => {
+    setSelected(allVisibleSelected ? new Set() : new Set(visibleUsers.map((u) => u.userId)));
+  };
+  const toggleOne = (userId: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(userId)) next.delete(userId);
+      else next.add(userId);
+      return next;
+    });
+  };
+
+  const runBulk = React.useCallback(
+    async (action: BulkAction, params: BulkActionParams, successMsg: (n: number) => string) => {
+      const ids = [...selected];
+      if (ids.length === 0) return;
+      setBulkBusy(true);
+      try {
+        const result = await bulkUserAction(action, ids, params);
+        await alert({ title: 'Listo', message: successMsg(result.affected), tone: 'success' });
+        setSelected(new Set());
+        await loadUsers();
+      } catch (error) {
+        await alert({
+          title: 'Error',
+          message: error instanceof Error ? error.message : 'No se pudo ejecutar la acción.',
+          tone: 'error',
+        });
+      } finally {
+        setBulkBusy(false);
+      }
+    },
+    [alert, loadUsers, selected],
+  );
+
+  const onBulkExtend = async () => {
+    const value = await prompt({
+      title: 'Ampliar suscripción',
+      message: `¿Cuántos días deseas agregar a ${selected.size} usuario(s)?`,
+      label: 'Días',
+      placeholder: 'Ej: 30',
+    });
+    if (value === null) return;
+    const days = Number.parseInt(value.trim(), 10);
+    if (!Number.isFinite(days) || days <= 0) {
+      await alert({ title: 'Días inválidos', message: 'Ingresa un número de días mayor a 0.', tone: 'warning' });
+      return;
+    }
+    await runBulk('extend_subscription', { days }, (n) => `Suscripción ampliada ${days} día(s) para ${n} usuario(s).`);
+  };
+
+  const onBulkLogout = async () => {
+    const ok = await confirm({
+      title: 'Cerrar sesiones',
+      message: `Se cerrarán todas las sesiones de ${selected.size} usuario(s). ¿Continuar?`,
+      tone: 'warning',
+      confirmText: 'Sí, desloguear',
+    });
+    if (!ok) return;
+    await runBulk('logout', {}, (n) => `Sesiones cerradas para ${n} usuario(s).`);
+  };
+
+  const onBulkForcePassword = async () => {
+    const ok = await confirm({
+      title: 'Forzar cambio de contraseña',
+      message: `${selected.size} usuario(s) deberán definir una nueva contraseña en su próximo ingreso (se cerrarán sus sesiones). ¿Continuar?`,
+      tone: 'warning',
+      confirmText: 'Sí, forzar cambio',
+    });
+    if (!ok) return;
+    await runBulk('force_password_change', {}, (n) => `Se exigirá cambio de contraseña a ${n} usuario(s).`);
+  };
+
+  const onSendBulkMessage = async () => {
+    if (!msgTitle.trim() || !msgBody.trim()) {
+      await alert({ title: 'Faltan datos', message: 'Completa el título y el mensaje.', tone: 'warning' });
+      return;
+    }
+    if (!msgInApp && !msgEmail) {
+      await alert({ title: 'Sin canal', message: 'Selecciona al menos un canal (in-app o email).', tone: 'warning' });
+      return;
+    }
+    const channels: Array<'in_app' | 'email'> = [];
+    if (msgInApp) channels.push('in_app');
+    if (msgEmail) channels.push('email');
+    setMsgModal(false);
+    await runBulk(
+      'send_message',
+      { title: msgTitle.trim(), body: msgBody.trim(), channels },
+      (n) => `Mensaje enviado a ${n} usuario(s).`,
+    );
+    setMsgTitle('');
+    setMsgBody('');
+  };
+
+  const onExportXlsx = () => exportUsersXlsx(visibleUsers);
+  const onExportPdf = () =>
+    exportUsersPdf(visibleUsers, { brandName: branding.platformName, primaryColor: tokens.colors.primary });
 
   return (
     <div className="space-y-5">
@@ -281,6 +430,66 @@ export default function UsuariosPage() {
                   <option value="pending">Pendientes</option>
                 </select>
               </label>
+
+              <label>
+                <span className="app-field-label">Plan</span>
+                <select
+                  className="app-select"
+                  value={filters.plan}
+                  onChange={(event) => setFilters((prev) => ({ ...prev, plan: event.target.value }))}
+                >
+                  <option value="all">Todos</option>
+                  <option value="none">Sin plan</option>
+                  {planOptions.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label>
+                <span className="app-field-label">Vigencia de suscripción</span>
+                <select
+                  className="app-select"
+                  value={filters.validity}
+                  onChange={(event) =>
+                    setFilters((prev) => ({ ...prev, validity: event.target.value as ListFilters['validity'] }))
+                  }
+                >
+                  <option value="all">Todas</option>
+                  <option value="vigente">Vigente</option>
+                  <option value="por_vencer">Por vencer (≤30 días)</option>
+                  <option value="vencida">Vencida</option>
+                  <option value="sin_vigencia">Sin vigencia / sin plan</option>
+                </select>
+              </label>
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[var(--app-border)] pt-3">
+              <span className="text-xs text-[var(--app-muted)]">
+                {visibleUsers.length} usuario(s) con los filtros aplicados
+              </span>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={onExportXlsx}
+                  disabled={visibleUsers.length === 0}
+                  className="app-button-secondary inline-flex items-center gap-1.5 text-xs disabled:opacity-50"
+                >
+                  <FileSpreadsheet size={14} />
+                  Exportar Excel
+                </button>
+                <button
+                  type="button"
+                  onClick={onExportPdf}
+                  disabled={visibleUsers.length === 0}
+                  className="app-button-secondary inline-flex items-center gap-1.5 text-xs disabled:opacity-50"
+                >
+                  <FileText size={14} />
+                  Exportar PDF
+                </button>
+              </div>
             </div>
           </section>
 
@@ -291,12 +500,23 @@ export default function UsuariosPage() {
           ) : (
             <section className="app-table-shell">
               <div className="overflow-x-auto">
-                <table className="app-table min-w-[1000px] text-sm">
+                <table className="app-table min-w-[1150px] text-sm">
                   <thead>
                     <tr className="text-left">
+                      {canManage && (
+                        <th className="w-10">
+                          <input
+                            type="checkbox"
+                            checked={allVisibleSelected}
+                            onChange={toggleAll}
+                            aria-label="Seleccionar todos"
+                          />
+                        </th>
+                      )}
                       <th>Usuario</th>
                       <th>Tipo de usuario</th>
                       <th>Plan</th>
+                      <th>Vigencia</th>
                       <th>Estado</th>
                       <th>Políticas</th>
                       <th>Acciones</th>
@@ -306,7 +526,17 @@ export default function UsuariosPage() {
                     {visibleUsers.map((user) => {
                       const userType = deriveUserTypeSelection(user);
                       return (
-                      <tr key={user.userId}>
+                      <tr key={user.userId} className={selected.has(user.userId) ? 'bg-[var(--app-chip)]/40' : undefined}>
+                        {canManage && (
+                          <td>
+                            <input
+                              type="checkbox"
+                              checked={selected.has(user.userId)}
+                              onChange={() => toggleOne(user.userId)}
+                              aria-label={`Seleccionar ${user.displayName}`}
+                            />
+                          </td>
+                        )}
                         <td>
                           <div className="flex items-center gap-3">
                             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--app-chip)] text-sm font-bold text-[var(--app-ink)]">
@@ -339,6 +569,23 @@ export default function UsuariosPage() {
                           ) : (
                             <span className="text-xs text-[var(--app-muted)]">—</span>
                           )}
+                        </td>
+                        <td>
+                          {(() => {
+                            const st = subscriptionStatus(user.subscriptionExpiresAt);
+                            return (
+                              <div className="flex flex-col gap-1">
+                                <span
+                                  className={`inline-flex w-fit rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${st.chipClass}`}
+                                >
+                                  {st.label}
+                                </span>
+                                <span className="text-xs text-[var(--app-muted)]">
+                                  {formatExpiry(user.subscriptionExpiresAt)}
+                                </span>
+                              </div>
+                            );
+                          })()}
                         </td>
                         <td>
                           <span className={statusBadge(user.isActive)}>
@@ -374,6 +621,125 @@ export default function UsuariosPage() {
             </section>
           )}
         </>
+      )}
+
+      {/* Barra de acciones masivas */}
+      {tab === 'usuarios' && canManage && selected.size > 0 && (
+        <div className="fixed inset-x-0 bottom-4 z-40 flex justify-center px-4">
+          <div className="flex flex-wrap items-center gap-2 rounded-[1.2rem] border border-[var(--app-border)] bg-white px-4 py-3 shadow-2xl">
+            <span className="text-sm font-bold text-[var(--app-ink)]">{selected.size} seleccionado(s)</span>
+            <span className="mx-1 h-5 w-px bg-[var(--app-border)]" />
+            <button
+              type="button"
+              onClick={() => void onBulkExtend()}
+              disabled={bulkBusy}
+              className="app-button-secondary inline-flex items-center gap-1.5 text-xs disabled:opacity-50"
+            >
+              <CalendarClock size={14} />
+              Ampliar suscripción
+            </button>
+            <button
+              type="button"
+              onClick={() => setMsgModal(true)}
+              disabled={bulkBusy}
+              className="app-button-secondary inline-flex items-center gap-1.5 text-xs disabled:opacity-50"
+            >
+              <Send size={14} />
+              Enviar mensaje
+            </button>
+            <button
+              type="button"
+              onClick={() => void onBulkLogout()}
+              disabled={bulkBusy}
+              className="app-button-secondary inline-flex items-center gap-1.5 text-xs disabled:opacity-50"
+            >
+              <LogOut size={14} />
+              Desloguear
+            </button>
+            <button
+              type="button"
+              onClick={() => void onBulkForcePassword()}
+              disabled={bulkBusy}
+              className="app-button-secondary inline-flex items-center gap-1.5 text-xs disabled:opacity-50"
+            >
+              <KeyRound size={14} />
+              Forzar cambio de clave
+            </button>
+            {bulkBusy && <Loader2 size={16} className="animate-spin text-[var(--app-muted)]" />}
+            <button
+              type="button"
+              onClick={() => setSelected(new Set())}
+              className="ml-1 rounded-full p-1.5 text-[var(--app-muted)] hover:bg-[var(--app-surface-muted)]"
+              aria-label="Limpiar selección"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de mensaje masivo */}
+      {msgModal && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-[rgba(22,10,38,0.55)] p-4 backdrop-blur-sm">
+          <div className="w-[min(94vw,520px)] rounded-[18px] border border-[var(--app-border)] bg-white p-6 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold text-[var(--app-ink)]">
+                Enviar mensaje a {selected.size} usuario(s)
+              </h3>
+              <button
+                type="button"
+                onClick={() => setMsgModal(false)}
+                className="rounded-full p-1 text-[var(--app-muted)] hover:bg-[var(--app-surface-muted)]"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="mt-4 space-y-3">
+              <label className="block">
+                <span className="app-field-label">Título</span>
+                <input
+                  className="app-input"
+                  value={msgTitle}
+                  onChange={(e) => setMsgTitle(e.target.value)}
+                  placeholder="Asunto del mensaje"
+                />
+              </label>
+              <label className="block">
+                <span className="app-field-label">Mensaje</span>
+                <textarea
+                  className="app-textarea min-h-28"
+                  value={msgBody}
+                  onChange={(e) => setMsgBody(e.target.value)}
+                  placeholder="Escribe el mensaje…"
+                />
+              </label>
+              <div className="flex flex-wrap gap-4 text-sm text-[var(--app-ink)]">
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" checked={msgInApp} onChange={(e) => setMsgInApp(e.target.checked)} />
+                  Notificación in-app
+                </label>
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" checked={msgEmail} onChange={(e) => setMsgEmail(e.target.checked)} />
+                  Email
+                </label>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <button type="button" onClick={() => setMsgModal(false)} className="app-button-secondary">
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => void onSendBulkMessage()}
+                disabled={bulkBusy}
+                className="app-button-primary inline-flex items-center gap-1.5 disabled:opacity-60"
+              >
+                <Send size={15} />
+                Enviar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

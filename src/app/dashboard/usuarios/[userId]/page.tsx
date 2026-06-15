@@ -13,6 +13,7 @@ import {
   Save,
   Shield,
   Trash2,
+  Users,
 } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import { EmptyState } from '@/components/dashboard/EmptyState';
@@ -22,6 +23,7 @@ import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useUser } from '@/context/UserContext';
 import {
   getUserDetail,
+  getUserNetworking,
   hardDeleteUser,
   listUserAuditLogs,
   resetUserPassword,
@@ -30,7 +32,9 @@ import {
   type AppRole,
   type AuditLogRecord,
   type UserDetailRecord,
+  type UserNetworkingSummary,
 } from '@/features/usuarios/client';
+import { actionLabel, moduleLabel, logDetail } from '@/features/usuarios/audit-labels';
 import {
   deriveUserTypeSelection,
   resolveUserTypeSelection,
@@ -78,15 +82,6 @@ function roleLabel(role: AppRole): string {
   }
 }
 
-function summarizeLogPayload(payload: Record<string, unknown>): string {
-  try {
-    const encoded = JSON.stringify(payload);
-    return encoded.length > 260 ? `${encoded.slice(0, 257)}...` : encoded;
-  } catch {
-    return '{}';
-  }
-}
-
 interface DemographicsFormState {
   country: string;
   jobRole: UserJobRoleOption | '';
@@ -122,6 +117,7 @@ export default function UsuarioDetallePage() {
   const [processingAction, setProcessingAction] = React.useState<string | null>(null);
   const [availablePlans, setAvailablePlans] = React.useState<SubscriptionPlanWithFeatures[]>([]);
   const [showDeleteModal, setShowDeleteModal] = React.useState(false);
+  const [networking, setNetworking] = React.useState<UserNetworkingSummary | null>(null);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -139,10 +135,15 @@ export default function UsuarioDetallePage() {
     if (!userId) return;
     setLoading(true);
     try {
-      const [detailData, logData] = await Promise.all([getUserDetail(userId), listUserAuditLogs(userId, 300)]);
+      const [detailData, logData, netData] = await Promise.all([
+        getUserDetail(userId),
+        listUserAuditLogs(userId, 300),
+        getUserNetworking(userId).catch(() => null),
+      ]);
       setDetail(detailData);
       setDemographicsForm(toDemographicsForm(detailData));
       setLogs(logData);
+      setNetworking(netData);
     } catch (error) {
       await alert({
         title: 'Error',
@@ -837,7 +838,42 @@ export default function UsuarioDetallePage() {
           )}
         </section>
 
-        <section className="xl:col-span-2">
+        <section className="space-y-5 xl:col-span-2">
+          {networking?.networkingEnabled && (
+            <article className="app-panel p-5">
+              <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-[var(--app-ink)]">
+                <Users size={18} />
+                Networking
+              </h2>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="app-panel-soft p-3 text-center">
+                  <p className="text-2xl font-black text-[var(--app-ink)]">{networking.contacts}</p>
+                  <p className="text-xs text-[var(--app-muted)]">Contactos</p>
+                </div>
+                <div className="app-panel-soft p-3 text-center">
+                  <p className="text-2xl font-black text-[var(--app-ink)]">{networking.pending}</p>
+                  <p className="text-xs text-[var(--app-muted)]">Pendientes</p>
+                </div>
+                <div className="app-panel-soft p-3 text-center">
+                  <p className="text-2xl font-black text-[var(--app-ink)]">{networking.communities.length}</p>
+                  <p className="text-xs text-[var(--app-muted)]">Comunidades</p>
+                </div>
+              </div>
+              {networking.communities.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {networking.communities.map((c) => (
+                    <span
+                      key={c.name}
+                      className="rounded-full border border-[var(--app-border)] px-2.5 py-1 text-xs text-[var(--app-ink)]"
+                    >
+                      {c.name} · {c.memberCount}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </article>
+          )}
+
           <article className="app-panel p-5">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="flex items-center gap-2 text-2xl font-bold text-[var(--app-ink)]">
@@ -853,23 +889,32 @@ export default function UsuarioDetallePage() {
             {logs.length === 0 ? (
               <EmptyState message="No hay eventos registrados para este usuario." />
             ) : (
-              <div className="space-y-3">
-                {logs.map((log) => (
-                  <div key={log.auditId} className="rounded-[1rem] border border-[var(--brand-border)] p-4">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div>
-                        <p className="text-lg font-bold text-[var(--app-ink)]">{log.action}</p>
-                        <p className="text-sm text-[var(--app-muted)]">
-                          {log.moduleCode ?? 'sistema'} · {log.entityTable}
-                        </p>
-                      </div>
-                      <p className="text-xs text-[var(--app-muted)]">{formatDateTime(log.occurredAt)}</p>
-                    </div>
-                    <pre className="mt-3 whitespace-pre-wrap rounded-[1rem] bg-[var(--app-surface-muted)] p-3 text-xs text-[var(--app-muted)]">
-                      {summarizeLogPayload(log.changeSummary)}
-                    </pre>
-                  </div>
-                ))}
+              <div className="app-table-shell max-h-[640px] overflow-y-auto">
+                <table className="app-table min-w-[640px] text-sm">
+                  <thead>
+                    <tr className="text-left">
+                      <th>Fecha</th>
+                      <th>Actividad</th>
+                      <th>Módulo</th>
+                      <th>Detalle</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {logs.map((log) => {
+                      const detalle = logDetail(log.changeSummary);
+                      return (
+                        <tr key={log.auditId}>
+                          <td className="whitespace-nowrap text-xs text-[var(--app-muted)]">
+                            {formatDateTime(log.occurredAt)}
+                          </td>
+                          <td className="font-semibold text-[var(--app-ink)]">{actionLabel(log.action)}</td>
+                          <td className="text-xs text-[var(--app-muted)]">{moduleLabel(log.moduleCode)}</td>
+                          <td className="text-xs text-[var(--app-muted)]">{detalle || '—'}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             )}
           </article>

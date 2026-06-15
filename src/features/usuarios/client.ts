@@ -269,3 +269,43 @@ export async function sendUserDirectMessage(userId: string, messageText: string)
     body: JSON.stringify({ messageText }),
   });
 }
+
+// ─── Acciones masivas ───────────────────────────────────────────────────────
+
+export type BulkAction = 'extend_subscription' | 'send_message' | 'logout' | 'force_password_change';
+
+export interface BulkActionParams {
+  days?: number;
+  title?: string;
+  body?: string;
+  channels?: Array<'in_app' | 'email'>;
+}
+
+export interface BulkActionResult {
+  affected: number;
+  errors: Array<{ userId: string; error: string }>;
+}
+
+export async function bulkUserAction(
+  action: BulkAction,
+  userIds: string[],
+  params?: BulkActionParams,
+): Promise<BulkActionResult> {
+  return requestApi<BulkActionResult>('/api/v1/modules/usuarios/bulk', {
+    method: 'POST',
+    body: JSON.stringify({ action, userIds, params }),
+  });
+}
+
+// ─── Resumen de Networking del usuario ──────────────────────────────────────
+
+export interface UserNetworkingSummary {
+  networkingEnabled: boolean;
+  contacts: number;
+  pending: number;
+  communities: Array<{ name: string; memberCount: number }>;
+}
+
+export async function getUserNetworking(userId: string): Promise<UserNetworkingSummary> {
+  return requestApi<UserNetworkingSummary>(`/api/v1/modules/usuarios/${userId}/networking`);
+}

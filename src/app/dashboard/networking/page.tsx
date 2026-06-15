@@ -1119,27 +1119,10 @@ export default function NetworkingPage() {
   // ── Left sidebar ─────────────────────────────────────────────────────────────
   const leftSidebar = (
     <aside className="space-y-4">
+      {/* Panel de "Mi red": sin la foto/identidad (ya presentes en el header y el
+          menú lateral) para no repetir el avatar del usuario tres veces. */}
       <section className="app-panel overflow-hidden p-0">
-        <div className="h-16" style={{ background: 'linear-gradient(to right, var(--brand-darker), var(--brand-primary), var(--brand-darker))' }} />
-        <div className="-mt-7 px-4 pb-4">
-          <div className="h-14 w-14 rounded-2xl border-4 border-white overflow-hidden">
-            {currentUser?.avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={currentUser.avatarUrl} alt={currentUser.name ?? ''} className="h-full w-full object-cover" />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-lg font-black text-white"
-                style={{ background: 'linear-gradient(135deg, var(--brand-primary) 0%, color-mix(in srgb, var(--brand-primary) 60%, var(--brand-accent)) 100%)' }}>
-                {(currentUser?.name?.[0] ?? 'U').toUpperCase()}
-              </div>
-            )}
-          </div>
-          <h3 className="mt-2 text-base font-bold text-[var(--app-ink)] leading-tight">{currentUser?.name ?? 'Usuario'}</h3>
-          <p className="text-xs text-[var(--app-muted)]">{currentUser?.profession ?? 'Perfil profesional'}</p>
-          {currentUser?.location && (
-            <p className="mt-1 flex items-center gap-1 text-[11px] text-[var(--app-muted)]"><MapPin size={10} />{currentUser.location}</p>
-          )}
-        </div>
-        <div className="grid grid-cols-2 border-t border-[var(--app-border)]">
+        <div className="grid grid-cols-2">
           <button type="button" onClick={() => { setActiveTab('mi-red'); setNetworkSubTab('contactos'); }}
             className="px-4 py-3 text-left transition hover:bg-[var(--app-surface-muted)]">
             <p className="text-[11px] text-[var(--app-muted)]">Contactos</p>

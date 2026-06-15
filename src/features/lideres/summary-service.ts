@@ -23,6 +23,7 @@ export interface LeaderSummary {
         group: string | null
         highlightLabel: string | null
     }
+    subscriptionExpiresAt: string | null
     workbooks: {
         total: number
         completed: number
@@ -57,6 +58,7 @@ interface LeaderSummaryRow {
     plan_name: string | null
     plan_group: string | null
     plan_highlight_label: string | null
+    subscription_expires_at: string | null
     wb_total: number | string | null
     wb_completed: number | string | null
     wb_avg_percent: number | string | null
@@ -118,6 +120,7 @@ export async function listLeaderSummaries(
                 sp.name AS plan_name,
                 sp.plan_group::text AS plan_group,
                 sp.highlight_label AS plan_highlight_label,
+                up.subscription_expires_at::text AS subscription_expires_at,
                 wb_stats.wb_total,
                 wb_stats.wb_completed,
                 wb_stats.wb_avg_percent,
@@ -209,6 +212,7 @@ export async function listLeaderSummaries(
                 group: row.plan_group ?? null,
                 highlightLabel: row.plan_highlight_label ?? null,
             },
+            subscriptionExpiresAt: row.subscription_expires_at ?? null,
             workbooks: {
                 total: toInt(row.wb_total),
                 completed: toInt(row.wb_completed),

@@ -71,6 +71,7 @@ export async function POST(request: Request) {
           is_active: boolean;
           email_verified_at: string | null;
           privacy_policy_accepted_at: string | null;
+          must_change_password: boolean;
         }>(
           `
             SELECT
@@ -83,6 +84,7 @@ export async function POST(request: Request) {
               uc.locked_until::text,
               u.is_active,
               uc.email_verified_at::text,
+              uc.must_change_password,
               lpa.accepted_at::text AS privacy_policy_accepted_at
             FROM app_core.users u
             JOIN app_auth.user_credentials uc ON uc.user_id = u.user_id
@@ -221,6 +223,7 @@ export async function POST(request: Request) {
               name: user.name,
               role: user.role,
               privacyPolicyAccepted: !!authRow.privacy_policy_accepted_at,
+              mustChangePassword: !!authRow.must_change_password,
             },
           },
           tokens,

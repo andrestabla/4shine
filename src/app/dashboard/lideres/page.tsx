@@ -17,6 +17,7 @@ import {
 import { PageTitle } from '@/components/dashboard/PageTitle'
 import { useUser } from '@/context/UserContext'
 import { listLeaderSummaries, type LeaderSummary } from '@/features/lideres/client'
+import { subscriptionStatus, type SubscriptionStatus } from '@/features/usuarios/subscription-status'
 
 type PercentRange = { min: number; max: number; label: string }
 type SessionsRange = { min: number; max: number; label: string }
@@ -311,6 +312,7 @@ export default function LideresPage() {
     const [countryFilter, setCountryFilter] = React.useState<string>('all')
     const [sessionsFilter, setSessionsFilter] = React.useState<number>(0)
     const [progressFilter, setProgressFilter] = React.useState<number>(0)
+    const [validityFilter, setValidityFilter] = React.useState<'all' | SubscriptionStatus>('all')
 
     React.useEffect(() => {
         if (!isElevated) {
@@ -371,6 +373,9 @@ export default function LideresPage() {
             if (countryFilter !== 'all') {
                 if ((leader.country ?? '') !== countryFilter) return false
             }
+            if (validityFilter !== 'all') {
+                if (subscriptionStatus(leader.subscriptionExpiresAt).status !== validityFilter) return false
+            }
             const sessions = sessionsCountFor(leader)
             if (sessions < sessionsRange.min || sessions > sessionsRange.max) return false
             const avg = avgFor(leader)
@@ -384,13 +389,14 @@ export default function LideresPage() {
             }
             return true
         })
-    }, [leaders, query, planFilter, countryFilter, sessionsFilter, progressFilter])
+    }, [leaders, query, planFilter, countryFilter, validityFilter, sessionsFilter, progressFilter])
 
     const tokensForHighlight = React.useMemo(() => tokenize(query), [query])
     const hasActiveFilters =
         query.trim().length > 0 ||
         planFilter !== 'all' ||
         countryFilter !== 'all' ||
+        validityFilter !== 'all' ||
         sessionsFilter !== 0 ||
         progressFilter !== 0
 
@@ -398,6 +404,7 @@ export default function LideresPage() {
         setQuery('')
         setPlanFilter('all')
         setCountryFilter('all')
+        setValidityFilter('all')
         setSessionsFilter(0)
         setProgressFilter(0)
     }
@@ -492,6 +499,23 @@ export default function LideresPage() {
                                     {country}
                                 </option>
                             ))}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label className="block text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                            Vigencia de suscripción
+                        </label>
+                        <select
+                            value={validityFilter}
+                            onChange={(e) => setValidityFilter(e.target.value as 'all' | SubscriptionStatus)}
+                            className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+                        >
+                            <option value="all">Todas</option>
+                            <option value="vigente">Vigente</option>
+                            <option value="por_vencer">Por vencer (≤30 días)</option>
+                            <option value="vencida">Vencida</option>
+                            <option value="sin_vigencia">Sin vigencia / sin plan</option>
                         </select>
                     </div>
 

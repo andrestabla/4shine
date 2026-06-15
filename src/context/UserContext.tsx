@@ -31,6 +31,7 @@ export interface SessionUser {
   name: string;
   role: Role;
   privacyPolicyAccepted: boolean;
+  mustChangePassword?: boolean;
 }
 
 interface UserContextType {
@@ -49,6 +50,7 @@ interface UserContextType {
   updateUser: (updates: Partial<User>) => void;
   applySession: (sessionUser: SessionUser) => Promise<void>;
   acceptPrivacyPolicy: () => Promise<void>;
+  mustChangePassword: boolean;
 }
 
 interface AuthMeResponse {
@@ -123,6 +125,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   const [modulePermissions, setModulePermissions] = useState<ModulePermissionMap>(emptyModulePermissionMap());
   const [isHydrating, setIsHydrating] = useState(true);
   const [privacyPolicyAccepted, setPrivacyPolicyAccepted] = useState(true);
+  const [mustChangePassword, setMustChangePassword] = useState(false);
   const router = useRouter();
 
   const clearSession = React.useCallback(() => {
@@ -132,6 +135,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     setBootstrapData(null);
     setModulePermissions(emptyModulePermissionMap());
     setPrivacyPolicyAccepted(true);
+    setMustChangePassword(false);
     clearTrackedSessionActivity();
     // Reset Google Sign-In so the button shows "Sign in with Google" instead of a cached account
     if (typeof window !== 'undefined') {
@@ -169,6 +173,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
       setBootstrapData(data);
       setCurrentUser(buildCurrentUser(nextSessionUser, data));
       setPrivacyPolicyAccepted(nextSessionUser.privacyPolicyAccepted);
+      setMustChangePassword(!!nextSessionUser.mustChangePassword);
     },
     [fetchPermissions],
   );
@@ -429,6 +434,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         updateUser,
         applySession,
         acceptPrivacyPolicy,
+        mustChangePassword,
       }}
     >
       {children}

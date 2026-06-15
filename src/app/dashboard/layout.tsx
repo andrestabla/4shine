@@ -106,7 +106,7 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { currentUser, isHydrating, isAuthenticated, can } = useUser();
+  const { currentUser, isHydrating, isAuthenticated, can, mustChangePassword } = useUser();
   const { alert } = useAppDialog();
   const { tokens } = useBranding();
   const router = useRouter();
@@ -138,6 +138,13 @@ export default function DashboardLayout({
       router.push("/");
     }
   }, [isHydrating, isAuthenticated, router]);
+
+  // Gate de cambio de contraseña forzado: hasta que la defina, no entra al dashboard.
+  useEffect(() => {
+    if (!isHydrating && isAuthenticated && mustChangePassword) {
+      router.replace("/cambiar-clave");
+    }
+  }, [isHydrating, isAuthenticated, mustChangePassword, router]);
 
   useEffect(() => {
     if (!isHydrating && isAuthenticated && !canViewRoute) {
