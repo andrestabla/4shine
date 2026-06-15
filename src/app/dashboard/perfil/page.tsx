@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import {
   Briefcase,
   Edit3,
@@ -10,8 +11,10 @@ import {
   Sparkles,
   Trash2,
   UserCircle2,
+  Users,
   X,
 } from 'lucide-react';
+import { listConnections } from '@/features/networking/client';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { EmptyState } from '@/components/dashboard/EmptyState';
 import { PurchasedProductsPanel } from '@/components/dashboard/PurchasedProductsPanel';
@@ -236,6 +239,28 @@ export default function PerfilPage() {
   const [isExtractingCv, setIsExtractingCv] = React.useState(false);
 
   const canEditProfile = can('perfil', 'update');
+  const canSeeNetworking = can('networking', 'view');
+  const [networkStats, setNetworkStats] = React.useState<{ contacts: number; pending: number } | null>(null);
+
+  React.useEffect(() => {
+    if (!canSeeNetworking) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const connections = await listConnections();
+        if (cancelled) return;
+        const myId = currentUser?.id ?? '';
+        const contacts = connections.filter((c) => c.status === 'connected').length;
+        const pending = connections.filter((c) => c.status === 'pending' && c.requesterUserId !== myId).length;
+        setNetworkStats({ contacts, pending });
+      } catch {
+        if (!cancelled) setNetworkStats(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [canSeeNetworking, currentUser?.id]);
 
   const loadProfile = React.useCallback(async () => {
     setLoading(true);
@@ -999,6 +1024,37 @@ export default function PerfilPage() {
             currentPlanId={profile.subscriptionPlanId ?? null}
             expiresAt={profile.subscriptionExpiresAt ?? null}
           />
+
+          {canSeeNetworking && networkStats && (
+            <section className="app-panel p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h4 className="flex items-center gap-2 text-lg font-bold text-[var(--app-ink)]">
+                  <Users size={18} />
+                  Networking
+                </h4>
+                <Link
+                  href="/dashboard/networking"
+                  className="app-button-secondary inline-flex items-center gap-1.5 px-3 py-1.5 text-xs"
+                >
+                  Ir a Networking
+                </Link>
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <div className="app-panel-soft p-4 text-center">
+                  <p className="text-2xl font-black text-[var(--app-ink)]">{networkStats.contacts}</p>
+                  <p className="text-xs text-[var(--app-muted)]">Contactos</p>
+                </div>
+                <div className="app-panel-soft p-4 text-center">
+                  <p
+                    className={`text-2xl font-black ${networkStats.pending > 0 ? 'text-[var(--brand-primary)]' : 'text-[var(--app-ink)]'}`}
+                  >
+                    {networkStats.pending}
+                  </p>
+                  <p className="text-xs text-[var(--app-muted)]">Pendientes</p>
+                </div>
+              </div>
+            </section>
+          )}
 
           <PurchasedProductsPanel
             purchases={profile.purchases}

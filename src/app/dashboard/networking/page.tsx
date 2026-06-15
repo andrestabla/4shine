@@ -1085,8 +1085,7 @@ export default function NetworkingPage() {
     return (
       <div className="space-y-3">
         <div className="app-panel h-14 animate-pulse" />
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[260px_minmax(0,1fr)_280px]">
-          <div className="space-y-3"><div className="app-panel h-52 animate-pulse" /></div>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
           <div className="space-y-3"><div className="app-panel h-24 animate-pulse" /><div className="app-panel h-64 animate-pulse" /></div>
           <div className="app-panel h-80 animate-pulse" />
         </div>
@@ -1116,58 +1115,12 @@ export default function NetworkingPage() {
     );
   }
 
-  // ── Left sidebar ─────────────────────────────────────────────────────────────
-  const leftSidebar = (
-    <aside className="space-y-4">
-      {/* Panel de "Mi red": sin la foto/identidad (ya presentes en el header y el
-          menú lateral) para no repetir el avatar del usuario tres veces. */}
-      <section className="app-panel overflow-hidden p-0">
-        <div className="grid grid-cols-2">
-          <button type="button" onClick={() => { setActiveTab('mi-red'); setNetworkSubTab('contactos'); }}
-            className="px-4 py-3 text-left transition hover:bg-[var(--app-surface-muted)]">
-            <p className="text-[11px] text-[var(--app-muted)]">Contactos</p>
-            <p className="text-lg font-black text-[var(--app-ink)]">{myConnected}</p>
-          </button>
-          <button type="button" onClick={() => { setActiveTab('mi-red'); setNetworkSubTab('contactos'); }}
-            className="border-l border-[var(--app-border)] px-4 py-3 text-left transition hover:bg-[var(--app-surface-muted)]">
-            <p className="text-[11px] text-[var(--app-muted)]">Pendientes</p>
-            <p className={`text-lg font-black ${myPending > 0 ? 'text-[var(--brand-primary)]' : 'text-[var(--app-ink)]'}`}>{myPending}</p>
-          </button>
-        </div>
-      </section>
-
-      <section className="app-panel p-4">
-        <p className="mb-3 text-[11px] font-extrabold uppercase tracking-[0.2em] text-[var(--app-muted)]">Accesos rápidos</p>
-        <nav className="space-y-1">
-          {([
-            { label: 'Inicio', tab: 'inicio' as MainTab, sub: undefined },
-            { label: 'Mis contactos', tab: 'mi-red' as MainTab, sub: 'contactos' as NetworkSubTab },
-            { label: 'Comunidades', tab: 'mi-red' as MainTab, sub: 'comunidades' as NetworkSubTab },
-            { label: 'Descubre personas', tab: 'mi-red' as MainTab, sub: 'descubre' as NetworkSubTab },
-            { label: 'Mensajes', tab: 'mensajes' as MainTab, sub: undefined },
-          ]).map(({ label, tab, sub }) => (
-            <button key={label} type="button" onClick={() => { setActiveTab(tab); if (sub) setNetworkSubTab(sub); }}
-              className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm font-semibold transition ${
-                activeTab === tab && (!sub || networkSubTab === sub)
-                  ? 'bg-[var(--app-surface-muted)] text-[var(--brand-primary)]'
-                  : 'text-[var(--app-muted)] hover:bg-[var(--app-surface-muted)] hover:text-[var(--app-ink)]'
-              }`}>
-              {label}<ChevronRight size={14} className="opacity-40" />
-            </button>
-          ))}
-        </nav>
-      </section>
-    </aside>
-  );
-
   // ── INICIO tab ───────────────────────────────────────────────────────────────
   if (activeTab === 'inicio') {
     return (
       <div className="space-y-4">
         <TabNav activeTab={activeTab} onTabChange={setActiveTab} pendingCount={myPending} />
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[260px_minmax(0,1fr)_280px]">
-          {leftSidebar}
-
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
           <main className="space-y-4">
             <PostComposer communities={communities} postForm={postForm}
               onFormChange={(updates) => setPostForm((prev) => ({ ...prev, ...updates }))}
@@ -1254,9 +1207,7 @@ export default function NetworkingPage() {
   return (
     <div className="space-y-4">
       <TabNav activeTab={activeTab} onTabChange={setActiveTab} pendingCount={myPending} />
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[260px_minmax(0,1fr)]">
-        {leftSidebar}
-
+      <div className="grid grid-cols-1 gap-4">
         <main className="space-y-4">
           <NetworkSubNav activeSubTab={networkSubTab} onSubTabChange={setNetworkSubTab} pendingCount={myPending} />
 
