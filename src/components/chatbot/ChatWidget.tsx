@@ -6,7 +6,7 @@ import { Bot, MessageCircle, Send, X } from "lucide-react";
 import clsx from "clsx";
 import { useUser } from "@/context/UserContext";
 import { getMyChatbot, sendChatMessage } from "@/features/chatbot/client";
-import type { ChatMessage } from "@/features/chatbot/types";
+import type { ChatMessage, ChatbotSuggestion } from "@/features/chatbot/types";
 
 interface UiMessage {
   role: "user" | "assistant";
@@ -22,6 +22,8 @@ export default function ChatWidget() {
   const [avatarUrl, setAvatarUrl] = useState("");
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<UiMessage[]>([]);
+  const [briefing, setBriefing] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<ChatbotSuggestion[]>([]);
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -42,6 +44,8 @@ export default function ChatWidget() {
         setAvatarUrl(res.data.avatarUrl || "");
         setConversationId(res.data.conversationId);
         setMessages(res.data.messages.map((m: ChatMessage) => ({ role: m.role, content: m.content })));
+        setBriefing(res.data.briefing ?? null);
+        setSuggestions(res.data.suggestions ?? []);
       }
       setReady(true);
     })();
@@ -56,11 +60,13 @@ export default function ChatWidget() {
 
   if (isHydrating || !isAuthenticated || !ready || !enabled) return null;
 
+  const openingText = [welcome, briefing].filter(Boolean).join("\n\n");
+  const isFresh = messages.length === 0;
   const visibleMessages: UiMessage[] =
-    messages.length > 0 || !welcome ? messages : [{ role: "assistant", content: welcome }];
+    !isFresh || !openingText ? messages : [{ role: "assistant", content: openingText }];
 
-  const handleSend = async () => {
-    const text = draft.trim();
+  const handleSend = async (textArg?: string) => {
+    const text = (textArg ?? draft).trim();
     if (!text || sending) return;
     setError(null);
     setDraft("");
@@ -197,6 +203,21 @@ export default function ChatWidget() {
                   <span className="chatbot-typing-dot" style={{ animationDelay: "0.15s" }} />
                   <span className="chatbot-typing-dot" style={{ animationDelay: "0.3s" }} />
                 </div>
+              </div>
+            )}
+
+            {isFresh && !sending && suggestions.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {suggestions.map((s, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => void handleSend(s.prompt)}
+                    className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1.5 text-left text-[12px] font-semibold text-[var(--brand-primary)] shadow-sm transition-colors hover:bg-[color-mix(in_srgb,var(--brand-primary)_8%,white)]"
+                  >
+                    {s.label}
+                  </button>
+                ))}
               </div>
             )}
           </div>

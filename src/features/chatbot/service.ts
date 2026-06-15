@@ -17,6 +17,7 @@ import type {
   ChatbotFaq,
   ChatbotPublic,
   ChatbotSettings,
+  ChatbotSuggestion,
   ChatMessage,
   CreateFaqInput,
   SendMessageResult,
@@ -283,6 +284,8 @@ export async function getMyChatbot(client: PoolClient, actor: AuthUser): Promise
 
   let conversationId: string | null = null;
   let messages: ChatMessage[] = [];
+  let briefing: string | null = null;
+  let suggestions: ChatbotSuggestion[] = [];
   if (settings.is_enabled) {
     const { rows: convRows } = await client.query<{ conversation_id: string }>(
       `SELECT conversation_id::text FROM app_core.chatbot_conversations
@@ -293,6 +296,9 @@ export async function getMyChatbot(client: PoolClient, actor: AuthUser): Promise
       conversationId = convRows[0].conversation_id;
       messages = await getConversationMessages(client, actor, conversationId, false);
     }
+    const proactive = await buildProactiveBriefing(client, actor).catch(() => ({ briefing: null, suggestions: [] }));
+    briefing = proactive.briefing;
+    suggestions = proactive.suggestions;
   }
 
   return {
@@ -302,7 +308,103 @@ export async function getMyChatbot(client: PoolClient, actor: AuthUser): Promise
     avatarUrl: settings.avatar_url,
     conversationId,
     messages,
+    briefing,
+    suggestions,
   };
+}
+
+/**
+ * Briefing proactivo: detecta lo más accionable del usuario (con datos reales)
+ * y produce un resumen de 1-2 líneas + chips de preguntas sugeridas. No ejecuta
+ * nada; solo orienta. Cada bloque se omite si el módulo no aplica.
+ */
+async function buildProactiveBriefing(
+  client: PoolClient,
+  actor: AuthUser,
+): Promise<{ briefing: string | null; suggestions: ChatbotSuggestion[] }> {
+  const [entitlements, connections, convocatorias, workbooks, workshops, profile] = await Promise.all([
+    listProgramEntitlements(client, actor.userId).catch(() => []),
+    listConnections(client, actor, 200).catch(() => []),
+    listConvocatorias(client, actor, 100).catch(() => []),
+    listWorkbooks(client, actor).catch(() => []),
+    listWorkshops(client, actor, 100).catch(() => []),
+    getMyProfile(client, actor).catch(() => null),
+  ]);
+
+  const highlights: string[] = [];
+  const suggestions: ChatbotSuggestion[] = [];
+  const now = Date.now();
+
+  // Networking: solicitudes recibidas por responder.
+  const incomingPending = connections.filter(
+    (c) => c.status === 'pending' && c.requesterUserId !== actor.userId,
+  ).length;
+  if (incomingPending > 0) {
+    highlights.push(`tienes ${incomingPending} solicitud(es) de conexión por responder`);
+    suggestions.push({ label: `Solicitudes de conexión (${incomingPending})`, prompt: '¿Quién me envió solicitudes de conexión y cómo las respondo?' });
+  }
+
+  // Mentorías: disponible ahora o próxima fecha de habilitación.
+  if (entitlements.length > 0) {
+    const sorted = [...entitlements].sort((a, b) => a.sequenceNo - b.sequenceNo);
+    const availableNow = sorted.find((e) => e.status === 'available');
+    const blocker = sorted
+      .filter((e) => e.status === 'scheduled' && e.scheduledStartsAt && new Date(e.scheduledStartsAt).getTime() + TEN_DAYS_MS > now)
+      .sort((a, b) => a.sequenceNo - b.sequenceNo)[0];
+    if (availableNow) {
+      highlights.push(`puedes agendar tu Mentoría ${String(availableNow.sequenceNo).padStart(2, '0')}`);
+      suggestions.push({ label: 'Agendar mi próxima mentoría', prompt: '¿Cómo agendo mi próxima mentoría 1:1 incluida?' });
+    } else if (blocker?.scheduledStartsAt) {
+      const unlock = fmtDate(new Date(new Date(blocker.scheduledStartsAt).getTime() + TEN_DAYS_MS).toISOString());
+      highlights.push(`tu próxima mentoría 1:1 se habilita el ${unlock}`);
+      suggestions.push({ label: '¿Cuándo se habilita mi próxima mentoría?', prompt: '¿Por qué no puedo agendar mi siguiente mentoría 1:1 y cuándo se habilita?' });
+    }
+  }
+
+  // Convocatorias abiertas a las que aún no aplica.
+  const openNotApplied = convocatorias.filter((c) => c.status === 'open' && !c.hasApplied);
+  if (openNotApplied.length > 0) {
+    highlights.push(`hay ${openNotApplied.length} convocatoria(s) abierta(s) sin aplicar`);
+    suggestions.push({ label: `Convocatorias abiertas (${openNotApplied.length})`, prompt: '¿Qué convocatorias abiertas hay para mí y cómo aplico?' });
+  }
+
+  // Aprendizaje: próximo workbook pendiente.
+  const nextWorkbook = [...workbooks]
+    .sort((a, b) => a.sequenceNo - b.sequenceNo)
+    .find((w) => w.completionPercent < 100 && w.accessState === 'active');
+  if (nextWorkbook) {
+    highlights.push(`puedes continuar tu workbook ${nextWorkbook.templateCode} (${Math.round(nextWorkbook.completionPercent)}%)`);
+    suggestions.push({ label: `Continuar ${nextWorkbook.templateCode}`, prompt: `¿Cómo continúo mi workbook ${nextWorkbook.templateCode}?` });
+  }
+
+  // Workshops próximos en los que está inscrito.
+  const upcomingRegistered = workshops.filter(
+    (w) => w.status === 'upcoming' && (w.myAttendanceStatus === 'registered' || w.myAttendanceStatus === 'attended'),
+  );
+  if (upcomingRegistered[0]) {
+    highlights.push(`tienes el workshop «${upcomingRegistered[0].title}» próximamente`);
+    suggestions.push({ label: 'Mis workshops próximos', prompt: '¿A qué workshops estoy inscrito y cuándo son?' });
+  }
+
+  // Suscripción por vencer.
+  const expiresAt = profile?.subscriptionExpiresAt ?? null;
+  if (expiresAt) {
+    const st = subscriptionStatus(expiresAt);
+    if (st.daysUntil != null && st.daysUntil >= 0 && st.daysUntil <= 15) {
+      highlights.push(`tu suscripción vence en ${st.daysUntil} día(s)`);
+      suggestions.push({ label: 'Renovar suscripción', prompt: '¿Cuántos días me quedan de suscripción y cómo la renuevo?' });
+    }
+  }
+
+  const name = (profile?.displayName ?? actor.name ?? '').split(' ')[0] || '';
+  let briefing: string | null = null;
+  if (highlights.length > 0) {
+    const top = highlights.slice(0, 3);
+    const joined = top.length === 1 ? top[0] : `${top.slice(0, -1).join(', ')} y ${top[top.length - 1]}`;
+    briefing = `${name ? `${name}, ` : ''}al día de hoy ${joined}. ¿En qué te ayudo?`;
+  }
+
+  return { briefing, suggestions: suggestions.slice(0, 5) };
 }
 
 function sanitizeBaseUrl(value: string | undefined): string {

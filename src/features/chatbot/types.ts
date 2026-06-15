@@ -46,6 +46,14 @@ export interface ChatMessage {
   createdAt: string;
 }
 
+/** Sugerencia proactiva tocable que aparece al abrir el chat. */
+export interface ChatbotSuggestion {
+  /** Texto corto del chip. */
+  label: string;
+  /** Pregunta que se envía al asistente al tocar el chip. */
+  prompt: string;
+}
+
 /** Lo que el widget recibe al abrir. */
 export interface ChatbotPublic {
   enabled: boolean;
@@ -54,6 +62,10 @@ export interface ChatbotPublic {
   avatarUrl: string;
   conversationId: string | null;
   messages: ChatMessage[];
+  /** Briefing proactivo (1-2 líneas) según el estado real del usuario. */
+  briefing: string | null;
+  /** Chips sugeridos según lo accionable del usuario. */
+  suggestions: ChatbotSuggestion[];
 }
 
 export interface SendMessageResult {
