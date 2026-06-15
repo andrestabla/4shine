@@ -107,3 +107,59 @@ export function buildNextSteps(summary: DashboardSummary, role: string | null, c
 
   return steps.slice(0, 5);
 }
+
+/**
+ * Saludo + mensaje personalizado para el encabezado del dashboard, según hora
+ * del día, rol y estado real del usuario (no solo el nombre).
+ */
+export function buildGreeting(
+  summary: DashboardSummary | null,
+  role: string | null,
+  firstName: string,
+  nextSteps: NextStep[],
+): { title: string; subtitle: string } {
+  const hour = new Date().getHours();
+  const part = hour < 12 ? 'Buenos días' : hour < 19 ? 'Buenas tardes' : 'Buenas noches';
+  const title = firstName ? `${part}, ${firstName}` : part;
+
+  if (!summary) {
+    return { title, subtitle: 'Tu panel personalizado para avanzar con foco.' };
+  }
+
+  if (summary.firstTime) {
+    const byRole: Record<string, string> = {
+      lider: 'Bienvenido a 4Shine. Demos el primer paso: completa tu diagnóstico para trazar tu ruta.',
+      invitado: 'Tu primer paso es el diagnóstico de Descubrimiento; conocerás tu perfil de liderazgo.',
+      mentor: 'Listo para acompañar. Empecemos por revisar a tus líderes y tu agenda.',
+      gestor: 'Tienes el control del programa. Empecemos por el panel de seguimiento.',
+      admin: 'Tienes el control central. Empecemos por el panel de administración.',
+    };
+    return { title, subtitle: byRole[role ?? 'lider'] ?? byRole.lider };
+  }
+
+  if (role === 'lider') {
+    const step = nextSteps[0];
+    const hint = step
+      ? `Tu siguiente paso: ${step.title.charAt(0).toLowerCase()}${step.title.slice(1)}.`
+      : '¡Vas muy bien! Sigue consolidando tu ruta.';
+    const base =
+      summary.routePercent >= 100
+        ? 'Completaste tu ruta.'
+        : `Vas ${summary.routePercent}% en tu ruta.`;
+    return { title, subtitle: `${base} ${hint}` };
+  }
+
+  if (role === 'mentor') {
+    const subtitle =
+      summary.mentorias.scheduled > 0
+        ? `Tienes ${summary.mentorias.scheduled} mentoría(s) próxima(s). Prepárate para acompañar.`
+        : 'Revisa a tus líderes y gestiona tu agenda de mentorías.';
+    return { title, subtitle };
+  }
+
+  if (role === 'gestor' || role === 'admin') {
+    return { title, subtitle: 'Seguimiento del programa al día. Revisa usuarios, contenidos y métricas.' };
+  }
+
+  return { title, subtitle: 'Continúa tu recorrido en la plataforma.' };
+}

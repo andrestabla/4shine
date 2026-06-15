@@ -20,7 +20,7 @@ import { useUser } from "@/context/UserContext";
 import { useBranding } from "@/context/BrandingContext";
 import { getMentorshipOverview, type GroupSessionEventRecord } from "@/features/mentorias/client";
 import { getMyDashboard, type DashboardSummary } from "@/features/dashboard/client";
-import { buildNextSteps, type NextStep } from "@/features/dashboard/next-steps";
+import { buildGreeting, buildNextSteps, type NextStep } from "@/features/dashboard/next-steps";
 import { PageTitle } from "@/components/dashboard/PageTitle";
 import { StatGrid, type StatItem } from "@/components/dashboard/StatGrid";
 import type { UserStats } from "@/server/bootstrap/types";
@@ -50,14 +50,6 @@ type ShortcutItem = {
   description: string;
   icon: React.ComponentType<{ size?: number; className?: string }>;
   visible: boolean;
-};
-
-const ROLE_LABEL: Record<string, string> = {
-  lider: "Líder",
-  mentor: "Adviser",
-  gestor: "Gestor",
-  admin: "Administrador",
-  invitado: "Invitado",
 };
 
 function buildRoleSummary(
@@ -320,6 +312,7 @@ export default function DashboardHomePage() {
 
   const nextSteps = summary ? buildNextSteps(summary, currentRole, can) : [];
   const stepsTitle = summary?.firstTime ? "Primeros pasos" : "Continúa donde quedaste";
+  const greeting = buildGreeting(summary, currentRole, firstName, nextSteps);
 
   const shortcuts: ShortcutItem[] = [
     {
@@ -518,10 +511,7 @@ export default function DashboardHomePage() {
 
   return (
     <div className="space-y-7">
-      <PageTitle
-        title={`Hola, ${firstName}`}
-        subtitle={`Bienvenido, ${ROLE_LABEL[currentRole] ?? "Usuario"}. Panel simplificado con lo esencial para avanzar sin ruido.`}
-      />
+      <PageTitle title={greeting.title} subtitle={greeting.subtitle} />
 
       <section className="app-panel p-5 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
