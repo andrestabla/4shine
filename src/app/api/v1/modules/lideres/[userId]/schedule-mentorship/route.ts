@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { authenticateRequest } from '@/server/auth/request-auth';
 import { withClient, withRoleContext } from '@/server/db/pool';
-import { createMentorship, scheduleProgramMentorshipForLeader } from '@/features/mentorias/service';
+import { scheduleManualMentorshipForLeader, scheduleProgramMentorshipForLeader } from '@/features/mentorias/service';
 import { errorResponse, logModuleAudit, parseJsonBody, unauthorizedResponse } from '../../../_utils';
 
 export const runtime = 'nodejs';
@@ -42,18 +42,13 @@ export async function POST(request: Request, context: ContextParams) {
             withRoleContext(client, identity.userId, identity.role, async () => {
                 let result;
                 if (body.mode === 'manual') {
-                    const minutes = Math.max(15, body.durationMinutes ?? 60);
-                    const endsAt = new Date(startsAt.getTime() + minutes * 60_000);
-                    result = await createMentorship(client, identity, {
-                        title: body.title?.trim() || 'Mentoría 1:1',
+                    result = await scheduleManualMentorshipForLeader(client, identity, {
+                        leaderUserId: userId,
+                        mentorUserId: body.mentorUserId!,
                         startsAt: startsAt.toISOString(),
-                        endsAt: endsAt.toISOString(),
-                        sessionType: 'individual',
-                        status: 'scheduled',
-                        mentorUserId: body.mentorUserId,
-                        menteeUserIds: [userId],
-                        meetingUrl: body.meetingUrl?.trim() || null,
-                        sessionOrigin: 'manual',
+                        durationMinutes: body.durationMinutes ?? 60,
+                        title: body.title?.trim() || 'Mentoría 1:1',
+                        meetingUrl: body.meetingUrl ?? null,
                     });
                 } else {
                     result = await scheduleProgramMentorshipForLeader(client, identity, {

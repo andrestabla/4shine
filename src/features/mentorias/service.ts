@@ -1190,6 +1190,49 @@ async function getMentorOfficeHoursUrl(client: PoolClient, mentorUserId: string)
   return rows[0]?.office_hours_join_url ?? null;
 }
 
+/**
+ * Resuelve el enlace de una sesión 1:1 agendada on-behalf integrándose con el
+ * flujo de Zoom ya configurado: si el agendador dio un enlace, se respeta; si no,
+ * se crea una reunión Zoom (host = adviser) con la integración de la organización;
+ * y si Zoom no está disponible, cae a las "office hours" del adviser.
+ */
+async function resolveOnBehalfMeeting(
+  client: PoolClient,
+  mentorUserId: string,
+  providedUrl: string | null | undefined,
+  topic: string,
+  startsAt: string,
+  durationMinutes: number,
+): Promise<{ meetingUrl: string | null; zoomMeetingId: string | null; zoomHostUrl: string | null }> {
+  let meetingUrl = providedUrl?.trim() || null;
+  let zoomMeetingId: string | null = null;
+  let zoomHostUrl: string | null = null;
+
+  if (!meetingUrl) {
+    try {
+      const { rows: hostRows } = await client.query<{ email: string }>(
+        `SELECT email::text FROM app_core.users WHERE user_id = $1::uuid LIMIT 1`,
+        [mentorUserId],
+      );
+      const zoom = await createZoomMeeting(client, mentorUserId, {
+        topic,
+        startsAt,
+        durationMinutes,
+        hostEmail: hostRows[0]?.email ?? undefined,
+      });
+      if (zoom) {
+        meetingUrl = zoom.joinUrl;
+        zoomMeetingId = zoom.meetingId;
+        zoomHostUrl = zoom.hostUrl;
+      }
+    } catch (zoomErr) {
+      console.error('[zoom] on-behalf mentorship meeting creation failed:', zoomErr);
+    }
+  }
+  if (!meetingUrl) meetingUrl = await getMentorOfficeHoursUrl(client, mentorUserId);
+  return { meetingUrl, zoomMeetingId, zoomHostUrl };
+}
+
 async function bookAvailabilitySlot(
   client: PoolClient,
   mentorUserId: string,
@@ -2960,8 +3003,21 @@ export async function scheduleProgramMentorshipForLeader(
     : entitlement.description;
 
   await bookAvailabilitySlot(client, input.mentorUserId, input.startsAt, endsAt);
-  const resolvedMeetingUrl =
-    (input.meetingUrl?.trim() || null) ?? (await getMentorOfficeHoursUrl(client, input.mentorUserId));
+
+  const { rows: leaderRows } = await client.query<{ display_name: string }>(
+    `SELECT display_name FROM app_core.users WHERE user_id = $1::uuid LIMIT 1`,
+    [ownerUserId],
+  );
+  const leaderName = (leaderRows[0]?.display_name ?? '').trim();
+  const zoomTopic = leaderName ? `${entitlement.title} · ${leaderName}` : entitlement.title;
+  const { meetingUrl: resolvedMeetingUrl, zoomMeetingId, zoomHostUrl } = await resolveOnBehalfMeeting(
+    client,
+    input.mentorUserId,
+    input.meetingUrl,
+    zoomTopic,
+    input.startsAt,
+    entitlement.defaultDurationMinutes,
+  );
 
   const session = await createSessionWithParticipants(client, actor, {
     mentorUserId: input.mentorUserId,
@@ -2975,6 +3031,15 @@ export async function scheduleProgramMentorshipForLeader(
     menteeUserIds: [ownerUserId],
     sessionOrigin: 'program_included',
   });
+
+  if (zoomMeetingId) {
+    await client.query(
+      `UPDATE app_mentoring.mentorship_sessions
+         SET zoom_meeting_id = $2, zoom_host_url = $3, updated_at = now()
+       WHERE session_id = $1::uuid`,
+      [session.sessionId, zoomMeetingId, zoomHostUrl],
+    );
+  }
 
   await client.query(
     `UPDATE app_mentoring.user_program_mentorships
@@ -3006,6 +3071,104 @@ export async function scheduleProgramMentorshipForLeader(
     variables: {
       nombre: participants.mentorFirstName,
       titulo: entitlement.title,
+      fecha: fechaStr,
+      hora: horaStr,
+      lider_nombre: participants.menteeDisplayName,
+      enlace_sesion: enlaceSesion,
+    },
+  });
+
+  return session;
+}
+
+export interface ScheduleManualForLeaderInput {
+  leaderUserId: string;
+  mentorUserId: string;
+  startsAt: string;
+  durationMinutes: number;
+  title: string;
+  meetingUrl?: string | null;
+}
+
+/**
+ * Agenda una mentoría 1:1 ADICIONAL (no descuenta del paquete) en nombre del
+ * líder, integrada con el flujo de Zoom (crea reunión si no se da enlace).
+ */
+export async function scheduleManualMentorshipForLeader(
+  client: PoolClient,
+  actor: AuthUser,
+  input: ScheduleManualForLeaderInput,
+): Promise<MentorshipRecord> {
+  if (actor.role !== 'admin' && actor.role !== 'gestor' && actor.role !== 'mentor') {
+    throw new Error('No autorizado para agendar en nombre del líder.');
+  }
+  await requireModulePermission(client, 'mentorias', 'create');
+
+  const minutes = Math.max(15, input.durationMinutes || 60);
+  const endsAt = addMinutes(input.startsAt, minutes);
+
+  await bookAvailabilitySlot(client, input.mentorUserId, input.startsAt, endsAt);
+
+  const { rows: leaderRows } = await client.query<{ display_name: string }>(
+    `SELECT display_name FROM app_core.users WHERE user_id = $1::uuid LIMIT 1`,
+    [input.leaderUserId],
+  );
+  const leaderName = (leaderRows[0]?.display_name ?? '').trim();
+  const zoomTopic = leaderName ? `${input.title} · ${leaderName}` : input.title;
+  const { meetingUrl, zoomMeetingId, zoomHostUrl } = await resolveOnBehalfMeeting(
+    client,
+    input.mentorUserId,
+    input.meetingUrl,
+    zoomTopic,
+    input.startsAt,
+    minutes,
+  );
+
+  const session = await createSessionWithParticipants(client, actor, {
+    mentorUserId: input.mentorUserId,
+    title: input.title,
+    description: null,
+    startsAt: input.startsAt,
+    endsAt,
+    sessionType: 'individual',
+    status: 'scheduled',
+    meetingUrl,
+    menteeUserIds: [input.leaderUserId],
+    sessionOrigin: 'manual',
+  });
+
+  if (zoomMeetingId) {
+    await client.query(
+      `UPDATE app_mentoring.mentorship_sessions
+         SET zoom_meeting_id = $2, zoom_host_url = $3, updated_at = now()
+       WHERE session_id = $1::uuid`,
+      [session.sessionId, zoomMeetingId, zoomHostUrl],
+    );
+  }
+
+  const participants = await loadSessionParticipantsInfo(client, input.leaderUserId, input.mentorUserId);
+  const tz = await resolveActorOrgTimezone(client, input.leaderUserId);
+  const fechaStr = formatFechaCO(input.startsAt, tz);
+  const horaStr = formatHoraCO(input.startsAt, tz);
+  const enlaceSesion = buildSessionEnlaceSesion(meetingUrl);
+  await notifyUserFull(client, {
+    recipientUserId: input.leaderUserId,
+    eventKey: 'mentorias.session_scheduled_mentee',
+    variables: {
+      nombre: participants.menteeFirstName,
+      titulo: input.title,
+      fecha: fechaStr,
+      hora: horaStr,
+      adviser_nombre: participants.mentorDisplayName,
+      enlace_sesion: enlaceSesion,
+    },
+  });
+  await notifyUserFull(client, {
+    recipientUserId: input.mentorUserId,
+    eventKey: 'mentorias.session_scheduled_mentor',
+    variables: {
+      nombre: participants.mentorFirstName,
+      titulo: input.title,
       fecha: fechaStr,
       hora: horaStr,
       lider_nombre: participants.menteeDisplayName,

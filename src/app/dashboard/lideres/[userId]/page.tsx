@@ -832,6 +832,9 @@ export default function Leader360Page() {
                                     />
                                 </div>
                             </div>
+                            <p className="text-[11px] text-[var(--app-muted)]">
+                                Si dejas el enlace vacío, se creará automáticamente la reunión en Zoom (integración configurada). Si Zoom no está disponible, se usa el enlace de office hours del adviser.
+                            </p>
                         </div>
 
                         <div className="mt-6 flex justify-end gap-2">
