@@ -13,6 +13,26 @@ interface UiMessage {
   content: string;
 }
 
+/**
+ * Sanea los enlaces del asistente: si apunta a cualquier dominio 4shine.* (p. ej.
+ * el modelo escribió 4shine.com en vez de .co) lo fuerza al MISMO origen actual
+ * usando solo la ruta. Devuelve { href, external } para decidir el target.
+ */
+function normalizeHref(href?: string): { href: string; external: boolean } {
+  if (!href) return { href: "#", external: false };
+  if (href.startsWith("/")) return { href, external: false };
+  if (/^(mailto:|tel:)/i.test(href)) return { href, external: false };
+  try {
+    const url = new URL(href, window.location.origin);
+    if (/(^|\.)4shine\.[a-z]+$/i.test(url.hostname) || url.origin === window.location.origin) {
+      return { href: `${url.pathname}${url.search}${url.hash}` || "/", external: false };
+    }
+    return { href: url.toString(), external: true };
+  } catch {
+    return { href, external: false };
+  }
+}
+
 export default function ChatWidget() {
   const { isAuthenticated, isHydrating } = useUser();
   const [ready, setReady] = useState(false);
@@ -174,15 +194,19 @@ export default function ChatWidget() {
                       <ReactMarkdown
                         components={{
                           p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-                          a: ({ href, children }) => (
-                            <a
-                              href={href}
-                              className="font-semibold underline"
-                              style={{ color: "var(--brand-primary)" }}
-                            >
-                              {children}
-                            </a>
-                          ),
+                          a: ({ href, children }) => {
+                            const safe = normalizeHref(href);
+                            return (
+                              <a
+                                href={safe.href}
+                                {...(safe.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                                className="font-semibold underline"
+                                style={{ color: "var(--brand-primary)" }}
+                              >
+                                {children}
+                              </a>
+                            );
+                          },
                           ul: ({ children }) => <ul className="mb-2 ml-4 list-disc space-y-1 last:mb-0">{children}</ul>,
                           ol: ({ children }) => <ol className="mb-2 ml-4 list-decimal space-y-1 last:mb-0">{children}</ol>,
                           strong: ({ children }) => <strong className="font-extrabold">{children}</strong>,

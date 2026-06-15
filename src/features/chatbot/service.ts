@@ -691,7 +691,8 @@ async function buildMentoringBlock(client: PoolClient, actor: AuthUser): Promise
   return out.join('\n');
 }
 
-const ROUTE_MAP = `RUTAS INTERNAS (entrégalas como enlaces markdown cuando el usuario quiera hacer algo; NO ejecutes la acción tú):
+const ROUTE_MAP = `RUTAS INTERNAS (entrégalas como enlaces markdown cuando el usuario quiera hacer algo; NO ejecutes la acción tú).
+IMPORTANTE: usa SIEMPRE la ruta RELATIVA tal cual (empieza con "/"). NUNCA antepongas un dominio; en particular NUNCA escribas "4shine.com" (ese es otro sitio). El dominio correcto es 4shine.co, pero basta con la ruta relativa.
 - Perfil, editar datos, foto, cambiar contraseña, eliminar cuenta: /dashboard/perfil
 - Suscripción, plan, días restantes: /dashboard/suscripcion
 - Workshops (inscribirse): /dashboard/workshops
