@@ -49,6 +49,34 @@ export interface ZoomMeetingParams {
   timezone?: string;
   waitingRoom?: boolean;
   autoRecording?: 'none' | 'local' | 'cloud';
+  /**
+   * Para sesiones 1:1: fuerza grabación en la nube y transcripción automática,
+   * independientemente del ajuste por defecto de la integración.
+   */
+  enableAutoTranscription?: boolean;
+}
+
+/**
+ * Habilita (best-effort) la grabación en la nube + transcripción de audio en los
+ * ajustes del usuario "me" de la cuenta Zoom, para que las grabaciones generen
+ * transcripción automáticamente. No interrumpe el flujo si falla (scopes/permits).
+ */
+async function ensureCloudTranscriptSettings(token: string): Promise<void> {
+  try {
+    await fetch('https://api.zoom.us/v2/users/me/settings', {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        recording: {
+          cloud_recording: true,
+          auto_recording: 'cloud',
+          recording_audio_transcript: true,
+        },
+      }),
+    });
+  } catch (err) {
+    console.error('[zoom] no se pudo activar transcripción automática en ajustes:', err);
+  }
 }
 
 interface ZoomTokenResponse {
@@ -99,12 +127,16 @@ export async function createZoomMeeting(
 
   const timezone = params.timezone ?? await getInstitutionTimezone(client, actorUserId);
   const waitingRoom = params.waitingRoom ?? config.wizardData.waitingRoom !== 'false';
-  const autoRecording = (params.autoRecording ?? config.wizardData.autoRecording ?? 'none') as
-    | 'none'
-    | 'local'
-    | 'cloud';
+  // En 1:1 se fuerza grabación en la nube (requisito para la transcripción automática).
+  const autoRecording = params.enableAutoTranscription
+    ? 'cloud'
+    : ((params.autoRecording ?? config.wizardData.autoRecording ?? 'none') as 'none' | 'local' | 'cloud');
 
   const token = await getAccessToken(accountId, clientId, clientSecret);
+
+  if (params.enableAutoTranscription) {
+    await ensureCloudTranscriptSettings(token);
+  }
 
   const meetingBody: Record<string, unknown> = {
     topic: params.topic,

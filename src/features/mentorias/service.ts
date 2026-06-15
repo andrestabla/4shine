@@ -1219,6 +1219,7 @@ async function resolveOnBehalfMeeting(
         startsAt,
         durationMinutes,
         hostEmail: hostRows[0]?.email ?? undefined,
+        enableAutoTranscription: true,
       });
       if (zoom) {
         meetingUrl = zoom.joinUrl;
@@ -2856,6 +2857,7 @@ export async function scheduleProgramMentorship(
         startsAt: input.startsAt,
         durationMinutes: entitlement.defaultDurationMinutes,
         hostEmail: hostRows[0]?.email ?? undefined,
+        enableAutoTranscription: true,
       });
       if (zoom) {
         resolvedMeetingUrl = zoom.joinUrl;
