@@ -27,7 +27,6 @@ const PATH_TITLES: Record<string, string> = {
   "/dashboard/trayectoria": "Trayectoria",
   "/dashboard/descubrimiento": "Descubrimiento",
   "/dashboard/aprendizaje": "Aprendizaje",
-  "/dashboard/metodologia": "Metodología",
   "/dashboard/mentorias": "Mentorías",
   "/dashboard/networking": "Networking",
   "/dashboard/convocatorias": "Convocatorias",
@@ -178,7 +177,7 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
               </p>
             )}
             <h1
-              className="app-display-title truncate text-[2rem] font-semibold leading-none md:text-[2.3rem]"
+              className="app-display-title text-[1.55rem] font-semibold leading-tight [overflow-wrap:anywhere] sm:text-[1.9rem] md:text-[2.2rem]"
               data-display-font="true"
             >
               {pageTitle}

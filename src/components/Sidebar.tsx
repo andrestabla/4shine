@@ -77,12 +77,6 @@ const MAIN_NAV_ITEMS: NavItem[] = [
     path: "/dashboard/aprendizaje",
   },
   {
-    moduleCode: "metodologia",
-    label: "Metodología",
-    icon: Book,
-    path: "/dashboard/metodologia",
-  },
-  {
     moduleCode: "mentorias",
     label: "Mentorías",
     icon: Video,

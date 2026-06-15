@@ -49,7 +49,6 @@ const ACCESS_BY_PATH: Record<string, RouteAccess> = {
   "/dashboard/trayectoria": { moduleCode: "trayectoria" },
   "/dashboard/descubrimiento": { moduleCode: "descubrimiento" },
   "/dashboard/aprendizaje": { moduleCode: "aprendizaje" },
-  "/dashboard/metodologia": { moduleCode: "metodologia" },
   "/dashboard/mentorias": { moduleCode: "mentorias" },
   "/dashboard/networking": { moduleCode: "networking" },
   "/dashboard/convocatorias": { moduleCode: "convocatorias" },
