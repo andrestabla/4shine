@@ -1307,7 +1307,7 @@ async function syncLinkedMentorshipEntities(client: PoolClient, sessionId: strin
   }
 }
 
-async function listProgramEntitlements(
+export async function listProgramEntitlements(
   client: PoolClient,
   ownerUserId: string,
 ): Promise<ProgramMentorshipEntitlementRecord[]> {

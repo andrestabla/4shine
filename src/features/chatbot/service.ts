@@ -5,6 +5,7 @@ import { getIntegrationConfigForActor } from '@/server/integrations/config';
 import { getViewerAccessState } from '@/features/access/service';
 import { getMyProfile } from '@/features/perfil/service';
 import { getMyDashboard } from '@/features/dashboard/service';
+import { listProgramEntitlements } from '@/features/mentorias/service';
 import { subscriptionStatus, formatExpiry } from '@/features/usuarios/subscription-status';
 import type {
   AdminConversation,
@@ -347,14 +348,85 @@ async function buildUserContext(client: PoolClient, actor: AuthUser): Promise<st
 
   if (access) lines.push(`- Accesos según su plan: ${enabledModulesText(access)}`);
   if (typeof access?.mentorshipSessionCredits === 'number') {
-    lines.push(`- Créditos de mentoría 1:1: ${access.mentorshipSessionCredits}`);
+    lines.push(
+      `- Créditos de mentorías 1:1 ADICIONALES (compradas aparte, NO son las incluidas en el plan): ${access.mentorshipSessionCredits}`,
+    );
   }
   if (dashboard) {
     lines.push(
       `- Progreso de ruta: ${dashboard.routePercent}% · Diagnóstico: ${dashboard.discovery.done ? 'completado' : `${dashboard.discovery.completionPercent}%`} · Mentorías completadas: ${dashboard.mentorias.completed}, agendadas: ${dashboard.mentorias.scheduled} · Conexiones: ${dashboard.networking.connected}`,
     );
   }
+
+  const mentoringBlock = await buildMentoringBlock(client, actor);
+  if (mentoringBlock) lines.push(mentoringBlock);
+
   return lines.join('\n');
+}
+
+const TEN_DAYS_MS = 10 * 24 * 60 * 60 * 1000;
+
+function fmtDate(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('es-CO', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    timeZone: 'America/Bogota',
+  });
+}
+
+/**
+ * Estado real del programa de mentorías 1:1 + la regla de cadencia, para que el
+ * asistente NO invente (p. ej. "0 créditos") y explique por qué se bloquean.
+ */
+async function buildMentoringBlock(client: PoolClient, actor: AuthUser): Promise<string | null> {
+  const entitlements = await listProgramEntitlements(client, actor.userId).catch(() => []);
+  if (entitlements.length === 0) return null;
+
+  const sorted = [...entitlements].sort((a, b) => a.sequenceNo - b.sequenceNo);
+  const included = sorted.length;
+  const completed = sorted.filter((e) => e.status === 'completed').length;
+  const scheduled = sorted.filter((e) => e.status === 'scheduled').length;
+  const availableNow = sorted.filter((e) => e.status === 'available');
+  const now = Date.now();
+
+  // La sesión agendada que aún bloquea a las siguientes (su inicio + 10 días no ha pasado).
+  const blocker = sorted
+    .filter((e) => e.status === 'scheduled' && e.scheduledStartsAt && new Date(e.scheduledStartsAt).getTime() + TEN_DAYS_MS > now)
+    .sort((a, b) => a.sequenceNo - b.sequenceNo)[0];
+  const nextUnlockDate = blocker?.scheduledStartsAt
+    ? fmtDate(new Date(new Date(blocker.scheduledStartsAt).getTime() + TEN_DAYS_MS).toISOString())
+    : null;
+
+  const out: string[] = [
+    'ESTADO REAL DE LAS MENTORÍAS 1:1 DEL PROGRAMA (usa estos datos; NO inventes créditos ni límites):',
+    'Regla de cadencia (directiva del programa): las mentorías 1:1 incluidas se habilitan EN ORDEN y de a una. La SIGUIENTE solo se habilita 10 días DESPUÉS de la fecha de inicio de la sesión anterior ya agendada. Vienen INCLUIDAS en el plan y NO requieren "créditos"; los créditos adicionales son solo para mentorías extra compradas aparte. Tener 0 créditos adicionales NO impide agendar las incluidas: lo que las habilita/bloquea es el orden y la cadencia de 10 días.',
+    `Resumen: incluidas en el plan ${included} · completadas ${completed} · agendadas ${scheduled} · disponibles para agendar ahora ${availableNow.length}.`,
+  ];
+  if (availableNow[0]) {
+    out.push(`Puede agendar AHORA: Mentoría ${String(availableNow[0].sequenceNo).padStart(2, '0')} «${availableNow[0].title}».`);
+  } else if (nextUnlockDate) {
+    out.push(`No hay ninguna disponible ahora; la siguiente se habilita el ${nextUnlockDate} (10 días después de la sesión agendada que está en curso).`);
+  }
+  out.push('Detalle por sesión:');
+  for (const e of sorted) {
+    const code = `M${String(e.sequenceNo).padStart(2, '0')}`;
+    if (e.status === 'completed') {
+      out.push(`- ${code} «${e.title}»: completada.`);
+    } else if (e.status === 'scheduled') {
+      const blocks = blocker && e.sequenceNo === blocker.sequenceNo ? ` → bloquea las siguientes hasta el ${nextUnlockDate}` : '';
+      out.push(`- ${code} «${e.title}»: agendada para ${fmtDate(e.scheduledStartsAt)}${blocks}.`);
+    } else if (e.status === 'available') {
+      out.push(`- ${code} «${e.title}»: disponible para agendar ahora.`);
+    } else {
+      const when = blocker && e.sequenceNo === (blocker.sequenceNo + 1) && nextUnlockDate ? ` (se habilita el ${nextUnlockDate})` : ' (pendiente de que se liberen las anteriores)';
+      out.push(`- ${code} «${e.title}»: bloqueada${when}.`);
+    }
+  }
+  return out.join('\n');
 }
 
 const ROUTE_MAP = `RUTAS INTERNAS (entrégalas como enlaces markdown cuando el usuario quiera hacer algo; NO ejecutes la acción tú):
@@ -368,7 +440,19 @@ const ROUTE_MAP = `RUTAS INTERNAS (entrégalas como enlaces markdown cuando el u
 - Mensajes: /dashboard/mensajes
 - Trayectoria: /dashboard/trayectoria`;
 
-const DEFAULT_SYSTEM_PROMPT = `Eres el asistente de soporte 360 de 4Shine, una plataforma de liderazgo. Respondes en español, con tono cercano, profesional, claro y conciso. Conoces al usuario por el contexto provisto y lo usas para responder con precisión (acceso según su plan, días de suscripción, progreso, mentorías, etc.). IMPORTANTE: NO ejecutas acciones ni cambios en la plataforma; cuando el usuario quiera hacer algo (actualizar perfil, eliminar cuenta, inscribirse a un workshop, etc.) explícale brevemente cómo y entrégale el enlace interno correcto. Si algo no está en tu información, dilo con honestidad. Usa Markdown y enlaces.`;
+const DEFAULT_SYSTEM_PROMPT = `Eres el asistente de soporte 360 de 4Shine, una plataforma de liderazgo. Respondes en español, con tono cercano, profesional, claro y conciso, y SIEMPRE diriges al usuario por su nombre.
+
+DIRECTIVA PRINCIPAL — Conoce muy bien el ROL y el PLAN del usuario y orienta cada respuesta a partir de ellos:
+- Adapta la respuesta al rol (líder, adviser/mentor, gestor, admin, invitado): un líder pregunta por su proceso; un adviser por sus mentorías y agenda; un gestor/admin por administración.
+- Razona con el plan del usuario y los accesos que ese plan habilita. Si pregunta por algo que su plan no incluye, díselo con claridad y ofrécele la ruta para cambiar de plan.
+
+NO INVENTES datos. Usa exclusivamente el CONTEXTO DEL USUARIO provisto (plan, accesos, días de suscripción, progreso, estado real de mentorías). Si un dato no está en tu contexto, dilo con honestidad en vez de suponer cifras, créditos o límites.
+
+MENTORÍAS 1:1: las incluidas en el plan NO son "créditos". No digas que "faltan créditos" para las incluidas. Si el usuario no puede agendar, explícale la regla real: se habilitan en orden, de a una, y la siguiente se habilita 10 días después de la fecha de inicio de la sesión anterior agendada; indícale, con los datos del contexto, cuál es la próxima y cuándo se habilita.
+
+NO EJECUTAS acciones ni cambios en la plataforma. Cuando el usuario quiera hacer algo (actualizar perfil, cambiar contraseña, eliminar cuenta, agendar/comprar mentorías, inscribirse a un workshop, etc.) explícale brevemente cómo y entrégale el enlace interno correcto como enlace markdown.
+
+Personaliza la atención: sé empático, anticipa el siguiente paso útil según el estado del usuario y ofrece el enlace o la acción concreta. Usa Markdown y enlaces.`;
 
 async function callOpenAi(
   client: PoolClient,
