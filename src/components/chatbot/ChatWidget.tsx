@@ -1,0 +1,207 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import { Bot, Loader2, MessageCircle, Send, X } from "lucide-react";
+import clsx from "clsx";
+import { useUser } from "@/context/UserContext";
+import { getMyChatbot, sendChatMessage } from "@/features/chatbot/client";
+import type { ChatMessage } from "@/features/chatbot/types";
+
+interface UiMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export default function ChatWidget() {
+  const { isAuthenticated, isHydrating } = useUser();
+  const [ready, setReady] = useState(false);
+  const [enabled, setEnabled] = useState(false);
+  const [welcome, setWelcome] = useState("");
+  const [persona, setPersona] = useState("Asistente 4Shine");
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<UiMessage[]>([]);
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const didLoad = useRef(false);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  // Carga inicial: settings públicos + última conversación.
+  useEffect(() => {
+    if (isHydrating || !isAuthenticated || didLoad.current) return;
+    didLoad.current = true;
+    void (async () => {
+      const res = await getMyChatbot();
+      if (res.ok && res.data) {
+        setEnabled(res.data.enabled);
+        setWelcome(res.data.welcomeMessage);
+        setPersona(res.data.persona || "Asistente 4Shine");
+        setConversationId(res.data.conversationId);
+        setMessages(res.data.messages.map((m: ChatMessage) => ({ role: m.role, content: m.content })));
+      }
+      setReady(true);
+    })();
+  }, [isAuthenticated, isHydrating]);
+
+  // Autoscroll al final cuando hay mensajes nuevos o abre el panel.
+  useEffect(() => {
+    if (!open) return;
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [messages, open, sending]);
+
+  if (isHydrating || !isAuthenticated || !ready || !enabled) return null;
+
+  const visibleMessages: UiMessage[] =
+    messages.length > 0 || !welcome ? messages : [{ role: "assistant", content: welcome }];
+
+  const handleSend = async () => {
+    const text = draft.trim();
+    if (!text || sending) return;
+    setError(null);
+    setDraft("");
+    setMessages((prev) => [...prev, { role: "user", content: text }]);
+    setSending(true);
+    try {
+      const res = await sendChatMessage({ conversationId, text });
+      if (res.ok && res.data) {
+        setConversationId(res.data.conversationId);
+        setMessages((prev) => [...prev, { role: "assistant", content: res.data!.reply }]);
+      } else {
+        setError(res.error ?? "No se pudo enviar el mensaje");
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: "Lo siento, hubo un problema al responder. Inténtalo de nuevo." },
+        ]);
+      }
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <>
+      {/* Botón flotante */}
+      <button
+        type="button"
+        aria-label={open ? "Cerrar asistente" : "Abrir asistente"}
+        onClick={() => setOpen((v) => !v)}
+        className="fixed bottom-5 right-5 z-[90] flex h-14 w-14 items-center justify-center rounded-full text-white shadow-xl transition-transform hover:scale-105 active:scale-95"
+        style={{ backgroundColor: "var(--brand-primary)" }}
+      >
+        {open ? <X size={24} /> : <MessageCircle size={26} />}
+      </button>
+
+      {/* Panel */}
+      {open && (
+        <div
+          className="fixed bottom-24 right-5 z-[90] flex w-[min(92vw,400px)] flex-col overflow-hidden rounded-[20px] border border-[var(--app-border)] bg-white shadow-2xl"
+          style={{ height: "min(72vh, 620px)" }}
+        >
+          {/* Header */}
+          <div
+            className="flex items-center gap-3 px-4 py-3 text-white"
+            style={{ backgroundColor: "var(--brand-primary)" }}
+          >
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20">
+              <Bot size={20} />
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-extrabold leading-tight">{persona}</p>
+              <p className="text-[11px] leading-tight text-white/80">Soporte 360 · te guío en todo</p>
+            </div>
+          </div>
+
+          {/* Mensajes */}
+          <div
+            ref={scrollRef}
+            className="flex-1 space-y-3 overflow-y-auto overscroll-contain bg-[var(--app-surface-muted)] px-3 py-4 [-webkit-overflow-scrolling:touch]"
+          >
+            {visibleMessages.map((m, i) => (
+              <div
+                key={i}
+                className={clsx("flex", m.role === "user" ? "justify-end" : "justify-start")}
+              >
+                <div
+                  className={clsx(
+                    "max-w-[85%] rounded-[16px] px-3.5 py-2.5 text-[13px] leading-relaxed shadow-sm",
+                    m.role === "user"
+                      ? "rounded-br-sm bg-[var(--brand-primary)] text-white"
+                      : "rounded-bl-sm border border-[var(--app-border)] bg-white text-[var(--app-ink)]",
+                  )}
+                >
+                  {m.role === "user" ? (
+                    <span className="whitespace-pre-wrap">{m.content}</span>
+                  ) : (
+                    <div className="chatbot-prose">
+                      <ReactMarkdown
+                        components={{
+                          p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                          a: ({ href, children }) => (
+                            <a
+                              href={href}
+                              className="font-semibold underline"
+                              style={{ color: "var(--brand-primary)" }}
+                            >
+                              {children}
+                            </a>
+                          ),
+                          ul: ({ children }) => <ul className="mb-2 ml-4 list-disc space-y-1 last:mb-0">{children}</ul>,
+                          ol: ({ children }) => <ol className="mb-2 ml-4 list-decimal space-y-1 last:mb-0">{children}</ol>,
+                          strong: ({ children }) => <strong className="font-extrabold">{children}</strong>,
+                        }}
+                      >
+                        {m.content}
+                      </ReactMarkdown>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+
+            {sending && (
+              <div className="flex justify-start">
+                <div className="flex items-center gap-2 rounded-[16px] rounded-bl-sm border border-[var(--app-border)] bg-white px-3.5 py-2.5 text-[13px] text-[var(--app-muted)] shadow-sm">
+                  <Loader2 size={14} className="animate-spin" />
+                  Escribiendo…
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Composer */}
+          <div className="border-t border-[var(--app-border)] bg-white px-3 py-2.5">
+            {error && <p className="mb-1.5 text-[11px] font-semibold text-red-600">{error}</p>}
+            <div className="flex items-end gap-2">
+              <textarea
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    void handleSend();
+                  }
+                }}
+                rows={1}
+                placeholder="Escribe tu pregunta…"
+                className="max-h-28 min-h-[40px] flex-1 resize-none rounded-[12px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-2 text-[13px] text-[var(--app-ink)] outline-none focus:border-[var(--brand-primary)]"
+              />
+              <button
+                type="button"
+                onClick={() => void handleSend()}
+                disabled={sending || !draft.trim()}
+                aria-label="Enviar"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white transition-opacity disabled:opacity-40"
+                style={{ backgroundColor: "var(--brand-primary)" }}
+              >
+                <Send size={18} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}

@@ -4,6 +4,7 @@ import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
 import TourRunner from "@/components/tour/TourRunner";
 import PopupRuntime from "@/components/popups/PopupRuntime";
+import ChatWidget from "@/components/chatbot/ChatWidget";
 import FirstLoginWelcomeModal from "@/components/dashboard/FirstLoginWelcomeModal";
 import { getMyTour } from "@/features/tour/client";
 import type { MyTourPayload } from "@/features/tour/types";
@@ -71,6 +72,10 @@ const ACCESS_BY_PATH: Record<string, RouteAccess> = {
     action: "manage",
   },
   "/dashboard/administracion/tour": {
+    moduleCode: "usuarios",
+    action: "manage",
+  },
+  "/dashboard/administracion/asistente-ia": {
     moduleCode: "usuarios",
     action: "manage",
   },
@@ -535,6 +540,8 @@ export default function DashboardLayout({
       )}
 
       <PopupRuntime />
+
+      <ChatWidget />
     </div>
   );
 }

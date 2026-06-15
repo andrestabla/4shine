@@ -48,6 +48,7 @@ const PATH_TITLES: Record<string, string> = {
   "/dashboard/administracion/planes": "Planes y Precios",
   "/dashboard/administracion/planes/nuevo": "Nuevo plan",
   "/dashboard/administracion/tour": "Tour de Onboarding",
+  "/dashboard/administracion/asistente-ia": "Asistente IA",
   "/dashboard/suscripcion": "Mi suscripción",
   "/dashboard/contenido": "Gestión Contenido",
   "/dashboard/analitica": "Analítica",

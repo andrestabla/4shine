@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { PageTitle } from '@/components/dashboard/PageTitle';
-import { Settings, Palette, PlugZap, Users, ShieldCheck, Globe, Bell, CreditCard, Receipt, Compass } from 'lucide-react';
+import { Settings, Palette, PlugZap, Users, ShieldCheck, Globe, Bell, CreditCard, Receipt, Compass, Bot } from 'lucide-react';
 
 const ADMIN_CARDS = [
   {
@@ -58,6 +58,12 @@ const ADMIN_CARDS = [
     description: 'Configurar el recorrido guiado del primer ingreso: pasos por rol, reinicio para todos y analítica de vistas.',
     href: '/dashboard/administracion/tour',
     icon: Compass,
+  },
+  {
+    title: 'Asistente IA',
+    description: 'Configurar el chatbot de soporte 360: estado, persona, instrucciones, base de conocimiento (FAQs) y revisión de conversaciones.',
+    href: '/dashboard/administracion/asistente-ia',
+    icon: Bot,
   },
 ] as const;
 
