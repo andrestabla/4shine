@@ -18,7 +18,7 @@ export async function getMyDashboard(client: PoolClient, actor: AuthUser): Promi
   // Diagnóstico (Descubrimiento): mayor avance + si alguna sesión está completa.
   const { rows: discRows } = await client.query<{ pct: number; done: boolean }>(
     `SELECT COALESCE(MAX(completion_percent), 0)::float AS pct,
-            COALESCE(BOOL_OR(status = 'completed'), false) AS done
+            COALESCE(BOOL_OR(status = 'completed' OR completion_percent >= 100), false) AS done
      FROM app_assessment.discovery_sessions
      WHERE user_id = $1`,
     [userId],
