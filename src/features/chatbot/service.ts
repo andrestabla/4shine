@@ -10,6 +10,7 @@ import { listConvocatorias } from '@/features/convocatorias/service';
 import { listWorkshops } from '@/features/workshops/service';
 import { listWorkbooks } from '@/features/aprendizaje/service';
 import { listConnections } from '@/features/networking/service';
+import { listPublicAdvisers } from '@/features/advisers/service';
 import { subscriptionStatus, formatExpiry } from '@/features/usuarios/subscription-status';
 import type {
   AdminConversation,
@@ -479,7 +480,31 @@ async function buildUserContext(client: PoolClient, actor: AuthUser): Promise<st
   const networkingBlock = await buildNetworkingBlock(client, actor);
   if (networkingBlock) lines.push(networkingBlock);
 
+  const advisersBlock = await buildAdvisersBlock(client);
+  if (advisersBlock) lines.push(advisersBlock);
+
   return lines.join('\n');
+}
+
+/**
+ * Advisers (mentores) de 4Shine. Es información pública (también en /advisers),
+ * así que el asistente debe poder describir quiénes son y sus especialidades.
+ */
+async function buildAdvisersBlock(client: PoolClient): Promise<string | null> {
+  const advisers = await listPublicAdvisers(client, 60).catch(() => []);
+  if (advisers.length === 0) return null;
+
+  const out: string[] = [
+    `ADVISERS (MENTORES) DE 4SHINE — información pública (también visible en /advisers). Hay ${advisers.length}. Cuando pregunten por los advisers, descríbelos con estos datos (nombre, profesión/rol, industria, experiencia, temas) y, si quieren a alguien en particular, ofrécele ver el perfil público en /advisers o agendar en /dashboard/mentorias:`,
+  ];
+  for (const a of advisers.slice(0, 25)) {
+    const parts = [a.profession || a.jobRole, a.industry, a.yearsExperience].filter(Boolean).join(' · ');
+    const temas = a.topics.length > 0 ? ` · temas: ${a.topics.slice(0, 6).join(', ')}` : '';
+    const lugar = a.location || a.country ? ` · ${[a.location, a.country].filter(Boolean).join(', ')}` : '';
+    out.push(`- ${a.name}${parts ? ` (${parts})` : ''}${lugar}${temas}`);
+  }
+  out.push('Perfiles públicos completos: /advisers');
+  return out.join('\n');
 }
 
 /**
@@ -671,6 +696,7 @@ const ROUTE_MAP = `RUTAS INTERNAS (entrégalas como enlaces markdown cuando el u
 - Suscripción, plan, días restantes: /dashboard/suscripcion
 - Workshops (inscribirse): /dashboard/workshops
 - Mentorías (agendar/comprar): /dashboard/mentorias
+- Advisers / mentores (perfiles públicos): /advisers
 - Aprendizaje, cursos, workbooks: /dashboard/aprendizaje
 - Descubrimiento / diagnóstico: /dashboard/descubrimiento
 - Networking, contactos, comunidades: /dashboard/networking
