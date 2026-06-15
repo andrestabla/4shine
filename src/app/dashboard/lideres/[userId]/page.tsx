@@ -7,6 +7,7 @@ import {
     ArrowLeft,
     BookOpen,
     Calendar,
+    CalendarPlus,
     CheckCircle2,
     Compass,
     ExternalLink,
@@ -15,11 +16,14 @@ import {
     Network,
     PlayCircle,
     Sparkles,
-    Users
+    Users,
+    X
 } from 'lucide-react';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { useUser } from '@/context/UserContext';
+import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { getLeader360, type Leader360Snapshot } from '@/features/lideres/client';
+import { createMentorship } from '@/features/mentorias/client';
 
 function formatDate(value: string | null) {
     if (!value) return '—';
@@ -101,23 +105,27 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
 export default function Leader360Page() {
     const params = useParams<{ userId: string }>();
     const userId = params?.userId ?? '';
-    const { currentRole } = useUser();
+    const { currentRole, can } = useUser();
+    const { alert } = useAppDialog();
     const isElevated = currentRole === 'admin' || currentRole === 'gestor' || currentRole === 'mentor';
+    const canSchedule = can('mentorias', 'create');
 
     const [snapshot, setSnapshot] = React.useState<Leader360Snapshot | null>(null);
     const [loading, setLoading] = React.useState(true);
     const [error, setError] = React.useState<string | null>(null);
+
+    const loadSnapshot = React.useCallback(async () => {
+        if (!userId) return;
+        const data = await getLeader360(userId);
+        setSnapshot(data);
+    }, [userId]);
 
     React.useEffect(() => {
         if (!userId) return;
         let active = true;
         setLoading(true);
         setError(null);
-        getLeader360(userId)
-            .then((data) => {
-                if (!active) return;
-                setSnapshot(data);
-            })
+        loadSnapshot()
             .catch((err) => {
                 if (!active) return;
                 setError(err instanceof Error ? err.message : 'No se pudo cargar el perfil 360.');
@@ -128,7 +136,51 @@ export default function Leader360Page() {
         return () => {
             active = false;
         };
-    }, [userId]);
+    }, [userId, loadSnapshot]);
+
+    // Agendar mentoría 1:1 con el líder, directo desde la vista 360.
+    const [scheduleOpen, setScheduleOpen] = React.useState(false);
+    const [scheduling, setScheduling] = React.useState(false);
+    const [scheduleForm, setScheduleForm] = React.useState({ date: '', time: '', duration: 60, title: '', meetingUrl: '' });
+
+    const submitSchedule = async () => {
+        if (!snapshot) return;
+        if (!scheduleForm.date || !scheduleForm.time) {
+            await alert({ title: 'Faltan datos', message: 'Elige fecha y hora para la sesión.', tone: 'warning' });
+            return;
+        }
+        const startsAt = new Date(`${scheduleForm.date}T${scheduleForm.time}`);
+        if (Number.isNaN(startsAt.getTime())) {
+            await alert({ title: 'Fecha inválida', message: 'Revisa la fecha y hora.', tone: 'warning' });
+            return;
+        }
+        const endsAt = new Date(startsAt.getTime() + Math.max(15, scheduleForm.duration) * 60_000);
+        setScheduling(true);
+        try {
+            await createMentorship({
+                title: scheduleForm.title.trim() || `Mentoría 1:1 con ${snapshot.profile.displayName}`,
+                startsAt: startsAt.toISOString(),
+                endsAt: endsAt.toISOString(),
+                sessionType: 'individual',
+                status: 'scheduled',
+                menteeUserIds: [userId],
+                meetingUrl: scheduleForm.meetingUrl.trim() || null,
+                sessionOrigin: 'manual',
+            });
+            setScheduleOpen(false);
+            setScheduleForm({ date: '', time: '', duration: 60, title: '', meetingUrl: '' });
+            await loadSnapshot();
+            await alert({ title: 'Sesión agendada', message: 'La mentoría 1:1 quedó agendada con el líder.', tone: 'success' });
+        } catch (err) {
+            await alert({
+                title: 'No se pudo agendar',
+                message: err instanceof Error ? err.message : 'Inténtalo nuevamente.',
+                tone: 'error',
+            });
+        } finally {
+            setScheduling(false);
+        }
+    };
 
     if (!isElevated) {
         return (
@@ -329,6 +381,17 @@ export default function Leader360Page() {
                 title="Mentorías asignadas y sesiones"
                 icon={Calendar}
                 description="Asignaciones activas, próximas sesiones y sesiones pasadas."
+                cta={
+                    canSchedule ? (
+                        <button
+                            type="button"
+                            onClick={() => setScheduleOpen(true)}
+                            className="inline-flex items-center gap-1.5 rounded-full bg-[var(--brand-primary)] px-3.5 py-1.5 text-xs font-bold text-white transition hover:opacity-90"
+                        >
+                            <CalendarPlus size={14} /> Agendar 1:1
+                        </button>
+                    ) : undefined
+                }
             >
                 {mentorship.assignments.length === 0 && mentorship.totalSessions === 0 ? (
                     <p className="text-sm text-[var(--app-muted)]">Sin mentorías registradas.</p>
@@ -590,6 +653,99 @@ export default function Leader360Page() {
                 <Sparkles size={14} className="mr-1 inline" />
                 Esta vista 360 se actualiza cada vez que abres la página. Los enlaces a cada WB ya abren la edición del workbook del líder seleccionado para admin/gestor/adviser.
             </div>
+
+            {scheduleOpen && (
+                <div className="fixed inset-0 z-[120] flex items-center justify-center bg-[rgba(22,10,38,0.55)] p-4 backdrop-blur-sm">
+                    <div className="w-[min(94vw,460px)] rounded-[20px] border border-[var(--app-border)] bg-white p-6 shadow-2xl">
+                        <div className="flex items-start justify-between gap-3">
+                            <div>
+                                <h3 className="text-lg font-black text-[var(--app-ink)]">Agendar mentoría 1:1</h3>
+                                <p className="mt-1 text-xs text-[var(--app-muted)]">Con {profile.displayName}</p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setScheduleOpen(false)}
+                                className="text-[var(--app-muted)] hover:text-[var(--app-ink)]"
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        <div className="mt-5 space-y-3">
+                            <div>
+                                <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">Título (opcional)</label>
+                                <input
+                                    className="app-input"
+                                    placeholder={`Mentoría 1:1 con ${profile.displayName}`}
+                                    value={scheduleForm.title}
+                                    onChange={(e) => setScheduleForm((p) => ({ ...p, title: e.target.value }))}
+                                />
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">Fecha</label>
+                                    <input
+                                        type="date"
+                                        className="app-input"
+                                        value={scheduleForm.date}
+                                        onChange={(e) => setScheduleForm((p) => ({ ...p, date: e.target.value }))}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">Hora</label>
+                                    <input
+                                        type="time"
+                                        className="app-input"
+                                        value={scheduleForm.time}
+                                        onChange={(e) => setScheduleForm((p) => ({ ...p, time: e.target.value }))}
+                                    />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">Duración (min)</label>
+                                    <input
+                                        type="number"
+                                        min={15}
+                                        step={15}
+                                        className="app-input"
+                                        value={scheduleForm.duration}
+                                        onChange={(e) => setScheduleForm((p) => ({ ...p, duration: Number(e.target.value) || 60 }))}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">Enlace (opcional)</label>
+                                    <input
+                                        className="app-input"
+                                        placeholder="https://meet…"
+                                        value={scheduleForm.meetingUrl}
+                                        onChange={(e) => setScheduleForm((p) => ({ ...p, meetingUrl: e.target.value }))}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mt-6 flex justify-end gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setScheduleOpen(false)}
+                                className="rounded-full border border-[var(--app-border)] px-4 py-2 text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => void submitSchedule()}
+                                disabled={scheduling}
+                                className="inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-4 py-2 text-xs font-bold text-white disabled:opacity-60"
+                            >
+                                {scheduling ? <Loader2 size={14} className="animate-spin" /> : <CalendarPlus size={14} />}
+                                Agendar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
