@@ -134,6 +134,31 @@ export default function EnviarMensajesPage() {
       .catch(() => setTemplates([]));
   }, []);
 
+  // Precarga de destinatarios cuando se llega desde Gestión de Usuarios
+  // (acción masiva "Enviar mensaje"): se guardan en sessionStorage y se
+  // hidratan aquí como destinatarios seleccionados.
+  React.useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem('fourshine.bulkMessageRecipients');
+      if (!raw) return;
+      sessionStorage.removeItem('fourshine.bulkMessageRecipients');
+      const parsed = JSON.parse(raw) as UserSearchResult[];
+      if (!Array.isArray(parsed) || parsed.length === 0) return;
+      setSelected((prev) => {
+        const next = new Map(prev);
+        for (const u of parsed) {
+          if (!u?.userId) continue;
+          const entry: RecipientEntry = { kind: 'user', user: u };
+          next.set(entryKey(entry), entry);
+        }
+        return next;
+      });
+      setRecipientTab('search');
+    } catch {
+      /* sessionStorage no disponible o JSON inválido: se abre sin preselección */
+    }
+  }, []);
+
   // Debounced search
   React.useEffect(() => {
     if (!searchQuery.trim()) {

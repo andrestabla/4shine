@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import React from 'react';
 import {
   Activity, Eye, Search, ShieldCheck, UserPlus, Users, UserX, Lock, Loader2,
@@ -42,6 +43,9 @@ interface ListFilters {
 
 type Tab = 'usuarios' | 'sesiones' | 'bajas' | 'roles';
 
+// Clave en sessionStorage para precargar destinatarios en el broadcaster.
+const BULK_MESSAGE_RECIPIENTS_KEY = 'fourshine.bulkMessageRecipients';
+
 function formatDate(value: string | null): string {
   if (!value) return 'Pendiente';
   return new Date(value).toLocaleDateString('es-CO', {
@@ -81,6 +85,7 @@ export default function UsuariosPage() {
   const { can, currentRole } = useUser();
   const { alert, confirm, prompt } = useAppDialog();
   const { branding, tokens } = useBranding();
+  const router = useRouter();
   const [tab, setTab] = React.useState<Tab>('usuarios');
   const [users, setUsers] = React.useState<UserRecord[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -94,11 +99,6 @@ export default function UsuariosPage() {
   });
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = React.useState(false);
-  const [msgModal, setMsgModal] = React.useState(false);
-  const [msgTitle, setMsgTitle] = React.useState('');
-  const [msgBody, setMsgBody] = React.useState('');
-  const [msgInApp, setMsgInApp] = React.useState(true);
-  const [msgEmail, setMsgEmail] = React.useState(false);
 
   const isAdmin = currentRole === 'admin';
   const canManage = can('usuarios', 'manage');
@@ -262,26 +262,22 @@ export default function UsuariosPage() {
     await runBulk('force_password_change', {}, (n) => `Se exigirá cambio de contraseña a ${n} usuario(s).`);
   };
 
-  const onSendBulkMessage = async () => {
-    if (!msgTitle.trim() || !msgBody.trim()) {
-      await alert({ title: 'Faltan datos', message: 'Completa el título y el mensaje.', tone: 'warning' });
-      return;
+  // "Enviar mensaje" lleva al broadcaster con los usuarios seleccionados
+  // precargados (vía sessionStorage), reutilizando el flujo de envío masivo.
+  const onSendMessage = () => {
+    const recipients = selectedUsers.map((u) => ({
+      userId: u.userId,
+      email: u.email,
+      displayName: u.displayName,
+      primaryRole: u.primaryRole,
+      userType: deriveUserTypeSelection(u),
+    }));
+    try {
+      sessionStorage.setItem(BULK_MESSAGE_RECIPIENTS_KEY, JSON.stringify(recipients));
+    } catch {
+      /* sessionStorage no disponible: el broadcaster abrirá sin preselección */
     }
-    if (!msgInApp && !msgEmail) {
-      await alert({ title: 'Sin canal', message: 'Selecciona al menos un canal (in-app o email).', tone: 'warning' });
-      return;
-    }
-    const channels: Array<'in_app' | 'email'> = [];
-    if (msgInApp) channels.push('in_app');
-    if (msgEmail) channels.push('email');
-    setMsgModal(false);
-    await runBulk(
-      'send_message',
-      { title: msgTitle.trim(), body: msgBody.trim(), channels },
-      (n) => `Mensaje enviado a ${n} usuario(s).`,
-    );
-    setMsgTitle('');
-    setMsgBody('');
+    router.push('/dashboard/administracion/notificaciones/enviar');
   };
 
   const onExportXlsx = () => exportUsersXlsx(visibleUsers);
@@ -640,7 +636,7 @@ export default function UsuariosPage() {
             </button>
             <button
               type="button"
-              onClick={() => setMsgModal(true)}
+              onClick={onSendMessage}
               disabled={bulkBusy}
               className="app-button-secondary inline-flex items-center gap-1.5 text-xs disabled:opacity-50"
             >
@@ -678,69 +674,6 @@ export default function UsuariosPage() {
         </div>
       )}
 
-      {/* Modal de mensaje masivo */}
-      {msgModal && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-[rgba(22,10,38,0.55)] p-4 backdrop-blur-sm">
-          <div className="w-[min(94vw,520px)] rounded-[18px] border border-[var(--app-border)] bg-white p-6 shadow-2xl">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-[var(--app-ink)]">
-                Enviar mensaje a {selected.size} usuario(s)
-              </h3>
-              <button
-                type="button"
-                onClick={() => setMsgModal(false)}
-                className="rounded-full p-1 text-[var(--app-muted)] hover:bg-[var(--app-surface-muted)]"
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <div className="mt-4 space-y-3">
-              <label className="block">
-                <span className="app-field-label">Título</span>
-                <input
-                  className="app-input"
-                  value={msgTitle}
-                  onChange={(e) => setMsgTitle(e.target.value)}
-                  placeholder="Asunto del mensaje"
-                />
-              </label>
-              <label className="block">
-                <span className="app-field-label">Mensaje</span>
-                <textarea
-                  className="app-textarea min-h-28"
-                  value={msgBody}
-                  onChange={(e) => setMsgBody(e.target.value)}
-                  placeholder="Escribe el mensaje…"
-                />
-              </label>
-              <div className="flex flex-wrap gap-4 text-sm text-[var(--app-ink)]">
-                <label className="flex items-center gap-2">
-                  <input type="checkbox" checked={msgInApp} onChange={(e) => setMsgInApp(e.target.checked)} />
-                  Notificación in-app
-                </label>
-                <label className="flex items-center gap-2">
-                  <input type="checkbox" checked={msgEmail} onChange={(e) => setMsgEmail(e.target.checked)} />
-                  Email
-                </label>
-              </div>
-            </div>
-            <div className="mt-6 flex justify-end gap-2">
-              <button type="button" onClick={() => setMsgModal(false)} className="app-button-secondary">
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={() => void onSendBulkMessage()}
-                disabled={bulkBusy}
-                className="app-button-primary inline-flex items-center gap-1.5 disabled:opacity-60"
-              >
-                <Send size={15} />
-                Enviar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
