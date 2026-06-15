@@ -696,12 +696,19 @@ const ROUTE_MAP = `RUTAS INTERNAS (entrégalas como enlaces markdown cuando el u
 - Suscripción, plan, días restantes: /dashboard/suscripcion
 - Workshops (inscribirse): /dashboard/workshops
 - Mentorías (agendar/comprar): /dashboard/mentorias
-- Advisers / mentores (perfiles públicos): /advisers
+- Advisers / mentores (perfiles PÚBLICOS de quienes acompañan): /advisers
+- Líderes (panel de los LÍDERES/clientes del programa y su progreso; solo para adviser/mentor, gestor o admin): /dashboard/lideres
+- Formación de advisers (cursos para mentores): /dashboard/formacion-mentores
 - Aprendizaje, cursos, workbooks: /dashboard/aprendizaje
 - Descubrimiento / diagnóstico: /dashboard/descubrimiento
 - Networking, contactos, comunidades: /dashboard/networking
 - Mensajes: /dashboard/mensajes
 - Trayectoria: /dashboard/trayectoria`;
+
+const GLOSSARY = `GLOSARIO DE 4SHINE — NO confundas estos términos:
+- "Líderes": son los participantes/clientes del programa (rol "lider"). Quien los gestiona (adviser/mentor, gestor o admin) ve el panel de líderes con su progreso en /dashboard/lideres. Si el usuario pregunta "dónde veo los líderes", se refiere a ESTE panel (NO a /advisers), siempre que su rol lo permita.
+- "Advisers" o "Mentores" (rol "mentor"): son quienes ACOMPAÑAN a los líderes. Sus perfiles públicos están en /advisers y se agenda con ellos en /dashboard/mentorias.
+Por tanto: "líderes" ≠ "advisers/mentores". Usa el rol del usuario (en el contexto) para decidir: a un mentor/gestor/admin que pregunta por "los líderes" envíalo a /dashboard/lideres; si pregunta por mentores/advisers, a /advisers.`;
 
 const DEFAULT_SYSTEM_PROMPT = `Eres el asistente de soporte 360 de 4Shine, una plataforma de liderazgo. Respondes en español, con tono cercano, profesional, claro y conciso, y SIEMPRE diriges al usuario por su nombre.
 
@@ -800,6 +807,7 @@ export async function sendMessage(
   const systemContent = [
     settings.persona ? `Eres "${settings.persona}".` : '',
     settings.system_prompt.trim() || DEFAULT_SYSTEM_PROMPT,
+    GLOSSARY,
     ROUTE_MAP,
     contextText,
     faqsText,
