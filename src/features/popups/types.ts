@@ -1,6 +1,17 @@
 export type PopupTrigger = 'time' | 'scroll' | 'exit_intent' | 'immediate';
 export type PopupFrequency = 'session' | 'daily' | 'once' | 'always';
 export type PopupTargetMode = 'all' | 'include';
+export type PopupRole = 'lider' | 'mentor' | 'gestor' | 'admin' | 'invitado';
+
+export const POPUP_ROLES: PopupRole[] = ['lider', 'mentor', 'gestor', 'admin', 'invitado'];
+
+export const POPUP_ROLE_LABELS: Record<PopupRole, string> = {
+  lider: 'Líder',
+  mentor: 'Adviser',
+  gestor: 'Gestor',
+  admin: 'Administrador',
+  invitado: 'Invitado',
+};
 
 export interface PopupRecord {
   popupId: string;
@@ -12,6 +23,8 @@ export interface PopupRecord {
   scrollPercent: number;
   targetMode: PopupTargetMode;
   targetPaths: string[];
+  targetRoles: PopupRole[];
+  targetPlans: string[];
   frequency: PopupFrequency;
   title: string;
   message: string;
@@ -31,6 +44,8 @@ export interface CreatePopupInput {
   scrollPercent?: number;
   targetMode?: PopupTargetMode;
   targetPaths?: string[];
+  targetRoles?: PopupRole[];
+  targetPlans?: string[];
   frequency?: PopupFrequency;
   title?: string;
   message?: string;

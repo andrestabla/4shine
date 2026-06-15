@@ -5,11 +5,13 @@ import type {
   CreatePopupInput,
   PopupFrequency,
   PopupRecord,
+  PopupRole,
   PopupTargetMode,
   PopupTrigger,
   PublicPopup,
   UpdatePopupInput,
 } from './types';
+import { POPUP_ROLES } from './types';
 
 interface PopupRow {
   popup_id: string;
@@ -21,6 +23,8 @@ interface PopupRow {
   scroll_percent: number;
   target_mode: PopupTargetMode;
   target_paths: string[];
+  target_roles: string[];
+  target_plans: string[];
   frequency: PopupFrequency;
   title: string;
   message: string;
@@ -34,7 +38,8 @@ interface PopupRow {
 
 const POPUP_SELECT = `
   popup_id::text, organization_id::text, name, is_active, trigger_type,
-  delay_seconds, scroll_percent, target_mode, target_paths, frequency,
+  delay_seconds, scroll_percent, target_mode, target_paths,
+  target_roles, target_plans::text[] AS target_plans, frequency,
   title, message, cta_label, cta_url, dismiss_label, sort_order,
   created_at::text, updated_at::text
 `;
@@ -63,6 +68,8 @@ function toRecord(row: PopupRow): PopupRecord {
     scrollPercent: row.scroll_percent,
     targetMode: row.target_mode,
     targetPaths: row.target_paths ?? [],
+    targetRoles: (row.target_roles ?? []) as PopupRecord['targetRoles'],
+    targetPlans: row.target_plans ?? [],
     frequency: row.frequency,
     title: row.title,
     message: row.message,
@@ -94,6 +101,15 @@ function toPublic(row: PopupRow): PublicPopup {
 
 function sanitizePaths(paths: string[] | undefined): string[] {
   return [...new Set((paths ?? []).map((p) => p.trim()).filter(Boolean))].slice(0, 100);
+}
+
+function sanitizeRoles(roles: PopupRole[] | undefined): PopupRole[] {
+  const allowed = new Set(POPUP_ROLES);
+  return [...new Set((roles ?? []).filter((r) => allowed.has(r)))];
+}
+
+function sanitizePlans(plans: string[] | undefined): string[] {
+  return [...new Set((plans ?? []).map((p) => p.trim()).filter(Boolean))].slice(0, 100);
 }
 
 // ─── Admin CRUD ─────────────────────────────────────────────────────────────
@@ -141,9 +157,9 @@ export async function createPopup(
   const { rows } = await client.query<PopupRow>(
     `INSERT INTO app_admin.popups
        (organization_id, name, is_active, trigger_type, delay_seconds, scroll_percent,
-        target_mode, target_paths, frequency, title, message, cta_label, cta_url,
+        target_mode, target_paths, target_roles, target_plans, frequency, title, message, cta_label, cta_url,
         dismiss_label, sort_order, created_by, updated_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$16)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::uuid[],$11,$12,$13,$14,$15,$16,$17,$18,$18)
      RETURNING ${POPUP_SELECT}`,
     [
       orgId,
@@ -154,6 +170,8 @@ export async function createPopup(
       input.scrollPercent ?? 40,
       input.targetMode ?? 'all',
       sanitizePaths(input.targetPaths),
+      sanitizeRoles(input.targetRoles),
+      sanitizePlans(input.targetPlans),
       input.frequency ?? 'session',
       input.title?.trim() ?? '',
       input.message?.trim() ?? '',
@@ -191,6 +209,12 @@ export async function updatePopup(
   if (input.scrollPercent !== undefined) push('scroll_percent', input.scrollPercent);
   if (input.targetMode !== undefined) push('target_mode', input.targetMode);
   if (input.targetPaths !== undefined) push('target_paths', sanitizePaths(input.targetPaths));
+  if (input.targetRoles !== undefined) push('target_roles', sanitizeRoles(input.targetRoles));
+  if (input.targetPlans !== undefined) {
+    setClauses.push(`target_plans = $${idx}::uuid[]`);
+    params.push(sanitizePlans(input.targetPlans));
+    idx += 1;
+  }
   if (input.frequency !== undefined) push('frequency', input.frequency);
   if (input.title !== undefined) push('title', input.title.trim());
   if (input.message !== undefined) push('message', input.message.trim());
@@ -218,12 +242,43 @@ export async function deletePopup(client: PoolClient, actor: AuthUser, popupId: 
   ]);
 }
 
-// ─── Público (sin permisos) ─────────────────────────────────────────────────
+// ─── Público (sin permisos), con segmentación por rol/plan ──────────────────
 
-export async function listActivePopups(client: PoolClient): Promise<PublicPopup[]> {
+/**
+ * Popups activos aplicables al visitante. Si hay sesión (`identity`), se
+ * resuelve su rol y plan y se filtran los popups segmentados; si es anónimo,
+ * solo devuelve popups sin segmentación de rol/plan (arrays vacíos).
+ */
+export async function listPopupsForVisitor(
+  client: PoolClient,
+  identity: AuthUser | null,
+): Promise<PublicPopup[]> {
   const { rows } = await client.query<PopupRow>(
     `SELECT ${POPUP_SELECT} FROM app_admin.popups
      WHERE is_active = true ORDER BY sort_order, created_at`,
   );
-  return rows.map(toPublic);
+
+  let role: string | null = null;
+  let planId: string | null = null;
+  if (identity) {
+    const { rows: userRows } = await client.query<{ primary_role: string; plan_id: string | null }>(
+      `SELECT u.primary_role, p.subscription_plan_id::text AS plan_id
+       FROM app_core.users u
+       LEFT JOIN app_core.user_profiles p ON p.user_id = u.user_id
+       WHERE u.user_id = $1 LIMIT 1`,
+      [identity.userId],
+    );
+    role = userRows[0]?.primary_role ?? identity.role ?? null;
+    planId = userRows[0]?.plan_id ?? null;
+  }
+
+  return rows
+    .filter((row) => {
+      const roles = row.target_roles ?? [];
+      const plans = row.target_plans ?? [];
+      const roleOk = roles.length === 0 || (role !== null && roles.includes(role));
+      const planOk = plans.length === 0 || (planId !== null && plans.includes(planId));
+      return roleOk && planOk;
+    })
+    .map(toPublic);
 }

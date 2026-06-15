@@ -15,11 +15,16 @@ import {
 } from "@/features/popups/client";
 import {
   POPUP_FREQUENCY_LABELS,
+  POPUP_ROLE_LABELS,
+  POPUP_ROLES,
   POPUP_TRIGGER_LABELS,
   type PopupFrequency,
+  type PopupRole,
   type PopupTargetMode,
   type PopupTrigger,
 } from "@/features/popups/types";
+import { listPlans as listSubscriptionPlans } from "@/features/planes/client";
+import type { SubscriptionPlanWithFeatures } from "@/features/planes/client";
 
 interface EditorState {
   popupId: string | null;
@@ -30,6 +35,8 @@ interface EditorState {
   scrollPercent: number;
   targetMode: PopupTargetMode;
   targetPathsText: string;
+  targetRoles: PopupRole[];
+  targetPlans: string[];
   frequency: PopupFrequency;
   title: string;
   message: string;
@@ -48,6 +55,8 @@ function emptyEditor(): EditorState {
     scrollPercent: 40,
     targetMode: "all",
     targetPathsText: "",
+    targetRoles: [],
+    targetPlans: [],
     frequency: "session",
     title: "",
     message: "",
@@ -67,6 +76,8 @@ function fromRecord(p: PopupRecord): EditorState {
     scrollPercent: p.scrollPercent,
     targetMode: p.targetMode,
     targetPathsText: p.targetPaths.join("\n"),
+    targetRoles: p.targetRoles,
+    targetPlans: p.targetPlans,
     frequency: p.frequency,
     title: p.title,
     message: p.message,
@@ -85,6 +96,14 @@ export default function PopupsAdminPage() {
   const [loading, setLoading] = React.useState(true);
   const [editor, setEditor] = React.useState<EditorState | null>(null);
   const [saving, setSaving] = React.useState(false);
+  const [plans, setPlans] = React.useState<SubscriptionPlanWithFeatures[]>([]);
+
+  React.useEffect(() => {
+    (async () => {
+      const res = await listSubscriptionPlans(false);
+      if (res.ok && res.data) setPlans(res.data);
+    })();
+  }, []);
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -130,6 +149,8 @@ export default function PopupsAdminPage() {
       scrollPercent: Number(editor.scrollPercent) || 0,
       targetMode: editor.targetMode,
       targetPaths,
+      targetRoles: editor.targetRoles,
+      targetPlans: editor.targetPlans,
       frequency: editor.frequency,
       title: editor.title,
       message: editor.message,
@@ -236,6 +257,72 @@ export default function PopupsAdminPage() {
                 <textarea className="app-textarea min-h-20" value={editor.targetPathsText} onChange={(e) => setEditor({ ...editor, targetPathsText: e.target.value })} placeholder={"/\n/metodologia\n/dashboard/descubrimiento"} />,
               )}
 
+            <div>
+              <span className="app-field-label">Segmentar por rol</span>
+              <p className="mb-1 text-[11px] text-[var(--app-muted)]">Sin selección = todos. Los visitantes anónimos solo ven popups sin segmentación.</p>
+              <div className="flex flex-wrap gap-2">
+                {POPUP_ROLES.map((role) => {
+                  const checked = editor.targetRoles.includes(role);
+                  return (
+                    <button
+                      key={role}
+                      type="button"
+                      onClick={() =>
+                        setEditor({
+                          ...editor,
+                          targetRoles: checked
+                            ? editor.targetRoles.filter((r) => r !== role)
+                            : [...editor.targetRoles, role],
+                        })
+                      }
+                      className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${
+                        checked
+                          ? "bg-[var(--brand-primary)] text-white"
+                          : "border border-[var(--app-border)] bg-white text-[var(--app-muted)]"
+                      }`}
+                    >
+                      {POPUP_ROLE_LABELS[role]}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <span className="app-field-label">Segmentar por plan</span>
+              <p className="mb-1 text-[11px] text-[var(--app-muted)]">Sin selección = cualquier plan.</p>
+              {plans.length === 0 ? (
+                <p className="text-xs text-[var(--app-muted)]">No hay planes disponibles.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {plans.map((plan) => {
+                    const checked = editor.targetPlans.includes(plan.planId);
+                    return (
+                      <button
+                        key={plan.planId}
+                        type="button"
+                        onClick={() =>
+                          setEditor({
+                            ...editor,
+                            targetPlans: checked
+                              ? editor.targetPlans.filter((id) => id !== plan.planId)
+                              : [...editor.targetPlans, plan.planId],
+                          })
+                        }
+                        className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${
+                          checked
+                            ? "bg-[var(--brand-primary)] text-white"
+                            : "border border-[var(--app-border)] bg-white text-[var(--app-muted)]"
+                        }`}
+                      >
+                        {plan.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
             {field("Título popup", <input className="app-input" value={editor.title} onChange={(e) => setEditor({ ...editor, title: e.target.value })} />)}
             {field("Mensaje popup", <textarea className="app-textarea min-h-24" value={editor.message} onChange={(e) => setEditor({ ...editor, message: e.target.value })} />)}
             <div className="grid grid-cols-2 gap-3">
@@ -290,6 +377,11 @@ export default function PopupsAdminPage() {
                   <span className="rounded-full border border-[var(--app-border)] px-2 py-0.5 text-[10px] font-bold text-[var(--app-muted)]">
                     {p.targetMode === "all" ? "Todo el sitio" : `${p.targetPaths.length} ruta(s)`}
                   </span>
+                  {(p.targetRoles.length > 0 || p.targetPlans.length > 0) && (
+                    <span className="rounded-full bg-[var(--app-chip)] px-2 py-0.5 text-[10px] font-bold text-[var(--brand-primary)]">
+                      Segmentado
+                    </span>
+                  )}
                 </div>
                 {p.title && <p className="mt-0.5 truncate text-xs text-[var(--app-muted)]">{p.title}</p>}
               </div>

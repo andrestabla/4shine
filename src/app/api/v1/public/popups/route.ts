@@ -1,14 +1,27 @@
 import { NextResponse } from 'next/server';
-import { withClient } from '@/server/db/pool';
-import { listActivePopups } from '@/features/popups/service';
+import { authenticateRequest } from '@/server/auth/request-auth';
+import { withClient, withRoleContext } from '@/server/db/pool';
+import { listPopupsForVisitor } from '@/features/popups/service';
 
-// Endpoint público (sin autenticación): el runtime del popup lo consulta
-// desde el sitio público y el dashboard. RLS de lectura abierta + app_runtime.
-export async function GET() {
+export const runtime = 'nodejs';
+
+// Endpoint del runtime de popups. Autenticación OPCIONAL: si hay sesión se
+// segmenta por rol y plan del usuario; si es anónimo, solo devuelve popups
+// sin segmentación. Respuesta personalizada → sin caché compartida.
+export async function GET(request: Request) {
   try {
-    const data = await withClient((client) => listActivePopups(client));
+    const identity = await authenticateRequest(request).catch(() => null);
+
+    const data = await withClient((client) =>
+      identity
+        ? withRoleContext(client, identity.userId, identity.role, () =>
+            listPopupsForVisitor(client, identity),
+          )
+        : listPopupsForVisitor(client, null),
+    );
+
     const response = NextResponse.json({ ok: true, data }, { status: 200 });
-    response.headers.set('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=120');
+    response.headers.set('Cache-Control', 'private, no-store');
     return response;
   } catch (error) {
     const detail = error instanceof Error ? error.message : 'Unknown error';
