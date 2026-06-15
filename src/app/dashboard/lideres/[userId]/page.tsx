@@ -266,9 +266,13 @@ export default function Leader360Page() {
                 cta={
                     <Link
                         href={diagnostic.deepLink}
+                        target={diagnostic.deepLink.startsWith("/descubrimiento/share/") ? "_blank" : undefined}
                         className="inline-flex items-center gap-1 rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100"
                     >
-                        Ir a Descubrimiento <ExternalLink size={12} />
+                        {diagnostic.deepLink.startsWith("/descubrimiento/share/")
+                            ? "Ver informe del líder"
+                            : "Ir a Descubrimiento"}{" "}
+                        <ExternalLink size={12} />
                     </Link>
                 }
             >

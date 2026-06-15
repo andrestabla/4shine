@@ -256,6 +256,7 @@ async function fetchDiagnostic(client: PoolClient, userId: string): Promise<Lead
         completion_percent: number;
         completed_at: string | null;
         shared_at: string | null;
+        public_id: string | null;
     }>(
         `
             SELECT
@@ -264,7 +265,8 @@ async function fetchDiagnostic(client: PoolClient, userId: string): Promise<Lead
                 status,
                 completion_percent::numeric,
                 completed_at,
-                shared_at
+                shared_at,
+                public_id
             FROM app_assessment.discovery_sessions
             WHERE user_id = $1::uuid
             LIMIT 1
@@ -315,7 +317,11 @@ async function fetchDiagnostic(client: PoolClient, userId: string): Promise<Lead
             pillarLabel: row.pillar_label,
             score: Number(row.score ?? 0),
         })),
-        deepLink: '/dashboard/descubrimiento',
+        // Si la sesión ya tiene informe público (public_id), enlazamos al
+        // informe específico de este líder; si aún no, al módulo general.
+        deepLink: session.public_id
+            ? `/descubrimiento/share/${session.public_id}`
+            : '/dashboard/descubrimiento',
     };
 }
 
