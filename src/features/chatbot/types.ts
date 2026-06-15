@@ -3,6 +3,7 @@ export interface ChatbotSettings {
   isEnabled: boolean;
   model: string;
   persona: string;
+  avatarUrl: string;
   systemPrompt: string;
   welcomeMessage: string;
   maxContextMessages: number;
@@ -13,6 +14,7 @@ export interface UpdateChatbotSettingsInput {
   isEnabled?: boolean;
   model?: string;
   persona?: string;
+  avatarUrl?: string;
   systemPrompt?: string;
   welcomeMessage?: string;
   maxContextMessages?: number;
@@ -49,6 +51,7 @@ export interface ChatbotPublic {
   enabled: boolean;
   welcomeMessage: string;
   persona: string;
+  avatarUrl: string;
   conversationId: string | null;
   messages: ChatMessage[];
 }

@@ -41,6 +41,7 @@ interface SettingsRow {
   is_enabled: boolean;
   model: string;
   persona: string;
+  avatar_url: string;
   system_prompt: string;
   welcome_message: string;
   max_context_messages: number;
@@ -48,7 +49,7 @@ interface SettingsRow {
 }
 
 const SETTINGS_SELECT = `
-  organization_id::text, is_enabled, model, persona, system_prompt,
+  organization_id::text, is_enabled, model, persona, avatar_url, system_prompt,
   welcome_message, max_context_messages, updated_at::text
 `;
 
@@ -58,6 +59,7 @@ function toSettings(row: SettingsRow): ChatbotSettings {
     isEnabled: row.is_enabled,
     model: row.model,
     persona: row.persona,
+    avatarUrl: row.avatar_url,
     systemPrompt: row.system_prompt,
     welcomeMessage: row.welcome_message,
     maxContextMessages: row.max_context_messages,
@@ -106,6 +108,7 @@ export async function updateSettings(
   if (input.isEnabled !== undefined) push('is_enabled', input.isEnabled);
   if (input.model !== undefined) push('model', input.model.trim());
   if (input.persona !== undefined) push('persona', input.persona.trim());
+  if (input.avatarUrl !== undefined) push('avatar_url', input.avatarUrl.trim());
   if (input.systemPrompt !== undefined) push('system_prompt', input.systemPrompt);
   if (input.welcomeMessage !== undefined) push('welcome_message', input.welcomeMessage.trim());
   if (input.maxContextMessages !== undefined) {
@@ -291,6 +294,7 @@ export async function getMyChatbot(client: PoolClient, actor: AuthUser): Promise
     enabled: settings.is_enabled,
     welcomeMessage: settings.welcome_message,
     persona: settings.persona,
+    avatarUrl: settings.avatar_url,
     conversationId,
     messages,
   };

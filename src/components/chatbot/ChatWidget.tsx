@@ -19,6 +19,7 @@ export default function ChatWidget() {
   const [enabled, setEnabled] = useState(false);
   const [welcome, setWelcome] = useState("");
   const [persona, setPersona] = useState("Asistente 4Shine");
+  const [avatarUrl, setAvatarUrl] = useState("");
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<UiMessage[]>([]);
   const [open, setOpen] = useState(false);
@@ -38,6 +39,7 @@ export default function ChatWidget() {
         setEnabled(res.data.enabled);
         setWelcome(res.data.welcomeMessage);
         setPersona(res.data.persona || "Asistente 4Shine");
+        setAvatarUrl(res.data.avatarUrl || "");
         setConversationId(res.data.conversationId);
         setMessages(res.data.messages.map((m: ChatMessage) => ({ role: m.role, content: m.content })));
       }
@@ -88,10 +90,17 @@ export default function ChatWidget() {
         type="button"
         aria-label={open ? "Cerrar asistente" : "Abrir asistente"}
         onClick={() => setOpen((v) => !v)}
-        className="fixed bottom-5 right-5 z-[90] flex h-14 w-14 items-center justify-center rounded-full text-white shadow-xl transition-transform hover:scale-105 active:scale-95"
+        className="fixed bottom-5 right-5 z-[90] flex h-14 w-14 items-center justify-center overflow-hidden rounded-full text-white shadow-xl transition-transform hover:scale-105 active:scale-95"
         style={{ backgroundColor: "var(--brand-primary)" }}
       >
-        {open ? <X size={24} /> : <MessageCircle size={26} />}
+        {open ? (
+          <X size={24} />
+        ) : avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={avatarUrl} alt={persona} className="h-full w-full object-cover" />
+        ) : (
+          <MessageCircle size={26} />
+        )}
       </button>
 
       {/* Panel */}
@@ -105,8 +114,13 @@ export default function ChatWidget() {
             className="flex items-center gap-3 px-4 py-3 text-white"
             style={{ backgroundColor: "var(--brand-primary)" }}
           >
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20">
-              <Bot size={20} />
+            <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-white/20">
+              {avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={avatarUrl} alt={persona} className="h-full w-full object-cover" />
+              ) : (
+                <Bot size={20} />
+              )}
             </span>
             <div className="min-w-0">
               <p className="truncate text-sm font-extrabold leading-tight">{persona}</p>

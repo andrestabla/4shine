@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import { PageTitle } from "@/components/dashboard/PageTitle";
 import { useAppDialog } from "@/components/ui/AppDialogProvider";
+import { R2UploadButton } from "@/components/ui/R2UploadButton";
+import { optimizeAvatarForUpload } from "@/lib/image-processing";
 import {
   createFaq,
   deleteFaq,
@@ -58,6 +60,7 @@ export default function AsistenteIaAdminPage() {
     isEnabled: true,
     model: "",
     persona: "",
+    avatarUrl: "",
     systemPrompt: "",
     welcomeMessage: "",
     maxContextMessages: 12,
@@ -86,6 +89,7 @@ export default function AsistenteIaAdminPage() {
         isEnabled: s.isEnabled,
         model: s.model,
         persona: s.persona,
+        avatarUrl: s.avatarUrl,
         systemPrompt: s.systemPrompt,
         welcomeMessage: s.welcomeMessage,
         maxContextMessages: s.maxContextMessages,
@@ -122,6 +126,7 @@ export default function AsistenteIaAdminPage() {
       isEnabled: form.isEnabled,
       model: form.model,
       persona: form.persona,
+      avatarUrl: form.avatarUrl,
       systemPrompt: form.systemPrompt,
       welcomeMessage: form.welcomeMessage,
       maxContextMessages: form.maxContextMessages,
@@ -248,6 +253,51 @@ export default function AsistenteIaAdminPage() {
                   className="h-5 w-5 accent-[var(--brand-primary)]"
                 />
               </label>
+
+              <div className="flex flex-wrap items-center gap-4 rounded-[14px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-3">
+                <span className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--brand-primary)] text-white">
+                  {form.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={form.avatarUrl} alt="Avatar del asistente" className="h-full w-full object-cover" />
+                  ) : (
+                    <Bot size={28} />
+                  )}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-extrabold text-[var(--app-ink)]">Avatar del asistente</p>
+                  <p className="mb-2 text-xs text-[var(--app-muted)]">
+                    Se muestra en el widget de chat. Recorte cuadrado + optimización 256×256 antes de subir.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <R2UploadButton
+                      moduleCode="usuarios"
+                      action="manage"
+                      accept="image/*"
+                      pathPrefix="chatbot/avatar"
+                      buttonLabel={form.avatarUrl ? "Cambiar avatar" : "Subir avatar"}
+                      className="app-button-secondary inline-flex items-center justify-center gap-2 px-3 py-1.5 text-xs"
+                      preprocessFile={(file) =>
+                        optimizeAvatarForUpload(file, { targetSize: 256, mimeType: "image/jpeg", quality: 0.86 })
+                      }
+                      onUploaded={async (url) => {
+                        setForm((p) => ({ ...p, avatarUrl: url }));
+                      }}
+                    />
+                    {form.avatarUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setForm((p) => ({ ...p, avatarUrl: "" }))}
+                        className="inline-flex items-center gap-1 rounded-full border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50"
+                      >
+                        <Trash2 size={12} /> Quitar
+                      </button>
+                    )}
+                  </div>
+                  <p className="mt-1.5 text-[11px] text-[var(--app-muted)]">
+                    Recuerda guardar para aplicar los cambios.
+                  </p>
+                </div>
+              </div>
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
