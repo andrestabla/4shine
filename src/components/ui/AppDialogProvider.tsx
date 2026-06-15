@@ -238,11 +238,17 @@ export function AppDialogProvider({ children }: { children: React.ReactNode }) {
 
       {activeDialog && (
         <div
-          className="fixed inset-0 z-[120] flex items-center justify-center p-4 backdrop-blur-sm"
-          style={{ backgroundColor: overlayBackground }}
+          className="fixed inset-0 z-[120] flex items-center justify-center backdrop-blur-sm"
+          style={{
+            backgroundColor: overlayBackground,
+            paddingTop: 'max(1rem, env(safe-area-inset-top))',
+            paddingBottom: 'max(1rem, env(safe-area-inset-bottom))',
+            paddingLeft: 'max(1rem, env(safe-area-inset-left))',
+            paddingRight: 'max(1rem, env(safe-area-inset-right))',
+          }}
         >
           <div
-            className="w-full max-w-md overflow-hidden border bg-white shadow-[var(--app-shadow-raised)] animate-fade-in"
+            className="w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain border bg-white shadow-[var(--app-shadow-raised)] animate-fade-in [-webkit-overflow-scrolling:touch]"
             style={{
               borderColor: panelBorder,
               borderRadius: modalRadius,

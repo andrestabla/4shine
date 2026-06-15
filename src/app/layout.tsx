@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { UserProvider } from "@/context/UserContext";
 import { AppDialogProvider } from "@/components/ui/AppDialogProvider";
@@ -40,6 +40,17 @@ export async function generateMetadata(): Promise<Metadata> {
     alternates: {
       canonical: '/',
     },
+  };
+}
+
+export async function generateViewport(): Promise<Viewport> {
+  const { tokens } = await loadServerBranding();
+  return {
+    width: 'device-width',
+    initialScale: 1,
+    // viewport-fit=cover habilita las safe-area-inset env() en notch/barras.
+    viewportFit: 'cover',
+    themeColor: tokens.colors.primary,
   };
 }
 

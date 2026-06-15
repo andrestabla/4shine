@@ -159,12 +159,13 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
     <header
       data-dashboard-header
       className="sticky top-0 z-20 border-b border-[var(--app-border)] bg-[rgba(252,249,255,0.92)] px-4 py-4 md:px-8"
+      style={{ paddingTop: "max(1rem, env(safe-area-inset-top))" }}
     >
       <div className="mx-auto flex w-full max-w-[var(--brand-page-max-width)] items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-4">
           <button
             onClick={onMenuClick}
-            className="flex h-[38px] w-[38px] items-center justify-center rounded-[1rem] border border-[var(--app-border)] bg-white/92 text-[var(--app-ink)] shadow-sm transition hover:bg-white md:hidden"
+            className="flex h-11 w-11 items-center justify-center rounded-[1rem] border border-[var(--app-border)] bg-white/92 text-[var(--app-ink)] shadow-sm transition hover:bg-white md:hidden"
           >
             <Menu size={24} />
           </button>
@@ -208,7 +209,7 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
             </button>
 
             {showNotifications && (
-              <div className="app-panel-strong fixed inset-x-3 top-[84px] z-[90] origin-top overflow-hidden bg-white shadow-2xl animate-fade-in md:absolute md:inset-x-auto md:right-0 md:top-full md:mt-4 md:w-[22rem] md:origin-top-right">
+              <div className="app-panel-strong fixed inset-x-3 top-[calc(env(safe-area-inset-top,0px)+4.75rem)] z-[90] origin-top overflow-hidden bg-white shadow-2xl animate-fade-in md:absolute md:inset-x-auto md:right-0 md:top-full md:mt-4 md:w-[22rem] md:origin-top-right">
                 <div className="flex items-center justify-between border-b border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-4">
                   <h3 className="text-sm font-bold text-[var(--app-ink)]">
                     Notificaciones
@@ -222,7 +223,7 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
                     </button>
                   )}
                 </div>
-                <div className="max-h-[65vh] overflow-y-auto md:max-h-96">
+                <div className="max-h-[min(65vh,calc(100dvh-7rem))] overflow-y-auto overscroll-contain md:max-h-96 [-webkit-overflow-scrolling:touch]">
                   {notifications.length > 0 ? (
                     notifications.map((notif) => (
                       <div

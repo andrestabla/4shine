@@ -319,6 +319,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           background: shellGradient,
           borderColor,
           color: mutedText,
+          paddingTop: "env(safe-area-inset-top)",
         }}
       >
         <div
