@@ -426,6 +426,15 @@ async function buildMentoringBlock(client: PoolClient, actor: AuthUser): Promise
       out.push(`- ${code} «${e.title}»: bloqueada${when}.`);
     }
   }
+  if (nextUnlockDate) {
+    out.push(
+      `INSTRUCCIÓN OBLIGATORIA: si el usuario pregunta por qué no puede agendar, o por una mentoría bloqueada, indícale SIEMPRE de forma explícita la fecha exacta en que se habilita la próxima (${nextUnlockDate}) y por qué (cadencia de 10 días tras la sesión anterior agendada). No respondas en términos vagos ni menciones "créditos".`,
+    );
+  } else if (availableNow[0]) {
+    out.push(
+      `INSTRUCCIÓN OBLIGATORIA: hay una mentoría disponible para agendar ahora (Mentoría ${String(availableNow[0].sequenceNo).padStart(2, '0')}); indícale que puede agendarla ya y entrégale el enlace a /dashboard/mentorias. No menciones "créditos".`,
+    );
+  }
   return out.join('\n');
 }
 
