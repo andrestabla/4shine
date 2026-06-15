@@ -158,7 +158,7 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
   return (
     <header
       data-dashboard-header
-      className="sticky top-0 z-20 border-b border-[var(--app-border)] bg-[rgba(252,249,255,0.92)] px-4 py-4 md:px-8"
+      className="sticky top-0 z-20 border-b border-[var(--app-border)] bg-[rgba(252,249,255,0.97)] px-4 py-4 md:px-8"
       style={{ paddingTop: "max(1rem, env(safe-area-inset-top))" }}
     >
       <div className="mx-auto flex w-full max-w-[var(--brand-page-max-width)] items-center justify-between gap-4">

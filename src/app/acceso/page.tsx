@@ -822,7 +822,7 @@ export default function LoginPage() {
           <div className="grid min-h-screen lg:grid-cols-2">
             {isImageLeftLayout && (
               <aside
-                className="hidden lg:flex h-full min-h-[100vh] items-end"
+                className="hidden lg:flex h-full min-h-[100dvh] items-end"
                 style={splitImagePanelStyle}
               >
                 <div className="w-full p-12 text-white">
@@ -870,7 +870,7 @@ export default function LoginPage() {
 
             {isImageRightLayout && (
               <aside
-                className="hidden lg:flex h-full min-h-[100vh] items-end"
+                className="hidden lg:flex h-full min-h-[100dvh] items-end"
                 style={splitImagePanelStyle}
               >
                 <div className="w-full p-12 text-white">

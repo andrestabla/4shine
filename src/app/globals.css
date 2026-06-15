@@ -101,6 +101,19 @@ body {
   text-rendering: optimizeLegibility;
   /* Evita el "rubber-band" encadenado en los límites superior/inferior en móvil. */
   overscroll-behavior-y: none;
+  /* Evita scroll horizontal accidental por desbordes en móvil. */
+  overflow-x: hidden;
+}
+
+/* Scroll con momentum en iOS y sin encadenar el rebote en TODOS los
+   contenedores con scroll (tablas, paneles, drawers, listas). Cubre las
+   utilidades overflow-* de Tailwind de forma global, presentes y futuras.
+   Solo añade propiedades (no toca 'overflow'), así no hay conflicto. */
+.overflow-auto,
+.overflow-x-auto,
+.overflow-y-auto {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 body.app-learning-editor-open [data-dashboard-sidebar],

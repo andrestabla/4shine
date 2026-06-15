@@ -311,7 +311,7 @@ export default function DashboardLayout({
       {/* Mobile Overlay */}
       <div
         className={clsx(
-          "fixed inset-0 z-20 bg-[rgba(49,31,68,0.38)] md:hidden transition-opacity duration-300",
+          "fixed inset-0 z-20 overscroll-contain bg-[rgba(49,31,68,0.38)] md:hidden transition-opacity duration-300",
           isSidebarOpen
             ? "opacity-100 pointer-events-auto"
             : "opacity-0 pointer-events-none",

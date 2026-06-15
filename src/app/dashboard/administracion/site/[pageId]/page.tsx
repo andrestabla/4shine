@@ -783,7 +783,7 @@ export default function SiteBuilderEditorPage() {
   const publicPath = page.slug ? `/${page.slug}` : '/';
 
   return (
-    <div className="flex h-[calc(100vh-7rem)] flex-col gap-3">
+    <div className="flex h-[calc(100dvh-7rem)] flex-col gap-3">
       {/* Header */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
