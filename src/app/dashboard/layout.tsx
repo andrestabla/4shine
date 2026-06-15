@@ -307,7 +307,7 @@ export default function DashboardLayout({
   if (!canViewRoute) return null;
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[var(--app-bg)]">
+    <div className="flex h-screen h-[100dvh] overflow-hidden bg-[var(--app-bg)]">
       {/* Mobile Overlay */}
       <div
         className={clsx(
@@ -321,7 +321,7 @@ export default function DashboardLayout({
 
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
-      <main className="relative flex w-full flex-1 flex-col overflow-y-auto bg-transparent">
+      <main className="relative flex w-full flex-1 flex-col overflow-y-auto overscroll-contain bg-transparent [-webkit-overflow-scrolling:touch]">
         <Header onMenuClick={() => setIsSidebarOpen(true)} />
         <div
           className="relative z-10 mx-auto min-h-full w-full animate-fade-in px-4 pb-20 pt-5 md:px-8 md:pt-8"

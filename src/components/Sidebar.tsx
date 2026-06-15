@@ -401,7 +401,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           </button>
         </div>
 
-        <nav className="flex-1 min-h-0 space-y-4 overflow-y-auto overflow-x-hidden p-4">
+        <nav className="flex-1 min-h-0 space-y-4 overflow-y-auto overflow-x-hidden overscroll-contain p-4 [-webkit-overflow-scrolling:touch]">
           {mainNavItems.length > 0 ? (
             <div className="space-y-1">{mainNavItems.map(navItem)}</div>
           ) : (

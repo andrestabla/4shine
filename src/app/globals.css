@@ -96,8 +96,11 @@ body {
     );
   font-family: var(--brand-font-family) !important;
   min-height: 100vh;
+  min-height: 100dvh; /* dvh: excluye la barra del navegador en móvil (evita saltos) */
   letter-spacing: -0.011em;
   text-rendering: optimizeLegibility;
+  /* Evita el "rubber-band" encadenado en los límites superior/inferior en móvil. */
+  overscroll-behavior-y: none;
 }
 
 body.app-learning-editor-open [data-dashboard-sidebar],

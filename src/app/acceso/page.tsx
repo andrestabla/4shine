@@ -438,7 +438,7 @@ export default function LoginPage() {
   const googleButton = googleClientId ? (
     <div className="mt-4">
       {isGoogleLoading ? (
-        <div className="flex items-center justify-center gap-2 py-2.5">
+        <div className="flex flex-col items-center justify-center gap-2 py-2.5 text-center sm:flex-row">
           <Loader2 size={16} className={`animate-spin ${isCenteredImageLayout ? 'text-white/70' : 'text-slate-500'}`} />
           <span className={`text-sm ${isCenteredImageLayout ? 'text-white/70' : 'text-slate-500'}`}>
             Verificando con Google...
