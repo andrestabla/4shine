@@ -43,6 +43,7 @@ export default async function DiscoverySharePage({ params }: PageParams) {
         publicId={session.publicId}
         isPublic={true}
         embedded={false}
+        initialAiReports={session.aiReports ?? null}
       />
     </main>
   );
