@@ -29,6 +29,7 @@ import {
 } from "recharts";
 import { PageTitle } from "@/components/dashboard/PageTitle";
 import { StatGrid } from "@/components/dashboard/StatGrid";
+import { ModuleGuidanceBanner } from "@/components/dashboard/ModuleGuidanceBanner";
 import { useUser } from "@/context/UserContext";
 import {
   listEarnedCertificates,
@@ -723,6 +724,24 @@ export default function TrayectoriaPage() {
       </div>
 
       <StatGrid stats={leaderStats} />
+
+      {activePhase && (
+        <ModuleGuidanceBanner
+          tone="amber"
+          kicker="Tu ruta"
+          title={
+            completedPhases >= 5
+              ? "¡Completaste tu ruta de 24 semanas!"
+              : `Estás en la fase ${activePhase.title} · Semana ${currentJourneyWeek}/24`
+          }
+          message={
+            completedPhases >= 5
+              ? "Revisa tus hitos y sigue consolidando tu liderazgo."
+              : `Tu siguiente paso: ${activePhase.primaryLabel}.`
+          }
+          cta={{ label: activePhase.primaryLabel, href: activePhase.primaryHref }}
+        />
+      )}
 
       {loadError && (
         <section className="rounded-[1.15rem] border border-rose-200 bg-rose-50 px-5 py-5 text-sm text-rose-700">

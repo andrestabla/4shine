@@ -41,6 +41,7 @@ import {
 } from "recharts";
 import { AccessOfferPanel } from "@/components/access/AccessOfferPanel";
 import { PageTitle } from "@/components/dashboard/PageTitle";
+import { ModuleGuidanceBanner } from "@/components/dashboard/ModuleGuidanceBanner";
 import { StatGrid } from "@/components/dashboard/StatGrid";
 import { useAppDialog } from "@/components/ui/AppDialogProvider";
 import { useUser } from "@/context/UserContext";
@@ -2213,6 +2214,15 @@ export function DiscoveryExperience() {
           title="Descubrimiento"
           subtitle="Tu lectura ejecutiva 4Shine integra autopercepción y criterio situacional en un mapa accionable."
         />
+        {!isManager && (
+          <ModuleGuidanceBanner
+            tone="emerald"
+            kicker="Diagnóstico"
+            title="Tu diagnóstico está listo"
+            message="Continúa tu ruta de liderazgo a partir de tus resultados."
+            cta={{ label: "Continuar en Trayectoria", href: "/dashboard/trayectoria" }}
+          />
+        )}
         <ResultsView
           state={state}
           publicId={session?.publicId}
@@ -2233,6 +2243,14 @@ export function DiscoveryExperience() {
           title="Descubrimiento"
           subtitle="Antes de iniciar, completa tu ficha personal."
         />
+        {!isManager && (
+          <ModuleGuidanceBanner
+            tone="slate"
+            kicker="Diagnóstico"
+            title="Inicia tu diagnóstico"
+            message="Completa tu ficha y comienza; te tomará ~20–25 minutos y trazará tu punto de partida."
+          />
+        )}
         <StatGrid stats={stats} />
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.75fr)]">

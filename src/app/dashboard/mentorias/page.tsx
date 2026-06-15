@@ -34,6 +34,7 @@ import { RichTextEditor } from '@/components/ui/RichTextEditor';
 import { EmptyState } from '@/components/dashboard/EmptyState';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { StatGrid } from '@/components/dashboard/StatGrid';
+import { ModuleGuidanceBanner } from '@/components/dashboard/ModuleGuidanceBanner';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useBranding } from '@/context/BrandingContext';
 import { useUser } from '@/context/UserContext';
@@ -4198,6 +4199,44 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
         }
       />
       {sectionTabs}
+
+      {currentRole === 'lider' && !isOpenLeader && (() => {
+        const nextSession = nextSessions[0] ?? null;
+        const firstAvailable = overview.programEntitlements.find((item) => item.status === 'available') ?? null;
+        if (nextSession) {
+          return (
+            <ModuleGuidanceBanner
+              tone="brand"
+              kicker="Tu próxima mentoría"
+              title={nextSession.title}
+              message={`${formatDateTime(nextSession.startsAt, tz)} · con ${nextSession.mentorName}`}
+            />
+          );
+        }
+        if (firstAvailable) {
+          return (
+            <ModuleGuidanceBanner
+              tone="amber"
+              kicker="Mentorías"
+              title="Tienes una mentoría del programa por agendar"
+              message="Programa tu sesión incluida con un adviser disponible."
+              cta={{
+                label: 'Programar ahora',
+                onClick: () => setProgramForm((prev) => ({ ...prev, entitlementId: firstAvailable.entitlementId })),
+              }}
+            />
+          );
+        }
+        return (
+          <ModuleGuidanceBanner
+            tone="slate"
+            kicker="Mentorías"
+            title="No tienes sesiones agendadas"
+            message="Adquiere sesiones adicionales con los advisers disponibles."
+            cta={{ label: 'Comprar sesiones', href: '/dashboard/mentorias/comprar' }}
+          />
+        );
+      })()}
 
       {isOpenLeader && (
         <div

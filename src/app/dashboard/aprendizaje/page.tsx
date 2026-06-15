@@ -34,6 +34,7 @@ import {
 import { LearningResourceCard } from "@/components/aprendizaje/LearningResourceCard";
 import { LearningAnalyticsPanel } from "@/components/aprendizaje/LearningAnalyticsPanel";
 import { EmptyState } from "@/components/dashboard/EmptyState";
+import { ModuleGuidanceBanner } from "@/components/dashboard/ModuleGuidanceBanner";
 import { useAppDialog } from "@/components/ui/AppDialogProvider";
 import { R2UploadButton } from "@/components/ui/R2UploadButton";
 import { useUser } from "@/context/UserContext";
@@ -593,6 +594,12 @@ export default function AprendizajePage() {
 
   const fieldClass =
     "h-12 rounded-[16px] border border-[var(--app-border)] bg-white/86 px-4 text-sm text-[var(--app-ink)] outline-none transition focus:border-[var(--app-border-strong)] focus:bg-white";
+
+  // Guía adaptativa: siguiente workbook pendiente del programa (vista líder).
+  const nextWorkbook = [...workbooks]
+    .filter((w) => w.accessState === "active" && (w.completionPercent ?? 0) < 100)
+    .sort((a, b) => (a.sequenceNo ?? 0) - (b.sequenceNo ?? 0))[0];
+
   return (
     <div className="space-y-8">
       <section className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -673,6 +680,33 @@ export default function AprendizajePage() {
           ) : null}
         </div>
       </section>
+
+      {currentRole === "lider" &&
+        (isOpenLeader ? (
+          <ModuleGuidanceBanner
+            tone="slate"
+            kicker="Aprendizaje"
+            title="Activa tu plan para desbloquear los workbooks"
+            message="Con el programa 4Shine accedes a la ruta completa de workbooks y cursos."
+            cta={{ label: "Ver planes y precios", href: "/planes-precios" }}
+          />
+        ) : nextWorkbook ? (
+          <ModuleGuidanceBanner
+            tone="brand"
+            kicker="Tu aprendizaje"
+            title={`Tu siguiente workbook: ${nextWorkbook.templateCode.toUpperCase()} (${Math.round(nextWorkbook.completionPercent)}%)`}
+            message={nextWorkbook.title || "Continúa donde quedaste."}
+            cta={{ label: "Continuar workbook", href: buildWorkbookDigitalHref(nextWorkbook, isElevatedRole) }}
+          />
+        ) : workbooks.length > 0 ? (
+          <ModuleGuidanceBanner
+            tone="emerald"
+            kicker="Tu aprendizaje"
+            title="¡Completaste tus workbooks!"
+            message="Sigue avanzando en tu ruta y consolida tu progreso."
+            cta={{ label: "Ir a Trayectoria", href: "/dashboard/trayectoria" }}
+          />
+        ) : null)}
 
       <nav className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 md:hidden">
         {LEARNING_TABS.filter((tab) => !tab.adminOnly || isResourceManager).map((tab) => {
