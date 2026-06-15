@@ -44,6 +44,7 @@ const PATH_TITLES: Record<string, string> = {
   "/dashboard/administracion/notificaciones": "Mensajes y Notificaciones",
   "/dashboard/administracion/notificaciones/plantillas": "Plantillas de mensajes",
   "/dashboard/administracion/notificaciones/eventos": "Configuración de eventos",
+  "/dashboard/administracion/notificaciones/popups": "Popup Builder",
   "/dashboard/administracion/planes": "Planes y Precios",
   "/dashboard/administracion/planes/nuevo": "Nuevo plan",
   "/dashboard/administracion/tour": "Tour de Onboarding",

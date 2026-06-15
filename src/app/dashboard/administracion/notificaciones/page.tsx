@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { NotificationSettingsPanel } from '@/components/dashboard/notificaciones/NotificationSettingsPanel';
-import { LayoutTemplate, ListChecks, Bell, Send, History } from 'lucide-react';
+import { LayoutTemplate, ListChecks, Bell, Send, History, MousePointerClick } from 'lucide-react';
 
 const CARDS = [
   {
@@ -31,6 +31,13 @@ const CARDS = [
       'Registro de todos los mensajes que salen de la plataforma (manuales y automáticos), con fecha, remitente, destinatario, estado de entrega y apertura. Cada fila abre el contenido completo.',
     href: '/dashboard/administracion/notificaciones/historial',
     icon: History,
+  },
+  {
+    title: 'Popup Builder',
+    description:
+      'Crea y edita mensajes emergentes (popups) para visitantes del sitio público y del dashboard: define trigger (tiempo, scroll, salida), páginas objetivo, frecuencia, CTA y vista previa en vivo.',
+    href: '/dashboard/administracion/notificaciones/popups',
+    icon: MousePointerClick,
   },
 ] as const;
 

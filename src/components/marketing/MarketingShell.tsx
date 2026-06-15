@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { listPublicNavItems } from '@/lib/site-pages';
 import { loadServerBranding } from '@/lib/server-branding';
 import { MarketingMobileNav } from './MarketingMobileNav';
+import PopupRuntime from '@/components/popups/PopupRuntime';
 
 export async function MarketingShell({ title, subtitle, children }: { title?: string; subtitle?: string; children: ReactNode }) {
   const [navItems, branding] = await Promise.all([
@@ -126,6 +127,8 @@ export async function MarketingShell({ title, subtitle, children }: { title?: st
           )}
         </div>
       </footer>
+
+      <PopupRuntime />
     </main>
   );
 }

@@ -3,6 +3,7 @@
 import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
 import TourRunner from "@/components/tour/TourRunner";
+import PopupRuntime from "@/components/popups/PopupRuntime";
 import { getMyTour } from "@/features/tour/client";
 import type { MyTourPayload } from "@/features/tour/types";
 import { R2UploadButton } from "@/components/ui/R2UploadButton";
@@ -514,6 +515,8 @@ export default function DashboardLayout({
           onComplete={() => setTourActive(false)}
         />
       )}
+
+      <PopupRuntime />
     </div>
   );
 }
