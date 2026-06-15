@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {
   Briefcase,
   Edit3,
+  KeyRound,
   Link2,
   Plus,
   Save,
@@ -228,6 +229,57 @@ export default function PerfilPage() {
       });
       setIsDeletingSelf(false);
       setShowDeleteModal(false);
+    }
+  }
+
+  // Cambio de contraseña (autoservicio).
+  const [pwd, setPwd] = React.useState({ current: '', next: '', confirm: '' });
+  const [isChangingPwd, setIsChangingPwd] = React.useState(false);
+
+  async function handleChangePassword(event: React.FormEvent) {
+    event.preventDefault();
+    if (pwd.next.length < 8) {
+      await alert({
+        title: 'Contraseña muy corta',
+        message: 'La nueva contraseña debe tener al menos 8 caracteres.',
+        tone: 'warning',
+      });
+      return;
+    }
+    if (pwd.next !== pwd.confirm) {
+      await alert({
+        title: 'Las contraseñas no coinciden',
+        message: 'La confirmación debe ser igual a la nueva contraseña.',
+        tone: 'warning',
+      });
+      return;
+    }
+    setIsChangingPwd(true);
+    try {
+      const response = await fetch('/api/v1/auth/change-password', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword: pwd.current, newPassword: pwd.next }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data?.ok) {
+        throw new Error(data?.error ?? data?.detail ?? 'No se pudo cambiar la contraseña.');
+      }
+      setPwd({ current: '', next: '', confirm: '' });
+      await alert({
+        title: 'Contraseña actualizada',
+        message: 'Tu contraseña se cambió correctamente.',
+        tone: 'success',
+      });
+    } catch (err) {
+      await alert({
+        title: 'No se pudo cambiar la contraseña',
+        message: err instanceof Error ? err.message : 'Inténtalo nuevamente.',
+        tone: 'error',
+      });
+    } finally {
+      setIsChangingPwd(false);
     }
   }
 
@@ -1279,7 +1331,69 @@ export default function PerfilPage() {
         </aside>
       </div>
 
-      <section className="mt-10 rounded-3xl border border-rose-200 bg-rose-50/50 p-5">
+      <section className="mt-10 app-panel p-5 md:p-7">
+        <div className="flex items-start gap-3">
+          <div className="rounded-full bg-[color-mix(in_srgb,var(--brand-primary)_14%,white)] p-2 text-[var(--brand-primary)]">
+            <KeyRound size={18} />
+          </div>
+          <div className="flex-1">
+            <h4 className="text-base font-bold text-[var(--app-ink)]">Cambiar contraseña</h4>
+            <p className="mt-1 max-w-2xl text-xs leading-relaxed text-[var(--app-muted)]">
+              Para mayor seguridad, ingresa tu contraseña actual y define una nueva de al menos 8 caracteres.
+            </p>
+            <form onSubmit={handleChangePassword} className="mt-4 grid max-w-xl gap-3 md:grid-cols-3">
+              <div className="md:col-span-3">
+                <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">
+                  Contraseña actual
+                </label>
+                <input
+                  type="password"
+                  autoComplete="current-password"
+                  className="app-input"
+                  value={pwd.current}
+                  onChange={(e) => setPwd((p) => ({ ...p, current: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">
+                  Nueva contraseña
+                </label>
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  className="app-input"
+                  value={pwd.next}
+                  onChange={(e) => setPwd((p) => ({ ...p, next: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">
+                  Confirmar contraseña
+                </label>
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  className="app-input"
+                  value={pwd.confirm}
+                  onChange={(e) => setPwd((p) => ({ ...p, confirm: e.target.value }))}
+                />
+              </div>
+              <div className="flex items-end">
+                <button
+                  type="submit"
+                  disabled={isChangingPwd || !pwd.current || !pwd.next || !pwd.confirm}
+                  className="app-button-primary inline-flex w-full items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <KeyRound size={15} />
+                  {isChangingPwd ? 'Guardando…' : 'Actualizar'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <section className="mt-6 rounded-3xl border border-rose-200 bg-rose-50/50 p-5">
         <div className="flex items-start gap-3">
           <div className="rounded-full bg-rose-100 p-2 text-rose-700">
             <Trash2 size={18} />

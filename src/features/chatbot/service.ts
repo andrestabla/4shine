@@ -354,7 +354,7 @@ async function buildUserContext(client: PoolClient, actor: AuthUser): Promise<st
 }
 
 const ROUTE_MAP = `RUTAS INTERNAS (entrégalas como enlaces markdown cuando el usuario quiera hacer algo; NO ejecutes la acción tú):
-- Perfil, editar datos, foto, eliminar cuenta: /dashboard/perfil
+- Perfil, editar datos, foto, cambiar contraseña, eliminar cuenta: /dashboard/perfil
 - Suscripción, plan, días restantes: /dashboard/suscripcion
 - Workshops (inscribirse): /dashboard/workshops
 - Mentorías (agendar/comprar): /dashboard/mentorias
