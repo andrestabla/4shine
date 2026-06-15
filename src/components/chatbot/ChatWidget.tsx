@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { Bot, Loader2, MessageCircle, Send, X } from "lucide-react";
+import { Bot, MessageCircle, Send, X } from "lucide-react";
 import clsx from "clsx";
 import { useUser } from "@/context/UserContext";
 import { getMyChatbot, sendChatMessage } from "@/features/chatbot/client";
@@ -85,6 +85,21 @@ export default function ChatWidget() {
 
   return (
     <>
+      <style>{`
+        @keyframes chatbot-typing {
+          0%, 60%, 100% { transform: translateY(0); opacity: 0.35; }
+          30% { transform: translateY(-4px); opacity: 1; }
+        }
+        .chatbot-typing-dot {
+          display: inline-block;
+          width: 7px;
+          height: 7px;
+          border-radius: 9999px;
+          background-color: var(--brand-primary);
+          animation: chatbot-typing 1.2s infinite ease-in-out;
+        }
+      `}</style>
+
       {/* Botón flotante */}
       <button
         type="button"
@@ -177,9 +192,10 @@ export default function ChatWidget() {
 
             {sending && (
               <div className="flex justify-start">
-                <div className="flex items-center gap-2 rounded-[16px] rounded-bl-sm border border-[var(--app-border)] bg-white px-3.5 py-2.5 text-[13px] text-[var(--app-muted)] shadow-sm">
-                  <Loader2 size={14} className="animate-spin" />
-                  Escribiendo…
+                <div className="flex items-center gap-1.5 rounded-[16px] rounded-bl-sm border border-[var(--app-border)] bg-white px-4 py-3 shadow-sm">
+                  <span className="chatbot-typing-dot" />
+                  <span className="chatbot-typing-dot" style={{ animationDelay: "0.15s" }} />
+                  <span className="chatbot-typing-dot" style={{ animationDelay: "0.3s" }} />
                 </div>
               </div>
             )}
