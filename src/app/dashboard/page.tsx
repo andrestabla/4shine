@@ -258,7 +258,11 @@ export default function DashboardHomePage() {
   const roleSummary = buildRoleSummary(currentRole, isOpenLeader);
 
   const newsUpdates = bootstrapData.newsUpdates;
-  const quote = bootstrapData.quotes[0];
+  // Mensaje del día: rota a diario por la base de conocimiento (mismo mensaje
+  // durante el día, distinto cada día), recorriendo todas las citas activas.
+  const quotes = bootstrapData.quotes;
+  const dayIndex = Math.floor(Date.now() / 86_400_000);
+  const quote = quotes.length > 0 ? quotes[dayIndex % quotes.length] : undefined;
   const mentorshipCount = bootstrapData.mentorships.length;
 
   // Próximas mentorías programadas — alimentan también el bloque de Novedades

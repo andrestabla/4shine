@@ -1206,7 +1206,7 @@ async function fetchQuotes(client: PoolClient): Promise<Quote[]> {
       FROM app_core.quotes
       WHERE is_active = true
       ORDER BY created_at DESC
-      LIMIT 20
+      LIMIT 60
     `,
   );
 
