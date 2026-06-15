@@ -6,6 +6,7 @@ import { getViewerAccessState } from '@/features/access/service';
 import { getMyProfile } from '@/features/perfil/service';
 import { getMyDashboard } from '@/features/dashboard/service';
 import { listProgramEntitlements } from '@/features/mentorias/service';
+import { listConvocatorias } from '@/features/convocatorias/service';
 import { subscriptionStatus, formatExpiry } from '@/features/usuarios/subscription-status';
 import type {
   AdminConversation,
@@ -361,7 +362,47 @@ async function buildUserContext(client: PoolClient, actor: AuthUser): Promise<st
   const mentoringBlock = await buildMentoringBlock(client, actor);
   if (mentoringBlock) lines.push(mentoringBlock);
 
+  const convocatoriasBlock = await buildConvocatoriasBlock(client, actor);
+  if (convocatoriasBlock) lines.push(convocatoriasBlock);
+
   return lines.join('\n');
+}
+
+/**
+ * Estado real de convocatorias para que el asistente responda específico:
+ * cuáles están abiertas, a cuáles ya aplicó el usuario y el enlace directo a
+ * cada una (no la sección genérica).
+ */
+async function buildConvocatoriasBlock(client: PoolClient, actor: AuthUser): Promise<string | null> {
+  const all = await listConvocatorias(client, actor, 100).catch(() => []);
+  if (all.length === 0) return null;
+
+  const visible = all.filter((c) => c.status !== 'draft');
+  if (visible.length === 0) return null;
+
+  const applied = visible.filter((c) => c.hasApplied);
+  const open = visible.filter((c) => c.status === 'open');
+
+  const statusLabel: Record<string, string> = {
+    open: 'abierta',
+    closed: 'cerrada',
+    suspended: 'suspendida',
+    draft: 'borrador',
+  };
+
+  const out: string[] = [
+    'ESTADO REAL DE CONVOCATORIAS (usa estos datos y enlaza la convocatoria ESPECÍFICA, no solo la sección):',
+    `Resumen: abiertas ${open.length} · ya aplicó a ${applied.length}.`,
+    'Cada convocatoria tiene su propia página: /dashboard/convocatorias/<id>. Cuando el usuario mencione una por nombre, identifícala abajo y entrégale ese enlace directo. Si YA aplicó, díselo (puede retirar su aplicación desde esa página); si está cerrada, indícalo y no le pidas postularse.',
+    'Listado:',
+  ];
+  for (const c of visible.slice(0, 30)) {
+    const estado = statusLabel[c.status] ?? c.status;
+    const aplicado = c.hasApplied ? ' · YA APLICÓ (puede retirar su aplicación)' : '';
+    const lugar = c.location ? ` · ${c.location}` : '';
+    out.push(`- «${c.title}» (${estado}${lugar})${aplicado} → /dashboard/convocatorias/${c.convocatoriaId}`);
+  }
+  return out.join('\n');
 }
 
 const TEN_DAYS_MS = 10 * 24 * 60 * 60 * 1000;
