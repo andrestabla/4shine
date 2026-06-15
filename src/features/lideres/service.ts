@@ -2,6 +2,7 @@ import type { PoolClient } from 'pg';
 import { ForbiddenError, requireModulePermission } from '@/server/auth/module-permissions';
 import type { AuthUser } from '@/server/auth/types';
 import { ensureWorkbookInstances } from '@/features/aprendizaje/service';
+import { listProgramEntitlements } from '@/features/mentorias/service';
 
 export interface LeaderWorkbookSummary {
     workbookId: string;
@@ -54,12 +55,27 @@ export interface LeaderMentorshipAssignment {
     notes: string | null;
 }
 
+export interface LeaderProgramNext {
+    entitlementId: string;
+    code: string;
+    title: string;
+    sequenceNo: number;
+    /** true si ya está disponible para agendar ahora (orden/cadencia OK). */
+    schedulable: boolean;
+    /** Fecha de habilitación si está bloqueada por la cadencia de 10 días. */
+    unlockDate: string | null;
+}
+
 export interface LeaderMentorshipSummary {
     assignments: LeaderMentorshipAssignment[];
     upcomingSessions: LeaderMentorshipSession[];
     pastSessions: LeaderMentorshipSession[];
     totalSessions: number;
     attendedSessions: number;
+    /** Total de mentorías 1:1 incluidas en el plan del líder (0 si no aplica). */
+    programIncludedTotal: number;
+    /** Próxima mentoría del programa a consumir (o null si no hay paquete/agenda). */
+    programNext: LeaderProgramNext | null;
 }
 
 export interface LeaderContentItem {
@@ -404,6 +420,34 @@ async function fetchMentorship(client: PoolClient, userId: string): Promise<Lead
         attended: row.attended,
     });
 
+    // Paquete de mentorías del programa: total incluido y la próxima a consumir.
+    const entitlements = await listProgramEntitlements(client, userId).catch(() => []);
+    let programNext: LeaderProgramNext | null = null;
+    if (entitlements.length > 0) {
+        const sorted = [...entitlements].sort((a, b) => a.sequenceNo - b.sequenceNo);
+        const TEN = 10 * 24 * 60 * 60 * 1000;
+        const blocker = sorted
+            .filter((e) => e.status === 'scheduled' && e.scheduledStartsAt && new Date(e.scheduledStartsAt).getTime() + TEN > now)
+            .sort((a, b) => a.sequenceNo - b.sequenceNo)[0];
+        const candidate = sorted.find(
+            (e) => e.status === 'available' || (e.status === 'locked' && (!blocker || e.sequenceNo > blocker.sequenceNo)),
+        );
+        if (candidate) {
+            const schedulable = candidate.status === 'available' && !blocker;
+            const unlockDate = blocker?.scheduledStartsAt
+                ? new Date(new Date(blocker.scheduledStartsAt).getTime() + TEN).toISOString()
+                : null;
+            programNext = {
+                entitlementId: candidate.entitlementId,
+                code: `M${String(candidate.sequenceNo).padStart(2, '0')}`,
+                title: candidate.title,
+                sequenceNo: candidate.sequenceNo,
+                schedulable,
+                unlockDate: schedulable ? null : unlockDate,
+            };
+        }
+    }
+
     return {
         assignments: assignmentRows.map((row) => ({
             assignmentId: row.assignment_id,
@@ -417,6 +461,8 @@ async function fetchMentorship(client: PoolClient, userId: string): Promise<Lead
         pastSessions: past.slice(0, 20).map(mapSession),
         totalSessions: sessionRows.length,
         attendedSessions,
+        programIncludedTotal: entitlements.length,
+        programNext,
     };
 }
 

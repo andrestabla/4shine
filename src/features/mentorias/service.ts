@@ -2892,6 +2892,130 @@ export async function scheduleProgramMentorship(
   return session;
 }
 
+export interface ScheduleProgramForLeaderInput {
+  leaderUserId: string;
+  mentorUserId: string;
+  startsAt: string;
+  /** Si se omite, se usa la siguiente mentoría pendiente del programa (en orden). */
+  entitlementId?: string | null;
+  meetingUrl?: string | null;
+  note?: string | null;
+}
+
+/**
+ * Agenda una mentoría 1:1 del PROGRAMA en nombre del líder (lo hace un
+ * adviser/gestor/admin desde la vista 360). Descuenta del paquete incluido:
+ * enlaza la sesión al entitlement y respeta el orden/cadencia. Si el líder no
+ * tiene mentorías del programa, lanza error (para esos casos se usa una sesión
+ * manual aparte).
+ */
+export async function scheduleProgramMentorshipForLeader(
+  client: PoolClient,
+  actor: AuthUser,
+  input: ScheduleProgramForLeaderInput,
+): Promise<MentorshipRecord> {
+  if (actor.role !== 'admin' && actor.role !== 'gestor' && actor.role !== 'mentor') {
+    throw new Error('No autorizado para agendar en nombre del líder.');
+  }
+  await requireModulePermission(client, 'mentorias', 'create');
+
+  const ownerUserId = input.leaderUserId;
+  const entitlementList = await listProgramEntitlements(client, ownerUserId);
+  if (entitlementList.length === 0) {
+    throw new Error('Este líder no tiene mentorías del programa para descontar.');
+  }
+
+  const nowSchedule = new Date();
+  const TEN_DAYS_MS_S = 10 * 24 * 60 * 60 * 1000;
+  const firstPending = entitlementList
+    .filter((item) => {
+      if (item.status === 'available' || item.status === 'locked') return true;
+      if (item.status === 'scheduled' && item.scheduledStartsAt) {
+        const unlockAt = new Date(new Date(item.scheduledStartsAt).getTime() + TEN_DAYS_MS_S);
+        if (unlockAt > nowSchedule) return true;
+      }
+      return false;
+    })
+    .sort((a, b) => a.sequenceNo - b.sequenceNo)[0];
+
+  const targetId = input.entitlementId ?? firstPending?.entitlementId ?? null;
+  if (!targetId) {
+    throw new Error('No hay mentorías del programa disponibles para agendar.');
+  }
+  const entitlement = await getProgramEntitlement(client, targetId, ownerUserId);
+
+  if (entitlement.status === 'completed') {
+    throw new Error('Esa mentoría incluida ya está completada.');
+  }
+  if (entitlement.status === 'scheduled' && entitlement.scheduledSessionId) {
+    throw new Error('Esa mentoría incluida ya está agendada.');
+  }
+  if (firstPending && firstPending.entitlementId !== entitlement.entitlementId) {
+    throw new Error('Debes consumir primero la mentoría pendiente anterior según el orden del programa.');
+  }
+
+  const endsAt = addMinutes(input.startsAt, entitlement.defaultDurationMinutes);
+  const description = input.note?.trim()
+    ? `${entitlement.description ?? ''}\n\nNota:\n${input.note.trim()}`.trim()
+    : entitlement.description;
+
+  await bookAvailabilitySlot(client, input.mentorUserId, input.startsAt, endsAt);
+  const resolvedMeetingUrl =
+    (input.meetingUrl?.trim() || null) ?? (await getMentorOfficeHoursUrl(client, input.mentorUserId));
+
+  const session = await createSessionWithParticipants(client, actor, {
+    mentorUserId: input.mentorUserId,
+    title: entitlement.title,
+    description,
+    startsAt: input.startsAt,
+    endsAt,
+    sessionType: 'individual',
+    status: 'scheduled',
+    meetingUrl: resolvedMeetingUrl,
+    menteeUserIds: [ownerUserId],
+    sessionOrigin: 'program_included',
+  });
+
+  await client.query(
+    `UPDATE app_mentoring.user_program_mentorships
+       SET status = 'scheduled', scheduled_session_id = $2, updated_at = now()
+     WHERE entitlement_id = $1`,
+    [entitlement.entitlementId, session.sessionId],
+  );
+
+  const participants = await loadSessionParticipantsInfo(client, ownerUserId, input.mentorUserId);
+  const tz = await resolveActorOrgTimezone(client, ownerUserId);
+  const fechaStr = formatFechaCO(input.startsAt, tz);
+  const horaStr = formatHoraCO(input.startsAt, tz);
+  const enlaceSesion = buildSessionEnlaceSesion(resolvedMeetingUrl);
+  await notifyUserFull(client, {
+    recipientUserId: ownerUserId,
+    eventKey: 'mentorias.session_scheduled_mentee',
+    variables: {
+      nombre: participants.menteeFirstName,
+      titulo: entitlement.title,
+      fecha: fechaStr,
+      hora: horaStr,
+      adviser_nombre: participants.mentorDisplayName,
+      enlace_sesion: enlaceSesion,
+    },
+  });
+  await notifyUserFull(client, {
+    recipientUserId: input.mentorUserId,
+    eventKey: 'mentorias.session_scheduled_mentor',
+    variables: {
+      nombre: participants.mentorFirstName,
+      titulo: entitlement.title,
+      fecha: fechaStr,
+      hora: horaStr,
+      lider_nombre: participants.menteeDisplayName,
+      enlace_sesion: enlaceSesion,
+    },
+  });
+
+  return session;
+}
+
 export async function createAdditionalMentorshipOrder(
   client: PoolClient,
   actor: AuthUser,

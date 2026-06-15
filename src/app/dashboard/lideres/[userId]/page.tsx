@@ -22,8 +22,13 @@ import {
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { useUser } from '@/context/UserContext';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
-import { getLeader360, type Leader360Snapshot } from '@/features/lideres/client';
-import { createMentorship } from '@/features/mentorias/client';
+import {
+    getLeader360,
+    scheduleLeaderMentorship,
+    listAdvisersForSelect,
+    type Leader360Snapshot,
+    type AdviserOption,
+} from '@/features/lideres/client';
 
 function formatDate(value: string | null) {
     if (!value) return '—';
@@ -141,10 +146,37 @@ export default function Leader360Page() {
     // Agendar mentoría 1:1 con el líder, directo desde la vista 360.
     const [scheduleOpen, setScheduleOpen] = React.useState(false);
     const [scheduling, setScheduling] = React.useState(false);
-    const [scheduleForm, setScheduleForm] = React.useState({ date: '', time: '', duration: 60, title: '', meetingUrl: '' });
+    const [advisers, setAdvisers] = React.useState<AdviserOption[]>([]);
+    const [scheduleForm, setScheduleForm] = React.useState({
+        mode: 'program' as 'program' | 'manual',
+        mentorUserId: '',
+        date: '',
+        time: '',
+        duration: 60,
+        title: '',
+        meetingUrl: '',
+    });
+
+    const programNext = snapshot?.mentorship.programNext ?? null;
+    const canConsumeProgram = Boolean(programNext?.schedulable);
+
+    const openSchedule = () => {
+        // Por defecto descuenta del programa si hay una mentoría incluida disponible.
+        setScheduleForm((p) => ({ ...p, mode: canConsumeProgram ? 'program' : 'manual' }));
+        setScheduleOpen(true);
+        if (advisers.length === 0) {
+            void listAdvisersForSelect()
+                .then(setAdvisers)
+                .catch(() => setAdvisers([]));
+        }
+    };
 
     const submitSchedule = async () => {
         if (!snapshot) return;
+        if (!scheduleForm.mentorUserId) {
+            await alert({ title: 'Falta el adviser', message: 'Selecciona quién dará la mentoría.', tone: 'warning' });
+            return;
+        }
         if (!scheduleForm.date || !scheduleForm.time) {
             await alert({ title: 'Faltan datos', message: 'Elige fecha y hora para la sesión.', tone: 'warning' });
             return;
@@ -154,23 +186,28 @@ export default function Leader360Page() {
             await alert({ title: 'Fecha inválida', message: 'Revisa la fecha y hora.', tone: 'warning' });
             return;
         }
-        const endsAt = new Date(startsAt.getTime() + Math.max(15, scheduleForm.duration) * 60_000);
         setScheduling(true);
         try {
-            await createMentorship({
-                title: scheduleForm.title.trim() || `Mentoría 1:1 con ${snapshot.profile.displayName}`,
+            await scheduleLeaderMentorship(userId, {
+                mode: scheduleForm.mode,
+                mentorUserId: scheduleForm.mentorUserId,
                 startsAt: startsAt.toISOString(),
-                endsAt: endsAt.toISOString(),
-                sessionType: 'individual',
-                status: 'scheduled',
-                menteeUserIds: [userId],
+                durationMinutes: scheduleForm.duration,
+                title: scheduleForm.title.trim() || `Mentoría 1:1 con ${snapshot.profile.displayName}`,
                 meetingUrl: scheduleForm.meetingUrl.trim() || null,
-                sessionOrigin: 'manual',
+                entitlementId: scheduleForm.mode === 'program' ? programNext?.entitlementId ?? null : null,
             });
             setScheduleOpen(false);
-            setScheduleForm({ date: '', time: '', duration: 60, title: '', meetingUrl: '' });
+            setScheduleForm({ mode: 'program', mentorUserId: '', date: '', time: '', duration: 60, title: '', meetingUrl: '' });
             await loadSnapshot();
-            await alert({ title: 'Sesión agendada', message: 'La mentoría 1:1 quedó agendada con el líder.', tone: 'success' });
+            await alert({
+                title: 'Sesión agendada',
+                message:
+                    scheduleForm.mode === 'program'
+                        ? 'La mentoría quedó agendada y se descontó del paquete incluido.'
+                        : 'La mentoría 1:1 adicional quedó agendada con el líder.',
+                tone: 'success',
+            });
         } catch (err) {
             await alert({
                 title: 'No se pudo agendar',
@@ -385,7 +422,7 @@ export default function Leader360Page() {
                     canSchedule ? (
                         <button
                             type="button"
-                            onClick={() => setScheduleOpen(true)}
+                            onClick={openSchedule}
                             className="inline-flex items-center gap-1.5 rounded-full bg-[var(--brand-primary)] px-3.5 py-1.5 text-xs font-bold text-white transition hover:opacity-90"
                         >
                             <CalendarPlus size={14} /> Agendar 1:1
@@ -672,6 +709,78 @@ export default function Leader360Page() {
                         </div>
 
                         <div className="mt-5 space-y-3">
+                            {/* Tipo: incluida del programa (descuenta) vs adicional */}
+                            <div>
+                                <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">Tipo de sesión</label>
+                                <div className="flex flex-col gap-2">
+                                    <label
+                                        className={`flex items-start gap-2 rounded-[12px] border p-3 text-sm ${
+                                            !canConsumeProgram
+                                                ? 'cursor-not-allowed border-[var(--app-border)] opacity-60'
+                                                : scheduleForm.mode === 'program'
+                                                  ? 'border-[var(--brand-primary)] bg-[color-mix(in_srgb,var(--brand-primary)_8%,white)]'
+                                                  : 'border-[var(--app-border)]'
+                                        }`}
+                                    >
+                                        <input
+                                            type="radio"
+                                            name="schedule-mode"
+                                            className="mt-0.5 accent-[var(--brand-primary)]"
+                                            checked={scheduleForm.mode === 'program'}
+                                            disabled={!canConsumeProgram}
+                                            onChange={() => setScheduleForm((p) => ({ ...p, mode: 'program' }))}
+                                        />
+                                        <span>
+                                            <span className="font-bold text-[var(--app-ink)]">Incluida del programa (descuenta)</span>
+                                            <span className="mt-0.5 block text-xs text-[var(--app-muted)]">
+                                                {programNext
+                                                    ? canConsumeProgram
+                                                        ? `Consumirá ${programNext.code} «${programNext.title}» de las ${snapshot.mentorship.programIncludedTotal} incluidas.`
+                                                        : `La siguiente (${programNext.code}) se habilita ${
+                                                              programNext.unlockDate ? `el ${formatDate(programNext.unlockDate)}` : 'según la cadencia'
+                                                          }.`
+                                                    : 'Este líder no tiene mentorías del programa disponibles.'}
+                                            </span>
+                                        </span>
+                                    </label>
+                                    <label
+                                        className={`flex items-start gap-2 rounded-[12px] border p-3 text-sm ${
+                                            scheduleForm.mode === 'manual'
+                                                ? 'border-[var(--brand-primary)] bg-[color-mix(in_srgb,var(--brand-primary)_8%,white)]'
+                                                : 'border-[var(--app-border)]'
+                                        }`}
+                                    >
+                                        <input
+                                            type="radio"
+                                            name="schedule-mode"
+                                            className="mt-0.5 accent-[var(--brand-primary)]"
+                                            checked={scheduleForm.mode === 'manual'}
+                                            onChange={() => setScheduleForm((p) => ({ ...p, mode: 'manual' }))}
+                                        />
+                                        <span>
+                                            <span className="font-bold text-[var(--app-ink)]">Adicional (no descuenta)</span>
+                                            <span className="mt-0.5 block text-xs text-[var(--app-muted)]">Sesión extra fuera del paquete incluido.</span>
+                                        </span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">Adviser</label>
+                                <select
+                                    className="app-select"
+                                    value={scheduleForm.mentorUserId}
+                                    onChange={(e) => setScheduleForm((p) => ({ ...p, mentorUserId: e.target.value }))}
+                                >
+                                    <option value="">Selecciona un adviser…</option>
+                                    {advisers.map((a) => (
+                                        <option key={a.userId} value={a.userId}>
+                                            {a.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
                             <div>
                                 <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">Título (opcional)</label>
                                 <input
