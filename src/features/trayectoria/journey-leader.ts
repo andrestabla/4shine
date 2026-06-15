@@ -429,3 +429,38 @@ export const LEADER_JOURNEY_PHASES: JourneyPhaseDefinition[] = [
     },
   },
 ];
+
+// ─── Progreso global de la ruta (fuente única) ───────────────────────────────
+// Promedia el avance de TODOS los hitos del journey (discovery + workbooks),
+// usando los mismos milestoneCodes que las fases. Lo usan el dashboard y la
+// página de Trayectoria para mostrar el mismo número.
+
+export interface RouteProgressWorkbook {
+  templateCode: string;
+  completionPercent: number;
+}
+
+export interface RouteProgressDiscovery {
+  completionPercent: number;
+}
+
+export function computeRouteProgressPercent(
+  workbooks: RouteProgressWorkbook[],
+  discovery: RouteProgressDiscovery | null,
+): number {
+  const clamp = (n: number) => Math.max(0, Math.min(100, Math.round(Number.isFinite(n) ? n : 0)));
+  const progress = new Map<JourneyMilestoneCode, number>();
+  progress.set("discovery", clamp(discovery?.completionPercent ?? 0));
+  for (const wb of workbooks) {
+    progress.set(wb.templateCode as JourneyMilestoneCode, clamp(wb.completionPercent));
+  }
+
+  const codes = new Set<JourneyMilestoneCode>();
+  for (const phase of LEADER_JOURNEY_PHASES) {
+    for (const code of phase.milestoneCodes) codes.add(code);
+  }
+  const values = [...codes].map((code) => progress.get(code) ?? 0);
+  if (values.length === 0) return 0;
+  return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
+}
+

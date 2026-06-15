@@ -8,6 +8,7 @@ import {
   CalendarDays,
   CheckCircle2,
   Compass,
+  Map as MapIcon,
   MessageSquare,
   Settings,
   ShieldCheck,
@@ -18,9 +19,22 @@ import {
 import { useUser } from "@/context/UserContext";
 import { useBranding } from "@/context/BrandingContext";
 import { getMentorshipOverview, type GroupSessionEventRecord } from "@/features/mentorias/client";
+import { getMyDashboard, type DashboardSummary } from "@/features/dashboard/client";
+import { buildNextSteps, type NextStep } from "@/features/dashboard/next-steps";
 import { PageTitle } from "@/components/dashboard/PageTitle";
 import { StatGrid, type StatItem } from "@/components/dashboard/StatGrid";
 import type { UserStats } from "@/server/bootstrap/types";
+
+const STEP_ICONS: Record<NextStep["icon"], React.ComponentType<{ size?: number; className?: string }>> = {
+  compass: Compass,
+  map: MapIcon,
+  video: Video,
+  users: Users,
+  book: BookOpen,
+  shield: ShieldCheck,
+  settings: Settings,
+  sparkles: Sparkles,
+};
 
 type RoleSummary = {
   roleTag: string;
@@ -209,6 +223,17 @@ export default function DashboardHomePage() {
   const tz = brandingTokens.layout.timezone || undefined;
 
   const [upcomingJoinedSessions, setUpcomingJoinedSessions] = React.useState<GroupSessionEventRecord[]>([]);
+  const [summary, setSummary] = React.useState<DashboardSummary | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    getMyDashboard().then((data) => {
+      if (!cancelled) setSummary(data);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   React.useEffect(() => {
     if (currentRole !== 'lider' && currentRole !== 'mentor') return;
@@ -267,15 +292,30 @@ export default function DashboardHomePage() {
   const learningCount = bootstrapData.learningContent.length;
   const menteesCount = bootstrapData.mentees.length;
 
-  const roleStats = buildRoleStats({
-    role: currentRole,
-    isOpenLeader,
-    learningCount,
-    mentorshipCount,
-    newsCount: newsUpdates.length,
-    userStats: currentUser.stats,
-    menteesCount,
-  });
+  const roleStats: StatItem[] =
+    currentRole === "lider" && !isOpenLeader && summary
+      ? [
+          { label: "Progreso", value: `${summary.routePercent}%`, hint: "Ruta personal" },
+          {
+            label: "Diagnóstico",
+            value: summary.discovery.done ? "Completo" : `${summary.discovery.completionPercent}%`,
+            hint: "Descubrimiento",
+          },
+          { label: "Conexiones", value: summary.networking.connected, hint: "Networking" },
+          { label: "Mentorías", value: summary.mentorias.completed, hint: "Completadas" },
+        ]
+      : buildRoleStats({
+          role: currentRole,
+          isOpenLeader,
+          learningCount,
+          mentorshipCount,
+          newsCount: newsUpdates.length,
+          userStats: currentUser.stats,
+          menteesCount,
+        });
+
+  const nextSteps = summary ? buildNextSteps(summary, currentRole, can) : [];
+  const stepsTitle = summary?.firstTime ? "Primeros pasos" : "Continúa donde quedaste";
 
   const shortcuts: ShortcutItem[] = [
     {
@@ -512,6 +552,50 @@ export default function DashboardHomePage() {
       </section>
 
       <StatGrid stats={roleStats} />
+
+      {nextSteps.length > 0 && (
+        <section className="app-panel p-5 sm:p-6">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="app-section-kicker">Tu siguiente movimiento</p>
+              <h3 className="mt-2 text-2xl font-extrabold text-[var(--app-ink)]">{stepsTitle}</h3>
+            </div>
+            <span className="app-chip">{nextSteps.length}</span>
+          </div>
+          <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {nextSteps.map((step, index) => {
+              const Icon = STEP_ICONS[step.icon];
+              const isPrimary = index === 0;
+              return (
+                <Link
+                  key={step.key}
+                  href={step.href}
+                  className={`group flex items-start gap-3 rounded-[1.1rem] border p-4 transition hover:-translate-y-0.5 hover:shadow-md ${
+                    isPrimary
+                      ? "border-[var(--brand-primary)]/40 bg-[var(--brand-primary)]/5"
+                      : "border-[var(--app-border)] bg-white"
+                  }`}
+                >
+                  <div
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[0.9rem] ${
+                      isPrimary ? "bg-[var(--brand-primary)] text-white" : "bg-[var(--app-chip)] text-[#4f2360]"
+                    }`}
+                  >
+                    <Icon size={18} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="font-bold text-[var(--app-ink)]">{step.title}</p>
+                      <ArrowRight size={15} className="shrink-0 text-[var(--app-muted)] transition group-hover:translate-x-0.5 group-hover:text-[var(--brand-primary)]" />
+                    </div>
+                    <p className="mt-1 text-xs leading-relaxed text-[var(--app-muted)]">{step.description}</p>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {isOpenLeader ? (
         <section

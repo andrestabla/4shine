@@ -4,6 +4,7 @@ import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
 import TourRunner from "@/components/tour/TourRunner";
 import PopupRuntime from "@/components/popups/PopupRuntime";
+import FirstLoginWelcomeModal from "@/components/dashboard/FirstLoginWelcomeModal";
 import { getMyTour } from "@/features/tour/client";
 import type { MyTourPayload } from "@/features/tour/types";
 import { R2UploadButton } from "@/components/ui/R2UploadButton";
@@ -107,7 +108,7 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { currentUser, isHydrating, isAuthenticated, can, mustChangePassword } = useUser();
+  const { currentUser, currentRole, isHydrating, isAuthenticated, can, mustChangePassword } = useUser();
   const { alert } = useAppDialog();
   const { tokens } = useBranding();
   const router = useRouter();
@@ -128,6 +129,7 @@ export default function DashboardLayout({
   const didTrackLoad = useRef(false);
   const [tourPayload, setTourPayload] = useState<MyTourPayload | null>(null);
   const [tourActive, setTourActive] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
   const didFetchTour = useRef(false);
   const routeAccess = resolveRouteAccess(pathname);
   const canViewRoute = routeAccess
@@ -235,7 +237,11 @@ export default function DashboardLayout({
       if (!res.ok || !res.data) return;
       setTourPayload(res.data);
       if (res.data.enabled && res.data.shouldAutoStart && res.data.steps.length > 0) {
-        setTourActive(true);
+        // Primer ingreso (sin progreso de tour): bienvenida primero, el tour
+        // arranca al cerrarla. En reanudaciones/reset (status != null) no se
+        // muestra el modal y el tour arranca directo.
+        if (res.data.status === null) setShowWelcome(true);
+        else setTourActive(true);
       }
     })();
   }, [isAuthenticated, isHydrating, isCheckingOnboarding, showOnboarding]);
@@ -504,6 +510,18 @@ export default function DashboardLayout({
             </div>
           </div>
         </div>
+      )}
+
+      {showWelcome && currentUser && (
+        <FirstLoginWelcomeModal
+          role={currentRole}
+          name={currentUser.name}
+          onStartTour={() => {
+            setShowWelcome(false);
+            setTourActive(true);
+          }}
+          onSkip={() => setShowWelcome(false)}
+        />
       )}
 
       {tourActive && tourPayload && tourPayload.steps.length > 0 && (
