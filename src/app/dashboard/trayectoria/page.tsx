@@ -6,6 +6,7 @@ import React from "react";
 import {
   ArrowRight,
   Award,
+  BookOpen,
   CalendarDays,
   CheckCircle2,
   Compass,
@@ -17,6 +18,7 @@ import {
   Radar as RadarIcon,
   Sparkles,
   Users,
+  Video,
 } from "lucide-react";
 import { ModuleLockedScreen } from "@/components/access/ModuleLockedScreen";
 import {
@@ -539,6 +541,156 @@ export default function TrayectoriaPage() {
             "Usa networking, convocatorias y workshops para ampliar tu ecosistema.",
         },
       ]) as Array<{ title: string; description: string }>;
+
+  if (currentRole === "mentor") {
+    const components = [
+      {
+        icon: Compass,
+        title: "Descubrimiento (diagnóstico 4Shine)",
+        description:
+          "Punto de partida: el líder completa su diagnóstico y obtiene una lectura ejecutiva por pilar. Marca el inicio de la ruta y orienta dónde enfocar el acompañamiento.",
+        href: "/dashboard/descubrimiento",
+      },
+      {
+        icon: BookOpen,
+        title: "Workbooks (Aprendizaje)",
+        description:
+          "10 workbooks secuenciales (WB1–WB10) repartidos en los 5 hitos. Cada uno desarrolla una capacidad concreta de liderazgo y se trabaja semana a semana.",
+        href: "/dashboard/aprendizaje",
+      },
+      {
+        icon: Video,
+        title: "Mentorías 1:1",
+        description:
+          "Sesiones individuales que acompañan cada hito. Se habilitan en orden, una a una, con cadencia de 10 días tras la sesión anterior.",
+        href: "/dashboard/mentorias",
+      },
+      {
+        icon: Users,
+        title: "Networking",
+        description:
+          "Comunidad y conexiones entre participantes para activar relaciones y visibilidad a lo largo del programa.",
+        href: "/dashboard/networking",
+      },
+      {
+        icon: Flag,
+        title: "Convocatorias",
+        description:
+          "Oportunidades y aplicaciones que el líder puede aprovechar mientras avanza en su trayectoria.",
+        href: "/dashboard/convocatorias",
+      },
+    ];
+
+    return (
+      <div className="space-y-8">
+        <div>
+          <span className="app-chip uppercase">{roleViewLabel(currentRole)}</span>
+          <p className="mt-5 text-xl font-medium text-[var(--app-muted)] md:text-2xl">
+            Cómo funciona la Trayectoria 4Shine
+          </p>
+          <h1
+            className="app-display-title mt-2 text-[2.4rem] font-semibold leading-[0.96] text-[var(--app-ink)] md:text-[3.4rem]"
+            data-display-font="true"
+          >
+            La ruta del líder, explicada
+          </h1>
+          <p className="mt-4 max-w-3xl text-sm leading-relaxed text-[var(--app-muted)] md:text-base">
+            La Trayectoria es la hoja de ruta oficial del líder 4Shine: <strong>24 semanas</strong> organizadas
+            en <strong>5 hitos de transformación</strong> que conectan el diagnóstico, los workbooks, las
+            mentorías y las señales de progreso en una sola línea de tiempo. Como adviser, esta vista es tu
+            referencia para entender qué vive el líder en cada etapa y acompañarlo mejor. Usa los accesos
+            directos para explorar cada componente.
+          </p>
+        </div>
+
+        {/* Componentes de la trayectoria */}
+        <section className="app-panel p-5 sm:p-6">
+          <div className="flex items-center gap-2">
+            <Sparkles size={16} className="text-[var(--brand-primary)]" />
+            <p className="app-section-kicker">Qué compone la trayectoria</p>
+          </div>
+          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {components.map((c) => {
+              const Icon = c.icon;
+              return (
+                <Link
+                  key={c.href}
+                  href={c.href}
+                  className="group flex flex-col rounded-[18px] border border-[var(--app-border)] bg-white/82 p-4 transition-colors hover:border-[var(--brand-primary)]"
+                >
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--brand-primary)_12%,white)] text-[var(--brand-primary)]">
+                    <Icon size={18} />
+                  </span>
+                  <p className="mt-3 font-bold text-[var(--app-ink)]">{c.title}</p>
+                  <p className="mt-1 flex-1 text-xs leading-relaxed text-[var(--app-muted)]">{c.description}</p>
+                  <span className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-[var(--brand-primary)]">
+                    Ir <ArrowRight size={13} className="transition-transform group-hover:translate-x-0.5" />
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Timeline de los 5 hitos */}
+        <section className="app-panel p-5 sm:p-6">
+          <div className="flex items-center gap-2">
+            <Compass size={16} className="text-[var(--brand-primary)]" />
+            <p className="app-section-kicker">Línea de tiempo · 5 hitos en 24 semanas</p>
+          </div>
+          <ol className="mt-6 space-y-4">
+            {LEADER_JOURNEY_PHASES.map((phase, index) => (
+              <li key={phase.id} className="flex gap-4">
+                <div className="flex flex-col items-center">
+                  <span
+                    className={clsx(
+                      "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-black text-white",
+                      phase.accent.solid,
+                    )}
+                  >
+                    {index + 1}
+                  </span>
+                  {index < LEADER_JOURNEY_PHASES.length - 1 && (
+                    <span className="mt-1 w-px flex-1 bg-[var(--app-border)]" />
+                  )}
+                </div>
+                <article
+                  className={clsx(
+                    "mb-2 flex-1 rounded-[20px] border p-5",
+                    phase.accent.border,
+                    phase.accent.soft,
+                  )}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className={clsx("text-[11px] font-extrabold uppercase tracking-[0.2em]", phase.accent.text)}>
+                        {phase.weekRangeLabel} · {phase.shortTitle}
+                      </p>
+                      <h3 className="mt-1.5 text-2xl font-black text-[var(--app-ink)]">{phase.title}</h3>
+                    </div>
+                    <span className="rounded-full border border-white/70 bg-white/85 px-3 py-1 text-xs font-bold text-[var(--app-muted)]">
+                      {phase.milestoneCodes.length === 1
+                        ? "1 hito"
+                        : `${phase.milestoneCodes.length} workbooks`}
+                    </span>
+                  </div>
+                  <p className="mt-3 text-sm leading-relaxed text-[var(--app-ink)]">{phase.subtitle}</p>
+                  <p className="mt-2 text-sm leading-relaxed text-[var(--app-muted)]">{phase.goal}</p>
+                  <Link
+                    href={phase.routePath}
+                    className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-[var(--brand-primary)]"
+                  >
+                    Explorar esta etapa
+                    <ArrowRight size={13} />
+                  </Link>
+                </article>
+              </li>
+            ))}
+          </ol>
+        </section>
+      </div>
+    );
+  }
 
   if (currentRole !== "lider") {
     return (
