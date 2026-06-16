@@ -535,6 +535,7 @@ export async function listNetworkPeople(client: PoolClient, actor: AuthUser, lim
       )
       WHERE u.user_id <> $1::uuid
         AND u.is_active = true
+        AND u.primary_role <> 'invitado'
       ORDER BY u.display_name
       LIMIT $2
     `,
