@@ -637,7 +637,30 @@ function fmtDate(iso: string | null | undefined): string {
  */
 async function buildMentoringBlock(client: PoolClient, actor: AuthUser): Promise<string | null> {
   const entitlements = await listProgramEntitlements(client, actor.userId).catch(() => []);
-  if (entitlements.length === 0) return null;
+
+  // Agenda REAL: todas las sesiones 1:1 próximas del usuario (incluye adicionales,
+  // que no están ligadas a una mentoría incluida del programa).
+  const { rows: upcomingRows } = await client.query<{
+    title: string;
+    starts_at: string;
+    session_origin: string | null;
+    mentor_name: string | null;
+  }>(
+    `SELECT ms.title, ms.starts_at::text, ms.session_origin, u.display_name AS mentor_name
+     FROM app_mentoring.session_participants sp
+     JOIN app_mentoring.mentorship_sessions ms ON ms.session_id = sp.session_id
+     LEFT JOIN app_core.users u ON u.user_id = ms.mentor_user_id
+     WHERE sp.user_id = $1::uuid
+       AND sp.participant_role = 'mentee'
+       AND ms.session_type = 'individual'
+       AND ms.status = 'scheduled'
+       AND ms.starts_at >= now()
+     ORDER BY ms.starts_at
+     LIMIT 20`,
+    [actor.userId],
+  ).catch(() => ({ rows: [] as { title: string; starts_at: string; session_origin: string | null; mentor_name: string | null }[] }));
+
+  if (entitlements.length === 0 && upcomingRows.length === 0) return null;
 
   const sorted = [...entitlements].sort((a, b) => a.sequenceNo - b.sequenceNo);
   const included = sorted.length;
@@ -654,39 +677,52 @@ async function buildMentoringBlock(client: PoolClient, actor: AuthUser): Promise
     ? fmtDate(new Date(new Date(blocker.scheduledStartsAt).getTime() + TEN_DAYS_MS).toISOString())
     : null;
 
-  const out: string[] = [
-    'ESTADO REAL DE LAS MENTORÍAS 1:1 DEL PROGRAMA (usa estos datos; NO inventes créditos ni límites):',
-    'Regla de cadencia (directiva del programa): las mentorías 1:1 incluidas se habilitan EN ORDEN y de a una. La SIGUIENTE solo se habilita 10 días DESPUÉS de la fecha de inicio de la sesión anterior ya agendada. Vienen INCLUIDAS en el plan y NO requieren "créditos"; los créditos adicionales son solo para mentorías extra compradas aparte. Tener 0 créditos adicionales NO impide agendar las incluidas: lo que las habilita/bloquea es el orden y la cadencia de 10 días.',
-    `Resumen: incluidas en el plan ${included} · completadas ${completed} · agendadas ${scheduled} · disponibles para agendar ahora ${availableNow.length}.`,
-  ];
-  if (availableNow[0]) {
-    out.push(`Puede agendar AHORA: Mentoría ${String(availableNow[0].sequenceNo).padStart(2, '0')} «${availableNow[0].title}».`);
-  } else if (nextUnlockDate) {
-    out.push(`No hay ninguna disponible ahora; la siguiente se habilita el ${nextUnlockDate} (10 días después de la sesión agendada que está en curso).`);
-  }
-  out.push('Detalle por sesión:');
-  for (const e of sorted) {
-    const code = `M${String(e.sequenceNo).padStart(2, '0')}`;
-    if (e.status === 'completed') {
-      out.push(`- ${code} «${e.title}»: completada.`);
-    } else if (e.status === 'scheduled') {
-      const blocks = blocker && e.sequenceNo === blocker.sequenceNo ? ` → bloquea las siguientes hasta el ${nextUnlockDate}` : '';
-      out.push(`- ${code} «${e.title}»: agendada para ${fmtDate(e.scheduledStartsAt)}${blocks}.`);
-    } else if (e.status === 'available') {
-      out.push(`- ${code} «${e.title}»: disponible para agendar ahora.`);
-    } else {
-      const when = blocker && e.sequenceNo === (blocker.sequenceNo + 1) && nextUnlockDate ? ` (se habilita el ${nextUnlockDate})` : ' (pendiente de que se liberen las anteriores)';
-      out.push(`- ${code} «${e.title}»: bloqueada${when}.`);
+  const out: string[] = [];
+
+  // ── Agenda REAL (fuente de verdad de "qué tengo agendado") ──
+  if (upcomingRows.length > 0) {
+    out.push(
+      'AGENDA REAL — TODAS tus próximas sesiones 1:1 agendadas (incluye las incluidas del programa Y las adicionales). Esta es la fuente de verdad de "qué tienes agendado"; NO te limites a las del programa:',
+    );
+    for (const s of upcomingRows) {
+      const tipo = s.session_origin === 'program_included' ? 'incluida del programa' : 'adicional';
+      const con = s.mentor_name ? ` con ${s.mentor_name}` : '';
+      out.push(`- «${s.title}»: ${fmtDate(s.starts_at)}${con} (${tipo}).`);
     }
   }
-  if (nextUnlockDate) {
+
+  // ── Programa (las 10 incluidas + regla de cadencia) ──
+  if (entitlements.length > 0) {
     out.push(
-      `INSTRUCCIÓN OBLIGATORIA: si el usuario pregunta por qué no puede agendar, o por una mentoría bloqueada, indícale SIEMPRE de forma explícita la fecha exacta en que se habilita la próxima (${nextUnlockDate}) y por qué (cadencia de 10 días tras la sesión anterior agendada). No respondas en términos vagos ni menciones "créditos".`,
+      'ESTADO DE LAS MENTORÍAS 1:1 INCLUIDAS DEL PROGRAMA (usa estos datos; NO inventes créditos ni límites):',
+      'Regla de cadencia (directiva del programa): las mentorías 1:1 incluidas se habilitan EN ORDEN y de a una. La SIGUIENTE solo se habilita 10 días DESPUÉS de la fecha de inicio de la sesión anterior ya agendada. Vienen INCLUIDAS en el plan y NO requieren "créditos"; los créditos adicionales son solo para mentorías extra compradas aparte. Tener 0 créditos adicionales NO impide agendar las incluidas: lo que las habilita/bloquea es el orden y la cadencia de 10 días.',
+      `Resumen del programa: incluidas ${included} · completadas ${completed} · agendadas ${scheduled} · disponibles para agendar ahora ${availableNow.length}. (Nota: las sesiones ADICIONALES no cuentan aquí; mira la AGENDA REAL de arriba.)`,
     );
-  } else if (availableNow[0]) {
-    out.push(
-      `INSTRUCCIÓN OBLIGATORIA: hay una mentoría disponible para agendar ahora (Mentoría ${String(availableNow[0].sequenceNo).padStart(2, '0')}); indícale que puede agendarla ya y entrégale el enlace a /dashboard/mentorias. No menciones "créditos".`,
-    );
+    if (availableNow[0]) {
+      out.push(`Puede agendar AHORA (incluida): Mentoría ${String(availableNow[0].sequenceNo).padStart(2, '0')} «${availableNow[0].title}».`);
+    } else if (nextUnlockDate) {
+      out.push(`No hay ninguna INCLUIDA disponible ahora; la siguiente se habilita el ${nextUnlockDate} (10 días después de la sesión agendada que está en curso).`);
+    }
+    out.push('Detalle por mentoría incluida:');
+    for (const e of sorted) {
+      const code = `M${String(e.sequenceNo).padStart(2, '0')}`;
+      if (e.status === 'completed') {
+        out.push(`- ${code} «${e.title}»: completada.`);
+      } else if (e.status === 'scheduled') {
+        const blocks = blocker && e.sequenceNo === blocker.sequenceNo ? ` → bloquea las siguientes hasta el ${nextUnlockDate}` : '';
+        out.push(`- ${code} «${e.title}»: agendada para ${fmtDate(e.scheduledStartsAt)}${blocks}.`);
+      } else if (e.status === 'available') {
+        out.push(`- ${code} «${e.title}»: disponible para agendar ahora.`);
+      } else {
+        const when = blocker && e.sequenceNo === (blocker.sequenceNo + 1) && nextUnlockDate ? ` (se habilita el ${nextUnlockDate})` : ' (pendiente de que se liberen las anteriores)';
+        out.push(`- ${code} «${e.title}»: bloqueada${when}.`);
+      }
+    }
+    if (nextUnlockDate) {
+      out.push(
+        `INSTRUCCIÓN: si preguntan por una INCLUIDA bloqueada o por qué no puede agendar la siguiente incluida, indica la fecha exacta de habilitación (${nextUnlockDate}) y la cadencia de 10 días. Pero si preguntan "qué tengo agendado", responde con la AGENDA REAL (incluye adicionales), no solo las incluidas.`,
+      );
+    }
   }
   return out.join('\n');
 }
