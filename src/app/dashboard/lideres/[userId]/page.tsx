@@ -26,8 +26,10 @@ import {
     getLeader360,
     scheduleLeaderMentorship,
     listAdvisersForSelect,
+    listAdviserSlots,
     type Leader360Snapshot,
     type AdviserOption,
+    type AdviserSlot,
 } from '@/features/lideres/client';
 
 function formatDate(value: string | null) {
@@ -147,12 +149,12 @@ export default function Leader360Page() {
     const [scheduleOpen, setScheduleOpen] = React.useState(false);
     const [scheduling, setScheduling] = React.useState(false);
     const [advisers, setAdvisers] = React.useState<AdviserOption[]>([]);
+    const [slots, setSlots] = React.useState<AdviserSlot[]>([]);
+    const [slotsLoading, setSlotsLoading] = React.useState(false);
     const [scheduleForm, setScheduleForm] = React.useState({
         mode: 'program' as 'program' | 'manual',
         mentorUserId: '',
-        date: '',
-        time: '',
-        duration: 60,
+        slotId: '',
         title: '',
         meetingUrl: '',
     });
@@ -162,7 +164,8 @@ export default function Leader360Page() {
 
     const openSchedule = () => {
         // Por defecto descuenta del programa si hay una mentoría incluida disponible.
-        setScheduleForm((p) => ({ ...p, mode: canConsumeProgram ? 'program' : 'manual' }));
+        setScheduleForm((p) => ({ ...p, mode: canConsumeProgram ? 'program' : 'manual', slotId: '' }));
+        setSlots([]);
         setScheduleOpen(true);
         if (advisers.length === 0) {
             void listAdvisersForSelect()
@@ -171,19 +174,26 @@ export default function Leader360Page() {
         }
     };
 
+    const onSelectAdviser = (mentorUserId: string) => {
+        setScheduleForm((p) => ({ ...p, mentorUserId, slotId: '' }));
+        setSlots([]);
+        if (!mentorUserId) return;
+        setSlotsLoading(true);
+        void listAdviserSlots(userId, mentorUserId)
+            .then(setSlots)
+            .catch(() => setSlots([]))
+            .finally(() => setSlotsLoading(false));
+    };
+
     const submitSchedule = async () => {
         if (!snapshot) return;
         if (!scheduleForm.mentorUserId) {
             await alert({ title: 'Falta el adviser', message: 'Selecciona quién dará la mentoría.', tone: 'warning' });
             return;
         }
-        if (!scheduleForm.date || !scheduleForm.time) {
-            await alert({ title: 'Faltan datos', message: 'Elige fecha y hora para la sesión.', tone: 'warning' });
-            return;
-        }
-        const startsAt = new Date(`${scheduleForm.date}T${scheduleForm.time}`);
-        if (Number.isNaN(startsAt.getTime())) {
-            await alert({ title: 'Fecha inválida', message: 'Revisa la fecha y hora.', tone: 'warning' });
+        const slot = slots.find((s) => s.availabilityId === scheduleForm.slotId);
+        if (!slot) {
+            await alert({ title: 'Falta la franja', message: 'Selecciona una franja disponible del adviser.', tone: 'warning' });
             return;
         }
         setScheduling(true);
@@ -191,14 +201,15 @@ export default function Leader360Page() {
             await scheduleLeaderMentorship(userId, {
                 mode: scheduleForm.mode,
                 mentorUserId: scheduleForm.mentorUserId,
-                startsAt: startsAt.toISOString(),
-                durationMinutes: scheduleForm.duration,
+                startsAt: slot.startsAt,
+                endsAt: slot.endsAt,
                 title: scheduleForm.title.trim() || `Mentoría 1:1 con ${snapshot.profile.displayName}`,
                 meetingUrl: scheduleForm.meetingUrl.trim() || null,
                 entitlementId: scheduleForm.mode === 'program' ? programNext?.entitlementId ?? null : null,
             });
             setScheduleOpen(false);
-            setScheduleForm({ mode: 'program', mentorUserId: '', date: '', time: '', duration: 60, title: '', meetingUrl: '' });
+            setScheduleForm({ mode: 'program', mentorUserId: '', slotId: '', title: '', meetingUrl: '' });
+            setSlots([]);
             await loadSnapshot();
             await alert({
                 title: 'Sesión agendada',
@@ -770,7 +781,7 @@ export default function Leader360Page() {
                                 <select
                                     className="app-select"
                                     value={scheduleForm.mentorUserId}
-                                    onChange={(e) => setScheduleForm((p) => ({ ...p, mentorUserId: e.target.value }))}
+                                    onChange={(e) => onSelectAdviser(e.target.value)}
                                 >
                                     <option value="">Selecciona un adviser…</option>
                                     {advisers.map((a) => (
@@ -779,6 +790,35 @@ export default function Leader360Page() {
                                         </option>
                                     ))}
                                 </select>
+                            </div>
+
+                            {/* Solo franjas realmente disponibles del adviser */}
+                            <div>
+                                <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">Franja disponible</label>
+                                {!scheduleForm.mentorUserId ? (
+                                    <p className="text-xs text-[var(--app-muted)]">Selecciona primero un adviser.</p>
+                                ) : slotsLoading ? (
+                                    <p className="inline-flex items-center gap-2 text-xs text-[var(--app-muted)]">
+                                        <Loader2 size={13} className="animate-spin" /> Cargando franjas…
+                                    </p>
+                                ) : slots.length === 0 ? (
+                                    <p className="text-xs text-[var(--app-muted)]">
+                                        Este adviser no tiene franjas disponibles. Debe publicarlas en su agenda de mentorías.
+                                    </p>
+                                ) : (
+                                    <select
+                                        className="app-select"
+                                        value={scheduleForm.slotId}
+                                        onChange={(e) => setScheduleForm((p) => ({ ...p, slotId: e.target.value }))}
+                                    >
+                                        <option value="">Selecciona una franja…</option>
+                                        {slots.map((s) => (
+                                            <option key={s.availabilityId} value={s.availabilityId}>
+                                                {formatDateTime(s.startsAt)} · {s.durationMinutes} min
+                                            </option>
+                                        ))}
+                                    </select>
+                                )}
                             </div>
 
                             <div>
@@ -790,47 +830,14 @@ export default function Leader360Page() {
                                     onChange={(e) => setScheduleForm((p) => ({ ...p, title: e.target.value }))}
                                 />
                             </div>
-                            <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">Fecha</label>
-                                    <input
-                                        type="date"
-                                        className="app-input"
-                                        value={scheduleForm.date}
-                                        onChange={(e) => setScheduleForm((p) => ({ ...p, date: e.target.value }))}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">Hora</label>
-                                    <input
-                                        type="time"
-                                        className="app-input"
-                                        value={scheduleForm.time}
-                                        onChange={(e) => setScheduleForm((p) => ({ ...p, time: e.target.value }))}
-                                    />
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">Duración (min)</label>
-                                    <input
-                                        type="number"
-                                        min={15}
-                                        step={15}
-                                        className="app-input"
-                                        value={scheduleForm.duration}
-                                        onChange={(e) => setScheduleForm((p) => ({ ...p, duration: Number(e.target.value) || 60 }))}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">Enlace (opcional)</label>
-                                    <input
-                                        className="app-input"
-                                        placeholder="https://meet…"
-                                        value={scheduleForm.meetingUrl}
-                                        onChange={(e) => setScheduleForm((p) => ({ ...p, meetingUrl: e.target.value }))}
-                                    />
-                                </div>
+                            <div>
+                                <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">Enlace (opcional)</label>
+                                <input
+                                    className="app-input"
+                                    placeholder="https://meet…"
+                                    value={scheduleForm.meetingUrl}
+                                    onChange={(e) => setScheduleForm((p) => ({ ...p, meetingUrl: e.target.value }))}
+                                />
                             </div>
                             <p className="text-[11px] text-[var(--app-muted)]">
                                 Si dejas el enlace vacío, se creará automáticamente la reunión en Zoom (integración configurada). Si Zoom no está disponible, se usa el enlace de office hours del adviser.

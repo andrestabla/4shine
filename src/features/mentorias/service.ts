@@ -2659,6 +2659,41 @@ export async function listMentorAvailabilityFull(
   }));
 }
 
+export interface OpenSlot {
+  availabilityId: string;
+  startsAt: string;
+  endsAt: string;
+  durationMinutes: number;
+}
+
+/**
+ * Franjas FUTURAS y NO reservadas de un adviser, para ofrecerlas al agendar
+ * on-behalf (staff). Sin la restricción de "solo tu propia agenda".
+ */
+export async function listMentorOpenSlots(client: PoolClient, mentorUserId: string): Promise<OpenSlot[]> {
+  const { rows } = await client.query<{ availability_id: string; starts_at: string; ends_at: string }>(
+    `
+      SELECT availability_id::text, starts_at::text, ends_at::text
+      FROM app_mentoring.mentor_availability
+      WHERE mentor_user_id = $1::uuid
+        AND is_booked = false
+        AND starts_at > now()
+      ORDER BY starts_at
+      LIMIT 200
+    `,
+    [mentorUserId],
+  );
+  return rows.map((r) => ({
+    availabilityId: r.availability_id,
+    startsAt: r.starts_at,
+    endsAt: r.ends_at,
+    durationMinutes: Math.max(
+      15,
+      Math.round((new Date(r.ends_at).getTime() - new Date(r.starts_at).getTime()) / 60_000),
+    ),
+  }));
+}
+
 export async function bulkDeleteMentorAvailability(
   client: PoolClient,
   actor: AuthUser,
@@ -2941,6 +2976,8 @@ export interface ScheduleProgramForLeaderInput {
   leaderUserId: string;
   mentorUserId: string;
   startsAt: string;
+  /** Fin de la franja elegida del adviser (debe coincidir con una franja libre). */
+  endsAt: string;
   /** Si se omite, se usa la siguiente mentoría pendiente del programa (en orden). */
   entitlementId?: string | null;
   meetingUrl?: string | null;
@@ -2999,7 +3036,12 @@ export async function scheduleProgramMentorshipForLeader(
     throw new Error('Debes consumir primero la mentoría pendiente anterior según el orden del programa.');
   }
 
-  const endsAt = addMinutes(input.startsAt, entitlement.defaultDurationMinutes);
+  // Reserva la franja EXACTA elegida del adviser (start + end de la disponibilidad).
+  const endsAt = input.endsAt;
+  const durationMinutes = Math.max(
+    15,
+    Math.round((new Date(endsAt).getTime() - new Date(input.startsAt).getTime()) / 60_000),
+  );
   const description = input.note?.trim()
     ? `${entitlement.description ?? ''}\n\nNota:\n${input.note.trim()}`.trim()
     : entitlement.description;
@@ -3018,7 +3060,7 @@ export async function scheduleProgramMentorshipForLeader(
     input.meetingUrl,
     zoomTopic,
     input.startsAt,
-    entitlement.defaultDurationMinutes,
+    durationMinutes,
   );
 
   const session = await createSessionWithParticipants(client, actor, {
@@ -3087,7 +3129,8 @@ export interface ScheduleManualForLeaderInput {
   leaderUserId: string;
   mentorUserId: string;
   startsAt: string;
-  durationMinutes: number;
+  /** Fin de la franja elegida del adviser (debe coincidir con una franja libre). */
+  endsAt: string;
   title: string;
   meetingUrl?: string | null;
 }
@@ -3106,8 +3149,12 @@ export async function scheduleManualMentorshipForLeader(
   }
   await requireModulePermission(client, 'mentorias', 'create');
 
-  const minutes = Math.max(15, input.durationMinutes || 60);
-  const endsAt = addMinutes(input.startsAt, minutes);
+  // Reserva la franja EXACTA elegida del adviser.
+  const endsAt = input.endsAt;
+  const minutes = Math.max(
+    15,
+    Math.round((new Date(endsAt).getTime() - new Date(input.startsAt).getTime()) / 60_000),
+  );
 
   await bookAvailabilitySlot(client, input.mentorUserId, input.startsAt, endsAt);
 

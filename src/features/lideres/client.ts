@@ -39,7 +39,7 @@ export interface ScheduleLeaderMentorshipInput {
     mode: 'program' | 'manual';
     mentorUserId: string;
     startsAt: string;
-    durationMinutes?: number;
+    endsAt: string;
     title?: string;
     meetingUrl?: string | null;
     note?: string | null;
@@ -52,6 +52,20 @@ export async function scheduleLeaderMentorship(userId: string, input: ScheduleLe
         body: JSON.stringify(input),
         timeoutMs: 30000,
     });
+}
+
+export interface AdviserSlot {
+    availabilityId: string;
+    startsAt: string;
+    endsAt: string;
+    durationMinutes: number;
+}
+
+export async function listAdviserSlots(userId: string, mentorUserId: string): Promise<AdviserSlot[]> {
+    return requestApi<AdviserSlot[]>(
+        `/api/v1/modules/lideres/${encodeURIComponent(userId)}/schedule-mentorship?mentorUserId=${encodeURIComponent(mentorUserId)}`,
+        { timeoutMs: 30000 },
+    );
 }
 
 export interface AdviserOption {
