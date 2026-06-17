@@ -122,7 +122,8 @@ export type VariableKey =
   | 'codigo_reserva'
   | 'motivo_reembolso'
   | 'estado_inscripcion'
-  | 'enlace_workshop';
+  | 'enlace_workshop'
+  | 'tiempo_restante';
 
 export interface VariableDef {
   key: VariableKey;

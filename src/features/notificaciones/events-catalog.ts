@@ -3,6 +3,12 @@ import type { NotificationEventDef, VariableDef, VariableKey } from './types';
 // ─── Variable Dictionary ──────────────────────────────────────────────────────
 
 export const VARIABLE_DEFS: Record<VariableKey, VariableDef> = {
+  tiempo_restante: {
+    key: 'tiempo_restante',
+    label: 'Tiempo restante',
+    description: 'Cuánto falta para la sesión (p. ej. "en 24 horas")',
+    example: 'en 24 horas',
+  },
   nombre: {
     key: 'nombre',
     label: 'Nombre',
@@ -279,6 +285,15 @@ export const NOTIFICATION_EVENTS: NotificationEventDef[] = [
     label: 'Recordatorio de sesión',
     description: 'Recordatorio automático previo al inicio de una sesión.',
     variables: ['nombre', 'titulo', 'fecha', 'hora', 'enlace_sesion', 'plataforma'],
+    defaultInAppType: 'info',
+  },
+  {
+    key: 'mentorias.group_session_reminder',
+    moduleCode: 'mentorias',
+    moduleLabel: 'Mentorías',
+    label: 'Recordatorio de sesión grupal',
+    description: 'Recordatorio automático antes de una sesión grupal, según las ventanas configuradas (72h/24h/12h/6h/3h/1h/30m).',
+    variables: ['nombre', 'titulo', 'fecha', 'hora', 'enlace_sesion', 'tiempo_restante', 'plataforma'],
     defaultInAppType: 'info',
   },
   {

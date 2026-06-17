@@ -3515,3 +3515,158 @@ export async function deleteMentorship(
     sessionId: deleted.session_id,
   };
 }
+
+// ─── Recordatorios de sesiones grupales (ventanas configurables) ─────────────
+
+export interface GroupReminderWindow {
+  windowMinutes: number;
+  label: string;
+  isEnabled: boolean;
+}
+
+async function resolveOrgIdForActor(client: PoolClient, userId: string): Promise<string> {
+  const { rows } = await client.query<{ organization_id: string }>(
+    `SELECT organization_id::text FROM app_core.users WHERE user_id = $1 LIMIT 1`,
+    [userId],
+  );
+  if (rows[0]?.organization_id) return rows[0].organization_id;
+  const { rows: fb } = await client.query<{ organization_id: string }>(
+    `SELECT organization_id::text FROM app_core.organizations ORDER BY created_at ASC LIMIT 1`,
+  );
+  if (!fb[0]?.organization_id) throw new Error('Organization not found');
+  return fb[0].organization_id;
+}
+
+export async function listGroupReminderWindows(
+  client: PoolClient,
+  actor: AuthUser,
+): Promise<GroupReminderWindow[]> {
+  await requireModulePermission(client, 'mentorias', 'manage');
+  const orgId = await resolveOrgIdForActor(client, actor.userId);
+  const { rows } = await client.query<{ window_minutes: number; label: string; is_enabled: boolean }>(
+    `SELECT window_minutes, label, is_enabled
+     FROM app_admin.group_reminder_windows
+     WHERE organization_id = $1
+     ORDER BY window_minutes DESC`,
+    [orgId],
+  );
+  return rows.map((r) => ({ windowMinutes: r.window_minutes, label: r.label, isEnabled: r.is_enabled }));
+}
+
+export async function setGroupReminderWindow(
+  client: PoolClient,
+  actor: AuthUser,
+  windowMinutes: number,
+  isEnabled: boolean,
+): Promise<void> {
+  await requireModulePermission(client, 'mentorias', 'manage');
+  const orgId = await resolveOrgIdForActor(client, actor.userId);
+  await client.query(
+    `UPDATE app_admin.group_reminder_windows
+       SET is_enabled = $3, updated_at = now()
+     WHERE organization_id = $1 AND window_minutes = $2`,
+    [orgId, windowMinutes, isEnabled],
+  );
+}
+
+function tiempoRestanteLabel(windowMinutes: number): string {
+  if (windowMinutes % 60 === 0) {
+    const h = windowMinutes / 60;
+    return h === 1 ? 'en 1 hora' : `en ${h} horas`;
+  }
+  return `en ${windowMinutes} minutos`;
+}
+
+/**
+ * Cron: por cada ventana habilitada, busca sesiones grupales que inician dentro
+ * de esa ventana (±8 min para absorber el jitter del cron de 15 min) y envía el
+ * recordatorio (evento mentorias.group_session_reminder) a TODOS los usuarios
+ * con acceso a mentorías grupales según su plan. Idempotente por
+ * (event_id, user_id, window_minutes).
+ */
+export async function sendGroupSessionReminders(
+  client: PoolClient,
+): Promise<{ windowMinutes: number; sent: number }[]> {
+  const TOL = 8; // minutos de tolerancia (mitad de la cadencia del cron)
+  const { rows: windows } = await client.query<{ organization_id: string; window_minutes: number }>(
+    `SELECT organization_id::text, window_minutes
+     FROM app_admin.group_reminder_windows
+     WHERE is_enabled = true`,
+  );
+
+  const summary: { windowMinutes: number; sent: number }[] = [];
+
+  for (const w of windows) {
+    const from = w.window_minutes - TOL;
+    const to = w.window_minutes + TOL;
+    const { rows: sessions } = await client.query<{
+      event_id: string;
+      title: string;
+      starts_at: string;
+      join_url: string | null;
+    }>(
+      `SELECT gse.event_id::text, ms.title, ms.starts_at::text,
+              COALESCE(gse.zoom_join_url, ms.meeting_url) AS join_url
+       FROM app_mentoring.group_session_events gse
+       JOIN app_mentoring.mentorship_sessions ms ON ms.session_id = gse.session_id
+       JOIN app_core.users creator ON creator.user_id = gse.created_by
+       WHERE ms.status = 'scheduled'
+         AND creator.organization_id = $1::uuid
+         AND ms.starts_at BETWEEN now() + make_interval(mins => $2)
+                              AND now() + make_interval(mins => $3)`,
+      [w.organization_id, from, to],
+    );
+    if (sessions.length === 0) continue;
+
+    const { rows: audience } = await client.query<{ user_id: string; first_name: string | null; display_name: string | null }>(
+      `SELECT u.user_id::text, u.first_name, u.display_name
+       FROM app_core.users u
+       JOIN app_core.user_profiles up ON up.user_id = u.user_id
+       JOIN app_billing.subscription_plans sp ON sp.plan_id = up.subscription_plan_id
+       JOIN app_billing.plan_module_features pmf ON pmf.plan_id = sp.plan_id
+       WHERE u.organization_id = $1::uuid
+         AND u.is_active = true
+         AND u.primary_role = 'lider'
+         AND sp.is_active = true
+         AND pmf.feature_key = 'mentorias_grupales'
+         AND pmf.is_enabled = true
+         AND (up.subscription_expires_at IS NULL OR up.subscription_expires_at > now())`,
+      [w.organization_id],
+    );
+    if (audience.length === 0) continue;
+
+    const tz = await resolveActorOrgTimezone(client, audience[0].user_id);
+    const tiempo = tiempoRestanteLabel(w.window_minutes);
+    let sent = 0;
+
+    for (const s of sessions) {
+      const fechaStr = formatFechaCO(s.starts_at, tz);
+      const horaStr = formatHoraCO(s.starts_at, tz);
+      for (const u of audience) {
+        const lock = await client.query(
+          `INSERT INTO app_mentoring.group_session_reminders_sent (event_id, user_id, window_minutes)
+           VALUES ($1, $2, $3)
+           ON CONFLICT (event_id, user_id, window_minutes) DO NOTHING`,
+          [s.event_id, u.user_id, w.window_minutes],
+        );
+        if (!lock.rowCount) continue;
+        await notifyUserFull(client, {
+          recipientUserId: u.user_id,
+          eventKey: 'mentorias.group_session_reminder',
+          variables: {
+            nombre: (u.first_name ?? u.display_name ?? '').trim(),
+            titulo: s.title,
+            fecha: fechaStr,
+            hora: horaStr,
+            enlace_sesion: s.join_url ?? '',
+            tiempo_restante: tiempo,
+          },
+        });
+        sent += 1;
+      }
+    }
+    summary.push({ windowMinutes: w.window_minutes, sent });
+  }
+
+  return summary;
+}

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { NotificationSettingsPanel } from '@/components/dashboard/notificaciones/NotificationSettingsPanel';
-import { LayoutTemplate, ListChecks, Bell, Send, History, MousePointerClick } from 'lucide-react';
+import { LayoutTemplate, ListChecks, Bell, Send, History, MousePointerClick, Clock } from 'lucide-react';
 
 const CARDS = [
   {
@@ -38,6 +38,13 @@ const CARDS = [
       'Crea y edita mensajes emergentes (popups) para visitantes del sitio público y del dashboard: define trigger (tiempo, scroll, salida), páginas objetivo, frecuencia, CTA y vista previa en vivo.',
     href: '/dashboard/administracion/notificaciones/popups',
     icon: MousePointerClick,
+  },
+  {
+    title: 'Recordatorios de sesiones grupales',
+    description:
+      'Activa las ventanas de recordatorio (72h, 24h, 12h, 6h, 3h, 1h, 30 min) para las sesiones grupales. Los recordatorios se envían automáticamente a los usuarios con acceso a mentorías grupales usando la plantilla del evento.',
+    href: '/dashboard/administracion/notificaciones/recordatorios-grupales',
+    icon: Clock,
   },
 ] as const;
 

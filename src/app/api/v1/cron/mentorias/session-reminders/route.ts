@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { withClient, withRoleContext } from '@/server/db/pool';
-import { sendSessionReminders } from '@/features/mentorias/service';
+import { sendSessionReminders, sendGroupSessionReminders } from '@/features/mentorias/service';
 
 export const runtime = 'nodejs';
 // Disable any caching — this must run live for the cron to be useful.
@@ -48,7 +48,8 @@ export async function GET(request: Request) {
       return withRoleContext(client, adminUserId, 'admin', async () => {
         const r24 = await sendSessionReminders(client, '24h');
         const r1 = await sendSessionReminders(client, '1h');
-        return [r24, r1];
+        const group = await sendGroupSessionReminders(client);
+        return { individual: [r24, r1], group };
       });
     });
 
