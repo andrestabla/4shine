@@ -1,9 +1,7 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { ActivityBuilder } from '@/components/aprendizaje/ActivityBuilder';
 import { ActivityResultsPanel } from '@/components/aprendizaje/ActivityResultsPanel';
@@ -18,13 +16,6 @@ export default function ContentActivityPage() {
 
   return (
     <div className="space-y-5">
-      <Link
-        href="/dashboard/contenido"
-        className="inline-flex items-center gap-1 text-sm font-semibold text-[var(--app-muted)] hover:text-[var(--brand-primary)]"
-      >
-        <ArrowLeft size={14} />
-        Volver al contenido
-      </Link>
       <PageTitle
         title="Actividad de evaluación"
         subtitle="Configura preguntas, califica automáticamente y consulta resultados por líder."

@@ -2,7 +2,6 @@
 
 import React from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useUser } from '@/context/UserContext';
 import {
@@ -139,14 +138,6 @@ export default function EditarConvocatoriaPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 pb-16">
-      <button
-        onClick={() => router.push(`/dashboard/convocatorias/${id}`)}
-        className="inline-flex items-center gap-1.5 text-sm text-[var(--app-muted)] hover:text-[var(--app-ink)] transition"
-      >
-        <ArrowLeft size={16} />
-        Volver a la convocatoria
-      </button>
-
       <div>
         <h1 className="text-2xl font-black text-[var(--app-ink)]">Editar convocatoria</h1>
         <p className="mt-1 text-sm text-[var(--app-muted)]">

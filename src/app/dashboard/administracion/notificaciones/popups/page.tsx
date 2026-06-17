@@ -1,8 +1,7 @@
 "use client";
 
 import React from "react";
-import { ArrowLeft, Edit3, Eye, EyeOff, MousePointerClick, Plus, Save, Trash2, X } from "lucide-react";
-import Link from "next/link";
+import { Edit3, Eye, EyeOff, MousePointerClick, Plus, Save, Trash2, X } from "lucide-react";
 import { PageTitle } from "@/components/dashboard/PageTitle";
 import { useAppDialog } from "@/components/ui/AppDialogProvider";
 import { PopupCard } from "@/components/popups/PopupRuntime";
@@ -180,13 +179,6 @@ export default function PopupsAdminPage() {
 
   return (
     <div className="space-y-6">
-      <Link
-        href="/dashboard/administracion/notificaciones"
-        className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--app-muted)] hover:text-[var(--app-ink)]"
-      >
-        <ArrowLeft size={14} /> Volver al hub
-      </Link>
-
       <div className="flex flex-wrap items-start justify-between gap-3">
         <PageTitle
           title="Popup Builder"

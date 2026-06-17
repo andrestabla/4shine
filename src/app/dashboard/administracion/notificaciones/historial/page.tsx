@@ -4,7 +4,6 @@ import React from 'react';
 import { useRouter } from 'next/navigation';
 import {
   AlertTriangle,
-  ArrowLeft,
   CheckCircle2,
   Clock,
   Eye,
@@ -141,14 +140,6 @@ export default function HistorialPage() {
 
   return (
     <div className="space-y-5">
-      <button
-        type="button"
-        onClick={() => router.push('/dashboard/administracion/notificaciones')}
-        className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--app-muted)] hover:text-[var(--app-ink)]"
-      >
-        <ArrowLeft size={14} /> Volver al hub
-      </button>
-
       <PageTitle
         title="Historial de envíos"
         subtitle="Registro de todos los mensajes que salen de la plataforma (manuales y automáticos), con fecha, remitente, destinatario, estado de entrega y apertura."

@@ -3,7 +3,6 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  ArrowLeft,
   CheckSquare,
   Loader2,
   Mail,
@@ -421,14 +420,6 @@ export default function EnviarMensajesPage() {
 
   return (
     <div className="space-y-5">
-      <button
-        type="button"
-        onClick={() => router.push('/dashboard/administracion/notificaciones')}
-        className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--app-muted)] hover:text-[var(--app-ink)]"
-      >
-        <ArrowLeft size={14} /> Volver al hub
-      </button>
-
       <PageTitle
         title="Enviar mensajes masivos"
         subtitle="Segmenta, busca o agrega destinatarios manualmente. Luego elige canales y redacta el mensaje (con plantilla o desde cero)."

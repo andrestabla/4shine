@@ -1,8 +1,7 @@
 'use client';
 
-import Link from 'next/link';
 import React from 'react';
-import { ArrowLeft, Eye, EyeOff, Mail, RefreshCw, Save, UserPlus } from 'lucide-react';
+import { Eye, EyeOff, Mail, RefreshCw, Save, UserPlus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useUser } from '@/context/UserContext';
@@ -186,11 +185,6 @@ export default function NuevoUsuarioPage() {
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-5">
-      <Link href="/dashboard/usuarios" className="inline-flex items-center gap-2 text-sm text-[var(--app-muted)] transition hover:text-[var(--app-ink)]">
-        <ArrowLeft size={16} />
-        Volver a la Lista
-      </Link>
-
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-3xl font-bold text-[var(--app-ink)]">
           <UserPlus size={28} />

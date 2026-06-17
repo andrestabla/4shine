@@ -4,7 +4,73 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
-// Etiquetas legibles para los segmentos de ruta más comunes (con acentos).
+// Registro de rutas reales del dashboard (patrones; [x] = segmento dinámico).
+// El botón sube al ancestro REAL más cercano para no enlazar a rutas inexistentes
+// (p. ej. /networking/comunidades no es una página → sube a /networking).
+const DASHBOARD_ROUTES: string[] = [
+  "/dashboard",
+  "/dashboard/administracion",
+  "/dashboard/administracion/asistente-ia",
+  "/dashboard/administracion/branding",
+  "/dashboard/administracion/integraciones",
+  "/dashboard/administracion/notificaciones",
+  "/dashboard/administracion/notificaciones/enviar",
+  "/dashboard/administracion/notificaciones/eventos",
+  "/dashboard/administracion/notificaciones/historial",
+  "/dashboard/administracion/notificaciones/plantillas",
+  "/dashboard/administracion/notificaciones/plantillas/[id]",
+  "/dashboard/administracion/notificaciones/plantillas/nueva",
+  "/dashboard/administracion/notificaciones/popups",
+  "/dashboard/administracion/notificaciones/recordatorios-grupales",
+  "/dashboard/administracion/pagos",
+  "/dashboard/administracion/planes",
+  "/dashboard/administracion/planes/[id]",
+  "/dashboard/administracion/planes/nuevo",
+  "/dashboard/administracion/politicas",
+  "/dashboard/administracion/site",
+  "/dashboard/administracion/site/[pageId]",
+  "/dashboard/administracion/tour",
+  "/dashboard/analitica",
+  "/dashboard/aprendizaje",
+  "/dashboard/aprendizaje/recursos/[contentId]",
+  "/dashboard/aprendizaje/workbooks-v2",
+  "/dashboard/aprendizaje/workbooks-v2/[slug]",
+  "/dashboard/aprendizaje/workbooks/[slug]",
+  "/dashboard/aprendizaje/workbooks/[slug]/editar",
+  "/dashboard/contenido",
+  "/dashboard/contenido/[contentId]/actividad",
+  "/dashboard/contenido/[contentId]/tarea",
+  "/dashboard/convocatorias",
+  "/dashboard/convocatorias/[id]",
+  "/dashboard/convocatorias/[id]/editar",
+  "/dashboard/convocatorias/nueva",
+  "/dashboard/convocatorias/solicitar",
+  "/dashboard/descubrimiento",
+  "/dashboard/formacion-mentores",
+  "/dashboard/formacion-mentores/[contentId]",
+  "/dashboard/gestion-formacion-mentores",
+  "/dashboard/lideres",
+  "/dashboard/lideres/[userId]",
+  "/dashboard/mensajes",
+  "/dashboard/mentorias",
+  "/dashboard/mentorias/comprar",
+  "/dashboard/mentorias/grupales",
+  "/dashboard/mentorias/programa",
+  "/dashboard/networking",
+  "/dashboard/networking/comunidades/[groupId]",
+  "/dashboard/networking/perfiles/[userId]",
+  "/dashboard/perfil",
+  "/dashboard/suscripcion",
+  "/dashboard/trayectoria",
+  "/dashboard/usuarios",
+  "/dashboard/usuarios/[userId]",
+  "/dashboard/usuarios/nuevo",
+  "/dashboard/workshops",
+  "/dashboard/workshops/[workshopId]",
+  "/dashboard/workshops/[workshopId]/edit",
+  "/dashboard/workshops/new",
+];
+
 const SEGMENT_LABELS: Record<string, string> = {
   dashboard: "Inicio",
   administracion: "Administración",
@@ -13,8 +79,6 @@ const SEGMENT_LABELS: Record<string, string> = {
   eventos: "Eventos",
   popups: "Popup Builder",
   historial: "Historial",
-  enviar: "Enviar mensajes",
-  "recordatorios-grupales": "Recordatorios grupales",
   branding: "Branding y Marca",
   integraciones: "Integraciones",
   planes: "Planes y Precios",
@@ -35,6 +99,8 @@ const SEGMENT_LABELS: Record<string, string> = {
   perfil: "Perfil",
   mensajes: "Mensajes",
   suscripcion: "Mi suscripción",
+  contenido: "Contenido",
+  "formacion-mentores": "Formación Advisers",
 };
 
 function prettify(segment: string): string {
@@ -43,27 +109,41 @@ function prettify(segment: string): string {
   return clean.charAt(0).toUpperCase() + clean.slice(1);
 }
 
+function matchesPrefix(routeParts: string[], pathParts: string[]): boolean {
+  if (routeParts.length >= pathParts.length) return false;
+  return routeParts.every((seg, i) => seg.startsWith("[") || seg === pathParts[i]);
+}
+
 /**
- * Botón global "volver al nivel anterior": navega al path padre (un segmento
- * arriba). Se oculta en la raíz del dashboard. Se renderiza debajo del header,
- * en el área de contenido.
+ * Botón global "volver al nivel anterior": navega al ancestro REAL más cercano
+ * (ruta existente que es prefijo del path actual). Debajo del header. Se oculta
+ * en la raíz /dashboard.
  */
 export function DashboardBackButton() {
   const pathname = usePathname();
-  const parts = pathname.split("/").filter(Boolean);
-  if (parts.length <= 1) return null; // /dashboard → sin nivel superior
+  const pathParts = pathname.split("/").filter(Boolean);
+  if (pathParts.length <= 1) return null;
 
-  const parentParts = parts.slice(0, -1);
-  const parentPath = "/" + parentParts.join("/");
-  const label = prettify(parentParts[parentParts.length - 1] ?? "dashboard");
+  let best: string[] | null = null;
+  for (const route of DASHBOARD_ROUTES) {
+    const rp = route.split("/").filter(Boolean);
+    if (matchesPrefix(rp, pathParts) && (!best || rp.length > best.length)) {
+      best = rp;
+    }
+  }
+  if (!best) return null;
+
+  const href = "/" + pathParts.slice(0, best.length).join("/");
+  const lastSeg = best[best.length - 1];
+  const label = lastSeg.startsWith("[") ? "Volver" : `Volver a ${prettify(lastSeg)}`;
 
   return (
     <Link
-      href={parentPath}
+      href={href}
       className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--app-muted)] transition-colors hover:text-[var(--brand-primary)]"
     >
       <ArrowLeft size={16} />
-      Volver a {label}
+      {label}
     </Link>
   );
 }

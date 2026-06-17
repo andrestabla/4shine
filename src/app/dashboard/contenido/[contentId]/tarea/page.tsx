@@ -1,9 +1,7 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { AssignmentBuilder } from '@/components/aprendizaje/AssignmentBuilder';
 import { AssignmentReviewPanel } from '@/components/aprendizaje/AssignmentReviewPanel';
@@ -18,13 +16,6 @@ export default function ContentAssignmentPage() {
 
   return (
     <div className="space-y-5">
-      <Link
-        href="/dashboard/contenido"
-        className="inline-flex items-center gap-1 text-sm font-semibold text-[var(--app-muted)] hover:text-[var(--brand-primary)]"
-      >
-        <ArrowLeft size={14} />
-        Volver al contenido
-      </Link>
       <PageTitle
         title="Tarea de entrega"
         subtitle="Configura instrucciones, criterios de evaluación y revisa las entregas del líder."

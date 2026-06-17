@@ -1,10 +1,8 @@
 'use client';
 
-import Link from 'next/link';
 import React from 'react';
 import {
   AlertTriangle,
-  ArrowLeft,
   Clock3,
   KeyRound,
   Mail,
@@ -426,11 +424,6 @@ export default function UsuarioDetallePage() {
 
   return (
     <div className="space-y-5">
-      <Link href="/dashboard/usuarios" className="inline-flex items-center gap-2 text-sm text-[var(--app-muted)] transition hover:text-[var(--app-ink)]">
-        <ArrowLeft size={16} />
-        Volver a la Lista
-      </Link>
-
       <section className="app-panel-strong p-5 md:p-7">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-4">

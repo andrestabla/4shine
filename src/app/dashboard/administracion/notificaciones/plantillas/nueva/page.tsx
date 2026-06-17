@@ -2,13 +2,12 @@
 
 import React, { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { TemplateBuilder } from '@/components/dashboard/notificaciones/TemplateBuilder';
 import { TemplatePreviewModal } from '@/components/dashboard/notificaciones/TemplatePreviewModal';
 import { NOTIFICATION_EVENTS, EVENTS_BY_KEY } from '@/features/notificaciones/events-catalog';
 import { createTemplate, previewTemplate } from '@/features/notificaciones/client';
-import { ChevronDown, ChevronLeft } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import clsx from 'clsx';
 
 const MODULE_ORDER = ['usuarios', 'descubrimiento', 'mentorias', 'aprendizaje', 'convocatorias', 'networking', 'mensajes', 'workshops'];
@@ -61,14 +60,6 @@ export default function NuevaPlantillaPage() {
         title="Nueva plantilla"
         subtitle="Construye un mensaje personalizado para un evento específico de la plataforma."
       />
-
-      <Link
-        href="/dashboard/administracion/notificaciones/plantillas"
-        className="inline-flex items-center gap-1.5 text-sm text-[var(--app-muted)] hover:text-[var(--app-ink)]"
-      >
-        <ChevronLeft size={14} />
-        Volver a plantillas
-      </Link>
 
       {/* Event selector */}
       <div className="rounded-[1rem] border border-[var(--app-border)] bg-white p-5 space-y-3">
