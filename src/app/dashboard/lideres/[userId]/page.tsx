@@ -4,7 +4,6 @@ import React from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import {
-    ArrowLeft,
     BookOpen,
     Calendar,
     CalendarPlus,
@@ -276,15 +275,6 @@ export default function Leader360Page() {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-                <Link
-                    href="/dashboard/lideres"
-                    className="inline-flex items-center gap-2 text-xs font-semibold text-[var(--app-muted)] hover:text-[var(--brand-primary)]"
-                >
-                    <ArrowLeft size={14} /> Volver a líderes
-                </Link>
-            </div>
-
             <PageTitle
                 title={profile.displayName}
                 subtitle={`${profile.email}${profile.organizationName ? ` · ${profile.organizationName}` : ''}`}

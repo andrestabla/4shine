@@ -10,7 +10,7 @@ import { ReminderWindowsConfig } from '@/components/dashboard/notificaciones/Gro
 import { getTemplate, updateTemplate, previewTemplate, sendTestTemplate } from '@/features/notificaciones/client';
 import type { NotificationTemplateRecord } from '@/features/notificaciones/types';
 import { EVENTS_BY_KEY } from '@/features/notificaciones/events-catalog';
-import { ChevronLeft, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 
 export default function EditarPlantillaPage() {
   const { id } = useParams<{ id: string }>();
@@ -87,14 +87,6 @@ export default function EditarPlantillaPage() {
         title="Editar plantilla"
         subtitle={`Modificando: ${template.name}`}
       />
-
-      <Link
-        href="/dashboard/administracion/notificaciones/plantillas"
-        className="inline-flex items-center gap-1.5 text-sm text-[var(--app-muted)] hover:text-[var(--app-ink)]"
-      >
-        <ChevronLeft size={14} />
-        Volver a plantillas
-      </Link>
 
       {saveError && (
         <div className="rounded-[1rem] border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{saveError}</div>

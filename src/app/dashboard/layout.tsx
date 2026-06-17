@@ -5,6 +5,7 @@ import Header from "@/components/Header";
 import TourRunner from "@/components/tour/TourRunner";
 import PopupRuntime from "@/components/popups/PopupRuntime";
 import ChatWidget from "@/components/chatbot/ChatWidget";
+import { DashboardBackButton } from "@/components/dashboard/DashboardBackButton";
 import FirstLoginWelcomeModal from "@/components/dashboard/FirstLoginWelcomeModal";
 import { getMyTour } from "@/features/tour/client";
 import type { MyTourPayload } from "@/features/tour/types";
@@ -345,6 +346,9 @@ export default function DashboardLayout({
           className="relative z-10 mx-auto min-h-full w-full animate-fade-in px-4 pb-20 pt-5 md:px-8 md:pt-8"
           style={{ maxWidth: tokens.layout.pageMaxWidth }}
         >
+          <div className="mb-4">
+            <DashboardBackButton />
+          </div>
           {children}
         </div>
       </main>

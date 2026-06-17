@@ -1,20 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Clock } from "lucide-react";
+import { Clock } from "lucide-react";
 import { PageTitle } from "@/components/dashboard/PageTitle";
 import { ReminderWindowsConfig } from "@/components/dashboard/notificaciones/GroupReminderWindowsConfig";
 
 export default function GroupRemindersAdminPage() {
   return (
     <div className="space-y-6">
-      <Link
-        href="/dashboard/administracion/notificaciones"
-        className="inline-flex items-center gap-2 text-xs font-semibold text-[var(--app-muted)] hover:text-[var(--brand-primary)]"
-      >
-        <ArrowLeft size={14} /> Volver a notificaciones
-      </Link>
-
       <PageTitle
         title="Recordatorios de sesiones grupales"
         subtitle="Define con cuánta anticipación se envían los recordatorios automáticos de cada sesión grupal."
