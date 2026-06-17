@@ -15,7 +15,7 @@ import type { AuthUser } from "@/server/auth/types";
 import { USER_COUNTRY_SET, USER_GENDER_SET, USER_JOB_ROLE_SET } from "@/lib/user-demographics";
 import { buildBrandedEmailHtml } from "@/lib/email-template";
 import { getNotificationSettingsByOrg, resolveEventConfig, insertUserNotification } from "@/features/notificaciones/service";
-import { dispatchNotification } from "@/features/notificaciones/engine";
+import { dispatchNotification, notifyUserFull } from "@/features/notificaciones/engine";
 import { COMP_DEFINITIONS } from "./DiagnosticsData";
 import {
   DISCOVERY_TOTAL_ITEMS,
@@ -6759,3 +6759,63 @@ export async function sendDiscoveryReminder(
   return { ok: true, email: recipientEmail };
 }
 // Deployment poke Mon Apr 27 22:05:23 -05 2026
+
+/**
+ * Cron: recordatorio automático de diagnóstico. Por cada ventana habilitada
+ * (descubrimiento.reminder, en "días sin completar desde el acceso"), notifica a
+ * quien tiene un diagnóstico iniciado/asignado y aún NO lo completó (status <>
+ * 'results') cuando el tiempo transcurrido desde su creación cae en la ventana.
+ * Idempotente por (user_id, window_minutes). Deja de recordar al completar.
+ */
+export async function sendDiscoveryReminders(
+  client: PoolClient,
+): Promise<{ windowMinutes: number; sent: number }[]> {
+  const TOL = 8; // minutos de tolerancia (mitad de la cadencia del cron de 15 min)
+  const baseUrl = resolveAppBaseUrl();
+  const { rows: windows } = await client.query<{ organization_id: string; window_minutes: number }>(
+    `SELECT organization_id::text, window_minutes
+     FROM app_admin.group_reminder_windows
+     WHERE is_enabled = true AND event_key = 'descubrimiento.reminder'`,
+  );
+
+  const summary: { windowMinutes: number; sent: number }[] = [];
+
+  for (const w of windows) {
+    const days = Math.round(w.window_minutes / 1440);
+    const tiempo = days === 1 ? "hace 1 día" : `hace ${days} días`;
+    const { rows: users } = await client.query<{ user_id: string; first_name: string | null; display_name: string | null }>(
+      `SELECT ds.user_id::text, u.first_name, u.display_name
+       FROM app_assessment.discovery_sessions ds
+       JOIN app_core.users u ON u.user_id = ds.user_id
+       WHERE u.organization_id = $1::uuid
+         AND u.is_active = true
+         AND ds.status <> 'results'
+         AND ds.created_at BETWEEN now() - make_interval(mins => $2) AND now() - make_interval(mins => $3)`,
+      [w.organization_id, w.window_minutes + TOL, w.window_minutes - TOL],
+    );
+
+    let sent = 0;
+    for (const u of users) {
+      const lock = await client.query(
+        `INSERT INTO app_assessment.discovery_reminders_sent (user_id, window_minutes)
+         VALUES ($1::uuid, $2)
+         ON CONFLICT (user_id, window_minutes) DO NOTHING`,
+        [u.user_id, w.window_minutes],
+      );
+      if (!lock.rowCount) continue;
+      await notifyUserFull(client, {
+        recipientUserId: u.user_id,
+        eventKey: "descubrimiento.reminder",
+        variables: {
+          nombre: (u.first_name ?? u.display_name ?? "").trim(),
+          enlace_plataforma: `${baseUrl}/dashboard/descubrimiento`,
+          tiempo_restante: tiempo,
+        },
+      });
+      sent += 1;
+    }
+    summary.push({ windowMinutes: w.window_minutes, sent });
+  }
+
+  return summary;
+}

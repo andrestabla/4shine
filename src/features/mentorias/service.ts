@@ -3538,7 +3538,11 @@ async function resolveOrgIdForActor(client: PoolClient, userId: string): Promise
 }
 
 // Eventos de recordatorio con ventanas configurables.
-const WINDOW_REMINDER_EVENTS = new Set(['mentorias.session_reminder', 'mentorias.group_session_reminder']);
+const WINDOW_REMINDER_EVENTS = new Set([
+  'mentorias.session_reminder',
+  'mentorias.group_session_reminder',
+  'descubrimiento.reminder',
+]);
 
 export async function listReminderWindows(
   client: PoolClient,
