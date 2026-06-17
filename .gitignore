@@ -43,3 +43,5 @@ next-env.d.ts
 
 # local scratch / debug files — may contain hardcoded credentials
 /scratch/
+
+.claude/
