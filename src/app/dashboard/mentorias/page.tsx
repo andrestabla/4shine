@@ -596,7 +596,87 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
   );
   const upcomingGroupSession =
     groupSessions.find((item) => new Date(item.startsAt).getTime() >= Date.now()) ?? groupSessions[0] ?? null;
+  // Split por estado real (la sesión es "pasada" cuando ya terminó).
+  const upcomingGroupSessions = groupSessions.filter((s) => !isGroupSessionPast(s));
+  const pastGroupSessions = [...groupSessions].filter((s) => isGroupSessionPast(s)).reverse();
   const groupRecordings = overview?.groupSessionRecordings ?? [];
+
+  // Tarjeta de sesión grupal: clic abre el modal de detalle; los botones de
+  // acción detienen la propagación para no abrir el modal.
+  const renderGroupCard = (eventItem: GroupSessionEventRecord) => (
+    <article
+      key={eventItem.eventId}
+      role="button"
+      tabIndex={0}
+      onClick={() => setSelectedGroupSession(eventItem)}
+      onKeyDown={(e) => { if (e.key === 'Enter') setSelectedGroupSession(eventItem); }}
+      className="cursor-pointer rounded-[16px] border border-[var(--app-border)] bg-white/86 p-4 transition-colors hover:border-[var(--brand-primary)]"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="font-bold text-[var(--app-ink)]">{eventItem.title}</p>
+          <p className="text-sm text-[var(--app-muted)]">
+            {formatDateTime(eventItem.startsAt, tz)} · {eventItem.hostName ?? eventItem.externalExpertName ?? 'Anfitrión por definir'}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
+          {eventItem.zoomJoinUrl ? (
+            isGroupSessionPast(eventItem) ? (
+              <span className="rounded-full border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-1 text-xs font-semibold text-[var(--app-muted)]">
+                Finalizada
+              </span>
+            ) : (
+              <a href={eventItem.zoomJoinUrl} target="_blank" rel="noreferrer" className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--brand-primary)]">
+                Enlace Zoom
+              </a>
+            )
+          ) : null}
+          {(currentRole === 'lider' || currentRole === 'mentor') && (
+            eventItem.participationStatus === 'joined' ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-semibold text-green-700">
+                <CheckCircle2 size={12} />
+                Inscrito
+              </span>
+            ) : !isGroupSessionPast(eventItem) ? (
+              <button type="button" className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--app-ink)] disabled:opacity-50" onClick={() => void handleParticipate(eventItem, 'joined')} disabled={currentRole === 'lider' && isOpenLeader}>
+                Participar
+              </button>
+            ) : null
+          )}
+          {(currentRole === 'admin' || currentRole === 'gestor') && (
+            <>
+              <button
+                type="button"
+                className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--app-ink)]"
+                onClick={() => void handleInviteByRoles(eventItem)}
+              >
+                Invitar líderes
+              </button>
+              <button
+                type="button"
+                className="rounded-full border border-[var(--app-border)] bg-white p-1.5 text-[var(--app-muted)] hover:text-[var(--app-ink)]"
+                title="Editar sesión"
+                onClick={() => handleEditGroupSession(eventItem)}
+              >
+                <Pencil size={13} />
+              </button>
+              <button
+                type="button"
+                className="rounded-full border border-rose-200 bg-white p-1.5 text-rose-400 hover:text-rose-600"
+                title="Eliminar sesión"
+                onClick={() => void handleDeleteGroupSession(eventItem)}
+              >
+                <Trash2 size={13} />
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+      <p className="mt-2 text-xs text-[var(--app-muted)]">
+        Intención: {eventItem.intentCount} · Participación confirmada: {eventItem.participantCount}
+      </p>
+    </article>
+  );
   const monthDays = React.useMemo(() => {
     const base = monthStart(selectedMonthStart);
     const start = new Date(base);
@@ -1587,19 +1667,49 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
               const date = new Date(item.startsAt);
               return date.getFullYear() === day.getFullYear() && date.getMonth() === day.getMonth() && date.getDate() === day.getDate();
             });
+            const hasEvents = dayEvents.length > 0;
             return (
-              <div key={day.toISOString()} className={clsx('min-h-[72px] rounded-[12px] border p-2', isCurrentMonth ? 'border-[var(--app-border)] bg-white' : 'border-transparent bg-transparent')}>
-                <p className="font-semibold text-[var(--app-muted)]">{day.getDate()}</p>
+              <div
+                key={day.toISOString()}
+                className={clsx(
+                  'min-h-[72px] rounded-[12px] border p-2 transition-colors',
+                  hasEvents
+                    ? 'border-[var(--brand-primary)] bg-[color-mix(in_srgb,var(--brand-primary)_8%,white)] ring-1 ring-[var(--brand-primary)]/30'
+                    : isCurrentMonth
+                      ? 'border-[var(--app-border)] bg-white'
+                      : 'border-transparent bg-transparent',
+                )}
+              >
+                <div className="flex items-center justify-between">
+                  <p className={clsx('font-semibold', hasEvents ? 'text-[var(--brand-primary)]' : 'text-[var(--app-muted)]')}>{day.getDate()}</p>
+                  {hasEvents && (
+                    <span
+                      className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--brand-primary)] px-1 text-[9px] font-bold text-white"
+                      title={`${dayEvents.length} sesión(es) grupal(es)`}
+                    >
+                      {dayEvents.length}
+                    </span>
+                  )}
+                </div>
                 {dayEvents.slice(0, 2).map((item) => (
                   <button
                     key={item.eventId}
                     type="button"
-                    className="mt-1 w-full truncate rounded bg-[var(--app-surface-muted)] px-1 py-0.5 text-left text-[10px] font-semibold text-[var(--app-ink)] hover:bg-[var(--brand-primary)]/10"
+                    className="mt-1 w-full truncate rounded bg-white/70 px-1 py-0.5 text-left text-[10px] font-semibold text-[var(--app-ink)] hover:bg-white"
                     onClick={() => setSelectedGroupSession(item)}
                   >
                     {formatTime(item.startsAt, tz)} {item.title}
                   </button>
                 ))}
+                {dayEvents.length > 2 && (
+                  <button
+                    type="button"
+                    className="mt-1 w-full rounded px-1 text-left text-[10px] font-semibold text-[var(--brand-primary)]"
+                    onClick={() => setSelectedGroupSession(dayEvents[2])}
+                  >
+                    +{dayEvents.length - 2} más
+                  </button>
+                )}
               </div>
             );
           })}
@@ -1651,78 +1761,23 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
       {!isOpenLeader && (
       <section className="app-panel p-5 sm:p-6">
         <p className="app-section-kicker">Sesiones grupales próximas</p>
-        <div className="mt-4 space-y-3">
-          {groupSessions.length === 0 ? (
-            <EmptyState message="No hay sesiones grupales registradas todavía." />
+        <p className="mt-1 text-xs text-[var(--app-muted)]">Toca una sesión para ver su descripción y entrar.</p>
+        <div className={clsx('mt-4 space-y-3', upcomingGroupSessions.length > 5 && 'max-h-[28rem] overflow-y-auto overscroll-contain pr-1')}>
+          {upcomingGroupSessions.length === 0 ? (
+            <EmptyState message="No tienes sesiones grupales próximas." />
           ) : (
-            groupSessions.slice(0, 12).map((eventItem) => (
-              <article key={eventItem.eventId} className="rounded-[16px] border border-[var(--app-border)] bg-white/86 p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="font-bold text-[var(--app-ink)]">{eventItem.title}</p>
-                    <p className="text-sm text-[var(--app-muted)]">
-                      {formatDateTime(eventItem.startsAt, tz)} · {eventItem.hostName ?? eventItem.externalExpertName ?? 'Anfitrión por definir'}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {eventItem.zoomJoinUrl ? (
-                      isGroupSessionPast(eventItem) ? (
-                        <span className="rounded-full border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-1 text-xs font-semibold text-[var(--app-muted)]">
-                          Finalizada
-                        </span>
-                      ) : (
-                        <a href={eventItem.zoomJoinUrl} target="_blank" rel="noreferrer" className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--brand-primary)]">
-                          Enlace Zoom
-                        </a>
-                      )
-                    ) : null}
-                    {(currentRole === 'lider' || currentRole === 'mentor') && (
-                      eventItem.participationStatus === 'joined' ? (
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-semibold text-green-700">
-                          <CheckCircle2 size={12} />
-                          Inscrito
-                        </span>
-                      ) : (
-                        <button type="button" className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--app-ink)] disabled:opacity-50" onClick={() => void handleParticipate(eventItem, 'joined')} disabled={currentRole === 'lider' && isOpenLeader}>
-                          Participar
-                        </button>
-                      )
-                    )}
-                    {(currentRole === 'admin' || currentRole === 'gestor') && (
-                      <>
-                        <button
-                          type="button"
-                          className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-xs font-semibold text-[var(--app-ink)]"
-                          onClick={() => void handleInviteByRoles(eventItem)}
-                        >
-                          Invitar líderes
-                        </button>
-                        <button
-                          type="button"
-                          className="rounded-full border border-[var(--app-border)] bg-white p-1.5 text-[var(--app-muted)] hover:text-[var(--app-ink)]"
-                          title="Editar sesión"
-                          onClick={() => handleEditGroupSession(eventItem)}
-                        >
-                          <Pencil size={13} />
-                        </button>
-                        <button
-                          type="button"
-                          className="rounded-full border border-rose-200 bg-white p-1.5 text-rose-400 hover:text-rose-600"
-                          title="Eliminar sesión"
-                          onClick={() => void handleDeleteGroupSession(eventItem)}
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-                <p className="mt-2 text-xs text-[var(--app-muted)]">
-                  Intención: {eventItem.intentCount} · Participación confirmada: {eventItem.participantCount}
-                </p>
-              </article>
-            ))
+            upcomingGroupSessions.map((eventItem) => renderGroupCard(eventItem))
           )}
+        </div>
+      </section>
+      )}
+
+      {!isOpenLeader && pastGroupSessions.length > 0 && (
+      <section className="app-panel p-5 sm:p-6">
+        <p className="app-section-kicker">Sesiones grupales pasadas</p>
+        <p className="mt-1 text-xs text-[var(--app-muted)]">Toca una sesión para ver su descripción o la grabación.</p>
+        <div className={clsx('mt-4 space-y-3', pastGroupSessions.length > 5 && 'max-h-[28rem] overflow-y-auto overscroll-contain pr-1')}>
+          {pastGroupSessions.map((eventItem) => renderGroupCard(eventItem))}
         </div>
       </section>
       )}
