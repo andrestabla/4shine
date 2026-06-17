@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { TemplateBuilder } from '@/components/dashboard/notificaciones/TemplateBuilder';
 import { TemplatePreviewModal } from '@/components/dashboard/notificaciones/TemplatePreviewModal';
+import { GroupReminderWindowsConfig } from '@/components/dashboard/notificaciones/GroupReminderWindowsConfig';
 import { getTemplate, updateTemplate, previewTemplate, sendTestTemplate } from '@/features/notificaciones/client';
 import type { NotificationTemplateRecord } from '@/features/notificaciones/types';
 import { EVENTS_BY_KEY } from '@/features/notificaciones/events-catalog';
@@ -98,6 +99,8 @@ export default function EditarPlantillaPage() {
       {saveError && (
         <div className="rounded-[1rem] border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{saveError}</div>
       )}
+
+      {template.eventKey === 'mentorias.group_session_reminder' && <GroupReminderWindowsConfig />}
 
       <TemplateBuilder
         eventDef={eventDef}
