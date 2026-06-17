@@ -115,6 +115,8 @@ interface GroupSessionFormState {
   externalExpertBio: string;
   description: string;
   bannerImageUrl: string;
+  autoZoom: boolean;
+  manualMeetingUrl: string;
 }
 
 interface GroupRecordingFormState {
@@ -409,6 +411,8 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
     externalExpertBio: '',
     description: '',
     bannerImageUrl: '',
+    autoZoom: true,
+    manualMeetingUrl: '',
   });
   const [groupRecordingForm, setGroupRecordingForm] = React.useState<GroupRecordingFormState>({
     eventId: '',
@@ -909,6 +913,16 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
     event.preventDefault();
     if (!groupSessionForm.title.trim() || !groupSessionForm.startsAt) return;
 
+    const manualUrl = groupSessionForm.manualMeetingUrl.trim();
+    if (!groupSessionForm.autoZoom && !manualUrl) {
+      await alert({
+        title: 'Falta el enlace',
+        message: 'Agrega el enlace manual de la reunión o activa la creación automática de Zoom.',
+        tone: 'warning',
+      });
+      return;
+    }
+
     const startsAt = toIso(groupSessionForm.startsAt);
     const durationMs = Math.max(15, parseInt(groupSessionForm.durationMinutes, 10)) * 60000;
     const endsAt = new Date(new Date(startsAt).getTime() + durationMs).toISOString();
@@ -921,6 +935,9 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
       externalExpertName: groupSessionForm.externalExpertName.trim() || null,
       externalExpertBio: groupSessionForm.externalExpertBio.trim() || null,
       bannerImageUrl: groupSessionForm.bannerImageUrl.trim() || null,
+      // Enlace manual: si se desmarca el Zoom automático, se envía la URL y el
+      // backend omite la creación automática (las notificaciones usan esta URL).
+      ...(!groupSessionForm.autoZoom && manualUrl ? { zoomJoinUrl: manualUrl, zoomHostUrl: manualUrl } : {}),
     };
 
     setSubmittingGroupSession(true);
@@ -938,6 +955,8 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
         externalExpertName: '',
         externalExpertBio: '',
         bannerImageUrl: '',
+        autoZoom: true,
+        manualMeetingUrl: '',
       }));
       setGroupWizardStep(1);
       await load();
@@ -964,6 +983,8 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
       externalExpertBio: session.externalExpertBio ?? '',
       description: session.description ?? '',
       bannerImageUrl: session.bannerImageUrl ?? '',
+      autoZoom: true,
+      manualMeetingUrl: session.zoomJoinUrl ?? '',
     });
     setGroupWizardStep(1);
   };
@@ -1409,17 +1430,44 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                   placeholder="Descripción de la sesión. Usa la barra de herramientas para dar formato."
                   minHeight="120px"
                 />
-                <div className="flex items-center gap-2 rounded-[14px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-3">
-                  <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 fill-[#2D8CFF]" aria-hidden="true">
-                    <path d="M12.002 2a10 10 0 1 0 10 10 10.011 10.011 0 0 0-10-10Zm4.93 6.81-2 4a.999.999 0 0 1-.894.553H9.964a1 1 0 0 1 0-2h3.618l1.764-3.528a1 1 0 0 1 1.788.895ZM17 15.36a4.645 4.645 0 0 1-10 0V13a1 1 0 0 1 2 0v2.36a2.645 2.645 0 0 0 5.29 0V13a1 1 0 0 1 2 0v2.36Z" />
-                  </svg>
-                  <p className="text-xs text-[var(--app-muted)]">
-                    {editingEventId
-                      ? 'Los cambios se sincronizarán con Zoom automáticamente si modificas la hora.'
-                      : 'La reunión de '}
-                    {!editingEventId && <strong className="text-[var(--app-ink)]">Zoom se crea automáticamente</strong>}
-                    {!editingEventId && ' — los participantes recibirán el enlace de acceso.'}
-                  </p>
+                {/* Zoom automático (por defecto) o enlace manual */}
+                <div className="rounded-[14px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-3">
+                  <label className="flex cursor-pointer items-start gap-2">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 h-4 w-4 accent-[var(--brand-primary)]"
+                      checked={groupSessionForm.autoZoom}
+                      onChange={(e) => setGroupSessionForm((prev) => ({ ...prev, autoZoom: e.target.checked }))}
+                    />
+                    <span>
+                      <span className="flex items-center gap-1.5 text-sm font-semibold text-[var(--app-ink)]">
+                        <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 fill-[#2D8CFF]" aria-hidden="true">
+                          <path d="M12.002 2a10 10 0 1 0 10 10 10.011 10.011 0 0 0-10-10Zm4.93 6.81-2 4a.999.999 0 0 1-.894.553H9.964a1 1 0 0 1 0-2h3.618l1.764-3.528a1 1 0 0 1 1.788.895ZM17 15.36a4.645 4.645 0 0 1-10 0V13a1 1 0 0 1 2 0v2.36a2.645 2.645 0 0 0 5.29 0V13a1 1 0 0 1 2 0v2.36Z" />
+                        </svg>
+                        Crear la reunión de Zoom automáticamente
+                      </span>
+                      <span className="mt-0.5 block text-xs text-[var(--app-muted)]">
+                        Recomendado. Los participantes recibirán el enlace de acceso en la notificación.
+                      </span>
+                    </span>
+                  </label>
+                  {!groupSessionForm.autoZoom && (
+                    <div className="mt-3">
+                      <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">
+                        Enlace manual de la reunión
+                      </label>
+                      <input
+                        type="url"
+                        className="app-input"
+                        placeholder="https://… (Zoom, Meet, Teams)"
+                        value={groupSessionForm.manualMeetingUrl}
+                        onChange={(e) => setGroupSessionForm((prev) => ({ ...prev, manualMeetingUrl: e.target.value }))}
+                      />
+                      <p className="mt-1 text-[11px] text-[var(--app-muted)]">
+                        Este enlace se usará en las notificaciones a los participantes (no se creará reunión en Zoom).
+                      </p>
+                    </div>
+                  )}
                 </div>
                 <button
                   type="submit"
@@ -1434,7 +1482,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                   <button
                     type="button"
                     className="rounded-[16px] border border-[var(--app-border)] px-4 py-3 text-sm font-semibold text-[var(--app-muted)]"
-                    onClick={() => { setEditingEventId(null); setGroupSessionForm({ title: '', startsAt: nextSlotValue(), durationMinutes: '60', hostUserId: '', externalExpertName: '', externalExpertBio: '', description: '', bannerImageUrl: '' }); setGroupWizardStep(1); }}
+                    onClick={() => { setEditingEventId(null); setGroupSessionForm({ title: '', startsAt: nextSlotValue(), durationMinutes: '60', hostUserId: '', externalExpertName: '', externalExpertBio: '', description: '', bannerImageUrl: '', autoZoom: true, manualMeetingUrl: '' }); setGroupWizardStep(1); }}
                   >
                     Cancelar edición
                   </button>
