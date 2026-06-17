@@ -140,6 +140,11 @@ export interface NotificationEventDef {
   description: string;
   variables: VariableKey[];
   defaultInAppType: NotificationInAppType;
+  /**
+   * Recordatorios "X antes de una sesión": habilita la configuración de ventanas
+   * (72h/24h/12h/6h/3h/1h/30m) en el editor de su plantilla.
+   */
+  windowsConfigurable?: boolean;
 }
 
 // ─── Global Settings ─────────────────────────────────────────────────────────

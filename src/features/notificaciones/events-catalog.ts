@@ -282,10 +282,11 @@ export const NOTIFICATION_EVENTS: NotificationEventDef[] = [
     key: 'mentorias.session_reminder',
     moduleCode: 'mentorias',
     moduleLabel: 'Mentorías',
-    label: 'Recordatorio de sesión',
-    description: 'Recordatorio automático previo al inicio de una sesión.',
-    variables: ['nombre', 'titulo', 'fecha', 'hora', 'enlace_sesion', 'plataforma'],
+    label: 'Recordatorio de sesión 1:1',
+    description: 'Recordatorio automático antes de una sesión 1:1, según las ventanas configuradas (72h/24h/12h/6h/3h/1h/30m).',
+    variables: ['nombre', 'titulo', 'fecha', 'hora', 'enlace_sesion', 'tiempo_restante', 'plataforma'],
     defaultInAppType: 'info',
+    windowsConfigurable: true,
   },
   {
     key: 'mentorias.group_session_reminder',
@@ -295,6 +296,7 @@ export const NOTIFICATION_EVENTS: NotificationEventDef[] = [
     description: 'Recordatorio automático antes de una sesión grupal, según las ventanas configuradas (72h/24h/12h/6h/3h/1h/30m).',
     variables: ['nombre', 'titulo', 'fecha', 'hora', 'enlace_sesion', 'tiempo_restante', 'plataforma'],
     defaultInAppType: 'info',
+    windowsConfigurable: true,
   },
   {
     key: 'mentorias.group_session_joined',

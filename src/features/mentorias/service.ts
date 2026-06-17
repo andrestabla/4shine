@@ -3537,35 +3537,42 @@ async function resolveOrgIdForActor(client: PoolClient, userId: string): Promise
   return fb[0].organization_id;
 }
 
-export async function listGroupReminderWindows(
+// Eventos de recordatorio con ventanas configurables.
+const WINDOW_REMINDER_EVENTS = new Set(['mentorias.session_reminder', 'mentorias.group_session_reminder']);
+
+export async function listReminderWindows(
   client: PoolClient,
   actor: AuthUser,
+  eventKey: string,
 ): Promise<GroupReminderWindow[]> {
   await requireModulePermission(client, 'mentorias', 'manage');
+  if (!WINDOW_REMINDER_EVENTS.has(eventKey)) throw new Error('Evento de recordatorio no válido');
   const orgId = await resolveOrgIdForActor(client, actor.userId);
   const { rows } = await client.query<{ window_minutes: number; label: string; is_enabled: boolean }>(
     `SELECT window_minutes, label, is_enabled
      FROM app_admin.group_reminder_windows
-     WHERE organization_id = $1
+     WHERE organization_id = $1 AND event_key = $2
      ORDER BY window_minutes DESC`,
-    [orgId],
+    [orgId, eventKey],
   );
   return rows.map((r) => ({ windowMinutes: r.window_minutes, label: r.label, isEnabled: r.is_enabled }));
 }
 
-export async function setGroupReminderWindow(
+export async function setReminderWindow(
   client: PoolClient,
   actor: AuthUser,
+  eventKey: string,
   windowMinutes: number,
   isEnabled: boolean,
 ): Promise<void> {
   await requireModulePermission(client, 'mentorias', 'manage');
+  if (!WINDOW_REMINDER_EVENTS.has(eventKey)) throw new Error('Evento de recordatorio no válido');
   const orgId = await resolveOrgIdForActor(client, actor.userId);
   await client.query(
     `UPDATE app_admin.group_reminder_windows
-       SET is_enabled = $3, updated_at = now()
-     WHERE organization_id = $1 AND window_minutes = $2`,
-    [orgId, windowMinutes, isEnabled],
+       SET is_enabled = $4, updated_at = now()
+     WHERE organization_id = $1 AND event_key = $2 AND window_minutes = $3`,
+    [orgId, eventKey, windowMinutes, isEnabled],
   );
 }
 
@@ -3591,7 +3598,7 @@ export async function sendGroupSessionReminders(
   const { rows: windows } = await client.query<{ organization_id: string; window_minutes: number }>(
     `SELECT organization_id::text, window_minutes
      FROM app_admin.group_reminder_windows
-     WHERE is_enabled = true`,
+     WHERE is_enabled = true AND event_key = 'mentorias.group_session_reminder'`,
   );
 
   const summary: { windowMinutes: number; sent: number }[] = [];
@@ -3668,5 +3675,88 @@ export async function sendGroupSessionReminders(
     summary.push({ windowMinutes: w.window_minutes, sent });
   }
 
+  return summary;
+}
+
+/**
+ * Cron: recordatorios 1:1 según las ventanas configuradas para el evento
+ * mentorias.session_reminder. Notifica al mentee de cada sesión individual
+ * próxima. Idempotente vía app_mentoring.session_reminders_sent (window_key).
+ */
+export async function sendIndividualSessionReminders(
+  client: PoolClient,
+): Promise<{ windowMinutes: number; sent: number }[]> {
+  const TOL = 8;
+  const { rows: windows } = await client.query<{ window_minutes: number }>(
+    `SELECT DISTINCT window_minutes
+     FROM app_admin.group_reminder_windows
+     WHERE is_enabled = true AND event_key = 'mentorias.session_reminder'
+     ORDER BY window_minutes`,
+  );
+
+  const summary: { windowMinutes: number; sent: number }[] = [];
+  // Continuidad de idempotencia con las claves históricas ('24h'/'1h').
+  const windowKey = (m: number) => (m === 1440 ? '24h' : m === 60 ? '1h' : `${m}m`);
+
+  for (const w of windows) {
+    const from = w.window_minutes - TOL;
+    const to = w.window_minutes + TOL;
+    const { rows: sessions } = await client.query<{
+      session_id: string;
+      title: string;
+      starts_at: string;
+      meeting_url: string | null;
+      mentor_user_id: string;
+      mentee_user_id: string | null;
+      mentee_first_name: string | null;
+      mentee_display_name: string | null;
+    }>(
+      `SELECT ms.session_id::text, ms.title, ms.starts_at::text, ms.meeting_url,
+              ms.mentor_user_id::text,
+              mentee.mentee_user_id, mentee.mentee_first_name, mentee.mentee_display_name
+       FROM app_mentoring.mentorship_sessions ms
+       LEFT JOIN LATERAL (
+         SELECT sp.user_id::text AS mentee_user_id, u.first_name AS mentee_first_name, u.display_name AS mentee_display_name
+         FROM app_mentoring.session_participants sp
+         JOIN app_core.users u ON u.user_id = sp.user_id
+         WHERE sp.session_id = ms.session_id AND sp.participant_role = 'mentee'
+         ORDER BY u.display_name LIMIT 1
+       ) mentee ON true
+       WHERE ms.status = 'scheduled'
+         AND ms.session_type = 'individual'
+         AND ms.starts_at BETWEEN now() + make_interval(mins => $1) AND now() + make_interval(mins => $2)`,
+      [from, to],
+    );
+
+    const tiempo = tiempoRestanteLabel(w.window_minutes);
+    const key = windowKey(w.window_minutes);
+    let sent = 0;
+
+    for (const s of sessions) {
+      if (!s.mentee_user_id) continue;
+      const lock = await client.query(
+        `INSERT INTO app_mentoring.session_reminders_sent (session_id, window_key)
+         VALUES ($1::uuid, $2)
+         ON CONFLICT (session_id, window_key) DO NOTHING`,
+        [s.session_id, key],
+      );
+      if (!lock.rowCount) continue;
+      const tz = await resolveActorOrgTimezone(client, s.mentor_user_id);
+      await notifyUserFull(client, {
+        recipientUserId: s.mentee_user_id,
+        eventKey: 'mentorias.session_reminder',
+        variables: {
+          nombre: (s.mentee_first_name ?? s.mentee_display_name ?? '').trim(),
+          titulo: s.title,
+          fecha: formatFechaCO(s.starts_at, tz),
+          hora: formatHoraCO(s.starts_at, tz),
+          enlace_sesion: s.meeting_url ?? '',
+          tiempo_restante: tiempo,
+        },
+      });
+      sent += 1;
+    }
+    summary.push({ windowMinutes: w.window_minutes, sent });
+  }
   return summary;
 }

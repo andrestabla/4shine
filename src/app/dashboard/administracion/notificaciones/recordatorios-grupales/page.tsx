@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ArrowLeft, Clock } from "lucide-react";
 import { PageTitle } from "@/components/dashboard/PageTitle";
-import { GroupReminderWindowsConfig } from "@/components/dashboard/notificaciones/GroupReminderWindowsConfig";
+import { ReminderWindowsConfig } from "@/components/dashboard/notificaciones/GroupReminderWindowsConfig";
 
 export default function GroupRemindersAdminPage() {
   return (
@@ -38,7 +38,7 @@ export default function GroupRemindersAdminPage() {
         </div>
       </div>
 
-      <GroupReminderWindowsConfig />
+      <ReminderWindowsConfig eventKey="mentorias.group_session_reminder" />
     </div>
   );
 }
