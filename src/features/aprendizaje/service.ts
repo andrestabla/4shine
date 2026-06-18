@@ -69,6 +69,7 @@ export interface LearningResourceRecord {
   authorName: string | null;
   status: ContentStatus;
   isRecommended: boolean;
+  showInLibrary: boolean;
   libraryLocation: LearningLibraryLocation;
   competencyMetadata: ContentCompetencyMetadata;
   tags: string[];
@@ -223,6 +224,7 @@ interface LearningResourceRow {
   author_name: string | null;
   status: ContentStatus;
   is_recommended: boolean;
+  show_in_library: boolean;
   library_location: LearningLibraryLocation;
   competency_metadata: ContentCompetencyMetadata | null;
   tags: string[] | null;
@@ -408,6 +410,7 @@ function mapLearningResourceRow(row: LearningResourceRow): LearningResourceRecor
     authorName: row.author_name,
     status: row.status,
     isRecommended: row.is_recommended,
+    showInLibrary: row.show_in_library,
     libraryLocation: row.library_location,
     competencyMetadata: row.competency_metadata ?? {},
     tags: row.tags ?? [],
@@ -899,6 +902,7 @@ export async function listLearningResources(
         NULL::text AS author_name,
         ci.status,
         ci.is_recommended,
+        ci.show_in_library,
         ci.library_location,
         ci.competency_metadata,
         ci.structure_payload,
@@ -1051,6 +1055,7 @@ export async function getLearningResourceDetail(
         NULL::text AS author_name,
         ci.status,
         ci.is_recommended,
+        ci.show_in_library,
         ci.library_location,
         ci.competency_metadata,
         ci.structure_payload,

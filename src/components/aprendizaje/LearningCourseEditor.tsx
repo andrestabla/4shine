@@ -135,6 +135,7 @@ interface ResourceFormState {
   audience: string;
   thumbnailUrl: string;
   isRecommended: boolean;
+  showInLibrary: boolean;
   libraryLocation: LibraryLocationOption;
   courseModules: CourseModule[];
   certificateTemplateId: string | null;
@@ -156,6 +157,7 @@ const EMPTY_RESOURCE_FORM: ResourceFormState = {
   audience: "lider",
   thumbnailUrl: "",
   isRecommended: false,
+  showInLibrary: true,
   libraryLocation: "contenidos_libres",
   courseModules: [],
   certificateTemplateId: null,
@@ -864,6 +866,7 @@ export function LearningCourseEditor({
         audience: editingResource.competencyMetadata.audience ?? "lider",
         thumbnailUrl: editingResource.thumbnailUrl ?? "",
         isRecommended: editingResource.isRecommended,
+        showInLibrary: editingResource.showInLibrary ?? true,
         libraryLocation:
           editingResource.libraryLocation === "cursos" ? "cursos" : "contenidos_libres",
         courseModules: normalizeCourseModulesFromStructure(
@@ -1042,6 +1045,7 @@ export function LearningCourseEditor({
       status: resourceForm.status,
       thumbnailUrl: resourceForm.thumbnailUrl.trim() || null,
       isRecommended: resourceForm.isRecommended,
+      showInLibrary: resourceForm.showInLibrary,
       libraryLocation: resourceForm.libraryLocation,
       tags: resourceForm.tags,
       competencyMetadata: {
@@ -1073,6 +1077,7 @@ export function LearningCourseEditor({
       resourceForm.description,
       resourceForm.durationLabel,
       resourceForm.isRecommended,
+      resourceForm.showInLibrary,
       resourceForm.libraryLocation,
       resourceForm.pillar,
       resourceForm.stage,
@@ -2193,6 +2198,27 @@ export function LearningCourseEditor({
                           {isCourseEditor
                             ? "Marcar como curso recomendado dentro del catálogo"
                             : "Marcar como recurso recomendado dentro del catálogo"}
+                        </label>
+
+                        <label className="lg:col-span-2 flex items-start gap-3 rounded-[18px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-3 text-sm text-[var(--app-ink)]">
+                          <input
+                            type="checkbox"
+                            className="mt-0.5"
+                            checked={resourceForm.showInLibrary}
+                            onChange={(event) =>
+                              setResourceForm((prev) => ({
+                                ...prev,
+                                showInLibrary: event.target.checked,
+                              }))
+                            }
+                          />
+                          <span>
+                            <span className="block font-semibold">Mostrar en la biblioteca de Aprendizaje</span>
+                            <span className="mt-0.5 block text-xs text-[var(--app-muted)]">
+                              Si lo desmarcas, queda publicado pero NO aparece en Contenidos libres/Cursos; seguirá
+                              disponible dentro de un curso o por enlace directo.
+                            </span>
+                          </span>
                         </label>
 
                         {isCourseEditor && scope === "aprendizaje" && (
