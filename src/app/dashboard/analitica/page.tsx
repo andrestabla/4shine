@@ -21,9 +21,11 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
-import { Loader2 } from "lucide-react";
+import { Loader2, FileSpreadsheet, FileDown } from "lucide-react";
 import { PageTitle } from "@/components/dashboard/PageTitle";
+import { useBranding } from "@/context/BrandingContext";
 import { getAnalytics, type AnalyticsResult, type NameCount, type SeriesPoint } from "@/features/analitica/client";
+import { exportAnalyticsXlsx, exportAnalyticsPdf } from "@/features/analitica/export";
 
 const PALETTE = ["#7c3aed", "#0ea5e9", "#10b981", "#f59e0b", "#ef4444", "#6366f1", "#ec4899", "#14b8a6", "#a855f7"];
 
@@ -169,6 +171,7 @@ export default function AnaliticaPage() {
   const [data, setData] = React.useState<AnalyticsResult | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const { branding, tokens } = useBranding();
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -225,7 +228,31 @@ export default function AnaliticaPage() {
             </button>
           ))}
         </div>
-        {loading && <Loader2 size={16} className="ml-auto animate-spin text-[var(--app-muted)]" />}
+        <div className="ml-auto flex items-center gap-2">
+          {loading && <Loader2 size={16} className="animate-spin text-[var(--app-muted)]" />}
+          <button
+            type="button"
+            disabled={!data}
+            onClick={() => data && exportAnalyticsXlsx(data)}
+            className="inline-flex items-center gap-1.5 rounded-full border border-[var(--app-border)] px-3 py-2 text-xs font-bold text-[var(--app-ink)] transition hover:border-[var(--brand-primary)] disabled:opacity-50"
+          >
+            <FileSpreadsheet size={14} /> Excel
+          </button>
+          <button
+            type="button"
+            disabled={!data}
+            onClick={() =>
+              data &&
+              exportAnalyticsPdf(data, {
+                brandName: branding.platformName?.trim() || "4Shine",
+                primaryColor: tokens.colors.primary,
+              })
+            }
+            className="inline-flex items-center gap-1.5 rounded-full border border-[var(--app-border)] px-3 py-2 text-xs font-bold text-[var(--app-ink)] transition hover:border-[var(--brand-primary)] disabled:opacity-50"
+          >
+            <FileDown size={14} /> PDF
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2">
