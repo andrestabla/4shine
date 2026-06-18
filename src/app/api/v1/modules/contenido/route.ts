@@ -13,15 +13,16 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const scope = (url.searchParams.get('scope') as ContentScope | null) ?? undefined;
     const limit = Number(url.searchParams.get('limit') ?? 100);
+    const trashed = url.searchParams.get('trashed') === '1';
 
     const data = await withClient((client) =>
       withRoleContext(client, identity.userId, identity.role, async () => {
-        const result = await listContent(client, { scope, limit });
+        const result = await listContent(client, { scope, limit, trashed });
         await logModuleAudit(client, request, identity, {
           moduleCode: 'contenido',
           action: 'query_content',
           entityTable: 'app_learning.content_items',
-          changeSummary: { scope: scope ?? 'all', limit },
+          changeSummary: { scope: scope ?? 'all', limit, trashed },
         });
         return result;
       }),

@@ -19,6 +19,7 @@ import {
   Pencil,
   Plus,
   Presentation,
+  RotateCcw,
   Search,
   Star,
   Trash2,
@@ -34,6 +35,8 @@ import type { ModuleCode } from '@/lib/permissions';
 import {
   createContent,
   deleteContent,
+  restoreContent,
+  purgeContent,
   listContent,
   updateContent,
   type ContentItemRecord,
@@ -224,17 +227,21 @@ export default function ContenidoPage() {
     }
   }, [createForm.scope, creatableScopes]);
 
+  const [view, setView] = React.useState<'activos' | 'papelera'>('activos');
+
   const load = React.useCallback(async () => {
     setLoading(true);
     try {
-      const data = await listContent(scopeFilter === 'all' ? undefined : scopeFilter);
+      const data = await listContent(scopeFilter === 'all' ? undefined : scopeFilter, {
+        trashed: view === 'papelera',
+      });
       setItems(data);
     } catch (loadError) {
       await showError('No se pudo cargar el contenido', loadError);
     } finally {
       setLoading(false);
     }
-  }, [scopeFilter, showError]);
+  }, [scopeFilter, view, showError]);
 
   React.useEffect(() => {
     void load();
@@ -291,11 +298,20 @@ export default function ContenidoPage() {
     }
   };
 
+  const onToggleLibrary = async (item: ContentItemRecord) => {
+    try {
+      await updateContent(item.contentId, { showInLibrary: !item.showInLibrary });
+      await Promise.all([load(), refreshBootstrap()]);
+    } catch (updateError) {
+      await showError('No se pudo actualizar la visibilidad', updateError);
+    }
+  };
+
   const onDelete = async (item: ContentItemRecord) => {
     const isConfirmed = await confirm({
-      title: 'Eliminar contenido',
-      message: `¿Deseas eliminar "${item.title}"? Esta acción no se puede deshacer.`,
-      confirmText: 'Eliminar',
+      title: 'Mover a la papelera',
+      message: `¿Mover "${item.title}" a la papelera? Podrás restaurarlo después; no aparecerá en Aprendizaje mientras esté en la papelera.`,
+      confirmText: 'Mover a papelera',
       cancelText: 'Cancelar',
       tone: 'warning',
     });
@@ -305,6 +321,32 @@ export default function ContenidoPage() {
       await Promise.all([load(), refreshBootstrap()]);
     } catch (deleteError) {
       await showError('No se pudo eliminar el contenido', deleteError);
+    }
+  };
+
+  const onRestore = async (item: ContentItemRecord) => {
+    try {
+      await restoreContent(item.contentId);
+      await Promise.all([load(), refreshBootstrap()]);
+    } catch (restoreError) {
+      await showError('No se pudo restaurar el contenido', restoreError);
+    }
+  };
+
+  const onPurge = async (item: ContentItemRecord) => {
+    const isConfirmed = await confirm({
+      title: 'Eliminar definitivamente',
+      message: `Esto borra "${item.title}" de forma permanente e irreversible. ¿Continuar?`,
+      confirmText: 'Eliminar definitivamente',
+      cancelText: 'Cancelar',
+      tone: 'error',
+    });
+    if (!isConfirmed) return;
+    try {
+      await purgeContent(item.contentId);
+      await Promise.all([load(), refreshBootstrap()]);
+    } catch (purgeError) {
+      await showError('No se pudo eliminar definitivamente', purgeError);
     }
   };
 
@@ -412,6 +454,26 @@ export default function ContenidoPage() {
           icon={Trophy}
           tint="bg-violet-100"
         />
+      </div>
+
+      {/* Vista: activos / papelera */}
+      <div className="inline-flex rounded-full border border-[var(--app-border)] bg-white p-1">
+        {([
+          { key: 'activos', label: 'Activos' },
+          { key: 'papelera', label: 'Papelera' },
+        ] as const).map((v) => (
+          <button
+            key={v.key}
+            type="button"
+            onClick={() => setView(v.key)}
+            className={
+              'rounded-full px-4 py-1.5 text-xs font-bold transition-colors ' +
+              (view === v.key ? 'bg-[var(--brand-primary)] text-white' : 'text-[var(--app-muted)] hover:text-[var(--app-ink)]')
+            }
+          >
+            {v.label}
+          </button>
+        ))}
       </div>
 
       {/* Filtros */}
@@ -636,7 +698,7 @@ export default function ContenidoPage() {
                                   Renombrar
                                 </button>
                               )}
-                              {canUpdateItem && (
+                              {canUpdateItem && view === 'activos' && (
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -649,7 +711,20 @@ export default function ContenidoPage() {
                                   Archivar
                                 </button>
                               )}
-                              {item.url && (
+                              {canUpdateItem && view === 'activos' && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenMenuId(null);
+                                    void onToggleLibrary(item);
+                                  }}
+                                  className="flex w-full items-center gap-2 rounded-[8px] px-3 py-2 text-xs font-semibold text-[var(--app-ink)] hover:bg-[var(--app-surface-muted)]"
+                                >
+                                  {item.showInLibrary ? <EyeOff size={13} /> : <Eye size={13} />}
+                                  {item.showInLibrary ? 'Ocultar de biblioteca' : 'Mostrar en biblioteca'}
+                                </button>
+                              )}
+                              {item.url && view === 'activos' && (
                                 <a
                                   href={item.url}
                                   target="_blank"
@@ -660,7 +735,7 @@ export default function ContenidoPage() {
                                   URL externa
                                 </a>
                               )}
-                              {canDeleteItem && (
+                              {canDeleteItem && view === 'activos' && (
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -670,8 +745,34 @@ export default function ContenidoPage() {
                                   className="flex w-full items-center gap-2 rounded-[8px] px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50"
                                 >
                                   <Trash2 size={13} />
-                                  Eliminar
+                                  Mover a papelera
                                 </button>
+                              )}
+                              {canDeleteItem && view === 'papelera' && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenMenuId(null);
+                                      void onRestore(item);
+                                    }}
+                                    className="flex w-full items-center gap-2 rounded-[8px] px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-50"
+                                  >
+                                    <RotateCcw size={13} />
+                                    Restaurar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenMenuId(null);
+                                      void onPurge(item);
+                                    }}
+                                    className="flex w-full items-center gap-2 rounded-[8px] px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50"
+                                  >
+                                    <Trash2 size={13} />
+                                    Eliminar definitivamente
+                                  </button>
+                                </>
                               )}
                             </div>
                           )}
@@ -744,7 +845,7 @@ export default function ContenidoPage() {
                             Tarea
                           </Link>
                         )}
-                        {canUpdateItem && (
+                        {canUpdateItem && view === 'activos' && (
                           <button
                             type="button"
                             onClick={() => void onRename(item)}
@@ -754,15 +855,45 @@ export default function ContenidoPage() {
                             Renombrar
                           </button>
                         )}
-                        {canDeleteItem && (
+                        {canUpdateItem && view === 'activos' && (
+                          <button
+                            type="button"
+                            onClick={() => void onToggleLibrary(item)}
+                            className="inline-flex items-center gap-1 rounded-[10px] border border-[var(--app-border)] bg-white px-2.5 py-1 text-[11px] font-semibold text-[var(--app-ink)]"
+                          >
+                            {item.showInLibrary ? <EyeOff size={11} /> : <Eye size={11} />}
+                            {item.showInLibrary ? 'Ocultar' : 'Mostrar'}
+                          </button>
+                        )}
+                        {canDeleteItem && view === 'activos' && (
                           <button
                             type="button"
                             onClick={() => void onDelete(item)}
                             className="inline-flex items-center gap-1 rounded-[10px] border border-rose-200 bg-white px-2.5 py-1 text-[11px] font-bold text-rose-600"
                           >
                             <Trash2 size={11} />
-                            Eliminar
+                            Papelera
                           </button>
+                        )}
+                        {canDeleteItem && view === 'papelera' && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => void onRestore(item)}
+                              className="inline-flex items-center gap-1 rounded-[10px] border border-emerald-200 bg-white px-2.5 py-1 text-[11px] font-bold text-emerald-700"
+                            >
+                              <RotateCcw size={11} />
+                              Restaurar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void onPurge(item)}
+                              className="inline-flex items-center gap-1 rounded-[10px] border border-rose-200 bg-white px-2.5 py-1 text-[11px] font-bold text-rose-600"
+                            >
+                              <Trash2 size={11} />
+                              Eliminar def.
+                            </button>
+                          </>
                         )}
                       </div>
                     </div>

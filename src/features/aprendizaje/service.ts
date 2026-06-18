@@ -864,6 +864,9 @@ export async function listLearningResources(
           OR (COALESCE(ci.competency_metadata->>'audience', 'all') = 'ishiners' AND $8::text = 'mentor')
         )
         AND ($9::text IS NULL OR ci.library_location = $9)
+        -- Oculto de la biblioteca: solo disponible dentro de cursos / por enlace directo.
+        AND ci.show_in_library = true
+        AND ci.deleted_at IS NULL
     `,
     [
       canManage,

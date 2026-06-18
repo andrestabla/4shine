@@ -48,6 +48,8 @@ export interface ContentItemRecord {
   status: ContentStatus;
   isRecommended: boolean;
   libraryLocation: LibraryLocation;
+  showInLibrary: boolean;
+  deletedAt: string | null;
   createdBy: string;
   approvedBy: string | null;
   approvedAt: string | null;
@@ -73,6 +75,7 @@ export interface CreateContentInput {
   status?: ContentStatus;
   isRecommended?: boolean;
   libraryLocation?: LibraryLocation;
+  showInLibrary?: boolean;
   competencyMetadata?: ContentCompetencyMetadata;
   structurePayload?: ContentStructurePayload;
   tags?: string[];
@@ -90,6 +93,7 @@ export interface UpdateContentInput {
   status?: ContentStatus;
   isRecommended?: boolean;
   libraryLocation?: LibraryLocation;
+  showInLibrary?: boolean;
   competencyMetadata?: ContentCompetencyMetadata;
   structurePayload?: ContentStructurePayload;
   tags?: string[];
@@ -128,6 +132,8 @@ interface ContentRow {
   status: ContentStatus;
   is_recommended: boolean;
   library_location: LibraryLocation;
+  show_in_library: boolean;
+  deleted_at: string | null;
   created_by: string;
   approved_by: string | null;
   approved_at: string | null;
@@ -164,6 +170,8 @@ const CONTENT_SELECT = `
     ci.status,
     ci.is_recommended,
     ci.library_location,
+    ci.show_in_library,
+    ci.deleted_at::text,
     ci.created_by::text,
     ci.approved_by::text,
     ci.approved_at::text,
@@ -200,6 +208,8 @@ function mapRow(row: ContentRow): ContentItemRecord {
     status: row.status,
     isRecommended: row.is_recommended,
     libraryLocation: row.library_location,
+    showInLibrary: row.show_in_library,
+    deletedAt: row.deleted_at,
     createdBy: row.created_by,
     approvedBy: row.approved_by,
     approvedAt: row.approved_at,
@@ -426,19 +436,21 @@ async function getScopeByContentId(client: PoolClient, contentId: string): Promi
 
 export async function listContent(
   client: PoolClient,
-  options?: { scope?: ContentScope; limit?: number },
+  options?: { scope?: ContentScope; limit?: number; trashed?: boolean },
 ): Promise<ContentItemRecord[]> {
   const scope = options?.scope ?? null;
   const limit = Math.min(Math.max(options?.limit ?? 100, 1), 500);
+  const trashed = options?.trashed ?? false;
 
   const { rows } = await client.query<ContentRow>(
     `
       ${CONTENT_SELECT}
       WHERE ($1::text IS NULL OR ci.scope = $1)
-      ORDER BY ci.created_at DESC
+        AND ($3::boolean = true) = (ci.deleted_at IS NOT NULL)
+      ORDER BY COALESCE(ci.deleted_at, ci.created_at) DESC
       LIMIT $2
     `,
-    [scope, limit],
+    [scope, limit, trashed],
   );
 
   return rows.map(mapRow);
@@ -490,6 +502,7 @@ export async function createContent(
         structure_payload,
         thumbnail_url,
         library_location,
+        show_in_library,
         created_by,
         approved_by,
         approved_at,
@@ -512,6 +525,7 @@ export async function createContent(
         $14::jsonb,
         $15,
         $16,
+        COALESCE($18, true),
         $17::uuid,
         CASE WHEN $11 = 'published' THEN $17::uuid ELSE NULL::uuid END,
         CASE WHEN $11 = 'published' THEN now() ELSE NULL END,
@@ -537,6 +551,7 @@ export async function createContent(
       input.thumbnailUrl ?? null,
       libraryLocation,
       actor.userId,
+      input.showInLibrary ?? null,
     ],
   );
 
@@ -612,6 +627,7 @@ export async function updateContent(
         thumbnail_url = COALESCE($13, thumbnail_url),
         certificate_template_id = CASE WHEN $15::boolean THEN $16::uuid ELSE certificate_template_id END,
         library_location = COALESCE($17, library_location),
+        show_in_library = COALESCE($18, show_in_library),
         approved_by = CASE WHEN $9 = 'published' THEN $14::uuid ELSE approved_by END,
         approved_at = CASE WHEN $9 = 'published' THEN now() ELSE approved_at END,
         published_at = CASE WHEN $9 = 'published' THEN COALESCE(published_at, now()) ELSE published_at END,
@@ -637,6 +653,7 @@ export async function updateContent(
       'certificateTemplateId' in input,
       input.certificateTemplateId ?? null,
       normalizedLibraryLocation,
+      input.showInLibrary ?? null,
     ],
   );
 
@@ -652,35 +669,56 @@ export async function updateContent(
   return getContentById(client, updatedContentId);
 }
 
-export async function deleteContent(client: PoolClient, contentId: string): Promise<{ contentId: string }> {
+async function assertDeletePermission(client: PoolClient, contentId: string): Promise<void> {
   const scope = await getScopeByContentId(client, contentId);
   const moduleCode = SCOPE_TO_MODULE[scope];
-
   await requireModulePermission(client, moduleCode, 'delete');
-
   const { rows: actorRows } = await client.query<{ current_role: string }>(
     `SELECT current_setting('app.current_role', true) AS current_role`,
   );
-
   if (scope === 'aprendizaje' && !['gestor', 'admin'].includes(actorRows[0]?.current_role ?? '')) {
     throw new ForbiddenError('Only gestores and admins can delete learning resources');
   }
+}
 
+/**
+ * Borrado LÓGICO: mueve el contenido a la papelera (deleted_at = now()).
+ * No aparece en listados ni en la biblioteca, pero es recuperable.
+ */
+export async function deleteContent(client: PoolClient, contentId: string): Promise<{ contentId: string }> {
+  await assertDeletePermission(client, contentId);
   const { rows } = await client.query<{ content_id: string }>(
-    `
-      DELETE FROM app_learning.content_items
-      WHERE content_id = $1
-      RETURNING content_id::text
-    `,
+    `UPDATE app_learning.content_items
+     SET deleted_at = now(), updated_at = now()
+     WHERE content_id = $1 AND deleted_at IS NULL
+     RETURNING content_id::text`,
     [contentId],
   );
+  if (!rows[0]) throw new Error('Content item not found');
+  return { contentId: rows[0].content_id };
+}
 
-  const deleted = rows[0];
-  if (!deleted) {
-    throw new Error('Content item not found');
-  }
+/** Restaura un contenido desde la papelera. */
+export async function restoreContent(client: PoolClient, contentId: string): Promise<{ contentId: string }> {
+  await assertDeletePermission(client, contentId);
+  const { rows } = await client.query<{ content_id: string }>(
+    `UPDATE app_learning.content_items
+     SET deleted_at = NULL, updated_at = now()
+     WHERE content_id = $1
+     RETURNING content_id::text`,
+    [contentId],
+  );
+  if (!rows[0]) throw new Error('Content item not found');
+  return { contentId: rows[0].content_id };
+}
 
-  return {
-    contentId: deleted.content_id,
-  };
+/** Borrado FÍSICO definitivo (irreversible). Solo desde la papelera. */
+export async function purgeContent(client: PoolClient, contentId: string): Promise<{ contentId: string }> {
+  await assertDeletePermission(client, contentId);
+  const { rows } = await client.query<{ content_id: string }>(
+    `DELETE FROM app_learning.content_items WHERE content_id = $1 RETURNING content_id::text`,
+    [contentId],
+  );
+  if (!rows[0]) throw new Error('Content item not found');
+  return { contentId: rows[0].content_id };
 }

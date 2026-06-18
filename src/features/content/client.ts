@@ -42,6 +42,8 @@ export interface ContentItemRecord {
   authorName: string | null;
   status: ContentStatus;
   isRecommended: boolean;
+  showInLibrary: boolean;
+  deletedAt: string | null;
   createdBy: string;
   approvedBy: string | null;
   approvedAt: string | null;
@@ -64,6 +66,7 @@ export interface CreateContentInput {
   url?: string | null;
   status?: ContentStatus;
   isRecommended?: boolean;
+  showInLibrary?: boolean;
   competencyMetadata?: ContentCompetencyMetadata;
   structurePayload?: ContentStructurePayload;
   tags?: string[];
@@ -79,15 +82,17 @@ export interface UpdateContentInput {
   url?: string | null;
   status?: ContentStatus;
   isRecommended?: boolean;
+  showInLibrary?: boolean;
   competencyMetadata?: ContentCompetencyMetadata;
   structurePayload?: ContentStructurePayload;
   tags?: string[];
   certificateTemplateId?: string | null;
 }
 
-export async function listContent(scope?: ContentScope): Promise<ContentItemRecord[]> {
+export async function listContent(scope?: ContentScope, opts?: { trashed?: boolean }): Promise<ContentItemRecord[]> {
   const params = new URLSearchParams();
   if (scope) params.set('scope', scope);
+  if (opts?.trashed) params.set('trashed', '1');
   const query = params.toString();
   const suffix = query ? `?${query}` : '';
   return requestApi<ContentItemRecord[]>(`/api/v1/modules/contenido${suffix}`);
@@ -109,6 +114,18 @@ export async function updateContent(contentId: string, input: UpdateContentInput
 
 export async function deleteContent(contentId: string): Promise<{ contentId: string }> {
   return requestApi<{ contentId: string }>(`/api/v1/modules/contenido/${contentId}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function restoreContent(contentId: string): Promise<{ contentId: string }> {
+  return requestApi<{ contentId: string }>(`/api/v1/modules/contenido/${contentId}`, {
+    method: 'POST',
+  });
+}
+
+export async function purgeContent(contentId: string): Promise<{ contentId: string }> {
+  return requestApi<{ contentId: string }>(`/api/v1/modules/contenido/${contentId}?permanent=1`, {
     method: 'DELETE',
   });
 }
