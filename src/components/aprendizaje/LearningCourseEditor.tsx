@@ -1107,8 +1107,14 @@ export function LearningCourseEditor({
       editorKind === "course" &&
       resourceForm.contentType === "scorm" &&
       Boolean(resourceForm.url.trim());
+    // Las actividades y tareas no tienen archivo/URL propios: su contenido se
+    // configura en Contenido, por lo que no aplica la exigencia de activo.
+    const requiresAsset =
+      resourceForm.contentType !== "activity" &&
+      resourceForm.contentType !== "assignment";
     if (
       resourceForm.status === "published" &&
+      requiresAsset &&
       !resourceForm.url.trim() &&
       !hasCourseStructure
     ) {
@@ -1434,7 +1440,10 @@ export function LearningCourseEditor({
                 resourceForm.url.trim() ||
                   countCourseResources(resourceForm.courseModules) > 0,
               )
-            : Boolean(resourceForm.url.trim()),
+            : resourceForm.contentType === "activity" ||
+                resourceForm.contentType === "assignment"
+              ? true
+              : Boolean(resourceForm.url.trim()),
       },
       {
         label:
@@ -1501,7 +1510,10 @@ export function LearningCourseEditor({
                 resourceForm.url.trim() ||
                   countCourseResources(resourceForm.courseModules) > 0,
               )
-            : Boolean(resourceForm.url.trim()),
+            : resourceForm.contentType === "activity" ||
+                resourceForm.contentType === "assignment"
+              ? true
+              : Boolean(resourceForm.url.trim()),
       },
       {
         key: "taxonomy",
