@@ -12,6 +12,7 @@ export type DocBlock =
   | { type: 'steps'; items: string[] }
   | { type: 'table'; headers: string[]; rows: string[][] }
   | { type: 'code'; code: string }
+  | { type: 'diagram'; title?: string; svg: string }
   | { type: 'callout'; tone?: 'info' | 'warn'; title?: string; text: string };
 
 export type DocCategory = 'arquitectura' | 'modulo';
@@ -41,6 +42,51 @@ const ARCHITECTURE_SECTIONS: DocSection[] = [
       {
         type: 'p',
         text: 'La plataforma 4Shine es una aplicación web monolítica construida sobre Next.js (App Router), desplegada en Vercel y respaldada por una base de datos PostgreSQL. Todo —el sitio público, el dashboard y la API— vive en un único proyecto de Next.js bajo /src.',
+      },
+      {
+        type: 'diagram',
+        title: 'Vista de alto nivel: el navegador habla con Vercel (que ejecuta el código), y la API se conecta a Neon, R2 y los servicios externos.',
+        svg: `<svg viewBox="0 0 760 388" width="100%" role="img" aria-label="Arquitectura de alto nivel" xmlns="http://www.w3.org/2000/svg">
+  <defs><marker id="arrA" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L7,3 L0,6 Z" fill="var(--app-muted)"/></marker></defs>
+  <rect x="24" y="22" width="150" height="46" rx="9" fill="var(--app-surface-muted)" stroke="var(--app-border)"/>
+  <text x="99" y="44" text-anchor="middle" font-size="13" font-weight="600" fill="var(--app-ink)">GitHub</text>
+  <text x="99" y="59" text-anchor="middle" font-size="9" fill="var(--app-muted)">push a main → deploy</text>
+  <rect x="250" y="20" width="300" height="52" rx="10" fill="var(--app-ink)"/>
+  <text x="400" y="44" text-anchor="middle" font-size="13" font-weight="600" fill="#ffffff">Navegador (cliente)</text>
+  <text x="400" y="60" text-anchor="middle" font-size="9.5" fill="#cbd5e1">React 19 · Tailwind · Contexts</text>
+  <line x1="400" y1="72" x2="400" y2="106" stroke="var(--app-muted)" stroke-width="1.4" marker-end="url(#arrA)"/>
+  <text x="408" y="92" font-size="9" fill="var(--app-muted)">requestApi · HTTPS · cookie</text>
+  <line x1="99" y1="68" x2="99" y2="106" stroke="var(--app-muted)" stroke-width="1.4" marker-end="url(#arrA)"/>
+  <text x="104" y="92" font-size="9" fill="var(--app-muted)">deploy</text>
+  <rect x="40" y="108" width="680" height="150" rx="12" fill="none" stroke="var(--brand-primary)" stroke-dasharray="5 4"/>
+  <text x="54" y="128" font-size="12" font-weight="700" fill="var(--app-ink)">Vercel · Next.js 16</text>
+  <rect x="60" y="142" width="190" height="96" rx="9" fill="var(--app-surface-muted)" stroke="var(--app-border)"/>
+  <text x="155" y="178" text-anchor="middle" font-size="12" font-weight="600" fill="var(--app-ink)">App Router</text>
+  <text x="155" y="195" text-anchor="middle" font-size="9" fill="var(--app-muted)">Sitio público + Dashboard</text>
+  <text x="155" y="209" text-anchor="middle" font-size="9" fill="var(--app-muted)">(SSR / client comp.)</text>
+  <rect x="285" y="142" width="190" height="96" rx="9" fill="var(--app-surface-muted)" stroke="var(--app-border)"/>
+  <text x="380" y="178" text-anchor="middle" font-size="12" font-weight="600" fill="var(--app-ink)">API · /api/v1</text>
+  <text x="380" y="195" text-anchor="middle" font-size="9" fill="var(--app-muted)">route handlers</text>
+  <text x="380" y="209" text-anchor="middle" font-size="9" fill="var(--app-muted)">(serverless)</text>
+  <rect x="510" y="142" width="190" height="96" rx="9" fill="var(--app-surface-muted)" stroke="var(--app-border)"/>
+  <text x="605" y="178" text-anchor="middle" font-size="12" font-weight="600" fill="var(--app-ink)">Cron · cada 15 min</text>
+  <text x="605" y="195" text-anchor="middle" font-size="9" fill="var(--app-muted)">recordatorios</text>
+  <line x1="250" y1="190" x2="284" y2="190" stroke="var(--app-muted)" stroke-width="1.3" marker-end="url(#arrA)"/>
+  <line x1="510" y1="190" x2="476" y2="190" stroke="var(--app-muted)" stroke-width="1.3" marker-end="url(#arrA)"/>
+  <rect x="60" y="300" width="200" height="74" rx="9" fill="var(--app-surface)" stroke="var(--app-border-strong)"/>
+  <text x="160" y="330" text-anchor="middle" font-size="12" font-weight="600" fill="var(--app-ink)">Neon · PostgreSQL</text>
+  <text x="160" y="348" text-anchor="middle" font-size="9" fill="var(--app-muted)">datos relacionales + RLS</text>
+  <rect x="284" y="300" width="172" height="74" rx="9" fill="var(--app-surface)" stroke="var(--app-border-strong)"/>
+  <text x="370" y="330" text-anchor="middle" font-size="12" font-weight="600" fill="var(--app-ink)">Cloudflare R2</text>
+  <text x="370" y="348" text-anchor="middle" font-size="9" fill="var(--app-muted)">archivos · SCORM</text>
+  <rect x="480" y="300" width="220" height="74" rx="9" fill="var(--app-surface)" stroke="var(--app-border-strong)"/>
+  <text x="590" y="326" text-anchor="middle" font-size="12" font-weight="600" fill="var(--app-ink)">Servicios externos</text>
+  <text x="590" y="343" text-anchor="middle" font-size="9" fill="var(--app-muted)">Zoom · Stripe/Wompi</text>
+  <text x="590" y="356" text-anchor="middle" font-size="9" fill="var(--app-muted)">Pusher · SMTP · IA</text>
+  <line x1="350" y1="238" x2="170" y2="298" stroke="var(--app-muted)" stroke-width="1.3" marker-end="url(#arrA)"/>
+  <line x1="380" y1="238" x2="372" y2="298" stroke="var(--app-muted)" stroke-width="1.3" marker-end="url(#arrA)"/>
+  <line x1="410" y1="238" x2="585" y2="298" stroke="var(--app-muted)" stroke-width="1.3" marker-end="url(#arrA)"/>
+</svg>`,
       },
       { type: 'subheading', text: 'Stack y lenguajes' },
       {
@@ -120,6 +166,43 @@ const ARCHITECTURE_SECTIONS: DocSection[] = [
           ['app_networking', 'Conexiones, hilos de chat, mensajes, comunidades, convocatorias.'],
           ['app_admin', 'Auditoría, configuración de integraciones, branding, plantillas de notificación, site builder.'],
         ],
+      },
+      {
+        type: 'diagram',
+        title: 'Esquemas de PostgreSQL. app_core es el núcleo; los demás esquemas referencian al usuario por user_id (y al actor en la auditoría).',
+        svg: `<svg viewBox="0 0 760 432" width="100%" role="img" aria-label="Esquemas de base de datos y conexiones" xmlns="http://www.w3.org/2000/svg">
+  <g stroke="var(--app-border-strong)" stroke-width="1.4">
+  <line x1="380" y1="196" x2="380" y2="102"/>
+  <line x1="300" y1="212" x2="222" y2="124"/>
+  <line x1="460" y1="212" x2="540" y2="124"/>
+  <line x1="300" y1="262" x2="222" y2="330"/>
+  <line x1="380" y1="278" x2="380" y2="356"/>
+  <line x1="460" y1="262" x2="540" y2="330"/>
+  </g>
+  <text x="388" y="152" font-size="8.5" fill="var(--app-muted)">roles · permisos</text>
+  <text x="468" y="170" font-size="8.5" fill="var(--app-muted)">user_id</text>
+  <text x="468" y="305" font-size="8.5" fill="var(--app-muted)">actor</text>
+  <rect x="295" y="196" width="170" height="82" rx="10" fill="var(--app-ink)"/>
+  <text x="380" y="224" text-anchor="middle" font-size="13" font-weight="700" fill="#ffffff">app_core</text>
+  <text x="380" y="242" text-anchor="middle" font-size="9" fill="#cbd5e1">users · perfiles · orgs</text>
+  <text x="380" y="256" text-anchor="middle" font-size="9" fill="#cbd5e1">notificaciones · cohortes</text>
+  <g font-size="11.5" font-weight="600" fill="var(--app-ink)" text-anchor="middle">
+  <rect x="300" y="36" width="160" height="66" rx="9" fill="var(--app-surface-muted)" stroke="var(--app-border)"/><text x="380" y="62">app_auth</text>
+  <rect x="36" y="62" width="184" height="62" rx="9" fill="var(--app-surface-muted)" stroke="var(--app-border)"/><text x="128" y="88">app_assessment</text>
+  <rect x="540" y="62" width="184" height="62" rx="9" fill="var(--app-surface-muted)" stroke="var(--app-border)"/><text x="632" y="86">app_learning</text>
+  <rect x="36" y="330" width="184" height="62" rx="9" fill="var(--app-surface-muted)" stroke="var(--app-border)"/><text x="128" y="356">app_mentoring</text>
+  <rect x="295" y="356" width="170" height="66" rx="9" fill="var(--app-surface-muted)" stroke="var(--app-border)"/><text x="380" y="382">app_networking</text>
+  <rect x="540" y="330" width="184" height="62" rx="9" fill="var(--app-surface-muted)" stroke="var(--app-border)"/><text x="632" y="356">app_admin</text>
+  </g>
+  <g font-size="9" fill="var(--app-muted)" text-anchor="middle">
+  <text x="380" y="80">roles · permisos · sesiones</text>
+  <text x="128" y="106">diagnósticos · pilares</text>
+  <text x="632" y="101">cursos · progreso · workbooks</text>
+  <text x="128" y="374">sesiones · participantes</text>
+  <text x="380" y="400">conexiones · chat · convocatorias</text>
+  <text x="632" y="374">auditoría · branding · site</text>
+  </g>
+</svg>`,
       },
       { type: 'subheading', text: 'Pool de conexiones y rol de ejecución' },
       {
@@ -253,6 +336,27 @@ export async function GET(request: Request) {
     }),
   );
 }`,
+      },
+      {
+        type: 'diagram',
+        title: 'Ciclo de vida de una petición: del cliente al borde, a la API, a los permisos, al servicio y a PostgreSQL con RLS.',
+        svg: `<svg viewBox="0 0 480 588" width="100%" role="img" aria-label="Ciclo de vida de una petición" xmlns="http://www.w3.org/2000/svg">
+  <defs><marker id="arrB" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L7,3 L0,6 Z" fill="var(--app-muted)"/></marker></defs>
+  <g font-size="11.5" fill="var(--app-ink)" text-anchor="middle">
+  <rect x="70" y="14" width="340" height="44" rx="8" fill="var(--app-surface-muted)" stroke="var(--app-border)"/><text x="240" y="41">1 · Cliente — requestApi()</text>
+  <rect x="70" y="78" width="340" height="44" rx="8" fill="var(--app-surface-muted)" stroke="var(--app-border)"/><text x="240" y="105">2 · Borde (proxy.ts) — host canónico · rate limit</text>
+  <rect x="70" y="142" width="340" height="44" rx="8" fill="var(--app-surface-muted)" stroke="var(--app-border)"/><text x="240" y="169">3 · Route handler · /api/v1</text>
+  <rect x="70" y="206" width="340" height="44" rx="8" fill="var(--app-surface-muted)" stroke="var(--app-border)"/><text x="240" y="233">4 · authenticateRequest — rol desde BD</text>
+  <rect x="70" y="270" width="340" height="44" rx="8" fill="var(--app-surface-muted)" stroke="var(--app-border)"/><text x="240" y="297">5 · withClient + withRoleContext — fija RLS</text>
+  <rect x="70" y="334" width="340" height="44" rx="8" fill="var(--app-surface-muted)" stroke="var(--brand-primary)" stroke-width="1.6"/><text x="240" y="361">6 · requireModulePermission — 403 si falla</text>
+  <rect x="70" y="398" width="340" height="44" rx="8" fill="var(--app-surface-muted)" stroke="var(--app-border)"/><text x="240" y="425">7 · Service — lógica + SQL</text>
+  <rect x="70" y="462" width="340" height="44" rx="8" fill="var(--app-surface-muted)" stroke="var(--brand-primary)" stroke-width="1.6"/><text x="240" y="489">8 · PostgreSQL — políticas RLS</text>
+  <rect x="70" y="526" width="340" height="44" rx="8" fill="var(--app-ink)"/><text x="240" y="553" fill="#ffffff">9 · logModuleAudit → { ok, data }</text>
+  </g>
+  <g stroke="var(--app-muted)" stroke-width="1.4" marker-end="url(#arrB)">
+  <line x1="240" y1="58" x2="240" y2="76"/><line x1="240" y1="122" x2="240" y2="140"/><line x1="240" y1="186" x2="240" y2="204"/><line x1="240" y1="250" x2="240" y2="268"/><line x1="240" y1="314" x2="240" y2="332"/><line x1="240" y1="378" x2="240" y2="396"/><line x1="240" y1="442" x2="240" y2="460"/><line x1="240" y1="506" x2="240" y2="524"/>
+  </g>
+</svg>`,
       },
       {
         type: 'callout',
@@ -502,6 +606,26 @@ export async function GET(request: Request) {
           ['Development', 'Ejecución local con vercel dev o npm run dev.', 'Trabajo en la máquina del desarrollador antes de subir nada.'],
         ],
       },
+      {
+        type: 'diagram',
+        title: 'Cada origen de código aterriza en un entorno distinto. El cron solo se ejecuta en Producción.',
+        svg: `<svg viewBox="0 0 720 236" width="100%" role="img" aria-label="Entornos de Vercel" xmlns="http://www.w3.org/2000/svg">
+  <defs><marker id="arrD" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L7,3 L0,6 Z" fill="var(--app-muted)"/></marker></defs>
+  <g text-anchor="middle">
+  <rect x="24" y="24" width="200" height="52" rx="9" fill="var(--app-surface-muted)" stroke="var(--app-border)"/><text x="124" y="55" font-size="12" font-weight="600" fill="var(--app-ink)">Rama main</text>
+  <rect x="420" y="24" width="276" height="52" rx="9" fill="var(--app-ink)"/><text x="558" y="48" font-size="12" font-weight="600" fill="#ffffff">Production</text><text x="558" y="64" font-size="9" fill="#cbd5e1">4shine.co</text>
+  <rect x="24" y="96" width="200" height="52" rx="9" fill="var(--app-surface-muted)" stroke="var(--app-border)"/><text x="124" y="127" font-size="12" font-weight="600" fill="var(--app-ink)">Otra rama / Pull Request</text>
+  <rect x="420" y="96" width="276" height="52" rx="9" fill="var(--app-surface)" stroke="var(--brand-primary)" stroke-width="1.6"/><text x="558" y="120" font-size="12" font-weight="600" fill="var(--app-ink)">Preview</text><text x="558" y="136" font-size="9" fill="var(--app-muted)">URL única por commit</text>
+  <rect x="24" y="168" width="200" height="52" rx="9" fill="var(--app-surface-muted)" stroke="var(--app-border)"/><text x="124" y="199" font-size="12" font-weight="600" fill="var(--app-ink)">Local · npm run dev</text>
+  <rect x="420" y="168" width="276" height="52" rx="9" fill="var(--app-surface-muted)" stroke="var(--app-border)"/><text x="558" y="199" font-size="12" font-weight="600" fill="var(--app-ink)">Development</text>
+  </g>
+  <g stroke="var(--app-muted)" stroke-width="1.4" marker-end="url(#arrD)">
+  <line x1="224" y1="50" x2="418" y2="50"/><line x1="224" y1="122" x2="418" y2="122"/><line x1="224" y1="194" x2="418" y2="194"/>
+  </g>
+  <text x="322" y="44" text-anchor="middle" font-size="8.5" fill="var(--app-muted)">build</text>
+  <text x="322" y="116" text-anchor="middle" font-size="8.5" fill="var(--app-muted)">build</text>
+</svg>`,
+      },
       { type: 'subheading', text: 'Flujo de despliegue (CI/CD)' },
       {
         type: 'steps',
@@ -606,6 +730,70 @@ export async function GET(request: Request) {
         tone: 'info',
         title: 'Migraciones y seed',
         text: 'El esquema se versiona como SQL plano en db/migrations (la migración base es 20260301_initial_platform_schema.sql) y se aplica de forma ordenada e idempotente. El seeder inicial crea roles, permisos y usuarios de prueba.',
+      },
+    ],
+  },
+  {
+    slug: 'mapa-subsistemas',
+    label: 'Mapa de subsistemas',
+    tagline:
+      'Las piezas que no son un módulo de negocio pero sostienen la app: sitio público, borde, webhooks, archivos/SCORM, realtime, certificados y sesión.',
+    icon: 'Network',
+    category: 'arquitectura',
+    blocks: [
+      {
+        type: 'p',
+        text: 'Además de los módulos de negocio, hay subsistemas transversales que conviene ubicar para no perderse. Esta es la foto de cómo el sitio público y el dashboard se conectan, a través del borde y la API, con cada pieza.',
+      },
+      {
+        type: 'diagram',
+        title: 'El borde (proxy.ts) y la API /api/v1 conectan las dos superficies (sitio público y dashboard) con cada subsistema.',
+        svg: `<svg viewBox="0 0 760 432" width="100%" role="img" aria-label="Mapa de subsistemas" xmlns="http://www.w3.org/2000/svg">
+  <defs><marker id="arrE" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L7,3 L0,6 Z" fill="var(--app-muted)"/></marker></defs>
+  <g stroke="var(--app-muted)" stroke-width="1.3" marker-end="url(#arrE)">
+  <line x1="200" y1="86" x2="332" y2="204"/>
+  <line x1="560" y1="86" x2="438" y2="204"/>
+  <line x1="206" y1="178" x2="298" y2="216"/>
+  <line x1="470" y1="216" x2="554" y2="178"/>
+  <line x1="320" y1="272" x2="208" y2="312"/>
+  <line x1="385" y1="272" x2="385" y2="358"/>
+  <line x1="452" y1="272" x2="554" y2="312"/>
+  </g>
+  <rect x="300" y="205" width="170" height="66" rx="10" fill="var(--app-ink)"/>
+  <text x="385" y="234" text-anchor="middle" font-size="13" font-weight="700" fill="#ffffff">API · /api/v1</text>
+  <text x="385" y="252" text-anchor="middle" font-size="9" fill="#cbd5e1">+ Borde (proxy.ts)</text>
+  <g text-anchor="middle">
+  <rect x="110" y="28" width="180" height="56" rx="9" fill="var(--app-surface)" stroke="var(--app-border-strong)"/><text x="200" y="52" font-size="11.5" font-weight="600" fill="var(--app-ink)">Sitio público</text><text x="200" y="68" font-size="8.5" fill="var(--app-muted)">landing · /descubrimiento · /advisers</text>
+  <rect x="470" y="28" width="180" height="56" rx="9" fill="var(--app-surface)" stroke="var(--app-border-strong)"/><text x="560" y="52" font-size="11.5" font-weight="600" fill="var(--app-ink)">Dashboard</text><text x="560" y="68" font-size="8.5" fill="var(--app-muted)">app autenticada</text>
+  <rect x="24" y="150" width="182" height="58" rx="9" fill="var(--app-surface-muted)" stroke="var(--app-border)"/><text x="115" y="174" font-size="11" font-weight="600" fill="var(--app-ink)">Webhooks (entrantes)</text><text x="115" y="190" font-size="8.5" fill="var(--app-muted)">Stripe · Wompi · Zoom</text>
+  <rect x="554" y="150" width="182" height="58" rx="9" fill="var(--app-surface-muted)" stroke="var(--app-border)"/><text x="645" y="174" font-size="11" font-weight="600" fill="var(--app-ink)">Uploads R2 + SCORM</text><text x="645" y="190" font-size="8.5" fill="var(--app-muted)">presign · serve · relay</text>
+  <rect x="24" y="300" width="182" height="58" rx="9" fill="var(--app-surface-muted)" stroke="var(--app-border)"/><text x="115" y="324" font-size="11" font-weight="600" fill="var(--app-ink)">Realtime (Pusher)</text><text x="115" y="340" font-size="8.5" fill="var(--app-muted)">auth → canales privados</text>
+  <rect x="290" y="358" width="190" height="56" rx="9" fill="var(--app-surface-muted)" stroke="var(--app-border)"/><text x="385" y="382" font-size="11" font-weight="600" fill="var(--app-ink)">Certificados (PDF)</text><text x="385" y="398" font-size="8.5" fill="var(--app-muted)">jsPDF · pdf-branding</text>
+  <rect x="554" y="300" width="182" height="58" rx="9" fill="var(--app-surface-muted)" stroke="var(--app-border)"/><text x="645" y="324" font-size="11" font-weight="600" fill="var(--app-ink)">Sesión</text><text x="645" y="340" font-size="8.5" fill="var(--app-muted)">JWT refresh · idle logout</text>
+  </g>
+</svg>`,
+      },
+      { type: 'subheading', text: 'Subsistemas y dónde viven' },
+      {
+        type: 'table',
+        headers: ['Subsistema', 'Qué hace', 'Dónde vive'],
+        rows: [
+          ['Borde (middleware)', 'Redirige al host canónico (www.4shine.co), aplica rate limit a los endpoints de auth y bloquea páginas públicas deshabilitadas.', 'src/proxy.ts (middleware de Next.js 16)'],
+          ['Sitio público', 'Páginas no autenticadas: landing, diagnóstico, advisers, precios, etc. Renderizadas por el App Router.', 'src/app/* (fuera de /dashboard), components/marketing'],
+          ['Catálogo de API', 'Toda la superficie REST: auth, bootstrap, módulos, pagos, cron, uploads, scorm, pusher.', 'src/app/api/v1/**'],
+          ['Webhooks', 'Reciben eventos externos para confirmar pagos y cambios de Zoom.', 'api/v1/payments/stripe|wompi/webhook, api/v1/integrations/zoom/webhook'],
+          ['Archivos (R2)', 'Genera URLs prefirmadas para subir/descargar archivos directamente desde el cliente.', 'api/v1/uploads/r2/* (+ presign)'],
+          ['SCORM', 'Empaqueta y sirve los cursos SCORM dentro de un iframe (cabecera X-Frame-Options SAMEORIGIN).', 'api/v1/uploads/r2/scorm/*, api/v1/scorm/serve/*'],
+          ['Realtime', 'Autoriza la conexión a canales privados de Pusher para chat y notificaciones.', 'api/v1/pusher/auth, lib/pusher-*.ts'],
+          ['Certificados', 'Genera PDFs de certificado con la marca de la organización.', 'lib/certificate-generator.ts, lib/pdf-branding.ts'],
+          ['Sesión', 'Refresca el token de acceso y cierra la sesión por inactividad en el cliente.', 'lib/session-timeout*.ts, api/v1/auth/refresh'],
+        ],
+      },
+      {
+        type: 'callout',
+        tone: 'info',
+        title: 'Documentación viva',
+        text: 'El detalle fino de cada endpoint y pipeline cambia seguido; conviene mantenerlo cerca del código (comentarios y docs por módulo). Este mapa da la ubicación para encontrarlo rápido.',
       },
     ],
   },

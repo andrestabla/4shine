@@ -111,6 +111,22 @@ function DocBlockItem({ block }: { block: DocBlock }) {
         </pre>
       );
 
+    case 'diagram':
+      return (
+        <figure className="space-y-2">
+          <div
+            className="overflow-x-auto rounded-[0.9rem] border border-[var(--app-border)] bg-[var(--app-surface)] p-4"
+            // Contenido estático autorado en content.ts (sin entrada de usuario).
+            dangerouslySetInnerHTML={{ __html: block.svg }}
+          />
+          {block.title && (
+            <figcaption className="text-xs text-[var(--app-muted)]">
+              {block.title}
+            </figcaption>
+          )}
+        </figure>
+      );
+
     case 'callout': {
       const isWarn = block.tone === 'warn';
       const Icon = isWarn ? AlertTriangle : Info;

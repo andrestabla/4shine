@@ -30,6 +30,7 @@ import {
   Wrench,
   ShieldAlert,
   BookA,
+  Network,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -65,6 +66,7 @@ const ICONS: Record<string, LucideIcon> = {
   Wrench,
   ShieldAlert,
   BookA,
+  Network,
 };
 
 export function resolveDocIcon(key: string): LucideIcon {
