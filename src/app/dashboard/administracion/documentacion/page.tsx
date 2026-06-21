@@ -17,7 +17,7 @@ const GROUPS: { key: 'arquitectura' | 'modulo'; title: string; description: stri
     key: 'modulo',
     title: 'Módulos del sistema',
     description:
-      'Una sección por cada módulo, explicando qué hace, dónde vive y cómo funciona por dentro.',
+      'Una sección por cada módulo: qué hace, dónde vive, cómo funciona por dentro y qué puede hacer cada rol (según la matriz de permisos, editable en Administración → Roles).',
   },
 ];
 

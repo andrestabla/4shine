@@ -40,6 +40,52 @@ export default function DocumentacionSectionPage() {
         <DocBlocks blocks={section.blocks} />
       </div>
 
+      {section.roles && section.roles.length > 0 && (
+        <div className="app-panel p-5 md:p-6 space-y-3">
+          <div>
+            <h2 className="text-base font-semibold text-[var(--app-ink)]">
+              Qué puede hacer cada rol
+            </h2>
+            <p className="mt-1 text-xs leading-[1.6] text-[var(--app-muted)]">
+              Refleja la matriz de permisos por defecto, editable en{' '}
+              <span className="font-medium text-[var(--app-ink)]">
+                Administración → Roles
+              </span>
+              .
+            </p>
+          </div>
+          <div className="overflow-x-auto rounded-[0.9rem] border border-[var(--app-border)]">
+            <table className="w-full border-collapse text-left text-sm">
+              <thead>
+                <tr className="bg-[var(--app-surface-muted)]">
+                  <th className="px-4 py-2.5 font-semibold text-[var(--app-ink)]">
+                    Rol
+                  </th>
+                  <th className="px-4 py-2.5 font-semibold text-[var(--app-ink)]">
+                    Qué puede hacer
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {section.roles.map((row) => (
+                  <tr
+                    key={row.role}
+                    className="border-t border-[var(--app-border)] align-top"
+                  >
+                    <td className="whitespace-nowrap px-4 py-2.5 font-medium text-[var(--app-ink)]">
+                      {row.role}
+                    </td>
+                    <td className="px-4 py-2.5 leading-[1.55] text-[var(--app-muted)]">
+                      {row.can}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {next && (
         <Link
           href={`/dashboard/administracion/documentacion/${next.slug}`}
