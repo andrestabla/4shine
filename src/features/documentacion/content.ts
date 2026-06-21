@@ -263,6 +263,134 @@ export async function GET(request: Request) {
     ],
   },
   {
+    slug: 'frontend-cliente',
+    label: 'Frontend y estado del cliente',
+    tagline:
+      'Cómo funciona la capa de cliente: React Context, data fetching, theming por variables CSS y gating de rutas.',
+    icon: 'AppWindow',
+    category: 'arquitectura',
+    blocks: [
+      {
+        type: 'p',
+        text: 'El frontend es React sobre el App Router de Next.js. No usa Redux ni un store global pesado: el estado compartido vive en unos pocos React Context, y los datos se piden a la API con un wrapper común. La mayoría de las páginas del dashboard son client components (\'use client\') que hidratan sus datos al montar.',
+      },
+      { type: 'subheading', text: 'Proveedores de contexto' },
+      {
+        type: 'table',
+        headers: ['Context (hook)', 'Qué expone'],
+        rows: [
+          ['UserContext (useUser)', 'currentUser, currentRole, isAuthenticated, isHydrating, mustChangePassword y can(módulo, acción). Es la fuente de la sesión y los permisos en el cliente.'],
+          ['BrandingContext (useBranding)', 'tokens de marca (colores, tipografía) para el theming; reflejan lo configurado en Administración → Branding.'],
+          ['AppDialogProvider (useAppDialog)', 'alert / confirm / prompt con UI propia, en vez de los window.alert nativos.'],
+        ],
+      },
+      { type: 'subheading', text: 'Peticiones a la API' },
+      {
+        type: 'p',
+        text: 'Toda llamada al backend pasa por requestApi<T>(ruta, init) (src/lib/api-client.ts). Adjunta la cookie de sesión; si recibe 401, intenta refrescar el token y reintenta; desempaqueta el campo data del sobre de respuesta y lanza si ok es false.',
+      },
+      {
+        type: 'code',
+        code: `const data = await requestApi<MiTipo>('/api/v1/modules/aprendizaje/resources', {
+  method: 'GET',
+  cache: 'no-store',
+});`,
+      },
+      { type: 'subheading', text: 'Theming por variables CSS' },
+      {
+        type: 'bullets',
+        items: [
+          'Los colores no se escriben a mano: se usan tokens CSS. Familia --app-* para superficies/estructura (--app-ink texto principal, --app-muted texto secundario, --app-border, --app-surface, --app-surface-muted) y familia --brand-* para la identidad (--brand-primary, --brand-accent, etc.).',
+          'Se aplican con Tailwind mediante la sintaxis arbitraria: text-[var(--app-ink)], bg-[var(--app-surface)].',
+          'Branding (Administración → Branding) reescribe estos tokens, de modo que cambiar la marca no requiere tocar componentes.',
+          'Hay clases utilitarias propias reutilizables: .app-panel (panel con borde), .app-list-card (tarjeta clicable), .app-button-primary (CTA principal).',
+        ],
+      },
+      { type: 'subheading', text: 'Protección de rutas en el cliente' },
+      {
+        type: 'p',
+        text: 'El layout del dashboard (src/app/dashboard/layout.tsx) mapea cada ruta a su (módulo, acción) requerido (ACCESS_BY_PATH + resolveRouteAccess) y bloquea o redirige antes de renderizar. Dentro de un componente, can(\'usuarios\', \'manage\') decide si mostrar u ocultar un control.',
+      },
+    ],
+  },
+  {
+    slug: 'errores-validacion',
+    label: 'Manejo de errores y validación',
+    tagline:
+      'Sobre de respuesta, helpers compartidos, mapeo de errores a códigos HTTP y validación de entrada.',
+    icon: 'ShieldAlert',
+    category: 'arquitectura',
+    blocks: [
+      {
+        type: 'p',
+        text: 'Las rutas de API responden con un sobre uniforme y comparten helpers de manejo de error en src/app/api/v1/modules/_utils.ts. Esto mantiene consistentes los códigos HTTP y los mensajes.',
+      },
+      { type: 'subheading', text: 'Sobre de respuesta' },
+      {
+        type: 'bullets',
+        items: [
+          'Éxito: { ok: true, data: ... }.',
+          'Error: { ok: false, error: "mensaje", detail?: "..." }.',
+          'En el cliente, requestApi desempaqueta data cuando ok es true y lanza un error cuando ok es false.',
+        ],
+      },
+      { type: 'subheading', text: 'Helpers compartidos (_utils.ts)' },
+      {
+        type: 'table',
+        headers: ['Helper', 'Comportamiento'],
+        rows: [
+          ['unauthorizedResponse()', 'Responde 401 { ok:false, error:"Unauthorized" } cuando no hay sesión válida.'],
+          ['errorResponse(error, fallback)', 'Si el error es ForbiddenError, responde con su statusCode (403) y su mensaje. Cualquier otro error → 500 con { error: fallback, detail }.'],
+          ['parseJsonBody<T>(request)', 'Parsea el cuerpo JSON o devuelve null si es inválido (para validarlo antes de usarlo).'],
+        ],
+      },
+      { type: 'subheading', text: 'Clases de error' },
+      {
+        type: 'p',
+        text: 'La jerarquía es deliberadamente pequeña: ForbiddenError (statusCode 403), que lanza requireModulePermission cuando falta un permiso, y SiteBuilderError para ese módulo. El resto de fallos se tratan como 500 con un detail descriptivo.',
+      },
+      {
+        type: 'callout',
+        tone: 'warn',
+        title: 'La validación de entrada es manual',
+        text: 'El proyecto NO usa zod ni un validador por esquema. Los servicios normalizan y validan a mano (typeof, trim, listas de valores permitidos) antes de tocar la base de datos, y la RLS es la última línea de defensa. Si agregas validación, sigue ese estilo (normalizar en el service) o introduce una librería de forma consistente en todo el módulo.',
+      },
+    ],
+  },
+  {
+    slug: 'receta-nuevo-modulo',
+    label: 'Receta: agregar un módulo',
+    tagline:
+      'Pasos de punta a punta para crear un módulo o sección nueva siguiendo el patrón del sistema.',
+    icon: 'Wrench',
+    category: 'arquitectura',
+    blocks: [
+      {
+        type: 'p',
+        text: 'Todos los módulos se construyen igual. Esta es la secuencia recomendada para añadir uno nuevo (o una sección de administración) sin romper convenciones.',
+      },
+      {
+        type: 'steps',
+        items: [
+          'Crea la carpeta del feature src/features/<modulo>/ con types.ts (formas de datos), service.ts (lógica + SQL; recibe PoolClient y AuthUser) y client.ts (llamadas con requestApi).',
+          'Si necesitas tablas nuevas, añade una migración SQL en db/migrations (con RLS y grants si aplica) y aplícala con npm run db:migrate.',
+          'Si es un nuevo dominio de permisos, agrega su clave a MODULE_CODES (src/lib/permissions.ts) y otorga el permiso a los roles en la matriz (app_auth.role_module_permissions).',
+          'Crea la(s) ruta(s) API en src/app/api/v1/modules/<modulo>/route.ts: autentica, abre contexto (withClient + withRoleContext), verifica permiso (requireModulePermission), llama al service, audita (logModuleAudit) y responde con el sobre. Usa los helpers de _utils.ts para los errores.',
+          'Crea la página en src/app/dashboard/<modulo>/page.tsx (client component) consumiendo el client.ts y usando useUser().can() para mostrar u ocultar controles.',
+          'Registra el acceso de la ruta en ACCESS_BY_PATH (y resolveRouteAccess para rutas dinámicas) en src/app/dashboard/layout.tsx.',
+          'Registra la ruta y su etiqueta en DashboardBackButton.tsx (DASHBOARD_ROUTES + SEGMENT_LABELS) y, según corresponda, en Sidebar.tsx o en ADMIN_CARDS (hub de Administración).',
+          'Verifica con npm run lint y npx tsc --noEmit antes de subir.',
+        ],
+      },
+      {
+        type: 'callout',
+        tone: 'info',
+        title: 'Ejemplo real',
+        text: 'Este mismo módulo de Documentación técnica se construyó siguiendo estos pasos (sin tablas nuevas: su contenido es estático en src/features/documentacion/content.ts).',
+      },
+    ],
+  },
+  {
     slug: 'integraciones-servicios',
     label: 'Integraciones y servicios',
     tagline:
@@ -478,6 +606,62 @@ export async function GET(request: Request) {
         tone: 'info',
         title: 'Migraciones y seed',
         text: 'El esquema se versiona como SQL plano en db/migrations (la migración base es 20260301_initial_platform_schema.sql) y se aplica de forma ordenada e idempotente. El seeder inicial crea roles, permisos y usuarios de prueba.',
+      },
+    ],
+  },
+  {
+    slug: 'glosario-dominio',
+    label: 'Glosario de dominio',
+    tagline:
+      'Vocabulario del negocio que aparece en el código (roles, fases, scopes), más cómo crear migraciones y el estado de las pruebas.',
+    icon: 'BookA',
+    category: 'arquitectura',
+    blocks: [
+      {
+        type: 'p',
+        text: 'Algunos términos del código no son obvios para alguien nuevo. Esta es la traducción entre el negocio y el código.',
+      },
+      { type: 'subheading', text: 'Roles' },
+      {
+        type: 'table',
+        headers: ['En código', 'En la UI / negocio'],
+        rows: [
+          ['lider', 'Líder: participante del programa.'],
+          ['mentor', 'Adviser: acompaña a los líderes. OJO: en la interfaz se llama "Adviser", pero en el código y la base de datos el rol es mentor.'],
+          ['gestor', 'Gestor: coordina el programa, crea y modera contenido.'],
+          ['admin', 'Administrador del sistema.'],
+          ['invitado', 'Invitado: cuenta con acceso limitado solo a Descubrimiento.'],
+        ],
+      },
+      { type: 'subheading', text: 'Conceptos del programa' },
+      {
+        type: 'table',
+        headers: ['Término', 'Significado'],
+        rows: [
+          ['Las 5 fases', 'El recorrido del programa: Descubrimiento → Shine Within → Shine Out → Shine Up → Shine Beyond (~10 semanas).'],
+          ['Workbook', 'Cuaderno digital del programa (WB1–WB10) con avance sincronizado. La versión V3 incorpora grabación de voz, transcripción y análisis con IA.'],
+          ['Scope (ámbito)', 'Separa el contenido por destino: aprendizaje, metodologia, formacion_mentores (formación de advisers), etc.'],
+          ['Audiencia', 'A quién se dirige un contenido: all, lider, lider_suscrito, lider_sin_suscripcion o ishiners (advisers).'],
+          ['library_location', 'Dónde aparece un contenido en la biblioteca: cursos o contenidos_libres.'],
+          ['Entitlement', 'Derecho otorgado por el plan (p. ej. el número de mentorías 1:1 incluidas).'],
+        ],
+      },
+      { type: 'subheading', text: 'Cómo crear una migración' },
+      {
+        type: 'bullets',
+        items: [
+          'Crea un archivo db/migrations/<YYYYMMDD>_<descripcion>.sql.',
+          'Escribe SQL idempotente (CREATE ... IF NOT EXISTS, ADD COLUMN IF NOT EXISTS, etc.) para que reaplicarlo sea seguro.',
+          'Para tablas nuevas, incluye sus políticas RLS y los grants para el rol de ejecución (app_runtime).',
+          'Aplica con npm run db:migrate. Nunca edites una migración ya aplicada: agrega una nueva.',
+        ],
+      },
+      { type: 'subheading', text: 'Pruebas y calidad' },
+      {
+        type: 'callout',
+        tone: 'warn',
+        title: 'No hay pruebas automatizadas',
+        text: 'Actualmente el proyecto no tiene tests ni framework de pruebas configurado. La red de seguridad antes de cada push es el typecheck (npx tsc --noEmit) y el linter (npm run lint). Introducir pruebas (unitarias de servicios y end-to-end de flujos críticos como login, agendar mentoría o publicar contenido) es una mejora pendiente.',
       },
     ],
   },

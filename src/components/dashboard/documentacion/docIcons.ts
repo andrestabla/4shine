@@ -26,6 +26,10 @@ import {
   Cloud,
   GitBranch,
   TerminalSquare,
+  AppWindow,
+  Wrench,
+  ShieldAlert,
+  BookA,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -57,6 +61,10 @@ const ICONS: Record<string, LucideIcon> = {
   Cloud,
   GitBranch,
   TerminalSquare,
+  AppWindow,
+  Wrench,
+  ShieldAlert,
+  BookA,
 };
 
 export function resolveDocIcon(key: string): LucideIcon {
