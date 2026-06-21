@@ -79,6 +79,10 @@ const ACCESS_BY_PATH: Record<string, RouteAccess> = {
     moduleCode: "usuarios",
     action: "manage",
   },
+  "/dashboard/administracion/documentacion": {
+    moduleCode: "usuarios",
+    action: "manage",
+  },
   "/dashboard/contenido": { moduleCode: "contenido" },
   "/dashboard/analitica": { moduleCode: "analitica" },
 };
@@ -103,6 +107,11 @@ function resolveRouteAccess(pathname: string): RouteAccess | undefined {
 
   if (pathname.startsWith("/dashboard/usuarios/")) {
     return { moduleCode: "usuarios", action: "view" };
+  }
+
+  // Secciones de la documentación técnica (rutas dinámicas por slug).
+  if (pathname.startsWith("/dashboard/administracion/documentacion/")) {
+    return { moduleCode: "usuarios", action: "manage" };
   }
 
   return undefined;

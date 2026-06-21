@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { PageTitle } from '@/components/dashboard/PageTitle';
-import { Settings, Palette, PlugZap, Users, ShieldCheck, Globe, Bell, CreditCard, Receipt, Compass, Bot } from 'lucide-react';
+import { Settings, Palette, PlugZap, Users, ShieldCheck, Globe, Bell, CreditCard, Receipt, Compass, Bot, FileCode2 } from 'lucide-react';
 
 const ADMIN_CARDS = [
   {
@@ -64,6 +64,12 @@ const ADMIN_CARDS = [
     description: 'Configurar el chatbot de soporte 360: estado, persona, instrucciones, base de conocimiento (FAQs) y revisión de conversaciones.',
     href: '/dashboard/administracion/asistente-ia',
     icon: Bot,
+  },
+  {
+    title: 'Documentación técnica',
+    description: 'Cómo está construida la plataforma (arquitectura, base de datos, permisos) y cómo funciona cada módulo del sistema.',
+    href: '/dashboard/administracion/documentacion',
+    icon: FileCode2,
   },
 ] as const;
 
