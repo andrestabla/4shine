@@ -1325,6 +1325,16 @@ const MODULE_SECTIONS: DocSection[] = [
           'Métricas como usuarios activos/nuevos, distribución por rol/plan/país, completitud y asistencia.',
         ],
       },
+      { type: 'subheading', text: 'Cómo funciona por dentro' },
+      {
+        type: 'bullets',
+        items: [
+          'No tiene tablas propias: getAnalytics ejecuta consultas SQL en vivo sobre los esquemas de cada módulo, acotadas a la organización del usuario.',
+          'Rango de fechas: por defecto los últimos 90 días, configurable con ?from y ?to (ISO).',
+          'Devuelve KPIs y series temporales por módulo: usuarios (activos/nuevos, por rol/plan/país, vigencia), mentorías (por estado/tipo, asistencia), descubrimiento (completitud, promedio por pilar), aprendizaje (avance de workbooks, contenido por tipo/estado), networking, convocatorias y workshops.',
+          'La UI exporta a Excel (una hoja por módulo) y PDF con marca.',
+        ],
+      },
     ],
   },
   {
@@ -1359,6 +1369,17 @@ const MODULE_SECTIONS: DocSection[] = [
         title: 'Gating por plan',
         text: 'El acceso efectivo combina permiso de rol (role_module_permissions) y feature gating por plan (módulos y cuotas incluidos en la suscripción del usuario).',
       },
+      { type: 'subheading', text: 'Cómo funciona por dentro' },
+      {
+        type: 'bullets',
+        items: [
+          'Tablas: app_billing.subscription_plans (catálogo: plan_code, plan_group program/circulo/custom, precio, duration_days, is_active, is_system) y plan_module_features (qué módulos habilita y con qué cuota).',
+          'Cada plan enciende o apaga funciones (trayectoria, descubrimiento, aprendizaje_cursos, mentorias_1on1, mentorias_grupales, networking, etc.) y puede fijar una cuota (p. ej. 10 mentorías 1:1).',
+          'Gating en runtime (features/access): para un líder, getViewerAccessState lee su plan vigente (no vencido) más las compras puntuales y deriva los permisos efectivos. Con plan asignado, el plan manda; las compras suman acceso (pack de mentorías, diagnóstico).',
+          'Los roles no-líder (gestor/adviser/admin) no se limitan por plan; el invitado solo accede a Descubrimiento.',
+          'Un plan is_system o con usuarios suscritos no se puede eliminar, solo desactivar.',
+        ],
+      },
     ],
   },
   {
@@ -1387,6 +1408,17 @@ const MODULE_SECTIONS: DocSection[] = [
           ['Feature', 'src/features/usuarios/'],
           ['Base de datos', 'app_core.users, app_core.user_profiles, app_auth (roles, sesiones, permisos)'],
           ['Permiso', 'usuarios:view para consultar; usuarios:manage para administrar'],
+        ],
+      },
+      { type: 'subheading', text: 'Cómo funciona por dentro' },
+      {
+        type: 'bullets',
+        items: [
+          'Tablas: app_core.users (identidad, primary_role, is_active, organización), app_core.user_profiles (demografía y plan), app_auth.user_credentials (hash, intentos, tokens), app_auth.user_roles y app_auth.refresh_sessions (sesiones).',
+          'Alta: createUser inserta en esas tablas; si es líder con plan premium/vip, calcula la vigencia como ahora + duration_days del plan, y puede enviar email de bienvenida con contraseña temporal.',
+          'Baja: "suspender" es is_active = false (bloquea el login, conserva los datos). "Eliminar" es un borrado físico irreversible que primero deja un registro en app_admin.deleted_users_log.',
+          'Seguridad: cambiar el rol o desactivar a un usuario revoca todas sus sesiones. El reseteo por el admin envía email; el autoservicio usa un token de un solo uso con 1 hora de validez.',
+          'Auditoría: las acciones y la bitácora de navegación quedan en app_admin.audit_logs; las sesiones activas (IP, user-agent, en línea) se listan aparte.',
         ],
       },
     ],
@@ -1425,6 +1457,17 @@ const MODULE_SECTIONS: DocSection[] = [
           'Soporta borrado lógico con papelera y restauración, además del toggle de visibilidad en biblioteca.',
         ],
       },
+      { type: 'subheading', text: 'Cómo funciona por dentro' },
+      {
+        type: 'bullets',
+        items: [
+          'Tabla central app_learning.content_items con: scope (aprendizaje / metodologia / formacion_mentores / formacion_lideres), content_type (video, pdf, scorm, podcast, article, ppt, html, activity, assignment), status, library_location, show_in_library, deleted_at y structure_payload (módulos y recursos de un curso).',
+          'Estados: draft → pending_review → published → archived / rejected. Publicar requiere el permiso de aprobar.',
+          'Borrado en dos pasos: deleteContent es lógico (deleted_at, va a Papelera), restoreContent lo recupera y purgeContent lo elimina definitivamente (irreversible).',
+          'Actividades (content_activities + activity_questions + activity_attempts): quizzes autocalificados con tipos de pregunta single_choice, multiple_choice, true_false, fill_blank, numeric y ordering, con puntaje de aprobación e intentos.',
+          'Tareas (content_assignments + assignment_submissions): definen instrucciones, criterios, formatos aceptados y puntaje; las entregas pasan por draft → submitted → graded / rejected / revision_requested.',
+        ],
+      },
     ],
   },
   {
@@ -1459,6 +1502,15 @@ const MODULE_SECTIONS: DocSection[] = [
         type: 'p',
         text: 'No tiene servicio propio de escritura: es una vista que compone datos de otros módulos (workbooks, descubrimiento, mentorías).',
       },
+      { type: 'subheading', text: 'Cómo funciona por dentro' },
+      {
+        type: 'bullets',
+        items: [
+          'Es de solo lectura: no tiene tablas ni servicio de escritura. La definición de fases e hitos vive en código (journey-leader.ts).',
+          '5 fases sobre ~24 semanas: Descubrimiento (semana 1), Shine Within (WB1–3), Shine Out (WB4–6), Shine Up (WB7–8) y Shine Beyond (WB9–10).',
+          'El avance global se calcula promediando la completitud de los hitos (diagnóstico + WB1..WB10) con computeRouteProgressPercent, tomando datos de descubrimiento, workbooks y mentorías.',
+        ],
+      },
     ],
   },
   {
@@ -1490,6 +1542,15 @@ const MODULE_SECTIONS: DocSection[] = [
           ['Base de datos', 'app_core.user_profiles'],
         ],
       },
+      { type: 'subheading', text: 'Cómo funciona por dentro' },
+      {
+        type: 'bullets',
+        items: [
+          'Tablas: app_core.user_profiles (profesión, industria, bio, país, job_role, género, años de experiencia, redes), app_core.user_interests y app_core.user_projects (máx. 8). Si el usuario es adviser, app_mentoring.mentors (experiencia, precio de sesión, temas por pilar).',
+          'Campos validados contra listas blancas: país (21 opciones), job_role (5) y género (3). La demografía es obligatoria en el primer ingreso (onboarding).',
+          'Extracción desde CV: se sube un archivo (.docx o texto), se extrae el texto y se envía a OpenAI (temperatura baja) para inferir y normalizar los campos del perfil —incluidos proyectos e intereses—. Usa las credenciales de OpenAI de Integraciones.',
+        ],
+      },
     ],
   },
   {
@@ -1515,6 +1576,16 @@ const MODULE_SECTIONS: DocSection[] = [
           ['UI', '/dashboard/administracion/site (lista y /site/<pageId> editor)'],
           ['Base de datos', 'app_admin (site_pages)'],
           ['Acceso', 'Solo admin (usuarios:manage)'],
+        ],
+      },
+      { type: 'subheading', text: 'Cómo funciona por dentro' },
+      {
+        type: 'bullets',
+        items: [
+          'Tabla app_admin.site_pages: cada página tiene page_key, slug, navegación (show_in_nav, nav_order), is_visible (gating público) y un array sections (jsonb) con los bloques.',
+          'Hay ~25 tipos de bloque: estructura (section por columnas, hero, divider, spacer), contenido (richText, imageText, cards, features, steps, faq, quote, team, gallery, logos), social (testimonials y advisers —dinámico, trae advisers reales—), conversión (cta, banner, pricing), media (video, image) y html avanzado.',
+          'El sitio público renderiza las páginas por page_key o slug (lib/site-pages.ts); el borde (proxy.ts) consulta la visibilidad (lib/site-settings.ts) y oculta las páginas deshabilitadas.',
+          'Las páginas de sistema no se borran y conservan su slug canónico, salvo que se active use_builder.',
         ],
       },
     ],
@@ -1546,6 +1617,15 @@ const MODULE_SECTIONS: DocSection[] = [
           ['Base de datos', 'app_learning con scope de formación de advisers'],
         ],
       },
+      { type: 'subheading', text: 'Cómo funciona por dentro' },
+      {
+        type: 'bullets',
+        items: [
+          'Reutiliza el sistema de Aprendizaje/Contenido con el scope formacion_mentores (en vez de aprendizaje): mismas tablas (content_items, content_progress, comentarios) y el mismo editor.',
+          'Dos caras: el adviser consume su formación en /dashboard/formacion-mentores (ver, comentar, registrar progreso); el gestor/admin la administra y hace seguimiento en /dashboard/gestion-formacion-mentores.',
+          'Se sirve por las mismas rutas de Aprendizaje con ?scope=formacion_mentores; los permisos están separados (formacion_mentores para consumir, gestion_formacion_mentores para administrar).',
+        ],
+      },
     ],
   },
   {
@@ -1571,7 +1651,7 @@ const MODULE_SECTIONS: DocSection[] = [
         rows: [
           ['UI', 'Widget in-app + /dashboard/administracion/asistente-ia (configuración)'],
           ['Feature', 'src/features/chatbot/'],
-          ['IA', 'Modelos de Claude / OpenAI'],
+          ['IA', 'OpenAI (modelo configurable, p. ej. gpt-4o)'],
         ],
       },
       {
@@ -1579,6 +1659,16 @@ const MODULE_SECTIONS: DocSection[] = [
         tone: 'info',
         title: 'Contexto real',
         text: 'El asistente incorpora una "agenda real" con las sesiones 1:1 próximas (incluidas y adicionales) como fuente de verdad para responder sobre lo agendado.',
+      },
+      { type: 'subheading', text: 'Cómo funciona por dentro' },
+      {
+        type: 'bullets',
+        items: [
+          'Tablas: app_admin.chatbot_settings (estado, modelo, persona, instrucciones, mensaje de bienvenida, ventana de contexto), chatbot_faqs (base de conocimiento) y app_core.chatbot_conversations / chatbot_messages (historial por usuario).',
+          'Proveedor: OpenAI (modelo configurable, por defecto gpt-4o) usando las credenciales de Integraciones.',
+          'Contexto real: en cada conversación se arma un bloque con datos del usuario —plan, agenda de mentorías (incluida la cadencia de 10 días), workbooks, convocatorias, networking, workshops y lista de advisers— más las FAQs y un mapa de rutas. El bot orienta y enlaza, pero no ejecuta acciones.',
+          'Briefing proactivo: al abrir el widget genera un resumen de pendientes y sugerencias clicables. El admin revisa conversaciones y métricas desde Administración → Asistente IA.',
+        ],
       },
     ],
   },
