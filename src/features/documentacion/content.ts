@@ -1041,6 +1041,16 @@ const MODULE_SECTIONS: DocSection[] = [
           'Comunidades abiertas o cerradas con su propio muro.',
         ],
       },
+      { type: 'subheading', text: 'Cómo funciona por dentro' },
+      {
+        type: 'bullets',
+        items: [
+          'Tablas (app_networking): connections, user_follows, interest_groups, group_memberships, community_posts (con reacciones y comentarios).',
+          'Conexión: una solicitud pasa de pending a connected o rejected (también puede quedar blocked). El perfil completo de un líder solo es visible entre usuarios conectados (o para admin).',
+          'Comunidades: visibilidad open o closed; roles de membresía owner, moderator y member. Las comunidades "generales" permiten publicar sin ser miembro.',
+          'El directorio (people) excluye a las cuentas con rol invitado. Seguir (follow) está limitado a líderes con acceso al programa.',
+        ],
+      },
     ],
   },
   {
@@ -1070,6 +1080,29 @@ const MODULE_SECTIONS: DocSection[] = [
           ['UI', '/dashboard/convocatorias (detalle, nueva, solicitar)'],
           ['Feature', 'src/features/convocatorias/'],
           ['Base de datos', 'app_networking (oportunidades y postulaciones)'],
+        ],
+      },
+      { type: 'subheading', text: 'Cómo funciona por dentro' },
+      {
+        type: 'p',
+        text: 'Hay dos flujos que conviene no confundir: postular y solicitar.',
+      },
+      {
+        type: 'bullets',
+        items: [
+          'Postular (convocatoria_applications): un usuario aplica a una convocatoria abierta —una postulación por convocatoria—. El gestor/admin la revisa y la deja approved o rejected, y el postulante recibe notificación.',
+          'Solicitar (convocatoria_requests): un líder pide que se publique una convocatoria. La solicitud nace pending y avisa a gestores/admin; al aprobarla se crea o vincula la convocatoria.',
+          'Cada convocatoria tiene imágenes, adjuntos, fechas clave, FAQs y un foro propio. Los usuarios pueden activar el aviso de nuevas convocatorias (opt-in).',
+        ],
+      },
+      {
+        type: 'table',
+        headers: ['Entidad', 'Estados / valores'],
+        rows: [
+          ['Convocatoria', 'draft · open · closed · suspended (los borradores solo los ven gestor/admin)'],
+          ['Tipo', 'laboral · proyecto_social · proveedor · convenio · otra'],
+          ['Postulación', 'pending → approved / rejected'],
+          ['Solicitud', 'pending → approved / rejected'],
         ],
       },
     ],
@@ -1104,6 +1137,16 @@ const MODULE_SECTIONS: DocSection[] = [
           ['Tiempo real', 'Pusher (canal private-thread-<id>, evento new-message)'],
         ],
       },
+      { type: 'subheading', text: 'Cómo funciona por dentro' },
+      {
+        type: 'bullets',
+        items: [
+          'Tablas (app_networking): chat_threads (tipo direct/group), thread_participants (guarda last_read_at por usuario) y messages (borrado lógico con deleted_at).',
+          'Al abrir un chat se reutiliza el hilo si ya existe entre los dos usuarios (evita duplicados) y se marca como leído (last_read_at = ahora). Los no leídos son los mensajes posteriores a esa marca.',
+          'Tiempo real (Pusher): el canal privado private-thread-{id} emite new-message; además se avisa a cada participante por private-user-{id} con thread-updated. La conexión se autoriza en /api/v1/pusher/auth.',
+          'El líder solo puede escribir a usuarios con los que está conectado; los demás roles, a cualquier usuario activo. Editar o borrar un mensaje es solo del autor (el borrado es lógico).',
+        ],
+      },
     ],
   },
   {
@@ -1133,6 +1176,30 @@ const MODULE_SECTIONS: DocSection[] = [
           ['UI', '/dashboard/workshops (detalle, edición, nuevo)'],
           ['Feature', 'src/features/workshops/'],
           ['Pagos', 'Checkout vía Stripe / Wompi (workshop_orders)'],
+        ],
+      },
+      { type: 'subheading', text: 'Cómo funciona por dentro' },
+      {
+        type: 'p',
+        text: 'Hay dos caminos según el precio del workshop:',
+      },
+      {
+        type: 'bullets',
+        items: [
+          'Gratis (precio 0): la inscripción es directa y crea la asistencia como registered.',
+          'De pago (precio > 0): se crea una orden (workshop_orders), se va al checkout con Stripe o Wompi, y un webhook confirma el pago, marca la orden pagada e inscribe al usuario.',
+          'Cupos: max_attendees es opcional; si al pagar no hay cupo, el usuario entra en lista de espera (waitlist) y su promoción es manual.',
+          'El precio se congela en la orden (subir el precio después no afecta órdenes existentes). El pago es idempotente por (proveedor, referencia); un reembolso marca la orden refunded y cancela la asistencia sin borrar el historial.',
+          'Cada workshop tiene FAQs y foro propios.',
+        ],
+      },
+      {
+        type: 'table',
+        headers: ['Entidad', 'Estados'],
+        rows: [
+          ['Workshop', 'upcoming · completed · cancelled'],
+          ['Orden', 'pending_payment → paid → refunded / cancelled'],
+          ['Asistencia', 'invited · registered · waitlist · attended · no_show · cancelled'],
         ],
       },
     ],
@@ -1170,6 +1237,16 @@ const MODULE_SECTIONS: DocSection[] = [
         items: [
           'El snapshot del líder expone el total de mentorías incluidas del programa y la próxima a consumir.',
           'Agendar 1:1 on-behalf puede descontar del paquete del programa o crear una sesión adicional.',
+        ],
+      },
+      { type: 'subheading', text: 'Cómo funciona por dentro' },
+      {
+        type: 'bullets',
+        items: [
+          'La vista 360 agrega en tiempo real (sin caché) datos de 8 dominios: perfil, workbooks, diagnóstico, mentorías, contenido, networking, convocatorias y workshops. Al abrirla se provisionan los workbooks del líder si faltan.',
+          'Mentorías incluidas del programa: viven en user_program_mentorships con estados available, scheduled, completed o locked, ordenadas por secuencia.',
+          'Cadencia de 10 días: una mentoría agendada bloquea la siguiente durante 10 días desde su inicio. La "próxima a consumir" indica si ya es agendable o la fecha en que se desbloquea.',
+          'Agendar on-behalf (solo admin/gestor/adviser): modo "programa" (consume un entitlement, valida la secuencia, reserva la franja del adviser, crea la reunión de Zoom y notifica) o "manual" (sesión adicional sin consumir el paquete).',
         ],
       },
     ],
