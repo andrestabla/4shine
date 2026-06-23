@@ -611,6 +611,7 @@ export async function sendBulkMessage(
           subject,
           html,
           text,
+          { listUnsubscribe: true },
         );
 
         // Registra el envío de email en notifications para que aparezca en historial.

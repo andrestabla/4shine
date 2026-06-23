@@ -32,6 +32,8 @@ export interface SmtpPayload {
   text: string;
   html: string;
   replyTo?: string;
+  /** Cabeceras extra (p. ej. List-Unsubscribe en envíos masivos). */
+  headers?: Record<string, string>;
 }
 
 export interface SmtpSendResult {
@@ -79,10 +81,16 @@ export async function smtpSend(
     /email-smtp\.[a-z0-9-]+\.amazonaws\.com$/i.test(smtpHost);
 
   const configurationSet = process.env.AWS_SES_CONFIGURATION_SET?.trim();
-  const headers: Record<string, string> | undefined =
-    isSesSmtp && configurationSet
-      ? { 'X-SES-CONFIGURATION-SET': configurationSet }
-      : undefined;
+  const configurationSetApplied = Boolean(isSesSmtp && configurationSet);
+  // Mezcla las cabeceras del caller (p. ej. List-Unsubscribe en envíos masivos)
+  // con la cabecera de tracking de SES.
+  const headers: Record<string, string> = {
+    ...(payload.headers ?? {}),
+    ...(configurationSetApplied
+      ? { 'X-SES-CONFIGURATION-SET': configurationSet as string }
+      : {}),
+  };
+  const hasHeaders = Object.keys(headers).length > 0;
 
   const result = await transporter.sendMail({
     from: payload.from,
@@ -91,7 +99,7 @@ export async function smtpSend(
     text: payload.text,
     html: payload.html,
     ...(payload.replyTo ? { replyTo: payload.replyTo } : {}),
-    ...(headers ? { headers } : {}),
+    ...(hasHeaders ? { headers } : {}),
   });
 
   // Parse del SES Message-ID desde el SMTP response.
@@ -114,7 +122,7 @@ export async function smtpSend(
     '[smtp-send] sendMail OK',
     JSON.stringify({
       isSesSmtp,
-      configurationSetApplied: Boolean(headers),
+      configurationSetApplied,
       to: payload.to,
       response:
         typeof result.response === 'string' ? result.response.substring(0, 160) : null,
@@ -123,7 +131,7 @@ export async function smtpSend(
     }),
   );
 
-  if (isSesSmtp && Boolean(headers) && !providerMessageId) {
+  if (configurationSetApplied && !providerMessageId) {
     console.warn(
       '[smtp-send] SES: regex no matcheó. Response capturado arriba. Revisa el formato y ajusta el regex.',
     );

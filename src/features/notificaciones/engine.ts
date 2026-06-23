@@ -134,6 +134,7 @@ async function sendTemplateEmail(
   html: string,
   text: string,
   replyTo?: string,
+  extraHeaders?: Record<string, string>,
 ): Promise<string | null> {
   if (!config || !config.enabled) return null;
 
@@ -154,6 +155,7 @@ async function sendTemplateEmail(
           { type: 'text/html', value: html },
         ],
         ...(replyTo ? { reply_to: { email: replyTo } } : {}),
+        ...(extraHeaders ? { headers: extraHeaders } : {}),
       }),
     });
     return res.headers.get('x-message-id');
@@ -170,6 +172,7 @@ async function sendTemplateEmail(
         html,
         text,
         ...(replyTo ? { reply_to: replyTo } : {}),
+        ...(extraHeaders ? { headers: extraHeaders } : {}),
       }),
     });
     const body = (await res.json().catch(() => ({}))) as { id?: string };
@@ -191,6 +194,7 @@ async function sendTemplateEmail(
     text,
     html,
     ...(replyTo ? { replyTo } : {}),
+    ...(extraHeaders ? { headers: extraHeaders } : {}),
   });
   return result.providerMessageId;
 }
@@ -376,12 +380,26 @@ export async function sendEmailToAddress(
     recipientUserId?: string | null;
     senderUserId?: string | null;
     actionUrl?: string;
+    /** Agrega cabecera List-Unsubscribe (solo para envíos masivos). */
+    listUnsubscribe?: boolean;
   } = {},
 ): Promise<string | null> {
   const [emailConfig, branding] = await Promise.all([
     fetchOutboundConfig(client, organizationId),
     fetchEmailBranding(client, organizationId),
   ]);
+  // List-Unsubscribe (RFC 2369) solo en envíos masivos: mejora la entregabilidad
+  // y la señal de confianza con Yahoo/Gmail. Apunta al reply_to (o al from) para
+  // que las bajas lleguen a un buzón monitoreado. NO se aplica a correos
+  // transaccionales/de seguridad (reset de contraseña, verificación).
+  const unsubscribeTarget =
+    emailConfig?.reply_to?.trim() || emailConfig?.from_email?.trim() || '';
+  const extraHeaders =
+    options.listUnsubscribe && unsubscribeTarget
+      ? {
+          'List-Unsubscribe': `<mailto:${unsubscribeTarget}?subject=Baja%20de%20notificaciones>`,
+        }
+      : undefined;
   const fullHtml = buildBrandedEmailHtml(bodyHtml, branding);
   const providerMessageId = await sendTemplateEmail(
     emailConfig,
@@ -390,6 +408,7 @@ export async function sendEmailToAddress(
     fullHtml,
     bodyText,
     emailConfig?.reply_to?.trim() || undefined,
+    extraHeaders,
   );
 
   const shouldRecord = options.record !== false;
