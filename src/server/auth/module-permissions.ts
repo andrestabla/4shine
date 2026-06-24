@@ -20,6 +20,13 @@ export async function hasModulePermission(
     `SELECT current_setting('app.current_role', true) AS role_code`,
   );
   const contextRole = (roleContext.rows[0]?.role_code ?? '').trim().toLowerCase();
+
+  // Admin = superuser. Acceso total a toda la plataforma SIN consultar la
+  // tabla role_module_permissions. Esto blinda contra cualquier caso donde
+  // un módulo nuevo se agregue al sistema sin que su seed le otorgue
+  // permisos explícitos a admin. La verdad es: "si eres admin, puedes todo".
+  if (contextRole === 'admin') return true;
+
   if (contextRole === 'invitado') {
     if (moduleCode !== 'descubrimiento') return false;
     return action === 'view' || action === 'create' || action === 'update';
