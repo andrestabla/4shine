@@ -803,6 +803,45 @@ function buildSessionEnlaceSesion(meetingUrl: string | null | undefined): string
   return trimmed || `${appUrl}/dashboard/mentorias`;
 }
 
+/**
+ * Genera el enlace para "Agregar a Google Calendar" que va en los emails de
+ * notificación. Formato estándar de Calendar Render URL.
+ *
+ * Si no hay startsAt válido devuelve string vacío — la plantilla debe
+ * ocultar el botón cuando la variable viene vacía. NO devolvemos un link
+ * "fallback" para evitar mandar al usuario a un evento mal armado.
+ */
+function buildSessionEnlaceGcal(input: {
+  title: string;
+  startsAt: string | Date | null | undefined;
+  durationMinutes?: number | null;
+  details?: string | null;
+  location?: string | null;
+}): string {
+  if (!input.startsAt) return '';
+  const start = input.startsAt instanceof Date ? input.startsAt : new Date(input.startsAt);
+  if (Number.isNaN(start.getTime())) return '';
+  // Si no hay duración explícita asumimos 60 min (estándar de sesiones de
+  // mentoría adicional). Mejor un evento de 1h razonable que un evento sin
+  // hora de fin (Google Calendar lo trata como "todo el día").
+  const durationMs = Math.max(1, input.durationMinutes ?? 60) * 60 * 1000;
+  const end = new Date(start.getTime() + durationMs);
+
+  // Formato esperado por Google Calendar: YYYYMMDDTHHMMSSZ (UTC, sin -:.)
+  const fmt = (d: Date): string =>
+    d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+
+  const params = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: input.title,
+    dates: `${fmt(start)}/${fmt(end)}`,
+  });
+  if (input.details?.trim()) params.set('details', input.details.trim());
+  if (input.location?.trim()) params.set('location', input.location.trim());
+
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}
+
 // ─── Reminder cron job ───────────────────────────────────────────────────────
 
 export type ReminderWindow = '24h' | '1h';
@@ -896,6 +935,11 @@ export async function sendSessionReminders(
     const fechaStr = formatFechaCO(row.starts_at, tz);
     const horaStr = formatHoraCO(row.starts_at, tz);
     const enlaceSesion = buildSessionEnlaceSesion(row.meeting_url);
+    const enlaceGcal = buildSessionEnlaceGcal({
+      title: row.title,
+      startsAt: row.starts_at,
+      location: row.meeting_url,
+    });
 
     // Notify mentee (líder) if present
     if (row.mentee_user_id) {
@@ -909,6 +953,7 @@ export async function sendSessionReminders(
           fecha: fechaStr,
           hora: horaStr,
           enlace_sesion: enlaceSesion,
+          enlace_gcal: enlaceGcal,
         },
       });
     }
@@ -924,6 +969,7 @@ export async function sendSessionReminders(
         fecha: fechaStr,
         hora: horaStr,
         enlace_sesion: enlaceSesion,
+        enlace_gcal: enlaceGcal,
       },
     });
 
@@ -2944,6 +2990,11 @@ export async function scheduleProgramMentorship(
   const fechaStr = formatFechaCO(input.startsAt, tz);
   const horaStr = formatHoraCO(input.startsAt, tz);
   const enlaceSesion = buildSessionEnlaceSesion(resolvedMeetingUrl);
+  const enlaceGcal = buildSessionEnlaceGcal({
+    title: entitlement.title,
+    startsAt: input.startsAt,
+    location: resolvedMeetingUrl,
+  });
   await notifyUserFull(client, {
     recipientUserId: actor.userId,
     eventKey: 'mentorias.session_scheduled_mentee',
@@ -2954,6 +3005,7 @@ export async function scheduleProgramMentorship(
       hora: horaStr,
       adviser_nombre: participants.mentorDisplayName,
       enlace_sesion: enlaceSesion,
+      enlace_gcal: enlaceGcal,
     },
   });
   await notifyUserFull(client, {
@@ -2966,6 +3018,7 @@ export async function scheduleProgramMentorship(
       hora: horaStr,
       lider_nombre: participants.menteeDisplayName,
       enlace_sesion: enlaceSesion,
+      enlace_gcal: enlaceGcal,
     },
   });
 
@@ -3097,6 +3150,11 @@ export async function scheduleProgramMentorshipForLeader(
   const fechaStr = formatFechaCO(input.startsAt, tz);
   const horaStr = formatHoraCO(input.startsAt, tz);
   const enlaceSesion = buildSessionEnlaceSesion(resolvedMeetingUrl);
+  const enlaceGcal = buildSessionEnlaceGcal({
+    title: entitlement.title,
+    startsAt: input.startsAt,
+    location: resolvedMeetingUrl,
+  });
   await notifyUserFull(client, {
     recipientUserId: ownerUserId,
     eventKey: 'mentorias.session_scheduled_mentee',
@@ -3107,6 +3165,7 @@ export async function scheduleProgramMentorshipForLeader(
       hora: horaStr,
       adviser_nombre: participants.mentorDisplayName,
       enlace_sesion: enlaceSesion,
+      enlace_gcal: enlaceGcal,
     },
   });
   await notifyUserFull(client, {
@@ -3119,6 +3178,7 @@ export async function scheduleProgramMentorshipForLeader(
       hora: horaStr,
       lider_nombre: participants.menteeDisplayName,
       enlace_sesion: enlaceSesion,
+      enlace_gcal: enlaceGcal,
     },
   });
 
@@ -3200,6 +3260,11 @@ export async function scheduleManualMentorshipForLeader(
   const fechaStr = formatFechaCO(input.startsAt, tz);
   const horaStr = formatHoraCO(input.startsAt, tz);
   const enlaceSesion = buildSessionEnlaceSesion(meetingUrl);
+  const enlaceGcal = buildSessionEnlaceGcal({
+    title: input.title,
+    startsAt: input.startsAt,
+    location: meetingUrl,
+  });
   await notifyUserFull(client, {
     recipientUserId: input.leaderUserId,
     eventKey: 'mentorias.session_scheduled_mentee',
@@ -3210,6 +3275,7 @@ export async function scheduleManualMentorshipForLeader(
       hora: horaStr,
       adviser_nombre: participants.mentorDisplayName,
       enlace_sesion: enlaceSesion,
+      enlace_gcal: enlaceGcal,
     },
   });
   await notifyUserFull(client, {
@@ -3222,6 +3288,7 @@ export async function scheduleManualMentorshipForLeader(
       hora: horaStr,
       lider_nombre: participants.menteeDisplayName,
       enlace_sesion: enlaceSesion,
+      enlace_gcal: enlaceGcal,
     },
   });
 
@@ -3323,6 +3390,11 @@ export async function createAdditionalMentorshipOrder(
   const fechaStr = formatFechaCO(input.startsAt, tz);
   const horaStr = formatHoraCO(input.startsAt, tz);
   const enlaceSesion = buildSessionEnlaceSesion(input.meetingUrl);
+  const enlaceGcal = buildSessionEnlaceGcal({
+    title: offer.title,
+    startsAt: input.startsAt,
+    location: input.meetingUrl,
+  });
   await notifyUserFull(client, {
     recipientUserId: actor.userId,
     eventKey: 'mentorias.session_scheduled_mentee',
@@ -3333,6 +3405,7 @@ export async function createAdditionalMentorshipOrder(
       hora: horaStr,
       adviser_nombre: participants.mentorDisplayName,
       enlace_sesion: enlaceSesion,
+      enlace_gcal: enlaceGcal,
     },
   });
   await notifyUserFull(client, {
@@ -3345,6 +3418,7 @@ export async function createAdditionalMentorshipOrder(
       hora: horaStr,
       lider_nombre: participants.menteeDisplayName,
       enlace_sesion: enlaceSesion,
+      enlace_gcal: enlaceGcal,
     },
   });
 
@@ -3653,6 +3727,11 @@ export async function sendGroupSessionReminders(
     for (const s of sessions) {
       const fechaStr = formatFechaCO(s.starts_at, tz);
       const horaStr = formatHoraCO(s.starts_at, tz);
+      const enlaceGcal = buildSessionEnlaceGcal({
+        title: s.title,
+        startsAt: s.starts_at,
+        location: s.join_url ?? null,
+      });
       for (const u of audience) {
         const lock = await client.query(
           `INSERT INTO app_mentoring.group_session_reminders_sent (event_id, user_id, window_minutes)
@@ -3670,6 +3749,7 @@ export async function sendGroupSessionReminders(
             fecha: fechaStr,
             hora: horaStr,
             enlace_sesion: s.join_url ?? '',
+            enlace_gcal: enlaceGcal,
             tiempo_restante: tiempo,
           },
         });
@@ -3755,6 +3835,11 @@ export async function sendIndividualSessionReminders(
           fecha: formatFechaCO(s.starts_at, tz),
           hora: formatHoraCO(s.starts_at, tz),
           enlace_sesion: s.meeting_url ?? '',
+          enlace_gcal: buildSessionEnlaceGcal({
+            title: s.title,
+            startsAt: s.starts_at,
+            location: s.meeting_url,
+          }),
           tiempo_restante: tiempo,
         },
       });
