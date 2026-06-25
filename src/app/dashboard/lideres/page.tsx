@@ -6,7 +6,11 @@ import {
     ArrowRight,
     BookOpen,
     Building2,
+    ChevronLeft,
+    ChevronRight,
     GraduationCap,
+    LayoutGrid,
+    List as ListIcon,
     Loader2,
     MapPin,
     Search,
@@ -299,6 +303,105 @@ function LeaderCard({
     )
 }
 
+// ─── Vista lista (tabla compacta) ────────────────────────────────────────────
+// Renderiza la misma información que LeaderCard pero en una fila densa.
+// Pensado para admin/gestor que necesitan escanear muchos líderes rápido.
+function LeaderRow({
+    leader,
+    tokens,
+    isElevated,
+}: {
+    leader: LeaderSummary
+    tokens: string[]
+    isElevated: boolean
+}) {
+    const planText = planLabel(leader)
+    const nextSession = formatDate(leader.mentorias.nextSessionAt)
+    return (
+        <tr className="border-b border-slate-100 transition hover:bg-slate-50/60 last:border-b-0">
+            <td className="px-3 py-3">
+                <div className="flex items-center gap-3 min-w-0">
+                    <LeaderAvatar leader={leader} />
+                    <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-slate-900">
+                            {highlightTokens(leader.name, tokens)}
+                        </p>
+                        <p className="truncate text-xs text-slate-500">
+                            {highlightTokens(leader.email, tokens)}
+                        </p>
+                    </div>
+                </div>
+            </td>
+            <td className="hidden px-3 py-3 text-xs text-slate-700 md:table-cell">
+                {leader.country ? (
+                    <span className="inline-flex items-center gap-1">
+                        <MapPin size={11} className="text-slate-400" />
+                        {highlightTokens(leader.country, tokens)}
+                    </span>
+                ) : (
+                    <span className="text-slate-400">—</span>
+                )}
+            </td>
+            <td className="hidden px-3 py-3 text-xs text-slate-700 lg:table-cell">
+                {leader.company ? (
+                    <span className="inline-flex items-center gap-1">
+                        <Building2 size={11} className="text-slate-400" />
+                        {highlightTokens(leader.company, tokens)}
+                    </span>
+                ) : (
+                    <span className="text-slate-400">—</span>
+                )}
+            </td>
+            <td className="px-3 py-3">
+                <span
+                    className="inline-flex items-center gap-1 rounded-full border border-[var(--brand-accent)]/40 bg-[var(--brand-accent)]/15 px-2 py-0.5 text-[11px] font-semibold text-[var(--brand-primary)]"
+                    title={`${planGroupLabel(leader.plan.group)} · ${leader.plan.code ?? '—'}`}
+                >
+                    <Sparkles size={11} />
+                    {highlightTokens(planText, tokens)}
+                </span>
+            </td>
+            <td className="hidden px-3 py-3 text-center text-xs font-semibold text-slate-700 sm:table-cell">
+                <span className="text-sm">{leader.workbooks.avgPercent}%</span>
+                <span className="ml-1 text-[10px] font-normal text-slate-400">
+                    ({leader.workbooks.completed}/{leader.workbooks.total})
+                </span>
+            </td>
+            <td className="hidden px-3 py-3 text-center text-xs font-semibold text-slate-700 sm:table-cell">
+                <span className="text-sm">{leader.mentorias.completed}</span>
+                {leader.mentorias.scheduled > 0 && (
+                    <span className="ml-1 text-[10px] font-normal text-slate-400">
+                        +{leader.mentorias.scheduled}
+                    </span>
+                )}
+            </td>
+            <td className="hidden px-3 py-3 text-center text-xs font-semibold text-slate-700 sm:table-cell">
+                <span className="text-sm">{leader.cursos.avgPercent}%</span>
+                <span className="ml-1 text-[10px] font-normal text-slate-400">
+                    ({leader.cursos.completed}/{leader.cursos.total})
+                </span>
+            </td>
+            <td className="hidden px-3 py-3 text-xs text-slate-600 xl:table-cell">
+                {nextSession}
+            </td>
+            <td className="px-3 py-3 text-right">
+                {isElevated && (
+                    <Link
+                        href={`/dashboard/lideres/${leader.userId}`}
+                        className="inline-flex items-center gap-1 rounded-full border border-[var(--brand-accent)]/40 bg-[var(--brand-accent)]/15 px-3 py-1 text-xs font-semibold text-[var(--brand-primary)] hover:bg-[var(--brand-accent)]/25"
+                    >
+                        Ver 360 <ArrowRight size={12} />
+                    </Link>
+                )}
+            </td>
+        </tr>
+    )
+}
+
+// Persistir la preferencia de vista del usuario entre sesiones.
+const VIEW_MODE_STORAGE_KEY = 'lideres:viewMode'
+const PAGE_SIZE = 30
+
 export default function LideresPage() {
     const { currentRole } = useUser()
     const isElevated =
@@ -313,6 +416,24 @@ export default function LideresPage() {
     const [sessionsFilter, setSessionsFilter] = React.useState<number>(0)
     const [progressFilter, setProgressFilter] = React.useState<number>(0)
     const [validityFilter, setValidityFilter] = React.useState<'all' | SubscriptionStatus>('all')
+
+    // Vista (tarjeta o lista). Default tarjeta. Se persiste en localStorage
+    // para recordar la preferencia del usuario entre sesiones.
+    const [viewMode, setViewMode] = React.useState<'card' | 'list'>('card')
+    React.useEffect(() => {
+        if (typeof window === 'undefined') return
+        const stored = window.localStorage.getItem(VIEW_MODE_STORAGE_KEY)
+        if (stored === 'card' || stored === 'list') setViewMode(stored)
+    }, [])
+    React.useEffect(() => {
+        if (typeof window === 'undefined') return
+        window.localStorage.setItem(VIEW_MODE_STORAGE_KEY, viewMode)
+    }, [viewMode])
+
+    // Paginación cliente (la API ya devuelve la lista completa en memoria).
+    // 30 por página. Al cambiar cualquier filtro / búsqueda volvemos a página 1
+    // para no quedar "fuera de rango" cuando el resultado se achica.
+    const [page, setPage] = React.useState(1)
 
     React.useEffect(() => {
         if (!isElevated) {
@@ -399,6 +520,22 @@ export default function LideresPage() {
         validityFilter !== 'all' ||
         sessionsFilter !== 0 ||
         progressFilter !== 0
+
+    // Reset de página cuando cambia cualquier criterio que afecte el conteo.
+    React.useEffect(() => {
+        setPage(1)
+    }, [query, planFilter, countryFilter, validityFilter, sessionsFilter, progressFilter])
+
+    const totalPages = Math.max(1, Math.ceil(filteredLeaders.length / PAGE_SIZE))
+    // Si la página actual quedó fuera de rango (p.ej. tras un filtro fuerte),
+    // hacemos clamp. Útil porque cuando filteredLeaders pasa de 90 a 5 ítems
+    // la página podría seguir en 3 hasta que el useEffect dispare.
+    const safePage = Math.min(page, totalPages)
+    const pageStart = (safePage - 1) * PAGE_SIZE
+    const pageEnd = pageStart + PAGE_SIZE
+    const pagedLeaders = filteredLeaders.slice(pageStart, pageEnd)
+    const rangeFrom = filteredLeaders.length === 0 ? 0 : pageStart + 1
+    const rangeTo = Math.min(filteredLeaders.length, pageEnd)
 
     function clearFilters() {
         setQuery('')
@@ -554,20 +691,62 @@ export default function LideresPage() {
                     </div>
                 </div>
 
-                {hasActiveFilters && (
-                    <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
-                        <span className="text-xs text-slate-500">
-                            {filteredLeaders.length} de {leaders.length} líderes en pantalla
-                        </span>
-                        <button
-                            type="button"
-                            onClick={clearFilters}
-                            className="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:border-slate-400 hover:bg-slate-50"
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
+                    <span className="text-xs text-slate-500">
+                        {filteredLeaders.length === 0
+                            ? 'Sin resultados'
+                            : `Mostrando ${rangeFrom}–${rangeTo} de ${filteredLeaders.length}${
+                                  hasActiveFilters ? ` (filtrado de ${leaders.length})` : ''
+                              }`}
+                    </span>
+                    <div className="flex items-center gap-2">
+                        {/* Selector tarjeta / lista. Default tarjeta; preferencia
+                            se persiste en localStorage. */}
+                        <div
+                            role="group"
+                            aria-label="Vista de líderes"
+                            className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white p-1"
                         >
-                            <X size={12} /> Limpiar filtros
-                        </button>
+                            <button
+                                type="button"
+                                onClick={() => setViewMode('card')}
+                                aria-pressed={viewMode === 'card'}
+                                title="Vista en tarjetas"
+                                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                                    viewMode === 'card'
+                                        ? 'bg-[var(--brand-accent)]/15 text-[var(--brand-primary)]'
+                                        : 'text-slate-500 hover:bg-slate-50'
+                                }`}
+                            >
+                                <LayoutGrid size={13} />
+                                Tarjetas
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setViewMode('list')}
+                                aria-pressed={viewMode === 'list'}
+                                title="Vista en lista"
+                                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                                    viewMode === 'list'
+                                        ? 'bg-[var(--brand-accent)]/15 text-[var(--brand-primary)]'
+                                        : 'text-slate-500 hover:bg-slate-50'
+                                }`}
+                            >
+                                <ListIcon size={13} />
+                                Lista
+                            </button>
+                        </div>
+                        {hasActiveFilters && (
+                            <button
+                                type="button"
+                                onClick={clearFilters}
+                                className="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:border-slate-400 hover:bg-slate-50"
+                            >
+                                <X size={12} /> Limpiar filtros
+                            </button>
+                        )}
                     </div>
-                )}
+                </div>
             </section>
 
             {loadError && (
@@ -596,16 +775,121 @@ export default function LideresPage() {
                     )}
                 </div>
             ) : (
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    {filteredLeaders.map((leader) => (
-                        <LeaderCard
-                            key={leader.userId}
-                            leader={leader}
-                            tokens={tokensForHighlight}
-                            isElevated={isElevated}
-                        />
-                    ))}
-                </div>
+                <>
+                    {viewMode === 'card' ? (
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                            {pagedLeaders.map((leader) => (
+                                <LeaderCard
+                                    key={leader.userId}
+                                    leader={leader}
+                                    tokens={tokensForHighlight}
+                                    isElevated={isElevated}
+                                />
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+                            <table className="min-w-full text-left text-sm">
+                                <thead>
+                                    <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                                        <th className="px-3 py-2.5">Líder</th>
+                                        <th className="hidden px-3 py-2.5 md:table-cell">País</th>
+                                        <th className="hidden px-3 py-2.5 lg:table-cell">Empresa</th>
+                                        <th className="px-3 py-2.5">Plan</th>
+                                        <th className="hidden px-3 py-2.5 text-center sm:table-cell">WB</th>
+                                        <th className="hidden px-3 py-2.5 text-center sm:table-cell">Sesiones</th>
+                                        <th className="hidden px-3 py-2.5 text-center sm:table-cell">Cursos</th>
+                                        <th className="hidden px-3 py-2.5 xl:table-cell">Próxima sesión</th>
+                                        <th className="px-3 py-2.5 text-right" />
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {pagedLeaders.map((leader) => (
+                                        <LeaderRow
+                                            key={leader.userId}
+                                            leader={leader}
+                                            tokens={tokensForHighlight}
+                                            isElevated={isElevated}
+                                        />
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+
+                    {totalPages > 1 && (
+                        <nav
+                            className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3"
+                            aria-label="Paginación de líderes"
+                        >
+                            <p className="text-xs text-slate-500">
+                                Página <strong className="text-slate-700">{safePage}</strong> de{' '}
+                                <strong className="text-slate-700">{totalPages}</strong> ·{' '}
+                                {filteredLeaders.length} líderes
+                            </p>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                                    disabled={safePage <= 1}
+                                    className="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                >
+                                    <ChevronLeft size={14} />
+                                    Anterior
+                                </button>
+                                {/* Numerillos compactos: muestra hasta 5 alrededor de safePage */}
+                                <div className="flex items-center gap-1">
+                                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                                        .filter((p) => {
+                                            if (totalPages <= 7) return true
+                                            if (p === 1 || p === totalPages) return true
+                                            return Math.abs(p - safePage) <= 2
+                                        })
+                                        .reduce<Array<number | 'ellipsis'>>((acc, p, idx, arr) => {
+                                            if (idx > 0 && p - (arr[idx - 1] as number) > 1) {
+                                                acc.push('ellipsis')
+                                            }
+                                            acc.push(p)
+                                            return acc
+                                        }, [])
+                                        .map((entry, i) =>
+                                            entry === 'ellipsis' ? (
+                                                <span
+                                                    key={`e${i}`}
+                                                    className="px-1 text-xs text-slate-400"
+                                                >
+                                                    …
+                                                </span>
+                                            ) : (
+                                                <button
+                                                    key={entry}
+                                                    type="button"
+                                                    onClick={() => setPage(entry)}
+                                                    aria-current={entry === safePage ? 'page' : undefined}
+                                                    className={`min-w-[28px] rounded-full px-2 py-1 text-xs font-semibold transition ${
+                                                        entry === safePage
+                                                            ? 'bg-[var(--brand-accent)]/20 text-[var(--brand-primary)]'
+                                                            : 'text-slate-600 hover:bg-slate-50'
+                                                    }`}
+                                                >
+                                                    {entry}
+                                                </button>
+                                            ),
+                                        )}
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                                    disabled={safePage >= totalPages}
+                                    className="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                >
+                                    Siguiente
+                                    <ChevronRight size={14} />
+                                </button>
+                            </div>
+                        </nav>
+                    )}
+                </>
             )}
         </div>
     )
