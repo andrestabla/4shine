@@ -10,7 +10,7 @@ import { listConvocatorias } from '@/features/convocatorias/service';
 import { listWorkshops } from '@/features/workshops/service';
 import { listWorkbooks } from '@/features/aprendizaje/service';
 import { listConnections } from '@/features/networking/service';
-import { listPublicAdvisers } from '@/features/advisers/service';
+import { listPublicAdvisors } from '@/features/advisors/service';
 import { subscriptionStatus, formatExpiry } from '@/features/usuarios/subscription-status';
 import type {
   AdminConversation,
@@ -480,30 +480,30 @@ async function buildUserContext(client: PoolClient, actor: AuthUser): Promise<st
   const networkingBlock = await buildNetworkingBlock(client, actor);
   if (networkingBlock) lines.push(networkingBlock);
 
-  const advisersBlock = await buildAdvisersBlock(client);
-  if (advisersBlock) lines.push(advisersBlock);
+  const advisorsBlock = await buildAdvisorsBlock(client);
+  if (advisorsBlock) lines.push(advisorsBlock);
 
   return lines.join('\n');
 }
 
 /**
- * Advisers (mentores) de 4Shine. Es información pública (también en /advisers),
+ * Advisors (mentores) de 4Shine. Es información pública (también en /advisors),
  * así que el asistente debe poder describir quiénes son y sus especialidades.
  */
-async function buildAdvisersBlock(client: PoolClient): Promise<string | null> {
-  const advisers = await listPublicAdvisers(client, 60).catch(() => []);
-  if (advisers.length === 0) return null;
+async function buildAdvisorsBlock(client: PoolClient): Promise<string | null> {
+  const advisors = await listPublicAdvisors(client, 60).catch(() => []);
+  if (advisors.length === 0) return null;
 
   const out: string[] = [
-    `ADVISERS (MENTORES) DE 4SHINE — información pública (también visible en /advisers). Hay ${advisers.length}. Cuando pregunten por los advisers, descríbelos con estos datos (nombre, profesión/rol, industria, experiencia, temas) y, si quieren a alguien en particular, ofrécele ver el perfil público en /advisers o agendar en /dashboard/mentorias:`,
+    `ADVISERS (MENTORES) DE 4SHINE — información pública (también visible en /advisors). Hay ${advisors.length}. Cuando pregunten por los advisors, descríbelos con estos datos (nombre, profesión/rol, industria, experiencia, temas) y, si quieren a alguien en particular, ofrécele ver el perfil público en /advisors o agendar en /dashboard/mentorias:`,
   ];
-  for (const a of advisers.slice(0, 25)) {
+  for (const a of advisors.slice(0, 25)) {
     const parts = [a.profession || a.jobRole, a.industry, a.yearsExperience].filter(Boolean).join(' · ');
     const temas = a.topics.length > 0 ? ` · temas: ${a.topics.slice(0, 6).join(', ')}` : '';
     const lugar = a.location || a.country ? ` · ${[a.location, a.country].filter(Boolean).join(', ')}` : '';
     out.push(`- ${a.name}${parts ? ` (${parts})` : ''}${lugar}${temas}`);
   }
-  out.push('Perfiles públicos completos: /advisers');
+  out.push('Perfiles públicos completos: /advisors');
   return out.join('\n');
 }
 
@@ -733,9 +733,9 @@ IMPORTANTE: usa SIEMPRE la ruta RELATIVA tal cual (empieza con "/"). NUNCA antep
 - Suscripción, plan, días restantes: /dashboard/suscripcion
 - Workshops (inscribirse): /dashboard/workshops
 - Mentorías (agendar/comprar): /dashboard/mentorias
-- Advisers / mentores (perfiles PÚBLICOS de quienes acompañan): /advisers
-- Líderes (panel de los LÍDERES/clientes del programa y su progreso; solo para adviser/mentor, gestor o admin): /dashboard/lideres
-- Formación de advisers (cursos para mentores): /dashboard/formacion-mentores
+- Advisors / mentores (perfiles PÚBLICOS de quienes acompañan): /advisors
+- Líderes (panel de los LÍDERES/clientes del programa y su progreso; solo para advisor/mentor, gestor o admin): /dashboard/lideres
+- Formación de advisors (cursos para mentores): /dashboard/formacion-mentores
 - Aprendizaje, cursos, workbooks: /dashboard/aprendizaje
 - Descubrimiento / diagnóstico: /dashboard/descubrimiento
 - Networking, contactos, comunidades: /dashboard/networking
@@ -743,14 +743,14 @@ IMPORTANTE: usa SIEMPRE la ruta RELATIVA tal cual (empieza con "/"). NUNCA antep
 - Trayectoria: /dashboard/trayectoria`;
 
 const GLOSSARY = `GLOSARIO DE 4SHINE — NO confundas estos términos:
-- "Líderes": son los participantes/clientes del programa (rol "lider"). Quien los gestiona (adviser/mentor, gestor o admin) ve el panel de líderes con su progreso en /dashboard/lideres. Si el usuario pregunta "dónde veo los líderes", se refiere a ESTE panel (NO a /advisers), siempre que su rol lo permita.
-- "Advisers" o "Mentores" (rol "mentor"): son quienes ACOMPAÑAN a los líderes. Sus perfiles públicos están en /advisers y se agenda con ellos en /dashboard/mentorias.
-Por tanto: "líderes" ≠ "advisers/mentores". Usa el rol del usuario (en el contexto) para decidir: a un mentor/gestor/admin que pregunta por "los líderes" envíalo a /dashboard/lideres; si pregunta por mentores/advisers, a /advisers.`;
+- "Líderes": son los participantes/clientes del programa (rol "lider"). Quien los gestiona (advisor/mentor, gestor o admin) ve el panel de líderes con su progreso en /dashboard/lideres. Si el usuario pregunta "dónde veo los líderes", se refiere a ESTE panel (NO a /advisors), siempre que su rol lo permita.
+- "Advisors" o "Mentores" (rol "mentor"): son quienes ACOMPAÑAN a los líderes. Sus perfiles públicos están en /advisors y se agenda con ellos en /dashboard/mentorias.
+Por tanto: "líderes" ≠ "advisors/mentores". Usa el rol del usuario (en el contexto) para decidir: a un mentor/gestor/admin que pregunta por "los líderes" envíalo a /dashboard/lideres; si pregunta por mentores/advisors, a /advisors.`;
 
 const DEFAULT_SYSTEM_PROMPT = `Eres el asistente de soporte 360 de 4Shine, una plataforma de liderazgo. Respondes en español, con tono cercano, profesional, claro y conciso, y SIEMPRE diriges al usuario por su nombre.
 
 DIRECTIVA PRINCIPAL — Conoce muy bien el ROL y el PLAN del usuario y orienta cada respuesta a partir de ellos:
-- Adapta la respuesta al rol (líder, adviser/mentor, gestor, admin, invitado): un líder pregunta por su proceso; un adviser por sus mentorías y agenda; un gestor/admin por administración.
+- Adapta la respuesta al rol (líder, advisor/mentor, gestor, admin, invitado): un líder pregunta por su proceso; un advisor por sus mentorías y agenda; un gestor/admin por administración.
 - Razona con el plan del usuario y los accesos que ese plan habilita. Si pregunta por algo que su plan no incluye, díselo con claridad y ofrécele la ruta para cambiar de plan.
 
 NO INVENTES datos. Usa exclusivamente el CONTEXTO DEL USUARIO provisto (plan, accesos, días de suscripción, progreso, estado real de mentorías). Si un dato no está en tu contexto, dilo con honestidad en vez de suponer cifras, créditos o límites.

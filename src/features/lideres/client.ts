@@ -54,27 +54,27 @@ export async function scheduleLeaderMentorship(userId: string, input: ScheduleLe
     });
 }
 
-export interface AdviserSlot {
+export interface AdvisorSlot {
     availabilityId: string;
     startsAt: string;
     endsAt: string;
     durationMinutes: number;
 }
 
-export async function listAdviserSlots(userId: string, mentorUserId: string): Promise<AdviserSlot[]> {
-    return requestApi<AdviserSlot[]>(
+export async function listAdvisorSlots(userId: string, mentorUserId: string): Promise<AdvisorSlot[]> {
+    return requestApi<AdvisorSlot[]>(
         `/api/v1/modules/lideres/${encodeURIComponent(userId)}/schedule-mentorship?mentorUserId=${encodeURIComponent(mentorUserId)}`,
         { timeoutMs: 30000 },
     );
 }
 
-export interface AdviserOption {
+export interface AdvisorOption {
     userId: string;
     name: string;
 }
 
-/** Lista de advisers (mentores) para el selector — usa el endpoint público. */
-export async function listAdvisersForSelect(): Promise<AdviserOption[]> {
-    const data = await requestApi<Array<{ userId: string; name: string }>>(`/api/v1/public/site/advisers`);
+/** Lista de advisors (mentores) para el selector — usa el endpoint público. */
+export async function listAdvisorsForSelect(): Promise<AdvisorOption[]> {
+    const data = await requestApi<Array<{ userId: string; name: string }>>(`/api/v1/public/site/advisors`);
     return (data ?? []).map((a) => ({ userId: a.userId, name: a.name }));
 }

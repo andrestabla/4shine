@@ -29,7 +29,7 @@ import {
   getMyProfile,
   updateMyProfile,
   type MyProfileRecord,
-  type AdviserPillarCode,
+  type AdvisorPillarCode,
   ADVISER_PRECIO_MIN,
   ADVISER_PRECIO_MAX,
 } from '@/features/perfil/client';
@@ -51,15 +51,15 @@ interface ProjectFormItem {
   imageUrl: string;
 }
 
-interface AdviserTopicFormItem {
+interface AdvisorTopicFormItem {
   topicLabel: string;
-  pillarCode: AdviserPillarCode | '';
+  pillarCode: AdvisorPillarCode | '';
 }
 
-interface AdviserFormState {
+interface AdvisorFormState {
   experiencia: string;
   precioSesion: string;
-  temas: AdviserTopicFormItem[];
+  temas: AdvisorTopicFormItem[];
 }
 
 interface ProfileFormState {
@@ -79,18 +79,18 @@ interface ProfileFormState {
   websiteUrl: string;
   interestsText: string;
   projects: ProjectFormItem[];
-  adviser: AdviserFormState;
+  advisor: AdvisorFormState;
 }
 
-const ADVISER_PILLAR_OPTIONS: Array<{ value: AdviserPillarCode; label: string }> = [
+const ADVISER_PILLAR_OPTIONS: Array<{ value: AdvisorPillarCode; label: string }> = [
   { value: 'shine_within', label: 'Shine Within' },
   { value: 'shine_out', label: 'Shine Out' },
   { value: 'shine_up', label: 'Shine Up' },
   { value: 'shine_beyond', label: 'Shine Beyond' },
 ];
 
-function buildAdviserForm(profile: MyProfileRecord): AdviserFormState {
-  const adv = profile.adviserProfile;
+function buildAdvisorForm(profile: MyProfileRecord): AdvisorFormState {
+  const adv = profile.advisorProfile;
   return {
     experiencia: adv?.experiencia ?? '',
     precioSesion: adv?.precioSesion != null ? String(adv.precioSesion) : '',
@@ -121,9 +121,9 @@ function userTypeLabel(role: string | undefined): string {
     case 'líder':
     case 'lider':
       return 'Líder con suscripción';
-    case 'adviser':
+    case 'advisor':
     case 'mentor':
-      return 'Adviser';
+      return 'Advisor';
     case 'gestor del programa':
     case 'gestor':
       return 'Gestor';
@@ -163,7 +163,7 @@ function buildForm(profile: MyProfileRecord): ProfileFormState {
             imageUrl: project.imageUrl ?? '',
           }))
         : [{ title: '', description: '', projectRole: '', imageUrl: '' }],
-    adviser: buildAdviserForm(profile),
+    advisor: buildAdvisorForm(profile),
   };
 }
 
@@ -369,17 +369,17 @@ export default function PerfilPage() {
       return;
     }
 
-    const isAdviser = (currentUser?.role ?? '').toLowerCase() === 'mentor';
-    let adviserPayload:
+    const isAdvisor = (currentUser?.role ?? '').toLowerCase() === 'mentor';
+    let advisorPayload:
       | {
           experiencia: string | null;
           precioSesion: number | null;
-          temas: Array<{ topicLabel: string; pillarCode: AdviserPillarCode }>;
+          temas: Array<{ topicLabel: string; pillarCode: AdvisorPillarCode }>;
         }
       | undefined;
 
-    if (isAdviser) {
-      const cleanedTopics = form.adviser.temas
+    if (isAdvisor) {
+      const cleanedTopics = form.advisor.temas
         .map((topic) => ({ topicLabel: topic.topicLabel.trim(), pillarCode: topic.pillarCode }))
         .filter((topic) => topic.topicLabel.length > 0);
 
@@ -393,7 +393,7 @@ export default function PerfilPage() {
         return;
       }
 
-      const trimmedPrecio = form.adviser.precioSesion.trim();
+      const trimmedPrecio = form.advisor.precioSesion.trim();
       let precioSesion: number | null = null;
       if (trimmedPrecio.length > 0) {
         const parsed = Number(trimmedPrecio.replace(/[.,\s]/g, ''));
@@ -408,10 +408,10 @@ export default function PerfilPage() {
         precioSesion = parsed;
       }
 
-      adviserPayload = {
-        experiencia: form.adviser.experiencia.trim() ? form.adviser.experiencia.trim() : null,
+      advisorPayload = {
+        experiencia: form.advisor.experiencia.trim() ? form.advisor.experiencia.trim() : null,
         precioSesion,
-        temas: cleanedTopics as Array<{ topicLabel: string; pillarCode: AdviserPillarCode }>,
+        temas: cleanedTopics as Array<{ topicLabel: string; pillarCode: AdvisorPillarCode }>,
       };
     }
 
@@ -445,7 +445,7 @@ export default function PerfilPage() {
             projectRole: project.projectRole || null,
             imageUrl: project.imageUrl || null,
           })),
-        ...(adviserPayload ? { adviserProfile: adviserPayload } : {}),
+        ...(advisorPayload ? { advisorProfile: advisorPayload } : {}),
       });
 
       setProfile(updated);
@@ -502,16 +502,16 @@ export default function PerfilPage() {
   const avatarFallback = (profile.avatarInitial || profile.displayName.charAt(0) || 'U').toUpperCase();
   const avatarPreviewUrl = form.avatarUrl.trim().length > 0 ? form.avatarUrl.trim() : null;
   const userType = userTypeLabel(currentUser?.role);
-  const isAdviserRole = (currentUser?.role ?? '').toLowerCase() === 'mentor';
-  const advForm = form.adviser;
-  const adviserData = profile.adviserProfile;
-  const adviserPrecioFormatted =
-    adviserData?.precioSesion != null
+  const isAdvisorRole = (currentUser?.role ?? '').toLowerCase() === 'mentor';
+  const advForm = form.advisor;
+  const advisorData = profile.advisorProfile;
+  const advisorPrecioFormatted =
+    advisorData?.precioSesion != null
       ? new Intl.NumberFormat('es-CO', {
           style: 'currency',
-          currency: adviserData.currencyCode || 'COP',
+          currency: advisorData.currencyCode || 'COP',
           maximumFractionDigits: 0,
-        }).format(adviserData.precioSesion)
+        }).format(advisorData.precioSesion)
       : null;
 
   return (
@@ -617,8 +617,8 @@ export default function PerfilPage() {
                           const extractedProjects = (extracted.projects ?? []).filter(
                             (p) => p.title.trim() && !existingTitles.has(p.title.trim().toLowerCase()),
                           );
-                          const hasTemas = prev.adviser.temas.some((tema) => tema.topicLabel.trim().length > 0);
-                          const extractedTemas = extracted.adviserTemas ?? [];
+                          const hasTemas = prev.advisor.temas.some((tema) => tema.topicLabel.trim().length > 0);
+                          const extractedTemas = extracted.advisorTemas ?? [];
                           return {
                             ...prev,
                             displayName: prev.displayName.trim() ? prev.displayName : nextDisplayName,
@@ -653,25 +653,25 @@ export default function PerfilPage() {
                                     })),
                                   ]
                                 : prev.projects,
-                            adviser: {
-                              ...prev.adviser,
-                              experiencia: prev.adviser.experiencia.trim()
-                                ? prev.adviser.experiencia
-                                : extracted.adviserExperiencia || prev.adviser.experiencia,
+                            advisor: {
+                              ...prev.advisor,
+                              experiencia: prev.advisor.experiencia.trim()
+                                ? prev.advisor.experiencia
+                                : extracted.advisorExperiencia || prev.advisor.experiencia,
                               temas:
                                 !hasTemas && extractedTemas.length > 0
                                   ? extractedTemas.map((tema) => ({
                                       topicLabel: tema.topicLabel,
                                       pillarCode: tema.pillarCode,
                                     }))
-                                  : prev.adviser.temas,
+                                  : prev.advisor.temas,
                             },
                           };
                         });
                         await alert({
                           title: 'Datos detectados',
                           message:
-                            'Se autocompletaron los campos faltantes desde tu CV (perfil, redes, intereses, proyectos y perfil de adviser si aplica). Revisa, ajusta lo necesario y guarda.',
+                            'Se autocompletaron los campos faltantes desde tu CV (perfil, redes, intereses, proyectos y perfil de advisor si aplica). Revisa, ajusta lo necesario y guarda.',
                           tone: 'success',
                         });
                       } catch (error) {
@@ -886,11 +886,11 @@ export default function PerfilPage() {
             )}
           </section>
 
-          {isAdviserRole && (
+          {isAdvisorRole && (
             <section className="app-panel p-5">
               <h4 className="mb-1 flex items-center gap-2 text-lg font-bold text-[var(--app-ink)]">
                 <Sparkles size={18} />
-                Perfil de Adviser
+                Perfil de Advisor
               </h4>
               <p className="mb-4 text-xs text-[var(--app-muted)]">
                 Esta información se muestra a los líderes cuando compran mentorías.
@@ -899,16 +899,16 @@ export default function PerfilPage() {
               {!isEditing ? (
                 <div className="space-y-4">
                   <div className="app-panel-soft p-3">
-                    <p className="text-xs text-[var(--app-muted)]">Experiencia como adviser</p>
+                    <p className="text-xs text-[var(--app-muted)]">Experiencia como advisor</p>
                     <p className="mt-1 whitespace-pre-line text-[var(--app-ink)]">
-                      {adviserData?.experiencia ?? 'Aún no has registrado tu experiencia como mentor.'}
+                      {advisorData?.experiencia ?? 'Aún no has registrado tu experiencia como mentor.'}
                     </p>
                   </div>
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                     <div className="app-panel-soft p-3">
                       <p className="text-xs text-[var(--app-muted)]">Precio sesión de trabajo</p>
                       <p className="font-semibold text-[var(--app-ink)]">
-                        {adviserPrecioFormatted ?? 'No definido'}
+                        {advisorPrecioFormatted ?? 'No definido'}
                       </p>
                       <p className="mt-0.5 text-[11px] text-[var(--app-muted)]">
                         Rango permitido: {ADVISER_PRECIO_MIN.toLocaleString('es-CO')} – {ADVISER_PRECIO_MAX.toLocaleString('es-CO')} COP
@@ -916,9 +916,9 @@ export default function PerfilPage() {
                     </div>
                     <div className="app-panel-soft p-3">
                       <p className="text-xs text-[var(--app-muted)]">Temas que trabaja</p>
-                      {adviserData && adviserData.temas.length > 0 ? (
+                      {advisorData && advisorData.temas.length > 0 ? (
                         <ul className="mt-1 space-y-1 text-sm text-[var(--app-ink)]">
-                          {adviserData.temas.map((topic) => (
+                          {advisorData.temas.map((topic) => (
                             <li key={topic.topicId} className="flex flex-wrap items-center gap-2">
                               <span className="font-semibold">{topic.topicLabel}</span>
                               <span className="rounded-full border border-[var(--app-border)] bg-white px-2 py-0.5 text-[11px] font-semibold text-[var(--app-muted)]">
@@ -936,7 +936,7 @@ export default function PerfilPage() {
               ) : (
                 <div className="space-y-4">
                   <label className="block">
-                    <span className="app-field-label">Experiencia como adviser (mentor)</span>
+                    <span className="app-field-label">Experiencia como advisor (mentor)</span>
                     <textarea
                       className="app-textarea min-h-28"
                       placeholder="Cuéntale a los líderes tu trayectoria como mentor: años, tipos de equipos, sectores, logros más relevantes…"
@@ -944,7 +944,7 @@ export default function PerfilPage() {
                       onChange={(event) =>
                         setForm((prev) =>
                           prev
-                            ? { ...prev, adviser: { ...prev.adviser, experiencia: event.target.value } }
+                            ? { ...prev, advisor: { ...prev.advisor, experiencia: event.target.value } }
                             : prev,
                         )
                       }
@@ -967,7 +967,7 @@ export default function PerfilPage() {
                       onChange={(event) =>
                         setForm((prev) =>
                           prev
-                            ? { ...prev, adviser: { ...prev.adviser, precioSesion: event.target.value } }
+                            ? { ...prev, advisor: { ...prev.advisor, precioSesion: event.target.value } }
                             : prev,
                         )
                       }
@@ -995,9 +995,9 @@ export default function PerfilPage() {
                             onChange={(event) =>
                               setForm((prev) => {
                                 if (!prev) return prev;
-                                const next = [...prev.adviser.temas];
+                                const next = [...prev.advisor.temas];
                                 next[index] = { ...next[index], topicLabel: event.target.value };
-                                return { ...prev, adviser: { ...prev.adviser, temas: next } };
+                                return { ...prev, advisor: { ...prev.advisor, temas: next } };
                               })
                             }
                           />
@@ -1007,12 +1007,12 @@ export default function PerfilPage() {
                             onChange={(event) =>
                               setForm((prev) => {
                                 if (!prev) return prev;
-                                const next = [...prev.adviser.temas];
+                                const next = [...prev.advisor.temas];
                                 next[index] = {
                                   ...next[index],
-                                  pillarCode: event.target.value as AdviserPillarCode | '',
+                                  pillarCode: event.target.value as AdvisorPillarCode | '',
                                 };
-                                return { ...prev, adviser: { ...prev.adviser, temas: next } };
+                                return { ...prev, advisor: { ...prev.advisor, temas: next } };
                               })
                             }
                           >
@@ -1029,11 +1029,11 @@ export default function PerfilPage() {
                             onClick={() =>
                               setForm((prev) => {
                                 if (!prev) return prev;
-                                const next = prev.adviser.temas.filter((_, i) => i !== index);
+                                const next = prev.advisor.temas.filter((_, i) => i !== index);
                                 return {
                                   ...prev,
-                                  adviser: {
-                                    ...prev.adviser,
+                                  advisor: {
+                                    ...prev.advisor,
                                     temas: next.length > 0 ? next : [{ topicLabel: '', pillarCode: '' }],
                                   },
                                 };
@@ -1054,9 +1054,9 @@ export default function PerfilPage() {
                           prev
                             ? {
                                 ...prev,
-                                adviser: {
-                                  ...prev.adviser,
-                                  temas: [...prev.adviser.temas, { topicLabel: '', pillarCode: '' }],
+                                advisor: {
+                                  ...prev.advisor,
+                                  temas: [...prev.advisor.temas, { topicLabel: '', pillarCode: '' }],
                                 },
                               }
                             : prev,

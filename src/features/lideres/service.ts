@@ -170,7 +170,7 @@ async function ensureLeaderAccess(actor: AuthUser, targetUserId: string) {
     if (actor.userId === targetUserId) return;
     if (!ELEVATED_ROLES.has(actor.role)) {
         throw new ForbiddenError(
-            'Solo administradores, gestores o advisers pueden consultar el perfil 360 de un líder.',
+            'Solo administradores, gestores o advisors pueden consultar el perfil 360 de un líder.',
         );
     }
 }

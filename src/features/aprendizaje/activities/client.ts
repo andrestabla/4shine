@@ -11,7 +11,7 @@ import type {
 
 export type * from './types';
 
-// ─── Admin/Gestor/Adviser ────────────────────────────────────────────────────
+// ─── Admin/Gestor/Advisor ────────────────────────────────────────────────────
 
 export async function getActivityForContentAdmin(contentId: string): Promise<ActivityRecord | null> {
   return requestApi<ActivityRecord | null>(

@@ -57,7 +57,7 @@ const PUBLIC_PAGE_KEYS: Record<string, string> = {
   '/descubrimiento': 'descubrimiento',
   '/metodologia': 'metodologia',
   '/planes-precios': 'planes_precios',
-  '/advisers': 'afiliados',
+  '/advisors': 'afiliados',
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

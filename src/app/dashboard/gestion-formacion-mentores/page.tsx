@@ -12,14 +12,14 @@ export default function GestionFormacionMentoresPage() {
 
   return (
     <div>
-      <PageTitle title="Gestión Formación Advisers" subtitle="Asignaciones y estado de cursos por Adviser." />
+      <PageTitle title="Gestión Formación Advisors" subtitle="Asignaciones y estado de cursos por Advisor." />
 
       <div className="app-table-shell">
         <div className="overflow-x-auto">
           <table className="app-table text-sm">
             <thead>
               <tr className="text-left">
-                <th>Adviser</th>
+                <th>Advisor</th>
                 <th>Curso</th>
                 <th>Asignado</th>
                 <th>Estado</th>

@@ -150,7 +150,7 @@ async function callOpenAiForSection(
 ): Promise<{ fields: Record<string, string>; notes: string | null }> {
     const systemPrompt =
         mode === 'transcript'
-            ? `Eres un coach ejecutivo de 4Shine. A partir de la transcripción literal de una sesión 1:1 entre un adviser y un líder, redactas el borrador editable de la sección "${section?.label ?? ''}" del ${template.code} (${template.title}). Respetas las palabras del líder, no inventas hechos, y devuelves SÓLO JSON válido.`
+            ? `Eres un coach ejecutivo de 4Shine. A partir de la transcripción literal de una sesión 1:1 entre un advisor y un líder, redactas el borrador editable de la sección "${section?.label ?? ''}" del ${template.code} (${template.title}). Respetas las palabras del líder, no inventas hechos, y devuelves SÓLO JSON válido.`
             : 'Eres un coach ejecutivo de 4Shine. A partir de las respuestas previas del líder, sugieres texto conciso para los campos solicitados sin inventar hechos. Devuelves SÓLO JSON válido.';
 
     const userPrompt = {
@@ -246,7 +246,7 @@ export async function POST(request: Request) {
     const mode = body.mode === 'autofill' ? 'autofill' : 'transcript';
     if (mode === 'transcript' && !ELEVATED_ROLES.has(identity.role)) {
         return NextResponse.json(
-            { ok: false, error: 'Solo admin, gestor o adviser pueden ejecutar el análisis IA de la transcripción de sesión.' },
+            { ok: false, error: 'Solo admin, gestor o advisor pueden ejecutar el análisis IA de la transcripción de sesión.' },
             { status: 403 },
         );
     }

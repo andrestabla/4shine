@@ -554,7 +554,7 @@ export default function LideresPage() {
                     subtitle="Seguimiento 360 de cada líder en el programa."
                 />
                 <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
-                    Sólo administradores, gestores o advisers pueden acceder a este resumen.
+                    Sólo administradores, gestores o advisors pueden acceder a este resumen.
                 </div>
             </div>
         )

@@ -83,7 +83,7 @@ const metrics = [
   { value: '+1.000', label: 'Líderes activos' },
   { value: '24',     label: 'Semanas de programa' },
   { value: '10',     label: 'Workbooks exclusivos' },
-  { value: '+25',    label: 'Advisers certificados' },
+  { value: '+25',    label: 'Advisors certificados' },
 ];
 
 const stories = [
@@ -142,7 +142,7 @@ export default async function MetodologiaPage() {
                 {[
                   { n: '01', text: 'Diagnóstico de 125 preguntas que mide tu nivel en los 4 pilares de liderazgo y define tu punto de partida.' },
                   { n: '02', text: 'Ruta guiada de 24 semanas con workbooks prácticos, contenido exclusivo y hitos claros por fase.' },
-                  { n: '03', text: 'Acompañamiento personalizado de Advisers certificados que aceleran decisiones y consolidan hábitos reales.' },
+                  { n: '03', text: 'Acompañamiento personalizado de Advisors certificados que aceleran decisiones y consolidan hábitos reales.' },
                 ].map(({ n, text }) => (
                   <div key={n} className="flex gap-4">
                     <span
@@ -321,17 +321,17 @@ export default async function MetodologiaPage() {
               summary: 'Clases, masterclasses y material de apoyo diseñados para aplicar en tu realidad profesional inmediata.',
               items: [
                 { title: 'Video-clases por fase', text: 'Lecciones cortas y accionables alineadas a cada workbook.' },
-                { title: 'Masterclasses de Advisers', text: 'Sesiones de expertos sobre temas de liderazgo de alto impacto.' },
+                { title: 'Masterclasses de Advisors', text: 'Sesiones de expertos sobre temas de liderazgo de alto impacto.' },
                 { title: 'Biblioteca de recursos', text: 'Lecturas, frameworks y herramientas curadas por especialistas.' },
               ],
             },
             {
               n: '02',
               title: 'Sesiones de mentoría con expertos',
-              summary: 'Acompañamiento 1:1 y grupal con Advisers especializados que te ayudan a tomar decisiones con mayor claridad y velocidad.',
+              summary: 'Acompañamiento 1:1 y grupal con Advisors especializados que te ayudan a tomar decisiones con mayor claridad y velocidad.',
               items: [
-                { title: 'Adviser Guía', text: 'Acompañamiento continuo a lo largo de tu ruta. Seguimiento semanal, retroalimentación y accountability.' },
-                { title: 'Adviser Experto', text: 'Sesiones focalizadas con especialistas según la fase que estés transitando en el programa.' },
+                { title: 'Advisor Guía', text: 'Acompañamiento continuo a lo largo de tu ruta. Seguimiento semanal, retroalimentación y accountability.' },
+                { title: 'Advisor Experto', text: 'Sesiones focalizadas con especialistas según la fase que estés transitando en el programa.' },
                 { title: 'Estructura probada', text: 'Cada sesión tiene un marco de preparación, conversación y compromisos que aceleran el avance real.' },
               ],
             },

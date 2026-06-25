@@ -106,7 +106,7 @@ function summarize(value: string, maxLength = 130): string {
 }
 
 function roleViewLabel(role: string | null): string {
-  if (role === "mentor") return "Vista Adviser";
+  if (role === "mentor") return "Vista Advisor";
   if (role === "gestor") return "Vista gestor";
   if (role === "admin") return "Vista admin";
   return "Vista líder";
@@ -597,7 +597,7 @@ export default function TrayectoriaPage() {
           <p className="mt-4 max-w-3xl text-sm leading-relaxed text-[var(--app-muted)] md:text-base">
             La Trayectoria es la hoja de ruta oficial del líder 4Shine: <strong>24 semanas</strong> organizadas
             en <strong>5 hitos de transformación</strong> que conectan el diagnóstico, los workbooks, las
-            mentorías y las señales de progreso en una sola línea de tiempo. Como adviser, esta vista es tu
+            mentorías y las señales de progreso en una sola línea de tiempo. Como advisor, esta vista es tu
             referencia para entender qué vive el líder en cada etapa y acompañarlo mejor. Usa los accesos
             directos para explorar cada componente.
           </p>

@@ -14,7 +14,7 @@ function roleCopy(role: string | null): { kicker: string; body: string } {
   switch (role) {
     case "mentor":
       return {
-        kicker: "Bienvenido, Adviser",
+        kicker: "Bienvenido, Advisor",
         body: "Acompañas a líderes con método y contexto. Te mostramos en un recorrido rápido dónde está cada cosa para empezar con foco.",
       };
     case "gestor":

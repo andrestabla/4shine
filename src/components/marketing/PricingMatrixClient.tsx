@@ -28,7 +28,7 @@ const MENTORING_PACKS = [
     sessions: 1,
     label: '1 sesión',
     price: 50,
-    note: 'Sesión individual de 60 min. con Adviser certificado. Ideal para un momento puntual de claridad o acompañamiento.',
+    note: 'Sesión individual de 60 min. con Advisor certificado. Ideal para un momento puntual de claridad o acompañamiento.',
     checkoutHref: '/acceso?plan=mentoria-1',
   },
   {
@@ -213,7 +213,7 @@ export function PricingMatrixClient({ plans }: PricingMatrixClientProps) {
             className="mb-8 max-w-[62ch] text-base leading-relaxed"
             style={{ color: 'var(--brand-ink-soft)' }}
           >
-            Sesiones individuales con Advisers certificados. Sin compromiso de programa. Ideal para acompañamiento puntual en un momento concreto de decisión, transición o desarrollo.
+            Sesiones individuales con Advisors certificados. Sin compromiso de programa. Ideal para acompañamiento puntual en un momento concreto de decisión, transición o desarrollo.
           </p>
           <div className="grid gap-5 sm:grid-cols-3">
             {MENTORING_PACKS.map((pack) => (

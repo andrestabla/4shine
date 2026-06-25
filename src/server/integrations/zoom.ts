@@ -164,7 +164,7 @@ export async function createZoomMeeting(
       body: JSON.stringify(payload),
     });
 
-  // The Adviser host can start the meeting when set as an alternative host.
+  // The Advisor host can start the meeting when set as an alternative host.
   // Zoom requires that email to belong to a user on the same Zoom account; if it
   // does not, the request is retried without it so the meeting is still created.
   let res: Response;

@@ -18,7 +18,7 @@ const MANAGE_ROLES = new Set(['admin', 'gestor', 'mentor']);
 
 function assertCanManage(actor: AuthUser): void {
   if (!MANAGE_ROLES.has(actor.role)) {
-    throw new Error('Solo Admin, Gestor o Adviser pueden gestionar tareas.');
+    throw new Error('Solo Admin, Gestor o Advisor pueden gestionar tareas.');
   }
 }
 
@@ -26,7 +26,7 @@ function assertCanManage(actor: AuthUser): void {
  * Las tareas solo se consumen dentro de un curso. Verifica que la tarea esté
  * vinculada como linkedContentId en al menos un curso publicado. Si no, el
  * líder no debería poder cargar la tarea ni enviar entregas.
- * Manager roles (admin/gestor/adviser) bypasan este check para QA.
+ * Manager roles (admin/gestor/advisor) bypasan este check para QA.
  */
 async function assertTaskAccessibleViaCourse(
   client: PoolClient,
@@ -151,7 +151,7 @@ function mapSubmissionRow(row: SubmissionRow): SubmissionRecord {
   };
 }
 
-// ─── CRUD assignment (admin/gestor/adviser) ──────────────────────────────────
+// ─── CRUD assignment (admin/gestor/advisor) ──────────────────────────────────
 
 export async function upsertAssignment(
   client: PoolClient,
@@ -409,7 +409,7 @@ export async function upsertMySubmission(
   return fresh.find((s) => s.submissionId === submissionId) ?? fresh[0];
 }
 
-// ─── Grade (admin/gestor/adviser) ────────────────────────────────────────────
+// ─── Grade (admin/gestor/advisor) ────────────────────────────────────────────
 
 export async function gradeSubmission(
   client: PoolClient,
@@ -473,7 +473,7 @@ export async function gradeSubmission(
   return mapSubmissionRow(rows[0]);
 }
 
-// ─── List (admin/gestor/adviser) ─────────────────────────────────────────────
+// ─── List (admin/gestor/advisor) ─────────────────────────────────────────────
 
 export async function listSubmissionsForAssignment(
   client: PoolClient,

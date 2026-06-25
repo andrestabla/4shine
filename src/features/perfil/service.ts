@@ -24,33 +24,33 @@ export interface ProfileProjectRecord {
   imageUrl: string | null;
 }
 
-export type AdviserPillarCode = 'shine_within' | 'shine_out' | 'shine_up' | 'shine_beyond';
+export type AdvisorPillarCode = 'shine_within' | 'shine_out' | 'shine_up' | 'shine_beyond';
 
-export interface AdviserTopicRecord {
+export interface AdvisorTopicRecord {
   topicId: string;
   topicLabel: string;
-  pillarCode: AdviserPillarCode;
+  pillarCode: AdvisorPillarCode;
 }
 
-export interface AdviserProfileRecord {
+export interface AdvisorProfileRecord {
   experiencia: string | null;
   precioSesion: number | null;
   currencyCode: string;
-  temas: AdviserTopicRecord[];
+  temas: AdvisorTopicRecord[];
 }
 
-export interface AdviserTopicInput {
+export interface AdvisorTopicInput {
   topicLabel: string;
-  pillarCode: AdviserPillarCode;
+  pillarCode: AdvisorPillarCode;
 }
 
-export interface AdviserProfileInput {
+export interface AdvisorProfileInput {
   experiencia?: string | null;
   precioSesion?: number | null;
-  temas?: AdviserTopicInput[];
+  temas?: AdvisorTopicInput[];
 }
 
-const ADVISER_PILLAR_SET = new Set<AdviserPillarCode>([
+const ADVISER_PILLAR_SET = new Set<AdvisorPillarCode>([
   'shine_within',
   'shine_out',
   'shine_up',
@@ -95,7 +95,7 @@ export interface MyProfileRecord {
   interests: string[];
   projects: ProfileProjectRecord[];
   purchases: UserPurchaseRecord[];
-  adviserProfile: AdviserProfileRecord | null;
+  advisorProfile: AdvisorProfileRecord | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -126,7 +126,7 @@ export interface UpdateMyProfileInput {
   websiteUrl?: string | null;
   interests?: string[];
   projects?: ProfileProjectInput[];
-  adviserProfile?: AdviserProfileInput;
+  advisorProfile?: AdvisorProfileInput;
 }
 
 export interface ExtractProfileFromCvInput {
@@ -139,7 +139,7 @@ export interface ExtractedCvProject {
   projectRole: string;
 }
 
-export interface ExtractedAdviserTopic {
+export interface ExtractedAdvisorTopic {
   topicLabel: string;
   pillarCode: 'shine_within' | 'shine_out' | 'shine_up' | 'shine_beyond';
 }
@@ -161,8 +161,8 @@ export interface ExtractProfileFromCvResult {
   yearsExperience: number | null;
   timezone: string;
   projects: ExtractedCvProject[];
-  adviserExperiencia: string;
-  adviserTemas: ExtractedAdviserTopic[];
+  advisorExperiencia: string;
+  advisorTemas: ExtractedAdvisorTopic[];
 }
 
 interface ProfileRow {
@@ -409,14 +409,14 @@ function normalizePrecioSesion(value: number | null | undefined): number | null 
   return intValue;
 }
 
-function normalizeAdviserTopics(
-  input: AdviserTopicInput[] | undefined,
-): AdviserTopicInput[] | null {
+function normalizeAdvisorTopics(
+  input: AdvisorTopicInput[] | undefined,
+): AdvisorTopicInput[] | null {
   if (!input) return null;
-  const cleaned: AdviserTopicInput[] = [];
+  const cleaned: AdvisorTopicInput[] = [];
   for (const raw of input) {
     const label = (raw?.topicLabel ?? '').trim();
-    const pillarCode = (raw?.pillarCode ?? '') as AdviserPillarCode;
+    const pillarCode = (raw?.pillarCode ?? '') as AdvisorPillarCode;
     if (!label) continue;
     if (!ADVISER_PILLAR_SET.has(pillarCode)) {
       throw new Error(`Pilar inválido para el tema "${label}".`);
@@ -427,23 +427,23 @@ function normalizeAdviserTopics(
   return cleaned;
 }
 
-interface AdviserMentorRow {
+interface AdvisorMentorRow {
   experiencia: string | null;
   precio_sesion: number | null;
   currency_code: string | null;
 }
 
-interface AdviserTopicRow {
+interface AdvisorTopicRow {
   topic_id: string;
   topic_label: string;
-  pillar_code: AdviserPillarCode;
+  pillar_code: AdvisorPillarCode;
 }
 
-async function getAdviserProfile(
+async function getAdvisorProfile(
   client: PoolClient,
   userId: string,
-): Promise<AdviserProfileRecord | null> {
-  const { rows } = await client.query<AdviserMentorRow>(
+): Promise<AdvisorProfileRecord | null> {
+  const { rows } = await client.query<AdvisorMentorRow>(
     `
       SELECT m.experiencia, m.precio_sesion, m.currency_code
       FROM app_mentoring.mentors m
@@ -457,7 +457,7 @@ async function getAdviserProfile(
   const row = rows[0];
   if (!row) return null;
 
-  const { rows: topicRows } = await client.query<AdviserTopicRow>(
+  const { rows: topicRows } = await client.query<AdvisorTopicRow>(
     `
       SELECT topic_id::text, topic_label, pillar_code
       FROM app_mentoring.mentor_topics
@@ -479,10 +479,10 @@ async function getAdviserProfile(
   };
 }
 
-async function upsertAdviserProfile(
+async function upsertAdvisorProfile(
   client: PoolClient,
   userId: string,
-  input: AdviserProfileInput,
+  input: AdvisorProfileInput,
 ): Promise<void> {
   // Ensure mentor row exists (trigger usually handles this, but be defensive)
   await client.query(
@@ -526,7 +526,7 @@ async function upsertAdviserProfile(
   }
 
   if (input.temas !== undefined) {
-    const normalizedTopics = normalizeAdviserTopics(input.temas) ?? [];
+    const normalizedTopics = normalizeAdvisorTopics(input.temas) ?? [];
     await client.query(
       `DELETE FROM app_mentoring.mentor_topics WHERE mentor_user_id = $1::uuid`,
       [userId],
@@ -549,7 +549,7 @@ function mapProfile(
   interests: string[],
   projects: ProfileProjectRecord[],
   purchases: UserPurchaseRecord[],
-  adviserProfile: AdviserProfileRecord | null,
+  advisorProfile: AdvisorProfileRecord | null,
 ): MyProfileRecord {
   return {
     userId: row.user_id,
@@ -589,7 +589,7 @@ function mapProfile(
     interests,
     projects,
     purchases,
-    adviserProfile,
+    advisorProfile,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -761,25 +761,25 @@ async function syncProjects(client: PoolClient, userId: string, projects: Profil
 export async function getMyProfile(client: PoolClient, actor: AuthUser): Promise<MyProfileRecord> {
   await requireModulePermission(client, 'perfil', 'view');
 
-  // El perfil de adviser (experiencia, precio de sesión, etc.) solo aplica
+  // El perfil de advisor (experiencia, precio de sesión, etc.) solo aplica
   // si el usuario es actualmente mentor. Si fue mentor antes y ahora es otro
   // rol (ej. líder), la fila en app_mentoring.mentors puede seguir existiendo
   // como dato histórico, pero NO debe filtrarse al perfil actual del usuario.
   // El rol viene de authenticateRequest, que ya lee primary_role vigente del DB.
-  const adviserProfilePromise =
+  const advisorProfilePromise =
     actor.role === 'mentor'
-      ? getAdviserProfile(client, actor.userId)
+      ? getAdvisorProfile(client, actor.userId)
       : Promise.resolve(null);
 
-  const [row, interests, projects, purchases, adviserProfile] = await Promise.all([
+  const [row, interests, projects, purchases, advisorProfile] = await Promise.all([
     getProfileRow(client, actor.userId),
     listInterests(client, actor.userId),
     listProjects(client, actor.userId),
     listUserPurchases(client, actor.userId),
-    adviserProfilePromise,
+    advisorProfilePromise,
   ]);
 
-  return mapProfile(row, interests, projects, purchases, adviserProfile);
+  return mapProfile(row, interests, projects, purchases, advisorProfile);
 }
 
 export async function updateMyProfile(
@@ -941,8 +941,8 @@ export async function updateMyProfile(
     await syncProjects(client, actor.userId, normalizedProjects);
   }
 
-  if (input.adviserProfile !== undefined && actor.role === 'mentor') {
-    await upsertAdviserProfile(client, actor.userId, input.adviserProfile);
+  if (input.advisorProfile !== undefined && actor.role === 'mentor') {
+    await upsertAdvisorProfile(client, actor.userId, input.advisorProfile);
   }
 
   return getMyProfile(client, actor);
@@ -974,8 +974,8 @@ export async function extractProfileFromCv(
     yearsExperience: current.yearsExperience ?? extractYearsExperienceFromText(text),
     timezone: '',
     projects: [],
-    adviserExperiencia: '',
-    adviserTemas: [],
+    advisorExperiencia: '',
+    advisorTemas: [],
   };
 
   if (!text) return fallback;
@@ -988,7 +988,7 @@ export async function extractProfileFromCv(
     const systemPrompt = [
       'Extrae datos de perfil de un CV y devuelve SOLO JSON válido (un único objeto).',
       'Haz lectura semántica: infiere datos faltantes con alta probabilidad según experiencia, sector, responsabilidades y contexto.',
-      'Campos: firstName, lastName, profession, industry, location, bio, linkedinUrl, twitterUrl, websiteUrl, interests, country, jobRole, gender, yearsExperience, timezone, projects, adviserExperiencia, adviserTemas.',
+      'Campos: firstName, lastName, profession, industry, location, bio, linkedinUrl, twitterUrl, websiteUrl, interests, country, jobRole, gender, yearsExperience, timezone, projects, advisorExperiencia, advisorTemas.',
       `jobRole permitido: ${USER_JOB_ROLE_OPTIONS.join(' | ')}`,
       'gender permitido: Hombre | Mujer | Prefiero no decirlo',
       `country permitido: ${Array.from(USER_COUNTRY_SET).join(' | ')}`,
@@ -997,8 +997,8 @@ export async function extractProfileFromCv(
       'location: ciudad de residencia si aparece o se infiere. timezone: zona horaria IANA inferida del país/ciudad (ej. America/Bogota, America/Mexico_City, America/Argentina/Buenos_Aires, Europe/Madrid); si no es inferible, string vacío.',
       'interests: infiere SIEMPRE entre 4 y 8 intereses profesionales concretos en español. No te limites a lo que el CV liste de forma explícita: dedúcelos del sector, las herramientas, los temas recurrentes, las certificaciones y el tipo de proyectos (ej. "Transformación digital", "Liderazgo de equipos", "Educación corporativa").',
       'projects: genera UN registro por CADA experiencia laboral y por CADA proyecto relevante del CV (hasta 12 registros, ordenados del más reciente al más antiguo). Cada registro: {title (nombre del proyecto, o cargo + empresa para experiencias laborales), description (1-3 frases con responsabilidades y logros concretos), projectRole (rol o cargo desempeñado)}. No omitas experiencias: cada empleo del CV debe producir su registro.',
-      'adviserExperiencia: párrafo de 2 a 4 frases, en primera persona y en español, que resuma la experiencia de la persona como mentor, docente, consultor o asesor de otros profesionales (si el CV lo evidencia; si no, string vacío).',
-      'adviserTemas: arreglo de hasta 5 temas en los que la persona puede mentorear a otros líderes, cada uno {topicLabel (tema corto en español), pillarCode}. pillarCode permitido: shine_within (autoliderazgo, identidad, propósito, inteligencia emocional) | shine_out (comunicación, influencia, presencia ejecutiva, relaciones) | shine_up (estrategia, visión, toma de decisiones, gestión) | shine_beyond (equipos, cultura, transformación organizacional, legado).',
+      'advisorExperiencia: párrafo de 2 a 4 frases, en primera persona y en español, que resuma la experiencia de la persona como mentor, docente, consultor o asesor de otros profesionales (si el CV lo evidencia; si no, string vacío).',
+      'advisorTemas: arreglo de hasta 5 temas en los que la persona puede mentorear a otros líderes, cada uno {topicLabel (tema corto en español), pillarCode}. pillarCode permitido: shine_within (autoliderazgo, identidad, propósito, inteligencia emocional) | shine_out (comunicación, influencia, presencia ejecutiva, relaciones) | shine_up (estrategia, visión, toma de decisiones, gestión) | shine_beyond (equipos, cultura, transformación organizacional, legado).',
       'Si un dato no se puede inferir de forma confiable, devuelve string vacío, null o arreglo vacío según corresponda.',
     ].join('\n');
     const userPrompt = `CV:\n${text.slice(0, 16000)}`;
@@ -1061,19 +1061,19 @@ export async function extractProfileFromCv(
           .slice(0, 12)
       : [];
 
-    const adviserExperiencia =
-      typeof parsed.adviserExperiencia === 'string' ? parsed.adviserExperiencia.trim().slice(0, 2000) : '';
+    const advisorExperiencia =
+      typeof parsed.advisorExperiencia === 'string' ? parsed.advisorExperiencia.trim().slice(0, 2000) : '';
 
     const ADVISER_PILLARS = new Set(['shine_within', 'shine_out', 'shine_up', 'shine_beyond']);
-    const adviserTemas: ExtractedAdviserTopic[] = Array.isArray(parsed.adviserTemas)
-      ? (parsed.adviserTemas as unknown[])
+    const advisorTemas: ExtractedAdvisorTopic[] = Array.isArray(parsed.advisorTemas)
+      ? (parsed.advisorTemas as unknown[])
           .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object')
           .map((item) => ({
             topicLabel: typeof item.topicLabel === 'string' ? item.topicLabel.trim().slice(0, 80) : '',
             pillarCode: typeof item.pillarCode === 'string' ? item.pillarCode.trim() : '',
           }))
           .filter(
-            (item): item is ExtractedAdviserTopic =>
+            (item): item is ExtractedAdvisorTopic =>
               item.topicLabel.length > 0 && ADVISER_PILLARS.has(item.pillarCode),
           )
           .slice(0, 5)
@@ -1096,8 +1096,8 @@ export async function extractProfileFromCv(
       yearsExperience,
       timezone,
       projects,
-      adviserExperiencia,
-      adviserTemas,
+      advisorExperiencia,
+      advisorTemas,
     };
   } catch {
     return fallback;

@@ -129,26 +129,26 @@ function ImageFieldInput({ value, onChange }: { value: string; onChange: (next: 
   );
 }
 
-interface AdviserOption {
+interface AdvisorOption {
   userId: string;
   name: string;
   photoUrl: string;
   profession: string;
 }
 
-function AdvisersPickerInput({ value, onChange }: { value: unknown; onChange: (next: unknown) => void }) {
-  const [advisers, setAdvisers] = React.useState<AdviserOption[] | null>(null);
+function AdvisorsPickerInput({ value, onChange }: { value: unknown; onChange: (next: unknown) => void }) {
+  const [advisors, setAdvisors] = React.useState<AdvisorOption[] | null>(null);
   const selected = Array.isArray(value) ? (value as string[]).filter((id) => typeof id === 'string') : [];
 
   React.useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetch('/api/v1/public/site/advisers', { cache: 'no-store', credentials: 'include' });
-        const json = (await res.json()) as { ok: boolean; data?: AdviserOption[] };
-        if (!cancelled) setAdvisers(json.ok && Array.isArray(json.data) ? json.data : []);
+        const res = await fetch('/api/v1/public/site/advisors', { cache: 'no-store', credentials: 'include' });
+        const json = (await res.json()) as { ok: boolean; data?: AdvisorOption[] };
+        if (!cancelled) setAdvisors(json.ok && Array.isArray(json.data) ? json.data : []);
       } catch {
-        if (!cancelled) setAdvisers([]);
+        if (!cancelled) setAdvisors([]);
       }
     })();
     return () => {
@@ -156,17 +156,17 @@ function AdvisersPickerInput({ value, onChange }: { value: unknown; onChange: (n
     };
   }, []);
 
-  if (advisers === null) {
+  if (advisors === null) {
     return (
       <div className="flex items-center gap-2 text-[11px] text-[var(--app-muted)]">
         <Loader2 size={12} className="animate-spin" />
-        Cargando advisers...
+        Cargando advisors...
       </div>
     );
   }
 
-  if (advisers.length === 0) {
-    return <p className="text-[11px] text-[var(--app-muted)]">No hay advisers activos en la plataforma.</p>;
+  if (advisors.length === 0) {
+    return <p className="text-[11px] text-[var(--app-muted)]">No hay advisors activos en la plataforma.</p>;
   }
 
   const toggle = (userId: string) => {
@@ -175,30 +175,30 @@ function AdvisersPickerInput({ value, onChange }: { value: unknown; onChange: (n
 
   return (
     <div className="space-y-1.5">
-      {advisers.map((adviser) => {
-        const isChecked = selected.includes(adviser.userId);
-        const order = selected.indexOf(adviser.userId);
+      {advisors.map((advisor) => {
+        const isChecked = selected.includes(advisor.userId);
+        const order = selected.indexOf(advisor.userId);
         return (
           <button
-            key={adviser.userId}
+            key={advisor.userId}
             type="button"
-            onClick={() => toggle(adviser.userId)}
+            onClick={() => toggle(advisor.userId)}
             className={`flex w-full items-center gap-2.5 rounded-lg border px-2.5 py-2 text-left transition ${
               isChecked ? 'border-[var(--app-accent)] bg-[var(--app-surface)]' : 'border-[var(--app-border)] hover:border-[var(--app-accent)]'
             }`}
           >
-            {adviser.photoUrl ? (
+            {advisor.photoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={adviser.photoUrl} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover" />
+              <img src={advisor.photoUrl} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover" />
             ) : (
               <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--app-surface)] text-[10px] font-bold text-[var(--app-muted)]">
-                {adviser.name.charAt(0)}
+                {advisor.name.charAt(0)}
               </span>
             )}
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-xs font-semibold text-[var(--app-ink)]">{adviser.name}</span>
-              {adviser.profession && (
-                <span className="block truncate text-[10px] text-[var(--app-muted)]">{adviser.profession}</span>
+              <span className="block truncate text-xs font-semibold text-[var(--app-ink)]">{advisor.name}</span>
+              {advisor.profession && (
+                <span className="block truncate text-[10px] text-[var(--app-muted)]">{advisor.profession}</span>
               )}
             </span>
             {isChecked && (
@@ -361,8 +361,8 @@ function FieldInput({
       );
     case 'image':
       return <ImageFieldInput value={typeof value === 'string' ? value : ''} onChange={onChange} />;
-    case 'advisers':
-      return <AdvisersPickerInput value={value} onChange={onChange} />;
+    case 'advisors':
+      return <AdvisorsPickerInput value={value} onChange={onChange} />;
     case 'list': {
       const list = Array.isArray(value) ? (value as Record<string, unknown>[]) : [];
       const itemLabel = field.itemLabel ?? 'Elemento';

@@ -50,7 +50,7 @@ export const PLAN_FEATURES: PlanFeatureDef[] = [
     moduleCode: 'mentorias',
     moduleLabel: 'Mentorías',
     label: 'Mentorías grupales',
-    description: 'Sesiones grupales en vivo con Adviser.',
+    description: 'Sesiones grupales en vivo con Advisor.',
     supportsQuota: true,
   },
   {
@@ -58,7 +58,7 @@ export const PLAN_FEATURES: PlanFeatureDef[] = [
     moduleCode: 'mentorias',
     moduleLabel: 'Mentorías',
     label: 'Mentorías 1:1',
-    description: 'Sesiones individuales con Adviser asignado.',
+    description: 'Sesiones individuales con Advisor asignado.',
     supportsQuota: true,
   },
   {
@@ -82,7 +82,7 @@ export const PLAN_FEATURES: PlanFeatureDef[] = [
     moduleCode: 'mensajes',
     moduleLabel: 'Mensajes',
     label: 'Mensajes',
-    description: 'Chat directo con Adviser y otros miembros.',
+    description: 'Chat directo con Advisor y otros miembros.',
     supportsQuota: false,
   },
   {

@@ -290,7 +290,7 @@ export default function PagosAdminPage() {
                 <tr>
                   <th className="px-4 py-3">Orden</th>
                   <th className="px-4 py-3">Líder</th>
-                  <th className="px-4 py-3">Adviser</th>
+                  <th className="px-4 py-3">Advisor</th>
                   <th className="px-4 py-3">Monto</th>
                   <th className="px-4 py-3">Proveedor</th>
                   <th className="px-4 py-3">Estado</th>

@@ -7,7 +7,7 @@ export const TOUR_ROLES: TourRole[] = ['lider', 'mentor', 'gestor', 'admin', 'in
 
 export const TOUR_ROLE_LABELS: Record<TourRole, string> = {
   lider: 'Líder',
-  mentor: 'Adviser',
+  mentor: 'Advisor',
   gestor: 'Gestor',
   admin: 'Administrador',
   invitado: 'Invitado',

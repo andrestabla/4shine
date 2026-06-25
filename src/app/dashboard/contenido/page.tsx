@@ -50,7 +50,7 @@ const TYPE_OPTIONS: ContentType[] = ['video', 'pdf', 'scorm', 'article', 'podcas
 const SCOPE_LABELS: Record<ContentScope, string> = {
   aprendizaje: 'Aprendizaje',
   metodologia: 'Metodología',
-  formacion_mentores: 'Formación Advisers',
+  formacion_mentores: 'Formación Advisors',
   formacion_lideres: 'Formación Líderes',
 };
 

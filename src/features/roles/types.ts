@@ -6,7 +6,7 @@ export const ROLE_LABELS: Record<RoleCode, string> = {
   admin: 'Administrador',
   gestor: 'Gestor',
   lider: 'Líder',
-  mentor: 'Adviser',
+  mentor: 'Advisor',
   invitado: 'Invitado',
 };
 

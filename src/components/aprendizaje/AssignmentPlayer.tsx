@@ -92,7 +92,7 @@ export function AssignmentPlayer({ contentId }: { contentId: string }) {
       await alert({
         title: asSubmit ? 'Entrega enviada' : 'Borrador guardado',
         message: asSubmit
-          ? 'Tu entrega quedó marcada como enviada. El adviser la revisará.'
+          ? 'Tu entrega quedó marcada como enviada. El advisor la revisará.'
           : 'Tu progreso queda guardado. Puedes editarlo después.',
         tone: 'success',
       });
@@ -122,7 +122,7 @@ export function AssignmentPlayer({ contentId }: { contentId: string }) {
     }
     const ok = await confirm({
       title: 'Enviar entrega',
-      message: '¿Quieres marcar esta entrega como enviada? El adviser la revisará y calificará.',
+      message: '¿Quieres marcar esta entrega como enviada? El advisor la revisará y calificará.',
       tone: 'info',
       confirmText: 'Enviar',
       cancelText: 'Cancelar',

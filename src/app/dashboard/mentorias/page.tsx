@@ -233,9 +233,9 @@ function formatWeekday(value: Date): string {
 
 type ComprarStep = 'list' | 'configure' | 'pay' | 'success';
 type TimeBucket = 'early' | 'morning' | 'midday' | 'afternoon' | 'night';
-type AdviserPillarCode = 'shine_within' | 'shine_out' | 'shine_up' | 'shine_beyond';
+type AdvisorPillarCode = 'shine_within' | 'shine_out' | 'shine_up' | 'shine_beyond';
 
-const COMPRAR_PILLAR_FILTERS: Array<{ value: AdviserPillarCode; label: string }> = [
+const COMPRAR_PILLAR_FILTERS: Array<{ value: AdvisorPillarCode; label: string }> = [
   { value: 'shine_within', label: 'Shine Within' },
   { value: 'shine_out', label: 'Shine Out' },
   { value: 'shine_up', label: 'Shine Up' },
@@ -363,7 +363,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
   const [additionalWizardStep, setAdditionalWizardStep] = React.useState<WizardStep>(1);
   const [comprarStep, setComprarStep] = React.useState<ComprarStep>('list');
   const [comprarMentorId, setComprarMentorId] = React.useState<string | null>(null);
-  const [comprarFilterPillars, setComprarFilterPillars] = React.useState<Set<AdviserPillarCode>>(new Set());
+  const [comprarFilterPillars, setComprarFilterPillars] = React.useState<Set<AdvisorPillarCode>>(new Set());
   const [comprarFilterTopic, setComprarFilterTopic] = React.useState('');
   const [comprarFilterTimeBuckets, setComprarFilterTimeBuckets] = React.useState<Set<TimeBucket>>(new Set());
   const [comprarConfirmedOrderId, setComprarConfirmedOrderId] = React.useState<string | null>(null);
@@ -698,7 +698,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
           value: overview.programEntitlements.filter((item) => item.status === 'scheduled').length,
           hint: isOpenLeader
             ? 'Verás aquí las incluidas cuando actives el programa.'
-            : 'Mentorías incluidas ya reservadas con Adviser.',
+            : 'Mentorías incluidas ya reservadas con Advisor.',
         },
         {
           label: 'Adicionales',
@@ -731,9 +731,9 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
           hint: 'Sesiones cerradas y finalizadas.',
         },
         {
-          label: 'Advisers',
+          label: 'Advisors',
           value: overview.mentorCatalog.length,
-          hint: 'Advisers activos en el catálogo.',
+          hint: 'Advisors activos en el catálogo.',
         },
       ]
     : [];
@@ -830,7 +830,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
   const filteredMentorCatalog = React.useMemo(() => {
     const base = (overview?.mentorCatalog ?? []).filter((mentor) => {
       if (comprarFilterPillars.size > 0) {
-        if (!mentor.temas.some((t) => comprarFilterPillars.has(t.pillarCode as AdviserPillarCode))) {
+        if (!mentor.temas.some((t) => comprarFilterPillars.has(t.pillarCode as AdvisorPillarCode))) {
           return false;
         }
       }
@@ -1447,7 +1447,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                   value={groupSessionForm.hostUserId}
                   onChange={(event) => setGroupSessionForm((prev) => ({ ...prev, hostUserId: event.target.value }))}
                 >
-                  <option value="">Sin Adviser anfitrión</option>
+                  <option value="">Sin Advisor anfitrión</option>
                   {mentorCatalog.map((mentor) => (
                     <option key={mentor.mentorUserId} value={mentor.mentorUserId}>
                       {mentor.name}
@@ -2277,7 +2277,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
       <div className="space-y-6">
         <PageTitle
           title="Mentorías"
-          subtitle="Estamos preparando la agenda, las mentorías incluidas y el catálogo de Advisers disponibles."
+          subtitle="Estamos preparando la agenda, las mentorías incluidas y el catálogo de Advisors disponibles."
         />
         <div className="app-panel p-6 text-sm text-[var(--app-muted)]">Cargando mentorías...</div>
       </div>
@@ -2521,11 +2521,11 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                 })}
               </div>
 
-              {/* Selector de adviser (admin/gestor) */}
+              {/* Selector de advisor (admin/gestor) */}
               {currentRole !== 'mentor' && agendaStep === 1 && (
                 <div className="mb-4">
                   <label className="mb-1.5 block text-xs font-semibold text-[var(--app-muted)]">
-                    Adviser
+                    Advisor
                   </label>
                   <select
                     className="w-full rounded-[14px] border border-[var(--app-border)] bg-white px-4 py-2.5 text-sm"
@@ -2538,7 +2538,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                       if (id) void loadAgendaFullSlots(id);
                     }}
                   >
-                    <option value="">Selecciona un Adviser…</option>
+                    <option value="">Selecciona un Advisor…</option>
                     {overview.mentorCatalog.map((mentor) => (
                       <option key={mentor.mentorUserId} value={mentor.mentorUserId}>
                         {mentor.name} · {mentor.specialty}
@@ -2594,7 +2594,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                   ))}
                   {!activeMentorId && currentRole !== 'mentor' && (
                     <p className="md:col-span-3 text-xs text-[var(--app-muted)]">
-                      Selecciona un Adviser arriba para continuar.
+                      Selecciona un Advisor arriba para continuar.
                     </p>
                   )}
                 </div>
@@ -3136,7 +3136,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                 <tr className="text-left">
                   <th className="px-4 py-3">Título</th>
                   <th className="px-4 py-3">Origen</th>
-                  <th className="px-4 py-3">Adviser</th>
+                  <th className="px-4 py-3">Advisor</th>
                   <th className="px-4 py-3">Inicio</th>
                   <th className="px-4 py-3">Estado</th>
                   <th className="px-4 py-3">Acciones</th>
@@ -3206,10 +3206,10 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
   }
 
   if (activeSection === 'comprar') {
-    const totalAdvisers = overview.mentorCatalog.length;
+    const totalAdvisors = overview.mentorCatalog.length;
     const filteredCount = filteredMentorCatalog.length;
 
-    const togglePillarFilter = (code: AdviserPillarCode) => {
+    const togglePillarFilter = (code: AdvisorPillarCode) => {
       setComprarFilterPillars((prev) => {
         const next = new Set(prev);
         if (next.has(code)) next.delete(code);
@@ -3281,14 +3281,14 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
         <div className="space-y-6">
           <PageTitle
             title="Comprar mentorías"
-            subtitle="Reserva sesiones individuales con nuestros Advisers especializados."
+            subtitle="Reserva sesiones individuales con nuestros Advisors especializados."
           />
           {sectionTabs}
           <Stepper />
 
           {overview.mentorCatalog.length === 0 ? (
             <section className="app-panel p-5 sm:p-6">
-              <EmptyState message="Aún no hay Advisers disponibles para reserva. Pronto encontrarás aquí los especialistas del programa." />
+              <EmptyState message="Aún no hay Advisors disponibles para reserva. Pronto encontrarás aquí los especialistas del programa." />
             </section>
           ) : (
             <>
@@ -3440,9 +3440,9 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
               <p className="text-sm text-[var(--app-ink)]">
                 <span className="font-bold">{filteredCount}</span>{' '}
                 <span className="text-[var(--app-muted)]">
-                  {filteredCount === 1 ? 'Adviser disponible' : 'Advisers disponibles'} para ti
-                  {hasActiveFilters && filteredCount !== totalAdvisers && (
-                    <span className="ml-1 text-[var(--app-muted)]">(de {totalAdvisers} en total)</span>
+                  {filteredCount === 1 ? 'Advisor disponible' : 'Advisors disponibles'} para ti
+                  {hasActiveFilters && filteredCount !== totalAdvisors && (
+                    <span className="ml-1 text-[var(--app-muted)]">(de {totalAdvisors} en total)</span>
                   )}
                 </span>
               </p>
@@ -3450,7 +3450,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
               {/* Cards */}
               {filteredCount === 0 ? (
                 <section className="app-panel p-5 sm:p-6">
-                  <EmptyState message="No encontramos advisers con los filtros seleccionados. Ajusta o limpia los filtros para ver más opciones." />
+                  <EmptyState message="No encontramos advisors con los filtros seleccionados. Ajusta o limpia los filtros para ver más opciones." />
                 </section>
               ) : (
                 <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
@@ -3470,7 +3470,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                         {isFeatured && (
                           <span className="absolute -top-2 left-5 inline-flex items-center gap-1 rounded-full bg-[var(--brand-primary)] px-3 py-0.5 text-[11px] font-bold text-white shadow">
                             <BadgeCheck size={11} />
-                            Adviser destacado
+                            Advisor destacado
                           </span>
                         )}
 
@@ -3620,7 +3620,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                   </button>
                 </div>
                 <p className="mb-3 text-xs text-[var(--app-muted)]">
-                  Describe en lenguaje natural lo que estás buscando. Nuestra IA ordenará los advisers por relevancia.
+                  Describe en lenguaje natural lo que estás buscando. Nuestra IA ordenará los advisors por relevancia.
                 </p>
                 <textarea
                   className="min-h-[110px] w-full rounded-[14px] border border-[var(--app-border)] bg-white px-3 py-2 text-sm"
@@ -3661,7 +3661,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
             </div>
           )}
 
-          {/* Drawer: Ver perfil del adviser */}
+          {/* Drawer: Ver perfil del advisor */}
           {profileDrawerMentor && (
             <div
               className="fixed inset-0 z-50 flex justify-end bg-black/40"
@@ -3673,7 +3673,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
               >
                 <header className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-[var(--app-border)] bg-white/95 px-5 py-3 backdrop-blur">
                   <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[var(--app-muted)]">
-                    Perfil del Adviser
+                    Perfil del Advisor
                   </p>
                   <button
                     type="button"
@@ -3721,7 +3721,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                   {profileDrawerMentor.bio && (
                     <div>
                       <p className="mb-1 text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--app-muted)]">
-                        Sobre el Adviser
+                        Sobre el Advisor
                       </p>
                       <p className="whitespace-pre-line text-sm leading-relaxed text-[var(--app-ink)]/90">
                         {profileDrawerMentor.bio}
@@ -3732,7 +3732,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                   {profileDrawerMentor.experiencia && (
                     <div>
                       <p className="mb-1 text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--app-muted)]">
-                        Experiencia como adviser
+                        Experiencia como advisor
                       </p>
                       <p className="whitespace-pre-line text-sm leading-relaxed text-[var(--app-ink)]/90">
                         {profileDrawerMentor.experiencia}
@@ -3885,10 +3885,10 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
           <section className="app-panel p-5 sm:p-6">
             <h4 className="mb-1 text-lg font-bold text-[var(--app-ink)]">Elige el tipo de servicio</h4>
             <p className="mb-4 text-xs text-[var(--app-muted)]">
-              Selecciona el formato de sesión que quieres reservar con este adviser.
+              Selecciona el formato de sesión que quieres reservar con este advisor.
             </p>
             {mentor.offers.length === 0 ? (
-              <EmptyState message="Este adviser aún no tiene ofertas disponibles." />
+              <EmptyState message="Este advisor aún no tiene ofertas disponibles." />
             ) : (
               <div className="space-y-3">
                 {mentor.offers.map((offer) => {
@@ -3951,7 +3951,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
             </p>
             {mentor.availability.length === 0 ? (
               <p className="rounded-[14px] border border-dashed border-[var(--app-border)] px-4 py-3 text-sm text-[var(--app-muted)]">
-                Este adviser no tiene horarios disponibles. Solicita disponibilidad personalizada al equipo.
+                Este advisor no tiene horarios disponibles. Solicita disponibilidad personalizada al equipo.
               </p>
             ) : (
               <div className="space-y-4">
@@ -3995,12 +3995,12 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
               Temas que quieres trabajar
             </h4>
             <p className="mb-4 text-xs text-[var(--app-muted)]">
-              Cuéntale al adviser qué quieres abordar para que prepare mejor la sesión.
+              Cuéntale al advisor qué quieres abordar para que prepare mejor la sesión.
             </p>
             {mentor.temas.length > 0 && (
               <div className="mb-3">
                 <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--app-muted)]">
-                  Sugeridos por este adviser
+                  Sugeridos por este advisor
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {mentor.temas.map((topic) => (
@@ -4297,8 +4297,8 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
         title="Mentorías"
         subtitle={
           isOpenLeader
-            ? 'Puedes comprar sesiones adicionales con Advisers disponibles. Las mentorías incluidas se activan cuando compras el programa 4Shine.'
-            : 'Agenda las sesiones incluidas del programa, compra sesiones adicionales con Advisers disponibles y visualiza tu semana completa de acompañamiento.'
+            ? 'Puedes comprar sesiones adicionales con Advisors disponibles. Las mentorías incluidas se activan cuando compras el programa 4Shine.'
+            : 'Agenda las sesiones incluidas del programa, compra sesiones adicionales con Advisors disponibles y visualiza tu semana completa de acompañamiento.'
         }
       />
       {sectionTabs}
@@ -4322,7 +4322,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
               tone="amber"
               kicker="Mentorías"
               title="Tienes una mentoría del programa por agendar"
-              message="Programa tu sesión incluida con un adviser disponible."
+              message="Programa tu sesión incluida con un advisor disponible."
               cta={{
                 label: 'Programar ahora',
                 onClick: () => setProgramForm((prev) => ({ ...prev, entitlementId: firstAvailable.entitlementId })),
@@ -4335,7 +4335,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
             tone="slate"
             kicker="Mentorías"
             title="No tienes sesiones agendadas"
-            message="Adquiere sesiones adicionales con los advisers disponibles."
+            message="Adquiere sesiones adicionales con los advisors disponibles."
             cta={{ label: 'Comprar sesiones', href: '/dashboard/mentorias/comprar' }}
           />
         );
@@ -4361,7 +4361,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
           <div className="flex-1">
             <p className="text-sm font-extrabold text-[var(--brand-primary)]">Sesiones adicionales disponibles para tu cuenta</p>
             <p className="mt-0.5 text-xs leading-relaxed text-[var(--app-muted)]">
-              Puedes reservar sesiones adicionales con los Advisers disponibles. Las mentorías incluidas del journey se desbloquean al activar tu plan.
+              Puedes reservar sesiones adicionales con los Advisors disponibles. Las mentorías incluidas del journey se desbloquean al activar tu plan.
             </p>
           </div>
           <Link
@@ -4531,7 +4531,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                     <form className="space-y-3 border-t border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-4" onSubmit={handleProgramSchedule}>
                       {overview.mentorCatalog.length === 0 && (
                         <div className="rounded-[14px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                          Necesitamos activar al menos un Adviser para poder reservar esta mentoría.
+                          Necesitamos activar al menos un Advisor para poder reservar esta mentoría.
                         </div>
                       )}
                       <select
@@ -4540,7 +4540,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                         onChange={(e) => setProgramForm((prev) => ({ ...prev, mentorUserId: e.target.value, startsAt: '' }))}
                         required
                       >
-                        <option value="">Selecciona un Adviser</option>
+                        <option value="">Selecciona un Advisor</option>
                         {overview.mentorCatalog.map((mentor) => (
                           <option key={mentor.mentorUserId} value={mentor.mentorUserId}>
                             {mentor.name} · {mentor.specialty}
@@ -4548,20 +4548,20 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                         ))}
                       </select>
                       {programForm.mentorUserId && (() => {
-                        const selectedAdviser = overview.mentorCatalog.find(m => m.mentorUserId === programForm.mentorUserId);
-                        if (selectedAdviser) {
+                        const selectedAdvisor = overview.mentorCatalog.find(m => m.mentorUserId === programForm.mentorUserId);
+                        if (selectedAdvisor) {
                           return (
                             <div className="flex items-center gap-3 rounded-[16px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-3">
                               <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--app-chip)] text-base font-black text-[var(--brand-primary)]">
-                                {selectedAdviser.avatarUrl ? (
-                                  <img src={selectedAdviser.avatarUrl} alt={selectedAdviser.name} className="h-full w-full object-cover" />
+                                {selectedAdvisor.avatarUrl ? (
+                                  <img src={selectedAdvisor.avatarUrl} alt={selectedAdvisor.name} className="h-full w-full object-cover" />
                                 ) : (
-                                  selectedAdviser.avatarInitial
+                                  selectedAdvisor.avatarInitial
                                 )}
                               </div>
                               <div className="min-w-0">
-                                <p className="text-sm font-semibold text-[var(--app-ink)]">{selectedAdviser.name}</p>
-                                <p className="text-xs text-[var(--app-muted)]">{selectedAdviser.specialty}</p>
+                                <p className="text-sm font-semibold text-[var(--app-ink)]">{selectedAdvisor.name}</p>
+                                <p className="text-xs text-[var(--app-muted)]">{selectedAdvisor.specialty}</p>
                               </div>
                             </div>
                           );
@@ -4572,7 +4572,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                         const slots = overview.mentorCatalog.find(m => m.mentorUserId === programForm.mentorUserId)?.availability ?? [];
                         return slots.length === 0 ? (
                           <p className="rounded-[14px] border border-[var(--app-border)] px-4 py-3 text-sm text-[var(--app-muted)]">
-                            Este adviser no tiene horarios disponibles en este momento.
+                            Este advisor no tiene horarios disponibles en este momento.
                           </p>
                         ) : (
                           <div>
@@ -4651,7 +4651,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-bold text-[var(--app-ink)]">{item.title}</p>
                     <p className="truncate text-xs text-[var(--app-muted)]">
-                      {item.mentorName ?? 'Adviser'}
+                      {item.mentorName ?? 'Advisor'}
                       {item.scheduledStartsAt ? ` · ${formatDateTime(item.scheduledStartsAt, tz)}` : ''}
                     </p>
                   </div>
@@ -4674,7 +4674,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
         <div>
           <p className="font-bold text-[var(--app-ink)]">¿Necesitas más acompañamiento?</p>
           <p className="mt-0.5 text-sm text-[var(--app-muted)]">
-            Explora los Advisers disponibles y reserva sesiones individuales adicionales.
+            Explora los Advisors disponibles y reserva sesiones individuales adicionales.
           </p>
         </div>
         <Link

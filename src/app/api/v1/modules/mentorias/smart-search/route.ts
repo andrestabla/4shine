@@ -51,7 +51,7 @@ export async function POST(request: Request) {
         }));
 
         if (catalog.length === 0) {
-          return { mentorIds: [], rationale: 'No hay advisers disponibles.' };
+          return { mentorIds: [], rationale: 'No hay advisors disponibles.' };
         }
 
         const openAi = await getIntegrationConfigForActor(client, identity.userId, 'openai');

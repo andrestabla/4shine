@@ -103,7 +103,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   mensajes: "Mensajes",
   suscripcion: "Mi suscripción",
   contenido: "Contenido",
-  "formacion-mentores": "Formación Advisers",
+  "formacion-mentores": "Formación Advisors",
 };
 
 function prettify(segment: string): string {

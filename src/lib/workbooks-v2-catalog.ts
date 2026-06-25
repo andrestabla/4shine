@@ -19,7 +19,7 @@ export const WORKBOOKS_V2_CATALOG: WorkbookV2CatalogItem[] = [
         pillar: 'Shine Within',
         statusLabel: 'V3 — escritura, voz e IA',
         progress: 100,
-        summary: 'Workbook V3 con escritura y grabación por voz en cada campo, transcripción automática y análisis IA de la sesión de trabajo (admin/gestor/adviser).',
+        summary: 'Workbook V3 con escritura y grabación por voz en cada campo, transcripción automática y análisis IA de la sesión de trabajo (admin/gestor/advisor).',
         isImplemented: true,
     },
     {
@@ -30,7 +30,7 @@ export const WORKBOOKS_V2_CATALOG: WorkbookV2CatalogItem[] = [
         pillar: 'Shine Within',
         statusLabel: 'V3 — escritura, voz e IA',
         progress: 100,
-        summary: 'Workbook V3 con escritura y grabación por voz en cada campo, transcripción automática y análisis IA de la sesión de trabajo (admin/gestor/adviser).',
+        summary: 'Workbook V3 con escritura y grabación por voz en cada campo, transcripción automática y análisis IA de la sesión de trabajo (admin/gestor/advisor).',
         isImplemented: true,
     },
     {
@@ -41,7 +41,7 @@ export const WORKBOOKS_V2_CATALOG: WorkbookV2CatalogItem[] = [
         pillar: 'Shine Within',
         statusLabel: 'V3 — escritura, voz e IA',
         progress: 100,
-        summary: 'Workbook V3 con escritura y grabación por voz en cada campo, transcripción automática y análisis IA de la sesión de trabajo (admin/gestor/adviser).',
+        summary: 'Workbook V3 con escritura y grabación por voz en cada campo, transcripción automática y análisis IA de la sesión de trabajo (admin/gestor/advisor).',
         isImplemented: true,
     },
     {
@@ -52,7 +52,7 @@ export const WORKBOOKS_V2_CATALOG: WorkbookV2CatalogItem[] = [
         pillar: 'Shine Out',
         statusLabel: 'V3 — escritura, voz e IA',
         progress: 100,
-        summary: 'Workbook V3 con escritura y grabación por voz en cada campo, transcripción automática y análisis IA de la sesión de trabajo (admin/gestor/adviser).',
+        summary: 'Workbook V3 con escritura y grabación por voz en cada campo, transcripción automática y análisis IA de la sesión de trabajo (admin/gestor/advisor).',
         isImplemented: true,
     },
     {
@@ -63,7 +63,7 @@ export const WORKBOOKS_V2_CATALOG: WorkbookV2CatalogItem[] = [
         pillar: 'Shine Out',
         statusLabel: 'V3 — escritura, voz e IA',
         progress: 100,
-        summary: 'Workbook V3 con escritura y grabación por voz en cada campo, transcripción automática y análisis IA de la sesión de trabajo (admin/gestor/adviser).',
+        summary: 'Workbook V3 con escritura y grabación por voz en cada campo, transcripción automática y análisis IA de la sesión de trabajo (admin/gestor/advisor).',
         isImplemented: true,
     },
     {
@@ -74,7 +74,7 @@ export const WORKBOOKS_V2_CATALOG: WorkbookV2CatalogItem[] = [
         pillar: 'Shine Out',
         statusLabel: 'V3 — escritura, voz e IA',
         progress: 100,
-        summary: 'Workbook V3 con escritura y grabación por voz en cada campo, transcripción automática y análisis IA de la sesión de trabajo (admin/gestor/adviser).',
+        summary: 'Workbook V3 con escritura y grabación por voz en cada campo, transcripción automática y análisis IA de la sesión de trabajo (admin/gestor/advisor).',
         isImplemented: true,
     },
     {
@@ -85,7 +85,7 @@ export const WORKBOOKS_V2_CATALOG: WorkbookV2CatalogItem[] = [
         pillar: 'Shine Up',
         statusLabel: 'V3 — escritura, voz e IA',
         progress: 100,
-        summary: 'Workbook V3 con escritura y grabación por voz en cada campo, transcripción automática y análisis IA de la sesión de trabajo (admin/gestor/adviser).',
+        summary: 'Workbook V3 con escritura y grabación por voz en cada campo, transcripción automática y análisis IA de la sesión de trabajo (admin/gestor/advisor).',
         isImplemented: true,
     },
     {
@@ -96,7 +96,7 @@ export const WORKBOOKS_V2_CATALOG: WorkbookV2CatalogItem[] = [
         pillar: 'Shine Up',
         statusLabel: 'V3 — escritura, voz e IA',
         progress: 100,
-        summary: 'Workbook V3 con escritura y grabación por voz en cada campo, transcripción automática y análisis IA de la sesión de trabajo (admin/gestor/adviser).',
+        summary: 'Workbook V3 con escritura y grabación por voz en cada campo, transcripción automática y análisis IA de la sesión de trabajo (admin/gestor/advisor).',
         isImplemented: true,
     },
     {

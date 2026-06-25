@@ -172,7 +172,7 @@ function pillarLabel(value: string | null | undefined): string {
 
 function buildWorkbookDigitalHref(workbook: WorkbookRecord, isElevated: boolean): string {
   const slug = workbook.templateCode.toLowerCase();
-  // Admin/gestor/adviser entran a la plantilla global del WB desde el index de
+  // Admin/gestor/advisor entran a la plantilla global del WB desde el index de
   // Aprendizaje. El acceso al WB de un líder concreto se hace exclusivamente
   // desde su perfil 360 (/dashboard/lideres/[userId]) para evitar editar por
   // error la instancia de un líder al confundirla con la plantilla base.
@@ -444,7 +444,7 @@ export default function AprendizajePage() {
   const filteredWorkbooks = React.useMemo(() => {
     const normalizedQuery = workbookSearch.trim().toLowerCase();
 
-    // Admin/gestor/adviser: deduplicar por templateCode para mostrar UNA tarjeta
+    // Admin/gestor/advisor: deduplicar por templateCode para mostrar UNA tarjeta
     // por plantilla (no una por cada usuario). Cada tarjeta abre el WB global.
     if (isElevatedRole) {
       const byTemplate = new Map<string, WorkbookRecord>();

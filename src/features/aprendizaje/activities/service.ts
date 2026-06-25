@@ -29,7 +29,7 @@ const MANAGE_ROLES = new Set(['admin', 'gestor', 'mentor']);
 
 function assertCanManage(actor: AuthUser): void {
   if (!MANAGE_ROLES.has(actor.role)) {
-    throw new Error('Solo Admin, Gestor o Adviser pueden gestionar actividades.');
+    throw new Error('Solo Admin, Gestor o Advisor pueden gestionar actividades.');
   }
 }
 
@@ -650,7 +650,7 @@ async function listAttemptsForUser(
   }));
 }
 
-// ─── Analytics para admin/gestor/adviser ─────────────────────────────────────
+// ─── Analytics para admin/gestor/advisor ─────────────────────────────────────
 
 export async function getActivityAggregateStats(
   client: PoolClient,

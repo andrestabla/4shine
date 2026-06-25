@@ -79,7 +79,7 @@ const ELEVATED_ROLES = new Set<AuthUser['role']>([
 function ensureCanReadLideres(actor: AuthUser) {
     if (!ELEVATED_ROLES.has(actor.role)) {
         throw new ForbiddenError(
-            'Sólo admin, gestor o adviser pueden ver el resumen de líderes.',
+            'Sólo admin, gestor o advisor pueden ver el resumen de líderes.',
         )
     }
 }

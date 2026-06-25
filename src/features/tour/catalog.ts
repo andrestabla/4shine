@@ -51,10 +51,10 @@ const SIDEBAR_SEEDS: NavAnchorSeed[] = [
   { path: '/dashboard/mensajes', label: 'Mensajes', moduleCode: 'mensajes' },
   { path: '/dashboard/workshops', label: 'Workshops', moduleCode: 'workshops' },
   { path: '/dashboard/lideres', label: 'Líderes', moduleCode: 'lideres' },
-  { path: '/dashboard/formacion-mentores', label: 'Formación Advisers', moduleCode: 'formacion_mentores' },
+  { path: '/dashboard/formacion-mentores', label: 'Formación Advisors', moduleCode: 'formacion_mentores' },
   {
     path: '/dashboard/gestion-formacion-mentores',
-    label: 'Gestión Formación Advisers',
+    label: 'Gestión Formación Advisors',
     moduleCode: 'gestion_formacion_mentores',
   },
   { path: '/dashboard/contenido', label: 'Contenidos', moduleCode: 'contenido' },

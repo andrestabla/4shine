@@ -366,7 +366,7 @@ const INTEGRATION_ASSISTANTS: Record<IntegrationKey, AssistantDefinition> = {
             defaultValue: 'lider',
             options: [
               { value: 'lider', label: 'Líder sin suscripción' },
-              { value: 'mentor', label: 'Adviser' },
+              { value: 'mentor', label: 'Advisor' },
               { value: 'gestor', label: 'Gestor' },
               { value: 'admin', label: 'Administrador' },
             ],

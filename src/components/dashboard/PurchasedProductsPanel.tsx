@@ -97,7 +97,7 @@ function userTypeSummary(
     };
   }
   if (role === "mentor") {
-    return { label: "Adviser", detail: "Acompañamiento a líderes." };
+    return { label: "Advisor", detail: "Acompañamiento a líderes." };
   }
   if (role === "gestor") {
     return { label: "Gestor", detail: "Gestión operativa de la plataforma." };

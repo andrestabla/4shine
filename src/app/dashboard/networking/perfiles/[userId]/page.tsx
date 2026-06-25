@@ -9,7 +9,7 @@ import { getConnectedLeaderProfile, type ConnectedLeaderProfileRecord } from '@/
 
 function roleLabel(role: string): string {
   if (role === 'lider') return 'Líder con suscripción';
-  if (role === 'mentor') return 'Adviser';
+  if (role === 'mentor') return 'Advisor';
   if (role === 'gestor') return 'Gestor';
   if (role === 'admin') return 'Administrador';
   return role;

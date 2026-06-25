@@ -295,7 +295,7 @@ const CONTENT_TYPE_EXPERIENCE: Record<
     tagPresets: ["quiz", "evaluacion", "practica"],
   },
   assignment: {
-    description: "Tarea o entrega del líder. Sube archivos o URL para revisión y calificación por adviser/gestor/admin.",
+    description: "Tarea o entrega del líder. Sube archivos o URL para revisión y calificación por advisor/gestor/admin.",
     assetLabel: "Tarea (configura en Contenido)",
     uploadLabel: "",
     uploadHelp: "Las instrucciones, criterios y formatos aceptados se configuran desde Contenido → botón Tarea.",
@@ -472,7 +472,7 @@ function createInitialResourceForm(
 }
 
 // El módulo de permisos donde se guarda el contenido depende del scope.
-// Aprendizaje usa el módulo `aprendizaje`; formación de advisers usa
+// Aprendizaje usa el módulo `aprendizaje`; formación de advisors usa
 // `formacion_mentores`. Esto afecta los R2 uploads y el path donde se
 // guardan los assets.
 function moduleCodeForScope(scope: LearningScope): ModuleCode {

@@ -792,7 +792,7 @@ async function loadSessionParticipantsInfo(
   return {
     menteeFirstName: (mentee?.first_name ?? mentee?.display_name ?? '').trim() || 'Líder',
     menteeDisplayName: mentee?.display_name ?? '',
-    mentorFirstName: (mentor?.first_name ?? mentor?.display_name ?? '').trim() || 'Adviser',
+    mentorFirstName: (mentor?.first_name ?? mentor?.display_name ?? '').trim() || 'Advisor',
     mentorDisplayName: mentor?.display_name ?? '',
   };
 }
@@ -958,13 +958,13 @@ export async function sendSessionReminders(
       });
     }
 
-    // Notify mentor (adviser)
+    // Notify mentor (advisor)
     await notifyUserFull(client, {
       recipientUserId: row.mentor_user_id,
       eventKey: 'mentorias.session_reminder',
       variables: {
         nombre:
-          (row.mentor_first_name ?? row.mentor_display_name ?? '').trim() || 'Adviser',
+          (row.mentor_first_name ?? row.mentor_display_name ?? '').trim() || 'Advisor',
         titulo: row.title,
         fecha: fechaStr,
         hora: horaStr,
@@ -1239,8 +1239,8 @@ async function getMentorOfficeHoursUrl(client: PoolClient, mentorUserId: string)
 /**
  * Resuelve el enlace de una sesión 1:1 agendada on-behalf integrándose con el
  * flujo de Zoom ya configurado: si el agendador dio un enlace, se respeta; si no,
- * se crea una reunión Zoom (host = adviser) con la integración de la organización;
- * y si Zoom no está disponible, cae a las "office hours" del adviser.
+ * se crea una reunión Zoom (host = advisor) con la integración de la organización;
+ * y si Zoom no está disponible, cae a las "office hours" del advisor.
  */
 async function resolveOnBehalfMeeting(
   client: PoolClient,
@@ -1298,7 +1298,7 @@ async function bookAvailabilitySlot(
     [mentorUserId, startsAt, endsAt],
   );
   if (!rowCount) {
-    throw new Error('La franja seleccionada no está disponible para este Adviser.');
+    throw new Error('La franja seleccionada no está disponible para este Advisor.');
   }
 }
 
@@ -2551,11 +2551,11 @@ export async function upsertMentorAvailabilitySlot(
   input: UpsertMentorAvailabilityInput,
 ): Promise<{ ok: true }> {
   if (!['admin', 'gestor', 'mentor'].includes(actor.role)) {
-    throw new Error('Solo Adviser, Gestor o Admin pueden gestionar disponibilidad.');
+    throw new Error('Solo Advisor, Gestor o Admin pueden gestionar disponibilidad.');
   }
   await requireModulePermission(client, 'mentorias', 'update');
   if (actor.role === 'mentor' && actor.userId !== input.mentorUserId) {
-    throw new Error('Un Adviser solo puede editar su propia disponibilidad.');
+    throw new Error('Un Advisor solo puede editar su propia disponibilidad.');
   }
 
   const startsAt = new Date(input.startsAt);
@@ -2589,7 +2589,7 @@ export async function deleteAvailabilitySlot(
     throw new Error('Sin permiso para eliminar disponibilidad.');
   }
   if (actor.role === 'mentor' && actor.userId !== input.mentorUserId) {
-    throw new Error('Un Adviser solo puede editar su propia disponibilidad.');
+    throw new Error('Un Advisor solo puede editar su propia disponibilidad.');
   }
   await client.query(
     `DELETE FROM app_mentoring.mentor_availability
@@ -2604,11 +2604,11 @@ export async function bulkCreateMentorAvailability(
   input: BulkMentorAvailabilityInput,
 ): Promise<{ created: number }> {
   if (!['admin', 'gestor', 'mentor'].includes(actor.role)) {
-    throw new Error('Solo Adviser, Gestor o Admin pueden gestionar disponibilidad.');
+    throw new Error('Solo Advisor, Gestor o Admin pueden gestionar disponibilidad.');
   }
   await requireModulePermission(client, 'mentorias', 'update');
   if (actor.role === 'mentor' && actor.userId !== input.mentorUserId) {
-    throw new Error('Un Adviser solo puede editar su propia disponibilidad.');
+    throw new Error('Un Advisor solo puede editar su propia disponibilidad.');
   }
   if (input.numberOfSlots <= 0) return { created: 0 };
 
@@ -2675,7 +2675,7 @@ export async function listMentorAvailabilityFull(
   }
   await requireModulePermission(client, 'mentorias', 'view');
   if (actor.role === 'mentor' && actor.userId !== mentorUserId) {
-    throw new Error('Un Adviser solo puede consultar su propia agenda.');
+    throw new Error('Un Advisor solo puede consultar su propia agenda.');
   }
   const { rows } = await client.query<{
     availability_id: string;
@@ -2713,7 +2713,7 @@ export interface OpenSlot {
 }
 
 /**
- * Franjas FUTURAS y NO reservadas de un adviser, para ofrecerlas al agendar
+ * Franjas FUTURAS y NO reservadas de un advisor, para ofrecerlas al agendar
  * on-behalf (staff). Sin la restricción de "solo tu propia agenda".
  */
 export async function listMentorOpenSlots(client: PoolClient, mentorUserId: string): Promise<OpenSlot[]> {
@@ -2751,7 +2751,7 @@ export async function bulkDeleteMentorAvailability(
   }
   await requireModulePermission(client, 'mentorias', 'update');
   if (actor.role === 'mentor' && actor.userId !== mentorUserId) {
-    throw new Error('Un Adviser solo puede editar su propia agenda.');
+    throw new Error('Un Advisor solo puede editar su propia agenda.');
   }
   if (!Array.isArray(startsAtIsoList) || startsAtIsoList.length === 0) {
     return { deleted: 0, skippedBooked: 0 };
@@ -2928,7 +2928,7 @@ export async function scheduleProgramMentorship(
         [input.mentorUserId],
       );
       // Topic: "<título de la mentoría> · <nombre del líder>"
-      // Ayuda al adviser a identificar rápidamente la sesión en su calendar Zoom.
+      // Ayuda al advisor a identificar rápidamente la sesión en su calendar Zoom.
       const leaderName = (actor.name ?? '').trim();
       const zoomTopic = leaderName
         ? `${entitlement.title} · ${leaderName}`
@@ -3029,7 +3029,7 @@ export interface ScheduleProgramForLeaderInput {
   leaderUserId: string;
   mentorUserId: string;
   startsAt: string;
-  /** Fin de la franja elegida del adviser (debe coincidir con una franja libre). */
+  /** Fin de la franja elegida del advisor (debe coincidir con una franja libre). */
   endsAt: string;
   /** Si se omite, se usa la siguiente mentoría pendiente del programa (en orden). */
   entitlementId?: string | null;
@@ -3039,7 +3039,7 @@ export interface ScheduleProgramForLeaderInput {
 
 /**
  * Agenda una mentoría 1:1 del PROGRAMA en nombre del líder (lo hace un
- * adviser/gestor/admin desde la vista 360). Descuenta del paquete incluido:
+ * advisor/gestor/admin desde la vista 360). Descuenta del paquete incluido:
  * enlaza la sesión al entitlement y respeta el orden/cadencia. Si el líder no
  * tiene mentorías del programa, lanza error (para esos casos se usa una sesión
  * manual aparte).
@@ -3089,7 +3089,7 @@ export async function scheduleProgramMentorshipForLeader(
     throw new Error('Debes consumir primero la mentoría pendiente anterior según el orden del programa.');
   }
 
-  // Reserva la franja EXACTA elegida del adviser (start + end de la disponibilidad).
+  // Reserva la franja EXACTA elegida del advisor (start + end de la disponibilidad).
   const endsAt = input.endsAt;
   const durationMinutes = Math.max(
     15,
@@ -3189,7 +3189,7 @@ export interface ScheduleManualForLeaderInput {
   leaderUserId: string;
   mentorUserId: string;
   startsAt: string;
-  /** Fin de la franja elegida del adviser (debe coincidir con una franja libre). */
+  /** Fin de la franja elegida del advisor (debe coincidir con una franja libre). */
   endsAt: string;
   title: string;
   meetingUrl?: string | null;
@@ -3209,7 +3209,7 @@ export async function scheduleManualMentorshipForLeader(
   }
   await requireModulePermission(client, 'mentorias', 'create');
 
-  // Reserva la franja EXACTA elegida del adviser.
+  // Reserva la franja EXACTA elegida del advisor.
   const endsAt = input.endsAt;
   const minutes = Math.max(
     15,
@@ -3382,7 +3382,7 @@ export async function createAdditionalMentorshipOrder(
     throw new Error('Failed to register the additional mentorship order');
   }
 
-  // Notify both leader and adviser about the new session.
+  // Notify both leader and advisor about the new session.
   // For paid orders the payment_confirmed event also fires later (via webhook);
   // this dispatch is about the scheduling itself (works in both flows).
   const participants = await loadSessionParticipantsInfo(client, actor.userId, offer.mentor_user_id);

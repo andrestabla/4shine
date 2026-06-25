@@ -307,7 +307,7 @@ export async function getViewerAccessState(
       };
     }
 
-    // admin / gestor / mentor / adviser → acceso completo, sin gating por plan.
+    // admin / gestor / mentor / advisor → acceso completo, sin gating por plan.
     return {
       viewerTier: "staff",
       planTypeCode: null,
@@ -521,7 +521,7 @@ export async function requireViewerAccessFlag(
   if (actor.role !== "lider") return access;
   if (access[flag] === true) return access;
   throw new ForbiddenError(
-    `${featureLabel} no está habilitado en tu plan actual. Pide a tu gestor o adviser ajustar tu plan para acceder.`,
+    `${featureLabel} no está habilitado en tu plan actual. Pide a tu gestor o advisor ajustar tu plan para acceder.`,
   );
 }
 

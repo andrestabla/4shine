@@ -76,7 +76,7 @@ function toRelativeTime(value: string): string {
 
 function roleLabel(role: string): string {
   if (role === 'lider') return 'Líder';
-  if (role === 'mentor') return 'Adviser';
+  if (role === 'mentor') return 'Advisor';
   if (role === 'gestor') return 'Gestor';
   if (role === 'admin') return 'Administrador';
   return role;

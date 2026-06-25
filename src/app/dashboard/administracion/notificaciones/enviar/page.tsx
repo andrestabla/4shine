@@ -36,7 +36,7 @@ import { listTemplates } from '@/features/notificaciones/client';
 const USER_TYPE_LABEL: Record<BulkAudienceUserType, string> = {
   leader_with_subscription: 'Líder con suscripción',
   leader_without_subscription: 'Líder sin suscripción',
-  mentor: 'Adviser',
+  mentor: 'Advisor',
   gestor: 'Gestor',
   admin: 'Administrador',
   invited: 'Invitado (solo descubrimiento)',

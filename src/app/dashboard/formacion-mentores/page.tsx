@@ -227,8 +227,8 @@ export default function FormacionMentoresPage() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <PageTitle
-          title="Formación Advisers"
-          subtitle="Cursos y recursos de capacitación para Advisers activos."
+          title="Formación Advisors"
+          subtitle="Cursos y recursos de capacitación para Advisors activos."
         />
         {canCreate && (
           <button
@@ -291,7 +291,7 @@ export default function FormacionMentoresPage() {
             message={
               canCreate
                 ? 'Aún no hay cursos de formación. Crea el primero con el botón "Nuevo curso".'
-                : 'Aún no hay cursos publicados para Advisers.'
+                : 'Aún no hay cursos publicados para Advisors.'
             }
           />
         </section>
@@ -362,7 +362,7 @@ export default function FormacionMentoresPage() {
         resources={items}
         certificateTemplates={certificateTemplates}
         isResourceManager={isResourceManager}
-        backLabel="Volver a Formación Advisers"
+        backLabel="Volver a Formación Advisors"
         onClose={closeEditor}
         onSaved={onSaved}
       />

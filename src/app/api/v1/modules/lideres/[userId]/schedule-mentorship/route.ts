@@ -26,7 +26,7 @@ interface Body {
     entitlementId?: string | null;
 }
 
-// Franjas libres del adviser (?mentorUserId=...), para ofrecerlas en el modal.
+// Franjas libres del advisor (?mentorUserId=...), para ofrecerlas en el modal.
 export async function GET(request: Request, context: ContextParams) {
     const identity = await authenticateRequest(request);
     if (!identity) return unauthorizedResponse();
@@ -46,7 +46,7 @@ export async function GET(request: Request, context: ContextParams) {
         );
         return NextResponse.json({ ok: true, data }, { status: 200 });
     } catch (error) {
-        return errorResponse(error, 'No se pudieron cargar las franjas del adviser');
+        return errorResponse(error, 'No se pudieron cargar las franjas del advisor');
     }
 }
 

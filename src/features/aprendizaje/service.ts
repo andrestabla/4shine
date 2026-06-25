@@ -23,7 +23,7 @@ import type {
 //   - permisos: cada scope se gatea con su propio módulo (`aprendizaje` vs
 //     `formacion_mentores`).
 //   - audiencia: aprendizaje es general; formacion_mentores es la ruta de
-//     capacitación interna para advisers.
+//     capacitación interna para advisors.
 export type LearningScope = 'aprendizaje' | 'formacion_mentores';
 
 const LEARNING_SCOPES: readonly LearningScope[] = ['aprendizaje', 'formacion_mentores'];

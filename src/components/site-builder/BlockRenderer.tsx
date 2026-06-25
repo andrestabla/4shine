@@ -4,7 +4,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import type { SiteBlock, SiteBlockProps } from '@/features/site-builder/types';
 import { SECTION_LAYOUTS } from '@/features/site-builder/registry';
 import { SITE_ICONS, hasSiteIcon } from '@/features/site-builder/icons';
-import { AdvisersBlockClient } from './AdvisersBlockClient';
+import { AdvisorsBlockClient } from './AdvisorsBlockClient';
 
 /* ─────────────────────────── Prop helpers ─────────────────────────── */
 
@@ -1096,7 +1096,7 @@ function TeamBlock({ props }: { props: SiteBlockProps }) {
   );
 }
 
-function AdvisersBlock({ props }: { props: SiteBlockProps }) {
+function AdvisorsBlock({ props }: { props: SiteBlockProps }) {
   const palette = resolveSectionPalette(props);
   const columns = Math.min(4, Math.max(2, parseInt(str(props, 'columns') || '3', 10) || 3));
   const photoShape = str(props, 'photoShape') || 'circle';
@@ -1110,7 +1110,7 @@ function AdvisersBlock({ props }: { props: SiteBlockProps }) {
   return (
     <SectionShell props={props} palette={palette}>
       <SectionHeading props={props} palette={palette} className="mb-12" />
-      <AdvisersBlockClient
+      <AdvisorsBlockClient
         layout={layout}
         columnsClass={gridColsClass(columns)}
         photoClass={photoClass}
@@ -1570,8 +1570,8 @@ export function SiteBlockView({ block }: { block: SiteBlock }) {
       return <QuoteBlock props={block.props} />;
     case 'team':
       return <TeamBlock props={block.props} />;
-    case 'advisers':
-      return <AdvisersBlock props={block.props} />;
+    case 'advisors':
+      return <AdvisorsBlock props={block.props} />;
     case 'logos':
       return <LogosBlock props={block.props} />;
     case 'gallery':

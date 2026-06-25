@@ -1,5 +1,5 @@
 /**
- * Reporte de participación en cursos (vista admin/gestor/adviser).
+ * Reporte de participación en cursos (vista admin/gestor/advisor).
  *
  * Cuando un manager entra a un curso, ve además del temario un panel con:
  *   - Overview general (total usuarios accedidos, promedio de progreso,
@@ -16,7 +16,7 @@ const MANAGE_ROLES = new Set(['admin', 'gestor', 'mentor']);
 
 function assertCanManage(actor: AuthUser): void {
   if (!MANAGE_ROLES.has(actor.role)) {
-    throw new Error('Solo Admin, Gestor o Adviser pueden ver reportes de cursos.');
+    throw new Error('Solo Admin, Gestor o Advisor pueden ver reportes de cursos.');
   }
 }
 

@@ -3,7 +3,7 @@
 import React from 'react';
 import { Briefcase, ChevronLeft, ChevronRight, Globe, Linkedin, MapPin, Twitter } from 'lucide-react';
 
-interface PublicAdviser {
+interface PublicAdvisor {
   userId: string;
   name: string;
   photoUrl: string;
@@ -22,7 +22,7 @@ interface PublicAdviser {
   topics: string[];
 }
 
-export interface AdvisersDisplayOptions {
+export interface AdvisorsDisplayOptions {
   layout: 'grid' | 'cards' | 'accordion' | 'slider';
   columnsClass: string;
   photoClass: string;
@@ -41,18 +41,18 @@ export interface AdvisersDisplayOptions {
   isDark: boolean;
 }
 
-function useAdvisers(): { advisers: PublicAdviser[] | null; failed: boolean } {
-  const [advisers, setAdvisers] = React.useState<PublicAdviser[] | null>(null);
+function useAdvisors(): { advisors: PublicAdvisor[] | null; failed: boolean } {
+  const [advisors, setAdvisors] = React.useState<PublicAdvisor[] | null>(null);
   const [failed, setFailed] = React.useState(false);
 
   React.useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetch('/api/v1/public/site/advisers', { cache: 'no-store' });
-        const json = (await res.json()) as { ok: boolean; data?: PublicAdviser[] };
+        const res = await fetch('/api/v1/public/site/advisors', { cache: 'no-store' });
+        const json = (await res.json()) as { ok: boolean; data?: PublicAdvisor[] };
         if (!cancelled) {
-          if (json.ok && Array.isArray(json.data)) setAdvisers(json.data);
+          if (json.ok && Array.isArray(json.data)) setAdvisors(json.data);
           else setFailed(true);
         }
       } catch {
@@ -64,14 +64,14 @@ function useAdvisers(): { advisers: PublicAdviser[] | null; failed: boolean } {
     };
   }, []);
 
-  return { advisers, failed };
+  return { advisors, failed };
 }
 
-function AdviserLinks({ adviser, options }: { adviser: PublicAdviser; options: AdvisersDisplayOptions }) {
+function AdvisorLinks({ advisor, options }: { advisor: PublicAdvisor; options: AdvisorsDisplayOptions }) {
   const links: { href: string; title: string; Icon: typeof Linkedin }[] = [];
-  if (options.showLinkedIn && adviser.linkedinUrl) links.push({ href: adviser.linkedinUrl, title: 'LinkedIn', Icon: Linkedin });
-  if (options.showWebsite && adviser.websiteUrl) links.push({ href: adviser.websiteUrl, title: 'Sitio web', Icon: Globe });
-  if (options.showWebsite && adviser.twitterUrl) links.push({ href: adviser.twitterUrl, title: 'Twitter / X', Icon: Twitter });
+  if (options.showLinkedIn && advisor.linkedinUrl) links.push({ href: advisor.linkedinUrl, title: 'LinkedIn', Icon: Linkedin });
+  if (options.showWebsite && advisor.websiteUrl) links.push({ href: advisor.websiteUrl, title: 'Sitio web', Icon: Globe });
+  if (options.showWebsite && advisor.twitterUrl) links.push({ href: advisor.twitterUrl, title: 'Twitter / X', Icon: Twitter });
   if (links.length === 0) return null;
   return (
     <span className="inline-flex items-center gap-2">
@@ -81,7 +81,7 @@ function AdviserLinks({ adviser, options }: { adviser: PublicAdviser; options: A
           href={href}
           target="_blank"
           rel="noopener noreferrer"
-          title={`${title} de ${adviser.name}`}
+          title={`${title} de ${advisor.name}`}
           className="transition hover:opacity-70"
           style={{ color: 'var(--brand-accent-strong)' }}
           onClick={(e) => e.stopPropagation()}
@@ -93,31 +93,31 @@ function AdviserLinks({ adviser, options }: { adviser: PublicAdviser; options: A
   );
 }
 
-function AdviserPhoto({ adviser, options, size = 'h-24 w-24', textSize = 'text-3xl' }: { adviser: PublicAdviser; options: AdvisersDisplayOptions; size?: string; textSize?: string }) {
-  if (adviser.photoUrl) {
+function AdvisorPhoto({ advisor, options, size = 'h-24 w-24', textSize = 'text-3xl' }: { advisor: PublicAdvisor; options: AdvisorsDisplayOptions; size?: string; textSize?: string }) {
+  if (advisor.photoUrl) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={adviser.photoUrl} alt={adviser.name} className={`${size} object-cover ${options.photoClass}`} />;
+    return <img src={advisor.photoUrl} alt={advisor.name} className={`${size} object-cover ${options.photoClass}`} />;
   }
   return (
     <div
       className={`flex ${size} items-center justify-center ${textSize} font-black text-white ${options.photoClass}`}
       style={{ background: 'var(--brand-primary)' }}
     >
-      {adviser.initial}
+      {advisor.initial}
     </div>
   );
 }
 
-function AdviserDetails({ adviser, options }: { adviser: PublicAdviser; options: AdvisersDisplayOptions }) {
-  const role = adviser.profession || adviser.jobRole;
-  const place = [adviser.location, adviser.country].filter(Boolean).join(', ');
-  const experienceText = adviser.experience || '';
+function AdvisorDetails({ advisor, options }: { advisor: PublicAdvisor; options: AdvisorsDisplayOptions }) {
+  const role = advisor.profession || advisor.jobRole;
+  const place = [advisor.location, advisor.country].filter(Boolean).join(', ');
+  const experienceText = advisor.experience || '';
   return (
     <>
       {role && (
         <p className="mt-0.5 text-sm font-semibold" style={{ color: options.textColor }}>
           {role}
-          {adviser.industry ? ` · ${adviser.industry}` : ''}
+          {advisor.industry ? ` · ${advisor.industry}` : ''}
         </p>
       )}
       {options.showLocation && place && (
@@ -126,23 +126,23 @@ function AdviserDetails({ adviser, options }: { adviser: PublicAdviser; options:
           {place}
         </p>
       )}
-      {options.showExperience && adviser.yearsExperience && (
+      {options.showExperience && advisor.yearsExperience && (
         <p className="mt-1 inline-flex items-center gap-1.5 text-xs" style={{ color: options.mutedColor }}>
           <Briefcase size={12} />
-          {adviser.yearsExperience} de experiencia
+          {advisor.yearsExperience} de experiencia
         </p>
       )}
-      {options.showBio && (adviser.bio || experienceText) && (
+      {options.showBio && (advisor.bio || experienceText) && (
         <p className="mt-2 max-w-[46ch] text-sm leading-relaxed" style={{ color: options.mutedColor }}>
           {(() => {
-            const text = adviser.bio || experienceText;
+            const text = advisor.bio || experienceText;
             return text.length > 240 ? `${text.slice(0, 240).trimEnd()}…` : text;
           })()}
         </p>
       )}
-      {options.showTopics && adviser.topics.length > 0 && (
+      {options.showTopics && advisor.topics.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-1.5">
-          {adviser.topics.slice(0, 6).map((topic) => (
+          {advisor.topics.slice(0, 6).map((topic) => (
             <span
               key={topic}
               className="rounded-full border px-2.5 py-0.5 text-[11px] font-semibold"
@@ -160,22 +160,22 @@ function AdviserDetails({ adviser, options }: { adviser: PublicAdviser; options:
   );
 }
 
-function AdviserProfile({ adviser, options }: { adviser: PublicAdviser; options: AdvisersDisplayOptions }) {
+function AdvisorProfile({ advisor, options }: { advisor: PublicAdvisor; options: AdvisorsDisplayOptions }) {
   return (
     <div className="flex flex-col items-start">
-      <AdviserPhoto adviser={adviser} options={options} />
+      <AdvisorPhoto advisor={advisor} options={options} />
       <div className="mt-4 flex items-center gap-2">
         <p className="text-base font-black" style={{ color: options.headingColor }}>
-          {adviser.name}
+          {advisor.name}
         </p>
-        <AdviserLinks adviser={adviser} options={options} />
+        <AdvisorLinks advisor={advisor} options={options} />
       </div>
-      <AdviserDetails adviser={adviser} options={options} />
+      <AdvisorDetails advisor={advisor} options={options} />
     </div>
   );
 }
 
-function AdviserCard({ adviser, options }: { adviser: PublicAdviser; options: AdvisersDisplayOptions }) {
+function AdvisorCard({ advisor, options }: { advisor: PublicAdvisor; options: AdvisorsDisplayOptions }) {
   return (
     <div
       className="h-full rounded-3xl border p-6"
@@ -184,23 +184,23 @@ function AdviserCard({ adviser, options }: { adviser: PublicAdviser; options: Ad
         background: options.isDark ? 'rgba(255,255,255,0.06)' : '#ffffff',
       }}
     >
-      <AdviserProfile adviser={adviser} options={options} />
+      <AdvisorProfile advisor={advisor} options={options} />
     </div>
   );
 }
 
 /**
- * Grilla / tarjetas / acordeón / slider de perfiles públicos de advisers
+ * Grilla / tarjetas / acordeón / slider de perfiles públicos de advisors
  * activos. Carga los datos desde el endpoint público para reflejar siempre
- * los advisers vigentes, tanto en el sitio como en el preview del editor.
+ * los advisors vigentes, tanto en el sitio como en el preview del editor.
  */
-export function AdvisersBlockClient(options: AdvisersDisplayOptions) {
-  const { advisers, failed } = useAdvisers();
+export function AdvisorsBlockClient(options: AdvisorsDisplayOptions) {
+  const { advisors, failed } = useAdvisors();
   const sliderRef = React.useRef<HTMLDivElement>(null);
 
   if (failed) return null;
 
-  if (advisers === null) {
+  if (advisors === null) {
     return (
       <div className={`grid gap-10 ${options.columnsClass}`} aria-busy="true">
         {Array.from({ length: 3 }, (_, i) => (
@@ -214,17 +214,17 @@ export function AdvisersBlockClient(options: AdvisersDisplayOptions) {
     );
   }
 
-  let visible = advisers;
+  let visible = advisors;
   if (options.mode === 'selected' && options.selectedIds.length > 0) {
-    const byId = new Map(advisers.map((a) => [a.userId, a]));
-    visible = options.selectedIds.map((id) => byId.get(id)).filter((a): a is PublicAdviser => Boolean(a));
+    const byId = new Map(advisors.map((a) => [a.userId, a]));
+    visible = options.selectedIds.map((id) => byId.get(id)).filter((a): a is PublicAdvisor => Boolean(a));
   }
   if (options.limit > 0) visible = visible.slice(0, options.limit);
 
   if (visible.length === 0) {
     return (
       <p className="text-sm" style={{ color: options.mutedColor }}>
-        Aún no hay advisers activos para mostrar.
+        Aún no hay advisors activos para mostrar.
       </p>
     );
   }
@@ -232,9 +232,9 @@ export function AdvisersBlockClient(options: AdvisersDisplayOptions) {
   if (options.layout === 'accordion') {
     return (
       <div className="space-y-3">
-        {visible.map((adviser) => (
+        {visible.map((advisor) => (
           <details
-            key={adviser.userId}
+            key={advisor.userId}
             className="group rounded-2xl border px-5 py-4"
             style={{
               borderColor: options.isDark ? 'rgba(255,255,255,0.15)' : 'var(--brand-border)',
@@ -242,17 +242,17 @@ export function AdvisersBlockClient(options: AdvisersDisplayOptions) {
             }}
           >
             <summary className="flex cursor-pointer list-none items-center gap-4">
-              <AdviserPhoto adviser={adviser} options={options} size="h-12 w-12" textSize="text-lg" />
+              <AdvisorPhoto advisor={advisor} options={options} size="h-12 w-12" textSize="text-lg" />
               <span className="flex-1 min-w-0">
                 <span className="flex items-center gap-2">
                   <span className="text-base font-black" style={{ color: options.headingColor }}>
-                    {adviser.name}
+                    {advisor.name}
                   </span>
-                  <AdviserLinks adviser={adviser} options={options} />
+                  <AdvisorLinks advisor={advisor} options={options} />
                 </span>
-                {(adviser.profession || adviser.jobRole) && (
+                {(advisor.profession || advisor.jobRole) && (
                   <span className="block truncate text-sm font-semibold" style={{ color: options.textColor }}>
-                    {adviser.profession || adviser.jobRole}
+                    {advisor.profession || advisor.jobRole}
                   </span>
                 )}
               </span>
@@ -261,7 +261,7 @@ export function AdvisersBlockClient(options: AdvisersDisplayOptions) {
               </span>
             </summary>
             <div className="pl-16 pt-2">
-              <AdviserDetails adviser={adviser} options={{ ...options, showBio: true }} />
+              <AdvisorDetails advisor={advisor} options={{ ...options, showBio: true }} />
             </div>
           </details>
         ))}
@@ -281,9 +281,9 @@ export function AdvisersBlockClient(options: AdvisersDisplayOptions) {
           className="flex snap-x snap-mandatory gap-6 overflow-x-auto pb-4"
           style={{ scrollbarWidth: 'none' }}
         >
-          {visible.map((adviser) => (
-            <div key={adviser.userId} className="w-[300px] shrink-0 snap-start">
-              <AdviserCard adviser={adviser} options={options} />
+          {visible.map((advisor) => (
+            <div key={advisor.userId} className="w-[300px] shrink-0 snap-start">
+              <AdvisorCard advisor={advisor} options={options} />
             </div>
           ))}
         </div>
@@ -316,8 +316,8 @@ export function AdvisersBlockClient(options: AdvisersDisplayOptions) {
   if (options.layout === 'cards') {
     return (
       <div className={`grid gap-6 ${options.columnsClass}`}>
-        {visible.map((adviser) => (
-          <AdviserCard key={adviser.userId} adviser={adviser} options={options} />
+        {visible.map((advisor) => (
+          <AdvisorCard key={advisor.userId} advisor={advisor} options={options} />
         ))}
       </div>
     );
@@ -325,8 +325,8 @@ export function AdvisersBlockClient(options: AdvisersDisplayOptions) {
 
   return (
     <div className={`grid gap-10 ${options.columnsClass}`}>
-      {visible.map((adviser) => (
-        <AdviserProfile key={adviser.userId} adviser={adviser} options={options} />
+      {visible.map((advisor) => (
+        <AdvisorProfile key={advisor.userId} advisor={advisor} options={options} />
       ))}
     </div>
   );

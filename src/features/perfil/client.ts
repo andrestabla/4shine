@@ -17,30 +17,30 @@ export interface ProfileProjectRecord {
   imageUrl: string | null;
 }
 
-export type AdviserPillarCode = 'shine_within' | 'shine_out' | 'shine_up' | 'shine_beyond';
+export type AdvisorPillarCode = 'shine_within' | 'shine_out' | 'shine_up' | 'shine_beyond';
 
-export interface AdviserTopicRecord {
+export interface AdvisorTopicRecord {
   topicId: string;
   topicLabel: string;
-  pillarCode: AdviserPillarCode;
+  pillarCode: AdvisorPillarCode;
 }
 
-export interface AdviserProfileRecord {
+export interface AdvisorProfileRecord {
   experiencia: string | null;
   precioSesion: number | null;
   currencyCode: string;
-  temas: AdviserTopicRecord[];
+  temas: AdvisorTopicRecord[];
 }
 
-export interface AdviserTopicInput {
+export interface AdvisorTopicInput {
   topicLabel: string;
-  pillarCode: AdviserPillarCode;
+  pillarCode: AdvisorPillarCode;
 }
 
-export interface AdviserProfileInput {
+export interface AdvisorProfileInput {
   experiencia?: string | null;
   precioSesion?: number | null;
-  temas?: AdviserTopicInput[];
+  temas?: AdvisorTopicInput[];
 }
 
 export const ADVISER_PRECIO_MIN = 180000;
@@ -81,7 +81,7 @@ export interface MyProfileRecord {
   interests: string[];
   projects: ProfileProjectRecord[];
   purchases: UserPurchaseRecord[];
-  adviserProfile: AdviserProfileRecord | null;
+  advisorProfile: AdvisorProfileRecord | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -112,7 +112,7 @@ export interface UpdateMyProfileInput {
   websiteUrl?: string | null;
   interests?: string[];
   projects?: ProfileProjectInput[];
-  adviserProfile?: AdviserProfileInput;
+  advisorProfile?: AdvisorProfileInput;
 }
 
 export interface ExtractProfileFromCvResult {
@@ -138,8 +138,8 @@ export interface ExtractProfileFromCvResult {
   yearsExperience: number | null;
   timezone: string;
   projects: { title: string; description: string; projectRole: string }[];
-  adviserExperiencia: string;
-  adviserTemas: { topicLabel: string; pillarCode: 'shine_within' | 'shine_out' | 'shine_up' | 'shine_beyond' }[];
+  advisorExperiencia: string;
+  advisorTemas: { topicLabel: string; pillarCode: 'shine_within' | 'shine_out' | 'shine_up' | 'shine_beyond' }[];
 }
 
 export async function getMyProfile(): Promise<MyProfileRecord> {

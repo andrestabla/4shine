@@ -11,7 +11,7 @@ import type {
 
 export type * from './types';
 
-// ─── Admin/Gestor/Adviser ────────────────────────────────────────────────────
+// ─── Admin/Gestor/Advisor ────────────────────────────────────────────────────
 
 export async function getAssignmentForContentAdmin(
   contentId: string,

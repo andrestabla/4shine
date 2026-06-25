@@ -48,7 +48,7 @@ const GENERAL_BLOCKS: WorkbookHelpBlock[] = [
     {
         title: '4. Si te bloqueas',
         body:
-            'Es normal. Algunas preguntas requieren reflexión. Habla con tu mentor o adviser sobre las preguntas que te cuesten más — su mirada externa suele desbloquear claridad.',
+            'Es normal. Algunas preguntas requieren reflexión. Habla con tu mentor o advisor sobre las preguntas que te cuesten más — su mirada externa suele desbloquear claridad.',
         bullets: [
             'Marca con bullets las ideas borrador y vuelve a depurarlas después.',
             'Usa el botón "Grabar audio" como si le hablaras a alguien de confianza: a veces ahí surge la respuesta.',

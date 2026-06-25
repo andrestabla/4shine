@@ -1,21 +1,10 @@
-import { NextResponse } from 'next/server';
-import { withClient } from '@/server/db/pool';
-import { listPublicAdvisers, type PublicAdviser } from '@/features/advisers/service';
-
+// Compatibilidad de API: /api/v1/public/site/advisers fue renombrado a
+// /advisors al cambiar la nomenclatura de "Adviser" a "Advisor". Este
+// handler existe para que clientes externos que aún apunten al endpoint
+// viejo (widgets embebidos, integraciones, cachés CDN) sigan recibiendo
+// la misma respuesta. Reexporta el GET del nuevo handler para no
+// duplicar lógica. El `dynamic` se declara aquí como literal porque
+// Next.js exige route-segment configs como valores estáticos en cada
+// archivo (no acepta re-export).
+export { GET } from '../advisors/route';
 export const dynamic = 'force-dynamic';
-
-export type { PublicAdviser };
-
-/**
- * Perfiles públicos de advisers para el bloque "Advisers" del site builder y la
- * página pública /advisers. Solo usuarios activos con rol mentor (adviser).
- */
-export async function GET() {
-  try {
-    const data = await withClient((client) => listPublicAdvisers(client));
-    return NextResponse.json({ ok: true, data }, { status: 200 });
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : 'Unknown error';
-    return NextResponse.json({ ok: false, error: 'Error al cargar advisers', detail }, { status: 500 });
-  }
-}

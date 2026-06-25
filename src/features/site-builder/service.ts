@@ -40,7 +40,7 @@ export const SYSTEM_CANONICAL_SLUGS: Record<string, string> = {
   descubrimiento: 'descubrimiento',
   metodologia: 'metodologia',
   planes_precios: 'planes-precios',
-  afiliados: 'advisers',
+  afiliados: 'advisors',
 };
 
 interface SitePageRow {

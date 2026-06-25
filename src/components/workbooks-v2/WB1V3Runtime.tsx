@@ -1033,7 +1033,7 @@ function TranscriptAnalysisModal({
                         </div>
                         <div>
                             <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--brand-primary)]">
-                                Modo adviser · {config.code}
+                                Modo advisor · {config.code}
                             </p>
                             <h2 className="mt-1 text-sm font-bold text-slate-900 sm:text-base">
                                 Completar el workbook con análisis IA
@@ -1228,7 +1228,7 @@ export function WorkbookV3Runtime({ config }: { config: WB1Config }) {
     const { branding } = useBranding()
     const workbookId = searchParams.get('workbookId')?.trim() || 'preview'
     const isElevated = !!currentRole && ELEVATED_ROLES.has(currentRole)
-    // Modo plantilla: admin/gestor/adviser entró desde el index de Aprendizaje
+    // Modo plantilla: admin/gestor/advisor entró desde el index de Aprendizaje
     // sin un workbookId concreto. Está viendo la plantilla base del WB,
     // no la instancia de un líder. En este modo deshabilitamos el flujo
     // de IA por sesión (necesita un workbook concreto del líder) y dejamos
@@ -1750,7 +1750,7 @@ export function WorkbookV3Runtime({ config }: { config: WB1Config }) {
                                         directamente en cada campo. La grabación se transcribe con un clic y queda lista para
                                         editar. Algunos campos están marcados con la etiqueta <em>IA</em>: la inteligencia
                                         artificial puede proponerte un primer borrador a partir de tus otras respuestas. Si eres
-                                        admin, gestor o adviser, también puedes pegar la transcripción de la sesión de trabajo
+                                        admin, gestor o advisor, también puedes pegar la transcripción de la sesión de trabajo
                                         para que la IA proponga un borrador completo del workbook.
                                     </p>
                                 </div>

@@ -1,6 +1,6 @@
 import type { PoolClient } from 'pg';
 
-export interface PublicAdviser {
+export interface PublicAdvisor {
   userId: string;
   name: string;
   photoUrl: string;
@@ -15,13 +15,13 @@ export interface PublicAdviser {
   linkedinUrl: string;
   twitterUrl: string;
   websiteUrl: string;
-  /** Experiencia como adviser (texto del perfil de mentor) */
+  /** Experiencia como advisor (texto del perfil de mentor) */
   experience: string;
   /** Temas que trabaja (mentor_topics) */
   topics: string[];
 }
 
-interface AdviserRow {
+interface AdvisorRow {
   user_id: string;
   display_name: string | null;
   first_name: string | null;
@@ -53,11 +53,11 @@ export function formatYearsExperience(years: number | null): string {
 }
 
 /**
- * Perfiles públicos de advisers (mentores activos). Mismo dataset que alimenta
- * la página pública /advisers y el bloque "Advisers" del site builder.
+ * Perfiles públicos de advisors (mentores activos). Mismo dataset que alimenta
+ * la página pública /advisors y el bloque "Advisors" del site builder.
  */
-export async function listPublicAdvisers(client: PoolClient, limit = 60): Promise<PublicAdviser[]> {
-  const { rows } = await client.query<AdviserRow>(
+export async function listPublicAdvisors(client: PoolClient, limit = 60): Promise<PublicAdvisor[]> {
+  const { rows } = await client.query<AdvisorRow>(
     `SELECT u.user_id::text, u.display_name, u.first_name, u.last_name,
             u.avatar_url, u.avatar_initial,
             p.profession, p.job_role, p.industry, p.bio, p.location, p.country,
@@ -80,7 +80,7 @@ export async function listPublicAdvisers(client: PoolClient, limit = 60): Promis
 
   return rows.map((row) => {
     const name =
-      row.display_name?.trim() || [row.first_name, row.last_name].filter(Boolean).join(' ').trim() || 'Adviser';
+      row.display_name?.trim() || [row.first_name, row.last_name].filter(Boolean).join(' ').trim() || 'Advisor';
     return {
       userId: row.user_id,
       name,

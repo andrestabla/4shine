@@ -24,11 +24,11 @@ import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import {
     getLeader360,
     scheduleLeaderMentorship,
-    listAdvisersForSelect,
-    listAdviserSlots,
+    listAdvisorsForSelect,
+    listAdvisorSlots,
     type Leader360Snapshot,
-    type AdviserOption,
-    type AdviserSlot,
+    type AdvisorOption,
+    type AdvisorSlot,
 } from '@/features/lideres/client';
 
 function formatDate(value: string | null) {
@@ -147,8 +147,8 @@ export default function Leader360Page() {
     // Agendar mentoría 1:1 con el líder, directo desde la vista 360.
     const [scheduleOpen, setScheduleOpen] = React.useState(false);
     const [scheduling, setScheduling] = React.useState(false);
-    const [advisers, setAdvisers] = React.useState<AdviserOption[]>([]);
-    const [slots, setSlots] = React.useState<AdviserSlot[]>([]);
+    const [advisors, setAdvisors] = React.useState<AdvisorOption[]>([]);
+    const [slots, setSlots] = React.useState<AdvisorSlot[]>([]);
     const [slotsLoading, setSlotsLoading] = React.useState(false);
     const [scheduleForm, setScheduleForm] = React.useState({
         mode: 'program' as 'program' | 'manual',
@@ -166,19 +166,19 @@ export default function Leader360Page() {
         setScheduleForm((p) => ({ ...p, mode: canConsumeProgram ? 'program' : 'manual', slotId: '' }));
         setSlots([]);
         setScheduleOpen(true);
-        if (advisers.length === 0) {
-            void listAdvisersForSelect()
-                .then(setAdvisers)
-                .catch(() => setAdvisers([]));
+        if (advisors.length === 0) {
+            void listAdvisorsForSelect()
+                .then(setAdvisors)
+                .catch(() => setAdvisors([]));
         }
     };
 
-    const onSelectAdviser = (mentorUserId: string) => {
+    const onSelectAdvisor = (mentorUserId: string) => {
         setScheduleForm((p) => ({ ...p, mentorUserId, slotId: '' }));
         setSlots([]);
         if (!mentorUserId) return;
         setSlotsLoading(true);
-        void listAdviserSlots(userId, mentorUserId)
+        void listAdvisorSlots(userId, mentorUserId)
             .then(setSlots)
             .catch(() => setSlots([]))
             .finally(() => setSlotsLoading(false));
@@ -187,12 +187,12 @@ export default function Leader360Page() {
     const submitSchedule = async () => {
         if (!snapshot) return;
         if (!scheduleForm.mentorUserId) {
-            await alert({ title: 'Falta el adviser', message: 'Selecciona quién dará la mentoría.', tone: 'warning' });
+            await alert({ title: 'Falta el advisor', message: 'Selecciona quién dará la mentoría.', tone: 'warning' });
             return;
         }
         const slot = slots.find((s) => s.availabilityId === scheduleForm.slotId);
         if (!slot) {
-            await alert({ title: 'Falta la franja', message: 'Selecciona una franja disponible del adviser.', tone: 'warning' });
+            await alert({ title: 'Falta la franja', message: 'Selecciona una franja disponible del advisor.', tone: 'warning' });
             return;
         }
         setScheduling(true);
@@ -232,7 +232,7 @@ export default function Leader360Page() {
     if (!isElevated) {
         return (
             <div className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-800">
-                Esta vista 360 está disponible para administradores, gestores y advisers.
+                Esta vista 360 está disponible para administradores, gestores y advisors.
             </div>
         );
     }
@@ -689,7 +689,7 @@ export default function Leader360Page() {
 
             <div className="rounded-3xl border border-[var(--brand-accent)]/30 bg-[var(--brand-accent)]/10 p-4 text-xs text-[var(--brand-primary)]">
                 <Sparkles size={14} className="mr-1 inline" />
-                Esta vista 360 se actualiza cada vez que abres la página. Los enlaces a cada WB ya abren la edición del workbook del líder seleccionado para admin/gestor/adviser.
+                Esta vista 360 se actualiza cada vez que abres la página. Los enlaces a cada WB ya abren la edición del workbook del líder seleccionado para admin/gestor/advisor.
             </div>
 
             {scheduleOpen && (
@@ -767,14 +767,14 @@ export default function Leader360Page() {
                             </div>
 
                             <div>
-                                <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">Adviser</label>
+                                <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">Advisor</label>
                                 <select
                                     className="app-select"
                                     value={scheduleForm.mentorUserId}
-                                    onChange={(e) => onSelectAdviser(e.target.value)}
+                                    onChange={(e) => onSelectAdvisor(e.target.value)}
                                 >
-                                    <option value="">Selecciona un adviser…</option>
-                                    {advisers.map((a) => (
+                                    <option value="">Selecciona un advisor…</option>
+                                    {advisors.map((a) => (
                                         <option key={a.userId} value={a.userId}>
                                             {a.name}
                                         </option>
@@ -782,18 +782,18 @@ export default function Leader360Page() {
                                 </select>
                             </div>
 
-                            {/* Solo franjas realmente disponibles del adviser */}
+                            {/* Solo franjas realmente disponibles del advisor */}
                             <div>
                                 <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">Franja disponible</label>
                                 {!scheduleForm.mentorUserId ? (
-                                    <p className="text-xs text-[var(--app-muted)]">Selecciona primero un adviser.</p>
+                                    <p className="text-xs text-[var(--app-muted)]">Selecciona primero un advisor.</p>
                                 ) : slotsLoading ? (
                                     <p className="inline-flex items-center gap-2 text-xs text-[var(--app-muted)]">
                                         <Loader2 size={13} className="animate-spin" /> Cargando franjas…
                                     </p>
                                 ) : slots.length === 0 ? (
                                     <p className="text-xs text-[var(--app-muted)]">
-                                        Este adviser no tiene franjas disponibles. Debe publicarlas en su agenda de mentorías.
+                                        Este advisor no tiene franjas disponibles. Debe publicarlas en su agenda de mentorías.
                                     </p>
                                 ) : (
                                     <select
@@ -830,7 +830,7 @@ export default function Leader360Page() {
                                 />
                             </div>
                             <p className="text-[11px] text-[var(--app-muted)]">
-                                Si dejas el enlace vacío, se creará automáticamente la reunión en Zoom (integración configurada). Si Zoom no está disponible, se usa el enlace de office hours del adviser.
+                                Si dejas el enlace vacío, se creará automáticamente la reunión en Zoom (integración configurada). Si Zoom no está disponible, se usa el enlace de office hours del advisor.
                             </p>
                         </div>
 

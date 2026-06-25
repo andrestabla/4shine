@@ -1267,7 +1267,7 @@ export default function LearningResourceDetailPage() {
   // 1b. ASSIGNMENT LAYOUT (early return).
   // Las tareas solo se publican dentro del contexto de un curso.
   // Si un líder llega aquí por URL directa, le mostramos un mensaje y le
-  // redirigimos a sus cursos. Para canManage (admin/gestor/adviser) sí
+  // redirigimos a sus cursos. Para canManage (admin/gestor/advisor) sí
   // permitimos preview directo (botón Visualizar de /dashboard/contenido).
   if (resource.contentType === "assignment") {
     if (!canManage) {

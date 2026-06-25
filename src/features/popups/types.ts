@@ -7,7 +7,7 @@ export const POPUP_ROLES: PopupRole[] = ['lider', 'mentor', 'gestor', 'admin', '
 
 export const POPUP_ROLE_LABELS: Record<PopupRole, string> = {
   lider: 'Líder',
-  mentor: 'Adviser',
+  mentor: 'Advisor',
   gestor: 'Gestor',
   admin: 'Administrador',
   invitado: 'Invitado',

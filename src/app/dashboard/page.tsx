@@ -83,7 +83,7 @@ function buildRoleSummary(
 
   if (role === "mentor") {
     return {
-      roleTag: "Vista Adviser",
+      roleTag: "Vista Advisor",
       title: "Acompañamiento experto con contexto",
       description:
         "Consulta sesiones, líderes asignados y mensajes para mantener un acompañamiento consistente.",
@@ -258,9 +258,9 @@ export default function DashboardHomePage() {
   const mentorshipCount = bootstrapData.mentorships.length;
 
   // Próximas mentorías programadas — alimentan también el bloque de Novedades
-  // tanto para el líder (muestra el adviser) como para el adviser (muestra el mentee).
+  // tanto para el líder (muestra el advisor) como para el advisor (muestra el mentee).
   const upcomingMentorshipsNovedades = React.useMemo(() => {
-    const isAdviser = currentRole === 'mentor';
+    const isAdvisor = currentRole === 'mentor';
     const now = new Date();
     return bootstrapData.mentorships
       .filter((m) => m.status === 'scheduled')
@@ -278,7 +278,7 @@ export default function DashboardHomePage() {
       .map((m) => ({
         id: `mentoria-${m.id}`,
         category: 'Próxima mentoría',
-        title: isAdviser
+        title: isAdvisor
           ? `${m.title} · con ${m.mentee ?? 'el líder'}`
           : `${m.title} · con ${m.mentor}`,
         date: `${m.date}${m.time ? ` · ${m.time}` : ''}`,
@@ -466,7 +466,7 @@ export default function DashboardHomePage() {
             {[
               { icon: Sparkles, label: "Trayectoria", desc: "24 semanas · 5 hitos · workbooks guiados" },
               { icon: Users, label: "Networking", desc: "Comunidad de líderes · perfiles · conexiones" },
-              { icon: MessageSquare, label: "Mensajes", desc: "Conversaciones directas con tu Adviser" },
+              { icon: MessageSquare, label: "Mensajes", desc: "Conversaciones directas con tu Advisor" },
             ].map((mod) => {
               const Icon = mod.icon;
               return (

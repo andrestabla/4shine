@@ -59,7 +59,7 @@ export function buildNextSteps(summary: DashboardSummary, role: string | null, c
         steps.push({
           key: 'mentoria-agenda',
           title: 'Agenda una mentoría',
-          description: 'Reserva una sesión 1:1 con tu adviser para acelerar tu avance.',
+          description: 'Reserva una sesión 1:1 con tu advisor para acelerar tu avance.',
           href: '/dashboard/mentorias',
           icon: 'video',
         });
@@ -96,7 +96,7 @@ export function buildNextSteps(summary: DashboardSummary, role: string | null, c
   } else if (role === 'mentor') {
     if (can('lideres')) steps.push({ key: 'lideres', title: 'Revisa a tus líderes', description: 'Mira el avance de los líderes que acompañas.', href: '/dashboard/lideres', icon: 'users' });
     if (can('mentorias')) steps.push({ key: 'mentorias', title: 'Gestiona tus mentorías', description: 'Revisa tu agenda y disponibilidad de sesiones.', href: '/dashboard/mentorias', icon: 'video' });
-    if (can('formacion_mentores')) steps.push({ key: 'formacion', title: 'Continúa tu formación de adviser', description: 'Avanza en los módulos de certificación.', href: '/dashboard/formacion-mentores', icon: 'book' });
+    if (can('formacion_mentores')) steps.push({ key: 'formacion', title: 'Continúa tu formación de advisor', description: 'Avanza en los módulos de certificación.', href: '/dashboard/formacion-mentores', icon: 'book' });
   } else if (role === 'gestor' || role === 'admin') {
     if (can('usuarios', 'manage')) steps.push({ key: 'admin', title: 'Panel de administración', description: 'Gestiona usuarios, contenidos y configuración del programa.', href: '/dashboard/administracion', icon: 'shield' });
     if (can('lideres')) steps.push({ key: 'lideres', title: 'Seguimiento de líderes', description: 'Revisa el progreso de los líderes del programa.', href: '/dashboard/lideres', icon: 'users' });

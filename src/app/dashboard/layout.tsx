@@ -99,7 +99,7 @@ function resolveRouteAccess(pathname: string): RouteAccess | undefined {
     return { moduleCode: "aprendizaje" };
   }
 
-  // Detalle de un curso de formación de advisers: gateado igual que el
+  // Detalle de un curso de formación de advisors: gateado igual que el
   // home /dashboard/formacion-mentores. Cubre /dashboard/formacion-mentores/<id>.
   if (pathname.startsWith("/dashboard/formacion-mentores/")) {
     return { moduleCode: "formacion_mentores" };

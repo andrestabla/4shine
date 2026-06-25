@@ -265,7 +265,7 @@ const ARCHITECTURE_SECTIONS: DocSection[] = [
           ['admin', 'Administrador del sistema. Acceso total, incluyendo el panel de administración.'],
           ['gestor', 'Gestor del programa: coordina, crea y modera contenido y operaciones.'],
           ['lider', 'Participante del programa (líder). Consume el recorrido de aprendizaje y mentorías.'],
-          ['mentor', 'Adviser que acompaña a los líderes (mentorías, revisión de tareas).'],
+          ['mentor', 'Advisor que acompaña a los líderes (mentorías, revisión de tareas).'],
           ['invitado', 'Cuenta con acceso limitado, solo a Descubrimiento.'],
         ],
       },
@@ -727,7 +727,7 @@ export async function GET(request: Request) {
           'Cabeceras de seguridad globales: X-Frame-Options DENY (anti-clickjacking), X-Content-Type-Options nosniff, Referrer-Policy, HSTS (HTTPS forzado un año) y Permissions-Policy.',
           'Permissions-Policy habilita microphone=(self): necesario para la grabación de voz de los workbooks V3; cámara, geolocalización y pago quedan desactivados.',
           'La ruta /api/v1/scorm/serve/* sobrescribe X-Frame-Options a SAMEORIGIN para poder embeber el contenido SCORM en un iframe propio.',
-          'Redirección permanente /afiliados → /advisers.',
+          'Redirección permanente /afiliados → /advisors.',
         ],
       },
       {
@@ -768,7 +768,7 @@ export async function GET(request: Request) {
   <text x="385" y="234" text-anchor="middle" font-size="13" font-weight="700" fill="#ffffff">API · /api/v1</text>
   <text x="385" y="252" text-anchor="middle" font-size="9" fill="#cbd5e1">+ Borde (proxy.ts)</text>
   <g text-anchor="middle">
-  <rect x="110" y="28" width="180" height="56" rx="9" fill="var(--app-surface)" stroke="var(--app-border-strong)"/><text x="200" y="52" font-size="11.5" font-weight="600" fill="var(--app-ink)">Sitio público</text><text x="200" y="68" font-size="8.5" fill="var(--app-muted)">landing · /descubrimiento · /advisers</text>
+  <rect x="110" y="28" width="180" height="56" rx="9" fill="var(--app-surface)" stroke="var(--app-border-strong)"/><text x="200" y="52" font-size="11.5" font-weight="600" fill="var(--app-ink)">Sitio público</text><text x="200" y="68" font-size="8.5" fill="var(--app-muted)">landing · /descubrimiento · /advisors</text>
   <rect x="470" y="28" width="180" height="56" rx="9" fill="var(--app-surface)" stroke="var(--app-border-strong)"/><text x="560" y="52" font-size="11.5" font-weight="600" fill="var(--app-ink)">Dashboard</text><text x="560" y="68" font-size="8.5" fill="var(--app-muted)">app autenticada</text>
   <rect x="24" y="150" width="182" height="58" rx="9" fill="var(--app-surface-muted)" stroke="var(--app-border)"/><text x="115" y="174" font-size="11" font-weight="600" fill="var(--app-ink)">Webhooks (entrantes)</text><text x="115" y="190" font-size="8.5" fill="var(--app-muted)">Stripe · Wompi · Zoom</text>
   <rect x="554" y="150" width="182" height="58" rx="9" fill="var(--app-surface-muted)" stroke="var(--app-border)"/><text x="645" y="174" font-size="11" font-weight="600" fill="var(--app-ink)">Uploads R2 + SCORM</text><text x="645" y="190" font-size="8.5" fill="var(--app-muted)">presign · serve · relay</text>
@@ -784,7 +784,7 @@ export async function GET(request: Request) {
         headers: ['Subsistema', 'Qué hace', 'Dónde vive'],
         rows: [
           ['Borde (middleware)', 'Redirige al host canónico (www.4shine.co), aplica rate limit a los endpoints de auth y bloquea páginas públicas deshabilitadas.', 'src/proxy.ts (middleware de Next.js 16)'],
-          ['Sitio público', 'Páginas no autenticadas: landing, diagnóstico, advisers, precios, etc. Renderizadas por el App Router.', 'src/app/* (fuera de /dashboard), components/marketing'],
+          ['Sitio público', 'Páginas no autenticadas: landing, diagnóstico, advisors, precios, etc. Renderizadas por el App Router.', 'src/app/* (fuera de /dashboard), components/marketing'],
           ['Catálogo de API', 'Toda la superficie REST: auth, bootstrap, módulos, pagos, cron, uploads, scorm, pusher.', 'src/app/api/v1/**'],
           ['Webhooks', 'Reciben eventos externos para confirmar pagos y cambios de Zoom.', 'api/v1/payments/stripe|wompi/webhook, api/v1/integrations/zoom/webhook'],
           ['Archivos (R2)', 'Genera URLs prefirmadas para subir/descargar archivos directamente desde el cliente.', 'api/v1/uploads/r2/* (+ presign)'],
@@ -820,7 +820,7 @@ export async function GET(request: Request) {
         headers: ['En código', 'En la UI / negocio'],
         rows: [
           ['lider', 'Líder: participante del programa.'],
-          ['mentor', 'Adviser: acompaña a los líderes. OJO: en la interfaz se llama "Adviser", pero en el código y la base de datos el rol es mentor.'],
+          ['mentor', 'Advisor: acompaña a los líderes. OJO: en la interfaz se llama "Advisor", pero en el código y la base de datos el rol es mentor.'],
           ['gestor', 'Gestor: coordina el programa, crea y modera contenido.'],
           ['admin', 'Administrador del sistema.'],
           ['invitado', 'Invitado: cuenta con acceso limitado solo a Descubrimiento.'],
@@ -833,8 +833,8 @@ export async function GET(request: Request) {
         rows: [
           ['Las 5 fases', 'El recorrido del programa: Descubrimiento → Shine Within → Shine Out → Shine Up → Shine Beyond (~10 semanas).'],
           ['Workbook', 'Cuaderno digital del programa (WB1–WB10) con avance sincronizado. La versión V3 incorpora grabación de voz, transcripción y análisis con IA.'],
-          ['Scope (ámbito)', 'Separa el contenido por destino: aprendizaje, metodologia, formacion_mentores (formación de advisers), etc.'],
-          ['Audiencia', 'A quién se dirige un contenido: all, lider, lider_suscrito, lider_sin_suscripcion o ishiners (advisers).'],
+          ['Scope (ámbito)', 'Separa el contenido por destino: aprendizaje, metodologia, formacion_mentores (formación de advisors), etc.'],
+          ['Audiencia', 'A quién se dirige un contenido: all, lider, lider_suscrito, lider_sin_suscripcion o ishiners (advisors).'],
           ['library_location', 'Dónde aparece un contenido en la biblioteca: cursos o contenidos_libres.'],
           ['Entitlement', 'Derecho otorgado por el plan (p. ej. el número de mentorías 1:1 incluidas).'],
         ],
@@ -868,7 +868,7 @@ const MODULE_SECTIONS: DocSection[] = [
     roles: [
       { role: 'Admin', can: 'Control total: crear, editar, publicar, aprobar, archivar/eliminar y administrar todo el contenido.' },
       { role: 'Gestor', can: 'Crear, editar, publicar/aprobar, archivar y eliminar contenido; administra la biblioteca.' },
-      { role: 'Adviser (mentor)', can: 'Ve el contenido publicado dirigido a su audiencia (all / ishiners); puede crear y editar (aportar), pero no publicar ni eliminar.' },
+      { role: 'Advisor (mentor)', can: 'Ve el contenido publicado dirigido a su audiencia (all / ishiners); puede crear y editar (aportar), pero no publicar ni eliminar.' },
       { role: 'Líder', can: 'Ve y avanza (registra progreso) en el contenido publicado dirigido a su audiencia; no crea contenido.' },
       { role: 'Invitado', can: 'Sin acceso.' },
     ],
@@ -900,7 +900,7 @@ const MODULE_SECTIONS: DocSection[] = [
           'Cursos (SCORM): experiencias estructuradas por módulos y recursos internos. content_type = scorm, library_location = cursos.',
           'Contenidos libres: videos, pódcasts, documentos y piezas sueltas. library_location = contenidos_libres.',
           'Actividades (activity): quizzes y evaluaciones autocalificadas; el contenido se configura en Contenido, no tienen archivo/URL propio.',
-          'Tareas (assignment): entregas del líder revisadas por adviser/gestor/admin; solo se consumen dentro de un curso.',
+          'Tareas (assignment): entregas del líder revisadas por advisor/gestor/admin; solo se consumen dentro de un curso.',
           'Workbooks: cuadernos digitales del programa con avance sincronizado (incluye la versión V3 con grabación de voz, transcripción Whisper y análisis IA).',
         ],
       },
@@ -909,7 +909,7 @@ const MODULE_SECTIONS: DocSection[] = [
         type: 'bullets',
         items: [
           'Cada contenido tiene un estado (draft, pending_review, published, archived, rejected). Los roles sin gestión solo ven los published.',
-          'Cada contenido tiene una audiencia: all (toda la plataforma), lider, lider_suscrito, lider_sin_suscripcion o ishiners (advisers). El listado filtra según el rol del usuario.',
+          'Cada contenido tiene una audiencia: all (toda la plataforma), lider, lider_suscrito, lider_sin_suscripcion o ishiners (advisors). El listado filtra según el rol del usuario.',
           'show_in_library controla si el contenido aparece en la biblioteca o solo es accesible dentro de un curso / por enlace directo.',
           'El borrado es lógico (deleted_at): los contenidos van a una papelera recuperable en vez de eliminarse de forma irreversible.',
         ],
@@ -918,7 +918,7 @@ const MODULE_SECTIONS: DocSection[] = [
         type: 'callout',
         tone: 'info',
         title: 'Quién gestiona',
-        text: 'gestor y admin pueden crear y publicar contenido (canManage). Los advisers (mentor) y líderes consumen contenido publicado y dirigido a su audiencia.',
+        text: 'gestor y admin pueden crear y publicar contenido (canManage). Los advisors (mentor) y líderes consumen contenido publicado y dirigido a su audiencia.',
       },
     ],
   },
@@ -927,7 +927,7 @@ const MODULE_SECTIONS: DocSection[] = [
     roles: [
       { role: 'Admin', can: 'Control total: crear, editar, cancelar y aprobar todas las sesiones; ver todo.' },
       { role: 'Gestor', can: 'Administra mentorías: crea/edita/cancela sesiones, aprueba y supervisa.' },
-      { role: 'Adviser (mentor)', can: 'Ve y gestiona sus sesiones, publica sus franjas disponibles y registra notas.' },
+      { role: 'Advisor (mentor)', can: 'Ve y gestiona sus sesiones, publica sus franjas disponibles y registra notas.' },
       { role: 'Líder', can: 'Ve, agenda (consumiendo su paquete del programa o adicionales) y reprograma sus mentorías.' },
       { role: 'Invitado', can: 'Sin acceso.' },
     ],
@@ -939,7 +939,7 @@ const MODULE_SECTIONS: DocSection[] = [
     blocks: [
       {
         type: 'p',
-        text: 'Mentorías gestiona el acompañamiento entre advisers y líderes. Incluye sesiones individuales (1:1) y grupales, con integración a Zoom, agendamiento por franjas disponibles, recordatorios automáticos y consumo de las mentorías incluidas en el plan.',
+        text: 'Mentorías gestiona el acompañamiento entre advisors y líderes. Incluye sesiones individuales (1:1) y grupales, con integración a Zoom, agendamiento por franjas disponibles, recordatorios automáticos y consumo de las mentorías incluidas en el plan.',
       },
       {
         type: 'table',
@@ -956,9 +956,9 @@ const MODULE_SECTIONS: DocSection[] = [
       {
         type: 'bullets',
         items: [
-          'Sesiones 1:1: el líder elige un adviser y una franja real disponible; la reserva descuenta de las mentorías incluidas del programa o se agenda como adicional.',
+          'Sesiones 1:1: el líder elige un advisor y una franja real disponible; la reserva descuenta de las mentorías incluidas del programa o se agenda como adicional.',
           'Sesiones grupales: webinars en vivo, con calendario destacado y vistas de próximas/pasadas.',
-          'Zoom: al crear una sesión se genera la reunión (host = adviser) con grabación en la nube y transcripción automática; opcionalmente se admite un enlace manual.',
+          'Zoom: al crear una sesión se genera la reunión (host = advisor) con grabación en la nube y transcripción automática; opcionalmente se admite un enlace manual.',
           'Recordatorios: el cron envía avisos en ventanas configurables por evento (1:1 y grupal), de forma idempotente.',
         ],
       },
@@ -969,7 +969,7 @@ const MODULE_SECTIONS: DocSection[] = [
     roles: [
       { role: 'Admin', can: 'Control total: ver todos los diagnósticos, gestionar invitaciones y configuración.' },
       { role: 'Gestor', can: 'Realiza y actualiza su diagnóstico; ve resultados.' },
-      { role: 'Adviser (mentor)', can: 'Realiza y actualiza su diagnóstico; ve resultados.' },
+      { role: 'Advisor (mentor)', can: 'Realiza y actualiza su diagnóstico; ve resultados.' },
       { role: 'Líder', can: 'Realiza y actualiza su diagnóstico; ve su informe.' },
       { role: 'Invitado', can: 'Acceso EXCLUSIVO a este módulo: realiza y consulta su diagnóstico (no entra a ningún otro módulo).' },
     ],
@@ -1009,7 +1009,7 @@ const MODULE_SECTIONS: DocSection[] = [
     roles: [
       { role: 'Admin', can: 'Control total: administra y modera conexiones, comunidades y publicaciones.' },
       { role: 'Gestor', can: 'Administra y modera comunidades, conexiones y contenido; puede eliminar.' },
-      { role: 'Adviser (mentor)', can: 'Ve el directorio, conecta y participa en comunidades.' },
+      { role: 'Advisor (mentor)', can: 'Ve el directorio, conecta y participa en comunidades.' },
       { role: 'Líder', can: 'Ve el directorio, conecta y participa en comunidades.' },
       { role: 'Invitado', can: 'Sin acceso (además, se excluye del directorio de contactos).' },
     ],
@@ -1037,7 +1037,7 @@ const MODULE_SECTIONS: DocSection[] = [
         type: 'bullets',
         items: [
           'Conexiones con estados (pendiente / conectado / rechazado).',
-          'El directorio muestra a usuarios activos (líderes, advisers, gestores, admins) y excluye a las cuentas con rol invitado.',
+          'El directorio muestra a usuarios activos (líderes, advisors, gestores, admins) y excluye a las cuentas con rol invitado.',
           'Comunidades abiertas o cerradas con su propio muro.',
         ],
       },
@@ -1058,7 +1058,7 @@ const MODULE_SECTIONS: DocSection[] = [
     roles: [
       { role: 'Admin', can: 'Control total: crear, editar, aprobar, eliminar y administrar convocatorias.' },
       { role: 'Gestor', can: 'Crea, edita, aprueba y administra convocatorias y postulaciones.' },
-      { role: 'Adviser (mentor)', can: 'Solo ver convocatorias.' },
+      { role: 'Advisor (mentor)', can: 'Solo ver convocatorias.' },
       { role: 'Líder', can: 'Ve convocatorias y se postula; puede solicitar una publicación (flujo de solicitudes). No crea ni edita convocatorias.' },
       { role: 'Invitado', can: 'Sin acceso.' },
     ],
@@ -1112,7 +1112,7 @@ const MODULE_SECTIONS: DocSection[] = [
     roles: [
       { role: 'Admin', can: 'Control total.' },
       { role: 'Gestor', can: 'Ve, envía, edita/elimina y modera mensajes.' },
-      { role: 'Adviser (mentor)', can: 'Ve, envía, edita y elimina sus propios mensajes.' },
+      { role: 'Advisor (mentor)', can: 'Ve, envía, edita y elimina sus propios mensajes.' },
       { role: 'Líder', can: 'Ve, envía, edita y elimina sus propios mensajes.' },
       { role: 'Invitado', can: 'Sin acceso.' },
     ],
@@ -1124,7 +1124,7 @@ const MODULE_SECTIONS: DocSection[] = [
     blocks: [
       {
         type: 'p',
-        text: 'Mensajes es el chat directo entre usuarios (advisers con líderes, y entre pares). Soporta conversaciones por hilo, historial y entrega en tiempo real mediante canales privados de Pusher.',
+        text: 'Mensajes es el chat directo entre usuarios (advisors con líderes, y entre pares). Soporta conversaciones por hilo, historial y entrega en tiempo real mediante canales privados de Pusher.',
       },
       {
         type: 'table',
@@ -1154,7 +1154,7 @@ const MODULE_SECTIONS: DocSection[] = [
     roles: [
       { role: 'Admin', can: 'Control total: crear, editar, aprobar, moderar, eliminar y administrar workshops y órdenes.' },
       { role: 'Gestor', can: 'Crea, edita, aprueba, modera y administra workshops y sus órdenes.' },
-      { role: 'Adviser (mentor)', can: 'Ve, se inscribe y compra cupos.' },
+      { role: 'Advisor (mentor)', can: 'Ve, se inscribe y compra cupos.' },
       { role: 'Líder', can: 'Ve, se inscribe y compra cupos.' },
       { role: 'Invitado', can: 'Sin acceso.' },
     ],
@@ -1209,7 +1209,7 @@ const MODULE_SECTIONS: DocSection[] = [
     roles: [
       { role: 'Admin', can: 'Control total: crear, editar, eliminar y ver la vista 360 de cualquier líder.' },
       { role: 'Gestor', can: 'Administra líderes (crear, editar, eliminar), ve la 360 y agenda mentorías on-behalf.' },
-      { role: 'Adviser (mentor)', can: 'Ve y actualiza la vista 360 de sus líderes; agenda 1:1 on-behalf. No crea ni elimina.' },
+      { role: 'Advisor (mentor)', can: 'Ve y actualiza la vista 360 de sus líderes; agenda 1:1 on-behalf. No crea ni elimina.' },
       { role: 'Líder', can: 'Sin acceso (es el sujeto de la vista, no la gestiona).' },
       { role: 'Invitado', can: 'Sin acceso.' },
     ],
@@ -1246,7 +1246,7 @@ const MODULE_SECTIONS: DocSection[] = [
           'La vista 360 agrega en tiempo real (sin caché) datos de 8 dominios: perfil, workbooks, diagnóstico, mentorías, contenido, networking, convocatorias y workshops. Al abrirla se provisionan los workbooks del líder si faltan.',
           'Mentorías incluidas del programa: viven en user_program_mentorships con estados available, scheduled, completed o locked, ordenadas por secuencia.',
           'Cadencia de 10 días: una mentoría agendada bloquea la siguiente durante 10 días desde su inicio. La "próxima a consumir" indica si ya es agendable o la fecha en que se desbloquea.',
-          'Agendar on-behalf (solo admin/gestor/adviser): modo "programa" (consume un entitlement, valida la secuencia, reserva la franja del adviser, crea la reunión de Zoom y notifica) o "manual" (sesión adicional sin consumir el paquete).',
+          'Agendar on-behalf (solo admin/gestor/advisor): modo "programa" (consume un entitlement, valida la secuencia, reserva la franja del advisor, crea la reunión de Zoom y notifica) o "manual" (sesión adicional sin consumir el paquete).',
         ],
       },
     ],
@@ -1256,7 +1256,7 @@ const MODULE_SECTIONS: DocSection[] = [
     roles: [
       { role: 'Admin', can: 'Control total: plantillas, eventos, envíos masivos, popups y recordatorios.' },
       { role: 'Gestor', can: 'Ve, edita y administra plantillas y configuración (no crea de cero, elimina ni aprueba).' },
-      { role: 'Adviser / Líder / Invitado', can: 'Sin acceso (es un módulo de administración). Sí reciben las notificaciones.' },
+      { role: 'Advisor / Líder / Invitado', can: 'Sin acceso (es un módulo de administración). Sí reciben las notificaciones.' },
     ],
     label: 'Mensajes y Notificaciones',
     tagline:
@@ -1295,7 +1295,7 @@ const MODULE_SECTIONS: DocSection[] = [
     roles: [
       { role: 'Admin', can: 'Control total de reportes y exportaciones.' },
       { role: 'Gestor', can: 'Ve y administra los reportes y dashboards.' },
-      { role: 'Adviser / Líder / Invitado', can: 'Sin acceso.' },
+      { role: 'Advisor / Líder / Invitado', can: 'Sin acceso.' },
     ],
     label: 'Analítica',
     tagline:
@@ -1342,7 +1342,7 @@ const MODULE_SECTIONS: DocSection[] = [
     roles: [
       { role: 'Admin', can: 'Control total: crear, editar, activar/desactivar y eliminar planes.' },
       { role: 'Gestor', can: 'Ve, edita y administra planes (la creación y eliminación quedan en Admin).' },
-      { role: 'Adviser / Líder / Invitado', can: 'Sin acceso a la gestión (sí consumen lo que su plan les habilita).' },
+      { role: 'Advisor / Líder / Invitado', can: 'Sin acceso a la gestión (sí consumen lo que su plan les habilita).' },
     ],
     label: 'Planes y Suscripciones',
     tagline:
@@ -1376,7 +1376,7 @@ const MODULE_SECTIONS: DocSection[] = [
           'Tablas: app_billing.subscription_plans (catálogo: plan_code, plan_group program/circulo/custom, precio, duration_days, is_active, is_system) y plan_module_features (qué módulos habilita y con qué cuota).',
           'Cada plan enciende o apaga funciones (trayectoria, descubrimiento, aprendizaje_cursos, mentorias_1on1, mentorias_grupales, networking, etc.) y puede fijar una cuota (p. ej. 10 mentorías 1:1).',
           'Gating en runtime (features/access): para un líder, getViewerAccessState lee su plan vigente (no vencido) más las compras puntuales y deriva los permisos efectivos. Con plan asignado, el plan manda; las compras suman acceso (pack de mentorías, diagnóstico).',
-          'Los roles no-líder (gestor/adviser/admin) no se limitan por plan; el invitado solo accede a Descubrimiento.',
+          'Los roles no-líder (gestor/advisor/admin) no se limitan por plan; el invitado solo accede a Descubrimiento.',
           'Un plan is_system o con usuarios suscritos no se puede eliminar, solo desactivar.',
         ],
       },
@@ -1387,7 +1387,7 @@ const MODULE_SECTIONS: DocSection[] = [
     roles: [
       { role: 'Admin', can: 'Control total: crear, editar, suspender y eliminar usuarios; asignar roles, gestionar permisos, sesiones y auditoría.' },
       { role: 'Gestor', can: 'Ve, crea y edita usuarios (p. ej. dar de alta líderes). No elimina ni gestiona la matriz de roles/permisos.' },
-      { role: 'Adviser / Líder / Invitado', can: 'Sin acceso.' },
+      { role: 'Advisor / Líder / Invitado', can: 'Sin acceso.' },
     ],
     label: 'Usuarios, Roles y Permisos',
     tagline:
@@ -1428,7 +1428,7 @@ const MODULE_SECTIONS: DocSection[] = [
     roles: [
       { role: 'Admin', can: 'Control total: crear, editar, publicar/aprobar, archivar/eliminar y administrar contenido en todos los ámbitos.' },
       { role: 'Gestor', can: 'Crea, edita, publica/aprueba, archiva, elimina y administra contenido en todos los ámbitos.' },
-      { role: 'Adviser / Líder / Invitado', can: 'Sin acceso a la gestión (consumen el contenido desde Aprendizaje).' },
+      { role: 'Advisor / Líder / Invitado', can: 'Sin acceso a la gestión (consumen el contenido desde Aprendizaje).' },
     ],
     label: 'Gestión de Contenido',
     tagline:
@@ -1438,7 +1438,7 @@ const MODULE_SECTIONS: DocSection[] = [
     blocks: [
       {
         type: 'p',
-        text: 'Contenido es la administración transversal de la biblioteca: crear, editar, publicar y archivar recursos, cursos, actividades y tareas en todos los ámbitos (aprendizaje, metodología, formación de advisers). Es la cara de gestión de lo que Aprendizaje muestra al usuario final.',
+        text: 'Contenido es la administración transversal de la biblioteca: crear, editar, publicar y archivar recursos, cursos, actividades y tareas en todos los ámbitos (aprendizaje, metodología, formación de advisors). Es la cara de gestión de lo que Aprendizaje muestra al usuario final.',
       },
       {
         type: 'table',
@@ -1453,7 +1453,7 @@ const MODULE_SECTIONS: DocSection[] = [
       {
         type: 'bullets',
         items: [
-          'El ámbito (scope) separa el contenido: aprendizaje, metodología, formación de advisers, etc.',
+          'El ámbito (scope) separa el contenido: aprendizaje, metodología, formación de advisors, etc.',
           'Soporta borrado lógico con papelera y restauración, además del toggle de visibilidad en biblioteca.',
         ],
       },
@@ -1475,7 +1475,7 @@ const MODULE_SECTIONS: DocSection[] = [
     roles: [
       { role: 'Admin', can: 'Control total sobre la configuración del recorrido.' },
       { role: 'Gestor', can: 'Ve y administra la configuración del recorrido.' },
-      { role: 'Adviser (mentor)', can: 'Ve el recorrido y registra avance.' },
+      { role: 'Advisor (mentor)', can: 'Ve el recorrido y registra avance.' },
       { role: 'Líder', can: 'Ve su recorrido y registra avance.' },
       { role: 'Invitado', can: 'Sin acceso.' },
     ],
@@ -1518,7 +1518,7 @@ const MODULE_SECTIONS: DocSection[] = [
     roles: [
       { role: 'Admin', can: 'Control total; además ve/edita su propio perfil.' },
       { role: 'Gestor', can: 'Ve y edita su propio perfil.' },
-      { role: 'Adviser (mentor)', can: 'Ve y edita su propio perfil.' },
+      { role: 'Advisor (mentor)', can: 'Ve y edita su propio perfil.' },
       { role: 'Líder', can: 'Ve y edita su propio perfil.' },
       { role: 'Invitado', can: 'Sin acceso al perfil completo.' },
     ],
@@ -1546,7 +1546,7 @@ const MODULE_SECTIONS: DocSection[] = [
       {
         type: 'bullets',
         items: [
-          'Tablas: app_core.user_profiles (profesión, industria, bio, país, job_role, género, años de experiencia, redes), app_core.user_interests y app_core.user_projects (máx. 8). Si el usuario es adviser, app_mentoring.mentors (experiencia, precio de sesión, temas por pilar).',
+          'Tablas: app_core.user_profiles (profesión, industria, bio, país, job_role, género, años de experiencia, redes), app_core.user_interests y app_core.user_projects (máx. 8). Si el usuario es advisor, app_mentoring.mentors (experiencia, precio de sesión, temas por pilar).',
           'Campos validados contra listas blancas: país (21 opciones), job_role (5) y género (3). La demografía es obligatoria en el primer ingreso (onboarding).',
           'Extracción desde CV: se sube un archivo (.docx o texto), se extrae el texto y se envía a OpenAI (temperatura baja) para inferir y normalizar los campos del perfil —incluidos proyectos e intereses—. Usa las credenciales de OpenAI de Integraciones.',
         ],
@@ -1557,7 +1557,7 @@ const MODULE_SECTIONS: DocSection[] = [
     slug: 'site-builder',
     roles: [
       { role: 'Admin', can: 'Control total del sitio público (páginas, bloques, visibilidad). Protegido por usuarios:manage.' },
-      { role: 'Gestor / Adviser / Líder / Invitado', can: 'Sin acceso.' },
+      { role: 'Gestor / Advisor / Líder / Invitado', can: 'Sin acceso.' },
     ],
     label: 'Site Builder',
     tagline:
@@ -1567,7 +1567,7 @@ const MODULE_SECTIONS: DocSection[] = [
     blocks: [
       {
         type: 'p',
-        text: 'Site Builder es el CMS por bloques del sitio público: permite componer y administrar páginas (home, diagnóstico, metodología, precios, afiliados) con secciones reutilizables (hero, features, CTA, testimonios, lista de advisers, footer).',
+        text: 'Site Builder es el CMS por bloques del sitio público: permite componer y administrar páginas (home, diagnóstico, metodología, precios, afiliados) con secciones reutilizables (hero, features, CTA, testimonios, lista de advisors, footer).',
       },
       {
         type: 'table',
@@ -1583,7 +1583,7 @@ const MODULE_SECTIONS: DocSection[] = [
         type: 'bullets',
         items: [
           'Tabla app_admin.site_pages: cada página tiene page_key, slug, navegación (show_in_nav, nav_order), is_visible (gating público) y un array sections (jsonb) con los bloques.',
-          'Hay ~25 tipos de bloque: estructura (section por columnas, hero, divider, spacer), contenido (richText, imageText, cards, features, steps, faq, quote, team, gallery, logos), social (testimonials y advisers —dinámico, trae advisers reales—), conversión (cta, banner, pricing), media (video, image) y html avanzado.',
+          'Hay ~25 tipos de bloque: estructura (section por columnas, hero, divider, spacer), contenido (richText, imageText, cards, features, steps, faq, quote, team, gallery, logos), social (testimonials y advisors —dinámico, trae advisors reales—), conversión (cta, banner, pricing), media (video, image) y html avanzado.',
           'El sitio público renderiza las páginas por page_key o slug (lib/site-pages.ts); el borde (proxy.ts) consulta la visibilidad (lib/site-settings.ts) y oculta las páginas deshabilitadas.',
           'Las páginas de sistema no se borran y conservan su slug canónico, salvo que se active use_builder.',
         ],
@@ -1591,22 +1591,22 @@ const MODULE_SECTIONS: DocSection[] = [
     ],
   },
   {
-    slug: 'formacion-advisers',
+    slug: 'formacion-advisors',
     roles: [
       { role: 'Admin', can: 'Control total: gestiona el currículo y consume la formación.' },
-      { role: 'Gestor', can: 'Administra la formación de advisers (currículo, aprobaciones, seguimiento) vía gestion_formacion_mentores.' },
-      { role: 'Adviser (mentor)', can: 'Consume su formación: ve, hace actividades y entregas (formacion_mentores). No la administra.' },
+      { role: 'Gestor', can: 'Administra la formación de advisors (currículo, aprobaciones, seguimiento) vía gestion_formacion_mentores.' },
+      { role: 'Advisor (mentor)', can: 'Consume su formación: ve, hace actividades y entregas (formacion_mentores). No la administra.' },
       { role: 'Líder / Invitado', can: 'Sin acceso.' },
     ],
-    label: 'Formación Advisers',
+    label: 'Formación Advisors',
     tagline:
-      'Programa de formación para nuevos advisers, con su propio ámbito de contenido y gestión.',
+      'Programa de formación para nuevos advisors, con su propio ámbito de contenido y gestión.',
     icon: 'GraduationCap',
     category: 'modulo',
     blocks: [
       {
         type: 'p',
-        text: 'Formación Advisers es el programa estructurado para capacitar a nuevos advisers (mentores). Es un ámbito de aprendizaje separado, con cursos, actividades, workbooks y mentorías propios, gateado por rol.',
+        text: 'Formación Advisors es el programa estructurado para capacitar a nuevos advisors (mentores). Es un ámbito de aprendizaje separado, con cursos, actividades, workbooks y mentorías propios, gateado por rol.',
       },
       {
         type: 'table',
@@ -1614,7 +1614,7 @@ const MODULE_SECTIONS: DocSection[] = [
         rows: [
           ['Claves de módulo', 'formacion_mentores (consumo) y gestion_formacion_mentores (administración)'],
           ['UI', '/dashboard/formacion-mentores y /dashboard/gestion-formacion-mentores'],
-          ['Base de datos', 'app_learning con scope de formación de advisers'],
+          ['Base de datos', 'app_learning con scope de formación de advisors'],
         ],
       },
       { type: 'subheading', text: 'Cómo funciona por dentro' },
@@ -1622,7 +1622,7 @@ const MODULE_SECTIONS: DocSection[] = [
         type: 'bullets',
         items: [
           'Reutiliza el sistema de Aprendizaje/Contenido con el scope formacion_mentores (en vez de aprendizaje): mismas tablas (content_items, content_progress, comentarios) y el mismo editor.',
-          'Dos caras: el adviser consume su formación en /dashboard/formacion-mentores (ver, comentar, registrar progreso); el gestor/admin la administra y hace seguimiento en /dashboard/gestion-formacion-mentores.',
+          'Dos caras: el advisor consume su formación en /dashboard/formacion-mentores (ver, comentar, registrar progreso); el gestor/admin la administra y hace seguimiento en /dashboard/gestion-formacion-mentores.',
           'Se sirve por las mismas rutas de Aprendizaje con ?scope=formacion_mentores; los permisos están separados (formacion_mentores para consumir, gestion_formacion_mentores para administrar).',
         ],
       },
@@ -1632,7 +1632,7 @@ const MODULE_SECTIONS: DocSection[] = [
     slug: 'asistente-ia',
     roles: [
       { role: 'Admin', can: 'Configura el asistente (estado, persona, instrucciones, base de conocimiento/FAQs) y revisa conversaciones.' },
-      { role: 'Gestor / Adviser / Líder', can: 'Usan el widget del asistente en la app (no lo configuran).' },
+      { role: 'Gestor / Advisor / Líder', can: 'Usan el widget del asistente en la app (no lo configuran).' },
       { role: 'Invitado', can: 'Uso limitado según su alcance.' },
     ],
     label: 'Asistente IA (Chatbot)',
@@ -1666,7 +1666,7 @@ const MODULE_SECTIONS: DocSection[] = [
         items: [
           'Tablas: app_admin.chatbot_settings (estado, modelo, persona, instrucciones, mensaje de bienvenida, ventana de contexto), chatbot_faqs (base de conocimiento) y app_core.chatbot_conversations / chatbot_messages (historial por usuario).',
           'Proveedor: OpenAI (modelo configurable, por defecto gpt-4o) usando las credenciales de Integraciones.',
-          'Contexto real: en cada conversación se arma un bloque con datos del usuario —plan, agenda de mentorías (incluida la cadencia de 10 días), workbooks, convocatorias, networking, workshops y lista de advisers— más las FAQs y un mapa de rutas. El bot orienta y enlaza, pero no ejecuta acciones.',
+          'Contexto real: en cada conversación se arma un bloque con datos del usuario —plan, agenda de mentorías (incluida la cadencia de 10 días), workbooks, convocatorias, networking, workshops y lista de advisors— más las FAQs y un mapa de rutas. El bot orienta y enlaza, pero no ejecuta acciones.',
           'Briefing proactivo: al abrir el widget genera un resumen de pendientes y sugerencias clicables. El admin revisa conversaciones y métricas desde Administración → Asistente IA.',
         ],
       },

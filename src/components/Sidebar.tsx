@@ -114,13 +114,13 @@ const MAIN_NAV_ITEMS: NavItem[] = [
   },
   {
     moduleCode: "formacion_mentores",
-    label: "Formación Advisers",
+    label: "Formación Advisors",
     icon: Book,
     path: "/dashboard/formacion-mentores",
   },
   {
     moduleCode: "gestion_formacion_mentores",
-    label: "Gestión Formación Advisers",
+    label: "Gestión Formación Advisors",
     icon: Book,
     path: "/dashboard/gestion-formacion-mentores",
   },

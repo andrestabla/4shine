@@ -105,10 +105,10 @@ const plans = [
     label: 'Recomendado',
     price: 'desde 1.000',
     currency: 'USD',
-    description: 'Trayectoria de 24 semanas con Adviser asignado, workbooks exclusivos, diagnóstico, comunidad y certificación. 4 niveles disponibles.',
+    description: 'Trayectoria de 24 semanas con Advisor asignado, workbooks exclusivos, diagnóstico, comunidad y certificación. 4 niveles disponibles.',
     features: [
       'Junior · Reinvéntate · Marca Ejecutiva · Executive',
-      'De 5 a 10 sesiones individuales con Adviser',
+      'De 5 a 10 sesiones individuales con Advisor',
       'Workbooks de metodología 4Shine',
       'Networking, workshops y convocatorias',
       'Certificación 4Shine Leadership',
@@ -135,7 +135,7 @@ const plans = [
   },
 ];
 
-const advisers = [
+const advisors = [
   {
     initial: 'M',
     color: '#5b2d8a',
@@ -163,7 +163,7 @@ const metrics = [
   { value: '+1.000', label: 'Líderes activos' },
   { value: '6', label: 'Meses de programa' },
   { value: '4', label: 'Pilares de liderazgo' },
-  { value: '+25', label: 'Advisers certificados' },
+  { value: '+25', label: 'Advisors certificados' },
 ];
 
 const platformFeatures = [
@@ -477,11 +477,11 @@ export default async function HomeMarketingPage() {
               Resultados reales en líderes reales.
             </h2>
             <Link
-              href="/advisers"
+              href="/advisors"
               className="whitespace-nowrap text-sm font-bold underline underline-offset-4 hover:opacity-80"
               style={{ color: 'var(--brand-accent)' }}
             >
-              Conoce a nuestros Advisers →
+              Conoce a nuestros Advisors →
             </Link>
           </div>
 
@@ -644,22 +644,22 @@ export default async function HomeMarketingPage() {
                 Aprende de quienes ya lo han vivido.
               </h2>
               <p className="mt-6 max-w-[50ch] text-base leading-relaxed md:text-lg" style={{ color: 'var(--brand-ink-soft)' }}>
-                Cada Adviser de {platformName} ha liderado equipos, tomado decisiones difíciles y transitado su propia transformación. No son coaches genéricos — son practicantes del liderazgo que acompañan desde la experiencia real.
+                Cada Advisor de {platformName} ha liderado equipos, tomado decisiones difíciles y transitado su propia transformación. No son coaches genéricos — son practicantes del liderazgo que acompañan desde la experiencia real.
               </p>
               <p className="mt-4 max-w-[50ch] text-sm leading-relaxed" style={{ color: 'var(--brand-ink-muted)' }}>
                 Acompañan sesiones individuales y grupales, retroalimentan con profundidad y se convierten en aliados del desarrollo de cada líder en el programa.
               </p>
               <Link
-                href="/advisers"
+                href="/advisors"
                 className="mt-8 inline-flex items-center gap-2 text-sm font-bold underline underline-offset-4 hover:opacity-70"
                 style={{ color: 'var(--brand-primary)' }}
               >
-                Conocer a todos los Advisers →
+                Conocer a todos los Advisors →
               </Link>
             </div>
 
             <div className="grid gap-8 sm:grid-cols-3">
-              {advisers.map((a) => (
+              {advisors.map((a) => (
                 <div key={a.name} className="flex items-start gap-3">
                   <div
                     className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-base font-black text-white"
@@ -684,7 +684,7 @@ export default async function HomeMarketingPage() {
         <div className="mx-auto max-w-[1240px] px-6 py-24 md:px-10 lg:px-14">
           <div className="mx-auto max-w-[720px] text-center">
             <h2 className="text-4xl font-black leading-[1.05] tracking-tight text-white md:text-5xl lg:text-6xl">
-              ¿Eres experto? Multiplica tu impacto como Adviser.
+              ¿Eres experto? Multiplica tu impacto como Advisor.
             </h2>
             <p className="mx-auto mt-6 max-w-[52ch] text-base leading-relaxed text-white/85 md:text-lg">
               Si tienes experiencia probada en liderazgo, desarrollo organizacional, comunicación ejecutiva u otras disciplinas de alto impacto, puedes prestar tus servicios en modalidad de afiliado dentro de la plataforma {platformName}.
@@ -694,11 +694,11 @@ export default async function HomeMarketingPage() {
             </p>
             <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
               <Link
-                href="/advisers"
+                href="/advisors"
                 className="rounded-full px-8 py-3.5 text-sm font-extrabold transition hover:opacity-90"
                 style={{ background: 'var(--brand-accent)', color: 'var(--brand-on-accent)' }}
               >
-                Postularme como Adviser
+                Postularme como Advisor
               </Link>
               <Link
                 href="/metodologia"

@@ -11,7 +11,7 @@ export type BlockFieldType =
   | 'number'
   | 'range'
   | 'icon'
-  | 'advisers'
+  | 'advisors'
   | 'list';
 
 export type BlockFieldGroup = 'content' | 'style';
@@ -528,7 +528,7 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
         { value: '+1.000', label: 'Líderes activos' },
         { value: '6', label: 'Meses de programa' },
         { value: '4', label: 'Pilares de liderazgo' },
-        { value: '+25', label: 'Advisers certificados' },
+        { value: '+25', label: 'Advisors certificados' },
       ],
     },
   }),
@@ -934,9 +934,9 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
     },
   }),
   def({
-    type: 'advisers',
-    label: 'Advisers (dinámico)',
-    description: 'Perfiles públicos de los advisers activos en la plataforma: foto, nombre, LinkedIn y biografía. Se actualiza solo.',
+    type: 'advisors',
+    label: 'Advisors (dinámico)',
+    description: 'Perfiles públicos de los advisors activos en la plataforma: foto, nombre, LinkedIn y biografía. Se actualiza solo.',
     category: 'Social',
     fields: [
       { key: 'kicker', label: 'Kicker', type: 'text' },
@@ -958,21 +958,21 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
         label: '¿Quiénes se muestran?',
         type: 'select',
         options: [
-          { value: 'all', label: 'Todos los advisers activos' },
+          { value: 'all', label: 'Todos los advisors activos' },
           { value: 'selected', label: 'Solo los seleccionados' },
         ],
-        help: 'Los advisers desactivados en la plataforma nunca se muestran.',
+        help: 'Los advisors desactivados en la plataforma nunca se muestran.',
       },
       {
         key: 'selectedIds',
-        label: 'Selecciona los advisers',
-        type: 'advisers',
+        label: 'Selecciona los advisors',
+        type: 'advisors',
         showIf: (p) => p.mode === 'selected',
       },
       { ...columnsField(4), showIf: (p) => p.layout === 'grid' || p.layout === 'cards' },
       {
         key: 'limit',
-        label: 'Máximo de advisers (0 = todos)',
+        label: 'Máximo de advisors (0 = todos)',
         type: 'range',
         min: 0,
         max: 24,
@@ -997,7 +997,7 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
       },
     ],
     defaults: {
-      kicker: 'Nuestros Advisers',
+      kicker: 'Nuestros Advisors',
       title: 'Aprende de quienes ya lo han vivido.',
       subtitle: 'Practicantes del liderazgo que acompañan desde la experiencia real.',
       layout: 'grid',

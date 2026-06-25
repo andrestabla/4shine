@@ -156,7 +156,7 @@ function YouTubePreview({ videoId }: { videoId: string }) {
 
 const ROLE_LABELS: Record<string, string> = {
   lider: 'Líder',
-  mentor: 'Adviser',
+  mentor: 'Advisor',
   gestor: 'Gestor',
   admin: 'Admin',
 };
@@ -519,9 +519,9 @@ export default function MensajesPage() {
       <ModuleLockedScreen
         moduleName="Mensajes"
         icon={MessageCircle}
-        description="Comunicación en tiempo real con tu Adviser, otros líderes del programa y el equipo de acompañamiento 4Shine."
+        description="Comunicación en tiempo real con tu Advisor, otros líderes del programa y el equipo de acompañamiento 4Shine."
         features={[
-          "Chat directo con tu Adviser asignado.",
+          "Chat directo con tu Advisor asignado.",
           "Mensajería con otros líderes del programa.",
           "Conversaciones grupales en proyectos y convocatorias.",
           "Comunicación con el equipo de acompañamiento 4Shine.",
