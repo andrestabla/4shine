@@ -114,19 +114,19 @@ export function PricingMatrixClient({ plans }: PricingMatrixClientProps) {
           <div>
             <p
               className="mb-3 text-xs font-black uppercase tracking-[0.3em]"
-              style={{ color: 'var(--brand-ink-muted)' }}
+              style={{ color: 'var(--brand-accent)' }}
             >
               Punto de partida
             </p>
             <h2
               className="max-w-[26ch] text-3xl font-black leading-tight tracking-tight md:text-4xl"
-              style={{ color: 'var(--brand-primary)' }}
+              style={{ color: '#ffffff' }}
             >
               Conoce dónde estás antes de decidir hacia dónde ir.
             </h2>
             <p
               className="mt-5 max-w-[54ch] text-base leading-relaxed"
-              style={{ color: 'var(--brand-ink-soft)' }}
+              style={{ color: 'rgba(255,255,255,0.78)' }}
             >
               El Diagnóstico Ejecutivo 4Shine evalúa tu nivel actual en los 4 pilares de liderazgo — Within, Out, Up y Beyond — y entrega un informe personalizado con tus fortalezas, brechas y recomendaciones concretas.
             </p>
@@ -141,13 +141,13 @@ export function PricingMatrixClient({ plans }: PricingMatrixClientProps) {
                 <li
                   key={f}
                   className="flex items-start gap-3 text-sm"
-                  style={{ color: 'var(--brand-ink-soft)' }}
+                  style={{ color: 'rgba(255,255,255,0.85)' }}
                 >
                   <Check
                     size={15}
                     className="mt-0.5 shrink-0"
                     strokeWidth={2.5}
-                    style={{ color: 'var(--brand-primary)' }}
+                    style={{ color: 'var(--brand-accent)' }}
                   />
                   {f}
                 </li>
@@ -171,19 +171,19 @@ export function PricingMatrixClient({ plans }: PricingMatrixClientProps) {
             <p className="text-lg font-black">Diagnóstico Ejecutivo</p>
             <p className="mt-1 text-5xl font-black" style={{ color: 'var(--brand-accent)' }}>
               $50{' '}
-              <span className="text-base font-semibold" style={{ color: 'var(--brand-ink-muted)' }}>
+              <span className="text-base font-semibold" style={{ color: 'rgba(255,255,255,0.65)' }}>
                 USD
               </span>
             </p>
             <p
               className="mt-3 text-sm leading-relaxed"
-              style={{ color: 'var(--brand-ink-muted)' }}
+              style={{ color: 'rgba(255,255,255,0.78)' }}
             >
               Pago único. Acceso inmediato. Resultado disponible en la plataforma en menos de 48 horas.
             </p>
             <div
               className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4 text-xs leading-relaxed"
-              style={{ color: 'var(--brand-ink-muted)' }}
+              style={{ color: 'rgba(255,255,255,0.82)' }}
             >
               Incluido en todos los programas de liderazgo. Si ya tienes un programa activo, no necesitas comprarlo por separado.
             </div>
@@ -211,7 +211,7 @@ export function PricingMatrixClient({ plans }: PricingMatrixClientProps) {
         <div>
           <p
             className="mb-8 max-w-[62ch] text-base leading-relaxed"
-            style={{ color: 'var(--brand-ink-soft)' }}
+            style={{ color: 'rgba(255,255,255,0.78)' }}
           >
             Sesiones individuales con Advisors certificados. Sin compromiso de programa. Ideal para acompañamiento puntual en un momento concreto de decisión, transición o desarrollo.
           </p>
@@ -256,7 +256,7 @@ export function PricingMatrixClient({ plans }: PricingMatrixClientProps) {
                   {pack.sessions}
                   <span
                     className="ml-1 text-base font-semibold"
-                    style={{ color: 'var(--brand-ink-muted)' }}
+                    style={{ color: pack.badge ? 'rgba(255,255,255,0.65)' : 'var(--brand-ink-muted)' }}
                   >
                     {pack.sessions === 1 ? 'sesión' : 'sesiones'}
                   </span>
@@ -270,7 +270,7 @@ export function PricingMatrixClient({ plans }: PricingMatrixClientProps) {
                   ${pack.price}{' '}
                   <span
                     className="text-sm font-semibold"
-                    style={{ color: 'var(--brand-ink-muted)' }}
+                    style={{ color: pack.badge ? 'rgba(255,255,255,0.65)' : 'var(--brand-ink-muted)' }}
                   >
                     USD
                   </span>
@@ -278,7 +278,7 @@ export function PricingMatrixClient({ plans }: PricingMatrixClientProps) {
                 <p
                   className="mt-4 flex-1 text-sm leading-relaxed"
                   style={{
-                    color: pack.badge ? 'var(--brand-ink-muted)' : 'var(--brand-ink-soft)',
+                    color: pack.badge ? 'rgba(255,255,255,0.78)' : 'var(--brand-ink-soft)',
                   }}
                 >
                   {pack.note}
@@ -304,7 +304,7 @@ export function PricingMatrixClient({ plans }: PricingMatrixClientProps) {
               </article>
             ))}
           </div>
-          <p className="mt-6 text-xs" style={{ color: 'var(--brand-ink-muted)' }}>
+          <p className="mt-6 text-xs" style={{ color: 'rgba(255,255,255,0.6)' }}>
             * Cada sesión dura 60 minutos. Las sesiones no tienen fecha de vencimiento.
           </p>
         </div>
@@ -343,7 +343,7 @@ function ProgramsSection({ programs, moduleGroups }: ProgramsSectionProps) {
     <div>
       <p
         className="mb-8 max-w-[64ch] text-base leading-relaxed"
-        style={{ color: 'var(--brand-ink-soft)' }}
+        style={{ color: 'rgba(255,255,255,0.78)' }}
       >
         Cada programa da acceso completo a la plataforma. Lo que varía es la intensidad del acompañamiento, las sesiones incluidas y la duración de la suscripción.
       </p>
@@ -538,14 +538,14 @@ function ProgramsSection({ programs, moduleGroups }: ProgramsSectionProps) {
                       {formatPrice(p.priceAmount)}{' '}
                       <span
                         className="text-xs font-semibold"
-                        style={{ color: 'var(--brand-ink-muted)' }}
+                        style={{ color: highlighted ? 'rgba(255,255,255,0.7)' : 'var(--brand-ink-muted)' }}
                       >
                         {p.currencyCode}
                       </span>
                     </p>
                     <p
                       className="mt-1 text-[11px] font-semibold"
-                      style={{ color: 'var(--brand-ink-muted)' }}
+                      style={{ color: highlighted ? 'rgba(255,255,255,0.7)' : 'var(--brand-ink-muted)' }}
                     >
                       {formatDuration(p.durationDays)}
                     </p>
@@ -563,7 +563,7 @@ function ProgramsSection({ programs, moduleGroups }: ProgramsSectionProps) {
                 className="px-6 py-2.5 text-[10px] font-extrabold uppercase tracking-widest"
                 style={{
                   background: 'var(--brand-dark)',
-                  color: 'var(--brand-ink-muted)',
+                  color: 'rgba(255,255,255,0.7)',
                 }}
               >
                 Acceso por módulo
@@ -720,7 +720,7 @@ function CirculoSection({ circulos }: { circulos: SubscriptionPlanWithFeatures[]
     <div>
       <p
         className="mb-8 max-w-[62ch] text-base leading-relaxed"
-        style={{ color: 'var(--brand-ink-soft)' }}
+        style={{ color: 'rgba(255,255,255,0.78)' }}
       >
         Acceso al Círculo de Líderes 4Shine: sesiones grupales en vivo, cursos exclusivos, comunidad y workshops. Elige la duración que más se ajuste a tu momento.
       </p>
@@ -773,7 +773,7 @@ function CirculoSection({ circulos }: { circulos: SubscriptionPlanWithFeatures[]
                 {formatPrice(plan.priceAmount)}{' '}
                 <span
                   className="text-sm font-semibold"
-                  style={{ color: 'var(--brand-ink-muted)' }}
+                  style={{ color: isHighlight ? 'rgba(255,255,255,0.7)' : 'var(--brand-ink-muted)' }}
                 >
                   {plan.currencyCode} · {formatDuration(plan.durationDays)}
                 </span>
@@ -815,7 +815,7 @@ function CirculoSection({ circulos }: { circulos: SubscriptionPlanWithFeatures[]
                       <span
                         style={{
                           color: isHighlight
-                            ? 'var(--brand-ink-muted)'
+                            ? 'rgba(255,255,255,0.82)'
                             : 'var(--brand-ink-soft)',
                         }}
                       >
