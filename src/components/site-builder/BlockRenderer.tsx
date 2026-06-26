@@ -5,6 +5,12 @@ import type { SiteBlock, SiteBlockProps } from '@/features/site-builder/types';
 import { SECTION_LAYOUTS } from '@/features/site-builder/registry';
 import { SITE_ICONS, hasSiteIcon } from '@/features/site-builder/icons';
 import { AdvisorsBlockClient } from './AdvisorsBlockClient';
+import {
+  DiscoveryRadarChart,
+  DiscoveryCompetenciesChart,
+  GlobalIndexDisplay,
+  PillarScoreBars,
+} from '@/app/descubrimiento/DiscoveryShowcaseCharts';
 
 /* ─────────────────────────── Prop helpers ─────────────────────────── */
 
@@ -988,6 +994,80 @@ function FeatureGroupsBlock({ props }: { props: SiteBlockProps }) {
   );
 }
 
+function DiscoveryReportBlock({ props }: { props: SiteBlockProps }) {
+  const palette = resolveSectionPalette(props);
+  const kicker = str(props, 'kicker');
+  const title = str(props, 'title');
+  const subtitle = str(props, 'subtitle');
+  const aiBadge = str(props, 'aiBadge');
+  const aiLabel = str(props, 'aiLabel');
+  const aiText = str(props, 'aiText');
+  const disclaimer = str(props, 'disclaimer');
+  const cardBorder = { borderColor: 'var(--brand-border)' };
+  return (
+    <SectionShell props={props} palette={palette}>
+      {kicker && (
+        <span
+          className="inline-block rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.28em]"
+          style={{ background: 'var(--brand-surface-strong)', color: 'var(--brand-accent-strong)' }}
+        >
+          {kicker}
+        </span>
+      )}
+      {title && (
+        <h2 className="mt-4 text-[2.6rem] font-black leading-[0.95] tracking-tight lg:text-[3rem]" style={{ color: palette.titleColor }}>
+          {title}
+        </h2>
+      )}
+      {subtitle && (
+        <p className="mt-3 max-w-2xl text-[0.98rem] leading-relaxed" style={{ color: palette.text }}>
+          {subtitle}
+        </p>
+      )}
+      <div className="mt-10 grid gap-6 lg:grid-cols-[340px_1fr]">
+        <div className="rounded-3xl border bg-white p-7 shadow-[0_12px_50px_rgba(0,0,0,0.07)]" style={cardBorder}>
+          <p className="text-[10px] font-black uppercase tracking-[0.24em]" style={{ color: 'var(--brand-accent-strong)' }}>Índice global</p>
+          <GlobalIndexDisplay />
+          <div className="mt-4 border-t pt-5" style={cardBorder}>
+            <p className="mb-3 text-[10px] font-black uppercase tracking-[0.22em]" style={{ color: 'var(--brand-accent-strong)' }}>Score por pilar</p>
+            <PillarScoreBars />
+          </div>
+        </div>
+        <div className="rounded-3xl border bg-white p-7 shadow-[0_12px_50px_rgba(0,0,0,0.07)]" style={cardBorder}>
+          <p className="text-[10px] font-black uppercase tracking-[0.24em]" style={{ color: 'var(--brand-accent-strong)' }}>Mapa de pilares</p>
+          <p className="mt-1 text-sm" style={{ color: 'var(--brand-ink-soft)' }}>Visualización radial de los 4 ejes de liderazgo</p>
+          <DiscoveryRadarChart />
+        </div>
+      </div>
+      <div className="mt-6 rounded-3xl border bg-white p-7 shadow-[0_12px_50px_rgba(0,0,0,0.07)]" style={cardBorder}>
+        <p className="mb-1 text-[10px] font-black uppercase tracking-[0.24em]" style={{ color: 'var(--brand-accent-strong)' }}>16 competencias · Score individual</p>
+        <p className="mb-5 text-sm" style={{ color: 'var(--brand-ink-soft)' }}>Cada barra representa una competencia coloreada por pilar.</p>
+        <DiscoveryCompetenciesChart />
+      </div>
+      {(aiText || aiBadge) && (
+        <div className="mt-6 rounded-3xl p-8" style={{ background: 'linear-gradient(135deg, var(--brand-surface) 0%, var(--brand-surface-strong) 100%)' }}>
+          <div className="mb-5 flex flex-wrap items-center gap-3">
+            {aiBadge && (
+              <span className="rounded-full px-3.5 py-1.5 text-[10px] font-black uppercase tracking-[0.26em]" style={{ background: 'var(--brand-primary)', color: 'white' }}>
+                {aiBadge}
+              </span>
+            )}
+            {aiLabel && <span className="text-[11px] font-semibold" style={{ color: 'var(--brand-ink-muted)' }}>{aiLabel}</span>}
+          </div>
+          <div className="space-y-4 text-[0.95rem] leading-relaxed" style={{ color: 'var(--brand-ink-soft)' }}>
+            {aiText.split('\n\n').map((para, i) => (
+              <p key={i}>{para}</p>
+            ))}
+          </div>
+          {disclaimer && (
+            <p className="mt-5 text-[11px] italic" style={{ color: 'var(--brand-ink-muted)' }}>{disclaimer}</p>
+          )}
+        </div>
+      )}
+    </SectionShell>
+  );
+}
+
 function StepsBlock({ props }: { props: SiteBlockProps }) {
   const palette = resolveSectionPalette(props);
   const list = items(props);
@@ -1661,6 +1741,8 @@ export function SiteBlockView({ block }: { block: SiteBlock }) {
       return <PhasedListBlock props={block.props} />;
     case 'featureGroups':
       return <FeatureGroupsBlock props={block.props} />;
+    case 'discoveryReport':
+      return <DiscoveryReportBlock props={block.props} />;
     case 'steps':
       return <StepsBlock props={block.props} />;
     case 'testimonials':

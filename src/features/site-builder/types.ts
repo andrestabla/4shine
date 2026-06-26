@@ -9,6 +9,7 @@ export type SiteBlockType =
   | 'features'
   | 'phasedList'
   | 'featureGroups'
+  | 'discoveryReport'
   | 'steps'
   | 'testimonials'
   | 'quote'

@@ -870,6 +870,31 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
     },
   }),
   def({
+    type: 'discoveryReport',
+    label: 'Informe Descubrimiento (ejemplo)',
+    description: 'Muestra del informe: índice global, score por pilar, radar, 16 competencias y análisis IA de ejemplo.',
+    category: 'Contenido',
+    fields: [
+      { key: 'kicker', label: 'Etiqueta superior', type: 'text' },
+      { key: 'title', label: 'Título', type: 'textarea' },
+      { key: 'subtitle', label: 'Subtítulo', type: 'textarea' },
+      { key: 'aiBadge', label: 'Etiqueta del análisis IA', type: 'text' },
+      { key: 'aiLabel', label: 'Sub-etiqueta IA', type: 'text' },
+      { key: 'aiText', label: 'Texto del análisis IA (párrafos separados por una línea en blanco)', type: 'textarea' },
+      { key: 'disclaimer', label: 'Aviso al pie', type: 'textarea' },
+    ],
+    defaults: {
+      kicker: 'Ejemplo del informe',
+      title: 'Así luce tu resultado.',
+      subtitle: 'Datos de ejemplo. Tu diagnóstico real generará scores propios con análisis IA personalizado.',
+      aiBadge: 'Análisis IA · Shine Up',
+      aiLabel: 'Ejemplo de lectura ejecutiva',
+      aiText:
+        'Tu perfil muestra una orientación estratégica sólida — Shine Up es tu pilar más desarrollado, lo que indica claridad sobre hacia dónde vas y capacidad real para generar tracción en proyectos complejos. Esta fortaleza es un activo diferencial cuando necesitas articular visión o convencer stakeholders.\n\nShine Out es el área con mayor potencial de desarrollo: la brecha entre tu visión (Up, 81) y tu capacidad de comunicarla con impacto (Out, 58) es frecuente en líderes técnicos que han crecido por resultados más que por influencia directa. Desarrollar deliberadamente tu presencia ejecutiva y comunicación estratégica es la palanca de mayor retorno en esta etapa de tu carrera.',
+      disclaimer: 'Este análisis es un ejemplo. El informe real se genera con IA a partir de tus respuestas específicas.',
+    },
+  }),
+  def({
     type: 'steps',
     label: 'Pasos / Proceso',
     description: 'Proceso numerado en horizontal o vertical.',
