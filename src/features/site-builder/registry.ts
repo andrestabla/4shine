@@ -763,6 +763,113 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
     },
   }),
   def({
+    type: 'phasedList',
+    label: 'Lista por fases',
+    description: 'Lista numerada con meta y etiqueta de fase coloreada (p. ej. los workbooks).',
+    category: 'Contenido',
+    fields: [
+      { key: 'kicker', label: 'Kicker', type: 'text' },
+      { key: 'title', label: 'Título', type: 'textarea' },
+      { key: 'subtitle', label: 'Subtítulo', type: 'textarea' },
+      columnsField(3),
+      {
+        key: 'items',
+        label: 'Elementos',
+        type: 'list',
+        itemLabel: 'Elemento',
+        itemFields: [
+          { key: 'title', label: 'Título', type: 'text' },
+          { key: 'meta', label: 'Meta (p. ej. "Sem. 1–2")', type: 'text' },
+          { key: 'tag', label: 'Etiqueta de fase', type: 'text' },
+          { key: 'color', label: 'Color de la fase', type: 'color' },
+        ],
+      },
+    ],
+    defaults: {
+      kicker: '',
+      title: '10 guías de trabajo práctico, una por fase y momento.',
+      subtitle: '',
+      columns: '2',
+      items: [
+        { title: 'Propósito y Visión', meta: 'Sem. 1–2', tag: 'Shine Within', color: '#7c3aad' },
+        { title: 'Mapa de Valores', meta: 'Sem. 3–4', tag: 'Shine Within', color: '#7c3aad' },
+        { title: 'Autoliderazgo Consciente', meta: 'Sem. 5–6', tag: 'Shine Within', color: '#7c3aad' },
+        { title: 'Comunicación Auténtica', meta: 'Sem. 7–8', tag: 'Shine Out', color: '#2d7dd2' },
+        { title: 'Presencia Ejecutiva', meta: 'Sem. 9–10', tag: 'Shine Out', color: '#2d7dd2' },
+        { title: 'Narrativa de Impacto', meta: 'Sem. 11–12', tag: 'Shine Out', color: '#2d7dd2' },
+        { title: 'Pensamiento Estratégico', meta: 'Sem. 13–15', tag: 'Shine Up', color: '#15a37a' },
+        { title: 'Influencia sin Autoridad', meta: 'Sem. 16–18', tag: 'Shine Up', color: '#15a37a' },
+        { title: 'Equipos de Alto Desempeño', meta: 'Sem. 19–21', tag: 'Shine Beyond', color: '#d45a0f' },
+        { title: 'Legado y Expansión', meta: 'Sem. 22–24', tag: 'Shine Beyond', color: '#d45a0f' },
+      ],
+    },
+  }),
+  def({
+    type: 'featureGroups',
+    label: 'Grupos de características',
+    description: 'Bloques temáticos, cada uno con un resumen y varios sub-ítems.',
+    category: 'Contenido',
+    fields: [
+      { key: 'kicker', label: 'Kicker', type: 'text' },
+      { key: 'title', label: 'Título', type: 'textarea' },
+      { key: 'subtitle', label: 'Subtítulo', type: 'textarea' },
+      {
+        key: 'items',
+        label: 'Grupos',
+        type: 'list',
+        itemLabel: 'Grupo',
+        itemFields: [
+          { key: 'title', label: 'Título del grupo', type: 'text' },
+          { key: 'summary', label: 'Resumen', type: 'textarea' },
+          {
+            key: 'subItems',
+            label: 'Sub-ítems',
+            type: 'list',
+            itemLabel: 'Sub-ítem',
+            itemFields: [
+              { key: 'title', label: 'Título', type: 'text' },
+              { key: 'text', label: 'Texto', type: 'textarea' },
+            ],
+          },
+        ],
+      },
+    ],
+    defaults: {
+      kicker: '',
+      title: 'Todo lo que necesitas para crecer, en un solo lugar.',
+      subtitle: 'Diagnóstico, ruta, contenido, mentoría y comunidad. Sin dispersión.',
+      items: [
+        {
+          title: 'Contenido exclusivo',
+          summary: 'Clases, masterclasses y material de apoyo diseñados para aplicar en tu realidad profesional inmediata.',
+          subItems: [
+            { title: 'Video-clases por fase', text: 'Lecciones cortas y accionables alineadas a cada workbook.' },
+            { title: 'Masterclasses de Advisors', text: 'Sesiones de expertos sobre temas de liderazgo de alto impacto.' },
+            { title: 'Biblioteca de recursos', text: 'Lecturas, frameworks y herramientas curadas por especialistas.' },
+          ],
+        },
+        {
+          title: 'Sesiones de mentoría con expertos',
+          summary: 'Acompañamiento 1:1 y grupal con Advisors especializados que te ayudan a tomar decisiones con mayor claridad y velocidad.',
+          subItems: [
+            { title: 'Advisor Guía', text: 'Acompañamiento continuo a lo largo de tu ruta. Seguimiento semanal, retroalimentación y accountability.' },
+            { title: 'Advisor Experto', text: 'Sesiones focalizadas con especialistas según la fase que estés transitando en el programa.' },
+            { title: 'Estructura probada', text: 'Cada sesión tiene un marco de preparación, conversación y compromisos que aceleran el avance real.' },
+          ],
+        },
+        {
+          title: 'Comunidad · Networking',
+          summary: 'Una red de líderes con el mismo nivel de ambición y compromiso. Colaboración real, no solo contactos.',
+          subItems: [
+            { title: 'Sesiones grupales en vivo', text: 'Encuentros semanales con el grupo del programa para compartir avances y desafíos reales.' },
+            { title: 'Workshops y convocatorias', text: 'Eventos de profundización, talleres temáticos y encuentros presenciales o virtuales.' },
+            { title: 'Red de líderes 4Shine', text: 'Acceso permanente a la comunidad: más de 1.000 líderes activos en distintas industrias.' },
+          ],
+        },
+      ],
+    },
+  }),
+  def({
     type: 'steps',
     label: 'Pasos / Proceso',
     description: 'Proceso numerado en horizontal o vertical.',

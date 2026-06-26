@@ -7,6 +7,8 @@ export type SiteBlockType =
   | 'imageText'
   | 'cards'
   | 'features'
+  | 'phasedList'
+  | 'featureGroups'
   | 'steps'
   | 'testimonials'
   | 'quote'

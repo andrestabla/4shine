@@ -893,6 +893,101 @@ function FeaturesBlock({ props }: { props: SiteBlockProps }) {
   );
 }
 
+function PhasedListBlock({ props }: { props: SiteBlockProps }) {
+  const palette = resolveSectionPalette(props);
+  const list = items(props);
+  const columns = Math.min(3, Math.max(1, parseInt(str(props, 'columns') || '2', 10) || 2));
+  return (
+    <SectionShell props={props} palette={palette}>
+      <SectionHeading props={props} palette={palette} className="mb-10" />
+      <div className={`grid gap-x-10 ${gridColsClass(columns)}`}>
+        {list.map((item, i) => {
+          const color = typeof item.color === 'string' && item.color ? item.color : 'var(--brand-primary)';
+          const title = typeof item.title === 'string' ? item.title : '';
+          const meta = typeof item.meta === 'string' ? item.meta : '';
+          const tag = typeof item.tag === 'string' ? item.tag : '';
+          return (
+            <div
+              key={i}
+              className="flex items-center gap-4 border-b py-4"
+              style={{ borderColor: palette.isDark ? 'rgba(255,255,255,0.10)' : 'var(--brand-border)' }}
+            >
+              <span
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-black text-white"
+                style={{ background: color }}
+              >
+                {String(i + 1).padStart(2, '0')}
+              </span>
+              <div className="min-w-0">
+                <p className="text-[15px] font-black leading-tight" style={{ color: palette.heading }}>
+                  {title}
+                </p>
+                <p className="mt-0.5 text-xs font-semibold" style={{ color: palette.muted }}>
+                  {meta}
+                  {meta && tag ? ' · ' : ''}
+                  {tag}
+                </p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <ButtonsRow props={props} palette={palette} className="mt-10" />
+    </SectionShell>
+  );
+}
+
+function FeatureGroupsBlock({ props }: { props: SiteBlockProps }) {
+  const palette = resolveSectionPalette(props);
+  const list = items(props);
+  return (
+    <SectionShell props={props} palette={palette}>
+      <SectionHeading props={props} palette={palette} className="mb-12" />
+      <div className="space-y-9">
+        {list.map((group, i) => {
+          const gtitle = typeof group.title === 'string' ? group.title : '';
+          const summary = typeof group.summary === 'string' ? group.summary : '';
+          const subs = Array.isArray(group.subItems) ? (group.subItems as SiteBlockProps[]) : [];
+          return (
+            <div
+              key={i}
+              className="grid gap-6 border-t pt-8 md:grid-cols-[240px_1fr]"
+              style={{ borderColor: palette.isDark ? 'rgba(255,255,255,0.12)' : 'var(--brand-border)' }}
+            >
+              <div>
+                <span className="text-sm font-black" style={{ color: 'var(--brand-accent-strong)' }}>
+                  {String(i + 1).padStart(2, '0')}
+                </span>
+                <h3 className="mt-1 text-xl font-black" style={{ color: palette.heading }}>
+                  {gtitle}
+                </h3>
+                {summary && (
+                  <p className="mt-2 text-sm leading-relaxed" style={{ color: palette.text }}>
+                    {summary}
+                  </p>
+                )}
+              </div>
+              <div className="grid gap-5 sm:grid-cols-3">
+                {subs.map((s, j) => (
+                  <div key={j}>
+                    <p className="text-sm font-black" style={{ color: palette.heading }}>
+                      {typeof s.title === 'string' ? s.title : ''}
+                    </p>
+                    <p className="mt-1.5 text-[13px] leading-relaxed" style={{ color: palette.muted }}>
+                      {typeof s.text === 'string' ? s.text : ''}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <ButtonsRow props={props} palette={palette} className="mt-10" />
+    </SectionShell>
+  );
+}
+
 function StepsBlock({ props }: { props: SiteBlockProps }) {
   const palette = resolveSectionPalette(props);
   const list = items(props);
@@ -1562,6 +1657,10 @@ export function SiteBlockView({ block }: { block: SiteBlock }) {
       return <CardsBlock props={block.props} />;
     case 'features':
       return <FeaturesBlock props={block.props} />;
+    case 'phasedList':
+      return <PhasedListBlock props={block.props} />;
+    case 'featureGroups':
+      return <FeatureGroupsBlock props={block.props} />;
     case 'steps':
       return <StepsBlock props={block.props} />;
     case 'testimonials':
