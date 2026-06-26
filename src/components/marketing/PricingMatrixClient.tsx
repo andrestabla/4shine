@@ -94,7 +94,7 @@ export function PricingMatrixClient({ plans }: PricingMatrixClientProps) {
               className="rounded-full px-5 py-2 text-sm font-bold transition shadow-sm"
               style={
                 active
-                  ? { background: 'var(--brand-primary)', color: 'white' }
+                  ? { background: 'var(--brand-accent)', color: 'var(--brand-on-accent)' }
                   : {
                       background: 'white',
                       color: 'var(--brand-primary)',
