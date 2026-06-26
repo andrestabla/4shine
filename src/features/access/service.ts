@@ -78,6 +78,11 @@ async function listCatalog(client: PoolClient): Promise<CommercialProductRecord[
   return rows.map(mapProductRow);
 }
 
+/** Catálogo público de productos puntuales activos (diagnóstico, packs de mentoría). */
+export function listActiveProducts(client: PoolClient): Promise<CommercialProductRecord[]> {
+  return listCatalog(client);
+}
+
 async function readPlanTypeCode(client: PoolClient, userId: string): Promise<PlanTypeCode> {
   const { rows } = await client.query<{ plan_type: PlanTypeCode }>(
     `

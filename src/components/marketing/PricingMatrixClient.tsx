@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Check, X } from 'lucide-react';
 import type { SubscriptionPlanWithFeatures } from '@/features/planes/types';
+import type { CommercialProductRecord } from '@/features/access/types';
 import {
   PLAN_FEATURES,
   groupFeaturesByModule,
@@ -13,6 +14,16 @@ type Tab = 'diagnostico' | 'programas' | 'mentorias' | 'circulo';
 
 interface PricingMatrixClientProps {
   plans: SubscriptionPlanWithFeatures[];
+  catalog?: CommercialProductRecord[];
+}
+
+interface MentoringPack {
+  id: string;
+  sessions: number;
+  price: number;
+  badge?: string;
+  note: string;
+  checkoutHref: string;
 }
 
 const TABS: { id: Tab; label: string }[] = [
@@ -68,7 +79,7 @@ function formatDuration(days: number): string {
   return `${days} días`;
 }
 
-export function PricingMatrixClient({ plans }: PricingMatrixClientProps) {
+export function PricingMatrixClient({ plans, catalog = [] }: PricingMatrixClientProps) {
   const [tab, setTab] = useState<Tab>('programas');
 
   const programs = useMemo(
@@ -80,6 +91,31 @@ export function PricingMatrixClient({ plans }: PricingMatrixClientProps) {
     [plans],
   );
   const moduleGroups = useMemo(() => groupFeaturesByModule(), []);
+
+  // Diagnóstico y Mentorías se leen del catálogo del admin (misma fuente que cobra
+  // el checkout). Si el catálogo no está disponible, se usan valores por defecto.
+  const diagnostic = useMemo(
+    () => catalog.find((p) => p.productGroup === 'discovery') ?? null,
+    [catalog],
+  );
+  const mentoringPacks = useMemo<MentoringPack[]>(() => {
+    const fromCatalog = catalog
+      .filter((p) => p.productGroup === 'mentoring_pack')
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((p) => ({
+        id: p.productCode,
+        sessions: p.sessionsIncluded,
+        price: p.priceAmount,
+        badge: p.highlightLabel ?? undefined,
+        note: p.headline || p.description || '',
+        checkoutHref: `/acceso?plan=mentoria-${p.sessionsIncluded}`,
+      }));
+    return fromCatalog.length > 0 ? fromCatalog : MENTORING_PACKS;
+  }, [catalog]);
+  const diagnosticName = diagnostic?.name || 'Diagnóstico Ejecutivo';
+  const diagnosticPrice = diagnostic?.priceAmount ?? 50;
+  const diagnosticCurrency = diagnostic?.currencyCode || 'USD';
+  const diagnosticBadge = diagnostic?.highlightLabel || 'Compra individual';
 
   return (
     <div className="mx-auto w-full max-w-[1240px] px-6 pb-24 md:px-10 lg:px-14">
@@ -166,13 +202,13 @@ export function PricingMatrixClient({ plans }: PricingMatrixClientProps) {
               className="mb-3 inline-block w-fit rounded-full px-3 py-0.5 text-[10px] font-extrabold uppercase tracking-wider"
               style={{ background: 'var(--brand-accent)', color: 'var(--brand-on-accent)' }}
             >
-              Compra individual
+              {diagnosticBadge}
             </span>
-            <p className="text-lg font-black">Diagnóstico Ejecutivo</p>
+            <p className="text-lg font-black">{diagnosticName}</p>
             <p className="mt-1 text-5xl font-black" style={{ color: 'var(--brand-accent)' }}>
-              $50{' '}
+              ${diagnosticPrice}{' '}
               <span className="text-base font-semibold" style={{ color: 'rgba(255,255,255,0.65)' }}>
-                USD
+                {diagnosticCurrency}
               </span>
             </p>
             <p
@@ -216,7 +252,7 @@ export function PricingMatrixClient({ plans }: PricingMatrixClientProps) {
             Sesiones individuales con Advisors certificados. Sin compromiso de programa. Ideal para acompañamiento puntual en un momento concreto de decisión, transición o desarrollo.
           </p>
           <div className="grid gap-5 sm:grid-cols-3">
-            {MENTORING_PACKS.map((pack) => (
+            {mentoringPacks.map((pack) => (
               <article
                 key={pack.id}
                 className="flex flex-col rounded-3xl p-7"
