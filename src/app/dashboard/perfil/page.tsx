@@ -101,6 +101,26 @@ function buildAdvisorForm(profile: MyProfileRecord): AdvisorFormState {
   };
 }
 
+function roleLabel(role: string | undefined): string {
+  switch ((role ?? '').trim().toLowerCase()) {
+    case 'lider':
+    case 'líder':
+      return 'Líder';
+    case 'mentor':
+    case 'advisor':
+      return 'Adviser';
+    case 'gestor':
+      return 'Gestor';
+    case 'admin':
+    case 'administrador':
+      return 'Administrador';
+    case 'invitado':
+      return 'Invitado';
+    default:
+      return 'Usuario';
+  }
+}
+
 function planLabel(planType: PlanType | null): 'VIP' | 'Premium' | 'Empresa Élite' | 'Standard' {
   switch (planType) {
     case 'vip':
@@ -553,6 +573,22 @@ export default function PerfilPage() {
               <p className="text-[var(--app-muted)]">
                 {profile.profession ?? 'Profesional'}
               </p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <span
+                  className="rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide"
+                  style={{ background: 'var(--app-ink)', color: 'white' }}
+                >
+                  {roleLabel(currentUser?.role)}
+                </span>
+                {profile.planType && (
+                  <span
+                    className="rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide"
+                    style={{ background: 'var(--brand-accent)', color: 'var(--brand-on-accent)' }}
+                  >
+                    {planLabel(profile.planType)}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
