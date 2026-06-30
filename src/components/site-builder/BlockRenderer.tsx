@@ -5,6 +5,7 @@ import type { SiteBlock, SiteBlockProps } from '@/features/site-builder/types';
 import { SECTION_LAYOUTS } from '@/features/site-builder/registry';
 import { SITE_ICONS, hasSiteIcon } from '@/features/site-builder/icons';
 import { AdvisorsBlockClient } from './AdvisorsBlockClient';
+import { PricingMatrixBlockClient } from './PricingMatrixBlockClient';
 import {
   DiscoveryRadarChart,
   DiscoveryCompetenciesChart,
@@ -1308,6 +1309,16 @@ function AdvisorsBlock({ props }: { props: SiteBlockProps }) {
   );
 }
 
+function PricingMatrixBlock({ props }: { props: SiteBlockProps }) {
+  const palette = resolveSectionPalette(props);
+  return (
+    <SectionShell props={props} palette={palette}>
+      <SectionHeading props={props} palette={palette} className="mb-8" />
+      <PricingMatrixBlockClient />
+    </SectionShell>
+  );
+}
+
 function LogosBlock({ props }: { props: SiteBlockProps }) {
   const palette = resolveSectionPalette({ paddingY: 'compact', ...props });
   const list = items(props);
@@ -1759,6 +1770,8 @@ export function SiteBlockView({ block }: { block: SiteBlock }) {
       return <GalleryBlock props={block.props} />;
     case 'pricing':
       return <PricingBlock props={block.props} />;
+    case 'pricingMatrix':
+      return <PricingMatrixBlock props={block.props} />;
     case 'faq':
       return <FaqBlock props={block.props} />;
     case 'cta':

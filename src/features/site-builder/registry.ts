@@ -1282,6 +1282,27 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
     },
   }),
   def({
+    type: 'pricingMatrix',
+    label: 'Planes y precios (dinámico)',
+    description:
+      'Matriz de planes y productos tomada AUTOMÁTICAMENTE de Administración → Planes. Planes, precios, productos puntuales y botones se actualizan solos; aquí solo editas el encabezado.',
+    category: 'Conversión',
+    fields: [
+      { key: 'kicker', label: 'Kicker', type: 'text' },
+      { key: 'title', label: 'Título', type: 'textarea' },
+      { key: 'subtitle', label: 'Subtítulo', type: 'textarea' },
+    ],
+    defaults: {
+      kicker: '',
+      title: 'Planes y precios',
+      subtitle:
+        'Elige el acceso que mejor se ajusta a tu momento. Todos los caminos llevan a un pago seguro o a un asesor.',
+      background: 'dark',
+      paddingY: 'normal',
+      contentWidth: 'full',
+    },
+  }),
+  def({
     type: 'faq',
     label: 'Preguntas frecuentes',
     description: 'Lista de preguntas expandibles.',

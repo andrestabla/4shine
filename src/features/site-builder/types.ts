@@ -18,6 +18,7 @@ export type SiteBlockType =
   | 'logos'
   | 'gallery'
   | 'pricing'
+  | 'pricingMatrix'
   | 'faq'
   | 'cta'
   | 'banner'
