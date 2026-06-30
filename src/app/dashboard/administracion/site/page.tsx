@@ -3,6 +3,8 @@
 import React from 'react';
 import Link from 'next/link';
 import {
+  ChevronDown,
+  ChevronUp,
   Eye,
   EyeOff,
   ExternalLink,
@@ -84,6 +86,32 @@ export default function SitePage() {
     setSavingId(null);
   };
 
+  // Mueve una página arriba/abajo; el orden representa el del menú superior público.
+  const movePage = async (index: number, dir: -1 | 1) => {
+    const target = index + dir;
+    if (target < 0 || target >= pages.length || savingId) return;
+
+    const reordered = [...pages];
+    const [moved] = reordered.splice(index, 1);
+    reordered.splice(target, 0, moved);
+    const withOrder = reordered.map((p, i) => ({ ...p, navOrder: i }));
+    const changed = withOrder.filter((p) => {
+      const orig = pages.find((o) => o.pageId === p.pageId);
+      return orig && orig.navOrder !== p.navOrder;
+    });
+
+    setPages(withOrder); // optimista
+    setSavingId(moved.pageId);
+    const results = await Promise.all(
+      changed.map((p) => updateSitePage(p.pageId, { navOrder: p.navOrder })),
+    );
+    setSavingId(null);
+    if (results.some((r) => !r.ok)) {
+      await alert({ title: 'Error', message: 'No se pudo guardar el nuevo orden.', tone: 'error' });
+      void loadPages();
+    }
+  };
+
   const handleDelete = async (page: SitePageSummary) => {
     const ok = await confirm({
       title: 'Eliminar página',
@@ -155,7 +183,7 @@ export default function SitePage() {
       ) : (
         <>
           <div className="app-panel divide-y divide-[var(--app-border)]">
-            {pages.map((page) => {
+            {pages.map((page, index) => {
               const saving = savingId === page.pageId;
               return (
                 <div key={page.pageId} className="flex items-center gap-4 px-5 py-4">
@@ -200,6 +228,26 @@ export default function SitePage() {
                   {canEdit && (
                     <div className="flex items-center gap-1.5 shrink-0">
                       {saving && <Loader2 size={14} className="animate-spin text-[var(--app-muted)]" />}
+                      <div className="flex flex-col">
+                        <button
+                          type="button"
+                          onClick={() => void movePage(index, -1)}
+                          disabled={savingId !== null || index === 0}
+                          title="Subir (antes en el menú)"
+                          className="flex h-4 w-7 items-center justify-center rounded-t-md border border-[var(--app-border)] text-[var(--app-muted)] transition hover:text-[var(--app-accent)] disabled:opacity-30 disabled:hover:text-[var(--app-muted)]"
+                        >
+                          <ChevronUp size={13} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void movePage(index, 1)}
+                          disabled={savingId !== null || index === pages.length - 1}
+                          title="Bajar (después en el menú)"
+                          className="-mt-px flex h-4 w-7 items-center justify-center rounded-b-md border border-[var(--app-border)] text-[var(--app-muted)] transition hover:text-[var(--app-accent)] disabled:opacity-30 disabled:hover:text-[var(--app-muted)]"
+                        >
+                          <ChevronDown size={13} />
+                        </button>
+                      </div>
                       <button
                         type="button"
                         onClick={() => void patchPage(page, { showInNav: !page.showInNav })}
