@@ -134,15 +134,22 @@ export function PublicAssistantWidget({ config }: { config: PublicAssistantConfi
         </div>
       )}
 
-      {/* Floating launcher */}
+      {/* Floating launcher — avatar configurado con anillo verde tipo WhatsApp */}
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-label={open ? 'Cerrar chat' : `Chatea con ${config.assistantName}`}
-        className="flex h-14 w-14 items-center justify-center rounded-full text-white shadow-xl transition hover:scale-105"
+        className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full text-white shadow-xl ring-[3px] ring-[#25D366] transition hover:scale-105"
         style={{ background: 'var(--brand-primary,#1a2b50)' }}
       >
-        {open ? <X size={24} /> : <MessageCircle size={26} />}
+        {open ? (
+          <X size={24} />
+        ) : config.avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={config.avatarUrl} alt={config.assistantName} className="h-full w-full object-cover" />
+        ) : (
+          <MessageCircle size={26} />
+        )}
       </button>
     </div>
   );

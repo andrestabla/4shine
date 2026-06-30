@@ -131,7 +131,7 @@ export default function ChatWidget() {
         type="button"
         aria-label={open ? "Cerrar asistente" : "Abrir asistente"}
         onClick={() => setOpen((v) => !v)}
-        className="fixed bottom-5 right-5 z-[90] flex h-14 w-14 items-center justify-center overflow-hidden rounded-full text-white shadow-xl transition-transform hover:scale-105 active:scale-95"
+        className="fixed bottom-5 right-5 z-[90] flex h-14 w-14 items-center justify-center overflow-hidden rounded-full text-white shadow-xl ring-[3px] ring-[#25D366] transition-transform hover:scale-105 active:scale-95"
         style={{ backgroundColor: "var(--brand-primary)" }}
       >
         {open ? (
