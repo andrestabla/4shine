@@ -430,6 +430,32 @@ function enabledModulesText(access: Awaited<ReturnType<typeof getViewerAccessSta
   return enabled.length > 0 ? enabled.join(', ') : 'Solo acceso básico';
 }
 
+// Número de la asesora humana (Tatiana) para handoff por WhatsApp. Se toma de la
+// config del asistente público (customizable en /administracion/asistente-ia);
+// fallback al número por defecto si no está configurado.
+async function buildHumanHandoffLine(
+  client: PoolClient,
+  role: string,
+  displayName: string,
+): Promise<string | null> {
+  const { rows } = await client
+    .query<{ whatsapp_number: string }>(
+      `SELECT whatsapp_number FROM app_admin.public_assistant_settings
+       WHERE whatsapp_number <> '' ORDER BY updated_at DESC LIMIT 1`,
+    )
+    .catch(() => ({ rows: [] as { whatsapp_number: string }[] }));
+  const digits = (rows[0]?.whatsapp_number || '+573204876832').replace(/[^\d]/g, '');
+  if (!digits) return null;
+  const roleLabel =
+    ({ lider: 'Líder', mentor: 'Advisor', gestor: 'Gestor', admin: 'Administrador', invitado: 'Invitado' } as Record<string, string>)[
+      role
+    ] ?? role;
+  const text = encodeURIComponent(
+    `Hola Tatiana, soy ${displayName} (${roleLabel}) desde la plataforma 4Shine y me gustaría hablar contigo.`,
+  );
+  return `- CONTACTO HUMANO (asesora Tatiana): si el usuario pide hablar con una persona / un asesor humano / con Tatiana, o necesita ayuda humana, entrégale ESTE enlace de WhatsApp (markdown) para chatear con la asesora humana: https://wa.me/${digits}?text=${text}`;
+}
+
 async function buildUserContext(client: PoolClient, actor: AuthUser): Promise<string> {
   const [access, profile, dashboard] = await Promise.all([
     getViewerAccessState(client, { userId: actor.userId, role: actor.role }, { includeCatalog: false }).catch(() => null),
@@ -452,6 +478,9 @@ async function buildUserContext(client: PoolClient, actor: AuthUser): Promise<st
   } else {
     lines.push('- Suscripción: sin fecha de vencimiento registrada');
   }
+
+  const handoffLine = await buildHumanHandoffLine(client, actor.role, profile?.displayName ?? actor.name);
+  if (handoffLine) lines.push(handoffLine);
 
   if (access) lines.push(`- Accesos según su plan: ${enabledModulesText(access)}`);
   if (typeof access?.mentorshipSessionCredits === 'number') {
@@ -758,6 +787,8 @@ NO INVENTES datos. Usa exclusivamente el CONTEXTO DEL USUARIO provisto (plan, ac
 MENTORÍAS 1:1: las incluidas en el plan NO son "créditos". No digas que "faltan créditos" para las incluidas. Si el usuario no puede agendar, explícale la regla real: se habilitan en orden, de a una, y la siguiente se habilita 10 días después de la fecha de inicio de la sesión anterior agendada; indícale, con los datos del contexto, cuál es la próxima y cuándo se habilita.
 
 NO EJECUTAS acciones ni cambios en la plataforma. Cuando el usuario quiera hacer algo (actualizar perfil, cambiar contraseña, eliminar cuenta, agendar/comprar mentorías, inscribirse a un workshop, etc.) explícale brevemente cómo y entrégale el enlace interno correcto como enlace markdown.
+
+HANDOFF A HUMANO: Si el usuario pide hablar con una persona / un humano / un asesor real / con Tatiana, o expresa que necesita ayuda humana o que el bot no le resuelve, entrégale el enlace de WhatsApp de la asesora humana Tatiana que aparece en el CONTEXTO DEL USUARIO (línea "CONTACTO HUMANO"), como enlace markdown (p. ej. "[Hablar con Tatiana por WhatsApp](enlace)"), e invítalo con calidez a escribirle por ahí. NUNCA inventes el número: usa exactamente el enlace del contexto. Primero intenta resolver tú; ofrece el handoff cuando lo pidan o cuando claramente necesiten atención humana.
 
 Personaliza la atención: sé empático, anticipa el siguiente paso útil según el estado del usuario y ofrece el enlace o la acción concreta. Usa Markdown y enlaces.`;
 
