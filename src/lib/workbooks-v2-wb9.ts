@@ -501,7 +501,8 @@ export const WB9_V3_CONFIG: WB9Config = {
                     kind: 'table',
                     columns: ['Elemento', 'Mi respuesta'],
                     fields: [
-                        { id: 'wb9v3-7-s1', label: 'Símbolo de mi marca', helper: 'Una sola imagen/objeto. Aparece como el círculo central del brochure.', placeholder: 'Ej.: El Faro' },
+                        { id: 'wb9v3-7-s-img', label: 'Imagen o ícono del símbolo', helper: 'Sube tu propia imagen o elige un ícono moderno del repositorio. Es lo que aparece dentro del círculo central del brochure.' },
+                        { id: 'wb9v3-7-s1', label: 'Nombre del símbolo', helper: 'Cómo lo llamas (texto). Acompaña a la imagen como título de la página.', placeholder: 'Ej.: El Faro' },
                         { id: 'wb9v3-7-s2', label: 'Qué representa', helper: 'El significado: qué dice de tu forma de liderar (1–2 frases).', placeholder: 'Ej.: dirección y calma en medio de la tormenta; el criterio que orienta cuando todo es incertidumbre.' },
                         { id: 'wb9v3-7-s3', label: 'Palabras asociadas', helper: '3–6 palabras que evoca tu símbolo (separadas por comas).', placeholder: 'Ej.: guía, claridad, constancia, seguridad, dirección.' }
                     ]

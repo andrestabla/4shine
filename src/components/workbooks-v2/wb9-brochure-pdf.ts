@@ -4,8 +4,11 @@
 // Genera un libro de marca con foto + paleta personalizable del líder.
 // Defaults 4Shine si el líder no edita los campos de identidad visual.
 
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 import type { jsPDF } from 'jspdf'
 import type { WB1Config } from '@/lib/workbooks-v2-wb1'
+import { SYMBOL_ICON_MAP, parseIconValue } from './symbol-icons'
 
 type ValueShape = {
     text: string
@@ -107,6 +110,88 @@ async function loadImageDataUrl(url: string | undefined | null): Promise<LoadedI
     } catch {
         return null
     }
+}
+
+/** Rasteriza un src (data URI / URL ya sin taint) a un PNG cuadrado para el círculo. */
+async function rasterizeToPng(src: string, circular: boolean): Promise<LoadedImage | null> {
+    if (typeof window === 'undefined' || !src) return null
+    const SIZE = 256
+    try {
+        const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+            const im = new Image()
+            im.onload = () => resolve(im)
+            im.onerror = () => reject(new Error('image load'))
+            im.src = src
+        })
+        const canvas = document.createElement('canvas')
+        canvas.width = SIZE
+        canvas.height = SIZE
+        const ctx = canvas.getContext('2d')
+        if (!ctx) return null
+        const iw = img.naturalWidth || SIZE
+        const ih = img.naturalHeight || SIZE
+        if (circular) {
+            ctx.save()
+            ctx.beginPath()
+            ctx.arc(SIZE / 2, SIZE / 2, SIZE / 2, 0, Math.PI * 2)
+            ctx.closePath()
+            ctx.clip()
+            const scale = Math.max(SIZE / iw, SIZE / ih) // cover
+            const w = iw * scale
+            const h = ih * scale
+            ctx.drawImage(img, (SIZE - w) / 2, (SIZE - h) / 2, w, h)
+            ctx.restore()
+        } else {
+            const inner = SIZE * 0.56 // ícono centrado con aire
+            const scale = Math.min(inner / iw, inner / ih)
+            const w = iw * scale
+            const h = ih * scale
+            ctx.drawImage(img, (SIZE - w) / 2, (SIZE - h) / 2, w, h)
+        }
+        return { dataUrl: canvas.toDataURL('image/png'), format: 'PNG', width: SIZE, height: SIZE }
+    } catch {
+        return null
+    }
+}
+
+/**
+ * Resuelve el símbolo (campo wb9v3-7-s-img) a una imagen para el círculo del
+ * brochure: un ícono del repositorio (rasterizado en color de acento) o la
+ * imagen subida por el líder (recortada en círculo). Null si no hay símbolo.
+ */
+async function loadSymbolImage(values: Values, accent: Rgb): Promise<LoadedImage | null> {
+    const raw = readText(values, 'wb9v3-7-s-img')
+    if (!raw) return null
+
+    const accentCss = `rgb(${accent[0]}, ${accent[1]}, ${accent[2]})`
+    const iconName = parseIconValue(raw)
+    if (iconName) {
+        const Icon = SYMBOL_ICON_MAP[iconName]
+        if (!Icon) return null
+        const svg = renderToStaticMarkup(
+            createElement(Icon, { color: accentCss, size: 256, strokeWidth: 1.5, absoluteStrokeWidth: true }),
+        )
+        const uri = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)))
+        return rasterizeToPng(uri, false)
+    }
+
+    if (/^(https?:|data:)/i.test(raw)) {
+        // Imagen rasterizada (PNG/JPG/webp): cargar como blob evita taint de canvas.
+        const li = await loadImageDataUrl(raw)
+        if (li) return rasterizeToPng(li.dataUrl, true)
+        // SVG u otro: intentar como markup → data URI.
+        try {
+            const res = await fetch(raw, { cache: 'no-cache', credentials: 'same-origin' })
+            const text = await res.text()
+            if (text.includes('<svg')) {
+                const uri = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(text)))
+                return rasterizeToPng(uri, true)
+            }
+        } catch {
+            return null
+        }
+    }
+    return null
 }
 
 function setFill(pdf: jsPDF, rgb: Rgb) {
@@ -582,17 +667,33 @@ function drawArquetipo(pdf: jsPDF, palette: Palette, values: Values, leaderName:
     }
 }
 
-function drawSimbolo(pdf: jsPDF, palette: Palette, values: Values, leaderName: string) {
+function drawSimbolo(pdf: jsPDF, palette: Palette, values: Values, leaderName: string, symbol: LoadedImage | null) {
     pdf.addPage()
     drawSectionFrame(pdf, palette, '06 · CÓDIGO SIMBÓLICO DE MARCA', readText(values, 'wb9v3-13-simbolo') || readText(values, 'wb9v3-7-s1') || 'Mi símbolo de marca', leaderName)
 
     const y0 = 50
+    const cx = PAGE_W / 2
+    const cy = y0 + 35
+    const r = 30
     setFill(pdf, palette.primary)
-    pdf.circle(PAGE_W / 2, y0 + 35, 30, 'F')
-    setText(pdf, palette.accent)
-    pdf.setFont('helvetica', 'bold')
-    pdf.setFontSize(20)
-    pdf.text(readText(values, 'wb9v3-7-s1') || 'Símbolo', PAGE_W / 2, y0 + 38, { align: 'center' })
+    pdf.circle(cx, cy, r, 'F')
+
+    const symbolName = readText(values, 'wb9v3-7-s1')
+    if (symbol) {
+        // Imagen subida (recortada en círculo) o ícono del repositorio.
+        pdf.addImage(symbol.dataUrl, 'PNG', cx - r, cy - r, r * 2, r * 2, undefined, 'FAST')
+        if (symbolName) {
+            setText(pdf, palette.secondary)
+            pdf.setFont('helvetica', 'bold')
+            pdf.setFontSize(13)
+            pdf.text(symbolName, cx, cy + r + 9, { align: 'center' })
+        }
+    } else {
+        setText(pdf, palette.accent)
+        pdf.setFont('helvetica', 'bold')
+        pdf.setFontSize(20)
+        pdf.text(symbolName || 'Símbolo', cx, cy + 3, { align: 'center' })
+    }
 
     let y = y0 + 80
     setText(pdf, palette.body)
@@ -887,7 +988,11 @@ export async function downloadWb9BrochurePdf(
     const palette = buildPalette(values)
 
     const photoUrl = readText(values, 'wb9v3-0-foto-url')
-    const [photo, logo] = await Promise.all([loadImageDataUrl(photoUrl || null), loadImageDataUrl(logoDarkUrl ?? null)])
+    const [photo, logo, symbol] = await Promise.all([
+        loadImageDataUrl(photoUrl || null),
+        loadImageDataUrl(logoDarkUrl ?? null),
+        loadSymbolImage(values, palette.accent),
+    ])
 
     drawCover(pdf, palette, config, values, leaderName, photo, logo)
     drawNarrativa(pdf, palette, values, leaderName)
@@ -895,7 +1000,7 @@ export async function downloadWb9BrochurePdf(
     drawProposito(pdf, palette, values, leaderName)
     drawAudienciaProblemas(pdf, palette, values, leaderName)
     drawArquetipo(pdf, palette, values, leaderName)
-    drawSimbolo(pdf, palette, values, leaderName)
+    drawSimbolo(pdf, palette, values, leaderName, symbol)
     drawStorytelling(pdf, palette, values, leaderName)
     drawContenido(pdf, palette, values, leaderName)
     drawLinkedIn(pdf, palette, values, leaderName)

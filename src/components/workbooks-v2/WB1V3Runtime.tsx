@@ -29,6 +29,7 @@ import { requestApi } from '@/lib/api-client'
 import { WORKBOOK_V2_EDITORIAL } from '@/lib/workbooks-v2-editorial'
 import type { WB1Config, WB1Field, WB1Group, WB1Section } from '@/lib/workbooks-v2-wb1'
 import { R2UploadButton } from '@/components/ui/R2UploadButton'
+import { SYMBOL_ICONS, parseIconValue } from '@/components/workbooks-v2/symbol-icons'
 import { resolveWorkbookHelp, type WorkbookHelpContent } from '@/lib/workbooks-v2-help'
 import { updateLearningWorkbook } from '@/features/aprendizaje/client'
 
@@ -668,6 +669,104 @@ chrome://settings/content/microphone
     )
 }
 
+function SymbolPicker({
+    field,
+    value,
+    onChange,
+    workbookId,
+    disabled
+}: {
+    field: WB1Field
+    value: WB1FieldValue
+    onChange: (next: WB1FieldValue) => void
+    workbookId: string
+    disabled?: boolean
+}) {
+    const current = value.text || ''
+    const iconName = parseIconValue(current)
+    const isImage = /^(https?:|data:)/i.test(current)
+    const set = (text: string) =>
+        onChange({ ...value, text, aiGenerated: false, updatedAt: new Date().toISOString() })
+
+    return (
+        <div>
+            <span className="mb-2 block text-sm font-medium text-slate-800">{field.label}</span>
+            {field.helper && <p className="-mt-1 mb-3 text-xs text-slate-500">{field.helper}</p>}
+
+            <div className="flex flex-wrap items-center gap-4">
+                {/* Preview en círculo (como en el brochure) */}
+                <div
+                    className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full"
+                    style={{ backgroundColor: '#0D1B2A' }}
+                >
+                    {isImage ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={current} alt="Símbolo" className="h-full w-full object-cover" />
+                    ) : iconName ? (
+                        (() => {
+                            const Icon = SYMBOL_ICONS.find((i) => i.name === iconName)!.Icon
+                            return <Icon size={38} color="#C9A227" strokeWidth={1.6} />
+                        })()
+                    ) : (
+                        <span className="text-[11px] font-semibold text-white/60">Sin símbolo</span>
+                    )}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                    <R2UploadButton
+                        moduleCode="aprendizaje"
+                        action="update"
+                        pathPrefix={`workbooks/wb9/${workbookId}/symbol`}
+                        accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                        buttonLabel={isImage ? 'Cambiar imagen' : 'Subir imagen'}
+                        disabled={disabled}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-[var(--brand-accent)]/40 bg-[var(--brand-accent)]/15 px-3 py-1.5 text-xs font-semibold text-[var(--brand-primary)] hover:bg-[var(--brand-accent)]/25 focus:outline-none focus:ring-2 focus:ring-[var(--brand-focus)] disabled:opacity-60"
+                        onUploaded={(url) => set(url)}
+                    />
+                    {current && (
+                        <button
+                            type="button"
+                            onClick={() => set('')}
+                            disabled={disabled}
+                            className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-60"
+                        >
+                            <Trash2 size={12} /> Quitar
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            {/* Repositorio de íconos modernos */}
+            <p className="mt-4 mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                O elige un ícono
+            </p>
+            <div className="grid grid-cols-6 gap-2 sm:grid-cols-9">
+                {SYMBOL_ICONS.map(({ name, label, Icon }) => {
+                    const selected = iconName === name
+                    return (
+                        <button
+                            key={name}
+                            type="button"
+                            title={label}
+                            disabled={disabled}
+                            onClick={() => set(`icon:${name}`)}
+                            className={
+                                'flex aspect-square items-center justify-center rounded-xl border transition ' +
+                                (selected
+                                    ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)]/10 text-[var(--brand-primary)]'
+                                    : 'border-slate-200 text-slate-600 hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)]') +
+                                ' disabled:opacity-60'
+                            }
+                        >
+                            <Icon size={20} strokeWidth={1.8} />
+                        </button>
+                    )
+                })}
+            </div>
+        </div>
+    )
+}
+
 function FieldEditor({
     field,
     value,
@@ -681,6 +780,17 @@ function FieldEditor({
     workbookId: string
     disabled?: boolean
 }) {
+    if (field.id === 'wb9v3-7-s-img') {
+        return (
+            <SymbolPicker
+                field={field}
+                value={value}
+                onChange={onChange}
+                workbookId={workbookId}
+                disabled={disabled}
+            />
+        )
+    }
     const rows = field.rows ?? (field.kind === 'long' ? 6 : field.kind === 'completion' ? 2 : 3)
     return (
         <div>
