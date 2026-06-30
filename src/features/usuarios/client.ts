@@ -272,13 +272,37 @@ export async function sendUserDirectMessage(userId: string, messageText: string)
 
 // ─── Acciones masivas ───────────────────────────────────────────────────────
 
-export type BulkAction = 'extend_subscription' | 'send_message' | 'logout' | 'force_password_change';
+export type BulkAction =
+  | 'extend_subscription'
+  | 'send_message'
+  | 'logout'
+  | 'force_password_change'
+  | 'set_organization';
 
 export interface BulkActionParams {
   days?: number;
   title?: string;
   body?: string;
   channels?: Array<'in_app' | 'email'>;
+  organizationId?: string;
+}
+
+// ─── Organizaciones (gestión solo admin) ────────────────────────────────────
+
+export interface OrganizationRecord {
+  organizationId: string;
+  name: string;
+}
+
+export async function listOrganizations(): Promise<OrganizationRecord[]> {
+  return requestApi<OrganizationRecord[]>('/api/v1/modules/usuarios/organizations');
+}
+
+export async function createOrganization(name: string): Promise<OrganizationRecord> {
+  return requestApi<OrganizationRecord>('/api/v1/modules/usuarios/organizations', {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  });
 }
 
 export interface BulkActionResult {

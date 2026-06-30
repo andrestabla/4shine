@@ -552,7 +552,6 @@ export default function PerfilPage() {
               <h3 className="break-words text-2xl font-bold text-[var(--app-ink)] md:text-3xl">{profile.displayName}</h3>
               <p className="text-[var(--app-muted)]">
                 {profile.profession ?? 'Profesional'}
-                {profile.organizationName ? ` · ${profile.organizationName}` : ''}
               </p>
             </div>
           </div>

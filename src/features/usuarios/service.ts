@@ -2792,6 +2792,61 @@ export async function bulkSendMessage(
   return { affected: result.totalRecipients, errors: result.errors };
 }
 
+// ─── Organizaciones (gestión solo admin) ─────────────────────────────────────
+
+export interface OrganizationRecord {
+  organizationId: string;
+  name: string;
+}
+
+export async function listOrganizations(
+  client: PoolClient,
+  _actor: AuthUser,
+): Promise<OrganizationRecord[]> {
+  await requireModulePermission(client, 'usuarios', 'view');
+  const { rows } = await client.query<{ organization_id: string; name: string }>(
+    `SELECT organization_id::text, name FROM app_core.organizations ORDER BY name`,
+  );
+  return rows.map((r) => ({ organizationId: r.organization_id, name: r.name }));
+}
+
+export async function createOrganization(
+  client: PoolClient,
+  _actor: AuthUser,
+  name: string,
+): Promise<OrganizationRecord> {
+  await requireModulePermission(client, 'usuarios', 'manage');
+  const clean = name.trim();
+  if (!clean) throw new Error('El nombre de la organización es obligatorio.');
+  const { rows } = await client.query<{ organization_id: string; name: string }>(
+    `INSERT INTO app_core.organizations (name) VALUES ($1)
+     ON CONFLICT (name) DO UPDATE SET updated_at = now()
+     RETURNING organization_id::text, name`,
+    [clean],
+  );
+  return { organizationId: rows[0].organization_id, name: rows[0].name };
+}
+
+export async function bulkSetOrganization(
+  client: PoolClient,
+  _actor: AuthUser,
+  userIds: string[],
+  organizationId: string,
+): Promise<BulkActionResult> {
+  await requireModulePermission(client, 'usuarios', 'manage');
+  if (userIds.length === 0) return { affected: 0, errors: [] };
+  const { rows: orgRows } = await client.query(
+    `SELECT 1 FROM app_core.organizations WHERE organization_id = $1::uuid`,
+    [organizationId],
+  );
+  if (orgRows.length === 0) throw new Error('Organización no encontrada.');
+  await client.query(
+    `UPDATE app_core.users SET organization_id = $2::uuid WHERE user_id = ANY($1::uuid[])`,
+    [userIds, organizationId],
+  );
+  return { affected: userIds.length, errors: [] };
+}
+
 // ─── Resumen de Networking de un usuario (para el detalle admin) ─────────────
 
 export interface UserNetworkingCommunity {

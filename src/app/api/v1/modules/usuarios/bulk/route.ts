@@ -6,11 +6,17 @@ import {
   bulkForcePasswordChange,
   bulkRevokeSessions,
   bulkSendMessage,
+  bulkSetOrganization,
   type BulkActionResult,
 } from '@/features/usuarios/service';
 import { errorResponse, logModuleAudit, parseJsonBody, unauthorizedResponse } from '../../_utils';
 
-type BulkAction = 'extend_subscription' | 'send_message' | 'logout' | 'force_password_change';
+type BulkAction =
+  | 'extend_subscription'
+  | 'send_message'
+  | 'logout'
+  | 'force_password_change'
+  | 'set_organization';
 
 interface BulkBody {
   action: BulkAction;
@@ -20,6 +26,7 @@ interface BulkBody {
     title?: string;
     body?: string;
     channels?: Array<'in_app' | 'email'>;
+    organizationId?: string;
   };
 }
 
@@ -52,6 +59,12 @@ export async function POST(request: Request) {
             break;
           case 'force_password_change':
             result = await bulkForcePasswordChange(client, identity, body.userIds);
+            break;
+          case 'set_organization':
+            if (!body.params?.organizationId) {
+              throw new Error('organizationId es obligatorio.');
+            }
+            result = await bulkSetOrganization(client, identity, body.userIds, body.params.organizationId);
             break;
           default:
             throw new Error('Acción no soportada');

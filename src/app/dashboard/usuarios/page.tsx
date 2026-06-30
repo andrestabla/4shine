@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import React from 'react';
 import {
   Activity, Eye, Search, ShieldCheck, UserPlus, Users, UserX, Lock, Loader2,
-  FileSpreadsheet, FileText, CalendarClock, Send, LogOut, KeyRound, X,
+  FileSpreadsheet, FileText, CalendarClock, Send, LogOut, KeyRound, X, Building2,
 } from 'lucide-react';
 import { EmptyState } from '@/components/dashboard/EmptyState';
 import { PageTitle } from '@/components/dashboard/PageTitle';
@@ -17,10 +17,13 @@ import {
   listUsers,
   listDeletedUsersRequest,
   bulkUserAction,
+  listOrganizations,
+  createOrganization,
   type UserRecord,
   type DeletedUserRecord,
   type BulkAction,
   type BulkActionParams,
+  type OrganizationRecord,
 } from '@/features/usuarios/client';
 import {
   deriveUserTypeSelection,
@@ -99,6 +102,7 @@ export default function UsuariosPage() {
   });
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = React.useState(false);
+  const [organizations, setOrganizations] = React.useState<OrganizationRecord[]>([]);
 
   const isAdmin = currentRole === 'admin';
   const canManage = can('usuarios', 'manage');
@@ -260,6 +264,53 @@ export default function UsuariosPage() {
     });
     if (!ok) return;
     await runBulk('force_password_change', {}, (n) => `Se exigirá cambio de contraseña a ${n} usuario(s).`);
+  };
+
+  const onBulkSetOrganization = async () => {
+    let orgs = organizations;
+    if (orgs.length === 0) {
+      try {
+        orgs = await listOrganizations();
+        setOrganizations(orgs);
+      } catch {
+        orgs = [];
+      }
+    }
+    const existing = orgs.map((o) => o.name).join(', ');
+    const value = await prompt({
+      title: 'Asignar organización',
+      message: `Escribe el nombre de la organización para ${selected.size} usuario(s). Si no existe, se creará.${existing ? `\n\nExistentes: ${existing}` : ''}`,
+      label: 'Organización',
+      placeholder: "Ej: Algoritmo T's",
+    });
+    if (value === null) return;
+    const name = value.trim();
+    if (!name) return;
+    setBulkBusy(true);
+    try {
+      let org = orgs.find((o) => o.name.toLowerCase() === name.toLowerCase());
+      if (!org) {
+        org = await createOrganization(name);
+        setOrganizations((prev) => [...prev, org!].sort((a, b) => a.name.localeCompare(b.name)));
+      }
+      const ids = [...selected];
+      const result = await bulkUserAction('set_organization', ids, { organizationId: org.organizationId });
+      await alert({
+        title: 'Listo',
+        message: `Organización "${org.name}" asignada a ${result.affected} usuario(s).`,
+        tone: 'success',
+      });
+      setSelected(new Set());
+      await loadUsers();
+    } catch (error) {
+      await alert({
+        title: 'Error',
+        message: error instanceof Error ? error.message : 'No se pudo asignar la organización.',
+        tone: 'error',
+      });
+    } finally {
+      setBulkBusy(false);
+    }
   };
 
   // "Enviar mensaje" lleva al broadcaster con los usuarios seleccionados
@@ -660,6 +711,15 @@ export default function UsuariosPage() {
             >
               <KeyRound size={14} />
               Forzar cambio de clave
+            </button>
+            <button
+              type="button"
+              onClick={() => void onBulkSetOrganization()}
+              disabled={bulkBusy}
+              className="app-button-secondary inline-flex items-center gap-1.5 text-xs disabled:opacity-50"
+            >
+              <Building2 size={14} />
+              Asignar organización
             </button>
             {bulkBusy && <Loader2 size={16} className="animate-spin text-[var(--app-muted)]" />}
             <button

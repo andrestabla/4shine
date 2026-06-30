@@ -5,7 +5,7 @@ import { Eye, EyeOff, Mail, RefreshCw, Save, UserPlus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useUser } from '@/context/UserContext';
-import { createUser } from '@/features/usuarios/client';
+import { createUser, listOrganizations, type OrganizationRecord } from '@/features/usuarios/client';
 import {
   resolveUserTypeSelection,
   USER_TYPE_OPTIONS,
@@ -35,6 +35,7 @@ interface FormState {
   gender: string;
   yearsExperience: string;
   sendWelcomeEmail: boolean;
+  organizationId: string;
 }
 
 // Genera una contraseña segura: 12 chars mezcla mayúsculas, minúsculas,
@@ -61,6 +62,7 @@ export default function NuevoUsuarioPage() {
   const [submitting, setSubmitting] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
   const [plans, setPlans] = React.useState<SubscriptionPlanWithFeatures[]>([]);
+  const [organizations, setOrganizations] = React.useState<OrganizationRecord[]>([]);
   const [form, setForm] = React.useState<FormState>({
     firstName: '',
     lastName: '',
@@ -73,9 +75,26 @@ export default function NuevoUsuarioPage() {
     gender: '',
     yearsExperience: '',
     sendWelcomeEmail: true,
+    organizationId: '',
   });
 
   const canCreate = can('usuarios', 'create');
+
+  // Cargar organizaciones disponibles (gestión admin).
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const orgs = await listOrganizations();
+        if (!cancelled) setOrganizations(orgs);
+      } catch {
+        if (!cancelled) setOrganizations([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Cargar planes de suscripción cuando aplique
   React.useEffect(() => {
@@ -153,6 +172,7 @@ export default function NuevoUsuarioPage() {
         gender: form.gender || null,
         yearsExperience,
         sendWelcomeEmail: form.sendWelcomeEmail,
+        organizationId: form.organizationId || null,
       });
 
       await refreshBootstrap();
@@ -334,6 +354,24 @@ export default function NuevoUsuarioPage() {
             País, cargo, género y años de experiencia son opcionales aquí. El usuario los
             completará en su primer ingreso desde su perfil.
           </p>
+
+          <label className="md:col-span-2">
+            <span className="app-field-label">
+              Organización <span className="font-normal text-[var(--app-muted)]">· opcional</span>
+            </span>
+            <select
+              className="app-select"
+              value={form.organizationId}
+              onChange={(event) => setForm((prev) => ({ ...prev, organizationId: event.target.value }))}
+            >
+              <option value="">Organización por defecto (la del administrador)</option>
+              {organizations.map((org) => (
+                <option key={org.organizationId} value={org.organizationId}>
+                  {org.name}
+                </option>
+              ))}
+            </select>
+          </label>
 
           <label className="md:col-span-2">
             <span className="app-field-label">Tipo de usuario *</span>
