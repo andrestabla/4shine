@@ -115,27 +115,6 @@ function planLabel(planType: PlanType | null): 'VIP' | 'Premium' | 'Empresa Éli
   }
 }
 
-function userTypeLabel(role: string | undefined): string {
-  const normalized = (role ?? '').trim().toLowerCase();
-  switch (normalized) {
-    case 'líder':
-    case 'lider':
-      return 'Líder con suscripción';
-    case 'advisor':
-    case 'mentor':
-      return 'Advisor';
-    case 'gestor del programa':
-    case 'gestor':
-      return 'Gestor';
-    case 'administrador':
-    case 'admin':
-      return 'Administrador';
-    case 'invitado':
-      return 'Invitado';
-    default:
-      return role?.trim() || 'Líder sin suscripción';
-  }
-}
 
 function buildForm(profile: MyProfileRecord): ProfileFormState {
   return {
@@ -501,7 +480,6 @@ export default function PerfilPage() {
 
   const avatarFallback = (profile.avatarInitial || profile.displayName.charAt(0) || 'U').toUpperCase();
   const avatarPreviewUrl = form.avatarUrl.trim().length > 0 ? form.avatarUrl.trim() : null;
-  const userType = userTypeLabel(currentUser?.role);
   const isAdvisorRole = (currentUser?.role ?? '').toLowerCase() === 'mentor';
   const advForm = form.advisor;
   const advisorData = profile.advisorProfile;
@@ -865,14 +843,6 @@ export default function PerfilPage() {
                     value={form.timezone}
                     onChange={(event) => setForm((prev) => (prev ? { ...prev, timezone: event.target.value } : prev))}
                   />
-                </label>
-                <label>
-                  <span className="app-field-label">Tipo de usuario</span>
-                  <input className="app-input" value={userType} disabled readOnly />
-                </label>
-                <label>
-                  <span className="app-field-label">Plan asignado</span>
-                  <input className="app-input" value={planLabel(profile.planType)} disabled readOnly />
                 </label>
                 <label className="md:col-span-2">
                   <span className="app-field-label">Biografía</span>
