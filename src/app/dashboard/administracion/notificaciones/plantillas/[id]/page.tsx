@@ -7,9 +7,9 @@ import { PageTitle } from '@/components/dashboard/PageTitle';
 import { TemplateBuilder } from '@/components/dashboard/notificaciones/TemplateBuilder';
 import { TemplatePreviewModal } from '@/components/dashboard/notificaciones/TemplatePreviewModal';
 import { ReminderWindowsConfig } from '@/components/dashboard/notificaciones/GroupReminderWindowsConfig';
-import { getTemplate, updateTemplate, previewTemplate, sendTestTemplate } from '@/features/notificaciones/client';
-import type { NotificationTemplateRecord } from '@/features/notificaciones/types';
-import { EVENTS_BY_KEY } from '@/features/notificaciones/events-catalog';
+import { getTemplate, updateTemplate, previewTemplate, sendTestTemplate, listCustomEvents } from '@/features/notificaciones/client';
+import type { NotificationTemplateRecord, NotificationEventDef } from '@/features/notificaciones/types';
+import { EVENTS_BY_KEY, customEventToEventDef } from '@/features/notificaciones/events-catalog';
 import { Loader2 } from 'lucide-react';
 
 export default function EditarPlantillaPage() {
@@ -22,6 +22,8 @@ export default function EditarPlantillaPage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [previewVars, setPreviewVars] = useState<Record<string, string> | null>(null);
+  const [customLookup, setCustomLookup] = useState<Record<string, NotificationEventDef>>({});
+  const [customReady, setCustomReady] = useState(false);
 
   useEffect(() => {
     void getTemplate(id).then((res) => {
@@ -30,6 +32,17 @@ export default function EditarPlantillaPage() {
       setLoading(false);
     });
   }, [id]);
+
+  useEffect(() => {
+    void listCustomEvents().then((res) => {
+      if (res.ok && res.data) {
+        setCustomLookup(
+          Object.fromEntries(res.data.map((ce) => [ce.eventKey, customEventToEventDef(ce)])),
+        );
+      }
+      setCustomReady(true);
+    });
+  }, []);
 
   async function handleSave(data: import('@/features/notificaciones/types').CreateTemplateInput) {
     setSaving(true);
@@ -53,7 +66,7 @@ export default function EditarPlantillaPage() {
     return await sendTestTemplate(id, toEmail);
   }
 
-  if (loading) {
+  if (loading || !customReady) {
     return (
       <div className="flex items-center justify-center gap-2 py-32 text-[var(--app-muted)] text-sm">
         <Loader2 size={16} className="animate-spin" /> Cargando plantilla…
@@ -72,7 +85,7 @@ export default function EditarPlantillaPage() {
     );
   }
 
-  const eventDef = EVENTS_BY_KEY[template.eventKey];
+  const eventDef = EVENTS_BY_KEY[template.eventKey] ?? customLookup[template.eventKey];
   if (!eventDef) {
     return (
       <div className="py-16 text-center text-sm text-rose-600">

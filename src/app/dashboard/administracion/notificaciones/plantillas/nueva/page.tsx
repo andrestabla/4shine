@@ -1,24 +1,17 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { TemplateBuilder } from '@/components/dashboard/notificaciones/TemplateBuilder';
 import { TemplatePreviewModal } from '@/components/dashboard/notificaciones/TemplatePreviewModal';
-import { NOTIFICATION_EVENTS, EVENTS_BY_KEY } from '@/features/notificaciones/events-catalog';
-import { createTemplate, previewTemplate } from '@/features/notificaciones/client';
+import { NOTIFICATION_EVENTS, EVENTS_BY_KEY, customEventToEventDef } from '@/features/notificaciones/events-catalog';
+import type { NotificationEventDef } from '@/features/notificaciones/types';
+import { createTemplate, previewTemplate, listCustomEvents } from '@/features/notificaciones/client';
 import { ChevronDown } from 'lucide-react';
 import clsx from 'clsx';
 
 const MODULE_ORDER = ['usuarios', 'descubrimiento', 'mentorias', 'aprendizaje', 'convocatorias', 'networking', 'mensajes', 'workshops'];
-
-function groupByModule() {
-  const groups: Record<string, typeof NOTIFICATION_EVENTS> = {};
-  for (const ev of NOTIFICATION_EVENTS) {
-    (groups[ev.moduleCode] ??= []).push(ev);
-  }
-  return groups;
-}
 
 export default function NuevaPlantillaPage() {
   const router = useRouter();
@@ -31,9 +24,26 @@ export default function NuevaPlantillaPage() {
   const [error, setError] = useState<string | null>(null);
   const [previewSampleVars, setPreviewSampleVars] = useState<Record<string, string> | null>(null);
   const [savedTemplateId, setSavedTemplateId] = useState<string | null>(null);
+  const [customDefs, setCustomDefs] = useState<NotificationEventDef[]>([]);
 
-  const eventDef = EVENTS_BY_KEY[selectedEventKey] ?? NOTIFICATION_EVENTS[0];
-  const groups = groupByModule();
+  useEffect(() => {
+    void listCustomEvents().then((res) => {
+      if (res.ok && res.data) setCustomDefs(res.data.map(customEventToEventDef));
+    });
+  }, []);
+
+  const allEvents = useMemo(() => [...NOTIFICATION_EVENTS, ...customDefs], [customDefs]);
+  const lookup = useMemo(
+    () => Object.fromEntries(allEvents.map((e) => [e.key, e])) as Record<string, NotificationEventDef>,
+    [allEvents],
+  );
+  const groups = useMemo(() => {
+    const g: Record<string, NotificationEventDef[]> = {};
+    for (const ev of allEvents) (g[ev.moduleCode] ??= []).push(ev);
+    return g;
+  }, [allEvents]);
+
+  const eventDef = lookup[selectedEventKey] ?? NOTIFICATION_EVENTS[0];
 
   async function handleSave(data: import('@/features/notificaciones/types').CreateTemplateInput) {
     setSaving(true);

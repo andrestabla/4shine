@@ -1,4 +1,4 @@
-import type { NotificationEventDef, VariableDef, VariableKey } from './types';
+import type { NotificationEventDef, VariableDef, VariableKey, CustomEventRecord } from './types';
 
 // ─── Variable Dictionary ──────────────────────────────────────────────────────
 
@@ -595,3 +595,21 @@ export const MODULE_LABELS: Record<string, string> = {
   mensajes: 'Mensajes',
   workshops: 'Workshops',
 };
+
+/**
+ * Convierte un evento personalizado (definido en BD) al shape NotificationEventDef
+ * que usan el editor de plantillas y la página de eventos. Las variables por
+ * defecto ('nombre', 'plataforma') son las que el evaluador del cron inyecta.
+ */
+export function customEventToEventDef(ce: CustomEventRecord): NotificationEventDef {
+  const variables = (ce.variables.length > 0 ? ce.variables : ['nombre', 'plataforma']) as VariableKey[];
+  return {
+    key: ce.eventKey,
+    moduleCode: ce.moduleCode,
+    moduleLabel: MODULE_LABELS[ce.moduleCode] ?? ce.moduleCode,
+    label: ce.label,
+    description: ce.description,
+    variables,
+    defaultInAppType: 'info',
+  };
+}

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { withClient, withRoleContext } from '@/server/db/pool';
 import { sendIndividualSessionReminders, sendGroupSessionReminders } from '@/features/mentorias/service';
 import { sendDiscoveryReminders } from '@/features/descubrimiento/service';
+import { processCustomEventSchedules } from '@/features/notificaciones/custom-events-service';
 
 export const runtime = 'nodejs';
 // Disable any caching — this must run live for the cron to be useful.
@@ -50,7 +51,8 @@ export async function GET(request: Request) {
         const individual = await sendIndividualSessionReminders(client);
         const group = await sendGroupSessionReminders(client);
         const discovery = await sendDiscoveryReminders(client);
-        return { individual, group, discovery };
+        const customEvents = await processCustomEventSchedules(client);
+        return { individual, group, discovery, customEvents };
       });
     });
 

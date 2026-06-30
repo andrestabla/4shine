@@ -334,3 +334,44 @@ export interface NotificationHistoryPage {
   limit: number;
   offset: number;
 }
+
+// ─── Eventos personalizados (creados por el admin) ───────────────────────────
+
+export type CustomEventTriggerType = 'manual' | 'date_anchor' | 'event_dependency';
+export type CustomEventAnchor = 'registration' | 'subscription_expiry';
+export type CustomEventOffsetUnit = 'days' | 'hours';
+export type CustomEventOffsetDirection = 'after' | 'before';
+
+export interface CustomEventRecord {
+  eventId: string;
+  eventKey: string;
+  moduleCode: string;
+  label: string;
+  description: string;
+  variables: string[];
+  triggerType: CustomEventTriggerType;
+  triggerAnchor: CustomEventAnchor | null;
+  triggerParentEvent: string | null;
+  offsetValue: number;
+  offsetUnit: CustomEventOffsetUnit;
+  offsetDirection: CustomEventOffsetDirection;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCustomEventInput {
+  label: string;
+  moduleCode: string;
+  description?: string;
+  variables?: string[];
+  triggerType: CustomEventTriggerType;
+  triggerAnchor?: CustomEventAnchor | null;
+  triggerParentEvent?: string | null;
+  offsetValue?: number;
+  offsetUnit?: CustomEventOffsetUnit;
+  offsetDirection?: CustomEventOffsetDirection;
+  isActive?: boolean;
+}
+
+export type UpdateCustomEventInput = Partial<CreateCustomEventInput>;

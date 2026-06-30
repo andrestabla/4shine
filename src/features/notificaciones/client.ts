@@ -6,6 +6,9 @@ import type {
   UpdateTemplateInput,
   UpdateEventConfigInput,
   NotificationGlobalSettings,
+  CustomEventRecord,
+  CreateCustomEventInput,
+  UpdateCustomEventInput,
 } from './types';
 
 export type {
@@ -15,6 +18,9 @@ export type {
   UpdateTemplateInput,
   UpdateEventConfigInput,
   NotificationGlobalSettings,
+  CustomEventRecord,
+  CreateCustomEventInput,
+  UpdateCustomEventInput,
 } from './types';
 
 // Safe response envelope (requestApi throws on error; we catch and wrap)
@@ -109,6 +115,34 @@ export function updateNotificationSettings(input: NotificationGlobalSettings) {
 }
 
 // ─── Event Configurations ─────────────────────────────────────────────────────
+
+export function listCustomEvents() {
+  return safe(() => requestApi<CustomEventRecord[]>(`${BASE}/custom-events`));
+}
+
+export function createCustomEvent(input: CreateCustomEventInput) {
+  return safe(() =>
+    requestApi<CustomEventRecord>(`${BASE}/custom-events`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+  );
+}
+
+export function updateCustomEvent(eventId: string, input: UpdateCustomEventInput) {
+  return safe(() =>
+    requestApi<CustomEventRecord>(`${BASE}/custom-events/${eventId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    }),
+  );
+}
+
+export function deleteCustomEvent(eventId: string) {
+  return safe(() =>
+    requestApi<{ eventId: string }>(`${BASE}/custom-events/${eventId}`, { method: 'DELETE' }),
+  );
+}
 
 export function listEventConfigs() {
   return safe(() => requestApi<NotificationEventConfigRecord[]>(`${BASE}/events`));

@@ -206,7 +206,18 @@ export async function dispatchNotification(
   ctx: DispatchContext,
 ): Promise<void> {
   const eventDef = EVENTS_BY_KEY[ctx.eventKey];
-  if (!eventDef) return;
+  if (!eventDef) {
+    // Eventos personalizados (definidos en BD por el admin) no están en el
+    // catálogo de código; se permiten si existen para la organización.
+    const { rows } = await client.query<{ exists: boolean }>(
+      `SELECT EXISTS (
+         SELECT 1 FROM app_admin.notification_events
+         WHERE organization_id = $1::uuid AND event_key = $2
+       ) AS exists`,
+      [ctx.organizationId, ctx.eventKey],
+    );
+    if (!rows[0]?.exists) return;
+  }
 
   const resolved = await resolveEventConfig(client, ctx.organizationId, ctx.eventKey);
   if (!resolved.isEnabled || !resolved.template) return;
