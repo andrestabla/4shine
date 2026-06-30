@@ -450,55 +450,60 @@ export const WB9_V3_CONFIG: WB9Config = {
             label: '7. Arquetipo, tono y código simbólico',
             shortLabel: 'Arquetipo',
             purpose:
-                'Traduce tu marca en personalidad, lenguaje y símbolos. No es decoración: es coherencia expresiva. Ejemplo: arquetipo El Sabio Estratega, tono sereno/firme/claro/confiable, símbolo El Faro (dirección y calma en la tormenta).',
+                'Aquí traduces tu marca en personalidad, lenguaje y símbolos. No es decoración: es coherencia expresiva — que tu forma de comunicar "se sienta" como tú. Trabajarás 4 piezas que se conectan: (7.1) tu ARQUETIPO (la personalidad central), (7.2) tu ESTILO Y TONO (cómo suenas), (7.3) tus VALORES (qué defiendes) y (7.4) tu CÓDIGO SIMBÓLICO (la imagen que te representa). Todo esto alimenta tu brochure ejecutivo: el arquetipo, el tono y el símbolo aparecen en sus páginas finales. Ejemplo completo (referencia): arquetipo "El Sabio Estratega", tono sereno/firme/claro/confiable, valores claridad·criterio·constancia, símbolo "El Faro" (dirección y calma en medio de la tormenta).',
             groups: [
                 {
                     id: 'arquetipo-eleccion',
                     title: '7.1 Arquetipo de marca',
                     description:
-                        'Ejemplos: El Sabio Estratega · El Arquitecto de Futuro · El Catalizador · El Guía Sereno · El Constructor de Legado · El Conector · El Innovador Humano.',
+                        'El arquetipo es la "personalidad" central de tu marca: define cómo te perciben antes de explicar nada. Elige UNO principal (puedes añadir uno secundario que lo matice). Inspírate en estos: El Sabio Estratega (claridad y criterio) · El Arquitecto de Futuro (visión y diseño) · El Catalizador (impulso y cambio) · El Guía Sereno (calma y dirección) · El Constructor de Legado (trascendencia) · El Conector (relaciones y comunidad) · El Innovador Humano (tecnología con propósito). No tiene que ser exacto: elige el que más resuene con cómo lideras hoy.',
                     kind: 'questions',
                     fields: [
-                        { id: 'wb9v3-7-a1', label: 'Mi arquetipo de marca es…', rows: 2 },
-                        { id: 'wb9v3-7-a2', label: 'Representa…', rows: 3, kind: 'completion' },
-                        { id: 'wb9v3-7-a3', label: 'Arquetipo secundario (opcional)', rows: 2 }
+                        { id: 'wb9v3-7-a1', label: 'Mi arquetipo de marca es…', rows: 2, helper: 'Un solo arquetipo principal. Es la esencia de tu personalidad de marca.', placeholder: 'Ej.: El Sabio Estratega' },
+                        { id: 'wb9v3-7-a2', label: 'Representa…', rows: 3, kind: 'completion', helper: 'En 1–2 frases: qué encarna ese arquetipo en tu forma de liderar y por qué te identifica.', placeholder: 'Ej.: …el liderazgo que ordena la complejidad y da dirección con criterio, sin ruido ni autoritarismo.' },
+                        { id: 'wb9v3-7-a3', label: 'Arquetipo secundario (opcional)', rows: 2, helper: 'Solo si un segundo matiz te describe (p. ej. un Sabio con alma de Constructor de Legado).', placeholder: 'Ej.: El Constructor de Legado' }
                     ]
                 },
                 {
                     id: 'estilo-tono',
                     title: '7.2 Estilo y tono de comunicación',
+                    description:
+                        'El ESTILO es la forma (cómo estructuras y presentas tus ideas); el TONO es la emoción/actitud con la que suenas. Juntos hacen que cualquier persona reconozca tu voz. Sé concreto: usa 3–5 adjetivos por línea. El tono que escribas aquí aparece en tu brochure.',
                     kind: 'table',
                     columns: ['Elemento', 'Mi respuesta'],
                     fields: [
-                        { id: 'wb9v3-7-e1', label: 'Mi estilo es' },
-                        { id: 'wb9v3-7-e2', label: 'Mi tono es' },
-                        { id: 'wb9v3-7-e3', label: 'Hablo desde' },
-                        { id: 'wb9v3-7-e4', label: 'Evito sonar como' }
+                        { id: 'wb9v3-7-e1', label: 'Mi estilo es', helper: 'La forma: estructura, ritmo, recursos que usas.', placeholder: 'Ej.: directo, estructurado, con datos y un relato que aterriza la idea.' },
+                        { id: 'wb9v3-7-e2', label: 'Mi tono es', helper: '3–5 adjetivos que definen tu actitud al comunicar.', placeholder: 'Ej.: sereno, firme, claro, cálido, confiable.' },
+                        { id: 'wb9v3-7-e3', label: 'Hablo desde', helper: 'El lugar/legitimidad desde donde comunicas.', placeholder: 'Ej.: la experiencia y la evidencia, no desde la teoría ni la imposición.' },
+                        { id: 'wb9v3-7-e4', label: 'Evito sonar como', helper: 'Lo que NO eres: te ayuda a no diluir tu voz.', placeholder: 'Ej.: vendedor, gurú motivacional, distante o genérico.' }
                     ]
                 },
                 {
                     id: 'valores-marca',
                     title: '7.3 Valores de marca (3 a 5)',
+                    description:
+                        'Los valores son los principios que tu marca defiende y que se deben NOTAR en cómo comunicas y decides. No basta nombrarlos: describe cómo se ven en la práctica. Elige entre 3 y 5 (calidad sobre cantidad).',
                     kind: 'table',
                     columns: ['Valor', 'Cómo debe verse en mi marca'],
                     fields: [
-                        { id: 'wb9v3-7-v1', label: 'Valor 1' },
-                        { id: 'wb9v3-7-v2', label: 'Valor 2' },
-                        { id: 'wb9v3-7-v3', label: 'Valor 3' },
-                        { id: 'wb9v3-7-v4', label: 'Valor 4 (opcional)' },
-                        { id: 'wb9v3-7-v5', label: 'Valor 5 (opcional)' }
+                        { id: 'wb9v3-7-v1', label: 'Valor 1', helper: 'Valor + cómo se manifiesta concretamente.', placeholder: 'Ej.: Claridad — cada mensaje deja una idea accionable, sin jerga.' },
+                        { id: 'wb9v3-7-v2', label: 'Valor 2', placeholder: 'Ej.: Criterio — priorizo lo esencial y digo lo que importa, aunque incomode.' },
+                        { id: 'wb9v3-7-v3', label: 'Valor 3', placeholder: 'Ej.: Constancia — presencia sostenida, no campañas aisladas.' },
+                        { id: 'wb9v3-7-v4', label: 'Valor 4 (opcional)', placeholder: 'Ej.: Humanidad — hablo con las personas, no a una audiencia.' },
+                        { id: 'wb9v3-7-v5', label: 'Valor 5 (opcional)', placeholder: 'Ej.: Rigor — afirmo con evidencia y reconozco lo que no sé.' }
                     ]
                 },
                 {
                     id: 'codigo-simbolico',
                     title: '7.4 Código simbólico',
-                    description: 'Ejemplos: faro, puente, brújula, raíz, fuego, arquitectura, río, semilla, montaña, constelación, motor, mapa.',
+                    description:
+                        'Tu símbolo es una imagen/objeto que captura tu esencia de un vistazo (más memorable que mil palabras). No es tu logo: es una metáfora de tu liderazgo. En el brochure aparece como el círculo central de la página "Código simbólico de marca", con su significado y sus palabras asociadas. Cómo elegirlo: piensa en qué objeto haría tu audiencia para describir lo que aportas. Ejemplos: faro (dirección y calma), puente (conectar mundos), brújula (criterio), raíz (solidez y origen), fuego (impulso), arquitectura (estructura), río (flujo y constancia), semilla (potencial), montaña (visión de largo plazo), constelación (sentido en el caos), motor (energía), mapa (claridad de ruta).',
                     kind: 'table',
                     columns: ['Elemento', 'Mi respuesta'],
                     fields: [
-                        { id: 'wb9v3-7-s1', label: 'Símbolo de mi marca' },
-                        { id: 'wb9v3-7-s2', label: 'Qué representa' },
-                        { id: 'wb9v3-7-s3', label: 'Palabras asociadas' }
+                        { id: 'wb9v3-7-s1', label: 'Símbolo de mi marca', helper: 'Una sola imagen/objeto. Aparece como el círculo central del brochure.', placeholder: 'Ej.: El Faro' },
+                        { id: 'wb9v3-7-s2', label: 'Qué representa', helper: 'El significado: qué dice de tu forma de liderar (1–2 frases).', placeholder: 'Ej.: dirección y calma en medio de la tormenta; el criterio que orienta cuando todo es incertidumbre.' },
+                        { id: 'wb9v3-7-s3', label: 'Palabras asociadas', helper: '3–6 palabras que evoca tu símbolo (separadas por comas).', placeholder: 'Ej.: guía, claridad, constancia, seguridad, dirección.' }
                     ]
                 }
             ]
