@@ -1387,6 +1387,48 @@ export async function createRequest(
   return created;
 }
 
+/**
+ * Edita los campos del formulario de una solicitud pendiente (gestor/admin),
+ * antes de aprobarla y publicarla. Solo permitido mientras está 'pending'.
+ */
+export async function updateRequest(
+  client: PoolClient,
+  actor: AuthUser,
+  requestId: string,
+  input: CreateRequestInput,
+): Promise<ConvocatoriaRequest> {
+  await requireModulePermission(client, 'convocatorias', 'manage');
+  await requireCommunityAccess(client, actor, 'Convocatorias');
+
+  if (!input.title.trim()) throw new Error('El título es requerido');
+
+  const { rowCount } = await client.query(
+    `UPDATE app_networking.convocatoria_requests
+     SET title = $2, description = $3, objetivo = $4, tipo = $5,
+         fecha_inicio = $6::date, fecha_fin = $7::date,
+         requisitos = $8, enlaces_complementarios = $9, numero_contacto = $10,
+         updated_at = now()
+     WHERE request_id = $1 AND status = 'pending'`,
+    [
+      requestId,
+      input.title.trim(),
+      input.description?.trim() ?? '',
+      input.objetivo?.trim() ?? '',
+      input.tipo ?? 'otra',
+      input.fechaInicio || null,
+      input.fechaFin || null,
+      input.requisitos?.trim() ?? '',
+      input.enlacesComplementarios?.trim() ?? '',
+      input.numeroContacto?.trim() ?? '',
+    ],
+  );
+
+  if (!rowCount) throw new Error('Solicitud no encontrada o ya revisada.');
+
+  const { rows } = await client.query<RequestRow>(`${REQUEST_SELECT} WHERE r.request_id = $1`, [requestId]);
+  return mapRequest(rows[0]);
+}
+
 export async function reviewRequest(
   client: PoolClient,
   actor: AuthUser,
@@ -1396,24 +1438,76 @@ export async function reviewRequest(
   await requireModulePermission(client, 'convocatorias', 'manage');
   await requireCommunityAccess(client, actor, 'Convocatorias');
 
-  const { rowCount } = await client.query(
-    `UPDATE app_networking.convocatoria_requests
-     SET
-       status           = $2,
-       reviewer_user_id = $3,
-       reviewer_notes   = $4
-     WHERE request_id = $1`,
-    [requestId, input.status, actor.userId, input.reviewerNotes ?? null],
-  );
-
-  if (!rowCount) throw new Error('Request not found');
-
-  const { rows } = await client.query<RequestRow>(
+  // Carga la solicitud actual (con los campos que pudo editar el gestor).
+  const { rows: current } = await client.query<RequestRow>(
     `${REQUEST_SELECT} WHERE r.request_id = $1`,
     [requestId],
   );
+  const reqRow = current[0];
+  if (!reqRow) throw new Error('Request not found');
+  if (reqRow.status !== 'pending') throw new Error('Esta solicitud ya fue revisada.');
 
-  if (!rows[0]) throw new Error('Request not found');
+  let convocatoriaId: string | null = reqRow.convocatoria_id;
+
+  // Al APROBAR se publica la convocatoria (status 'open') con los datos del
+  // formulario (ya editados si el gestor los ajustó), y se enlaza a la solicitud.
+  if (input.status === 'approved') {
+    const { rows: created } = await client.query<{ convocatoria_id: string }>(
+      `INSERT INTO app_networking.convocatorias
+         (title, description, objetivo, tipo, fecha_inicio, fecha_fin,
+          requisitos, enlaces_complementarios, contacto_telefono, contacto_email,
+          empresa_solicitante, solicitud_archivo_label, solicitud_archivo_requerido,
+          solicitud_url_label, solicitud_url_requerido,
+          cover_image_url, external_url, location, status, created_by)
+       VALUES ($1,$2,$3,$4,$5::date,$6::date,$7,$8,$9,'',
+               '','',false,'',false,NULL,NULL,NULL,'open',$10)
+       RETURNING convocatoria_id::text`,
+      [
+        reqRow.title,
+        reqRow.description,
+        reqRow.objetivo,
+        reqRow.tipo,
+        reqRow.fecha_inicio,
+        reqRow.fecha_fin,
+        reqRow.requisitos,
+        reqRow.enlaces_complementarios,
+        reqRow.numero_contacto,
+        actor.userId,
+      ],
+    );
+    convocatoriaId = created[0]?.convocatoria_id ?? convocatoriaId;
+  }
+
+  await client.query(
+    `UPDATE app_networking.convocatoria_requests
+     SET status = $2, reviewer_user_id = $3, reviewer_notes = $4, convocatoria_id = $5::uuid, updated_at = now()
+     WHERE request_id = $1`,
+    [requestId, input.status, actor.userId, input.reviewerNotes ?? null, convocatoriaId],
+  );
+
+  // Notifica al líder el resultado (no rompe si el evento/plantilla no existe).
+  const { rows: orgRows } = await client.query<{ organization_id: string; email: string }>(
+    `SELECT organization_id::text, email::text FROM app_core.users WHERE user_id = $1 LIMIT 1`,
+    [reqRow.requester_user_id],
+  );
+  const organizationId = orgRows[0]?.organization_id;
+  if (organizationId) {
+    void dispatchNotification(client, {
+      organizationId,
+      recipientUserId: reqRow.requester_user_id,
+      recipientEmail: orgRows[0]?.email,
+      eventKey: input.status === 'approved' ? 'convocatorias.request_approved' : 'convocatorias.request_rejected',
+      variables: {
+        nombre: (reqRow.requester_name || 'Miembro').split(' ')[0] ?? 'Miembro',
+        titulo: reqRow.title,
+        motivo: input.reviewerNotes ?? '',
+        plataforma: '4Shine',
+        enlace_plataforma: 'https://4shine.co',
+      },
+    });
+  }
+
+  const { rows } = await client.query<RequestRow>(`${REQUEST_SELECT} WHERE r.request_id = $1`, [requestId]);
   return mapRequest(rows[0]);
 }
 

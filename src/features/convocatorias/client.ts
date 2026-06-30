@@ -362,6 +362,13 @@ export function reviewRequest(requestId: string, input: ReviewRequestInput): Pro
   });
 }
 
+export function updateRequest(requestId: string, input: CreateRequestInput): Promise<ConvocatoriaRequest> {
+  return requestApi<ConvocatoriaRequest>(`${BASE}/requests/${requestId}`, {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  });
+}
+
 // ── Notification interests ────────────────────────────────────────────────────
 
 export function getNotificationInterest(): Promise<{ interested: boolean }> {
