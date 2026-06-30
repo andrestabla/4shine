@@ -21,6 +21,7 @@ interface ProductRow {
   is_active: boolean;
   is_system: boolean;
   sort_order: number;
+  checkout_url: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -28,7 +29,7 @@ interface ProductRow {
 const PRODUCT_SELECT = `
   product_code, product_group, name, headline, description,
   price_amount, currency_code, sessions_included, highlight_label,
-  is_active, is_system, sort_order, created_at::text, updated_at::text
+  is_active, is_system, sort_order, checkout_url, created_at::text, updated_at::text
 `;
 
 function toRecord(row: ProductRow): ProductRecord {
@@ -45,6 +46,7 @@ function toRecord(row: ProductRow): ProductRecord {
     isActive: row.is_active,
     isSystem: row.is_system,
     sortOrder: Number(row.sort_order ?? 0),
+    checkoutUrl: row.checkout_url ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -107,8 +109,8 @@ export async function createProduct(
     `INSERT INTO app_billing.product_catalog
        (product_code, product_group, name, headline, description,
         price_amount, currency_code, sessions_included, highlight_label,
-        is_active, sort_order)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+        is_active, sort_order, checkout_url)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
      RETURNING ${PRODUCT_SELECT}`,
     [
       code,
@@ -122,6 +124,7 @@ export async function createProduct(
       input.highlightLabel?.trim() || null,
       input.isActive ?? true,
       input.sortOrder ?? 100,
+      input.checkoutUrl?.trim() || null,
     ],
   );
   void actor;
@@ -158,6 +161,8 @@ export async function updateProduct(
       input.highlightLabel === undefined ? undefined : (input.highlightLabel?.trim() || null)],
     ['is_active', input.isActive],
     ['sort_order', input.sortOrder],
+    ['checkout_url',
+      input.checkoutUrl === undefined ? undefined : (input.checkoutUrl?.trim() || null)],
   ];
 
   for (const [col, val] of fields) {

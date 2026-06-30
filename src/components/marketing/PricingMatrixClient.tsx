@@ -108,7 +108,7 @@ export function PricingMatrixClient({ plans, catalog = [] }: PricingMatrixClient
         price: p.priceAmount,
         badge: p.highlightLabel ?? undefined,
         note: p.headline || p.description || '',
-        checkoutHref: `/acceso?plan=mentoria-${p.sessionsIncluded}`,
+        checkoutHref: p.checkoutUrl || `/acceso?plan=mentoria-${p.sessionsIncluded}`,
       }));
     return fromCatalog.length > 0 ? fromCatalog : MENTORING_PACKS;
   }, [catalog]);
@@ -224,7 +224,7 @@ export function PricingMatrixClient({ plans, catalog = [] }: PricingMatrixClient
               Incluido en todos los programas de liderazgo. Si ya tienes un programa activo, no necesitas comprarlo por separado.
             </div>
             <Link
-              href="/acceso?plan=diagnostico"
+              href={diagnostic?.checkoutUrl || '/acceso?plan=diagnostico'}
               className="mt-auto pt-6 block w-full rounded-full py-3 text-center text-sm font-extrabold transition"
               style={{
                 background: 'var(--brand-accent)',
@@ -499,7 +499,7 @@ function ProgramsSection({ programs, moduleGroups }: ProgramsSectionProps) {
 
               <div className="border-t px-5 py-4 text-center" style={{ borderColor: 'var(--brand-border)' }}>
                 <Link
-                  href={`/acceso?plan=${encodeURIComponent(p.planCode)}`}
+                  href={p.checkoutUrl || `/acceso?plan=${encodeURIComponent(p.planCode)}`}
                   className="inline-block w-full rounded-full px-6 py-3 text-sm font-extrabold transition"
                   style={
                     highlighted
@@ -698,7 +698,7 @@ function ProgramsSection({ programs, moduleGroups }: ProgramsSectionProps) {
                     style={highlighted ? { background: 'var(--brand-surface)' } : undefined}
                   >
                     <Link
-                      href={`/acceso?plan=${encodeURIComponent(p.planCode)}`}
+                      href={p.checkoutUrl || `/acceso?plan=${encodeURIComponent(p.planCode)}`}
                       className="inline-block rounded-full px-6 py-2.5 text-sm font-extrabold transition"
                       style={
                         highlighted
@@ -862,7 +862,7 @@ function CirculoSection({ circulos }: { circulos: SubscriptionPlanWithFeatures[]
                 })}
               </ul>
               <Link
-                href={`/acceso?plan=${encodeURIComponent(plan.planCode)}`}
+                href={plan.checkoutUrl || `/acceso?plan=${encodeURIComponent(plan.planCode)}`}
                 className="mt-8 block w-full rounded-full py-3 text-center text-sm font-extrabold transition"
                 style={
                   isHighlight

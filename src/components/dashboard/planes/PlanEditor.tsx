@@ -54,6 +54,7 @@ export function PlanEditor({ initial }: PlanEditorProps) {
   const [durationDays, setDurationDays] = useState<number>(initial?.durationDays ?? 30);
   const [isActive, setIsActive] = useState<boolean>(initial?.isActive ?? true);
   const [sortOrder, setSortOrder] = useState<number>(initial?.sortOrder ?? 100);
+  const [checkoutUrl, setCheckoutUrl] = useState(initial?.checkoutUrl ?? '');
   const [features, setFeatures] = useState<FeatureMap>(() => buildInitialFeatures(initial));
 
   const [saving, setSaving] = useState(false);
@@ -108,6 +109,7 @@ export function PlanEditor({ initial }: PlanEditorProps) {
         durationDays,
         isActive,
         sortOrder,
+        checkoutUrl: checkoutUrl.trim() || null,
         features: buildFeatureInputs(),
       };
       const res = await updatePlan(initial.planId, body);
@@ -128,6 +130,7 @@ export function PlanEditor({ initial }: PlanEditorProps) {
         durationDays,
         isActive,
         sortOrder,
+        checkoutUrl: checkoutUrl.trim() || null,
         features: buildFeatureInputs(),
       };
       const res = await createPlan(body);
@@ -240,6 +243,23 @@ export function PlanEditor({ initial }: PlanEditorProps) {
               className="w-full rounded-md border border-[var(--app-border)] px-3 py-2 text-sm"
               placeholder="Descripción comercial del plan…"
             />
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-[var(--app-muted)]">
+              Enlace del botón "Comenzar" (pago o asesor)
+            </label>
+            <input
+              type="url"
+              value={checkoutUrl}
+              onChange={(e) => setCheckoutUrl(e.target.value)}
+              className="w-full rounded-md border border-[var(--app-border)] px-3 py-2 text-sm"
+              placeholder="https://… (centro de pagos o contacto con asesor)"
+            />
+            <p className="mt-1 text-[11px] text-[var(--app-muted)]">
+              Destino del botón "Comenzar" de este plan en la página pública de Planes y precios.
+              Si se deja vacío, se usa el flujo por defecto.
+            </p>
           </div>
         </div>
       </section>

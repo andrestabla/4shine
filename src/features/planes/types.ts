@@ -15,6 +15,7 @@ export interface SubscriptionPlanRecord {
   isActive: boolean;
   isSystem: boolean;
   sortOrder: number;
+  checkoutUrl: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -41,6 +42,7 @@ export interface CreatePlanInput {
   durationDays: number;
   isActive?: boolean;
   sortOrder?: number;
+  checkoutUrl?: string | null;
   features?: PlanFeatureInput[];
 }
 
@@ -54,6 +56,7 @@ export interface UpdatePlanInput {
   durationDays?: number;
   isActive?: boolean;
   sortOrder?: number;
+  checkoutUrl?: string | null;
   features?: PlanFeatureInput[];
 }
 

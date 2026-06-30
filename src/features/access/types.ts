@@ -24,6 +24,7 @@ export interface CommercialProductRecord {
   sessionsIncluded: number;
   highlightLabel: string | null;
   sortOrder: number;
+  checkoutUrl: string | null;
 }
 
 export interface UserPurchaseRecord {

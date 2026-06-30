@@ -293,6 +293,7 @@ function ProductModal({ mode, product, group, onClose, onSaved }: ProductModalPr
   const [highlightLabel, setHighlightLabel] = useState(product?.highlightLabel ?? '');
   const [isActive, setIsActive] = useState<boolean>(product?.isActive ?? true);
   const [sortOrder, setSortOrder] = useState<number>(product?.sortOrder ?? 100);
+  const [checkoutUrl, setCheckoutUrl] = useState(product?.checkoutUrl ?? '');
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -326,6 +327,7 @@ function ProductModal({ mode, product, group, onClose, onSaved }: ProductModalPr
         highlightLabel: highlightLabel.trim() || null,
         isActive,
         sortOrder,
+        checkoutUrl: checkoutUrl.trim() || null,
       };
       const res = await createProduct(body);
       if (!res.ok) {
@@ -344,6 +346,7 @@ function ProductModal({ mode, product, group, onClose, onSaved }: ProductModalPr
         highlightLabel: highlightLabel.trim() || null,
         isActive,
         sortOrder,
+        checkoutUrl: checkoutUrl.trim() || null,
       };
       const res = await updateProduct(product.productCode, body);
       if (!res.ok) {
@@ -438,6 +441,22 @@ function ProductModal({ mode, product, group, onClose, onSaved }: ProductModalPr
                 rows={3}
                 className="w-full rounded-md border border-[var(--app-border)] px-3 py-2 text-sm"
               />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-[var(--app-muted)]">
+                Enlace del botón "Comprar" (pago o asesor)
+              </label>
+              <input
+                type="url"
+                value={checkoutUrl}
+                onChange={(e) => setCheckoutUrl(e.target.value)}
+                className="w-full rounded-md border border-[var(--app-border)] px-3 py-2 text-sm"
+                placeholder="https://… (centro de pagos o contacto con asesor)"
+              />
+              <p className="mt-1 text-[11px] text-[var(--app-muted)]">
+                Destino del botón en la página pública. Si se deja vacío, se usa el flujo por defecto.
+              </p>
             </div>
 
             <div>

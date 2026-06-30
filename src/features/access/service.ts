@@ -24,6 +24,7 @@ interface ProductRow {
   sessions_included: number | null;
   highlight_label: string | null;
   sort_order: number;
+  checkout_url: string | null;
 }
 
 interface PurchaseRow {
@@ -52,6 +53,7 @@ function mapProductRow(row: ProductRow): CommercialProductRecord {
     sessionsIncluded: Number(row.sessions_included ?? 0),
     highlightLabel: row.highlight_label,
     sortOrder: Number(row.sort_order ?? 0),
+    checkoutUrl: row.checkout_url ?? null,
   };
 }
 
@@ -68,7 +70,8 @@ async function listCatalog(client: PoolClient): Promise<CommercialProductRecord[
         currency_code,
         sessions_included,
         highlight_label,
-        sort_order
+        sort_order,
+        checkout_url
       FROM app_billing.product_catalog
       WHERE is_active = true
       ORDER BY sort_order, name

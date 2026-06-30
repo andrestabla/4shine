@@ -13,6 +13,7 @@ export interface ProductRecord {
   isActive: boolean;
   isSystem: boolean;
   sortOrder: number;
+  checkoutUrl: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -29,6 +30,7 @@ export interface CreateProductInput {
   highlightLabel?: string | null;
   isActive?: boolean;
   sortOrder?: number;
+  checkoutUrl?: string | null;
 }
 
 export interface UpdateProductInput {
@@ -42,4 +44,5 @@ export interface UpdateProductInput {
   highlightLabel?: string | null;
   isActive?: boolean;
   sortOrder?: number;
+  checkoutUrl?: string | null;
 }

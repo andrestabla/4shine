@@ -28,6 +28,7 @@ interface PlanRow {
   is_active: boolean;
   is_system: boolean;
   sort_order: number;
+  checkout_url: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -42,7 +43,7 @@ interface FeatureRow {
 const PLAN_SELECT = `
   plan_id::text, plan_code, plan_group, name, description, highlight_label,
   price_amount, currency_code, duration_days, is_active, is_system, sort_order,
-  created_at::text, updated_at::text
+  checkout_url, created_at::text, updated_at::text
 `;
 
 function toPlanRecord(row: PlanRow): SubscriptionPlanRecord {
@@ -59,6 +60,7 @@ function toPlanRecord(row: PlanRow): SubscriptionPlanRecord {
     isActive: row.is_active,
     isSystem: row.is_system,
     sortOrder: Number(row.sort_order ?? 0),
+    checkoutUrl: row.checkout_url ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -202,8 +204,8 @@ export async function createPlan(
     `INSERT INTO app_billing.subscription_plans
        (plan_code, plan_group, name, description, highlight_label,
         price_amount, currency_code, duration_days, is_active,
-        sort_order, created_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+        sort_order, checkout_url, created_by)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
      RETURNING ${PLAN_SELECT}`,
     [
       code,
@@ -216,6 +218,7 @@ export async function createPlan(
       input.durationDays,
       input.isActive ?? true,
       input.sortOrder ?? 100,
+      input.checkoutUrl?.trim() || null,
       actor.userId,
     ],
   );
@@ -260,6 +263,9 @@ export async function updatePlan(
     ['duration_days', input.durationDays],
     ['is_active', input.isActive],
     ['sort_order', input.sortOrder],
+    ['checkout_url', input.checkoutUrl === undefined
+      ? undefined
+      : (input.checkoutUrl?.trim() || null)],
   ];
 
   for (const [col, val] of fields) {
