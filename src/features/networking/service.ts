@@ -433,17 +433,10 @@ export async function getConnectedLeaderProfile(
     throw new Error('Solo puedes ver perfiles completos de líderes con los que ya estás conectado.');
   }
 
-  // Restricción de visibilidad por rol del ACTOR:
-  //   - Líder normal: solo puede ver perfiles de OTROS líderes activos
-  //     que tengan acceso al programa (comunidad cerrada del programa).
-  //   - Admin / gestor / mentor (rol elevado): pueden ver el perfil de
-  //     CUALQUIER usuario activo, sin filtro de rol o de plan, para que
-  //     puedan gestionar la comunidad y dar soporte. Esto cubre el caso
-  //     donde el target es admin/gestor/mentor o un líder sin plan activo
-  //     todavía — antes esto devolvía "Perfil no disponible" engañosamente.
-  const isElevatedActor =
-    actor.role === 'admin' || actor.role === 'gestor' || actor.role === 'mentor';
-
+  // La conexión (verificada arriba) o el permiso de gestión ya autorizan ver el
+  // perfil. NO se filtra por rol ni por acceso al programa del target: si dos
+  // usuarios están conectados, su perfil es público entre ellos (sea líder,
+  // adviser, gestor o un líder sin plan activo). Solo se exige que esté activo.
   const profile = await client.query<ConnectedLeaderProfileRow>(
     `
       SELECT
@@ -465,13 +458,9 @@ export async function getConnectedLeaderProfile(
       LEFT JOIN app_core.user_profiles p ON p.user_id = u.user_id
       WHERE u.user_id = $1::uuid
         AND u.is_active = true
-        AND (
-          $2::boolean = true
-          OR (u.primary_role = 'lider' AND app_mentoring.user_has_program_access(u.user_id))
-        )
       LIMIT 1
     `,
-    [targetUserId, isElevatedActor],
+    [targetUserId],
   );
 
   const row = profile.rows[0];
