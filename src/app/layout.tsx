@@ -25,13 +25,24 @@ function resolveMetadataBase(): URL {
 export async function generateMetadata(): Promise<Metadata> {
   const { settings } = await loadServerBranding();
   const platformName = settings.platformName?.trim() || '4Shine';
+  const description = 'Plataforma ejecutiva de liderazgo y mentoring';
   const faviconVersion = settings.updatedAt
     ? new Date(settings.updatedAt).getTime()
     : 0;
 
+  // Imagen para previews al compartir (WhatsApp, redes, etc.). WhatsApp usa
+  // og:image, NO el favicon. Apuntamos DIRECTO a la imagen de branding
+  // configurada (sin redirect, que los crawlers suelen no seguir). Se versiona
+  // con ?v= para invalidar la caché del crawler cuando cambie el branding.
+  const rawOgImage =
+    settings.logoUrl?.trim() || settings.faviconUrl?.trim() || '/branding/4shine-logo-mixto.png';
+  const ogImage = rawOgImage.includes('?')
+    ? `${rawOgImage}&v=${faviconVersion}`
+    : `${rawOgImage}?v=${faviconVersion}`;
+
   return {
     title: platformName,
-    description: 'Plataforma ejecutiva de liderazgo y mentoring',
+    description,
     metadataBase: resolveMetadataBase(),
     icons: {
       icon: `/api/v1/public/favicon?v=${faviconVersion}`,
@@ -39,6 +50,21 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     alternates: {
       canonical: '/',
+    },
+    openGraph: {
+      type: 'website',
+      siteName: platformName,
+      title: platformName,
+      description,
+      url: '/',
+      locale: 'es_CO',
+      images: [{ url: ogImage, alt: platformName }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: platformName,
+      description,
+      images: [ogImage],
     },
   };
 }
