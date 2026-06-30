@@ -25,6 +25,8 @@ export interface CommercialProductRecord {
   highlightLabel: string | null;
   sortOrder: number;
   checkoutUrl: string | null;
+  checkoutType: 'payment' | 'whatsapp';
+  ctaLabel: string | null;
 }
 
 export interface UserPurchaseRecord {

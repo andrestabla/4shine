@@ -25,6 +25,8 @@ interface ProductRow {
   highlight_label: string | null;
   sort_order: number;
   checkout_url: string | null;
+  checkout_type: string | null;
+  cta_label: string | null;
 }
 
 interface PurchaseRow {
@@ -54,6 +56,8 @@ function mapProductRow(row: ProductRow): CommercialProductRecord {
     highlightLabel: row.highlight_label,
     sortOrder: Number(row.sort_order ?? 0),
     checkoutUrl: row.checkout_url ?? null,
+    checkoutType: row.checkout_type === 'whatsapp' ? 'whatsapp' : 'payment',
+    ctaLabel: row.cta_label ?? null,
   };
 }
 
@@ -71,7 +75,9 @@ async function listCatalog(client: PoolClient): Promise<CommercialProductRecord[
         sessions_included,
         highlight_label,
         sort_order,
-        checkout_url
+        checkout_url,
+        checkout_type,
+        cta_label
       FROM app_billing.product_catalog
       WHERE is_active = true
       ORDER BY sort_order, name

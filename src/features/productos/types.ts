@@ -14,6 +14,8 @@ export interface ProductRecord {
   isSystem: boolean;
   sortOrder: number;
   checkoutUrl: string | null;
+  checkoutType: 'payment' | 'whatsapp';
+  ctaLabel: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -31,6 +33,8 @@ export interface CreateProductInput {
   isActive?: boolean;
   sortOrder?: number;
   checkoutUrl?: string | null;
+  checkoutType?: 'payment' | 'whatsapp';
+  ctaLabel?: string | null;
 }
 
 export interface UpdateProductInput {
@@ -45,4 +49,6 @@ export interface UpdateProductInput {
   isActive?: boolean;
   sortOrder?: number;
   checkoutUrl?: string | null;
+  checkoutType?: 'payment' | 'whatsapp';
+  ctaLabel?: string | null;
 }

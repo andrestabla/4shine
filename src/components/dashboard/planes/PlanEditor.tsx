@@ -55,6 +55,10 @@ export function PlanEditor({ initial }: PlanEditorProps) {
   const [isActive, setIsActive] = useState<boolean>(initial?.isActive ?? true);
   const [sortOrder, setSortOrder] = useState<number>(initial?.sortOrder ?? 100);
   const [checkoutUrl, setCheckoutUrl] = useState(initial?.checkoutUrl ?? '');
+  const [checkoutType, setCheckoutType] = useState<'payment' | 'whatsapp'>(
+    initial?.checkoutType ?? 'payment',
+  );
+  const [ctaLabel, setCtaLabel] = useState(initial?.ctaLabel ?? '');
   const [features, setFeatures] = useState<FeatureMap>(() => buildInitialFeatures(initial));
 
   const [saving, setSaving] = useState(false);
@@ -110,6 +114,8 @@ export function PlanEditor({ initial }: PlanEditorProps) {
         isActive,
         sortOrder,
         checkoutUrl: checkoutUrl.trim() || null,
+        checkoutType,
+        ctaLabel: ctaLabel.trim() || null,
         features: buildFeatureInputs(),
       };
       const res = await updatePlan(initial.planId, body);
@@ -131,6 +137,8 @@ export function PlanEditor({ initial }: PlanEditorProps) {
         isActive,
         sortOrder,
         checkoutUrl: checkoutUrl.trim() || null,
+        checkoutType,
+        ctaLabel: ctaLabel.trim() || null,
         features: buildFeatureInputs(),
       };
       const res = await createPlan(body);
@@ -245,20 +253,50 @@ export function PlanEditor({ initial }: PlanEditorProps) {
             />
           </div>
 
-          <div className="md:col-span-2">
+          <div>
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-[var(--app-muted)]">
-              Enlace del botón "Comenzar" (pago o asesor)
+              Destino del botón
+            </label>
+            <select
+              value={checkoutType}
+              onChange={(e) => setCheckoutType(e.target.value as 'payment' | 'whatsapp')}
+              className="w-full rounded-md border border-[var(--app-border)] px-3 py-2 text-sm"
+            >
+              <option value="payment">Centro de pagos</option>
+              <option value="whatsapp">Asesor (WhatsApp)</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-[var(--app-muted)]">
+              Texto del botón
             </label>
             <input
-              type="url"
+              type="text"
+              value={ctaLabel}
+              onChange={(e) => setCtaLabel(e.target.value)}
+              className="w-full rounded-md border border-[var(--app-border)] px-3 py-2 text-sm"
+              placeholder={checkoutType === 'whatsapp' ? 'Saber más' : 'Comenzar'}
+            />
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-[var(--app-muted)]">
+              {checkoutType === 'whatsapp'
+                ? 'Número de WhatsApp (con código de país)'
+                : 'Enlace de pago'}
+            </label>
+            <input
+              type="text"
               value={checkoutUrl}
               onChange={(e) => setCheckoutUrl(e.target.value)}
               className="w-full rounded-md border border-[var(--app-border)] px-3 py-2 text-sm"
-              placeholder="https://… (centro de pagos o contacto con asesor)"
+              placeholder={checkoutType === 'whatsapp' ? '+57 300 123 4567' : 'https://… (centro de pagos)'}
             />
             <p className="mt-1 text-[11px] text-[var(--app-muted)]">
-              Destino del botón "Comenzar" de este plan en la página pública de Planes y precios.
-              Si se deja vacío, se usa el flujo por defecto.
+              {checkoutType === 'whatsapp'
+                ? 'Al hacer clic se abre WhatsApp con un mensaje predefinido que incluye el nombre del plan.'
+                : 'Destino del botón en la página pública. Si se deja vacío, se usa el flujo por defecto.'}
             </p>
           </div>
         </div>

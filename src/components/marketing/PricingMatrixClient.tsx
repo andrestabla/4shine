@@ -24,6 +24,30 @@ interface MentoringPack {
   badge?: string;
   note: string;
   checkoutHref: string;
+  external?: boolean;
+  ctaLabel?: string;
+}
+
+/**
+ * Resuelve el destino del botón según el tipo de checkout configurado:
+ *  - whatsapp: arma un enlace wa.me con un mensaje predefinido (incluye el nombre).
+ *  - payment: usa la URL tal cual.
+ *  - sin URL: usa el flujo por defecto.
+ */
+function resolveCta(opts: {
+  checkoutType?: string | null;
+  checkoutUrl?: string | null;
+  name: string;
+  fallbackHref: string;
+}): { href: string; external: boolean } {
+  const url = (opts.checkoutUrl ?? '').trim();
+  if (opts.checkoutType === 'whatsapp' && url) {
+    const phone = url.replace(/[^0-9]/g, '');
+    const message = `Hola, estoy interesado en el "${opts.name}", ¿me podrías dar más información al respecto?`;
+    return { href: `https://wa.me/${phone}?text=${encodeURIComponent(message)}`, external: true };
+  }
+  if (url) return { href: url, external: true };
+  return { href: opts.fallbackHref, external: false };
 }
 
 const TABS: { id: Tab; label: string }[] = [
@@ -102,20 +126,37 @@ export function PricingMatrixClient({ plans, catalog = [] }: PricingMatrixClient
     const fromCatalog = catalog
       .filter((p) => p.productGroup === 'mentoring_pack')
       .sort((a, b) => a.sortOrder - b.sortOrder)
-      .map((p) => ({
-        id: p.productCode,
-        sessions: p.sessionsIncluded,
-        price: p.priceAmount,
-        badge: p.highlightLabel ?? undefined,
-        note: p.headline || p.description || '',
-        checkoutHref: p.checkoutUrl || `/acceso?plan=mentoria-${p.sessionsIncluded}`,
-      }));
+      .map((p) => {
+        const cta = resolveCta({
+          checkoutType: p.checkoutType,
+          checkoutUrl: p.checkoutUrl,
+          name: p.name,
+          fallbackHref: `/acceso?plan=mentoria-${p.sessionsIncluded}`,
+        });
+        return {
+          id: p.productCode,
+          sessions: p.sessionsIncluded,
+          price: p.priceAmount,
+          badge: p.highlightLabel ?? undefined,
+          note: p.headline || p.description || '',
+          checkoutHref: cta.href,
+          external: cta.external,
+          ctaLabel: p.ctaLabel ?? undefined,
+        };
+      });
     return fromCatalog.length > 0 ? fromCatalog : MENTORING_PACKS;
   }, [catalog]);
   const diagnosticName = diagnostic?.name || 'Diagnóstico Ejecutivo';
   const diagnosticPrice = diagnostic?.priceAmount ?? 50;
   const diagnosticCurrency = diagnostic?.currencyCode || 'USD';
   const diagnosticBadge = diagnostic?.highlightLabel || 'Compra individual';
+  const diagnosticCta = resolveCta({
+    checkoutType: diagnostic?.checkoutType,
+    checkoutUrl: diagnostic?.checkoutUrl,
+    name: diagnosticName,
+    fallbackHref: '/acceso?plan=diagnostico',
+  });
+  const diagnosticCtaLabel = diagnostic?.ctaLabel || 'Comprar diagnóstico';
 
   return (
     <div className="mx-auto w-full max-w-[1240px] px-6 pb-24 md:px-10 lg:px-14">
@@ -224,14 +265,15 @@ export function PricingMatrixClient({ plans, catalog = [] }: PricingMatrixClient
               Incluido en todos los programas de liderazgo. Si ya tienes un programa activo, no necesitas comprarlo por separado.
             </div>
             <Link
-              href={diagnostic?.checkoutUrl || '/acceso?plan=diagnostico'}
+              href={diagnosticCta.href}
+              {...(diagnosticCta.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
               className="mt-auto pt-6 block w-full rounded-full py-3 text-center text-sm font-extrabold transition"
               style={{
                 background: 'var(--brand-accent)',
                 color: 'var(--brand-on-accent)',
               }}
             >
-              Comprar diagnóstico
+              {diagnosticCtaLabel}
             </Link>
           </article>
         </div>
@@ -321,6 +363,7 @@ export function PricingMatrixClient({ plans, catalog = [] }: PricingMatrixClient
                 </p>
                 <Link
                   href={pack.checkoutHref}
+                  {...(pack.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
                   className="mt-6 block w-full rounded-full py-2.5 text-center text-sm font-extrabold transition"
                   style={
                     pack.badge
@@ -335,7 +378,7 @@ export function PricingMatrixClient({ plans, catalog = [] }: PricingMatrixClient
                         }
                   }
                 >
-                  Comprar
+                  {pack.ctaLabel || 'Comprar'}
                 </Link>
               </article>
             ))}
@@ -499,7 +542,8 @@ function ProgramsSection({ programs, moduleGroups }: ProgramsSectionProps) {
 
               <div className="border-t px-5 py-4 text-center" style={{ borderColor: 'var(--brand-border)' }}>
                 <Link
-                  href={p.checkoutUrl || `/acceso?plan=${encodeURIComponent(p.planCode)}`}
+                  href={resolveCta({ checkoutType: p.checkoutType, checkoutUrl: p.checkoutUrl, name: p.name, fallbackHref: `/acceso?plan=${encodeURIComponent(p.planCode)}` }).href}
+                  {...(resolveCta({ checkoutType: p.checkoutType, checkoutUrl: p.checkoutUrl, name: p.name, fallbackHref: '' }).external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
                   className="inline-block w-full rounded-full px-6 py-3 text-sm font-extrabold transition"
                   style={
                     highlighted
@@ -514,7 +558,7 @@ function ProgramsSection({ programs, moduleGroups }: ProgramsSectionProps) {
                         }
                   }
                 >
-                  Comenzar
+                  {p.checkoutType === 'whatsapp' && p.checkoutUrl ? (p.ctaLabel || 'Saber más') : (p.ctaLabel || 'Comenzar')}
                 </Link>
                 <p className="mt-2 text-[10px]" style={{ color: 'var(--brand-ink-muted)' }}>
                   * Precio único. Sin cuotas ocultas.
@@ -698,7 +742,8 @@ function ProgramsSection({ programs, moduleGroups }: ProgramsSectionProps) {
                     style={highlighted ? { background: 'var(--brand-surface)' } : undefined}
                   >
                     <Link
-                      href={p.checkoutUrl || `/acceso?plan=${encodeURIComponent(p.planCode)}`}
+                      href={resolveCta({ checkoutType: p.checkoutType, checkoutUrl: p.checkoutUrl, name: p.name, fallbackHref: `/acceso?plan=${encodeURIComponent(p.planCode)}` }).href}
+                      {...(resolveCta({ checkoutType: p.checkoutType, checkoutUrl: p.checkoutUrl, name: p.name, fallbackHref: '' }).external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
                       className="inline-block rounded-full px-6 py-2.5 text-sm font-extrabold transition"
                       style={
                         highlighted
@@ -713,7 +758,7 @@ function ProgramsSection({ programs, moduleGroups }: ProgramsSectionProps) {
                             }
                       }
                     >
-                      Comenzar
+                      {p.checkoutType === 'whatsapp' && p.checkoutUrl ? (p.ctaLabel || 'Saber más') : (p.ctaLabel || 'Comenzar')}
                     </Link>
                   </td>
                 );
@@ -862,7 +907,8 @@ function CirculoSection({ circulos }: { circulos: SubscriptionPlanWithFeatures[]
                 })}
               </ul>
               <Link
-                href={plan.checkoutUrl || `/acceso?plan=${encodeURIComponent(plan.planCode)}`}
+                href={resolveCta({ checkoutType: plan.checkoutType, checkoutUrl: plan.checkoutUrl, name: plan.name, fallbackHref: `/acceso?plan=${encodeURIComponent(plan.planCode)}` }).href}
+                {...(resolveCta({ checkoutType: plan.checkoutType, checkoutUrl: plan.checkoutUrl, name: plan.name, fallbackHref: '' }).external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
                 className="mt-8 block w-full rounded-full py-3 text-center text-sm font-extrabold transition"
                 style={
                   isHighlight
@@ -877,7 +923,7 @@ function CirculoSection({ circulos }: { circulos: SubscriptionPlanWithFeatures[]
                       }
                 }
               >
-                Unirme al Círculo
+                {plan.ctaLabel || 'Unirme al Círculo'}
               </Link>
             </article>
           );

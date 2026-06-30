@@ -29,6 +29,8 @@ interface PlanRow {
   is_system: boolean;
   sort_order: number;
   checkout_url: string | null;
+  checkout_type: string | null;
+  cta_label: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -43,7 +45,7 @@ interface FeatureRow {
 const PLAN_SELECT = `
   plan_id::text, plan_code, plan_group, name, description, highlight_label,
   price_amount, currency_code, duration_days, is_active, is_system, sort_order,
-  checkout_url, created_at::text, updated_at::text
+  checkout_url, checkout_type, cta_label, created_at::text, updated_at::text
 `;
 
 function toPlanRecord(row: PlanRow): SubscriptionPlanRecord {
@@ -61,6 +63,8 @@ function toPlanRecord(row: PlanRow): SubscriptionPlanRecord {
     isSystem: row.is_system,
     sortOrder: Number(row.sort_order ?? 0),
     checkoutUrl: row.checkout_url ?? null,
+    checkoutType: row.checkout_type === 'whatsapp' ? 'whatsapp' : 'payment',
+    ctaLabel: row.cta_label ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -204,8 +208,8 @@ export async function createPlan(
     `INSERT INTO app_billing.subscription_plans
        (plan_code, plan_group, name, description, highlight_label,
         price_amount, currency_code, duration_days, is_active,
-        sort_order, checkout_url, created_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+        sort_order, checkout_url, checkout_type, cta_label, created_by)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
      RETURNING ${PLAN_SELECT}`,
     [
       code,
@@ -219,6 +223,8 @@ export async function createPlan(
       input.isActive ?? true,
       input.sortOrder ?? 100,
       input.checkoutUrl?.trim() || null,
+      input.checkoutType === 'whatsapp' ? 'whatsapp' : 'payment',
+      input.ctaLabel?.trim() || null,
       actor.userId,
     ],
   );
@@ -266,6 +272,12 @@ export async function updatePlan(
     ['checkout_url', input.checkoutUrl === undefined
       ? undefined
       : (input.checkoutUrl?.trim() || null)],
+    ['checkout_type', input.checkoutType === undefined
+      ? undefined
+      : (input.checkoutType === 'whatsapp' ? 'whatsapp' : 'payment')],
+    ['cta_label', input.ctaLabel === undefined
+      ? undefined
+      : (input.ctaLabel?.trim() || null)],
   ];
 
   for (const [col, val] of fields) {

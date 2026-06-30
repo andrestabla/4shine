@@ -2,6 +2,9 @@
 
 export type PlanGroup = 'program' | 'circulo' | 'custom';
 
+/** Destino del botón "Comenzar": centro de pagos o asesor por WhatsApp. */
+export type CheckoutType = 'payment' | 'whatsapp';
+
 export interface SubscriptionPlanRecord {
   planId: string;
   planCode: string;
@@ -16,6 +19,8 @@ export interface SubscriptionPlanRecord {
   isSystem: boolean;
   sortOrder: number;
   checkoutUrl: string | null;
+  checkoutType: CheckoutType;
+  ctaLabel: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -43,6 +48,8 @@ export interface CreatePlanInput {
   isActive?: boolean;
   sortOrder?: number;
   checkoutUrl?: string | null;
+  checkoutType?: CheckoutType;
+  ctaLabel?: string | null;
   features?: PlanFeatureInput[];
 }
 
@@ -57,6 +64,8 @@ export interface UpdatePlanInput {
   isActive?: boolean;
   sortOrder?: number;
   checkoutUrl?: string | null;
+  checkoutType?: CheckoutType;
+  ctaLabel?: string | null;
   features?: PlanFeatureInput[];
 }
 
