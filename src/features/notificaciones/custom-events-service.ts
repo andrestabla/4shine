@@ -269,7 +269,7 @@ async function fireEventDependency(client: PoolClient, ev: EventRow): Promise<nu
     `SELECT n.user_id::text, u.display_name, u.email, n.created_at::text AS fire_key
        FROM app_core.notifications n
        JOIN app_core.users u ON u.user_id = n.user_id
-      WHERE n.organization_id = $1::uuid
+      WHERE u.organization_id = $1::uuid
         AND n.event_key = $2
         AND u.is_active = true
         AND u.email IS NOT NULL
