@@ -369,6 +369,19 @@ export function updateRequest(requestId: string, input: CreateRequestInput): Pro
   });
 }
 
+export interface PublishRequestResult {
+  convocatoriaId: string;
+  request: ConvocatoriaRequest;
+}
+
+/** Publica una solicitud usando el formulario completo de convocatoria (gestor). */
+export function publishRequest(requestId: string, input: CreateConvocatoriaInput): Promise<PublishRequestResult> {
+  return requestApi<PublishRequestResult>(`${BASE}/requests/${requestId}/publish`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
 // ── Notification interests ────────────────────────────────────────────────────
 
 export function getNotificationInterest(): Promise<{ interested: boolean }> {

@@ -1511,6 +1511,71 @@ export async function reviewRequest(
   return mapRequest(rows[0]);
 }
 
+export interface PublishRequestResult {
+  convocatoriaId: string;
+  request: ConvocatoriaRequest;
+}
+
+/**
+ * Publica una solicitud usando el FORMULARIO COMPLETO de convocatoria (mismos
+ * campos que "Nueva convocatoria"), ya revisado/editado por el gestor: crea la
+ * convocatoria, marca la solicitud como aprobada y la enlaza. Notifica al líder.
+ */
+export async function publishRequest(
+  client: PoolClient,
+  actor: AuthUser,
+  requestId: string,
+  input: CreateConvocatoriaInput,
+): Promise<PublishRequestResult> {
+  await requireModulePermission(client, 'convocatorias', 'manage');
+  await requireCommunityAccess(client, actor, 'Convocatorias');
+  if (!input.title?.trim()) throw new Error('El título es requerido');
+
+  const { rows: cur } = await client.query<RequestRow>(
+    `${REQUEST_SELECT} WHERE r.request_id = $1`,
+    [requestId],
+  );
+  const reqRow = cur[0];
+  if (!reqRow) throw new Error('Solicitud no encontrada');
+  if (reqRow.status !== 'pending') throw new Error('Esta solicitud ya fue revisada.');
+
+  // Crea la convocatoria con el formulario completo (status 'open' por defecto).
+  const created = await createConvocatoria(client, actor, {
+    ...input,
+    status: input.status ?? 'open',
+  });
+
+  await client.query(
+    `UPDATE app_networking.convocatoria_requests
+     SET status = 'approved', reviewer_user_id = $2, convocatoria_id = $3::uuid, updated_at = now()
+     WHERE request_id = $1`,
+    [requestId, actor.userId, created.convocatoriaId],
+  );
+
+  const { rows: orgRows } = await client.query<{ organization_id: string; email: string }>(
+    `SELECT organization_id::text, email::text FROM app_core.users WHERE user_id = $1 LIMIT 1`,
+    [reqRow.requester_user_id],
+  );
+  const organizationId = orgRows[0]?.organization_id;
+  if (organizationId) {
+    void dispatchNotification(client, {
+      organizationId,
+      recipientUserId: reqRow.requester_user_id,
+      recipientEmail: orgRows[0]?.email,
+      eventKey: 'convocatorias.request_approved',
+      variables: {
+        nombre: (reqRow.requester_name || 'Miembro').split(' ')[0] ?? 'Miembro',
+        titulo: input.title.trim(),
+        plataforma: '4Shine',
+        enlace_plataforma: 'https://4shine.co',
+      },
+    });
+  }
+
+  const { rows } = await client.query<RequestRow>(`${REQUEST_SELECT} WHERE r.request_id = $1`, [requestId]);
+  return { convocatoriaId: created.convocatoriaId, request: mapRequest(rows[0]) };
+}
+
 // ── Notification interests ─────────────────────────────────────────────────────
 
 export async function getNotificationInterest(

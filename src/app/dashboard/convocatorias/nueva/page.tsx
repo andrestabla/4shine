@@ -1,12 +1,14 @@
 'use client';
 
-import React from 'react';
-import { useRouter } from 'next/navigation';
+import React, { Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useUser } from '@/context/UserContext';
 import {
   createConvocatoria,
+  listRequests,
+  publishRequest,
   type ConvocatoriaTipo,
   type ConvocatoriaStatus,
 } from '@/features/convocatorias/client';
@@ -51,11 +53,43 @@ const INITIAL: FormState = {
   status: 'draft', loading: false,
 };
 
-export default function NuevaConvocatoriaPage() {
+function NuevaConvocatoriaInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { can } = useUser();
   const { alert } = useAppDialog();
+  const requestId = searchParams.get('requestId');
   const [form, setForm] = React.useState<FormState>(INITIAL);
+  const [requesterName, setRequesterName] = React.useState<string | null>(null);
+
+  // Si viene de una solicitud de publicación, pre-llena el formulario con lo que
+  // envió el líder (mismas secciones/campos que crear una convocatoria nueva).
+  React.useEffect(() => {
+    if (!requestId) return;
+    let cancelled = false;
+    void listRequests('all')
+      .then((reqs) => {
+        if (cancelled) return;
+        const r = reqs.find((x) => x.requestId === requestId);
+        if (!r) return;
+        setRequesterName(r.requesterName);
+        setForm((s) => ({
+          ...s,
+          title: r.title || '',
+          tipo: (r.tipo as ConvocatoriaTipo) || 'otra',
+          objetivo: r.objetivo || '',
+          description: r.description || '',
+          fechaInicio: r.fechaInicio || '',
+          fechaFin: r.fechaFin || '',
+          requisitos: r.requisitos || '',
+          enlacesComplementarios: r.enlacesComplementarios || '',
+          contactoTelefono: r.numeroContacto || '',
+          status: 'open',
+        }));
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [requestId]);
 
   if (!can('convocatorias', 'create')) {
     router.replace('/dashboard/convocatorias');
@@ -68,32 +102,39 @@ export default function NuevaConvocatoriaPage() {
     e.preventDefault();
     if (!form.title.trim()) return;
     set({ loading: true });
+    const payload = {
+      title: form.title.trim(),
+      tipo: form.tipo,
+      objetivo: form.objetivo.trim(),
+      description: form.description.trim(),
+      fechaInicio: form.fechaInicio || null,
+      fechaFin: form.fechaFin || null,
+      requisitos: form.requisitos.trim(),
+      enlacesComplementarios: form.enlacesComplementarios.trim(),
+      contactoTelefono: form.contactoTelefono.trim(),
+      contactoEmail: form.contactoEmail.trim(),
+      empresaSolicitante: form.empresaSolicitante.trim(),
+      solicitudArchivoLabel: form.solicitudArchivoLabel.trim(),
+      solicitudArchivoRequerido: form.solicitudArchivoRequerido,
+      solicitudUrlLabel: form.solicitudUrlLabel.trim(),
+      solicitudUrlRequerido: form.solicitudUrlRequerido,
+      location: form.location.trim() || null,
+      externalUrl: form.externalUrl.trim() || null,
+      status: form.status,
+    };
     try {
-      const created = await createConvocatoria({
-        title: form.title.trim(),
-        tipo: form.tipo,
-        objetivo: form.objetivo.trim(),
-        description: form.description.trim(),
-        fechaInicio: form.fechaInicio || null,
-        fechaFin: form.fechaFin || null,
-        requisitos: form.requisitos.trim(),
-        enlacesComplementarios: form.enlacesComplementarios.trim(),
-        contactoTelefono: form.contactoTelefono.trim(),
-        contactoEmail: form.contactoEmail.trim(),
-        empresaSolicitante: form.empresaSolicitante.trim(),
-        solicitudArchivoLabel: form.solicitudArchivoLabel.trim(),
-        solicitudArchivoRequerido: form.solicitudArchivoRequerido,
-        solicitudUrlLabel: form.solicitudUrlLabel.trim(),
-        solicitudUrlRequerido: form.solicitudUrlRequerido,
-        location: form.location.trim() || null,
-        externalUrl: form.externalUrl.trim() || null,
-        status: form.status,
-      });
-      router.push(`/dashboard/convocatorias/${created.convocatoriaId}`);
+      if (requestId) {
+        await publishRequest(requestId, payload);
+        await alert({ title: 'Solicitud publicada', message: 'La convocatoria se publicó y se notificó al líder.', tone: 'success' });
+        router.push('/dashboard/convocatorias');
+      } else {
+        const created = await createConvocatoria(payload);
+        router.push(`/dashboard/convocatorias/${created.convocatoriaId}`);
+      }
     } catch (err) {
       await alert({
         title: 'Error',
-        message: err instanceof Error ? err.message : 'No se pudo crear la convocatoria',
+        message: err instanceof Error ? err.message : 'No se pudo guardar la convocatoria',
         tone: 'error',
       });
       set({ loading: false });
@@ -117,9 +158,13 @@ export default function NuevaConvocatoriaPage() {
       </button>
 
       <div>
-        <h1 className="text-2xl font-black text-[var(--app-ink)]">Nueva convocatoria</h1>
+        <h1 className="text-2xl font-black text-[var(--app-ink)]">
+          {requestId ? 'Revisar y publicar solicitud' : 'Nueva convocatoria'}
+        </h1>
         <p className="mt-1 text-sm text-[var(--app-muted)]">
-          Completa la información. Puedes agregar imágenes, adjuntos y preguntas frecuentes después de crear.
+          {requestId
+            ? `Revisa y completa el formulario${requesterName ? ` enviado por ${requesterName}` : ''}. Al publicar se crea la convocatoria y se notifica al líder.`
+            : 'Completa la información. Puedes agregar imágenes, adjuntos y preguntas frecuentes después de crear.'}
         </p>
       </div>
 
@@ -290,10 +335,20 @@ export default function NuevaConvocatoriaPage() {
             Cancelar
           </button>
           <button type="submit" className="app-button-primary" disabled={form.loading || !form.title.trim()}>
-            {form.loading ? 'Creando...' : 'Crear convocatoria'}
+            {requestId
+              ? (form.loading ? 'Publicando...' : 'Aprobar y publicar')
+              : (form.loading ? 'Creando...' : 'Crear convocatoria')}
           </button>
         </div>
       </form>
     </div>
+  );
+}
+
+export default function NuevaConvocatoriaPage() {
+  return (
+    <Suspense fallback={null}>
+      <NuevaConvocatoriaInner />
+    </Suspense>
   );
 }

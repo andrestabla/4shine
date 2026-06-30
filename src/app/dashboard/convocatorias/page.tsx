@@ -25,13 +25,11 @@ import {
   listConvocatorias,
   listRequests,
   reviewRequest,
-  updateRequest,
   setNotificationInterest,
   type ConvocatoriaRequest,
   type ConvocatoriaSummary,
   type ConvocatoriaStatus,
   type ConvocatoriaTipo,
-  type CreateRequestInput,
 } from '@/features/convocatorias/client';
 
 const REQUEST_TIPO_LABELS: Record<string, string> = {
@@ -155,28 +153,6 @@ function RequestStatusBadge({ status }: { status: ConvocatoriaRequest['status'] 
   );
 }
 
-const REQUEST_TIPOS: { value: NonNullable<CreateRequestInput['tipo']>; label: string }[] = [
-  { value: 'laboral', label: 'Laboral' },
-  { value: 'proyecto_social', label: 'Proyecto Social' },
-  { value: 'proveedor', label: 'Proveedor' },
-  { value: 'convenio', label: 'Convenio' },
-  { value: 'otra', label: 'Otra' },
-];
-
-function toRequestForm(req: ConvocatoriaRequest): CreateRequestInput {
-  return {
-    title: req.title,
-    description: req.description,
-    objetivo: req.objetivo,
-    tipo: (req.tipo as CreateRequestInput['tipo']) ?? 'otra',
-    fechaInicio: req.fechaInicio,
-    fechaFin: req.fechaFin,
-    requisitos: req.requisitos,
-    enlacesComplementarios: req.enlacesComplementarios,
-    numeroContacto: req.numeroContacto,
-  };
-}
-
 function ReadRow({ label, value }: { label: string; value?: string | null }) {
   if (!value || !value.trim()) return null;
   return (
@@ -190,44 +166,22 @@ function ReadRow({ label, value }: { label: string; value?: string | null }) {
 function RequestCard({
   req,
   onReview,
-  onUpdate,
 }: {
   req: ConvocatoriaRequest;
   onReview: (req: ConvocatoriaRequest, status: 'approved' | 'rejected', notes?: string) => Promise<void>;
-  onUpdate: (req: ConvocatoriaRequest, input: CreateRequestInput) => Promise<void>;
 }) {
   const [expanded, setExpanded] = React.useState(false);
-  const [editing, setEditing] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [note, setNote] = React.useState('');
-  const [form, setForm] = React.useState<CreateRequestInput>(() => toRequestForm(req));
-  React.useEffect(() => { setForm(toRequestForm(req)); }, [req]);
 
   const pending = req.status === 'pending';
-  const set = (patch: Partial<CreateRequestInput>) => setForm((f) => ({ ...f, ...patch }));
-
   const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleDateString('es-CO') : '—');
 
-  const save = async () => {
-    setBusy(true);
-    await onUpdate(req, form);
-    setBusy(false);
-    setEditing(false);
-  };
-  const approve = async () => {
-    setBusy(true);
-    if (editing) await onUpdate(req, form); // persiste ediciones antes de publicar
-    await onReview(req, 'approved', note || undefined);
-    setBusy(false);
-  };
   const reject = async () => {
     setBusy(true);
     await onReview(req, 'rejected', note || undefined);
     setBusy(false);
   };
-
-  const inputCls = 'app-input text-sm';
-  const labelCls = 'mb-1 block text-[10px] font-bold uppercase tracking-wider text-[var(--app-muted)]';
 
   return (
     <div className="px-5 py-4">
@@ -254,99 +208,19 @@ function RequestCard({
       </div>
 
       {expanded && (
-        <div className="mt-3 rounded-xl border border-[var(--app-border)] bg-white p-4 space-y-3">
-          {editing ? (
-            <>
-              <div>
-                <label className={labelCls}>Título</label>
-                <input className={inputCls} value={form.title} onChange={(e) => set({ title: e.target.value })} />
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <label className={labelCls}>Tipo</label>
-                  <select
-                    className={inputCls}
-                    value={form.tipo ?? 'otra'}
-                    onChange={(e) => set({ tipo: e.target.value as CreateRequestInput['tipo'] })}
-                  >
-                    {REQUEST_TIPOS.map((t) => (
-                      <option key={t.value} value={t.value}>{t.label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className={labelCls}>Número de contacto</label>
-                  <input className={inputCls} value={form.numeroContacto ?? ''} onChange={(e) => set({ numeroContacto: e.target.value })} />
-                </div>
-                <div>
-                  <label className={labelCls}>Fecha de inicio</label>
-                  <input type="date" className={inputCls} value={form.fechaInicio ?? ''} onChange={(e) => set({ fechaInicio: e.target.value || null })} />
-                </div>
-                <div>
-                  <label className={labelCls}>Fecha de cierre</label>
-                  <input type="date" className={inputCls} value={form.fechaFin ?? ''} onChange={(e) => set({ fechaFin: e.target.value || null })} />
-                </div>
-              </div>
-              <div>
-                <label className={labelCls}>Objetivo</label>
-                <textarea className={`${inputCls} min-h-[60px]`} value={form.objetivo ?? ''} onChange={(e) => set({ objetivo: e.target.value })} />
-              </div>
-              <div>
-                <label className={labelCls}>Descripción</label>
-                <textarea className={`${inputCls} min-h-[80px]`} value={form.description ?? ''} onChange={(e) => set({ description: e.target.value })} />
-              </div>
-              <div>
-                <label className={labelCls}>Requisitos</label>
-                <textarea className={`${inputCls} min-h-[60px]`} value={form.requisitos ?? ''} onChange={(e) => set({ requisitos: e.target.value })} />
-              </div>
-              <div>
-                <label className={labelCls}>Enlaces complementarios</label>
-                <textarea className={`${inputCls} min-h-[44px]`} value={form.enlacesComplementarios ?? ''} onChange={(e) => set({ enlacesComplementarios: e.target.value })} />
-              </div>
-            </>
-          ) : (
-            <div className="space-y-3">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <ReadRow label="Tipo" value={REQUEST_TIPO_LABELS[req.tipo] ?? 'Otra'} />
-                <ReadRow label="Número de contacto" value={req.numeroContacto} />
-                <ReadRow label="Fecha de inicio" value={fmtDate(req.fechaInicio)} />
-                <ReadRow label="Fecha de cierre" value={fmtDate(req.fechaFin)} />
-              </div>
-              <ReadRow label="Objetivo" value={req.objetivo} />
-              <ReadRow label="Descripción" value={req.description} />
-              <ReadRow label="Requisitos" value={req.requisitos} />
-              <ReadRow label="Enlaces complementarios" value={req.enlacesComplementarios} />
+        <div className="mt-3 rounded-xl border border-[var(--app-border)] bg-white p-4">
+          <div className="space-y-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <ReadRow label="Tipo" value={REQUEST_TIPO_LABELS[req.tipo] ?? 'Otra'} />
+              <ReadRow label="Número de contacto" value={req.numeroContacto} />
+              <ReadRow label="Fecha de inicio" value={fmtDate(req.fechaInicio)} />
+              <ReadRow label="Fecha de cierre" value={fmtDate(req.fechaFin)} />
             </div>
-          )}
-
-          {pending && (
-            <div className="flex justify-end gap-2 border-t border-[var(--app-border)] pt-3">
-              {editing ? (
-                <>
-                  <button
-                    onClick={() => { setEditing(false); setForm(toRequestForm(req)); }}
-                    className="rounded-full border border-[var(--app-border)] px-4 py-1.5 text-xs font-semibold text-[var(--app-muted)] hover:bg-white"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    onClick={() => void save()}
-                    disabled={busy || !form.title.trim()}
-                    className="rounded-full bg-[var(--brand-primary)] px-4 py-1.5 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50"
-                  >
-                    Guardar cambios
-                  </button>
-                </>
-              ) : (
-                <button
-                  onClick={() => setEditing(true)}
-                  className="rounded-full border border-[var(--app-border)] px-4 py-1.5 text-xs font-semibold text-[var(--app-ink)] hover:bg-[var(--app-surface-muted)]"
-                >
-                  Editar formulario
-                </button>
-              )}
-            </div>
-          )}
+            <ReadRow label="Objetivo" value={req.objetivo} />
+            <ReadRow label="Descripción" value={req.description} />
+            <ReadRow label="Requisitos" value={req.requisitos} />
+            <ReadRow label="Enlaces complementarios" value={req.enlacesComplementarios} />
+          </div>
         </div>
       )}
 
@@ -356,28 +230,25 @@ function RequestCard({
 
       {pending && (
         <div className="mt-3 space-y-2">
+          <Link
+            href={`/dashboard/convocatorias/nueva?requestId=${req.requestId}`}
+            className="flex items-center justify-center rounded-full bg-emerald-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-emerald-700"
+          >
+            Revisar y publicar →
+          </Link>
           <input
             className="app-input text-xs"
-            placeholder="Nota opcional para el líder…"
+            placeholder="Nota opcional para el líder (al rechazar)…"
             value={note}
             onChange={(e) => setNote(e.target.value)}
           />
-          <div className="flex gap-1.5">
-            <button
-              onClick={() => void approve()}
-              disabled={busy}
-              className="flex-1 rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
-            >
-              Aprobar y publicar
-            </button>
-            <button
-              onClick={() => void reject()}
-              disabled={busy}
-              className="flex-1 rounded-full border border-rose-200 px-3 py-1.5 text-xs font-bold text-rose-600 hover:bg-rose-50 disabled:opacity-50"
-            >
-              Rechazar
-            </button>
-          </div>
+          <button
+            onClick={() => void reject()}
+            disabled={busy}
+            className="w-full rounded-full border border-rose-200 px-3 py-1.5 text-xs font-bold text-rose-600 hover:bg-rose-50 disabled:opacity-50"
+          >
+            Rechazar
+          </button>
         </div>
       )}
     </div>
@@ -387,12 +258,11 @@ function RequestCard({
 interface RequestsPanelProps {
   requests: ConvocatoriaRequest[];
   onReview: (req: ConvocatoriaRequest, status: 'approved' | 'rejected', notes?: string) => Promise<void>;
-  onUpdate: (req: ConvocatoriaRequest, input: CreateRequestInput) => Promise<void>;
 }
 
 type RequestFilter = 'pending' | 'all';
 
-function RequestsPanel({ requests, onReview, onUpdate }: RequestsPanelProps) {
+function RequestsPanel({ requests, onReview }: RequestsPanelProps) {
   const [open, setOpen] = React.useState(true);
   const [reqFilter, setReqFilter] = React.useState<RequestFilter>('pending');
 
@@ -445,7 +315,7 @@ function RequestsPanel({ requests, onReview, onUpdate }: RequestsPanelProps) {
               </p>
             ) : (
               visible.map((req) => (
-                <RequestCard key={req.requestId} req={req} onReview={onReview} onUpdate={onUpdate} />
+                <RequestCard key={req.requestId} req={req} onReview={onReview} />
               ))
             )}
           </div>
@@ -574,15 +444,6 @@ export default function ConvocatoriasPage() {
     }
   };
 
-  const onUpdateRequest = async (req: ConvocatoriaRequest, input: CreateRequestInput) => {
-    try {
-      await updateRequest(req.requestId, input);
-      await load();
-    } catch (err) {
-      await showError('No se pudieron guardar los cambios', err);
-    }
-  };
-
   // ── Locked state ─────────────────────────────────────────────────────────────
 
   if (isCommunityLocked) {
@@ -643,7 +504,7 @@ export default function ConvocatoriasPage() {
 
       {/* Requests panel — solo gestor/admin ve pendientes; líder ve las suyas */}
       {canManage && (
-        <RequestsPanel requests={requests} onReview={onReview} onUpdate={onUpdateRequest} />
+        <RequestsPanel requests={requests} onReview={onReview} />
       )}
 
       {!canManage && requests.length > 0 && (
