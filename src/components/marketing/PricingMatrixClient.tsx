@@ -57,35 +57,6 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'circulo', label: 'Círculo de líderes' },
 ];
 
-const MENTORING_PACKS = [
-  {
-    id: 'mentor-1',
-    sessions: 1,
-    label: '1 sesión',
-    price: 50,
-    note: 'Sesión individual de 60 min. con Advisor certificado. Ideal para un momento puntual de claridad o acompañamiento.',
-    checkoutHref: '/acceso?plan=mentoria-1',
-  },
-  {
-    id: 'mentor-3',
-    sessions: 3,
-    label: '3 sesiones',
-    price: 140,
-    badge: 'Más elegido',
-    note: 'Pack de 3 sesiones. Recomendado para trabajar un reto concreto con continuidad y profundidad.',
-    checkoutHref: '/acceso?plan=mentoria-3',
-  },
-  {
-    id: 'mentor-5',
-    sessions: 5,
-    label: '5 sesiones',
-    price: 200,
-    badge: 'Mejor valor',
-    note: 'Pack de 5 sesiones. El mayor ahorro por sesión para un ciclo de acompañamiento sostenido.',
-    checkoutHref: '/acceso?plan=mentoria-5',
-  },
-];
-
 function formatPrice(amount: number): string {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -144,7 +115,10 @@ export function PricingMatrixClient({ plans, catalog = [] }: PricingMatrixClient
           ctaLabel: p.ctaLabel ?? undefined,
         };
       });
-    return fromCatalog.length > 0 ? fromCatalog : MENTORING_PACKS;
+    // Sin fallback a valores hardcodeados: solo se muestran los packs ACTIVOS
+    // del catálogo (los inactivos no llegan aquí porque listActiveProducts filtra
+    // is_active = true). Si no hay ninguno activo, no se muestra ningún pack.
+    return fromCatalog;
   }, [catalog]);
   const diagnosticName = diagnostic?.name || 'Diagnóstico Ejecutivo';
   const diagnosticPrice = diagnostic?.priceAmount ?? 50;
@@ -186,7 +160,16 @@ export function PricingMatrixClient({ plans, catalog = [] }: PricingMatrixClient
       </div>
 
       {/* ── Diagnóstico ── */}
-      {tab === 'diagnostico' && (
+      {tab === 'diagnostico' && !diagnostic && (
+        <div
+          className="rounded-3xl border p-8 text-center text-sm"
+          style={{ borderColor: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.7)' }}
+        >
+          El diagnóstico no está disponible por el momento.
+        </div>
+      )}
+
+      {tab === 'diagnostico' && diagnostic && (
         <div className="grid gap-10 lg:grid-cols-[1fr_400px]">
           <div>
             <p
@@ -293,6 +276,15 @@ export function PricingMatrixClient({ plans, catalog = [] }: PricingMatrixClient
           >
             Sesiones individuales con Advisors certificados. Sin compromiso de programa. Ideal para acompañamiento puntual en un momento concreto de decisión, transición o desarrollo.
           </p>
+          {mentoringPacks.length === 0 ? (
+            <div
+              className="rounded-3xl border p-8 text-center text-sm"
+              style={{ borderColor: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.7)' }}
+            >
+              No hay packs de mentoría disponibles por el momento.
+            </div>
+          ) : (
+          <>
           <div className="grid gap-5 sm:grid-cols-3">
             {mentoringPacks.map((pack) => (
               <article
@@ -386,6 +378,8 @@ export function PricingMatrixClient({ plans, catalog = [] }: PricingMatrixClient
           <p className="mt-6 text-xs" style={{ color: 'rgba(255,255,255,0.6)' }}>
             * Cada sesión dura 60 minutos. Las sesiones no tienen fecha de vencimiento.
           </p>
+          </>
+          )}
         </div>
       )}
 
