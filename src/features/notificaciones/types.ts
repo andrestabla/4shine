@@ -338,7 +338,11 @@ export interface NotificationHistoryPage {
 // ─── Eventos personalizados (creados por el admin) ───────────────────────────
 
 export type CustomEventTriggerType = 'manual' | 'date_anchor' | 'event_dependency';
-export type CustomEventAnchor = 'registration' | 'subscription_expiry';
+export type CustomEventAnchor =
+  | 'registration'
+  | 'subscription_expiry'
+  | 'program_start'
+  | 'last_login';
 export type CustomEventOffsetUnit = 'days' | 'hours';
 export type CustomEventOffsetDirection = 'after' | 'before';
 

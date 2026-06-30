@@ -211,29 +211,60 @@ function signedOffset(ev: EventRow): { days: number; hours: number } {
   return ev.offset_unit === 'hours' ? { days: 0, hours: value } : { days: value, hours: 0 };
 }
 
-async function fireDateAnchor(client: PoolClient, ev: EventRow): Promise<number> {
-  let join = '';
-  let anchorExpr = '';
-  if (ev.trigger_anchor === 'registration') {
-    anchorExpr = 'u.created_at';
-  } else if (ev.trigger_anchor === 'subscription_expiry') {
-    join = 'JOIN app_core.user_profiles p ON p.user_id = u.user_id';
-    anchorExpr = 'p.subscription_expires_at';
-  } else {
-    return 0;
+function fullName(first: string | null, last: string | null, display: string): string {
+  const composed = [first, last].filter(Boolean).join(' ').trim();
+  return composed || display;
+}
+
+/** Mapea cada ancla a su JOIN y la expresión de la fecha de referencia. */
+function anchorSql(anchor: string | null): { join: string; expr: string } | null {
+  switch (anchor) {
+    case 'registration':
+      return { join: '', expr: 'u.created_at' };
+    case 'subscription_expiry':
+      return { join: 'JOIN app_core.user_profiles p ON p.user_id = u.user_id', expr: 'p.subscription_expires_at' };
+    case 'program_start':
+      return { join: 'JOIN app_core.user_profiles p ON p.user_id = u.user_id', expr: 'p.subscription_started_at' };
+    case 'last_login':
+      return {
+        join:
+          'JOIN LATERAL (SELECT max(last_used_at) AS ts FROM app_auth.refresh_sessions rs WHERE rs.user_id = u.user_id) ll ON true',
+        expr: 'll.ts',
+      };
+    default:
+      return null;
   }
+}
+
+async function fireDateAnchor(client: PoolClient, ev: EventRow): Promise<number> {
+  const a = anchorSql(ev.trigger_anchor);
+  if (!a) return 0;
   const { days, hours } = signedOffset(ev);
-  const { rows } = await client.query<{ user_id: string; display_name: string; email: string }>(
-    `SELECT u.user_id::text, u.display_name, u.email
-       FROM app_core.users u ${join}
+  const { rows } = await client.query<{
+    user_id: string;
+    display_name: string;
+    first_name: string | null;
+    last_name: string | null;
+    email: string;
+    anchor_ts: string;
+    fecha_fmt: string;
+  }>(
+    // fire_key = el timestamp del ancla. Para anclas fijas (registro, inicio de
+    // programa, vencimiento) es constante → dispara una vez. Para 'last_login'
+    // cambia en cada acceso → permite re-disparar tras un nuevo periodo de inactividad.
+    `SELECT u.user_id::text, u.display_name, u.first_name, u.last_name, u.email,
+            ${a.expr}::text AS anchor_ts,
+            to_char(${a.expr}, 'DD/MM/YYYY') AS fecha_fmt
+       FROM app_core.users u ${a.join}
       WHERE u.organization_id = $1::uuid
         AND u.is_active = true
         AND u.email IS NOT NULL
-        AND ${anchorExpr} IS NOT NULL
-        AND ${anchorExpr} + make_interval(days => $2, hours => $3) <= now()
+        AND ${a.expr} IS NOT NULL
+        AND ${a.expr} + make_interval(days => $2, hours => $3) <= now()
         AND NOT EXISTS (
           SELECT 1 FROM app_admin.notification_event_sends s
-          WHERE s.organization_id = $1::uuid AND s.event_key = $4 AND s.user_id = u.user_id
+          WHERE s.organization_id = $1::uuid AND s.event_key = $4
+            AND s.user_id = u.user_id AND s.fire_key = ${a.expr}::text
         )
       LIMIT 200`,
     [ev.organization_id, days, hours, ev.event_key],
@@ -245,12 +276,16 @@ async function fireDateAnchor(client: PoolClient, ev: EventRow): Promise<number>
       eventKey: ev.event_key,
       recipientUserId: r.user_id,
       recipientEmail: r.email,
-      variables: { nombre: r.display_name },
+      variables: {
+        nombre: r.display_name,
+        nombre_completo: fullName(r.first_name, r.last_name, r.display_name),
+        fecha: r.fecha_fmt,
+      },
     });
     await client.query(
       `INSERT INTO app_admin.notification_event_sends (organization_id, event_key, user_id, fire_key)
-       VALUES ($1::uuid, $2, $3::uuid, 'anchor') ON CONFLICT DO NOTHING`,
-      [ev.organization_id, ev.event_key, r.user_id],
+       VALUES ($1::uuid, $2, $3::uuid, $4) ON CONFLICT DO NOTHING`,
+      [ev.organization_id, ev.event_key, r.user_id, r.anchor_ts],
     );
     count++;
   }
@@ -263,10 +298,15 @@ async function fireEventDependency(client: PoolClient, ev: EventRow): Promise<nu
   const { rows } = await client.query<{
     user_id: string;
     display_name: string;
+    first_name: string | null;
+    last_name: string | null;
     email: string;
     fire_key: string;
+    fecha_fmt: string;
   }>(
-    `SELECT n.user_id::text, u.display_name, u.email, n.created_at::text AS fire_key
+    `SELECT n.user_id::text, u.display_name, u.first_name, u.last_name, u.email,
+            n.created_at::text AS fire_key,
+            to_char(n.created_at, 'DD/MM/YYYY') AS fecha_fmt
        FROM app_core.notifications n
        JOIN app_core.users u ON u.user_id = n.user_id
       WHERE u.organization_id = $1::uuid
@@ -289,7 +329,11 @@ async function fireEventDependency(client: PoolClient, ev: EventRow): Promise<nu
       eventKey: ev.event_key,
       recipientUserId: r.user_id,
       recipientEmail: r.email,
-      variables: { nombre: r.display_name },
+      variables: {
+        nombre: r.display_name,
+        nombre_completo: fullName(r.first_name, r.last_name, r.display_name),
+        fecha: r.fecha_fmt,
+      },
     });
     await client.query(
       `INSERT INTO app_admin.notification_event_sends (organization_id, event_key, user_id, fire_key)

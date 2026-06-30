@@ -27,6 +27,8 @@ import clsx from 'clsx';
 const ANCHOR_LABELS: Record<string, string> = {
   registration: 'el registro del usuario',
   subscription_expiry: 'el vencimiento de la suscripción',
+  program_start: 'el inicio del programa',
+  last_login: 'el último acceso',
 };
 
 function triggerSummary(ce: CustomEventRecord, eventLabels: Record<string, string>): string {
@@ -605,8 +607,15 @@ function CustomEventModal({ initial, allEvents, saving, onClose, onSave }: Custo
                   <label className={labelCls}>Fecha ancla</label>
                   <select className={inputCls} value={triggerAnchor} onChange={(e) => setTriggerAnchor(e.target.value as typeof triggerAnchor)}>
                     <option value="registration">Registro del usuario</option>
+                    <option value="program_start">Inicio del programa (suscripción)</option>
                     <option value="subscription_expiry">Vencimiento de la suscripción</option>
+                    <option value="last_login">Último acceso</option>
                   </select>
+                  {triggerAnchor === 'last_login' && (
+                    <p className="mt-1 text-[11px] text-[var(--app-muted)]">
+                      Útil para reenganche por inactividad. Se vuelve a evaluar tras cada nuevo acceso.
+                    </p>
+                  )}
                 </div>
               ) : (
                 <div>
@@ -650,6 +659,20 @@ function CustomEventModal({ initial, allEvents, saving, onClose, onSave }: Custo
               </p>
             </div>
           )}
+
+          <div className="rounded-[1rem] border border-dashed border-[var(--app-border)] px-4 py-3">
+            <p className={labelCls}>Variables disponibles en la plantilla</p>
+            <div className="flex flex-wrap gap-1.5">
+              {['nombre', 'nombre_completo', 'plataforma', 'enlace_plataforma', 'fecha'].map((v) => (
+                <code key={v} className="rounded bg-[var(--app-surface-muted)] px-1.5 py-0.5 text-[11px] text-[var(--brand-primary)]">
+                  {`{{${v}}}`}
+                </code>
+              ))}
+            </div>
+            <p className="mt-1.5 text-[11px] text-[var(--app-muted)]">
+              «fecha» es la fecha de referencia del disparador (registro, inicio/vencimiento o el evento padre).
+            </p>
+          </div>
         </div>
 
         <div className="mt-6 flex justify-end gap-2">

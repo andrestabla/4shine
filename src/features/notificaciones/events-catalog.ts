@@ -602,7 +602,9 @@ export const MODULE_LABELS: Record<string, string> = {
  * defecto ('nombre', 'plataforma') son las que el evaluador del cron inyecta.
  */
 export function customEventToEventDef(ce: CustomEventRecord): NotificationEventDef {
-  const variables = (ce.variables.length > 0 ? ce.variables : ['nombre', 'plataforma']) as VariableKey[];
+  const variables = (ce.variables.length > 0
+    ? ce.variables
+    : ['nombre', 'nombre_completo', 'plataforma', 'enlace_plataforma', 'fecha']) as VariableKey[];
   return {
     key: ce.eventKey,
     moduleCode: ce.moduleCode,
