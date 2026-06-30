@@ -562,6 +562,7 @@ export default function UsuariosPage() {
                       )}
                       <th>Usuario</th>
                       <th>Tipo de usuario</th>
+                      <th>Organización</th>
                       <th>Plan</th>
                       <th>Vigencia</th>
                       <th>Estado</th>
@@ -598,6 +599,11 @@ export default function UsuariosPage() {
                         <td>
                           <span className={userTypeBadgeClass(userType)}>
                             {userTypeLabel(userType)}
+                          </span>
+                        </td>
+                        <td>
+                          <span className="text-sm text-[var(--app-ink)]">
+                            {user.organizationName ?? '—'}
                           </span>
                         </td>
                         <td>
