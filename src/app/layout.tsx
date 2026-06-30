@@ -35,7 +35,7 @@ export async function generateMetadata(): Promise<Metadata> {
   // configurada (sin redirect, que los crawlers suelen no seguir). Se versiona
   // con ?v= para invalidar la caché del crawler cuando cambie el branding.
   const rawOgImage =
-    settings.logoUrl?.trim() || settings.faviconUrl?.trim() || '/branding/4shine-logo-mixto.png';
+    settings.faviconUrl?.trim() || settings.logoUrl?.trim() || '/branding/4shine-isotipo-amarillo.png';
   const ogImage = rawOgImage.includes('?')
     ? `${rawOgImage}&v=${faviconVersion}`
     : `${rawOgImage}?v=${faviconVersion}`;
