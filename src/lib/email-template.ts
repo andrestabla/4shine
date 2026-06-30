@@ -76,9 +76,13 @@ export function buildBrandedEmailHtml(bodyHtml: string, branding: EmailBranding)
   const footerLegal = branding.footerLegal || '';
   const fontStack = buildFontStack(branding.typography);
 
-  // El header del email tiene fondo oscuro/primario — preferimos el logo
-  // alterno (logoDarkUrl) diseñado para contrastar. Fallback a logoUrl.
-  const headerLogo = branding.logoDarkUrl?.trim() || branding.logoUrl?.trim() || null;
+  // El header del email tiene fondo oscuro/primario — el logo se sirve SIEMPRE
+  // por el dominio de la app (no directo a `pub-*.r2.dev`, que está rate-limited
+  // y rompe en el proxy de imágenes de Gmail). El endpoint resuelve el logo
+  // oscuro configurado y transmite los bytes; cae al logo por defecto si falta.
+  const appUrl = (process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://www.4shine.co').replace(/\/$/, '');
+  const hasLogo = Boolean(branding.logoDarkUrl?.trim() || branding.logoUrl?.trim());
+  const headerLogo = hasLogo ? `${appUrl}/api/v1/public/branding/email-logo` : null;
   const headerTextColor = autoTextOn(headerBg);
   const headerContent = headerLogo
     ? `<img src="${headerLogo}" alt="${platformName}" style="height:48px;width:auto;display:block;margin:0 auto;" />`
