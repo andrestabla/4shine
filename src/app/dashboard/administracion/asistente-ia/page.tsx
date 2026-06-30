@@ -6,7 +6,9 @@ import {
   Edit3,
   Eye,
   EyeOff,
+  Globe,
   Loader2,
+  MessageCircle,
   MessageSquare,
   Plus,
   Save,
@@ -28,14 +30,17 @@ import {
   listFaqs,
   updateFaq,
   updateSettings,
+  getPublicAssistant,
+  updatePublicAssistant,
   type AdminConversation,
   type ChatbotAnalytics,
   type ChatbotFaq,
   type ChatbotSettings,
   type ChatMessage,
+  type PublicAssistantOption,
 } from "@/features/chatbot/client";
 
-type Tab = "config" | "faqs" | "conversaciones" | "analitica";
+type Tab = "config" | "publico" | "faqs" | "conversaciones" | "analitica";
 
 interface FaqEditorState {
   faqId: string | null;
@@ -66,6 +71,18 @@ export default function AsistenteIaAdminPage() {
     maxContextMessages: 12,
   });
 
+  // Asistente del sitio público (Tatiana → WhatsApp)
+  const [pubForm, setPubForm] = React.useState({
+    isEnabled: false,
+    assistantName: "Tatiana",
+    avatarUrl: "",
+    greeting: "",
+    intro: "",
+    whatsappNumber: "",
+    whatsappIntro: "",
+    options: [] as PublicAssistantOption[],
+  });
+
   // FAQs
   const [faqs, setFaqs] = React.useState<ChatbotFaq[]>([]);
   const [faqEditor, setFaqEditor] = React.useState<FaqEditorState | null>(null);
@@ -81,7 +98,11 @@ export default function AsistenteIaAdminPage() {
 
   const loadConfig = React.useCallback(async () => {
     setLoading(true);
-    const [settingsRes, faqsRes] = await Promise.all([getSettings(), listFaqs()]);
+    const [settingsRes, faqsRes, pubRes] = await Promise.all([
+      getSettings(),
+      listFaqs(),
+      getPublicAssistant(),
+    ]);
     if (settingsRes.ok && settingsRes.data) {
       const s = settingsRes.data;
       setSettings(s);
@@ -93,6 +114,19 @@ export default function AsistenteIaAdminPage() {
         systemPrompt: s.systemPrompt,
         welcomeMessage: s.welcomeMessage,
         maxContextMessages: s.maxContextMessages,
+      });
+    }
+    if (pubRes.ok && pubRes.data) {
+      const p = pubRes.data;
+      setPubForm({
+        isEnabled: p.isEnabled,
+        assistantName: p.assistantName,
+        avatarUrl: p.avatarUrl,
+        greeting: p.greeting,
+        intro: p.intro,
+        whatsappNumber: p.whatsappNumber,
+        whatsappIntro: p.whatsappIntro,
+        options: p.options,
       });
     }
     if (faqsRes.ok && faqsRes.data) setFaqs(faqsRes.data);
@@ -139,6 +173,43 @@ export default function AsistenteIaAdminPage() {
       await alert({ title: "Error", message: res.error ?? "No se pudo guardar.", tone: "error" });
     }
   };
+
+  // ── Asistente del sitio público ────────────────────────────
+
+  const savePublic = async () => {
+    if (pubForm.isEnabled && !pubForm.whatsappNumber.trim()) {
+      await alert({
+        title: "Falta el WhatsApp",
+        message: "Para activar el asistente público debes indicar el número de WhatsApp de la asesora.",
+        tone: "warning",
+      });
+      return;
+    }
+    setSaving(true);
+    const res = await updatePublicAssistant({
+      isEnabled: pubForm.isEnabled,
+      assistantName: pubForm.assistantName,
+      avatarUrl: pubForm.avatarUrl,
+      greeting: pubForm.greeting,
+      intro: pubForm.intro,
+      whatsappNumber: pubForm.whatsappNumber,
+      whatsappIntro: pubForm.whatsappIntro,
+      options: pubForm.options.filter((o) => o.label.trim()),
+    });
+    setSaving(false);
+    if (res.ok && res.data) {
+      await alert({ title: "Guardado", message: "El asistente del sitio público se actualizó.", tone: "success" });
+    } else {
+      await alert({ title: "Error", message: res.error ?? "No se pudo guardar.", tone: "error" });
+    }
+  };
+
+  const addPubOption = () =>
+    setPubForm((p) => ({ ...p, options: [...p.options, { label: "", message: "" }] }));
+  const updatePubOption = (i: number, patch: Partial<PublicAssistantOption>) =>
+    setPubForm((p) => ({ ...p, options: p.options.map((o, idx) => (idx === i ? { ...o, ...patch } : o)) }));
+  const removePubOption = (i: number) =>
+    setPubForm((p) => ({ ...p, options: p.options.filter((_, idx) => idx !== i) }));
 
   // ── FAQs ───────────────────────────────────────────────────
 
@@ -196,6 +267,7 @@ export default function AsistenteIaAdminPage() {
 
   const TABS: Array<{ key: Tab; label: string; icon: React.ComponentType<{ size?: number }> }> = [
     { key: "config", label: "Configuración", icon: Bot },
+    { key: "publico", label: "Sitio público (Tatiana)", icon: Globe },
     { key: "faqs", label: "Base de conocimiento", icon: MessageSquare },
     { key: "conversaciones", label: "Conversaciones", icon: Users },
     { key: "analitica", label: "Analítica", icon: Eye },
@@ -376,6 +448,195 @@ export default function AsistenteIaAdminPage() {
                 >
                   {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
                   Guardar configuración
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ── Sitio público (Tatiana → WhatsApp) ── */}
+          {tab === "publico" && (
+            <div className="space-y-5 rounded-[18px] border border-[var(--app-border)] bg-white p-5 md:p-6">
+              <div className="rounded-[14px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-3 text-xs text-[var(--app-muted)]">
+                Este asistente aparece en el <strong>sitio público</strong> (inicio, metodología,
+                descubrimiento, planes y precios, advisors). <strong>No consulta la base de datos</strong>:
+                saluda, ofrece asesoría sobre programas/planes mediante botones y, al hacer clic o escribir,
+                conecta a la persona por WhatsApp con todo el contexto de la conversación.
+              </div>
+
+              <label className="flex items-center justify-between gap-4 rounded-[14px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-3">
+                <span>
+                  <span className="block text-sm font-extrabold text-[var(--app-ink)]">Asistente público activo</span>
+                  <span className="block text-xs text-[var(--app-muted)]">
+                    Requiere número de WhatsApp configurado. Si lo apagas, no aparece en el sitio.
+                  </span>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={pubForm.isEnabled}
+                  onChange={(e) => setPubForm((p) => ({ ...p, isEnabled: e.target.checked }))}
+                  className="h-5 w-5 accent-[var(--brand-primary)]"
+                />
+              </label>
+
+              <div className="flex flex-wrap items-center gap-4 rounded-[14px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-3">
+                <span className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--brand-primary)] text-white">
+                  {pubForm.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={pubForm.avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
+                  ) : (
+                    <MessageCircle size={26} />
+                  )}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-extrabold text-[var(--app-ink)]">Avatar de la asesora</p>
+                  <p className="mb-2 text-xs text-[var(--app-muted)]">Se muestra en el chat del sitio público.</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <R2UploadButton
+                      moduleCode="usuarios"
+                      action="manage"
+                      accept="image/*"
+                      pathPrefix="public-assistant/avatar"
+                      buttonLabel={pubForm.avatarUrl ? "Cambiar avatar" : "Subir avatar"}
+                      className="app-button-secondary inline-flex items-center justify-center gap-2 px-3 py-1.5 text-xs"
+                      preprocessFile={(file) =>
+                        optimizeAvatarForUpload(file, { targetSize: 256, mimeType: "image/jpeg", quality: 0.86 })
+                      }
+                      onUploaded={async (url) => setPubForm((p) => ({ ...p, avatarUrl: url }))}
+                    />
+                    {pubForm.avatarUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setPubForm((p) => ({ ...p, avatarUrl: "" }))}
+                        className="inline-flex items-center gap-1 rounded-full border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50"
+                      >
+                        <Trash2 size={12} /> Quitar
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">
+                    Nombre visible
+                  </label>
+                  <input
+                    className="app-input"
+                    value={pubForm.assistantName}
+                    placeholder="Tatiana"
+                    onChange={(e) => setPubForm((p) => ({ ...p, assistantName: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">
+                    WhatsApp de la asesora
+                  </label>
+                  <input
+                    className="app-input"
+                    value={pubForm.whatsappNumber}
+                    placeholder="+573204876832"
+                    onChange={(e) => setPubForm((p) => ({ ...p, whatsappNumber: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">
+                  Saludo
+                </label>
+                <textarea
+                  className="app-input min-h-[70px] resize-y"
+                  value={pubForm.greeting}
+                  onChange={(e) => setPubForm((p) => ({ ...p, greeting: e.target.value }))}
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">
+                  Texto de la oferta de asesoría
+                </label>
+                <textarea
+                  className="app-input min-h-[60px] resize-y"
+                  value={pubForm.intro}
+                  onChange={(e) => setPubForm((p) => ({ ...p, intro: e.target.value }))}
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">
+                  Encabezado del mensaje de WhatsApp
+                </label>
+                <textarea
+                  className="app-input min-h-[60px] resize-y"
+                  value={pubForm.whatsappIntro}
+                  placeholder="Hola Tatiana, vengo del sitio web de 4Shine…"
+                  onChange={(e) => setPubForm((p) => ({ ...p, whatsappIntro: e.target.value }))}
+                />
+                <p className="mt-1 text-xs text-[var(--app-muted)]">
+                  Se antepone al mensaje. Luego se añade el interés elegido (o el texto escrito) y la página de origen.
+                </p>
+              </div>
+
+              {/* Botones de programas / planes */}
+              <div className="space-y-3 rounded-[14px] border border-[var(--app-border)] p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-extrabold text-[var(--app-ink)]">Botones de programas / planes</p>
+                    <p className="text-xs text-[var(--app-muted)]">
+                      Cada botón es una opción de asesoría. Al pulsarlo se abre WhatsApp con ese interés.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addPubOption}
+                    className="app-button-secondary inline-flex items-center gap-1.5 px-3 py-1.5 text-xs"
+                  >
+                    <Plus size={14} /> Añadir
+                  </button>
+                </div>
+
+                {pubForm.options.length === 0 && (
+                  <p className="rounded-[12px] border border-dashed border-[var(--app-border)] px-3 py-4 text-center text-xs text-[var(--app-muted)]">
+                    Sin botones aún. Añade los programas o planes sobre los que quieres ofrecer asesoría.
+                  </p>
+                )}
+
+                {pubForm.options.map((opt, i) => (
+                  <div key={i} className="grid gap-2 rounded-[12px] bg-[var(--app-surface-muted)] p-3 md:grid-cols-[1fr_1.4fr_auto] md:items-center">
+                    <input
+                      className="app-input"
+                      placeholder="Etiqueta del botón (p. ej. Programa Líder)"
+                      value={opt.label}
+                      onChange={(e) => updatePubOption(i, { label: e.target.value })}
+                    />
+                    <input
+                      className="app-input"
+                      placeholder="Mensaje/contexto opcional para la asesora"
+                      value={opt.message}
+                      onChange={(e) => updatePubOption(i, { message: e.target.value })}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removePubOption(i)}
+                      title="Quitar"
+                      className="justify-self-start rounded-lg p-2 text-red-500 hover:bg-red-50 md:justify-self-center"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => void savePublic()}
+                  disabled={saving}
+                  className="app-button-primary inline-flex items-center gap-2 disabled:opacity-60"
+                >
+                  {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                  Guardar asistente público
                 </button>
               </div>
             </div>

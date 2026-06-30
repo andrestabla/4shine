@@ -10,6 +10,8 @@ import type {
   SendMessageResult,
   UpdateChatbotSettingsInput,
   UpdateFaqInput,
+  PublicAssistantSettings,
+  UpdatePublicAssistantInput,
 } from './types';
 
 export type {
@@ -23,6 +25,9 @@ export type {
   SendMessageResult,
   UpdateChatbotSettingsInput,
   UpdateFaqInput,
+  PublicAssistantSettings,
+  PublicAssistantOption,
+  UpdatePublicAssistantInput,
 } from './types';
 
 interface SafeResponse<T> {
@@ -52,6 +57,21 @@ export function getSettings() {
 export function updateSettings(input: UpdateChatbotSettingsInput) {
   return safe(() =>
     requestApi<ChatbotSettings>(`${ADMIN}/settings`, { method: 'PATCH', body: JSON.stringify(input) }),
+  );
+}
+
+// ─── Admin: asistente del sitio público (Tatiana → WhatsApp) ────────────────────
+
+export function getPublicAssistant() {
+  return safe(() => requestApi<PublicAssistantSettings>(`${ADMIN}/public-assistant`));
+}
+
+export function updatePublicAssistant(input: UpdatePublicAssistantInput) {
+  return safe(() =>
+    requestApi<PublicAssistantSettings>(`${ADMIN}/public-assistant`, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    }),
   );
 }
 

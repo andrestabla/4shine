@@ -2,13 +2,16 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { listPublicNavItems } from '@/lib/site-pages';
 import { loadServerBranding } from '@/lib/server-branding';
+import { loadPublicAssistant } from '@/lib/server-public-assistant';
 import { MarketingMobileNav } from './MarketingMobileNav';
+import { PublicAssistantWidget } from './PublicAssistantWidget';
 import PopupRuntime from '@/components/popups/PopupRuntime';
 
 export async function MarketingShell({ title, subtitle, children }: { title?: string; subtitle?: string; children: ReactNode }) {
-  const [navItems, branding] = await Promise.all([
+  const [navItems, branding, assistant] = await Promise.all([
     listPublicNavItems(),
     loadServerBranding(),
+    loadPublicAssistant(),
   ]);
   const platformName = branding.settings.platformName?.trim() || '4Shine';
   const logoDarkUrl =
@@ -129,6 +132,7 @@ export async function MarketingShell({ title, subtitle, children }: { title?: st
       </footer>
 
       <PopupRuntime />
+      <PublicAssistantWidget config={assistant} />
     </main>
   );
 }

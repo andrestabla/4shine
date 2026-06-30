@@ -88,3 +88,47 @@ export interface ChatbotAnalytics {
   messages: number;
   activeUsers: number;
 }
+
+// ─── Asistente del sitio público ("Tatiana") → WhatsApp ──────────────────────
+
+/** Botón de programa/plan que ofrece el asistente público. */
+export interface PublicAssistantOption {
+  label: string;
+  message: string;
+}
+
+export interface PublicAssistantSettings {
+  organizationId: string;
+  isEnabled: boolean;
+  assistantName: string;
+  avatarUrl: string;
+  greeting: string;
+  intro: string;
+  whatsappNumber: string;
+  whatsappIntro: string;
+  options: PublicAssistantOption[];
+  updatedAt: string;
+}
+
+export interface UpdatePublicAssistantInput {
+  isEnabled?: boolean;
+  assistantName?: string;
+  avatarUrl?: string;
+  greeting?: string;
+  intro?: string;
+  whatsappNumber?: string;
+  whatsappIntro?: string;
+  options?: PublicAssistantOption[];
+}
+
+/** Config pública (sin metadatos sensibles) que recibe el widget del sitio. */
+export interface PublicAssistantConfig {
+  enabled: boolean;
+  assistantName: string;
+  avatarUrl: string;
+  greeting: string;
+  intro: string;
+  whatsappNumber: string;
+  whatsappIntro: string;
+  options: PublicAssistantOption[];
+}
