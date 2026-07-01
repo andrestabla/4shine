@@ -792,9 +792,12 @@ export default function Leader360Page() {
                                         <Loader2 size={13} className="animate-spin" /> Cargando franjas…
                                     </p>
                                 ) : slots.length === 0 ? (
-                                    <p className="text-xs text-[var(--app-muted)]">
-                                        Este advisor no tiene franjas disponibles. Debe publicarlas en su agenda de mentorías.
-                                    </p>
+                                    <div className="rounded-[12px] border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
+                                        Este advisor aún no publicó franjas disponibles.{' '}
+                                        <strong>Elige otro advisor</strong> en el selector de arriba, o escríbele por{' '}
+                                        <Link href="/dashboard/mensajes" className="font-semibold underline">Mensajes</Link>{' '}
+                                        para coordinar.
+                                    </div>
                                 ) : (
                                     <select
                                         className="app-select"
