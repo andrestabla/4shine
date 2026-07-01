@@ -2034,6 +2034,31 @@ export async function updateDiscoverySession(
 
   if (next.shouldMarkCompleted) {
     await syncCompletedScores(client, session);
+    // Al completar el diagnóstico provisionamos el informe público
+    // (public_id + shared_at) para que "Ver informe del líder" esté SIEMPRE
+    // disponible en la vista 360 del manager (y para el propio líder) una vez
+    // que ya lo presentó, sin depender de que pulse "compartir/descargar".
+    const { rows: sharedRows } = await client.query<{
+      public_id: string;
+      shared_at: string;
+    }>(
+      `
+        UPDATE app_assessment.discovery_sessions
+        SET public_id = COALESCE(
+              public_id,
+              lower(substr(replace(gen_random_uuid()::text, '-', ''), 1, 16))
+            ),
+            shared_at = COALESCE(shared_at, now()),
+            updated_at = now()
+        WHERE session_id = $1::uuid
+        RETURNING public_id::text, shared_at::text
+      `,
+      [session.sessionId],
+    );
+    if (sharedRows[0]) {
+      session.publicId = sharedRows[0].public_id;
+      session.sharedAt = sharedRows[0].shared_at;
+    }
   } else {
     await client.query(
       `
