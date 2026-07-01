@@ -78,6 +78,7 @@ export interface DiscoverySessionRecord {
   jobRole: DiscoveryJobRole | "";
   gender: string | null;
   yearsExperience: number | null;
+  email: string | null;
   profileCompleted: boolean;
   experienceSurvey: DiscoveryExperienceSurvey | null;
   aiReports: DiscoveryAiReports;
@@ -204,6 +205,7 @@ export interface DiscoveryOverviewDetailPayload {
   scoring: DiscoveryScoreResult;
   experienceSurvey: DiscoveryExperienceSurvey | null;
   aiReports: DiscoveryAiReports;
+  email: string | null;
 }
 
 export interface DiscoveryInvitationRequest {

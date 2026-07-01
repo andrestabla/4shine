@@ -359,7 +359,9 @@ function buildDiagnosticIdentifier(sessionId: string): string {
   return `DX-${sessionId.replace(/-/g, "").slice(0, 12).toUpperCase()}`;
 }
 
-function mapDiscoverySessionRow(row: DiscoverySessionRow): DiscoverySessionRecord {
+function mapDiscoverySessionRow(
+  row: DiscoverySessionRow & { user_email?: string | null; invited_email?: string | null },
+): DiscoverySessionRecord {
   const profile = normalizeProfile({
     firstName: row.first_name ?? "",
     lastName: row.last_name ?? "",
@@ -392,6 +394,7 @@ function mapDiscoverySessionRow(row: DiscoverySessionRow): DiscoverySessionRecor
     jobRole: profile.jobRole,
     gender: profile.gender,
     yearsExperience: profile.yearsExperience,
+    email: row.user_email?.trim() || row.invited_email?.trim() || null,
     profileCompleted: isProfileCompleted(profile),
     experienceSurvey: parseExperienceSurvey(row.feedback_survey),
     aiReports: parseDiscoveryAiReports(row.ai_reports),
@@ -2158,7 +2161,13 @@ export async function getDiscoverySessionByPublicId(
   // solo conoce el invite_token. Esta página pública (la que el admin manda
   // por correo al líder) lee por publicId, así que también necesita
   // reconciliar ambas fuentes igual que getDiscoveryOverviewDetail.
-  const { rows } = await client.query<DiscoverySessionRow & { invitation_meta: unknown }>(
+  const { rows } = await client.query<
+    DiscoverySessionRow & {
+      invitation_meta: unknown;
+      user_email: string | null;
+      invited_email: string | null;
+    }
+  >(
     `
       SELECT
         ds.session_id::text,
@@ -2183,8 +2192,11 @@ export async function getDiscoverySessionByPublicId(
         ds.ai_reports,
         ds.created_at::text,
         ds.updated_at::text,
+        u.email::text AS user_email,
+        di.invited_email,
         di.meta AS invitation_meta
       FROM app_assessment.discovery_sessions ds
+      LEFT JOIN app_core.users u ON u.user_id = ds.user_id
       LEFT JOIN app_assessment.discovery_invitations di
         ON di.session_id = ds.session_id
       WHERE ds.public_id = $1
@@ -3782,6 +3794,7 @@ export async function getDiscoveryOverviewDetail(
       scoring: scoreDiscoveryAnswers(state.answers),
       experienceSurvey,
       aiReports: parseInvitationStoredReports(invitation.meta),
+      email: invitation.invited_email?.trim() || null,
     };
   }
 
@@ -3792,7 +3805,13 @@ export async function getDiscoveryOverviewDetail(
   // admin vea esos reportes al descargar el PDF, hay que leer de ambos
   // lados y combinarlos. Si la sesión tiene reportes propios usamos esos;
   // si no, fallback a los de la invitación.
-  const { rows } = await client.query<DiscoverySessionRow & { invitation_meta: unknown }>(
+  const { rows } = await client.query<
+    DiscoverySessionRow & {
+      invitation_meta: unknown;
+      user_email: string | null;
+      invited_email: string | null;
+    }
+  >(
     `
       SELECT
         ds.session_id::text,
@@ -3817,6 +3836,8 @@ export async function getDiscoveryOverviewDetail(
         ds.ai_reports,
         ds.created_at::text,
         ds.updated_at::text,
+        u.email::text AS user_email,
+        di.invited_email,
         di.meta AS invitation_meta
       FROM app_assessment.discovery_sessions ds
       JOIN app_core.users u ON u.user_id = ds.user_id
@@ -3844,6 +3865,7 @@ export async function getDiscoveryOverviewDetail(
     state: buildUserStateFromSession(session),
     scoring: scoreDiscoveryAnswers(session.answers),
     experienceSurvey: session.experienceSurvey,
+    email: session.email,
     aiReports: mergedReports,
   };
 }

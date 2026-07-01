@@ -40,6 +40,8 @@ interface DownloadDiscoveryPdfInput {
   scoring: DiscoveryScoreResult;
   reports?: DiscoveryAiReports | null;
   branding?: PdfBrandingInput | null;
+  /** Correo del participante (no vive en `state`; se pasa aparte). */
+  email?: string | null;
 }
 
 const PAGE_WIDTH_MM = 210;
@@ -328,6 +330,7 @@ export async function downloadDiscoveryPdfReport({
   scoring,
   reports,
   branding,
+  email,
 }: DownloadDiscoveryPdfInput): Promise<void> {
   const pdf = new jsPDF({
     orientation: "p",
@@ -355,6 +358,27 @@ export async function downloadDiscoveryPdfReport({
     lineHeight: 5.2,
     gapAfter: 3.5,
   });
+
+  // Ficha del participante: correo, cargo, país y años de experiencia.
+  // El cargo/país/experiencia vienen en `state.profile`; el correo se pasa aparte.
+  const metaParts: string[] = [];
+  const trimmedEmail = email?.trim();
+  if (trimmedEmail) metaParts.push(`Correo: ${trimmedEmail}`);
+  if (state.profile.jobRole) metaParts.push(`Cargo: ${state.profile.jobRole}`);
+  if (state.profile.country) metaParts.push(`País: ${state.profile.country}`);
+  if (state.profile.yearsExperience !== null && state.profile.yearsExperience !== undefined) {
+    const yrs = state.profile.yearsExperience;
+    metaParts.push(`Experiencia: ${yrs} ${yrs === 1 ? "año" : "años"}`);
+  }
+  if (metaParts.length > 0) {
+    writer.writeWrappedLines(metaParts.join("   ·   "), {
+      fontSize: 9.5,
+      color: resolvedBranding.body,
+      lineHeight: 4.6,
+      gapAfter: 3,
+    });
+  }
+
   writer.writeWrappedLines(`Generado: ${generatedAt}`, {
     fontSize: 9.5,
     color: resolvedBranding.muted,

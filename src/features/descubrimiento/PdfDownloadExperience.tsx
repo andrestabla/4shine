@@ -44,6 +44,7 @@ export function PdfDownloadExperience({ session }: PdfDownloadExperienceProps) {
         },
         scoring,
         reports: session.aiReports,
+        email: session.email,
         branding: {
           logoDarkUrl: branding.logoDarkUrl,
           primaryHex: branding.primaryColor,

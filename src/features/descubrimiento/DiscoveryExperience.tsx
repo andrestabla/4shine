@@ -601,12 +601,45 @@ export function DiscoveryExperience() {
         // recoger reportes que hayan llegado entre dos clicks consecutivos
         // (admin abrió la pestaña → IA terminó → admin descarga). El costo
         // es un request por click, despreciable.
-        const detail = await ensureOverviewDetail(row.sessionId, { force: true });
+        let detail = await ensureOverviewDetail(row.sessionId, { force: true });
+
+        // Auto-regenerar: si el diagnóstico está completo pero no tiene análisis
+        // de IA (p. ej. el job quedó huérfano en 'queued' y nunca corrió),
+        // generamos los informes desde los datos del diagnóstico antes de armar
+        // el PDF, para que el informe SIEMPRE incluya el análisis IA.
+        const hasAi = detail.aiReports && Object.keys(detail.aiReports).length > 0;
+        if (!hasAi) {
+          setRegenerationProgress((prev) => ({
+            ...prev,
+            [row.sessionId]: {
+              current: 1,
+              total: 5,
+              phase: "Generando análisis de IA para el informe (2–4 min)...",
+            },
+          }));
+          try {
+            await regenerateDiscoveryReport(row.sessionId);
+            overviewDetailCacheRef.current.delete(row.sessionId);
+            detail = await ensureOverviewDetail(row.sessionId, { force: true });
+          } catch (regenError) {
+            // No bloqueamos la descarga si la IA falla: al menos entregamos el
+            // informe con el puntaje. El cron reintentará el análisis después.
+            console.error("Auto-regeneración de IA falló; se descarga sin IA", regenError);
+          } finally {
+            setRegenerationProgress((prev) => {
+              const next = { ...prev };
+              delete next[row.sessionId];
+              return next;
+            });
+          }
+        }
+
         await downloadDiscoveryPdfReport({
           participantName: row.participantName,
           state: detail.state,
           scoring: detail.scoring,
           reports: detail.aiReports,
+          email: detail.email,
           branding: pdfBrandingInput,
         });
       } catch (error) {
