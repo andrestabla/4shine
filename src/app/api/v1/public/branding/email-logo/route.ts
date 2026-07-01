@@ -31,6 +31,9 @@ async function streamStaticFallback(request: Request): Promise<NextResponse> {
         status: 200,
         headers: {
           'Content-Type': res.headers.get('content-type') || 'image/png',
+          // Content-Length explícito: el proxy de imágenes de Outlook rechaza
+          // respuestas de imagen sin longitud (muestra imagen rota). Gmail no.
+          'Content-Length': String(buffer.byteLength),
           // Fallback: cache corto para poder recuperar al logo real pronto.
           'Cache-Control': 'public, max-age=300, s-maxage=300',
         },
@@ -46,7 +49,11 @@ async function streamStaticFallback(request: Request): Promise<NextResponse> {
   );
   return new NextResponse(onePx, {
     status: 200,
-    headers: { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=60' },
+    headers: {
+      'Content-Type': 'image/png',
+      'Content-Length': String(onePx.byteLength),
+      'Cache-Control': 'public, max-age=60',
+    },
   });
 }
 
@@ -71,6 +78,8 @@ export async function GET(request: Request) {
       status: 200,
       headers: {
         'Content-Type': contentType,
+        // Content-Length explícito: Outlook lo exige para renderizar la imagen.
+        'Content-Length': String(buffer.byteLength),
         // Cacheable por clientes/proxies de correo; se revalida cada hora.
         'Cache-Control': 'public, max-age=3600, s-maxage=86400',
       },

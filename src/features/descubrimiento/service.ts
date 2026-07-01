@@ -2484,7 +2484,7 @@ export async function createDiscoveryInvitations(
     // El logo se sirve por el dominio de la app (no directo a pub-*.r2.dev, que
     // está rate-limited y rompe en Gmail/Outlook). El endpoint resuelve el logo
     // oscuro configurado y transmite los bytes; cae al logo por defecto si falta.
-    const platformLogoUrl = `${baseUrl}/api/v1/public/branding/email-logo?v=2`;
+    const platformLogoUrl = `${baseUrl}/api/v1/public/branding/email-logo?v=3`;
     const params = {
       recipient_email: email,
       access_code: accessCode,
@@ -6514,7 +6514,7 @@ export async function resendDiscoveryInvitation(
   const inviteUrl = `${baseUrl}/descubrimiento/invitacion/${newInviteToken}`;
   // Logo servido por el dominio de la app (no r2.dev, rate-limited) para que
   // cargue en Gmail/Outlook. El endpoint resuelve el logo oscuro configurado.
-  const platformLogoUrl = `${baseUrl}/api/v1/public/branding/email-logo?v=2`;
+  const platformLogoUrl = `${baseUrl}/api/v1/public/branding/email-logo?v=3`;
 
   const params = {
     recipient_email: invRow.invited_email,
