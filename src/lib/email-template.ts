@@ -82,7 +82,9 @@ export function buildBrandedEmailHtml(bodyHtml: string, branding: EmailBranding)
   // oscuro configurado y transmite los bytes; cae al logo por defecto si falta.
   const appUrl = (process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://www.4shine.co').replace(/\/$/, '');
   const hasLogo = Boolean(branding.logoDarkUrl?.trim() || branding.logoUrl?.trim());
-  const headerLogo = hasLogo ? `${appUrl}/api/v1/public/branding/email-logo` : null;
+  // `?v=` fuerza a los proxies de imágenes de correo a re-descargar (recupera
+  // cachés envenenadas con la imagen rota de la versión anterior del endpoint).
+  const headerLogo = hasLogo ? `${appUrl}/api/v1/public/branding/email-logo?v=2` : null;
   const headerTextColor = autoTextOn(headerBg);
   const headerContent = headerLogo
     ? `<img src="${headerLogo}" alt="${platformName}" style="height:48px;width:auto;display:block;margin:0 auto;" />`
