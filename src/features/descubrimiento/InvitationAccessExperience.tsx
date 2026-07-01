@@ -953,11 +953,24 @@ export function InvitationAccessExperience({
                     const ok = await confirm({
                       title: "Salir y continuar después",
                       message:
-                        "Tu progreso queda guardado automáticamente. Puedes volver con el mismo enlace de invitación cuando quieras y retomarás justo donde lo dejaste.",
-                      confirmText: "Salir",
+                        "Tu progreso queda guardado automáticamente. Cerraremos tu sesión y podrás volver con el mismo enlace de invitación cuando quieras; retomarás justo donde lo dejaste.",
+                      confirmText: "Salir y cerrar sesión",
                       cancelText: "Seguir aquí",
                     });
-                    if (ok) window.location.href = "/";
+                    if (!ok) return;
+                    // Cierra la sesión iniciada por la invitación (issueAuthTokens):
+                    // si no, /acceso queda pegado y no permite entrar con otro usuario.
+                    try {
+                      await fetch("/api/v1/auth/logout", {
+                        method: "POST",
+                        credentials: "include",
+                      });
+                    } catch {
+                      /* aunque falle, forzamos la salida con recarga completa */
+                    }
+                    // Recarga completa a /acceso: limpia el estado en memoria y las
+                    // cookies quedan revocadas, dejando el login libre.
+                    window.location.href = "/acceso";
                   }}
                   className="rounded-full border border-[var(--app-border)] px-3 py-1.5 text-xs font-semibold text-[var(--app-muted)] transition hover:border-[var(--brand-primary)] hover:text-[var(--app-ink)]"
                 >
