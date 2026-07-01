@@ -1394,7 +1394,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
             className="mt-5 inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold transition hover:opacity-90"
             style={{ background: "var(--brand-primary)", color: "var(--brand-on-dark)" }}
           >
-            Ver planes y precios
+            Ver planes y activar
           </Link>
         </div>
       )}
@@ -4369,7 +4369,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
             className="shrink-0 rounded-full px-4 py-2 text-xs font-bold transition hover:opacity-90"
             style={{ background: "var(--brand-primary)", color: "var(--brand-on-dark)" }}
           >
-            Ver planes y precios
+            Ver planes y activar
           </Link>
         </div>
       )}

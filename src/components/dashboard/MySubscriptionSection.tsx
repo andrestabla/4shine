@@ -173,7 +173,7 @@ export function MySubscriptionSection({ currentPlanId, expiresAt }: MySubscripti
             href="/dashboard/suscripcion"
             className="app-button-primary mt-3 inline-flex items-center gap-1.5 px-4 py-2 text-xs"
           >
-            Ver planes y precios
+            Ver planes y activar
             <ArrowRight size={13} />
           </Link>
         </div>

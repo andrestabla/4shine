@@ -459,7 +459,7 @@ export default function DashboardHomePage() {
               className="shrink-0 rounded-full px-4 py-2 text-xs font-bold text-white transition hover:opacity-90"
               style={{ background: "var(--brand-primary)" }}
             >
-              Ver planes y precios
+              Ver planes y activar
             </Link>
           </div>
           <div className="mt-4 space-y-2">
@@ -628,7 +628,7 @@ export default function DashboardHomePage() {
               href="/dashboard/suscripcion"
               className="mt-6 inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-bold text-[var(--brand-primary)] shadow-sm transition hover:-translate-y-0.5"
             >
-              Ver planes y precios
+              Ver planes y activar
             </Link>
           </div>
         </section>

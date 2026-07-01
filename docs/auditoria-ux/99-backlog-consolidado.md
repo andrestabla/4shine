@@ -4,7 +4,7 @@ Hallazgos transversales a los 6 personas (líder sin plan, líder con plan, advi
 
 Leyenda esfuerzo: 🟢 quick win · 🟡 mediano · 🔴 proyecto.
 
-> **Estado de implementación (en producción):** ✅ **B1–B7, B10–B14, B16** implementados y desplegados. Pendientes (polish menor): **B8** (unificar 2 empty-states de Aprendizaje), **B9** (barrido de microcopy), **B15** (nota "el gestor no elimina usuarios") y **P3**.
+> **Estado de implementación (en producción):** ✅ **B1–B14 y B16 implementados y desplegados.** B15 no aplica (no existe botón de eliminar usuario por fila; la baja va por otra vía). Solo queda **P3** (pulido opcional: paginación en convocatorias/workshops, tablas 360 responsive en móvil, etc.).
 
 ## 🔴 P1 — Prioridad alta (impacto en conversión/experiencia/seguridad)
 
