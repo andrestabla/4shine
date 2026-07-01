@@ -68,7 +68,13 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // ── 1. Canonical host redirect (production only, GET/HEAD) ───────────────
-  if (process.env.VERCEL_ENV === 'production') {
+  // EXCEPCIÓN: las rutas de cron NO se canonicalizan. Vercel Cron invoca el
+  // endpoint sobre el host del deployment (p. ej. 4shine.vercel.app) y NO sigue
+  // redirects; si las redirigiéramos a www, el cron recibiría 301 y el handler
+  // nunca correría (así estaban rotos todos los crons). Sirviéndolas en su host
+  // original, el cron nativo de Vercel llega al handler y se ejecuta.
+  const isCronPath = pathname.startsWith('/api/v1/cron/');
+  if (process.env.VERCEL_ENV === 'production' && !isCronPath) {
     const method = request.method.toUpperCase();
     if (method === 'GET' || method === 'HEAD') {
       const host = request.headers.get('host')?.toLowerCase() ?? '';
