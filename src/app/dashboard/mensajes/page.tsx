@@ -206,6 +206,12 @@ export default function MensajesPage() {
   const [messages, setMessages] = React.useState<MessageRecord[]>([]);
   const [selectedThreadId, setSelectedThreadId] = React.useState('');
   const [messageText, setMessageText] = React.useState('');
+  // Autosave del borrador por conversación (P3): al cambiar de hilo se restaura
+  // lo que quedó escrito. El guardado ocurre en el onChange (thread correcto).
+  React.useEffect(() => {
+    if (!selectedThreadId || typeof window === 'undefined') return;
+    setMessageText(window.localStorage.getItem(`msgdraft:${selectedThreadId}`) ?? '');
+  }, [selectedThreadId]);
   const [loading, setLoading] = React.useState(true);
   const [messagesLoading, setMessagesLoading] = React.useState(false);
   const [threadSearch, setThreadSearch] = React.useState('');
@@ -428,12 +434,14 @@ export default function MensajesPage() {
     if (!selectedThreadId || !messageText.trim()) return;
     const text = messageText.trim();
     setMessageText('');
+    if (typeof window !== 'undefined') window.localStorage.removeItem(`msgdraft:${selectedThreadId}`);
     try {
       await sendMessage(selectedThreadId, { messageText: text });
       await Promise.all([loadMessages(selectedThreadId), loadAll(), refreshBootstrap()]);
       inputRef.current?.focus();
     } catch (err) {
       setMessageText(text);
+      if (typeof window !== 'undefined') window.localStorage.setItem(`msgdraft:${selectedThreadId}`, text);
       await showError('No se pudo enviar el mensaje', err);
     }
   };
@@ -991,7 +999,15 @@ export default function MensajesPage() {
                   <input
                     ref={inputRef}
                     value={messageText}
-                    onChange={(e) => { setMessageText(e.target.value); if (e.target.value) sendTypingEvent(); }}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setMessageText(v);
+                      if (selectedThreadId) {
+                        if (v) window.localStorage.setItem(`msgdraft:${selectedThreadId}`, v);
+                        else window.localStorage.removeItem(`msgdraft:${selectedThreadId}`);
+                      }
+                      if (v) sendTypingEvent();
+                    }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();

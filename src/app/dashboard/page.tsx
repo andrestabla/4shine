@@ -253,7 +253,10 @@ export default function DashboardHomePage() {
   // Mensaje del día: rota a diario por la base de conocimiento (mismo mensaje
   // durante el día, distinto cada día), recorriendo todas las citas activas.
   const quotes = bootstrapData.quotes;
-  const dayIndex = Math.floor(Date.now() / 86_400_000);
+  // Día calendario en la zona horaria del usuario (no en UTC), para que la frase
+  // cambie a medianoche local y sea consistente entre husos (P3).
+  const localDay = new Date().toLocaleDateString("en-CA", { timeZone: tz });
+  const dayIndex = Math.floor(Date.parse(localDay) / 86_400_000);
   const quote = quotes.length > 0 ? quotes[dayIndex % quotes.length] : undefined;
   const mentorshipCount = bootstrapData.mentorships.length;
 
