@@ -146,10 +146,11 @@ function Avatar({ name, avatarUrl, size = 'md' }: { name: string; avatarUrl?: st
 // ─── Tab nav ──────────────────────────────────────────────────────────────────
 
 function TabNav({ activeTab, onTabChange, pendingCount }: { activeTab: MainTab; onTabChange: (t: MainTab) => void; pendingCount: number }) {
+  // "Mensajes" ya no es una pestaña (era un simple redirect y parecía roto):
+  // la mensajería vive en /dashboard/mensajes (auditoría UX B12).
   const tabs: { id: MainTab; label: string; icon: React.ReactNode }[] = [
     { id: 'inicio', label: 'Inicio', icon: <Globe size={16} /> },
     { id: 'mi-red', label: 'Mi red', icon: <Users size={16} /> },
-    { id: 'mensajes', label: 'Mensajes', icon: <MessageSquare size={16} /> },
   ];
   return (
     <nav className="app-panel overflow-hidden p-0">

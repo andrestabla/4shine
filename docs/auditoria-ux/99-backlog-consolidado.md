@@ -4,7 +4,7 @@ Hallazgos transversales a los 6 personas (líder sin plan, líder con plan, advi
 
 Leyenda esfuerzo: 🟢 quick win · 🟡 mediano · 🔴 proyecto.
 
-> **Estado de implementación (en producción):** ✅ **B1, B2, B3, B4, B6, B10** implementados y desplegados. Pendientes: B5, B7, B8, B9, B11–B16 y P3.
+> **Estado de implementación (en producción):** ✅ **B1, B2, B3, B4, B5, B6, B10, B11, B12, B16** implementados y desplegados. Pendientes: B7, B8, B9, B13, B14, B15 y P3.
 
 ## 🔴 P1 — Prioridad alta (impacto en conversión/experiencia/seguridad)
 

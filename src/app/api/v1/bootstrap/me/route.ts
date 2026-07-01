@@ -29,7 +29,9 @@ function invitedViewerAccess(): ViewerAccessState {
     canAccessWorkshops: false,
     canAccessAprendizajeCursos: false,
     canAccessAprendizajeRecursosFree: false,
-    freeLearningOnly: true,
+    // El invitado es SOLO descubrimiento (no "solo free learning"): así no queda
+    // la contradicción free=false + freeLearningOnly=true (auditoría UX B16).
+    freeLearningOnly: false,
     purchasedProductCodes: [],
     catalog: [],
   };

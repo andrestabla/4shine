@@ -4428,6 +4428,17 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
               const isCompleted = item.status === 'completed';
               const isScheduled = item.status === 'scheduled';
               const isLocked = item.status === 'locked';
+              // Cadencia: la siguiente incluida se habilita 10 días después del
+              // inicio de la mentoría ya agendada. Mostramos la fecha exacta (B5).
+              const blockerSession = overview.programEntitlements.find(
+                (e) => e.status === 'scheduled' && e.scheduledStartsAt,
+              );
+              const lockUnlockLabel =
+                isLocked && blockerSession?.scheduledStartsAt
+                  ? new Date(
+                      new Date(blockerSession.scheduledStartsAt).getTime() + 10 * 86_400_000,
+                    ).toLocaleDateString('es-CO', { dateStyle: 'long' })
+                  : null;
 
               if (isCompleted) {
                 return (
@@ -4494,8 +4505,10 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                     <Lock size={14} className="shrink-0 text-[var(--app-muted)]" />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-bold text-[var(--app-ink)]">{item.title}</p>
-                      <p className="truncate text-xs text-[var(--app-muted)]">
-                        {item.scheduleBlockedReason ?? 'Se habilita 10 días después de la mentoría anterior.'}
+                      <p className="text-xs text-[var(--app-muted)]">
+                        {lockUnlockLabel
+                          ? `Se habilita el ${lockUnlockLabel} (10 días tras tu mentoría agendada).`
+                          : (item.scheduleBlockedReason ?? 'Se habilita 10 días después de la mentoría anterior.')}
                       </p>
                     </div>
                     <span className="shrink-0 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-700">

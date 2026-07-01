@@ -523,6 +523,15 @@ export default function DashboardHomePage() {
             <p className="mt-3 max-w-3xl text-sm leading-relaxed text-[var(--app-muted)] md:text-base">
               {roleSummary.description}
             </p>
+            {currentRole === "lider" && !isOpenLeader && viewerAccess?.activePlan && (
+              <Link
+                href="/dashboard/suscripcion"
+                className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-1 text-xs font-semibold text-[var(--app-ink)] transition hover:border-[var(--brand-primary)]"
+              >
+                Plan {viewerAccess.activePlan.name}
+                <ArrowRight size={12} />
+              </Link>
+            )}
           </div>
 
           <div className="flex flex-wrap gap-2">
