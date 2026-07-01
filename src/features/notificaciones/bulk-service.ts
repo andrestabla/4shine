@@ -65,7 +65,33 @@ interface AudienceQuery {
   params: unknown[];
 }
 
-const SUBSCRIBED_PLANS = new Set(['premium', 'vip', 'empresa_elite']);
+// Un líder cuenta como "con suscripción" con la MISMA definición que usa el
+// acceso real de la plataforma (getViewerAccessState → hasProgramSubscription):
+//   1) tiene un plan dinámico asignado (user_profiles.subscription_plan_id) que
+//      está activo y NO vencido — la fuente de verdad desde el módulo de Planes;
+//   2) o conserva un plan_type legacy pagado (premium/vip/empresa_elite) — para
+//      líderes aún no migrados al modelo dinámico; o
+//   3) tiene una compra activa del grupo 'program'.
+// Nota: al asignar un plan dinámico, la migración limpia plan_type a NULL, por
+// eso el filtro anterior (solo plan_type IN (...)) marcaba como "sin suscripción"
+// a líderes que SÍ tienen plan. Requiere alias `u` (users) y `up` (user_profiles).
+const LEADER_HAS_SUBSCRIPTION_SQL = `(
+  (
+    up.subscription_plan_id IS NOT NULL
+    AND EXISTS (
+      SELECT 1 FROM app_billing.subscription_plans sp
+      WHERE sp.plan_id = up.subscription_plan_id AND sp.is_active = true
+    )
+    AND (up.subscription_expires_at IS NULL OR up.subscription_expires_at > now())
+  )
+  OR up.plan_type IN ('premium', 'vip', 'empresa_elite')
+  OR EXISTS (
+    SELECT 1
+    FROM app_billing.user_purchases pur
+    JOIN app_billing.product_catalog pc ON pc.product_code = pur.product_code
+    WHERE pur.user_id = u.user_id AND pur.status = 'active' AND pc.product_group = 'program'
+  )
+)`;
 
 function buildAudienceWhere(filter: BulkAudienceFilter, orgId: string): AudienceQuery {
   const conditions: string[] = ['u.organization_id = $1::uuid'];
@@ -84,12 +110,12 @@ function buildAudienceWhere(filter: BulkAudienceFilter, orgId: string): Audience
       switch (ut) {
         case 'leader_with_subscription':
           orParts.push(
-            `(u.primary_role = 'lider' AND up.plan_type IN ('premium','vip','empresa_elite'))`,
+            `(u.primary_role = 'lider' AND ${LEADER_HAS_SUBSCRIPTION_SQL})`,
           );
           break;
         case 'leader_without_subscription':
           orParts.push(
-            `(u.primary_role = 'lider' AND (up.plan_type IS NULL OR up.plan_type NOT IN ('premium','vip','empresa_elite')))`,
+            `(u.primary_role = 'lider' AND NOT ${LEADER_HAS_SUBSCRIPTION_SQL})`,
           );
           break;
         case 'mentor':
@@ -168,14 +194,14 @@ function buildAudienceWhere(filter: BulkAudienceFilter, orgId: string): Audience
 
 function deriveUserType(
   role: string,
-  planType: string | null,
+  hasSubscription: boolean,
 ): BulkRecipientRecord['userType'] {
   if (role === 'invitado') return 'invited';
   if (role === 'mentor') return 'mentor';
   if (role === 'gestor') return 'gestor';
   if (role === 'admin') return 'admin';
   if (role === 'lider') {
-    return planType && SUBSCRIBED_PLANS.has(planType)
+    return hasSubscription
       ? 'leader_with_subscription'
       : 'leader_without_subscription';
   }
@@ -188,12 +214,13 @@ interface AudienceRow {
   display_name: string;
   primary_role: string;
   plan_type: string | null;
+  has_subscription: boolean;
   subscription_started_at: string | null;
   subscription_expires_at: string | null;
 }
 
 function mapAudienceRow(row: AudienceRow): BulkRecipientRecord {
-  const userType = deriveUserType(row.primary_role, row.plan_type);
+  const userType = deriveUserType(row.primary_role, row.has_subscription === true);
   const daysUntilExpiration = row.subscription_expires_at
     ? Math.floor(
         (new Date(row.subscription_expires_at).getTime() - Date.now()) / 86_400_000,
@@ -257,6 +284,7 @@ export async function previewBulkAudience(
         u.display_name,
         u.primary_role,
         up.plan_type,
+        ${LEADER_HAS_SUBSCRIPTION_SQL} AS has_subscription,
         up.subscription_started_at::text,
         up.subscription_expires_at::text
       FROM app_core.users u
@@ -290,6 +318,7 @@ async function listAllRecipients(
         u.display_name,
         u.primary_role,
         up.plan_type,
+        ${LEADER_HAS_SUBSCRIPTION_SQL} AS has_subscription,
         up.subscription_started_at::text,
         up.subscription_expires_at::text
       FROM app_core.users u
@@ -340,6 +369,7 @@ export async function listAudience(
         u.display_name,
         u.primary_role,
         up.plan_type,
+        ${LEADER_HAS_SUBSCRIPTION_SQL} AS has_subscription,
         up.subscription_started_at::text,
         up.subscription_expires_at::text
       FROM app_core.users u
@@ -381,6 +411,7 @@ export async function searchPlatformUsers(
         u.display_name,
         u.primary_role,
         up.plan_type,
+        ${LEADER_HAS_SUBSCRIPTION_SQL} AS has_subscription,
         NULL::text AS subscription_started_at,
         NULL::text AS subscription_expires_at
       FROM app_core.users u
