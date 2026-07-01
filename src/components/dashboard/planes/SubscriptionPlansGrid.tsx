@@ -5,11 +5,13 @@ import Link from 'next/link';
 import { Check, X, Lock, CheckCircle2 } from 'lucide-react';
 import { listPublicPlans } from '@/features/planes/client';
 import type { SubscriptionPlanWithFeatures } from '@/features/planes/client';
-import { groupFeaturesByModule } from '@/features/planes/features-catalog';
+import { groupFeaturesByModule, PLAN_FEATURES } from '@/features/planes/features-catalog';
 import type { PlanFeatureKey } from '@/features/planes/types';
 
 interface SubscriptionPlansGridProps {
   currentPlanId?: string | null;
+  /** moduleCode que originó la conversión: resalta los planes que lo incluyen. */
+  highlightModule?: string | null;
 }
 
 function formatPrice(amount: number, currency: string): string {
@@ -29,7 +31,7 @@ function formatDuration(days: number): string {
   return `${days} días`;
 }
 
-export function SubscriptionPlansGrid({ currentPlanId }: SubscriptionPlansGridProps) {
+export function SubscriptionPlansGrid({ currentPlanId, highlightModule }: SubscriptionPlansGridProps) {
   const [plans, setPlans] = useState<SubscriptionPlanWithFeatures[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -45,10 +47,28 @@ export function SubscriptionPlansGrid({ currentPlanId }: SubscriptionPlansGridPr
     })();
   }, []);
 
+  // Claves de feature del módulo que originó la conversión (para resaltar planes).
+  const highlightKeys = useMemo(() => {
+    if (!highlightModule) return null;
+    const keys = new Set<PlanFeatureKey>(
+      PLAN_FEATURES.filter((f) => f.moduleCode === highlightModule).map((f) => f.key),
+    );
+    return keys.size > 0 ? keys : null;
+  }, [highlightModule]);
+
+  const planIncludesHighlight = useMemo(() => {
+    return (plan: SubscriptionPlanWithFeatures): boolean =>
+      highlightKeys ? plan.features.some((f) => f.isEnabled && highlightKeys.has(f.featureKey)) : false;
+  }, [highlightKeys]);
+
   const visiblePlans = useMemo(() => {
-    if (activeGroup === 'all') return plans;
-    return plans.filter((p) => p.planGroup === activeGroup);
-  }, [plans, activeGroup]);
+    const filtered = activeGroup === 'all' ? plans : plans.filter((p) => p.planGroup === activeGroup);
+    if (!highlightKeys) return filtered;
+    // Los que incluyen el módulo destacado primero.
+    return [...filtered].sort(
+      (a, b) => Number(planIncludesHighlight(b)) - Number(planIncludesHighlight(a)),
+    );
+  }, [plans, activeGroup, highlightKeys, planIncludesHighlight]);
 
   const groups = useMemo(() => {
     const set = new Set<string>();
@@ -136,6 +156,7 @@ export function SubscriptionPlansGrid({ currentPlanId }: SubscriptionPlansGridPr
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {visiblePlans.map((plan) => {
           const isCurrent = currentPlanId === plan.planId;
+          const includesHighlight = planIncludesHighlight(plan);
           const featuresMap = new Map<PlanFeatureKey, { isEnabled: boolean; quota: number | null }>();
           for (const f of plan.features) {
             featuresMap.set(f.featureKey, { isEnabled: f.isEnabled, quota: f.quota });
@@ -149,9 +170,16 @@ export function SubscriptionPlansGrid({ currentPlanId }: SubscriptionPlansGridPr
                   ? 'border-emerald-400 bg-emerald-50/40'
                   : plan.highlightLabel
                     ? 'border-[var(--app-ink)] bg-[var(--app-ink)] text-white'
-                    : 'border-[var(--app-border)] bg-white'
+                    : includesHighlight
+                      ? 'border-[var(--brand-primary)] ring-2 ring-[var(--brand-primary)]/30 bg-white'
+                      : 'border-[var(--app-border)] bg-white'
               }`}
             >
+              {includesHighlight && !isCurrent && (
+                <span className="mb-3 inline-flex w-fit items-center gap-1 rounded-full bg-[var(--brand-primary)] px-3 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-white">
+                  <Check size={10} strokeWidth={3} /> Incluye lo que buscas
+                </span>
+              )}
               {(plan.highlightLabel || isCurrent) && (
                 <span
                   className={`mb-3 inline-block w-fit rounded-full px-3 py-0.5 text-[10px] font-extrabold uppercase tracking-wider ${

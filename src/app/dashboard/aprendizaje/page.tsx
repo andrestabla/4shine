@@ -688,7 +688,7 @@ export default function AprendizajePage() {
             kicker="Aprendizaje"
             title="Activa tu plan para desbloquear los workbooks"
             message="Con el programa 4Shine accedes a la ruta completa de workbooks y cursos."
-            cta={{ label: "Ver planes y precios", href: "/planes-precios" }}
+            cta={{ label: "Ver planes y precios", href: "/dashboard/suscripcion" }}
           />
         ) : nextWorkbook ? (
           <ModuleGuidanceBanner
@@ -819,7 +819,7 @@ export default function AprendizajePage() {
                     Rutas estructuradas con módulos, recursos y certificados. Se desbloquean al activar tu plan.
                   </p>
                   <Link
-                    href="/planes-precios"
+                    href="/dashboard/suscripcion"
                     className="mt-5 inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-5 py-2.5 text-sm font-bold text-white transition hover:opacity-90"
                   >
                     Ver planes y precios
@@ -1068,7 +1068,7 @@ export default function AprendizajePage() {
                     Cada workbook es personal y se libera según tu etapa en la trayectoria. Se desbloquean al activar tu plan.
                   </p>
                   <Link
-                    href="/planes-precios"
+                    href="/dashboard/suscripcion"
                     className="mt-5 inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-5 py-2.5 text-sm font-bold text-white transition hover:opacity-90"
                   >
                     Ver planes y precios

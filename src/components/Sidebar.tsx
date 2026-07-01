@@ -51,6 +51,8 @@ interface NavItem {
   path: string;
   requiredAction?: PermissionAction;
   adminOnly?: boolean;
+  /** Si se define, el ítem solo se muestra para estos roles. */
+  roles?: string[];
 }
 
 // Módulos que el rol permite ver pero que muestran "muro" (ModuleLockedScreen)
@@ -149,6 +151,14 @@ const MAIN_NAV_ITEMS: NavItem[] = [
     icon: PieChart,
     path: "/dashboard/analitica",
   },
+  {
+    // Conversión interna, visible para quienes pueden suscribirse (auditoría UX B3).
+    moduleCode: "dashboard",
+    label: "Suscripción",
+    icon: CreditCard,
+    path: "/dashboard/suscripcion",
+    roles: ["lider", "invitado"],
+  },
 ];
 
 const ADMIN_NAV_ITEMS: NavItem[] = [
@@ -217,6 +227,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
 
   const hasAccess = (item: NavItem) => {
     if (item.adminOnly && currentRole !== "admin") return false;
+    if (item.roles && currentRole && !item.roles.includes(currentRole)) return false;
     return can(item.moduleCode, item.requiredAction ?? "view");
   };
 

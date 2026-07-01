@@ -518,6 +518,7 @@ export default function MensajesPage() {
     return (
       <ModuleLockedScreen
         moduleName="Mensajes"
+        moduleCode="mensajes"
         icon={MessageCircle}
         description="Comunicación en tiempo real con tu Advisor, otros líderes del programa y el equipo de acompañamiento 4Shine."
         features={[

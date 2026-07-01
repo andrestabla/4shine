@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Lock } from 'lucide-react';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { SubscriptionPlansGrid } from '@/components/dashboard/planes/SubscriptionPlansGrid';
 import { requestApi } from '@/lib/api-client';
@@ -13,7 +15,23 @@ interface MeSubscription {
   subscriptionExpiresAt: string | null;
 }
 
-export default function SuscripcionPage() {
+// Etiqueta visible del módulo que originó el "muro" (param ?desde=<moduleCode>).
+const MODULE_LABELS: Record<string, string> = {
+  trayectoria: 'Trayectoria',
+  networking: 'Networking',
+  convocatorias: 'Convocatorias',
+  mensajes: 'Mensajes',
+  workshops: 'Workshops',
+  mentorias: 'Mentorías',
+  aprendizaje: 'Aprendizaje',
+  descubrimiento: 'Descubrimiento',
+};
+
+function SuscripcionInner() {
+  const searchParams = useSearchParams();
+  const desde = searchParams.get('desde') || '';
+  const desdeLabel = MODULE_LABELS[desde] || '';
+
   const [me, setMe] = useState<MeSubscription | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -43,6 +61,16 @@ export default function SuscripcionPage() {
         subtitle="Elige el plan que mejor se ajusta a tu momento. Cada plan define el acceso a los módulos de la plataforma."
       />
 
+      {desdeLabel && (
+        <div className="flex items-start gap-3 rounded-[1rem] border border-[var(--brand-border-strong)] bg-[var(--brand-surface-strong)] p-4">
+          <Lock size={16} className="mt-0.5 shrink-0 text-[var(--brand-primary)]" />
+          <p className="text-sm text-[var(--app-ink)]">
+            Estás aquí porque <strong>{desdeLabel}</strong> requiere un plan que lo incluya.
+            Resaltamos abajo los planes que lo desbloquean.
+          </p>
+        </div>
+      )}
+
       {loading ? (
         <div className="py-12 text-center text-sm text-[var(--app-muted)]">
           Cargando tu suscripción…
@@ -63,9 +91,20 @@ export default function SuscripcionPage() {
             </div>
           )}
 
-          <SubscriptionPlansGrid currentPlanId={me?.subscriptionPlanId ?? null} />
+          <SubscriptionPlansGrid
+            currentPlanId={me?.subscriptionPlanId ?? null}
+            highlightModule={desde || null}
+          />
         </>
       )}
     </div>
+  );
+}
+
+export default function SuscripcionPage() {
+  return (
+    <Suspense fallback={null}>
+      <SuscripcionInner />
+    </Suspense>
   );
 }

@@ -1390,7 +1390,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
             Las sesiones grupales en vivo con tu cohorte se desbloquean al activar tu plan.
           </p>
           <Link
-            href="/planes-precios"
+            href="/dashboard/suscripcion"
             className="mt-5 inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold transition hover:opacity-90"
             style={{ background: "var(--brand-primary)", color: "var(--brand-on-dark)" }}
           >
@@ -4365,7 +4365,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
             </p>
           </div>
           <Link
-            href="/planes-precios"
+            href="/dashboard/suscripcion"
             className="shrink-0 rounded-full px-4 py-2 text-xs font-bold transition hover:opacity-90"
             style={{ background: "var(--brand-primary)", color: "var(--brand-on-dark)" }}
           >

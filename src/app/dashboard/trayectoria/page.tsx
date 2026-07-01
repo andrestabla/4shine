@@ -810,6 +810,7 @@ export default function TrayectoriaPage() {
     return (
       <ModuleLockedScreen
         moduleName="Trayectoria"
+        moduleCode="trayectoria"
         icon={Sparkles}
         description="Tu hoja de ruta personalizada de 24 semanas que conecta diagnóstico, workbooks, mentorías y señales de progreso en una sola línea de tiempo."
         features={[

@@ -6,6 +6,10 @@ import { ArrowRight, Lock, type LucideIcon } from "lucide-react";
 interface ModuleLockedScreenProps {
   /** Nombre visible del módulo: "Aprendizaje", "Mentorías", etc. */
   moduleName: string;
+  /** Código del módulo (trayectoria, networking, …). Contextualiza la conversión:
+   *  el CTA lleva a /dashboard/suscripcion?desde=<moduleCode> para resaltar los
+   *  planes que lo incluyen. */
+  moduleCode?: string;
   /** Ícono del módulo (lucide-react). */
   icon: LucideIcon;
   /** Una o dos frases que describen para qué sirve el módulo. */
@@ -21,17 +25,21 @@ interface ModuleLockedScreenProps {
  * cuando intenta acceder a un módulo que no tiene contratado.
  *
  * Reglas de diseño:
- * - Describe qué es el módulo y qué se desbloquea al comprar.
- * - NO sugiere un plan específico ni muestra precios.
- * - Un único CTA: "Ver planes y precios" → /planes-precios.
+ * - Describe qué es el módulo y qué se desbloquea al activar un plan.
+ * - CTA a la conversión INTERNA (/dashboard/suscripcion), contextualizada por
+ *   módulo para resaltar los planes que lo incluyen.
  */
 export function ModuleLockedScreen({
   moduleName,
+  moduleCode,
   icon: Icon,
   description,
   features,
   footnote,
 }: ModuleLockedScreenProps) {
+  const ctaHref = moduleCode
+    ? `/dashboard/suscripcion?desde=${encodeURIComponent(moduleCode)}`
+    : "/dashboard/suscripcion";
   return (
     <section className="mx-auto max-w-3xl">
       <div className="app-panel overflow-hidden">
@@ -90,15 +98,15 @@ export function ModuleLockedScreen({
 
           <div className="mt-8 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
             <Link
-              href="/planes-precios"
+              href={ctaHref}
               className="inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:-translate-y-0.5"
               style={{ background: "var(--brand-primary)" }}
             >
-              Ver planes y precios
+              Ver planes y activar
               <ArrowRight size={16} />
             </Link>
             <p className="text-xs text-[var(--app-muted)]">
-              Elige el plan que mejor se adapte a ti y desbloquéalo al instante.
+              Elige el plan que incluye {moduleName} y actívalo al instante.
             </p>
           </div>
 

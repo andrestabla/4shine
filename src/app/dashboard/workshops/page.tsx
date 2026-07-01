@@ -241,6 +241,7 @@ export default function WorkshopsPage() {
     return (
       <ModuleLockedScreen
         moduleName="Workshops"
+        moduleCode="workshops"
         icon={CalendarRange}
         description="Experiencias grupales en vivo — relacionamiento, formación, bienestar e innovación — integradas a tu trayectoria como líder."
         features={[

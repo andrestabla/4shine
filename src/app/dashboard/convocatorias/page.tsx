@@ -452,6 +452,7 @@ export default function ConvocatoriasPage() {
     return (
       <ModuleLockedScreen
         moduleName="Convocatorias"
+        moduleCode="convocatorias"
         icon={Megaphone}
         description="Accede a oportunidades, proyectos y programas que publica el ecosistema 4Shine y postúlate cuando encuentres la que se ajusta a tu momento."
         features={[

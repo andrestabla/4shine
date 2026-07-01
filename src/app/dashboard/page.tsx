@@ -455,7 +455,7 @@ export default function DashboardHomePage() {
               <h2 className="mt-1 text-base font-extrabold text-[var(--app-ink)]">Módulos que se desbloquean</h2>
             </div>
             <Link
-              href="/planes-precios"
+              href="/dashboard/suscripcion"
               className="shrink-0 rounded-full px-4 py-2 text-xs font-bold text-white transition hover:opacity-90"
               style={{ background: "var(--brand-primary)" }}
             >
@@ -486,7 +486,7 @@ export default function DashboardHomePage() {
             })}
           </div>
           <Link
-            href="/planes-precios"
+            href="/dashboard/suscripcion"
             className="mt-4 flex items-center justify-between rounded-[1rem] border border-dashed px-4 py-3.5 transition hover:-translate-y-0.5"
             style={{
               borderColor: "color-mix(in srgb, var(--brand-primary) 22%, transparent)",
@@ -616,7 +616,7 @@ export default function DashboardHomePage() {
               Workshops y Mensajes) se desbloquea al activar tu plan.
             </p>
             <Link
-              href="/planes-precios"
+              href="/dashboard/suscripcion"
               className="mt-6 inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-bold text-[var(--brand-primary)] shadow-sm transition hover:-translate-y-0.5"
             >
               Ver planes y precios

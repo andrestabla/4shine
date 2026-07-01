@@ -1068,6 +1068,7 @@ export default function NetworkingPage() {
     return (
       <ModuleLockedScreen
         moduleName="Networking"
+        moduleCode="networking"
         icon={Users}
         description="El espacio de conexión, colaboración y expansión de la comunidad 4Shine. Encuentra líderes afines, suma a tu red y participa en comunidades temáticas."
         features={[
