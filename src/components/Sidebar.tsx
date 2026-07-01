@@ -29,7 +29,9 @@ import {
   Compass,
   Globe,
   CreditCard,
+  Lock,
 } from "lucide-react";
+import type { ViewerAccessState } from "@/features/access/types";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
@@ -50,6 +52,17 @@ interface NavItem {
   requiredAction?: PermissionAction;
   adminOnly?: boolean;
 }
+
+// Módulos que el rol permite ver pero que muestran "muro" (ModuleLockedScreen)
+// si el plan no los incluye. Se marcan con un candado en el menú para evitar el
+// clic-sorpresa (auditoría UX B1).
+const PLAN_LOCKED_MODULES: Partial<Record<ModuleCode, (a: ViewerAccessState) => boolean>> = {
+  trayectoria: (a) => !a.canAccessTrayectoria,
+  networking: (a) => !a.canAccessNetworking,
+  convocatorias: (a) => !a.canAccessConvocatorias,
+  mensajes: (a) => !a.canAccessMensajes,
+  workshops: (a) => !a.canAccessWorkshops,
+};
 
 const MAIN_NAV_ITEMS: NavItem[] = [
   {
@@ -189,7 +202,7 @@ const ADMIN_NAV_ITEMS: NavItem[] = [
 ];
 
 export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
-  const { currentUser, currentRole, can, logout } = useUser();
+  const { currentUser, currentRole, can, logout, viewerAccess } = useUser();
   const { branding, tokens } = useBranding();
   const { confirm } = useAppDialog();
   const pathname = usePathname();
@@ -252,6 +265,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
 
   const navItem = (item: NavItem) => {
     const isActive = item.path === activeNavPath;
+    const locked = Boolean(viewerAccess && PLAN_LOCKED_MODULES[item.moduleCode]?.(viewerAccess));
     return (
       <Link
         key={item.path}
@@ -265,13 +279,14 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
             : isLightPrimary
               ? "hover:bg-black/10"
               : "hover:bg-white/10",
+          locked && !isActive && "opacity-70",
           isCollapsed && "justify-center px-0",
         )}
         style={{
           color: isActive ? "#4f2360" : mutedText,
           backgroundColor: isActive ? activeBg : "transparent",
         }}
-        title={isCollapsed ? item.label : undefined}
+        title={isCollapsed ? (locked ? `${item.label} · requiere plan` : item.label) : undefined}
       >
         <div
           className={clsx(
@@ -281,7 +296,14 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
         >
           {React.createElement(item.icon, { size: 20 })}
         </div>
-        {!isCollapsed && <span className="truncate">{item.label}</span>}
+        {!isCollapsed && (
+          <span className="flex flex-1 items-center gap-2 truncate">
+            <span className="truncate">{item.label}</span>
+            {locked && (
+              <Lock size={13} className="ml-auto shrink-0 opacity-60" aria-label="Requiere plan" />
+            )}
+          </span>
+        )}
 
         {isCollapsed && (
           <div

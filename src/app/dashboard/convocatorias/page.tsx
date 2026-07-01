@@ -438,6 +438,8 @@ export default function ConvocatoriasPage() {
       await load();
       if (status === 'approved') {
         await alert({ title: 'Convocatoria publicada', message: `"${req.title}" se publicó y ya aparece como abierta.`, tone: 'success' });
+      } else {
+        await alert({ title: 'Solicitud rechazada', message: `Se rechazó "${req.title}"${notes ? ' y se notificó al líder con tu nota.' : ' y se notificó al líder.'}`, tone: 'success' });
       }
     } catch (err) {
       await showError('No se pudo procesar la solicitud', err);

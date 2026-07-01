@@ -109,8 +109,11 @@ function resolveRouteAccess(pathname: string): RouteAccess | undefined {
     return { moduleCode: "usuarios", action: "view" };
   }
 
-  // Secciones de la documentación técnica (rutas dinámicas por slug).
-  if (pathname.startsWith("/dashboard/administracion/documentacion/")) {
+  // Cualquier sección de administración (planes, site, notificaciones, pagos,
+  // políticas, documentación y sus rutas dinámicas) requiere usuarios:manage.
+  // Evita que un gestor u otro rol renderice paneles admin por URL directa antes
+  // de que el backend rechace (auditoría UX B6).
+  if (pathname.startsWith("/dashboard/administracion")) {
     return { moduleCode: "usuarios", action: "manage" };
   }
 

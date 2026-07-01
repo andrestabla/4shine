@@ -170,8 +170,8 @@ function buildRoleStats(params: {
     return [
       { label: "Líderes", value: userStats.students ?? menteesCount, hint: "Asignados" },
       { label: "Sesiones", value: mentorshipCount, hint: "Totales" },
-      { label: "Horas", value: userStats.hours ?? 0, hint: "Acumuladas" },
-      { label: "Rating", value: userStats.rating ?? 0, hint: "Promedio" },
+      { label: "Horas", value: userStats.hours || "—", hint: "Acumuladas" },
+      { label: "Rating", value: userStats.rating || "—", hint: userStats.rating ? "Promedio" : "Tras tus sesiones" },
     ];
   }
 
