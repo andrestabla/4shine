@@ -1,0 +1,48 @@
+name: Scheduled crons
+
+# Reemplaza al cron nativo de Vercel, que NO se ejecuta porque Vercel Cron
+# invoca vía 4shine.vercel.app (301 → www.4shine.co) y no sigue redirects.
+# GitHub Actions llama el endpoint directamente sobre www (sin redirect) con el
+# secreto CRON_SECRET, así corren: recordatorios de mentorías (individuales y
+# grupales), recordatorios de Descubrimiento y eventos de notificación por cron.
+#
+# Requiere el secret de repo CRON_SECRET con el MISMO valor que la env var
+# CRON_SECRET del proyecto en Vercel.
+
+on:
+  schedule:
+    # Cada 15 min (coincide con la cadencia del cron original en vercel.json).
+    - cron: "*/15 * * * *"
+  # Permite dispararlo manualmente desde la pestaña Actions para probar.
+  workflow_dispatch: {}
+
+concurrency:
+  group: scheduled-crons
+  cancel-in-progress: false
+
+jobs:
+  session-reminders:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger mentorías/discovery/eventos cron
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CRON_SECRET:-}" ]; then
+            echo "::error::Falta el secret de repo CRON_SECRET (Settings → Secrets and variables → Actions)."
+            exit 1
+          fi
+          url="https://www.4shine.co/api/v1/cron/mentorias/session-reminders"
+          code=$(curl -sS --max-time 240 -o /tmp/cron_out.json -w "%{http_code}" \
+            -H "Authorization: Bearer ${CRON_SECRET}" "$url")
+          echo "HTTP $code"
+          echo "----- response body -----"
+          cat /tmp/cron_out.json || true
+          echo
+          echo "-------------------------"
+          if [ "$code" != "200" ]; then
+            echo "::error::El cron respondió $code (esperado 200). Revisa CRON_SECRET y el endpoint."
+            exit 1
+          fi
