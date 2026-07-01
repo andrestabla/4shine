@@ -2444,12 +2444,10 @@ export async function createDiscoveryInvitations(
     });
 
     const inviteUrl = `${baseUrl}/descubrimiento/invitacion/${inviteToken}`;
-    // Header del email es oscuro: preferir logo_dark_url (logo alterno) para
-    // garantizar contraste; fallback al logo principal y luego al diamante.
-    const platformLogoUrl =
-      branding.logo_dark_url?.trim() ||
-      branding.logo_url?.trim() ||
-      `${baseUrl}/workbooks-v2/diamond.svg`;
+    // El logo se sirve por el dominio de la app (no directo a pub-*.r2.dev, que
+    // está rate-limited y rompe en Gmail/Outlook). El endpoint resuelve el logo
+    // oscuro configurado y transmite los bytes; cae al logo por defecto si falta.
+    const platformLogoUrl = `${baseUrl}/api/v1/public/branding/email-logo`;
     const params = {
       recipient_email: email,
       access_code: accessCode,
@@ -6467,11 +6465,9 @@ export async function resendDiscoveryInvitation(
   const session = invRow.session_payload ? mapDiscoverySessionRow(invRow.session_payload) : null;
   const baseUrl = resolveAppBaseUrl();
   const inviteUrl = `${baseUrl}/descubrimiento/invitacion/${newInviteToken}`;
-  // Header oscuro: preferir logo alterno (logo_dark_url) sobre el principal.
-  const platformLogoUrl =
-    branding.logo_dark_url?.trim() ||
-    branding.logo_url?.trim() ||
-    `${baseUrl}/workbooks-v2/diamond.svg`;
+  // Logo servido por el dominio de la app (no r2.dev, rate-limited) para que
+  // cargue en Gmail/Outlook. El endpoint resuelve el logo oscuro configurado.
+  const platformLogoUrl = `${baseUrl}/api/v1/public/branding/email-logo`;
 
   const params = {
     recipient_email: invRow.invited_email,
