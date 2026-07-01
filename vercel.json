@@ -4,10 +4,6 @@
     {
       "path": "/api/v1/cron/mentorias/session-reminders",
       "schedule": "*/15 * * * *"
-    },
-    {
-      "path": "/api/v1/cron/descubrimiento/drain-ai-jobs",
-      "schedule": "*/10 * * * *"
     }
   ]
 }
