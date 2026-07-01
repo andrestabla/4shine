@@ -206,9 +206,28 @@ export default function UsuariosPage() {
   };
 
   const runBulk = React.useCallback(
-    async (action: BulkAction, params: BulkActionParams, successMsg: (n: number) => string) => {
+    async (
+      action: BulkAction,
+      params: BulkActionParams,
+      successMsg: (n: number) => string,
+      actionLabel: string,
+    ) => {
       const ids = [...selected];
       if (ids.length === 0) return;
+
+      // Revisión previa: mostrar A QUIÉNES afecta antes de ejecutar (B14).
+      const names = selectedUsers.map((u) => u.displayName || u.email).filter(Boolean);
+      const preview = names.slice(0, 8).join(', ');
+      const more = ids.length - Math.min(8, names.length);
+      const ok = await confirm({
+        title: 'Confirmar acción masiva',
+        message:
+          `Vas a ${actionLabel} a ${ids.length} usuario(s):\n\n${preview}${more > 0 ? ` … y ${more} más` : ''}.\n\nEsta acción no se puede deshacer. ¿Continuar?`,
+        tone: 'warning',
+        confirmText: 'Sí, ejecutar',
+      });
+      if (!ok) return;
+
       setBulkBusy(true);
       try {
         const result = await bulkUserAction(action, ids, params);
@@ -225,7 +244,7 @@ export default function UsuariosPage() {
         setBulkBusy(false);
       }
     },
-    [alert, loadUsers, selected],
+    [alert, confirm, loadUsers, selected, selectedUsers],
   );
 
   const onBulkExtend = async () => {
@@ -241,29 +260,15 @@ export default function UsuariosPage() {
       await alert({ title: 'Días inválidos', message: 'Ingresa un número de días mayor a 0.', tone: 'warning' });
       return;
     }
-    await runBulk('extend_subscription', { days }, (n) => `Suscripción ampliada ${days} día(s) para ${n} usuario(s).`);
+    await runBulk('extend_subscription', { days }, (n) => `Suscripción ampliada ${days} día(s) para ${n} usuario(s).`, 'ampliar la suscripción');
   };
 
   const onBulkLogout = async () => {
-    const ok = await confirm({
-      title: 'Cerrar sesiones',
-      message: `Se cerrarán todas las sesiones de ${selected.size} usuario(s). ¿Continuar?`,
-      tone: 'warning',
-      confirmText: 'Sí, desloguear',
-    });
-    if (!ok) return;
-    await runBulk('logout', {}, (n) => `Sesiones cerradas para ${n} usuario(s).`);
+    await runBulk('logout', {}, (n) => `Sesiones cerradas para ${n} usuario(s).`, 'cerrar las sesiones');
   };
 
   const onBulkForcePassword = async () => {
-    const ok = await confirm({
-      title: 'Forzar cambio de contraseña',
-      message: `${selected.size} usuario(s) deberán definir una nueva contraseña en su próximo ingreso (se cerrarán sus sesiones). ¿Continuar?`,
-      tone: 'warning',
-      confirmText: 'Sí, forzar cambio',
-    });
-    if (!ok) return;
-    await runBulk('force_password_change', {}, (n) => `Se exigirá cambio de contraseña a ${n} usuario(s).`);
+    await runBulk('force_password_change', {}, (n) => `Se exigirá cambio de contraseña a ${n} usuario(s).`, 'forzar el cambio de contraseña');
   };
 
   const onBulkSetOrganization = async () => {
