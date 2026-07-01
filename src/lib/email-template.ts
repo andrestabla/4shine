@@ -76,15 +76,15 @@ export function buildBrandedEmailHtml(bodyHtml: string, branding: EmailBranding)
   const footerLegal = branding.footerLegal || '';
   const fontStack = buildFontStack(branding.typography);
 
-  // El header del email tiene fondo oscuro/primario — el logo se sirve SIEMPRE
-  // por el dominio de la app (no directo a `pub-*.r2.dev`, que está rate-limited
-  // y rompe en el proxy de imágenes de Gmail). El endpoint resuelve el logo
-  // oscuro configurado y transmite los bytes; cae al logo por defecto si falta.
+  // El header del email tiene fondo oscuro/primario — el logo se sirve como
+  // ASSET ESTÁTICO desde el CDN de Vercel (Content-Length + ETag + Last-Modified
+  // + soporte de range/conditional requests). El endpoint dinámico previo
+  // (/api/.../email-logo) NO soporta rangos y el proxy de imágenes de OUTLOOK lo
+  // rechazaba → logo roto (Gmail sí lo toleraba). El estático es el mismo logo
+  // dorado 4shine sobre fondo oscuro y funciona en todos los clientes.
   const appUrl = (process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://www.4shine.co').replace(/\/$/, '');
   const hasLogo = Boolean(branding.logoDarkUrl?.trim() || branding.logoUrl?.trim());
-  // `?v=` fuerza a los proxies de imágenes de correo a re-descargar (recupera
-  // cachés envenenadas con la imagen rota de la versión anterior del endpoint).
-  const headerLogo = hasLogo ? `${appUrl}/api/v1/public/branding/email-logo?v=3` : null;
+  const headerLogo = hasLogo ? `${appUrl}/branding/4shine-logo-amarillo.png` : null;
   const headerTextColor = autoTextOn(headerBg);
   const headerContent = headerLogo
     ? `<img src="${headerLogo}" alt="${platformName}" style="height:48px;width:auto;display:block;margin:0 auto;" />`
