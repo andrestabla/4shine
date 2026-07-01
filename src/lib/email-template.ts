@@ -82,7 +82,14 @@ export function buildBrandedEmailHtml(bodyHtml: string, branding: EmailBranding)
   // (/api/.../email-logo) NO soporta rangos y el proxy de imágenes de OUTLOOK lo
   // rechazaba → logo roto (Gmail sí lo toleraba). El estático es el mismo logo
   // dorado 4shine sobre fondo oscuro y funciona en todos los clientes.
-  const appUrl = (process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://www.4shine.co').replace(/\/$/, '');
+  // IMPORTANTE: .trim() + quitar cualquier whitespace. La env var APP_URL /
+  // NEXT_PUBLIC_APP_URL en prod trae un salto de línea al final, y sin sanear
+  // el src quedaba "https://www.4shine.co\n/branding/...": Gmail lo toleraba
+  // pero Outlook lo trataba como URL inválida → logo roto. Esta era la causa
+  // real de "carga en Gmail pero no en Outlook".
+  const appUrl = (process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://www.4shine.co')
+    .replace(/\s+/g, '')
+    .replace(/\/+$/, '');
   const hasLogo = Boolean(branding.logoDarkUrl?.trim() || branding.logoUrl?.trim());
   const headerLogo = hasLogo ? `${appUrl}/branding/4shine-logo-amarillo.png` : null;
   const headerTextColor = autoTextOn(headerBg);
