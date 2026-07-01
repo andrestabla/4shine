@@ -939,13 +939,31 @@ export function InvitationAccessExperience({
         <main className="mx-auto w-full max-w-5xl px-4 pb-16 pt-28 md:px-6 md:pt-32">
           <section className="space-y-4">
           <div className="rounded-[18px] border border-[var(--app-border)] bg-white p-4">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-sm font-semibold text-[var(--app-ink)]">
                 Progreso: {answeredCount} / {DB.length} respuestas ({completionPercent}%)
               </p>
-              {isPersisting && (
-                <p className="text-xs font-semibold text-[var(--app-muted)]">Guardando...</p>
-              )}
+              <div className="flex items-center gap-3">
+                {isPersisting && (
+                  <p className="text-xs font-semibold text-[var(--app-muted)]">Guardando...</p>
+                )}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const ok = await confirm({
+                      title: "Salir y continuar después",
+                      message:
+                        "Tu progreso queda guardado automáticamente. Puedes volver con el mismo enlace de invitación cuando quieras y retomarás justo donde lo dejaste.",
+                      confirmText: "Salir",
+                      cancelText: "Seguir aquí",
+                    });
+                    if (ok) window.location.href = "/";
+                  }}
+                  className="rounded-full border border-[var(--app-border)] px-3 py-1.5 text-xs font-semibold text-[var(--app-muted)] transition hover:border-[var(--brand-primary)] hover:text-[var(--app-ink)]"
+                >
+                  Salir y continuar después
+                </button>
+              </div>
             </div>
             <div className="mt-2 h-2 rounded-full bg-[var(--app-surface-muted)]">
               <div
