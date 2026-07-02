@@ -882,9 +882,14 @@ export default function UsuarioDetallePage() {
             {logs.length === 0 ? (
               <EmptyState message="No hay eventos registrados para este usuario." />
             ) : (
-              <div className="app-table-shell max-h-[640px] overflow-y-auto">
+              // El scroll va en un div INTERNO: `.app-table-shell` tiene
+              // `overflow:hidden` (para redondear esquinas), que anulaba el
+              // overflow-y-auto puesto en el mismo elemento. Con ~10 filas
+              // visibles, a partir de la 11 se activa el scroll. Header sticky.
+              <div className="app-table-shell">
+                <div className="max-h-[560px] overflow-auto">
                 <table className="app-table min-w-[640px] text-sm">
-                  <thead>
+                  <thead className="sticky top-0 z-10">
                     <tr className="text-left">
                       <th>Fecha</th>
                       <th>Actividad</th>
@@ -908,6 +913,7 @@ export default function UsuarioDetallePage() {
                     })}
                   </tbody>
                 </table>
+                </div>
               </div>
             )}
           </article>
