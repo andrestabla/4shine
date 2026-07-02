@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Check, X } from 'lucide-react';
 import type { SubscriptionPlanWithFeatures } from '@/features/planes/types';
@@ -77,6 +77,26 @@ function formatDuration(days: number): string {
 export function PricingMatrixClient({ plans, catalog = [] }: PricingMatrixClientProps) {
   const [tab, setTab] = useState<Tab>('programas');
 
+  // Deep-link por ancla: /planes-precios#diagnostico | #programas | #mentorias |
+  // #circulo abre esa pestaña directamente. Al cambiar de pestaña se actualiza
+  // el ancla en la URL (para copiar/compartir el enlace directo).
+  useEffect(() => {
+    const syncFromHash = () => {
+      const h = window.location.hash.replace('#', '').toLowerCase();
+      if (TABS.some((t) => t.id === h)) setTab(h as Tab);
+    };
+    syncFromHash();
+    window.addEventListener('hashchange', syncFromHash);
+    return () => window.removeEventListener('hashchange', syncFromHash);
+  }, []);
+
+  const selectTab = (id: Tab) => {
+    setTab(id);
+    if (typeof window !== 'undefined') {
+      window.history.replaceState(null, '', `#${id}`);
+    }
+  };
+
   const programs = useMemo(
     () => plans.filter((p) => p.planGroup === 'program').sort((a, b) => a.sortOrder - b.sortOrder),
     [plans],
@@ -141,7 +161,7 @@ export function PricingMatrixClient({ plans, catalog = [] }: PricingMatrixClient
           return (
             <button
               key={t.id}
-              onClick={() => setTab(t.id)}
+              onClick={() => selectTab(t.id)}
               className="rounded-full px-5 py-2 text-sm font-bold transition shadow-sm"
               style={
                 active
