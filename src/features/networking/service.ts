@@ -1,6 +1,6 @@
 import type { PoolClient } from 'pg';
 import type { AuthUser } from '@/server/auth/types';
-import { requireCommunityAccess } from '@/features/access/service';
+import { requireViewerAccessFlag } from '@/features/access/service';
 import { requireModulePermission } from '@/server/auth/module-permissions';
 import { notifyUser } from '@/features/notificaciones/engine';
 
@@ -390,7 +390,7 @@ const BASE_SELECT = `
 
 export async function listConnections(client: PoolClient, actor: AuthUser, limit = 100): Promise<ConnectionRecord[]> {
   await requireModulePermission(client, 'networking', 'view');
-  await requireCommunityAccess(client, actor, 'Networking');
+  await requireViewerAccessFlag(client, actor, 'canAccessNetworking', 'Networking');
 
   const { rows } = await client.query<ConnectionRow>(
     `${BASE_SELECT}
@@ -409,7 +409,7 @@ export async function getConnectedLeaderProfile(
   targetUserId: string,
 ): Promise<ConnectedLeaderProfileRecord> {
   await requireModulePermission(client, 'networking', 'view');
-  await requireCommunityAccess(client, actor, 'Networking');
+  await requireViewerAccessFlag(client, actor, 'canAccessNetworking', 'Networking');
 
   const access = await client.query<{ allowed: boolean }>(
     `
@@ -508,7 +508,7 @@ export async function getConnectedLeaderProfile(
 
 export async function listNetworkPeople(client: PoolClient, actor: AuthUser, limit = 100): Promise<NetworkPersonRecord[]> {
   await requireModulePermission(client, 'networking', 'view');
-  await requireCommunityAccess(client, actor, 'Networking');
+  await requireViewerAccessFlag(client, actor, 'canAccessNetworking', 'Networking');
 
   const { rows } = await client.query<NetworkPersonRow>(
     `
@@ -549,7 +549,7 @@ export async function listNetworkPeople(client: PoolClient, actor: AuthUser, lim
 
 export async function followUser(client: PoolClient, actor: AuthUser, followedUserId: string): Promise<FollowRecord> {
   await requireModulePermission(client, 'networking', 'create');
-  await requireCommunityAccess(client, actor, 'Networking');
+  await requireViewerAccessFlag(client, actor, 'canAccessNetworking', 'Networking');
 
   if (followedUserId === actor.userId) throw new Error('No puedes seguir tu propio perfil.');
 
@@ -576,7 +576,7 @@ export async function followUser(client: PoolClient, actor: AuthUser, followedUs
 
 export async function unfollowUser(client: PoolClient, actor: AuthUser, followedUserId: string): Promise<{ followedUserId: string }> {
   await requireModulePermission(client, 'networking', 'delete');
-  await requireCommunityAccess(client, actor, 'Networking');
+  await requireViewerAccessFlag(client, actor, 'canAccessNetworking', 'Networking');
 
   const { rowCount } = await client.query(
     `DELETE FROM app_networking.user_follows
@@ -590,7 +590,7 @@ export async function unfollowUser(client: PoolClient, actor: AuthUser, followed
 
 export async function createConnection(client: PoolClient, actor: AuthUser, input: CreateConnectionInput): Promise<ConnectionRecord> {
   await requireModulePermission(client, 'networking', 'create');
-  await requireCommunityAccess(client, actor, 'Networking');
+  await requireViewerAccessFlag(client, actor, 'canAccessNetworking', 'Networking');
 
   if (input.addresseeUserId === actor.userId) throw new Error('Cannot connect with yourself');
 
@@ -628,7 +628,7 @@ export async function createConnection(client: PoolClient, actor: AuthUser, inpu
 
 export async function updateConnection(client: PoolClient, actor: AuthUser, connectionId: string, input: UpdateConnectionInput): Promise<ConnectionRecord> {
   await requireModulePermission(client, 'networking', 'update');
-  await requireCommunityAccess(client, actor, 'Networking');
+  await requireViewerAccessFlag(client, actor, 'canAccessNetworking', 'Networking');
 
   const { rowCount } = await client.query(
     `UPDATE app_networking.connections
@@ -666,7 +666,7 @@ export async function updateConnection(client: PoolClient, actor: AuthUser, conn
 
 export async function deleteConnection(client: PoolClient, actor: AuthUser, connectionId: string): Promise<{ connectionId: string }> {
   await requireModulePermission(client, 'networking', 'delete');
-  await requireCommunityAccess(client, actor, 'Networking');
+  await requireViewerAccessFlag(client, actor, 'canAccessNetworking', 'Networking');
 
   const { rows } = await client.query<{ connection_id: string }>(
     `DELETE FROM app_networking.connections
@@ -712,7 +712,7 @@ const COMMUNITY_SELECT = `
 
 export async function listCommunities(client: PoolClient, actor: AuthUser, limit = 100): Promise<CommunityRecord[]> {
   await requireModulePermission(client, 'networking', 'view');
-  await requireCommunityAccess(client, actor, 'Networking');
+  await requireViewerAccessFlag(client, actor, 'canAccessNetworking', 'Networking');
 
   const { rows } = await client.query<CommunityRow>(
     `${COMMUNITY_SELECT}
@@ -807,7 +807,7 @@ export async function deleteCommunity(client: PoolClient, actor: AuthUser, group
 
 export async function joinCommunity(client: PoolClient, actor: AuthUser, groupId: string): Promise<{ groupId: string; membershipRole: 'owner' | 'moderator' | 'member' }> {
   await requireModulePermission(client, 'networking', 'create');
-  await requireCommunityAccess(client, actor, 'Networking');
+  await requireViewerAccessFlag(client, actor, 'canAccessNetworking', 'Networking');
 
   const group = await client.query<{ group_id: string; visibility: CommunityVisibility; is_active: boolean }>(
     `SELECT group_id::text, COALESCE(visibility, 'open')::text AS visibility, is_active
@@ -835,7 +835,7 @@ export async function joinCommunity(client: PoolClient, actor: AuthUser, groupId
 
 export async function leaveCommunity(client: PoolClient, actor: AuthUser, groupId: string): Promise<{ groupId: string }> {
   await requireModulePermission(client, 'networking', 'delete');
-  await requireCommunityAccess(client, actor, 'Networking');
+  await requireViewerAccessFlag(client, actor, 'canAccessNetworking', 'Networking');
 
   const { rowCount } = await client.query(
     `DELETE FROM app_networking.group_memberships
@@ -851,7 +851,7 @@ export async function leaveCommunity(client: PoolClient, actor: AuthUser, groupI
 
 export async function listCommunityPosts(client: PoolClient, actor: AuthUser, limit = 100, groupId?: string): Promise<CommunityPostRecord[]> {
   await requireModulePermission(client, 'networking', 'view');
-  await requireCommunityAccess(client, actor, 'Networking');
+  await requireViewerAccessFlag(client, actor, 'canAccessNetworking', 'Networking');
 
   const { rows } = await client.query<CommunityPostRow>(
     `
@@ -910,7 +910,7 @@ export async function createCommunityPost(
   input: CreateCommunityPostInput,
 ): Promise<CommunityPostRecord> {
   await requireModulePermission(client, 'networking', 'create');
-  await requireCommunityAccess(client, actor, 'Networking');
+  await requireViewerAccessFlag(client, actor, 'canAccessNetworking', 'Networking');
 
   const title = input.title.trim();
   const body = input.body.trim();
@@ -987,7 +987,7 @@ export async function toggleReaction(
   postId: string,
 ): Promise<{ postId: string; hasReacted: boolean; reactionCount: number }> {
   await requireModulePermission(client, 'networking', 'create');
-  await requireCommunityAccess(client, actor, 'Networking');
+  await requireViewerAccessFlag(client, actor, 'canAccessNetworking', 'Networking');
 
   const current = await client.query<{ has_reacted: boolean }>(
     `SELECT EXISTS (
@@ -1024,7 +1024,7 @@ export async function toggleReaction(
 
 export async function listComments(client: PoolClient, actor: AuthUser, postId: string): Promise<CommentRecord[]> {
   await requireModulePermission(client, 'networking', 'view');
-  await requireCommunityAccess(client, actor, 'Networking');
+  await requireViewerAccessFlag(client, actor, 'canAccessNetworking', 'Networking');
 
   const { rows } = await client.query<CommentRow>(
     `
@@ -1055,7 +1055,7 @@ export async function createComment(
   input: CreateCommentInput,
 ): Promise<CommentRecord> {
   await requireModulePermission(client, 'networking', 'create');
-  await requireCommunityAccess(client, actor, 'Networking');
+  await requireViewerAccessFlag(client, actor, 'canAccessNetworking', 'Networking');
 
   const body = input.body.trim();
   if (!body || body.length > 2000) throw new Error('Comentario inválido (1–2000 caracteres).');
@@ -1094,7 +1094,7 @@ export async function createComment(
 
 export async function getCommunity(client: PoolClient, actor: AuthUser, groupId: string): Promise<CommunityRecord> {
   await requireModulePermission(client, 'networking', 'view');
-  await requireCommunityAccess(client, actor, 'Networking');
+  await requireViewerAccessFlag(client, actor, 'canAccessNetworking', 'Networking');
 
   const { rows } = await client.query<CommunityRow>(
     `${COMMUNITY_SELECT}
@@ -1109,7 +1109,7 @@ export async function getCommunity(client: PoolClient, actor: AuthUser, groupId:
 
 export async function listCommunityMembers(client: PoolClient, actor: AuthUser, groupId: string): Promise<CommunityMemberRecord[]> {
   await requireModulePermission(client, 'networking', 'view');
-  await requireCommunityAccess(client, actor, 'Networking');
+  await requireViewerAccessFlag(client, actor, 'canAccessNetworking', 'Networking');
 
   // Only members or managers can see the member list
   const access = await client.query<{ allowed: boolean }>(

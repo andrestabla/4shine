@@ -1,6 +1,6 @@
 import type { PoolClient } from 'pg';
 import type { AuthUser } from '@/server/auth/types';
-import { requireCommunityAccess } from '@/features/access/service';
+import { requireViewerAccessFlag } from '@/features/access/service';
 import { requireModulePermission } from '@/server/auth/module-permissions';
 import { dispatchNotification } from '@/features/notificaciones/engine';
 
@@ -351,7 +351,7 @@ export async function listConvocatorias(
   limit = 100,
 ): Promise<ConvocatoriaSummary[]> {
   await requireModulePermission(client, 'convocatorias', 'view');
-  await requireCommunityAccess(client, actor, 'Convocatorias');
+  await requireViewerAccessFlag(client, actor, 'canAccessConvocatorias', 'Convocatorias');
 
   const isManager = await canManageConvocatorias(client, actor.role);
   const draftFilter = isManager ? '' : `WHERE c.status != 'draft'`;
@@ -376,7 +376,7 @@ export async function getConvocatoria(
   convocatoriaId: string,
 ): Promise<ConvocatoriaDetail> {
   await requireModulePermission(client, 'convocatorias', 'view');
-  await requireCommunityAccess(client, actor, 'Convocatorias');
+  await requireViewerAccessFlag(client, actor, 'canAccessConvocatorias', 'Convocatorias');
 
   const summaryResult = await client.query<ConvocatoriaSummaryRow>(
     `${summarySelect(actor.userId)}
@@ -441,7 +441,7 @@ export async function createConvocatoria(
   input: CreateConvocatoriaInput,
 ): Promise<ConvocatoriaSummary> {
   await requireModulePermission(client, 'convocatorias', 'create');
-  await requireCommunityAccess(client, actor, 'Convocatorias');
+  await requireViewerAccessFlag(client, actor, 'canAccessConvocatorias', 'Convocatorias');
 
   const { rows } = await client.query<{ convocatoria_id: string }>(
     `INSERT INTO app_networking.convocatorias
@@ -492,7 +492,7 @@ export async function updateConvocatoria(
   input: UpdateConvocatoriaInput,
 ): Promise<ConvocatoriaSummary> {
   await requireModulePermission(client, 'convocatorias', 'update');
-  await requireCommunityAccess(client, actor, 'Convocatorias');
+  await requireViewerAccessFlag(client, actor, 'canAccessConvocatorias', 'Convocatorias');
 
   const { rowCount } = await client.query(
     `UPDATE app_networking.convocatorias
@@ -555,7 +555,7 @@ export async function deleteConvocatoria(
   convocatoriaId: string,
 ): Promise<{ convocatoriaId: string }> {
   await requireModulePermission(client, 'convocatorias', 'delete');
-  await requireCommunityAccess(client, actor, 'Convocatorias');
+  await requireViewerAccessFlag(client, actor, 'canAccessConvocatorias', 'Convocatorias');
 
   const { rows } = await client.query<{ convocatoria_id: string }>(
     `DELETE FROM app_networking.convocatorias
@@ -577,7 +577,7 @@ export async function addImage(
   url: string,
 ): Promise<ConvocatoriaImage> {
   await requireModulePermission(client, 'convocatorias', 'update');
-  await requireCommunityAccess(client, actor, 'Convocatorias');
+  await requireViewerAccessFlag(client, actor, 'canAccessConvocatorias', 'Convocatorias');
 
   const { rows } = await client.query<ConvocatoriaImageRow>(
     `INSERT INTO app_networking.convocatoria_images (convocatoria_id, url, sort_order)
@@ -598,7 +598,7 @@ export async function removeImage(
   imageId: string,
 ): Promise<{ imageId: string }> {
   await requireModulePermission(client, 'convocatorias', 'update');
-  await requireCommunityAccess(client, actor, 'Convocatorias');
+  await requireViewerAccessFlag(client, actor, 'canAccessConvocatorias', 'Convocatorias');
 
   const { rows } = await client.query<{ image_id: string }>(
     `DELETE FROM app_networking.convocatoria_images
@@ -621,7 +621,7 @@ export async function addAttachment(
   fileName: string,
 ): Promise<ConvocatoriaAttachment> {
   await requireModulePermission(client, 'convocatorias', 'update');
-  await requireCommunityAccess(client, actor, 'Convocatorias');
+  await requireViewerAccessFlag(client, actor, 'canAccessConvocatorias', 'Convocatorias');
 
   const { rows } = await client.query<ConvocatoriaAttachmentRow>(
     `INSERT INTO app_networking.convocatoria_attachments (convocatoria_id, file_url, file_name)
@@ -641,7 +641,7 @@ export async function removeAttachment(
   attachmentId: string,
 ): Promise<{ attachmentId: string }> {
   await requireModulePermission(client, 'convocatorias', 'update');
-  await requireCommunityAccess(client, actor, 'Convocatorias');
+  await requireViewerAccessFlag(client, actor, 'canAccessConvocatorias', 'Convocatorias');
 
   const { rows } = await client.query<{ attachment_id: string }>(
     `DELETE FROM app_networking.convocatoria_attachments
@@ -663,7 +663,7 @@ export async function setDates(
   dates: SetDatesInput[],
 ): Promise<ConvocatoriaDate[]> {
   await requireModulePermission(client, 'convocatorias', 'update');
-  await requireCommunityAccess(client, actor, 'Convocatorias');
+  await requireViewerAccessFlag(client, actor, 'canAccessConvocatorias', 'Convocatorias');
 
   await client.query(
     `DELETE FROM app_networking.convocatoria_dates WHERE convocatoria_id = $1`,
@@ -706,7 +706,7 @@ export async function setFaqs(
   faqs: SetFaqsInput[],
 ): Promise<ConvocatoriaFaq[]> {
   await requireModulePermission(client, 'convocatorias', 'update');
-  await requireCommunityAccess(client, actor, 'Convocatorias');
+  await requireViewerAccessFlag(client, actor, 'canAccessConvocatorias', 'Convocatorias');
 
   await client.query(
     `DELETE FROM app_networking.convocatoria_faqs WHERE convocatoria_id = $1`,
@@ -811,7 +811,7 @@ export async function listApplications(
   convocatoriaId: string,
 ): Promise<ConvocatoriaApplication[]> {
   await requireModulePermission(client, 'convocatorias', 'update');
-  await requireCommunityAccess(client, actor, 'Convocatorias');
+  await requireViewerAccessFlag(client, actor, 'canAccessConvocatorias', 'Convocatorias');
 
   const { rows } = await client.query<ApplicationRow>(
     `SELECT
@@ -846,7 +846,7 @@ export async function reviewApplication(
   input: ReviewApplicationInput,
 ): Promise<ConvocatoriaApplication> {
   await requireModulePermission(client, 'convocatorias', 'update');
-  await requireCommunityAccess(client, actor, 'Convocatorias');
+  await requireViewerAccessFlag(client, actor, 'canAccessConvocatorias', 'Convocatorias');
 
   const notes = input.reviewerNotes?.trim() ?? '';
 
@@ -919,7 +919,7 @@ export async function messageApplicants(
   input: MessageApplicantsInput,
 ): Promise<{ sent: number }> {
   await requireModulePermission(client, 'convocatorias', 'update');
-  await requireCommunityAccess(client, actor, 'Convocatorias');
+  await requireViewerAccessFlag(client, actor, 'canAccessConvocatorias', 'Convocatorias');
 
   const [convRow, orgRow] = await Promise.all([
     client.query<{ title: string }>(`SELECT title FROM app_networking.convocatorias WHERE convocatoria_id = $1`, [convocatoriaId]),
@@ -982,7 +982,7 @@ export async function applyToConvocatoria(
   attachments?: { attachmentFileUrl?: string; attachmentUrl?: string },
 ): Promise<{ applicationId: string }> {
   await requireModulePermission(client, 'convocatorias', 'view');
-  await requireCommunityAccess(client, actor, 'Convocatorias');
+  await requireViewerAccessFlag(client, actor, 'canAccessConvocatorias', 'Convocatorias');
 
   const open = await client.query<{ status: string; title: string }>(
     `SELECT status, title FROM app_networking.convocatorias WHERE convocatoria_id = $1`,
@@ -1035,7 +1035,7 @@ export async function withdrawApplication(
   convocatoriaId: string,
 ): Promise<{ convocatoriaId: string }> {
   await requireModulePermission(client, 'convocatorias', 'view');
-  await requireCommunityAccess(client, actor, 'Convocatorias');
+  await requireViewerAccessFlag(client, actor, 'canAccessConvocatorias', 'Convocatorias');
 
   await client.query(
     `DELETE FROM app_networking.convocatoria_applications
@@ -1055,7 +1055,7 @@ export async function listForumPosts(
   limit = 50,
 ): Promise<ConvocatoriaForumPost[]> {
   await requireModulePermission(client, 'convocatorias', 'view');
-  await requireCommunityAccess(client, actor, 'Convocatorias');
+  await requireViewerAccessFlag(client, actor, 'canAccessConvocatorias', 'Convocatorias');
 
   const { rows } = await client.query<ForumPostRow>(
     `SELECT
@@ -1086,7 +1086,7 @@ export async function createForumPost(
   isPinned = false,
 ): Promise<ConvocatoriaForumPost> {
   await requireModulePermission(client, 'convocatorias', 'view');
-  await requireCommunityAccess(client, actor, 'Convocatorias');
+  await requireViewerAccessFlag(client, actor, 'canAccessConvocatorias', 'Convocatorias');
 
   const trimmed = body.trim();
   if (!trimmed) throw new Error('El mensaje no puede estar vacío');
@@ -1114,7 +1114,7 @@ export async function deleteForumPost(
   postId: string,
 ): Promise<{ postId: string }> {
   await requireModulePermission(client, 'convocatorias', 'view');
-  await requireCommunityAccess(client, actor, 'Convocatorias');
+  await requireViewerAccessFlag(client, actor, 'canAccessConvocatorias', 'Convocatorias');
 
   const canModerate = await client.query<{ can_moderate: boolean }>(
     `SELECT can_moderate FROM app_core.module_permissions
@@ -1260,7 +1260,7 @@ export async function listRequests(
   filter: 'all' | 'pending' | 'mine' = 'pending',
 ): Promise<ConvocatoriaRequest[]> {
   await requireModulePermission(client, 'convocatorias', 'view');
-  await requireCommunityAccess(client, actor, 'Convocatorias');
+  await requireViewerAccessFlag(client, actor, 'canAccessConvocatorias', 'Convocatorias');
 
   const canManage = await client.query<{ can_manage: boolean }>(
     `SELECT can_manage FROM app_auth.role_module_permissions
@@ -1295,7 +1295,7 @@ export async function createRequest(
   input: CreateRequestInput,
 ): Promise<ConvocatoriaRequest> {
   await requireModulePermission(client, 'convocatorias', 'view');
-  await requireCommunityAccess(client, actor, 'Convocatorias');
+  await requireViewerAccessFlag(client, actor, 'canAccessConvocatorias', 'Convocatorias');
 
   if (!input.title.trim()) throw new Error('El título es requerido');
 
@@ -1398,7 +1398,7 @@ export async function updateRequest(
   input: CreateRequestInput,
 ): Promise<ConvocatoriaRequest> {
   await requireModulePermission(client, 'convocatorias', 'manage');
-  await requireCommunityAccess(client, actor, 'Convocatorias');
+  await requireViewerAccessFlag(client, actor, 'canAccessConvocatorias', 'Convocatorias');
 
   if (!input.title.trim()) throw new Error('El título es requerido');
 
@@ -1436,7 +1436,7 @@ export async function reviewRequest(
   input: ReviewRequestInput,
 ): Promise<ConvocatoriaRequest> {
   await requireModulePermission(client, 'convocatorias', 'manage');
-  await requireCommunityAccess(client, actor, 'Convocatorias');
+  await requireViewerAccessFlag(client, actor, 'canAccessConvocatorias', 'Convocatorias');
 
   // Carga la solicitud actual (con los campos que pudo editar el gestor).
   const { rows: current } = await client.query<RequestRow>(
@@ -1528,7 +1528,7 @@ export async function publishRequest(
   input: CreateConvocatoriaInput,
 ): Promise<PublishRequestResult> {
   await requireModulePermission(client, 'convocatorias', 'manage');
-  await requireCommunityAccess(client, actor, 'Convocatorias');
+  await requireViewerAccessFlag(client, actor, 'canAccessConvocatorias', 'Convocatorias');
   if (!input.title?.trim()) throw new Error('El título es requerido');
 
   const { rows: cur } = await client.query<RequestRow>(

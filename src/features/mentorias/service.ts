@@ -2096,6 +2096,9 @@ export async function participateInGroupSession(
   input: ParticipateGroupSessionInput,
 ): Promise<GroupSessionEventRecord> {
   await requireModulePermission(client, 'mentorias', 'view');
+  // El plan manda: un líder solo participa en mentorías grupales si su plan
+  // habilita 'mentorias_grupales' (canAccessMentoringGroup). Pasa para staff.
+  await requireViewerAccessFlag(client, actor, 'canAccessMentoringGroup', 'Mentorías grupales');
 
   await client.query(
     `

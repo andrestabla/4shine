@@ -1,6 +1,6 @@
 import type { PoolClient } from 'pg';
 import type { AuthUser } from '@/server/auth/types';
-import { requireCommunityAccess } from '@/features/access/service';
+import { requireViewerAccessFlag } from '@/features/access/service';
 import { requireModulePermission } from '@/server/auth/module-permissions';
 import { notifyUser } from '@/features/notificaciones/engine';
 
@@ -269,7 +269,7 @@ export async function listWorkshops(
   limit = 100,
 ): Promise<WorkshopRecord[]> {
   await requireModulePermission(client, 'workshops', 'view');
-  await requireCommunityAccess(client, actor, 'Workshops');
+  await requireViewerAccessFlag(client, actor, 'canAccessWorkshops', 'Workshops');
 
   const { rows } = await client.query<WorkshopRow>(
     `${WORKSHOP_SELECT}
@@ -288,7 +288,7 @@ export async function getWorkshop(
   workshopId: string,
 ): Promise<WorkshopRecord> {
   await requireModulePermission(client, 'workshops', 'view');
-  await requireCommunityAccess(client, actor, 'Workshops');
+  await requireViewerAccessFlag(client, actor, 'canAccessWorkshops', 'Workshops');
 
   const { rows } = await client.query<WorkshopRow>(
     `${WORKSHOP_SELECT}
@@ -308,7 +308,7 @@ export async function createWorkshop(
   input: CreateWorkshopInput,
 ): Promise<WorkshopRecord> {
   await requireModulePermission(client, 'workshops', 'create');
-  await requireCommunityAccess(client, actor, 'Workshops');
+  await requireViewerAccessFlag(client, actor, 'canAccessWorkshops', 'Workshops');
 
   const { rows } = await client.query<{ workshop_id: string }>(
     `
@@ -364,7 +364,7 @@ export async function updateWorkshop(
   input: UpdateWorkshopInput,
 ): Promise<WorkshopRecord> {
   await requireModulePermission(client, 'workshops', 'update');
-  await requireCommunityAccess(client, actor, 'Workshops');
+  await requireViewerAccessFlag(client, actor, 'canAccessWorkshops', 'Workshops');
 
   const { rowCount } = await client.query(
     `
@@ -428,7 +428,7 @@ export async function deleteWorkshop(
   workshopId: string,
 ): Promise<{ workshopId: string }> {
   await requireModulePermission(client, 'workshops', 'delete');
-  await requireCommunityAccess(client, actor, 'Workshops');
+  await requireViewerAccessFlag(client, actor, 'canAccessWorkshops', 'Workshops');
 
   const { rows } = await client.query<{ workshop_id: string }>(
     `DELETE FROM app_networking.workshops WHERE workshop_id = $1 RETURNING workshop_id::text`,
@@ -447,7 +447,7 @@ export async function applyToWorkshop(
   workshopId: string,
 ): Promise<WorkshopRecord> {
   await requireModulePermission(client, 'workshops', 'view');
-  await requireCommunityAccess(client, actor, 'Workshops');
+  await requireViewerAccessFlag(client, actor, 'canAccessWorkshops', 'Workshops');
 
   const { rows: check } = await client.query<{ status: WorkshopStatus }>(
     `SELECT status FROM app_networking.workshops WHERE workshop_id = $1`,
@@ -481,7 +481,7 @@ export async function cancelApplication(
   workshopId: string,
 ): Promise<WorkshopRecord> {
   await requireModulePermission(client, 'workshops', 'view');
-  await requireCommunityAccess(client, actor, 'Workshops');
+  await requireViewerAccessFlag(client, actor, 'canAccessWorkshops', 'Workshops');
 
   await client.query(
     `DELETE FROM app_networking.workshop_attendees WHERE workshop_id = $1 AND user_id = $2`,
@@ -499,7 +499,7 @@ export async function listFaqs(
   workshopId: string,
 ): Promise<WorkshopFaqRecord[]> {
   await requireModulePermission(client, 'workshops', 'view');
-  await requireCommunityAccess(client, actor, 'Workshops');
+  await requireViewerAccessFlag(client, actor, 'canAccessWorkshops', 'Workshops');
 
   const { rows } = await client.query<FaqRow>(
     `SELECT faq_id::text, workshop_id::text, question, answer, sort_order
@@ -519,7 +519,7 @@ export async function createFaq(
   input: CreateFaqInput,
 ): Promise<WorkshopFaqRecord> {
   await requireModulePermission(client, 'workshops', 'manage');
-  await requireCommunityAccess(client, actor, 'Workshops');
+  await requireViewerAccessFlag(client, actor, 'canAccessWorkshops', 'Workshops');
 
   const { rows } = await client.query<FaqRow>(
     `
@@ -539,7 +539,7 @@ export async function deleteFaq(
   faqId: string,
 ): Promise<{ faqId: string }> {
   await requireModulePermission(client, 'workshops', 'manage');
-  await requireCommunityAccess(client, actor, 'Workshops');
+  await requireViewerAccessFlag(client, actor, 'canAccessWorkshops', 'Workshops');
 
   const { rows } = await client.query<{ faq_id: string }>(
     `DELETE FROM app_networking.workshop_faqs WHERE faq_id = $1 RETURNING faq_id::text`,
@@ -558,7 +558,7 @@ export async function listForumPosts(
   workshopId: string,
 ): Promise<WorkshopForumPostRecord[]> {
   await requireModulePermission(client, 'workshops', 'view');
-  await requireCommunityAccess(client, actor, 'Workshops');
+  await requireViewerAccessFlag(client, actor, 'canAccessWorkshops', 'Workshops');
 
   const { rows } = await client.query<ForumRow>(
     `
@@ -588,7 +588,7 @@ export async function createForumPost(
   body: string,
 ): Promise<WorkshopForumPostRecord> {
   await requireModulePermission(client, 'workshops', 'view');
-  await requireCommunityAccess(client, actor, 'Workshops');
+  await requireViewerAccessFlag(client, actor, 'canAccessWorkshops', 'Workshops');
 
   const { rows } = await client.query<ForumRow>(
     `
@@ -616,7 +616,7 @@ export async function deleteForumPost(
   postId: string,
 ): Promise<{ postId: string }> {
   await requireModulePermission(client, 'workshops', 'view');
-  await requireCommunityAccess(client, actor, 'Workshops');
+  await requireViewerAccessFlag(client, actor, 'canAccessWorkshops', 'Workshops');
 
   // Authors can delete their own; moderators/admins can delete any
   const canModerate = ['gestor', 'admin'].includes(actor.role);
