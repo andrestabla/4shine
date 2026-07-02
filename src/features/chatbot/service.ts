@@ -795,26 +795,56 @@ async function callOpenAi(
   messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
 ): Promise<string | null> {
   const cfg = await getIntegrationConfigForActor(client, actor.userId, 'openai');
-  if (!cfg || !cfg.enabled) return null;
+  if (!cfg || !cfg.enabled) {
+    console.error('[chatbot] OpenAI sin config/deshabilitado', { hasCfg: !!cfg, enabled: cfg?.enabled });
+    return null;
+  }
   const apiKey = (cfg.wizardData.apiKey || cfg.secretValue || '').trim();
-  if (!apiKey) return null;
+  if (!apiKey) {
+    console.error('[chatbot] OpenAI sin apiKey');
+    return null;
+  }
 
   const baseUrl = sanitizeBaseUrl(cfg.wizardData.baseUrl);
   const model = (settingsModel.trim() || cfg.wizardData.model?.trim() || 'gpt-4.1').trim();
+  const timeoutMs = Number(cfg.wizardData.timeoutMs) > 0 ? Number(cfg.wizardData.timeoutMs) : 20000;
 
-  try {
-    const res = await fetch(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model, temperature: 0.4, max_tokens: 900, messages }),
-    });
-    if (!res.ok) return null;
-    const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
-    const content = json.choices?.[0]?.message?.content;
-    return typeof content === 'string' && content.trim() ? content.trim() : null;
-  } catch {
-    return null;
+  // Hasta 3 intentos: reintenta en timeouts/red y en 429/5xx (transitorios).
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const res = await fetch(`${baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, temperature: 0.4, max_tokens: 900, messages }),
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+      if (res.ok) {
+        const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+        const content = json.choices?.[0]?.message?.content;
+        if (typeof content === 'string' && content.trim()) return content.trim();
+        console.error('[chatbot] OpenAI respuesta sin contenido', { model });
+        return null;
+      }
+      const body = await res.text().catch(() => '');
+      console.error('[chatbot] OpenAI respuesta no-OK', {
+        status: res.status,
+        model,
+        baseUrl,
+        attempt,
+        body: body.replace(/sk-[A-Za-z0-9_-]+/g, 'sk-REDACTED').slice(0, 400),
+      });
+      // 4xx (401/400/404...) no son recuperables con reintento.
+      if (res.status !== 429 && res.status < 500) return null;
+    } catch (error) {
+      console.error('[chatbot] OpenAI fetch lanzó excepción', {
+        attempt,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+    // Backoff antes del siguiente intento.
+    if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
   }
+  return null;
 }
 
 const FALLBACK_REPLY =

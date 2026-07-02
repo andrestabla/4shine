@@ -5,6 +5,8 @@ import { sendMessage } from '@/features/chatbot/service';
 import { errorResponse, parseJsonBody, unauthorizedResponse } from '../../../modules/_utils';
 
 export const runtime = 'nodejs';
+// Da margen para el contexto + la llamada a OpenAI con reintentos.
+export const maxDuration = 60;
 
 export async function POST(request: Request) {
   const identity = await authenticateRequest(request);
