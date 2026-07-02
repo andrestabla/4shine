@@ -4,6 +4,8 @@
  * consistencia en filtros, columnas y chips.
  */
 
+import { formatDate } from '@/lib/format-date';
+
 export type SubscriptionStatus = 'vigente' | 'por_vencer' | 'vencida' | 'sin_vigencia';
 
 export const EXPIRING_SOON_DAYS = 30;
@@ -66,5 +68,5 @@ export function formatExpiry(expiresAt: string | null | undefined): string {
   if (!expiresAt) return '—';
   const d = new Date(expiresAt);
   if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' });
+  return formatDate(expiresAt);
 }

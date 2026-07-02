@@ -34,6 +34,7 @@ import {
 import { subscriptionStatus, formatExpiry, type SubscriptionStatus } from '@/features/usuarios/subscription-status';
 import { exportUsersXlsx, exportUsersPdf } from '@/features/usuarios/export';
 import { RolesMatrixSection } from '@/components/dashboard/usuarios/RolesMatrixSection';
+import { formatDate as formatDateCanonical, formatDateTime } from '@/lib/format-date';
 
 interface ListFilters {
   search: string;
@@ -51,11 +52,7 @@ const BULK_MESSAGE_RECIPIENTS_KEY = 'fourshine.bulkMessageRecipients';
 
 function formatDate(value: string | null): string {
   if (!value) return 'Pendiente';
-  return new Date(value).toLocaleDateString('es-CO', {
-    year: 'numeric',
-    month: 'numeric',
-    day: 'numeric',
-  });
+  return formatDateCanonical(value);
 }
 
 function userTypeBadgeClass(option: UserTypeOption): string {
@@ -796,13 +793,7 @@ function DeletedUsersTabSection() {
   function fmtDate(iso: string) {
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return iso;
-    return d.toLocaleString('es-CO', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    return formatDateTime(iso);
   }
 
   return (

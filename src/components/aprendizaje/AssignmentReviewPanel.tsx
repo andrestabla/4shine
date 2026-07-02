@@ -3,6 +3,7 @@
 import React from 'react';
 import { ExternalLink, FileText, MessageSquare, Save, Users } from 'lucide-react';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
+import { formatDateTime } from '@/lib/format-date';
 import {
   getAssignmentForContentAdmin,
   gradeSubmission,
@@ -22,7 +23,7 @@ const STATUS_LABELS = {
 function formatDate(value: string | null): string {
   if (!value) return '—';
   try {
-    return new Date(value).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' });
+    return formatDateTime(value);
   } catch {
     return value;
   }

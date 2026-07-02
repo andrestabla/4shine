@@ -56,6 +56,7 @@ import {
   type NetworkPersonRecord,
   type UpdateCommunityInput,
 } from '@/features/networking/client';
+import { formatDayMonth } from '@/lib/format-date';
 
 type MainTab = 'inicio' | 'mi-red' | 'mensajes';
 type NetworkSubTab = 'contactos' | 'comunidades' | 'descubre';
@@ -71,7 +72,7 @@ function toRelativeTime(value: string): string {
   if (hours < 24) return `hace ${hours} h`;
   const days = Math.floor(hours / 24);
   if (days < 7) return `hace ${days} d`;
-  return new Date(value).toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
+  return formatDayMonth(value);
 }
 
 function roleLabel(role: string): string {

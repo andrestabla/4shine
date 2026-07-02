@@ -12,6 +12,7 @@ import { listWorkbooks } from '@/features/aprendizaje/service';
 import { listConnections } from '@/features/networking/service';
 import { listPublicAdvisors } from '@/features/advisors/service';
 import { subscriptionStatus, formatExpiry } from '@/features/usuarios/subscription-status';
+import { formatDate } from '@/lib/format-date';
 import type {
   AdminConversation,
   ChatbotAnalytics,
@@ -652,12 +653,7 @@ function fmtDate(iso: string | null | undefined): string {
   if (!iso) return '';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleDateString('es-CO', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    timeZone: 'America/Bogota',
-  });
+  return formatDate(iso, { timeZone: 'America/Bogota' });
 }
 
 /**

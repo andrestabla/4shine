@@ -42,6 +42,7 @@ import {
 } from '@/features/usuarios/user-types';
 import { listPlans as listSubscriptionPlans } from '@/features/planes/client';
 import type { SubscriptionPlanWithFeatures } from '@/features/planes/client';
+import { formatDate, formatDateTime as formatDateTimeCanonical } from '@/lib/format-date';
 import { YEARS_EXPERIENCE_OPTIONS, yearsToKey, keyToStoredValue } from '@/lib/demographics';
 import {
   USER_COUNTRY_OPTIONS,
@@ -58,10 +59,7 @@ function asUserId(value: string | string[] | undefined): string | null {
 
 function formatDateTime(value: string | null): string {
   if (!value) return 'N/D';
-  return new Date(value).toLocaleString('es-CO', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
+  return formatDateTimeCanonical(value);
 }
 
 function roleLabel(role: AppRole): string {
@@ -749,7 +747,7 @@ export default function UsuarioDetallePage() {
                         </div>
                         <p className="mt-1 text-[11px] text-[var(--app-muted)]">
                           {isExpired
-                            ? `Esta licencia venció el ${expiresAt!.toLocaleDateString('es-CO')}. Mientras esté vencida, el líder pasa a "sin suscripción" y pierde el acceso del plan (las compras previas se conservan).`
+                            ? `Esta licencia venció el ${formatDate(expiresAt)}. Mientras esté vencida, el líder pasa a "sin suscripción" y pierde el acceso del plan (las compras previas se conservan).`
                             : 'Editar la fecha extiende o acorta la licencia. Vacío = sin vencimiento.'}
                         </p>
                       </>

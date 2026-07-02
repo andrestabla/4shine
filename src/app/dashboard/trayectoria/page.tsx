@@ -32,6 +32,7 @@ import {
 import { PageTitle } from "@/components/dashboard/PageTitle";
 import { StatGrid } from "@/components/dashboard/StatGrid";
 import { ModuleGuidanceBanner } from "@/components/dashboard/ModuleGuidanceBanner";
+import { formatDateTime } from "@/lib/format-date";
 import { useUser } from "@/context/UserContext";
 import {
   listEarnedCertificates,
@@ -843,7 +844,7 @@ export default function TrayectoriaPage() {
           {lastRefreshedAt && (
             <span
               className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-700"
-              title={`Sincronizado ${new Date(lastRefreshedAt).toLocaleString("es-CO")}`}
+              title={`Sincronizado ${formatDateTime(lastRefreshedAt)}`}
             >
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
               En vivo

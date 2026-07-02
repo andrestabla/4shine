@@ -59,6 +59,7 @@ import {
   getPillarLabelFromCode,
 } from "@/features/aprendizaje/competency-map";
 import { WORKBOOKS_V2_CATALOG } from "@/lib/workbooks-v2-catalog";
+import { formatDate as formatDateShared } from "@/lib/format-date";
 
 const RESOURCE_TYPE_OPTIONS: ContentType[] = [
   "video",
@@ -125,11 +126,7 @@ function isLearningTabKey(value: string | null): value is LearningTabKey {
 function formatDate(value: string | null | undefined): string {
   if (!value) return "Sin fecha";
 
-  return new Date(value).toLocaleDateString("es-CO", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+  return formatDateShared(value);
 }
 
 function contentTypeLabel(type: ContentType): string {

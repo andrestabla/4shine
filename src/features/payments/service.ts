@@ -3,6 +3,7 @@ import type { PoolClient } from 'pg';
 import Stripe from 'stripe';
 import { getIntegrationConfigForActor } from '@/server/integrations/config';
 import { dispatchNotification } from '@/features/notificaciones/engine';
+import { formatDate } from '@/lib/format-date';
 import type {
   EnabledPaymentProvidersResponse,
   PaymentInitiationResult,
@@ -359,12 +360,7 @@ const PAYMENT_NOTIFICATION_DEFAULT_TZ = 'America/Bogota';
 function formatFecha(value: string | null, timeZone: string = PAYMENT_NOTIFICATION_DEFAULT_TZ): string {
   if (!value) return 'Por coordinar';
   try {
-    return new Date(value).toLocaleDateString('es-CO', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-      timeZone,
-    });
+    return formatDate(value, { timeZone });
   } catch {
     return value;
   }

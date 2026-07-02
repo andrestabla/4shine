@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Loader2 } from 'lucide-react';
+import { formatDate } from '@/lib/format-date';
 
 interface Props {
   onAccept: () => Promise<void>;
@@ -85,10 +86,8 @@ export function PrivacyPolicyModal({ onAccept }: Props) {
         if (data.content) setContent(data.content);
         if (data.version) {
           try {
-            const d = new Date(data.version);
-            setVersion(
-              d.toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' }),
-            );
+            const formatted = formatDate(data.version);
+            setVersion(formatted || data.version);
           } catch {
             setVersion(data.version);
           }

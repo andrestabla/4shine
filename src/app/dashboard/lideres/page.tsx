@@ -22,6 +22,7 @@ import { PageTitle } from '@/components/dashboard/PageTitle'
 import { useUser } from '@/context/UserContext'
 import { listLeaderSummaries, type LeaderSummary } from '@/features/lideres/client'
 import { subscriptionStatus, type SubscriptionStatus } from '@/features/usuarios/subscription-status'
+import { formatDate as sharedFormatDate } from '@/lib/format-date'
 
 type PercentRange = { min: number; max: number; label: string }
 type SessionsRange = { min: number; max: number; label: string }
@@ -142,11 +143,7 @@ function formatDate(value: string | null): string {
     if (!value) return 'Sin agendar'
     const date = new Date(value)
     if (Number.isNaN(date.getTime())) return 'Sin agendar'
-    return date.toLocaleDateString('es-CO', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-    })
+    return sharedFormatDate(value)
 }
 
 function LeaderAvatar({ leader }: { leader: LeaderSummary }) {

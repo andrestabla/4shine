@@ -60,6 +60,7 @@ import {
   type SetDatesInput,
   type SetFaqsInput,
 } from '@/features/convocatorias/client';
+import { formatDate, formatDayMonth } from '@/lib/format-date';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -83,7 +84,7 @@ const STATUS_CONFIG: Record<ConvocatoriaStatus, { label: string; classes: string
 };
 
 function toDateLabel(value: string): string {
-  return new Date(value).toLocaleDateString('es-CO', { dateStyle: 'long' });
+  return formatDate(value);
 }
 
 function toRelativeTime(value: string): string {
@@ -95,7 +96,7 @@ function toRelativeTime(value: string): string {
   if (hours < 24) return `hace ${hours} h`;
   const days = Math.floor(hours / 24);
   if (days < 7) return `hace ${days} d`;
-  return new Date(value).toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
+  return formatDayMonth(value);
 }
 
 function isImageUrl(url: string): boolean {

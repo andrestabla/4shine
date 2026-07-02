@@ -6,6 +6,7 @@ import { Lock } from 'lucide-react';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { SubscriptionPlansGrid } from '@/components/dashboard/planes/SubscriptionPlansGrid';
 import { requestApi } from '@/lib/api-client';
+import { formatDate } from '@/lib/format-date';
 
 interface MeSubscription {
   subscriptionPlanId: string | null;
@@ -83,9 +84,7 @@ function SuscripcionInner() {
               {me.subscriptionExpiresAt && (
                 <p className="mt-0.5 text-xs text-emerald-800/80">
                   Vigencia hasta{' '}
-                  {new Date(me.subscriptionExpiresAt).toLocaleDateString('es-CO', {
-                    dateStyle: 'long',
-                  })}
+                  {formatDate(me.subscriptionExpiresAt)}
                 </p>
               )}
             </div>

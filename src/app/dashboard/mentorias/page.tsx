@@ -83,6 +83,7 @@ import {
   type EnabledPaymentProvidersResponse,
   type PaymentProviderKey,
 } from '@/features/payments/client';
+import { formatDate as sharedFormatDate, formatDateTime as sharedFormatDateTime } from '@/lib/format-date';
 
 interface ProgramScheduleFormState {
   entitlementId: string;
@@ -208,11 +209,7 @@ function nextSlotValue(): string {
 
 function formatDateTime(value: string | null, timezone?: string): string {
   if (!value) return 'Sin fecha';
-  return new Date(value).toLocaleString('es-CO', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-    timeZone: timezone || undefined,
-  });
+  return sharedFormatDateTime(value, { timeZone: timezone || undefined });
 }
 
 function formatTime(value: string, timezone?: string): string {
@@ -4435,9 +4432,10 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
               );
               const lockUnlockLabel =
                 isLocked && blockerSession?.scheduledStartsAt
-                  ? new Date(
+                  ? sharedFormatDate(
                       new Date(blockerSession.scheduledStartsAt).getTime() + 10 * 86_400_000,
-                    ).toLocaleDateString('es-CO', { dateStyle: 'long' })
+                      { timeZone: tz || undefined },
+                    )
                   : null;
 
               if (isCompleted) {

@@ -31,6 +31,7 @@ import {
   type ConvocatoriaStatus,
   type ConvocatoriaTipo,
 } from '@/features/convocatorias/client';
+import { formatDate } from '@/lib/format-date';
 
 const REQUEST_TIPO_LABELS: Record<string, string> = {
   laboral: 'Laboral',
@@ -47,7 +48,7 @@ function shortId(uuid: string, prefix: string) {
 }
 
 function toDateLabel(value: string): string {
-  return new Date(value).toLocaleDateString('es-CO', { dateStyle: 'medium' });
+  return formatDate(value);
 }
 
 function toRelativeDate(value: string): string {
@@ -56,7 +57,7 @@ function toRelativeDate(value: string): string {
   if (days === 0) return 'Hoy';
   if (days === 1) return 'Ayer';
   if (days < 7) return `hace ${days} días`;
-  return new Date(value).toLocaleDateString('es-CO', { dateStyle: 'medium' });
+  return formatDate(value);
 }
 
 const TIPO_LABELS: Record<string, string> = {
@@ -175,7 +176,7 @@ function RequestCard({
   const [note, setNote] = React.useState('');
 
   const pending = req.status === 'pending';
-  const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleDateString('es-CO') : '—');
+  const fmtDate = (d: string | null) => (d ? formatDate(d) : '—');
 
   const reject = async () => {
     setBusy(true);

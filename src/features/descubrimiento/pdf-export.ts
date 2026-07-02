@@ -4,6 +4,7 @@ import { jsPDF } from "jspdf";
 import { PILLAR_INFO } from "./DiagnosticsData";
 import { buildDiscoveryReports, getDiscoveryStatus } from "./reporting";
 import { registerBrandFontInPdf, resolvePdfBranding, type PdfBrandingInput, type PdfBrandingResolved } from "@/lib/pdf-branding";
+import { formatDateTime } from "@/lib/format-date";
 
 function shade(rgb: [number, number, number], whiteRatio: number): [number, number, number] {
   const w = Math.max(0, Math.min(1, whiteRatio));
@@ -346,10 +347,7 @@ export async function downloadDiscoveryPdfReport({
   const resolvedReports = reports ?? {};
   const globalStatus = getDiscoveryStatus(scoring.globalIndex);
   const pillars: DiscoveryPillarKey[] = ["within", "out", "up", "beyond"];
-  const generatedAt = new Intl.DateTimeFormat("es-CO", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date());
+  const generatedAt = formatDateTime(new Date());
 
   writer.writeHeading("Reporte ejecutivo de liderazgo", "title");
   writer.writeWrappedLines(participantName, {

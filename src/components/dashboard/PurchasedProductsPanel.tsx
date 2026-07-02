@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Package, Sparkles, Shield, CalendarClock, Info, ArchiveRestore } from "lucide-react";
+import { formatDate as formatDateCanonical } from "@/lib/format-date";
 import type { UserPurchaseRecord } from "@/features/access/types";
 
 /**
@@ -122,11 +123,7 @@ function formatDate(value: string | null): string {
   if (!value) return "—";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleDateString("es-CO", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+  return formatDateCanonical(value);
 }
 
 export function PurchasedProductsPanel({

@@ -44,6 +44,7 @@ import {
   type EnabledPaymentProvidersResponse,
   type PaymentProviderKey,
 } from '@/features/payments/client';
+import { formatDate as formatDateCanonical, formatDayMonth } from '@/lib/format-date';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -62,9 +63,8 @@ const STATUS_META: Record<string, { label: string; bg: string; text: string }> =
 };
 
 function formatDate(value: string) {
-  return new Date(value).toLocaleDateString('es-CO', {
-    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-  });
+  const weekday = new Date(value).toLocaleDateString('es-CO', { weekday: 'long' });
+  return `${weekday}, ${formatDateCanonical(value)}`;
 }
 
 function formatTime(value: string) {
@@ -77,7 +77,7 @@ function formatMsgTime(value: string) {
   if (d.toDateString() === now.toDateString()) {
     return d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
   }
-  return d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
+  return formatDayMonth(value);
 }
 
 function Avatar({ name, url, size = 'md' }: { name: string; url?: string | null; size?: 'sm' | 'md' }) {

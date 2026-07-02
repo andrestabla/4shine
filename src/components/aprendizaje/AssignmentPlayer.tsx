@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { R2UploadButton } from '@/components/ui/R2UploadButton';
+import { formatDateTime } from '@/lib/format-date';
 import {
   getAssignmentForLearner,
   upsertMySubmission,
@@ -35,7 +36,7 @@ const STATUS_LABELS: Record<SubmissionStatus, { label: string; tone: string }> =
 function formatDate(value: string | null): string {
   if (!value) return '';
   try {
-    return new Date(value).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' });
+    return formatDateTime(value);
   } catch {
     return value;
   }

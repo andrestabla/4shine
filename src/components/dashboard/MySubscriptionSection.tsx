@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Check, CalendarClock, CreditCard, Sparkles, ArrowRight } from "lucide-react";
+import { formatDate as formatDateCanonical } from "@/lib/format-date";
 import { listPublicPlans, type SubscriptionPlanWithFeatures } from "@/features/planes/client";
 import { groupFeaturesByModule } from "@/features/planes/features-catalog";
 import type { PlanFeatureKey } from "@/features/planes/types";
@@ -33,7 +34,7 @@ function formatDate(value: string | null | undefined): string | null {
   if (!value) return null;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
-  return date.toLocaleDateString("es-CO", { dateStyle: "long" });
+  return formatDateCanonical(value);
 }
 
 export function MySubscriptionSection({ currentPlanId, expiresAt }: MySubscriptionSectionProps) {

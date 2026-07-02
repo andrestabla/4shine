@@ -1,4 +1,5 @@
 import type { ModuleCode } from '@/lib/permissions';
+import { formatDateTime } from '@/lib/format-date';
 import type { DashboardSummary } from './types';
 
 export interface NextStep {
@@ -15,7 +16,7 @@ function formatDate(iso: string | null): string {
   if (!iso) return '';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+  return formatDateTime(iso);
 }
 
 /**

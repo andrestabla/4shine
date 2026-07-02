@@ -18,6 +18,7 @@ import {
 import { useUser } from '@/context/UserContext';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { requestApi } from '@/lib/api-client';
+import { formatDateTime as formatDateTimeShared } from '@/lib/format-date';
 import {
     getWorkbookTemplate,
     listWorkbookTemplateVersions,
@@ -47,13 +48,7 @@ interface PresignResponse {
 function formatDateTime(value: string | null) {
     if (!value) return '—';
     try {
-        return new Date(value).toLocaleString('es-CO', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-        });
+        return formatDateTimeShared(value);
     } catch {
         return value;
     }

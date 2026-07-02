@@ -36,6 +36,7 @@ import {
   type CommunityPostRecord,
   type CommentRecord,
 } from '@/features/networking/client';
+import { formatDayMonth } from '@/lib/format-date';
 
 // ─── Avatar ───────────────────────────────────────────────────────────────────
 
@@ -66,7 +67,7 @@ function toRelativeTime(value: string): string {
   if (hours < 24) return `hace ${hours} h`;
   const days = Math.floor(hours / 24);
   if (days < 7) return `hace ${days} d`;
-  return new Date(value).toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
+  return formatDayMonth(value);
 }
 
 function normalizeUrl(value: string | null | undefined): string | null {

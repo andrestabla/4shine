@@ -21,6 +21,7 @@ import { ModuleLockedScreen } from '@/components/access/ModuleLockedScreen';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useUser } from '@/context/UserContext';
 import { getPusherClient } from '@/lib/pusher-client';
+import { formatDayMonth } from '@/lib/format-date';
 import {
   createDirectThread,
   deleteMessage,
@@ -45,7 +46,7 @@ function toThreadTime(value: string | null): string {
   }
   const diff = Math.floor((now.getTime() - d.getTime()) / 86_400_000);
   if (diff < 7) return d.toLocaleDateString('es-CO', { weekday: 'short' });
-  return d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short' });
+  return formatDayMonth(value);
 }
 
 function toMsgTime(value: string): string {

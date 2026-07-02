@@ -5,6 +5,7 @@ import { CreditCard, RefreshCcw, Search, ShieldAlert } from 'lucide-react';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { EmptyState } from '@/components/dashboard/EmptyState';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
+import { formatDateTime as formatDateTimeShared } from '@/lib/format-date';
 import {
   listMentorshipPaymentsAdmin,
   listPaymentAttemptsAdmin,
@@ -46,7 +47,7 @@ function formatCurrency(value: number, currency: string): string {
 function formatDateTime(value: string | null): string {
   if (!value) return '—';
   try {
-    return new Date(value).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' });
+    return formatDateTimeShared(value);
   } catch {
     return value;
   }

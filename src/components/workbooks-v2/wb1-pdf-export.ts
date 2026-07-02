@@ -1,6 +1,7 @@
 'use client'
 
 import type { jsPDF } from 'jspdf'
+import { formatDate } from '@/lib/format-date'
 import type { WB1Config, WB1Field, WB1Group, WB1Section } from '@/lib/workbooks-v2-wb1'
 
 const PAGE_W = 210
@@ -246,7 +247,7 @@ export async function downloadWorkbookV3Pdf(
 
     ctx.y = 100
     writeParagraph(ctx, `Líder: ${leaderName}`, { size: 11, bold: true, color: [15, 23, 42], gap: 1 })
-    writeParagraph(ctx, `Fecha de exportación: ${new Date().toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' })}`, { size: 9, color: [100, 116, 139], gap: 6 })
+    writeParagraph(ctx, `Fecha de exportación: ${formatDate(new Date())}`, { size: 9, color: [100, 116, 139], gap: 6 })
 
     writeParagraph(ctx, 'Objetivo', { size: 12, bold: true, color: [13, 27, 42], gap: 1 })
     writeParagraph(ctx, config.objective, { size: 10, color: [30, 41, 59], gap: 4 })

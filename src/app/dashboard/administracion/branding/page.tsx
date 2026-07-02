@@ -34,6 +34,7 @@ import {
   type BrandingPresetCode,
 } from '@/features/administracion/types';
 import { deriveFocusColor, deriveHoverColor } from '@/lib/branding';
+import { formatDateTime } from '@/lib/format-date';
 
 const TIMEZONE_OPTIONS = [
   'UTC',
@@ -65,7 +66,7 @@ const TABS: { key: TabKey; label: string; icon: React.ComponentType<{ size?: num
 
 function formatDate(value: string | null): string {
   if (!value) return 'Sin cambios guardados';
-  return new Date(value).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' });
+  return formatDateTime(value);
 }
 
 function toBrandingSettings(input: BrandingSettings): BrandingSettings {

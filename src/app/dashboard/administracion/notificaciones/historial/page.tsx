@@ -17,6 +17,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { PageTitle } from '@/components/dashboard/PageTitle';
+import { formatDateTime } from '@/lib/format-date';
 import { listHistory } from '@/features/notificaciones/broadcast-client';
 import type {
   NotificationChannel,
@@ -56,13 +57,7 @@ function fmt(date: string | null): string {
   if (!date) return '—';
   const d = new Date(date);
   if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleString('es-CO', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return formatDateTime(d);
 }
 
 export default function HistorialPage() {

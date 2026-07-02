@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { BarChart3, Users } from 'lucide-react';
+import { formatDateTime } from '@/lib/format-date';
 import {
   getActivityForContentAdmin,
   getActivityStats,
@@ -155,12 +156,7 @@ export function ActivityResultsPanel({ contentId }: { contentId: string }) {
                       {u.lastScore != null ? `${u.lastScore}%` : '—'}
                     </td>
                     <td className="px-3 py-2 text-xs text-[var(--app-muted)]">
-                      {u.lastSubmittedAt
-                        ? new Date(u.lastSubmittedAt).toLocaleString('es-CO', {
-                            dateStyle: 'medium',
-                            timeStyle: 'short',
-                          })
-                        : '—'}
+                      {u.lastSubmittedAt ? formatDateTime(u.lastSubmittedAt) : '—'}
                     </td>
                     <td className="px-3 py-2">
                       <span

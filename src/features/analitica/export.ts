@@ -1,13 +1,13 @@
 import { utils, writeFile, type WorkSheet } from 'xlsx';
 import { jsPDF } from 'jspdf';
+import { formatDate } from '@/lib/format-date';
 import type { AnalyticsResult, NameCount, SeriesPoint } from './types';
 
 function stamp(): string {
   return new Date().toISOString().slice(0, 10);
 }
 function fmtRange(r: AnalyticsResult['range']): string {
-  const d = (s: string) => new Date(s).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' });
-  return `${d(r.from)} — ${d(r.to)}`;
+  return `${formatDate(r.from)} — ${formatDate(r.to)}`;
 }
 
 type Row = (string | number)[];
@@ -129,7 +129,7 @@ export function exportAnalyticsPdf(d: AnalyticsResult, branding: PdfBranding = {
   pdf.setFontSize(14);
   pdf.text(`${branding.brandName ?? '4Shine'} · Reporte de analítica`, mx, 9);
   pdf.setFontSize(9);
-  pdf.text(`Periodo: ${fmtRange(d.range)} · Generado ${new Date().toLocaleDateString('es-CO')}`, mx, 15);
+  pdf.text(`Periodo: ${fmtRange(d.range)} · Generado ${formatDate(new Date())}`, mx, 15);
   y = 28;
 
   const ensure = (need: number) => {

@@ -23,6 +23,7 @@ import {
   type WorkshopStatus,
   type WorkshopType,
 } from '@/features/workshops/client';
+import { formatDate as formatDateCanonical } from '@/lib/format-date';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -41,7 +42,7 @@ const STATUS_META: Record<string, { label: string; bg: string; text: string }> =
 };
 
 function formatDate(v: string) {
-  return new Date(v).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
+  return formatDateCanonical(v);
 }
 function formatTime(v: string) {
   return new Date(v).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });

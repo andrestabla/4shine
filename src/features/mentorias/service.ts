@@ -4,6 +4,7 @@ import type { AuthUser } from '@/server/auth/types';
 import { requireModulePermission } from '@/server/auth/module-permissions';
 import { createZoomMeeting } from '@/server/integrations/zoom';
 import { notifyUser, notifyUserFull } from '@/features/notificaciones/engine';
+import { formatDate } from '@/lib/format-date';
 
 export type MentorshipSessionType = 'individual' | 'grupal';
 export type MentorshipStatus =
@@ -738,12 +739,7 @@ function formatFechaCO(
 ): string {
   if (!value) return '';
   try {
-    return new Date(value).toLocaleDateString('es-CO', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-      timeZone,
-    });
+    return formatDate(value, { timeZone });
   } catch {
     return value;
   }

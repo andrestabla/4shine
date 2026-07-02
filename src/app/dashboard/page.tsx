@@ -24,6 +24,7 @@ import { buildGreeting, buildNextSteps, type NextStep } from "@/features/dashboa
 import { PageTitle } from "@/components/dashboard/PageTitle";
 import { StatGrid, type StatItem } from "@/components/dashboard/StatGrid";
 import type { UserStats } from "@/server/bootstrap/types";
+import { formatDateTime } from "@/lib/format-date";
 
 const STEP_ICONS: Record<NextStep["icon"], React.ComponentType<{ size?: number; className?: string }>> = {
   compass: Compass,
@@ -202,11 +203,7 @@ function buildRoleStats(params: {
 }
 
 function formatUpcomingDate(isoString: string, timezone?: string): string {
-  return new Date(isoString).toLocaleString('es-CO', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-    timeZone: timezone || undefined,
-  });
+  return formatDateTime(isoString, { timeZone: timezone || undefined });
 }
 
 export default function DashboardHomePage() {

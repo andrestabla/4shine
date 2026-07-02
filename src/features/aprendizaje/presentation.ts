@@ -1,23 +1,17 @@
 import type { ContentStatus, ContentType } from '@/features/content/client';
 import { getPillarLabelFromCode } from '@/features/aprendizaje/competency-map';
+import { formatDate, formatDateTime } from '@/lib/format-date';
 
 export function formatLearningDate(value: string | null | undefined): string {
   if (!value) return 'Sin fecha';
 
-  return new Date(value).toLocaleDateString('es-CO', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
+  return formatDate(value);
 }
 
 export function formatLearningDateTime(value: string | null | undefined): string {
   if (!value) return 'Sin fecha';
 
-  return new Date(value).toLocaleString('es-CO', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
+  return formatDateTime(value);
 }
 
 export function learningRoleLabel(role: string | null | undefined): string {

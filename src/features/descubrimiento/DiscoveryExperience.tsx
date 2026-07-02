@@ -3,6 +3,7 @@
 import React from "react";
 import clsx from "clsx";
 import { yearsToLabel, YEARS_EXPERIENCE_OPTIONS } from "@/lib/demographics";
+import { formatDate, formatDateTime } from "@/lib/format-date";
 import { read, utils } from "xlsx";
 import {
   Bell,
@@ -1616,7 +1617,7 @@ export function DiscoveryExperience() {
                     <li key={invitation.invitationId} className="rounded-[10px] border border-[var(--app-border)] p-2">
                       <p className="font-semibold text-[var(--app-ink)]">{invitation.invitedEmail}</p>
                       <p className="text-xs text-[var(--app-muted)]">
-                        Código terminado en {invitation.accessCodeLast4} · enviado {new Date(invitation.accessCodeSentAt).toLocaleString("es-CO")} · {invitation.sessionId ? "Lectura de resultados" : "Acceso al módulo"}
+                        Código terminado en {invitation.accessCodeLast4} · enviado {formatDateTime(invitation.accessCodeSentAt)} · {invitation.sessionId ? "Lectura de resultados" : "Acceso al módulo"}
                       </p>
                     </li>
                   ))}
@@ -2026,11 +2027,7 @@ export function DiscoveryExperience() {
                           return (
                             <div className="leading-tight">
                               <div className="font-semibold">
-                                {date.toLocaleDateString("es-CO", {
-                                  day: "2-digit",
-                                  month: "2-digit",
-                                  year: "numeric",
-                                })}
+                                {formatDate(stamp)}
                               </div>
                               <div className="text-xs text-[var(--app-muted)]">
                                 {date.toLocaleTimeString("es-CO", {

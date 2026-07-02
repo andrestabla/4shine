@@ -6,6 +6,7 @@ import type {
   DiscoveryOverviewDetailPayload,
   DiscoveryOverviewRow,
 } from "./types";
+import { formatDateTime } from "@/lib/format-date";
 
 const PILLAR_LABELS = {
   within: PILLAR_INFO.within.title,
@@ -82,7 +83,7 @@ export function downloadDiscoveryRowResultsWorkbook(
     },
     {
       Campo: row.completedAt ? "Fecha de presentación" : "Última conexión",
-      Valor: new Date(row.completedAt ?? row.updatedAt).toLocaleString("es-CO"),
+      Valor: formatDateTime(row.completedAt ?? row.updatedAt),
     },
   ]);
   utils.book_append_sheet(workbook, summarySheet, "Resumen");

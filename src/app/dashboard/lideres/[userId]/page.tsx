@@ -30,33 +30,16 @@ import {
     type AdvisorOption,
     type AdvisorSlot,
 } from '@/features/lideres/client';
+import { formatDate as sharedFormatDate, formatDateTime as sharedFormatDateTime } from '@/lib/format-date';
 
 function formatDate(value: string | null) {
     if (!value) return '—';
-    try {
-        return new Date(value).toLocaleDateString('es-CO', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric'
-        });
-    } catch {
-        return value;
-    }
+    return sharedFormatDate(value);
 }
 
 function formatDateTime(value: string | null) {
     if (!value) return '—';
-    try {
-        return new Date(value).toLocaleString('es-CO', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    } catch {
-        return value;
-    }
+    return sharedFormatDateTime(value);
 }
 
 function pillarLabel(code: string | null) {

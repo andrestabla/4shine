@@ -2,6 +2,7 @@
 
 import type { CertificateTemplateRecord } from '@/features/aprendizaje/service';
 import { type CertificateElement, type CertVars, resolveContent } from '@/lib/certificate-elements';
+import { formatDate as formatDateHelper } from '@/lib/format-date';
 
 // ─── Design constants ─────────────────────────────────────────────────────────
 
@@ -40,7 +41,7 @@ function px(url: string | null | undefined): string {
 
 function formatDate(iso: string): string {
   try {
-    return new Date(iso).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' });
+    return formatDateHelper(iso) || iso;
   } catch { return iso; }
 }
 

@@ -21,6 +21,7 @@ import {
   requiredOutboundMissing,
 } from '@/features/administracion/types';
 import { getOnColorText, rgbaFromHex } from '@/lib/color-contrast';
+import { formatDateTime } from '@/lib/format-date';
 
 type WizardFieldType = 'text' | 'password' | 'url' | 'number' | 'textarea' | 'select';
 
@@ -935,7 +936,7 @@ function getSummaryItems(definition: AssistantDefinition, data: Record<string, s
 
 function formatDate(value: string | null): string {
   if (!value) return 'No configurada';
-  return new Date(value).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' });
+  return formatDateTime(value);
 }
 
 export default function IntegracionesAdminPage() {

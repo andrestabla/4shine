@@ -32,6 +32,7 @@ import { R2UploadButton } from '@/components/ui/R2UploadButton';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useUser } from '@/context/UserContext';
 import type { ModuleCode } from '@/lib/permissions';
+import { formatDate, formatDateTime } from '@/lib/format-date';
 import {
   createContent,
   deleteContent,
@@ -136,7 +137,7 @@ interface CreateFormState {
 }
 
 function toLocalDate(value: string): string {
-  return new Date(value).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
+  return formatDate(value);
 }
 
 function toRelativeTime(value: string): string {
@@ -637,7 +638,7 @@ export default function ContenidoPage() {
                         ) : null}
                       </td>
                       <td className="px-4 py-3 text-xs text-[var(--app-muted)]">
-                        <span title={new Date(item.updatedAt).toLocaleString('es-CO')}>
+                        <span title={formatDateTime(item.updatedAt)}>
                           {toRelativeTime(item.updatedAt)}
                         </span>
                       </td>

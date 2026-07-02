@@ -1,6 +1,7 @@
 import type { PoolClient } from 'pg';
 import { getViewerAccessState } from '@/features/access/service';
 import { withClient, withRoleContext } from '@/server/db/pool';
+import { formatDate } from '@/lib/format-date';
 import type {
   BootstrapPayload,
   Chat,
@@ -88,14 +89,7 @@ function capitalizeFirst(value: string): string {
 
 function toEsDate(value: Date | string | null): string {
   if (!value) return 'Pendiente';
-  const date = new Date(value);
-  return new Intl.DateTimeFormat('es-CO', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  })
-    .format(date)
-    .replace('.', '');
+  return formatDate(value);
 }
 
 function toEsTime(value: Date | string | null): string {

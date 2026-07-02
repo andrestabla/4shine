@@ -3,12 +3,13 @@ import { jsPDF } from 'jspdf';
 import type { UserRecord } from './client';
 import { deriveUserTypeSelection, userTypeLabel } from './user-types';
 import { subscriptionStatus, formatExpiry } from './subscription-status';
+import { formatDate } from '@/lib/format-date';
 
 function fmtDate(value: string | null): string {
   if (!value) return '—';
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' });
+  return formatDate(value);
 }
 
 function stamp(): string {
@@ -86,7 +87,7 @@ export function exportUsersPdf(rows: UserRecord[], branding: PdfBranding = {}): 
   pdf.setFontSize(13);
   pdf.text(`${branding.brandName ?? '4Shine'} · Reporte de usuarios`, marginX, 12);
   pdf.setFontSize(9);
-  pdf.text(`${rows.length} usuarios · ${new Date().toLocaleDateString('es-CO')}`, pageW - marginX, 12, {
+  pdf.text(`${rows.length} usuarios · ${formatDate(new Date())}`, pageW - marginX, 12, {
     align: 'right',
   });
 
