@@ -278,18 +278,40 @@ export function SubscriptionPlansGrid({ currentPlanId, highlightModule }: Subscr
                     <CheckCircle2 size={14} />
                     Plan activo
                   </div>
-                ) : (
-                  <Link
-                    href={`/acceso?plan=${encodeURIComponent(plan.planCode)}`}
-                    className={`block w-full rounded-full py-2.5 text-center text-sm font-extrabold transition ${
-                      plan.highlightLabel
-                        ? 'bg-amber-300 text-[var(--app-ink)] hover:bg-amber-200'
-                        : 'border-2 border-[var(--app-ink)] text-[var(--app-ink)] hover:bg-[var(--app-ink)] hover:text-white'
-                    }`}
-                  >
-                    Adquirir plan
-                  </Link>
-                )}
+                ) : (() => {
+                  // El botón usa el comportamiento configurado en el plan
+                  // (/administracion/planes): checkoutType (pagos/WhatsApp),
+                  // checkoutUrl y ctaLabel. Si no hay URL configurada, cae al
+                  // flujo por defecto (/acceso?plan=).
+                  const isWhatsapp = plan.checkoutType === 'whatsapp';
+                  const configuredUrl = plan.checkoutUrl?.trim() ?? '';
+                  const waDigits = isWhatsapp ? configuredUrl.replace(/\D/g, '') : '';
+                  const waMessage = encodeURIComponent(
+                    `Hola, me interesa el plan ${plan.name} de 4Shine.`,
+                  );
+                  const external = isWhatsapp ? Boolean(waDigits) : Boolean(configuredUrl);
+                  const href = isWhatsapp
+                    ? waDigits
+                      ? `https://wa.me/${waDigits}?text=${waMessage}`
+                      : `/acceso?plan=${encodeURIComponent(plan.planCode)}`
+                    : configuredUrl || `/acceso?plan=${encodeURIComponent(plan.planCode)}`;
+                  const label =
+                    plan.ctaLabel?.trim() || (isWhatsapp ? 'Saber más' : 'Adquirir plan');
+                  const className = `block w-full rounded-full py-2.5 text-center text-sm font-extrabold transition ${
+                    plan.highlightLabel
+                      ? 'bg-amber-300 text-[var(--app-ink)] hover:bg-amber-200'
+                      : 'border-2 border-[var(--app-ink)] text-[var(--app-ink)] hover:bg-[var(--app-ink)] hover:text-white'
+                  }`;
+                  return external ? (
+                    <a href={href} target="_blank" rel="noreferrer" className={className}>
+                      {label}
+                    </a>
+                  ) : (
+                    <Link href={href} className={className}>
+                      {label}
+                    </Link>
+                  );
+                })()}
               </div>
 
               <p
