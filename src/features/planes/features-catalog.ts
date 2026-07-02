@@ -21,14 +21,9 @@ export const PLAN_FEATURES: PlanFeatureDef[] = [
     description: 'Diagnóstico ejecutivo y reportes 4Shine.',
     supportsQuota: false,
   },
-  {
-    key: 'aprendizaje_recursos_free',
-    moduleCode: 'aprendizaje',
-    moduleLabel: 'Aprendizaje',
-    label: 'Recursos free',
-    description: 'Biblioteca gratuita de aprendizaje.',
-    supportsQuota: false,
-  },
+  // Nota: 'aprendizaje_recursos_free' y 'mentorias_comprar' se quitaron del
+  // catálogo: NO dependen del plan (recursos free y comprar mentorías extra
+  // están disponibles para todos los líderes). Antes eran toggles inertes.
   {
     key: 'aprendizaje_cursos',
     moduleCode: 'aprendizaje',
@@ -60,14 +55,6 @@ export const PLAN_FEATURES: PlanFeatureDef[] = [
     label: 'Mentorías 1:1',
     description: 'Sesiones individuales con Advisor asignado.',
     supportsQuota: true,
-  },
-  {
-    key: 'mentorias_comprar',
-    moduleCode: 'mentorias',
-    moduleLabel: 'Mentorías',
-    label: 'Comprar mentorías extra',
-    description: 'Permite adquirir packs de mentoría adicionales.',
-    supportsQuota: false,
   },
   {
     key: 'networking',

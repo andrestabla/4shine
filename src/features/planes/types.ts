@@ -80,12 +80,10 @@ export interface PlanFeatureInput {
 export type PlanFeatureKey =
   | 'trayectoria'
   | 'descubrimiento'
-  | 'aprendizaje_recursos_free'
   | 'aprendizaje_cursos'
   | 'aprendizaje_workbooks'
   | 'mentorias_grupales'
   | 'mentorias_1on1'
-  | 'mentorias_comprar'
   | 'networking'
   | 'mensajes'
   | 'convocatorias'
