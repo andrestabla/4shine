@@ -4425,15 +4425,17 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
               const isCompleted = item.status === 'completed';
               const isScheduled = item.status === 'scheduled';
               const isLocked = item.status === 'locked';
-              // Cadencia: la siguiente incluida se habilita 10 días después del
-              // inicio de la mentoría ya agendada. Mostramos la fecha exacta (B5).
-              const blockerSession = overview.programEntitlements.find(
-                (e) => e.status === 'scheduled' && e.scheduledStartsAt,
+              // Cadencia: cada mentoría se habilita 10 días después de la sesión
+              // PRECEDENTE (N-1), no de la primera agendada. Si la precedente
+              // aún no tiene fecha (no está agendada), no se puede calcular →
+              // se muestra "por definir".
+              const prevEntitlement = overview.programEntitlements.find(
+                (e) => e.sequenceNo === item.sequenceNo - 1,
               );
               const lockUnlockLabel =
-                isLocked && blockerSession?.scheduledStartsAt
+                isLocked && prevEntitlement?.scheduledStartsAt
                   ? sharedFormatDate(
-                      new Date(blockerSession.scheduledStartsAt).getTime() + 10 * 86_400_000,
+                      new Date(prevEntitlement.scheduledStartsAt).getTime() + 10 * 86_400_000,
                       { timeZone: tz || undefined },
                     )
                   : null;
@@ -4505,8 +4507,8 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                       <p className="truncate text-sm font-bold text-[var(--app-ink)]">{item.title}</p>
                       <p className="text-xs text-[var(--app-muted)]">
                         {lockUnlockLabel
-                          ? `Se habilita el ${lockUnlockLabel} (10 días tras tu mentoría agendada).`
-                          : (item.scheduleBlockedReason ?? 'Se habilita 10 días después de la mentoría anterior.')}
+                          ? `Se habilita el ${lockUnlockLabel} (10 días tras la mentoría anterior).`
+                          : 'Se habilita 10 días tras la mentoría anterior · fecha por definir.'}
                       </p>
                     </div>
                     <span className="shrink-0 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-700">
