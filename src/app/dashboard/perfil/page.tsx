@@ -733,6 +733,12 @@ export default function PerfilPage() {
               Acerca de mí
             </h4>
 
+            {isEditing && (
+              <p className="mb-3 text-xs text-[var(--app-muted)]">
+                Los campos con <span className="text-rose-500">*</span> son obligatorios.
+              </p>
+            )}
+
             {!isEditing ? (
               <>
                 <p className="rounded-[1rem] bg-[var(--app-surface-muted)] p-4 text-[var(--app-ink)]/84">{profile.bio ?? 'Sin biografía registrada.'}</p>
@@ -806,7 +812,7 @@ export default function PerfilPage() {
                   />
                 </label>
                 <label>
-                  <span className="app-field-label">País</span>
+                  <span className="app-field-label">País <span className="text-rose-500">*</span></span>
                   <select
                     className="app-select"
                     value={form.country}
@@ -822,7 +828,7 @@ export default function PerfilPage() {
                   </select>
                 </label>
                 <label>
-                  <span className="app-field-label">Cargo</span>
+                  <span className="app-field-label">Cargo <span className="text-rose-500">*</span></span>
                   <select
                     className="app-select"
                     value={form.jobRole}
@@ -840,7 +846,7 @@ export default function PerfilPage() {
                   </select>
                 </label>
                 <label>
-                  <span className="app-field-label">Género</span>
+                  <span className="app-field-label">Género <span className="text-rose-500">*</span></span>
                   <select
                     className="app-select"
                     value={form.gender}
@@ -856,7 +862,7 @@ export default function PerfilPage() {
                   </select>
                 </label>
                 <label>
-                  <span className="app-field-label">Años de experiencia</span>
+                  <span className="app-field-label">Años de experiencia <span className="text-rose-500">*</span></span>
                   <select
                     className="app-select"
                     value={form.yearsExperience}
