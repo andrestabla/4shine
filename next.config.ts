@@ -29,6 +29,11 @@ const nextConfig: NextConfig = {
     return [
       // La página de afiliados/advisers vive ahora en /advisers
       { source: "/afiliados", destination: "/advisers", permanent: true },
+      // Rutas directas a cada pestaña de Planes y precios (deep-link por ancla).
+      { source: "/planes-precios-diagnostico", destination: "/planes-precios#diagnostico", permanent: false },
+      { source: "/planes-precios-programas", destination: "/planes-precios#programas", permanent: false },
+      { source: "/planes-precios-mentorias", destination: "/planes-precios#mentorias", permanent: false },
+      { source: "/planes-precios-circulo", destination: "/planes-precios#circulo", permanent: false },
     ];
   },
   async headers() {
