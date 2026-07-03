@@ -6,6 +6,7 @@ import { SECTION_LAYOUTS } from '@/features/site-builder/registry';
 import { SITE_ICONS, hasSiteIcon } from '@/features/site-builder/icons';
 import { AdvisorsBlockClient } from './AdvisorsBlockClient';
 import { PricingMatrixBlockClient } from './PricingMatrixBlockClient';
+import type { PricingCopy } from '@/components/marketing/PricingMatrixClient';
 import {
   DiscoveryRadarChart,
   DiscoveryCompetenciesChart,
@@ -1311,10 +1312,43 @@ function AdvisorsBlock({ props }: { props: SiteBlockProps }) {
 
 function PricingMatrixBlock({ props }: { props: SiteBlockProps }) {
   const palette = resolveSectionPalette(props);
+
+  // Solo se incluye una clave cuando el campo del builder trae texto: un campo
+  // vacío queda como undefined y el componente cae en DEFAULT_PRICING_COPY.
+  const copy: Partial<PricingCopy> = {};
+  const setStr = (key: keyof PricingCopy, propKey: string) => {
+    const value = str(props, propKey).trim();
+    if (value) (copy as Record<string, unknown>)[key] = value;
+  };
+  const setList = (key: keyof PricingCopy, propKey: string) => {
+    const raw = str(props, propKey);
+    const list = raw
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
+    if (list.length > 0) (copy as Record<string, unknown>)[key] = list;
+  };
+
+  setStr('diagKicker', 'diagKicker');
+  setStr('diagHeading', 'diagHeading');
+  setStr('diagDescription', 'diagDescription');
+  setList('diagBullets', 'diagBullets');
+  setStr('diagCardText', 'diagCardText');
+  setStr('diagCardNote', 'diagCardNote');
+  setStr('diagUnavailable', 'diagUnavailable');
+  setStr('programsDescription', 'programsDescription');
+  setStr('programsUnavailable', 'programsUnavailable');
+  setStr('programsPriceNote', 'programsPriceNote');
+  setStr('mentoriasDescription', 'mentoriasDescription');
+  setStr('mentoriasUnavailable', 'mentoriasUnavailable');
+  setStr('mentoriasFootnote', 'mentoriasFootnote');
+  setStr('circuloDescription', 'circuloDescription');
+  setStr('circuloUnavailable', 'circuloUnavailable');
+
   return (
     <SectionShell props={props} palette={palette}>
       <SectionHeading props={props} palette={palette} className="mb-8" />
-      <PricingMatrixBlockClient />
+      <PricingMatrixBlockClient copy={copy} />
     </SectionShell>
   );
 }

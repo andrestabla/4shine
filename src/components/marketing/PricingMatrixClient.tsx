@@ -12,9 +12,68 @@ import {
 
 type Tab = 'diagnostico' | 'programas' | 'mentorias' | 'circulo';
 
+/**
+ * Textos de marketing editables desde el Site Builder. NO incluye datos
+ * dinámicos (precios, nombres de planes/productos, sesiones, badges, CTAs),
+ * que provienen de la BD/catálogo.
+ */
+export interface PricingCopy {
+  // Diagnóstico
+  diagKicker: string;
+  diagHeading: string;
+  diagDescription: string;
+  diagBullets: string[];
+  diagCardText: string;
+  diagCardNote: string;
+  diagUnavailable: string;
+  // Programas
+  programsDescription: string;
+  programsUnavailable: string;
+  programsPriceNote: string;
+  // Mentorías
+  mentoriasDescription: string;
+  mentoriasUnavailable: string;
+  mentoriasFootnote: string;
+  // Círculo
+  circuloDescription: string;
+  circuloUnavailable: string;
+}
+
+export const DEFAULT_PRICING_COPY: PricingCopy = {
+  diagKicker: 'Punto de partida',
+  diagHeading: 'Conoce dónde estás antes de decidir hacia dónde ir.',
+  diagDescription:
+    'El Diagnóstico Ejecutivo 4Shine evalúa tu nivel actual en los 4 pilares de liderazgo — Within, Out, Up y Beyond — y entrega un informe personalizado con tus fortalezas, brechas y recomendaciones concretas.',
+  diagBullets: [
+    'Evaluación profunda de los 4 pilares',
+    'Informe ejecutivo personalizado',
+    'Identificación de brechas críticas',
+    'Punto de partida para cualquier programa',
+    'Acceso permanente a tus resultados',
+  ],
+  diagCardText:
+    'Pago único. Acceso inmediato. Resultado disponible en la plataforma en menos de 48 horas.',
+  diagCardNote:
+    'Incluido en todos los programas de liderazgo. Si ya tienes un programa activo, no necesitas comprarlo por separado.',
+  diagUnavailable: 'El diagnóstico no está disponible por el momento.',
+  programsDescription:
+    'Cada programa da acceso completo a la plataforma. Lo que varía es la intensidad del acompañamiento, las sesiones incluidas y la duración de la suscripción.',
+  programsUnavailable: 'Aún no hay programas activos disponibles. Vuelve más tarde.',
+  programsPriceNote: '* Precio único. Sin cuotas ocultas.',
+  mentoriasDescription:
+    'Sesiones individuales con Advisors certificados. Sin compromiso de programa. Ideal para acompañamiento puntual en un momento concreto de decisión, transición o desarrollo.',
+  mentoriasUnavailable: 'No hay packs de mentoría disponibles por el momento.',
+  mentoriasFootnote:
+    '* Cada sesión dura 60 minutos. Las sesiones no tienen fecha de vencimiento.',
+  circuloDescription:
+    'Acceso al Círculo de Líderes 4Shine: sesiones grupales en vivo, cursos exclusivos, comunidad y workshops. Elige la duración que más se ajuste a tu momento.',
+  circuloUnavailable: 'Aún no hay planes de Círculo activos. Vuelve más tarde.',
+};
+
 interface PricingMatrixClientProps {
   plans: SubscriptionPlanWithFeatures[];
   catalog?: CommercialProductRecord[];
+  copy?: Partial<PricingCopy>;
 }
 
 interface MentoringPack {
@@ -74,7 +133,8 @@ function formatDuration(days: number): string {
   return `${days} días`;
 }
 
-export function PricingMatrixClient({ plans, catalog = [] }: PricingMatrixClientProps) {
+export function PricingMatrixClient({ plans, catalog = [], copy }: PricingMatrixClientProps) {
+  const c: PricingCopy = { ...DEFAULT_PRICING_COPY, ...copy };
   const [tab, setTab] = useState<Tab>('programas');
 
   // Deep-link por ancla: /planes-precios#diagnostico | #programas | #mentorias |
@@ -185,7 +245,7 @@ export function PricingMatrixClient({ plans, catalog = [] }: PricingMatrixClient
           className="rounded-3xl border p-8 text-center text-sm"
           style={{ borderColor: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.7)' }}
         >
-          El diagnóstico no está disponible por el momento.
+          {c.diagUnavailable}
         </div>
       )}
 
@@ -196,28 +256,22 @@ export function PricingMatrixClient({ plans, catalog = [] }: PricingMatrixClient
               className="mb-3 text-xs font-black uppercase tracking-[0.3em]"
               style={{ color: 'var(--brand-accent)' }}
             >
-              Punto de partida
+              {c.diagKicker}
             </p>
             <h2
               className="max-w-[26ch] text-3xl font-black leading-tight tracking-tight md:text-4xl"
               style={{ color: '#ffffff' }}
             >
-              Conoce dónde estás antes de decidir hacia dónde ir.
+              {c.diagHeading}
             </h2>
             <p
               className="mt-5 max-w-[54ch] text-base leading-relaxed"
               style={{ color: 'rgba(255,255,255,0.78)' }}
             >
-              El Diagnóstico Ejecutivo 4Shine evalúa tu nivel actual en los 4 pilares de liderazgo — Within, Out, Up y Beyond — y entrega un informe personalizado con tus fortalezas, brechas y recomendaciones concretas.
+              {c.diagDescription}
             </p>
             <ul className="mt-6 space-y-3">
-              {[
-                'Evaluación profunda de los 4 pilares',
-                'Informe ejecutivo personalizado',
-                'Identificación de brechas críticas',
-                'Punto de partida para cualquier programa',
-                'Acceso permanente a tus resultados',
-              ].map((f) => (
+              {c.diagBullets.map((f) => (
                 <li
                   key={f}
                   className="flex items-start gap-3 text-sm"
@@ -259,13 +313,13 @@ export function PricingMatrixClient({ plans, catalog = [] }: PricingMatrixClient
               className="mt-3 text-sm leading-relaxed"
               style={{ color: 'rgba(255,255,255,0.78)' }}
             >
-              Pago único. Acceso inmediato. Resultado disponible en la plataforma en menos de 48 horas.
+              {c.diagCardText}
             </p>
             <div
               className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4 text-xs leading-relaxed"
               style={{ color: 'rgba(255,255,255,0.82)' }}
             >
-              Incluido en todos los programas de liderazgo. Si ya tienes un programa activo, no necesitas comprarlo por separado.
+              {c.diagCardNote}
             </div>
             <Link
               href={diagnosticCta.href}
@@ -284,7 +338,13 @@ export function PricingMatrixClient({ plans, catalog = [] }: PricingMatrixClient
 
       {/* ── Programas — dynamic from DB ── */}
       {tab === 'programas' && (
-        <ProgramsSection programs={programs} moduleGroups={moduleGroups} />
+        <ProgramsSection
+          programs={programs}
+          moduleGroups={moduleGroups}
+          description={c.programsDescription}
+          unavailable={c.programsUnavailable}
+          priceNote={c.programsPriceNote}
+        />
       )}
 
       {/* ── Mentorías ── */}
@@ -294,14 +354,14 @@ export function PricingMatrixClient({ plans, catalog = [] }: PricingMatrixClient
             className="mb-8 max-w-[62ch] text-base leading-relaxed"
             style={{ color: 'rgba(255,255,255,0.78)' }}
           >
-            Sesiones individuales con Advisors certificados. Sin compromiso de programa. Ideal para acompañamiento puntual en un momento concreto de decisión, transición o desarrollo.
+            {c.mentoriasDescription}
           </p>
           {mentoringPacks.length === 0 ? (
             <div
               className="rounded-3xl border p-8 text-center text-sm"
               style={{ borderColor: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.7)' }}
             >
-              No hay packs de mentoría disponibles por el momento.
+              {c.mentoriasUnavailable}
             </div>
           ) : (
           <>
@@ -396,7 +456,7 @@ export function PricingMatrixClient({ plans, catalog = [] }: PricingMatrixClient
             ))}
           </div>
           <p className="mt-6 text-xs" style={{ color: 'rgba(255,255,255,0.6)' }}>
-            * Cada sesión dura 60 minutos. Las sesiones no tienen fecha de vencimiento.
+            {c.mentoriasFootnote}
           </p>
           </>
           )}
@@ -404,7 +464,13 @@ export function PricingMatrixClient({ plans, catalog = [] }: PricingMatrixClient
       )}
 
       {/* ── Círculo de líderes — dynamic from DB ── */}
-      {tab === 'circulo' && <CirculoSection circulos={circulos} />}
+      {tab === 'circulo' && (
+        <CirculoSection
+          circulos={circulos}
+          description={c.circuloDescription}
+          unavailable={c.circuloUnavailable}
+        />
+      )}
     </div>
   );
 }
@@ -414,9 +480,12 @@ export function PricingMatrixClient({ plans, catalog = [] }: PricingMatrixClient
 interface ProgramsSectionProps {
   programs: SubscriptionPlanWithFeatures[];
   moduleGroups: ReturnType<typeof groupFeaturesByModule>;
+  description: string;
+  unavailable: string;
+  priceNote: string;
 }
 
-function ProgramsSection({ programs, moduleGroups }: ProgramsSectionProps) {
+function ProgramsSection({ programs, moduleGroups, description, unavailable, priceNote }: ProgramsSectionProps) {
   if (programs.length === 0) {
     return (
       <div
@@ -427,7 +496,7 @@ function ProgramsSection({ programs, moduleGroups }: ProgramsSectionProps) {
           color: 'var(--brand-ink-soft)',
         }}
       >
-        Aún no hay programas activos disponibles. Vuelve más tarde.
+        {unavailable}
       </div>
     );
   }
@@ -438,7 +507,7 @@ function ProgramsSection({ programs, moduleGroups }: ProgramsSectionProps) {
         className="mb-8 max-w-[64ch] text-base leading-relaxed"
         style={{ color: 'rgba(255,255,255,0.78)' }}
       >
-        Cada programa da acceso completo a la plataforma. Lo que varía es la intensidad del acompañamiento, las sesiones incluidas y la duración de la suscripción.
+        {description}
       </p>
 
       {/* Mobile (<md): stack de cards por plan */}
@@ -575,7 +644,7 @@ function ProgramsSection({ programs, moduleGroups }: ProgramsSectionProps) {
                   {p.checkoutType === 'whatsapp' && p.checkoutUrl ? (p.ctaLabel || 'Saber más') : (p.ctaLabel || 'Comenzar')}
                 </Link>
                 <p className="mt-2 text-[10px]" style={{ color: 'var(--brand-ink-muted)' }}>
-                  * Precio único. Sin cuotas ocultas.
+                  {priceNote}
                 </p>
               </div>
             </div>
@@ -745,7 +814,7 @@ function ProgramsSection({ programs, moduleGroups }: ProgramsSectionProps) {
             {/* CTA row */}
             <tr>
               <td className="px-6 py-5 text-[11px]" style={{ color: 'var(--brand-ink-muted)' }}>
-                * Precio único. Sin cuotas ocultas.
+                {priceNote}
               </td>
               {programs.map((p) => {
                 const highlighted = Boolean(p.highlightLabel);
@@ -787,7 +856,15 @@ function ProgramsSection({ programs, moduleGroups }: ProgramsSectionProps) {
 
 // ─── Círculo section (dynamic) ───────────────────────────────────────────────
 
-function CirculoSection({ circulos }: { circulos: SubscriptionPlanWithFeatures[] }) {
+function CirculoSection({
+  circulos,
+  description,
+  unavailable,
+}: {
+  circulos: SubscriptionPlanWithFeatures[];
+  description: string;
+  unavailable: string;
+}) {
   if (circulos.length === 0) {
     return (
       <div
@@ -798,7 +875,7 @@ function CirculoSection({ circulos }: { circulos: SubscriptionPlanWithFeatures[]
           color: 'var(--brand-ink-soft)',
         }}
       >
-        Aún no hay planes de Círculo activos. Vuelve más tarde.
+        {unavailable}
       </div>
     );
   }
@@ -817,7 +894,7 @@ function CirculoSection({ circulos }: { circulos: SubscriptionPlanWithFeatures[]
         className="mb-8 max-w-[62ch] text-base leading-relaxed"
         style={{ color: 'rgba(255,255,255,0.78)' }}
       >
-        Acceso al Círculo de Líderes 4Shine: sesiones grupales en vivo, cursos exclusivos, comunidad y workshops. Elige la duración que más se ajuste a tu momento.
+        {description}
       </p>
       <div className="mx-auto grid max-w-[960px] gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {circulos.map((plan) => {
