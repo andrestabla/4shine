@@ -16,6 +16,7 @@ import { USER_COUNTRY_SET, USER_GENDER_SET, USER_JOB_ROLE_SET } from "@/lib/user
 import { buildBrandedEmailHtml } from "@/lib/email-template";
 import { getNotificationSettingsByOrg, resolveEventConfig, insertUserNotification } from "@/features/notificaciones/service";
 import { dispatchNotification, notifyUserFull } from "@/features/notificaciones/engine";
+import { markJobCompleted, markJobFailed } from "./ai-jobs";
 import { COMP_DEFINITIONS } from "./DiagnosticsData";
 import {
   DISCOVERY_TOTAL_ITEMS,
@@ -4202,6 +4203,103 @@ export async function bulkRegenerateDiscoveryReportsByManager(
   }
 
   return { reports, sessionId: normalizedSessionId };
+}
+
+/**
+ * Rescata análisis de IA huérfanos: jobs que quedaron en `queued` (el waitUntil
+ * de /analyze murió antes de arrancar) o `running` estancado, y regenera sus
+ * informes desde los datos del diagnóstico. Lo usa el cron drain-ai-jobs. Hace
+ * un claim atómico por job para no duplicar trabajo entre invocaciones
+ * concurrentes. Procesa un lote pequeño por llamada.
+ */
+export async function drainStuckDiscoveryAiJobs(
+  actor: AuthUser,
+  options?: { limit?: number },
+): Promise<{ processed: number; outcomes: Array<{ jobId: string; ok: boolean; error?: string }> }> {
+  const limit = Math.max(1, Math.min(options?.limit ?? 2, 10));
+
+  const stuck = await withClient((client) =>
+    withRoleContext(client, actor.userId, actor.role, async () => {
+      const { rows } = await client.query<{
+        job_id: string;
+        session_id: string | null;
+        invitation_id: string | null;
+        scope: string;
+      }>(
+        `SELECT job_id::text, session_id::text, invitation_id::text, scope
+         FROM app_assessment.discovery_ai_jobs
+         WHERE created_at > now() - interval '30 days'
+           AND (
+             (status = 'queued' AND created_at < now() - interval '3 minutes')
+             OR (status = 'running' AND updated_at < now() - interval '15 minutes')
+           )
+         ORDER BY created_at ASC
+         LIMIT $1`,
+        [limit],
+      );
+      return rows;
+    }),
+  );
+
+  const outcomes: Array<{ jobId: string; ok: boolean; error?: string }> = [];
+
+  for (const job of stuck) {
+    // Claim atómico: solo un proceso se queda con el job.
+    const claimed = await withClient((client) =>
+      withRoleContext(client, actor.userId, actor.role, async () => {
+        const { rows } = await client.query<{ job_id: string }>(
+          `UPDATE app_assessment.discovery_ai_jobs
+           SET status = 'running', started_at = COALESCE(started_at, now()), updated_at = now()
+           WHERE job_id = $1::uuid
+             AND (
+               (status = 'queued' AND created_at < now() - interval '3 minutes')
+               OR (status = 'running' AND updated_at < now() - interval '15 minutes')
+             )
+           RETURNING job_id::text`,
+          [job.job_id],
+        );
+        return rows[0]?.job_id ?? null;
+      }),
+    );
+    if (!claimed) continue;
+
+    const target =
+      job.scope === "invitation" && job.invitation_id
+        ? `inv-${job.invitation_id}`
+        : job.session_id;
+
+    if (!target) {
+      await withClient((c) =>
+        withRoleContext(c, actor.userId, actor.role, () =>
+          markJobFailed(c, job.job_id, "Job sin session_id/invitation_id."),
+        ),
+      );
+      outcomes.push({ jobId: job.job_id, ok: false, error: "no-target" });
+      continue;
+    }
+
+    try {
+      await withClient((c) =>
+        withRoleContext(c, actor.userId, actor.role, () =>
+          bulkRegenerateDiscoveryReportsByManager(c, actor, target),
+        ),
+      );
+      await withClient((c) =>
+        withRoleContext(c, actor.userId, actor.role, () => markJobCompleted(c, job.job_id)),
+      );
+      outcomes.push({ jobId: job.job_id, ok: true });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Error desconocido.";
+      await withClient((c) =>
+        withRoleContext(c, actor.userId, actor.role, () =>
+          markJobFailed(c, job.job_id, message.slice(0, 500)),
+        ),
+      );
+      outcomes.push({ jobId: job.job_id, ok: false, error: message });
+    }
+  }
+
+  return { processed: outcomes.length, outcomes };
 }
 
 export async function sendDiscoveryReportEmail(

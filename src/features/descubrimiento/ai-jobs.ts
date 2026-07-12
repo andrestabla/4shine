@@ -260,6 +260,9 @@ export async function processAiJob(
     scope: DiscoveryAiJobScope;
   },
 ): Promise<void> {
+  // Observabilidad: si el waitUntil de /analyze no arranca (scope 'session' se
+  // queda huérfano), estos logs muestran hasta dónde llegó antes de morir.
+  console.log(`[ai-job ${jobId}] processAiJob START scope=${args.scope}`);
   // Importes lazy para evitar circular deps.
   const {
     generateDiscoveryInvitationAnalysisContract,
@@ -351,6 +354,7 @@ export async function processAiJob(
   };
 
   try {
+    console.log(`[ai-job ${jobId}] setup ok, marcando running`);
     await withClient((c) => markJobRunning(c, jobId));
 
     // Genero "all" primero (es el reporte ejecutivo más extenso, sirve de
