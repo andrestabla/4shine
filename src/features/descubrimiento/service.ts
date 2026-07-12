@@ -4263,6 +4263,36 @@ export async function drainStuckDiscoveryAiJobs(
     );
     if (!claimed) continue;
 
+    // Si el destino YA tiene reportes (p. ej. el líder recargó y el waitUntil sí
+    // generó, o alguien pulsó "Regenerar"), NO re-generamos: solo cerramos el
+    // job. Evita gasto de OpenAI y sobrescribir un informe existente.
+    const alreadyHasReports = await withClient((c) =>
+      withRoleContext(c, actor.userId, actor.role, async () => {
+        if (job.scope === "invitation" && job.invitation_id) {
+          const { rows } = await c.query<{ has: boolean }>(
+            `SELECT (meta ? 'ai_reports') AS has FROM app_assessment.discovery_invitations WHERE invitation_id = $1::uuid`,
+            [job.invitation_id],
+          );
+          return rows[0]?.has === true;
+        }
+        if (job.session_id) {
+          const { rows } = await c.query<{ has: boolean }>(
+            `SELECT (ai_reports IS NOT NULL AND ai_reports <> '{}'::jsonb) AS has FROM app_assessment.discovery_sessions WHERE session_id = $1::uuid`,
+            [job.session_id],
+          );
+          return rows[0]?.has === true;
+        }
+        return false;
+      }),
+    );
+    if (alreadyHasReports) {
+      await withClient((c) =>
+        withRoleContext(c, actor.userId, actor.role, () => markJobCompleted(c, job.job_id)),
+      );
+      outcomes.push({ jobId: job.job_id, ok: true, error: "already-had-reports" });
+      continue;
+    }
+
     const target =
       job.scope === "invitation" && job.invitation_id
         ? `inv-${job.invitation_id}`
