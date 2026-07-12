@@ -138,8 +138,14 @@ export const VARIABLE_DEFS: Record<VariableKey, VariableDef> = {
   codigo_acceso: {
     key: 'codigo_acceso',
     label: 'Código de acceso',
-    description: 'Código único de acceso al diagnóstico',
+    description: 'Código único de acceso al diagnóstico (siempre el código real). Para ocultarlo automáticamente a usuarios existentes, usa {{bloque_acceso}} en su lugar.',
     example: 'JEXK',
+  },
+  bloque_acceso: {
+    key: 'bloque_acceso',
+    label: 'Bloque de acceso (auto)',
+    description: 'Texto que se adapta solo: para usuarios nuevos muestra el código; para usuarios existentes invita a entrar solo con el enlace. Úsalo en vez de escribir "Tu código es: {{codigo_acceso}}".',
+    example: 'Tu código de acceso único es: JEXK',
   },
   enlace_invitacion: {
     key: 'enlace_invitacion',
@@ -537,7 +543,7 @@ export const NOTIFICATION_EVENTS: NotificationEventDef[] = [
     moduleLabel: 'Descubrimiento',
     label: 'Invitación al diagnóstico',
     description: 'Se envía cuando el administrador invita a alguien a completar el diagnóstico de liderazgo.',
-    variables: ['nombre', 'plataforma', 'enlace_invitacion', 'codigo_acceso'],
+    variables: ['nombre', 'plataforma', 'enlace_invitacion', 'codigo_acceso', 'bloque_acceso'],
     defaultInAppType: 'info',
   },
   {
@@ -564,7 +570,7 @@ export const NOTIFICATION_EVENTS: NotificationEventDef[] = [
     moduleLabel: 'Descubrimiento',
     label: 'Recordatorio de diagnóstico pendiente',
     description: 'Recordatorio para terminar el diagnóstico. Se envía manualmente al reinvitar y, de forma automática, a quien no lo ha completado según las ventanas configuradas (días desde que obtuvo acceso).',
-    variables: ['nombre', 'plataforma', 'enlace_plataforma', 'enlace_invitacion', 'codigo_acceso', 'tiempo_restante'],
+    variables: ['nombre', 'plataforma', 'enlace_plataforma', 'enlace_invitacion', 'codigo_acceso', 'bloque_acceso', 'tiempo_restante'],
     defaultInAppType: 'alert',
     windowsConfigurable: true,
   },

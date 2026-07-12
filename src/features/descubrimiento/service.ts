@@ -2536,9 +2536,17 @@ export async function createDiscoveryInvitations(
     // está rate-limited y rompe en Gmail/Outlook). El endpoint resuelve el logo
     // oscuro configurado y transmite los bytes; cae al logo por defecto si falta.
     const platformLogoUrl = `${baseUrl}/branding/4shine-logo-amarillo.png`;
+    // Bloque de acceso auto-ocultable para plantillas configuradas: para usuarios
+    // existentes (skipCode) invita a entrar solo con el enlace; para nuevos
+    // muestra el código. La plantilla debe usar {{bloque_acceso}} en vez de una
+    // línea fija "Tu código es: {{codigo_acceso}}".
+    const accessBlock = skipCode
+      ? "Ya tienes cuenta en la plataforma: ingresa directamente con el botón de acceso, no necesitas código."
+      : `Tu código de acceso único es: ${accessCode}`;
     const params = {
       recipient_email: email,
       access_code: accessCode,
+      access_block: accessBlock,
       invite_url: inviteUrl,
       diagnostic_id: sharedSession?.diagnosticIdentifier ?? "N/A",
       participant_name: sharedSession
@@ -2553,7 +2561,10 @@ export async function createDiscoveryInvitations(
       plataforma: notifSettings.varPlatformName || branding.platform_name,
       enlace_plataforma: notifSettings.varPlatformUrl || '',
       enlace_invitacion: inviteUrl,
+      // codigo_acceso es SIEMPRE el código real (fiel). El auto-ocultado para
+      // usuarios existentes vive en bloque_acceso.
       codigo_acceso: accessCode,
+      bloque_acceso: accessBlock,
       // Extra keys used by the built-in body template:
       recipient_email: email,
       diagnostic_id: sharedSession?.diagnosticIdentifier ?? 'N/A',

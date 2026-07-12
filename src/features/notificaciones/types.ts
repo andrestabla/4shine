@@ -112,6 +112,7 @@ export type VariableKey =
   | 'solicitante_nombre'
   | 'conexion_nombre'
   | 'codigo_acceso'
+  | 'bloque_acceso'
   | 'enlace_invitacion'
   | 'tipo_convocatoria'
   | 'objetivo'
