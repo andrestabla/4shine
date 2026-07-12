@@ -163,6 +163,10 @@ export function InvitationAccessExperience({
   const [isSavingProfile, setIsSavingProfile] = React.useState(false);
   const [isAutoVerifying, setIsAutoVerifying] = React.useState(true);
   const [hasPriorProgress, setHasPriorProgress] = React.useState(false);
+  // Usuarios que ya existen en la plataforma entran solo con el enlace: el
+  // código va en el meta de la invitación y el cliente lo usa sin pedirlo.
+  const [requiresCode, setRequiresCode] = React.useState(true);
+  const [autoAccessCode, setAutoAccessCode] = React.useState<string | null>(null);
   const [publicBranding, setPublicBranding] = React.useState<{
     platformName: string;
     logoUrl: string | null;
@@ -203,6 +207,10 @@ export function InvitationAccessExperience({
         setMaskedEmail(info.invitedEmailMasked);
         if (info.externalProgressStatus && info.externalProgressStatus !== "intro") {
           setHasPriorProgress(true);
+        }
+        if (info.requiresCode === false && info.autoAccessCode) {
+          setAutoAccessCode(info.autoAccessCode);
+          setRequiresCode(false);
         }
       } catch (loadError) {
         if (!active) return;
@@ -285,6 +293,63 @@ export function InvitationAccessExperience({
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inviteToken]);
+
+  // Skip-code: usuario ya existente. Verificamos con el código que trae el meta
+  // de la invitación (autoAccessCode), sin mostrar el formulario de código.
+  React.useEffect(() => {
+    if (accessMode) return;
+    if (requiresCode) return;
+    if (!autoAccessCode) return;
+    let active = true;
+    const autoEnter = async () => {
+      try {
+        const code = autoAccessCode.trim().toUpperCase();
+        const response = await verifyInvitationAccess({ inviteToken, accessCode: code });
+        if (!active) return;
+        setCookieCode(code);
+        window.localStorage.removeItem(`discovery_access_${inviteToken}`);
+        setSession(response.session);
+
+        if (response.accessMode === "diagnostic") {
+          if (response.externalProgress && response.externalProgress.profileCompleted) {
+            const nextState = {
+              ...response.externalProgress,
+              experienceSurvey: response.externalSurvey ?? null,
+            };
+            setExternalState(nextState);
+            setShowCompletedNotice(
+              response.alreadyCompleted || (response.externalProgress?.completionPercent ?? 0) >= 100,
+            );
+            if ((response.externalProgress?.completionPercent ?? 0) >= 100 && nextState.status !== "results") {
+              nextState.status = "results";
+            }
+            lastSnapshotRef.current = JSON.stringify(buildPersistPayload(nextState));
+            if (nextState.status !== "intro") {
+              hydratedRef.current = true;
+            }
+          } else {
+            setExternalState(buildEmptyExternalState());
+          }
+        }
+
+        setVerifiedAccessCode(code);
+        setAccessMode(response.accessMode);
+      } catch (autoError) {
+        if (!active) return;
+        console.error("[Diagnostic] skip-code auto-enter failed:", autoError);
+        // Fallback seguro: mostrar el formulario de código normal.
+        setRequiresCode(true);
+      } finally {
+        if (active) setIsAutoVerifying(false);
+      }
+    };
+
+    void autoEnter();
+    return () => {
+      active = false;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requiresCode, autoAccessCode, accessMode, inviteToken]);
 
 
   React.useEffect(() => {
@@ -1102,7 +1167,9 @@ export function InvitationAccessExperience({
     );
   }
 
-  if (isAutoVerifying) {
+  // Mientras verificamos (o mientras entramos automáticamente por skip-code)
+  // mostramos el spinner en vez del formulario de código.
+  if (isAutoVerifying || (!requiresCode && !accessMode)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[var(--app-bg)]">
         <div className="text-center">

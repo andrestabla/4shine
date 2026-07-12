@@ -657,7 +657,20 @@ function sanitizeText(value: unknown, fallback = "", maxLength = 20000): string 
   return value.trim().slice(0, maxLength);
 }
 
-function defaultInviteEmailText(platformName: string): string {
+function defaultInviteEmailText(platformName: string, skipCode = false): string {
+  if (skipCode) {
+    return [
+      `Tu diagnostico de liderazgo en ${platformName} ya esta listo.`,
+      "",
+      "Ya tienes cuenta en la plataforma: entra directo con tu enlace personal,",
+      "no necesitas codigo de acceso.",
+      "",
+      "Abrir diagnostico:",
+      "{{invite_url}}",
+      "",
+      "Identificador del diagnostico: {{diagnostic_id}}",
+    ].join("\n");
+  }
   return [
     `Tu diagnostico de liderazgo en ${platformName} ya esta listo.`,
     "",
@@ -704,18 +717,27 @@ function defaultInviteEmailHtml(
 function defaultInviteEmailBodyHtml(
   primaryColor: string,
   accentColor: string,
+  skipCode = false,
 ): string {
+  const intro = skipCode
+    ? `Ya tienes cuenta en la plataforma, así que puedes ingresar directo con el botón de acceso: no necesitas código.`
+    : `Ya puedes ingresar a la prueba diagnóstica del programa. Usa tu código único y el botón de acceso.`;
+  const codeBlock = skipCode
+    ? []
+    : [
+        `<div style="margin:0 0 24px;padding:18px 20px;border:2px dashed ${accentColor};border-radius:14px;background:#fff7ed;">`,
+        `<p style="margin:0 0 8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;">Código único</p>`,
+        `<p style="margin:0;font-size:30px;font-weight:800;letter-spacing:.2em;color:${primaryColor};">{{access_code}}</p>`,
+        `</div>`,
+      ];
   return [
     `<p style="margin:0 0 14px;font-size:15px;line-height:1.65;color:#0f172a;">`,
-    `Ya puedes ingresar a la prueba diagnóstica del programa. Usa tu código único y el botón de acceso.</p>`,
+    `${intro}</p>`,
     `<p style="margin:0 0 10px;font-size:14px;line-height:1.65;color:#475569;">`,
     `Este acceso está vinculado exclusivamente a tu correo de invitación: <strong>{{recipient_email}}</strong>.</p>`,
     `<p style="margin:0 0 24px;font-size:14px;line-height:1.65;color:#475569;">`,
     `Cuando ingreses, podrás completar el diagnóstico, ver y descargar tus resultados y el análisis correspondiente.</p>`,
-    `<div style="margin:0 0 24px;padding:18px 20px;border:2px dashed ${accentColor};border-radius:14px;background:#fff7ed;">`,
-    `<p style="margin:0 0 8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;">Código único</p>`,
-    `<p style="margin:0;font-size:30px;font-weight:800;letter-spacing:.2em;color:${primaryColor};">{{access_code}}</p>`,
-    `</div>`,
+    ...codeBlock,
     `<p style="margin:0 0 18px;">`,
     `<a href="{{invite_url}}" style="display:inline-block;background:${primaryColor};color:#fff;text-decoration:none;padding:13px 26px;border-radius:999px;font-weight:700;font-size:15px;">Abrir diagnóstico</a></p>`,
     `<p style="margin:22px 0 0;font-size:13px;color:#94a3b8;">Correo: {{recipient_email}}</p>`,
@@ -2421,6 +2443,31 @@ export async function createDiscoveryInvitations(
     const accessCode = createAccessCode();
     const inviteToken = createInviteToken();
 
+    // ¿El invitado ya es un usuario real y activo de la plataforma? Si lo es,
+    // el enlace de invitación por sí solo da acceso (omitimos el código único).
+    // Se marca en meta.skip_code para que verify/UI/email lo respeten.
+    const { rows: existingUserRows } = await client.query<{ user_id: string }>(
+      `SELECT user_id::text
+         FROM app_core.users
+         WHERE email = $1::citext AND is_active AND primary_role <> 'invitado'
+         LIMIT 1`,
+      [email],
+    );
+    const skipCode = existingUserRows.length > 0;
+    // En skip-code el enlace es la única credencial (el código ya no aporta
+    // seguridad), así que guardamos el código en claro para que el endpoint
+    // público lo devuelva y el cliente lo use de forma transparente. Así
+    // verify/progress/survey/analyze siguen funcionando sin cambios.
+    const metaPatch = JSON.stringify(
+      skipCode
+        ? {
+            skip_code: true,
+            skip_code_user_id: existingUserRows[0].user_id,
+            skip_code_plain: accessCode,
+          }
+        : { skip_code: false, skip_code_plain: null },
+    );
+
     const { rows } = await client.query<DiscoveryInvitationRow>(
       `
         INSERT INTO app_assessment.discovery_invitations (
@@ -2441,7 +2488,7 @@ export async function createDiscoveryInvitations(
           $5,
           now(),
           $6::uuid,
-          '{}'::jsonb
+          $7::jsonb
         )
         ON CONFLICT (session_id, invited_email) DO UPDATE
         SET invite_token = EXCLUDED.invite_token,
@@ -2449,6 +2496,8 @@ export async function createDiscoveryInvitations(
             access_code_last4 = EXCLUDED.access_code_last4,
             access_code_sent_at = now(),
             invited_by_user_id = EXCLUDED.invited_by_user_id,
+            -- MERGE (no sobrescribir): preserva external_progress/ai_reports/survey
+            meta = discovery_invitations.meta || $7::jsonb,
             updated_at = now()
         RETURNING
           invitation_id::text,
@@ -2470,6 +2519,7 @@ export async function createDiscoveryInvitations(
         hashAccessCode(accessCode),
         accessCode.slice(-4),
         actor.userId,
+        metaPatch,
       ],
     );
 
@@ -2525,11 +2575,18 @@ export async function createDiscoveryInvitations(
       fullHtml = fillTemplate(customHtmlWithLogo, params);
       filledText = fillTemplate(textTemplate, params);
     } else {
-      // Built-in default body.
+      // Built-in default body. Usuarios existentes (skipCode) reciben la variante
+      // sin código único: entran directo con el enlace.
       filledSubject = fillTemplate(subjectTemplate, params);
-      const bodyHtml = fillTemplate(defaultInviteEmailBodyHtml(branding.primary_color, branding.accent_color), params);
+      const bodyHtml = fillTemplate(
+        defaultInviteEmailBodyHtml(branding.primary_color, branding.accent_color, skipCode),
+        params,
+      );
       fullHtml = buildBrandedEmailHtml(bodyHtml, emailBranding);
-      filledText = fillTemplate(textTemplate, params);
+      filledText = fillTemplate(
+        skipCode ? defaultInviteEmailText(branding.platform_name, true) : textTemplate,
+        params,
+      );
     }
 
     const providerMessageId = await sendOutboundEmail(outboundConfig, { to: email, subject: filledSubject, html: fullHtml, text: filledText });
@@ -2560,16 +2617,22 @@ export async function createDiscoveryInvitations(
 export async function getDiscoveryInvitationPublicInfo(
   client: PoolClient,
   inviteToken: string,
-): Promise<{ inviteToken: string; invitedEmailMasked: string; openedAt: string | null; externalProgressStatus: string | null } | null> {
+): Promise<{ inviteToken: string; invitedEmailMasked: string; openedAt: string | null; externalProgressStatus: string | null; requiresCode: boolean; autoAccessCode: string | null } | null> {
   const { rows } = await client.query<
-    Pick<DiscoveryInvitationRow, "invite_token" | "invited_email" | "opened_at"> & { progress_status: string | null }
+    Pick<DiscoveryInvitationRow, "invite_token" | "invited_email" | "opened_at"> & {
+      progress_status: string | null;
+      skip_code: boolean | null;
+      skip_code_plain: string | null;
+    }
   >(
     `
       SELECT
         invite_token,
         invited_email,
         opened_at::text,
-        meta->'external_progress'->>'status' AS progress_status
+        meta->'external_progress'->>'status' AS progress_status,
+        (meta->>'skip_code')::boolean AS skip_code,
+        meta->>'skip_code_plain' AS skip_code_plain
       FROM app_assessment.discovery_invitations
       WHERE invite_token = $1
       LIMIT 1
@@ -2580,11 +2643,16 @@ export async function getDiscoveryInvitationPublicInfo(
   const row = rows[0];
   if (!row) return null;
 
+  const skipCode = row.skip_code === true && !!row.skip_code_plain;
   return {
     inviteToken: row.invite_token,
     invitedEmailMasked: maskEmail(row.invited_email),
     openedAt: row.opened_at,
     externalProgressStatus: row.progress_status,
+    // Usuarios existentes entran solo con el enlace: no se pide código. El código
+    // en claro se devuelve para que el cliente lo use de forma transparente.
+    requiresCode: !skipCode,
+    autoAccessCode: skipCode ? row.skip_code_plain : null,
   };
 }
 
@@ -2596,7 +2664,13 @@ export async function verifyDiscoveryInvitationAccess(
   const normalizedCode = accessCode.trim().toUpperCase();
   const row = await resolveDiscoveryInvitationByToken(client, inviteToken);
 
-  if (!compareAccessCode(normalizedCode, row.access_code_hash)) {
+  // Invitaciones a usuarios que YA existen en la plataforma se marcan con
+  // meta.skip_code: el enlace por sí solo da acceso (se omite el código único).
+  const skipCode =
+    !!row.meta &&
+    typeof row.meta === "object" &&
+    (row.meta as Record<string, unknown>).skip_code === true;
+  if (!skipCode && !compareAccessCode(normalizedCode, row.access_code_hash)) {
     throw new Error("Codigo de acceso invalido.");
   }
 

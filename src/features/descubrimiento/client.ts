@@ -223,8 +223,17 @@ export async function getInvitationPublicInfo(inviteToken: string): Promise<{
   invitedEmailMasked: string;
   openedAt: string | null;
   externalProgressStatus?: string | null;
+  requiresCode?: boolean;
+  autoAccessCode?: string | null;
 }> {
-  return requestApi<{ inviteToken: string; invitedEmailMasked: string; openedAt: string | null; externalProgressStatus?: string | null }>(
+  return requestApi<{
+    inviteToken: string;
+    invitedEmailMasked: string;
+    openedAt: string | null;
+    externalProgressStatus?: string | null;
+    requiresCode?: boolean;
+    autoAccessCode?: string | null;
+  }>(
     `/api/v1/public/descubrimiento/invitaciones/${encodeURIComponent(inviteToken)}`,
   );
 }
