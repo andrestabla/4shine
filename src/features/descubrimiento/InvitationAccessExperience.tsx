@@ -1063,7 +1063,7 @@ export function InvitationAccessExperience({
                 </h4>
 
                 {question.type === "likert" ? (
-                  <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-5">
+                  <div className="mt-6 grid grid-cols-2 gap-2.5 sm:grid-cols-5 sm:gap-3">
                     {[1, 2, 3, 4, 5].map((value) => {
                       const label = SCALES[question.scale ?? "freq"][value - 1];
                       const selected = answer === value;
@@ -1081,13 +1081,15 @@ export function InvitationAccessExperience({
                             }))
                           }
                           className={clsx(
-                            "min-h-20 rounded-[14px] border px-2 py-3 text-center text-[11px] sm:min-h-24",
+                            "flex min-h-20 min-w-0 items-center justify-center rounded-[14px] border px-2 py-3 text-center sm:min-h-24",
                             selected
                               ? "border-[var(--brand-primary)] bg-[var(--brand-primary)] text-white"
                               : "border-[var(--app-border)] bg-white text-[var(--app-ink)]",
                           )}
                         >
-                          <span className="block text-sm font-extrabold sm:text-base">{label}</span>
+                          <span className="block hyphens-auto break-words text-[11px] font-extrabold leading-tight sm:text-base">
+                            {label}
+                          </span>
                         </button>
                       );
                     })}
@@ -1126,7 +1128,7 @@ export function InvitationAccessExperience({
             );
           })}
 
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-col-reverse gap-3 pb-6 sm:flex-row sm:items-center sm:justify-between">
             <button
               type="button"
               onClick={() =>
@@ -1136,7 +1138,7 @@ export function InvitationAccessExperience({
                 }))
               }
               disabled={start === 0}
-              className="inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-5 py-3 text-sm font-semibold text-[var(--app-ink)] disabled:opacity-40"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-[var(--app-border)] bg-white px-5 py-3 text-sm font-semibold text-[var(--app-ink)] disabled:opacity-40 sm:w-auto"
             >
               <ChevronLeft size={16} />
               Anterior
@@ -1146,7 +1148,7 @@ export function InvitationAccessExperience({
               type="button"
               onClick={() => void handleExternalNextPage()}
               disabled={isSavingPage}
-              className="inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-5 py-3 text-sm font-extrabold text-white disabled:opacity-70"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[var(--brand-primary)] px-5 py-3 text-sm font-extrabold text-white disabled:opacity-70 sm:w-auto"
             >
               {isSavingPage ? (
                 <>

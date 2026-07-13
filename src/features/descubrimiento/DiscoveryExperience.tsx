@@ -2535,7 +2535,7 @@ export function DiscoveryExperience() {
         </div>
       </div>
 
-      <div className="space-y-5">
+      <div className="space-y-5 overflow-x-clip">
         {pageItems.map((question, index) => {
           const answer = state.answers[String(question.id)];
           const questionNumber = start + index + 1;
@@ -2562,13 +2562,15 @@ export function DiscoveryExperience() {
                         type="button"
                         onClick={() => handleAnswer(question.id, value)}
                         className={clsx(
-                          "min-h-20 rounded-[14px] border px-1 py-3 text-center text-[10px] font-extrabold leading-tight transition sm:min-h-28 sm:rounded-[18px] sm:px-3 sm:py-4 sm:text-[11px] md:text-sm",
+                          "flex min-h-20 min-w-0 items-center justify-center rounded-[14px] border px-1 py-3 text-center font-extrabold leading-tight transition sm:min-h-28 sm:rounded-[18px] sm:px-3 sm:py-4",
                           selected
                             ? "border-[var(--brand-primary)] bg-[var(--brand-primary)] text-white"
                             : "border-[var(--app-border)] bg-white/80 text-[var(--app-ink)]",
                         )}
                       >
-                        <span className="mt-1 block text-xs sm:text-sm md:text-base">{label}</span>
+                        <span className="block hyphens-auto break-words text-[10px] leading-tight sm:text-sm md:text-base">
+                          {label}
+                        </span>
                       </button>
                     );
                   })}
