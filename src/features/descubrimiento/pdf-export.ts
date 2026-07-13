@@ -229,6 +229,9 @@ function drawTableOfContents(
       pdf.line(leaderStart, y - 1, leaderEnd, y - 1);
       pdf.setLineDashPattern([], 0);
     }
+
+    // Hipervínculo interno: toda la fila salta a la página de la sección.
+    pdf.link(PAGE_MARGIN, y - 5.5, CONTENT_WIDTH, 8, { pageNumber: entry.page });
     y += 9.5;
   }
 }
@@ -572,10 +575,29 @@ function drawMetricBarChart(
     const barWidth = width - 68;
     const scoreX = x + width - 5;
 
-    pdf.setFont(branding.font.family, "bold");
-    pdf.setFontSize(8.5);
+    // Etiqueta legible: cabe en la columna o se parte en máx. 2 líneas (con
+    // elipsis si aún excede), sin invadir la barra.
+    const labelMaxWidth = barX - (x + 4) - 3;
+    pdf.setFont(branding.font.family, "normal");
     pdf.setTextColor(branding.muted[0], branding.muted[1], branding.muted[2]);
-    pdf.text(entry.label, x + 4, rowY);
+    pdf.setFontSize(8.5);
+    let labelLines = pdf.splitTextToSize(entry.label, labelMaxWidth) as string[];
+    if (labelLines.length <= 1) {
+      pdf.text(labelLines[0] ?? entry.label, x + 4, rowY);
+    } else {
+      pdf.setFontSize(7.3);
+      labelLines = pdf.splitTextToSize(entry.label, labelMaxWidth) as string[];
+      const line1 = labelLines[0];
+      let line2 = labelLines[1] ?? "";
+      if (labelLines.length > 2) {
+        line2 = `${line2}…`;
+        while (pdf.getTextWidth(line2) > labelMaxWidth && line2.length > 1) {
+          line2 = `${line2.slice(0, -2)}…`;
+        }
+      }
+      pdf.text(line1, x + 4, rowY - 1.4);
+      pdf.text(line2, x + 4, rowY + 2.4);
+    }
 
     pdf.setFillColor(branding.surfaceMuted[0], branding.surfaceMuted[1], branding.surfaceMuted[2]);
     pdf.roundedRect(barX, rowY - 3.5, barWidth, 4.5, 2, 2, "F");
@@ -583,6 +605,7 @@ function drawMetricBarChart(
     pdf.roundedRect(barX, rowY - 3.5, (barWidth * Math.max(0, Math.min(100, entry.value))) / 100, 4.5, 2, 2, "F");
 
     pdf.setFont(branding.font.family, "bold");
+    pdf.setFontSize(8.5);
     pdf.setTextColor(branding.primary[0], branding.primary[1], branding.primary[2]);
     pdf.text(`${entry.value}%`, scoreX, rowY, { align: "right" });
   });
