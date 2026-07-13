@@ -52,6 +52,11 @@ const CONTENT_WIDTH = PAGE_WIDTH_MM - PAGE_MARGIN * 2;
 const BODY_LINE_HEIGHT = 5.8;
 const BODY_GAP = 3.2;
 const BRANDED_HEADER_HEIGHT = 36;
+// Cabecera corrida (páginas 2+) y pie de página (todas): franjas reservadas para
+// el marco editorial. El contenido de las páginas interiores arranca bajo la
+// cabecera; el pie se estampa al final con la paginación "Página X de Y".
+const RUNNING_HEADER_HEIGHT = 18;
+const FOOTER_HEIGHT = 16;
 
 function drawBrandedHeader(pdf: jsPDF, branding: PdfBrandingResolved) {
   pdf.setFillColor(branding.primary[0], branding.primary[1], branding.primary[2]);
@@ -92,6 +97,59 @@ function drawBrandedHeader(pdf: jsPDF, branding: PdfBrandingResolved) {
     22,
     { align: "right" },
   );
+}
+
+// Cabecera corrida para páginas interiores (2+): marca a la izquierda, etiqueta
+// del reporte a la derecha y una regla fina inferior. La portada (pág. 1)
+// conserva su banda de marca (drawBrandedHeader).
+function drawRunningHeader(pdf: jsPDF, branding: PdfBrandingResolved) {
+  const baseY = 12;
+  pdf.setFont(branding.font.family, "normal");
+  pdf.setFontSize(8.5);
+  pdf.setTextColor(branding.primary[0], branding.primary[1], branding.primary[2]);
+  // faux-bold: la fuente variable no aplica el peso 700 en jsPDF.
+  pdf.setDrawColor(branding.primary[0], branding.primary[1], branding.primary[2]);
+  pdf.setLineWidth(0.13);
+  pdf.text("DIAGNÓSTICO 4SHINE", PAGE_MARGIN, baseY, { renderingMode: "fillThenStroke" });
+
+  pdf.setFontSize(8);
+  pdf.setTextColor(branding.muted[0], branding.muted[1], branding.muted[2]);
+  pdf.text("Reporte ejecutivo de liderazgo", PAGE_WIDTH_MM - PAGE_MARGIN, baseY, {
+    align: "right",
+  });
+
+  pdf.setDrawColor(branding.subtle[0], branding.subtle[1], branding.subtle[2]);
+  pdf.setLineWidth(0.2);
+  pdf.line(PAGE_MARGIN, RUNNING_HEADER_HEIGHT, PAGE_WIDTH_MM - PAGE_MARGIN, RUNNING_HEADER_HEIGHT);
+}
+
+// Pie de página en TODAS las páginas: regla fina + marca/participante a la
+// izquierda y paginación a la derecha. Se estampa al final, cuando ya se conoce
+// el total de páginas.
+function drawPageFooter(
+  pdf: jsPDF,
+  branding: PdfBrandingResolved,
+  participantName: string,
+  pageNum: number,
+  totalPages: number,
+) {
+  const ruleY = PAGE_HEIGHT_MM - FOOTER_HEIGHT + 2;
+  const textY = ruleY + 4.5;
+
+  pdf.setDrawColor(branding.subtle[0], branding.subtle[1], branding.subtle[2]);
+  pdf.setLineWidth(0.2);
+  pdf.line(PAGE_MARGIN, ruleY, PAGE_WIDTH_MM - PAGE_MARGIN, ruleY);
+
+  pdf.setFont(branding.font.family, "normal");
+  pdf.setFontSize(7.5);
+  pdf.setTextColor(branding.muted[0], branding.muted[1], branding.muted[2]);
+
+  const cleanName = participantName.trim().replace(/\s+/g, " ").slice(0, 48);
+  const left = cleanName ? `Diagnóstico 4Shine · ${cleanName}` : "Diagnóstico 4Shine";
+  pdf.text(left, PAGE_MARGIN, textY);
+  pdf.text(`Página ${pageNum} de ${totalPages}`, PAGE_WIDTH_MM - PAGE_MARGIN, textY, {
+    align: "right",
+  });
 }
 
 function sanitizeParticipantName(name: string): string {
@@ -157,11 +215,14 @@ function buildWriter(pdf: jsPDF, branding: PdfBrandingResolved) {
 
   const startNewPage = () => {
     pdf.addPage();
-    currentY = PAGE_MARGIN;
+    // Las páginas nuevas son interiores (2+): el contenido arranca bajo la
+    // cabecera corrida, que se estampa al final.
+    currentY = RUNNING_HEADER_HEIGHT + 4;
   };
 
   const ensureSpace = (requiredHeight: number) => {
-    if (currentY + requiredHeight <= PAGE_HEIGHT_MM - PAGE_MARGIN) return;
+    // Reserva la franja del pie de página en todas las páginas.
+    if (currentY + requiredHeight <= PAGE_HEIGHT_MM - FOOTER_HEIGHT) return;
     startNewPage();
   };
 
@@ -658,6 +719,16 @@ export async function downloadDiscoveryPdfReport({
         });
       }
     }
+  }
+
+  // Marco editorial en TODAS las páginas: cabecera corrida (2+, la portada
+  // conserva su banda de marca) y pie con paginación "Página X de Y". Se hace al
+  // final, cuando ya se conoce el total de páginas.
+  const totalPages = pdf.getNumberOfPages();
+  for (let page = 1; page <= totalPages; page += 1) {
+    pdf.setPage(page);
+    if (page > 1) drawRunningHeader(pdf, resolvedBranding);
+    drawPageFooter(pdf, resolvedBranding, participantName, page, totalPages);
   }
 
   pdf.save(`Descubrimiento_4Shine_${sanitizeParticipantName(participantName) || "usuario"}.pdf`);
