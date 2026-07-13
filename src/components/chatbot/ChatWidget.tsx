@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import { Bot, MessageCircle, Send, X } from "lucide-react";
 import clsx from "clsx";
@@ -35,6 +36,7 @@ function normalizeHref(href?: string): { href: string; external: boolean } {
 
 export default function ChatWidget() {
   const { isAuthenticated, isHydrating } = useUser();
+  const pathname = usePathname();
   const [ready, setReady] = useState(false);
   const [enabled, setEnabled] = useState(false);
   const [welcome, setWelcome] = useState("");
@@ -79,6 +81,9 @@ export default function ChatWidget() {
   }, [messages, open, sending]);
 
   if (isHydrating || !isAuthenticated || !ready || !enabled) return null;
+  // En Descubrimiento el botón flotante tapa la 5ª opción del likert y el botón
+  // "Continuar" del diagnóstico en móvil; lo ocultamos en ese módulo.
+  if (pathname?.startsWith("/dashboard/descubrimiento")) return null;
 
   const openingText = [welcome, briefing].filter(Boolean).join("\n\n");
   const isFresh = messages.length === 0;

@@ -352,18 +352,24 @@ export default function DashboardLayout({
 
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
-      <main className="relative flex w-full flex-1 flex-col overflow-y-auto overscroll-contain bg-transparent [-webkit-overflow-scrolling:touch]">
+      {/* Columna: Header fijo arriba + área scrolleable. El Header va FUERA del
+          contenedor con scroll: dentro, position:sticky se rompe en iOS Safari
+          por -webkit-overflow-scrolling:touch y el menú (hamburguesa) desaparecía
+          al hacer scroll y no volvía. Fuera del scroller queda siempre visible. */}
+      <div className="flex min-w-0 flex-1 flex-col">
         <Header onMenuClick={() => setIsSidebarOpen(true)} />
-        <div
-          className="relative z-10 mx-auto min-h-full w-full animate-fade-in px-4 pb-20 pt-5 md:px-8 md:pt-8"
-          style={{ maxWidth: tokens.layout.pageMaxWidth }}
-        >
-          <div className="mb-4">
-            <DashboardBackButton />
+        <main className="relative flex-1 overflow-y-auto overscroll-contain bg-transparent [-webkit-overflow-scrolling:touch]">
+          <div
+            className="relative z-10 mx-auto min-h-full w-full animate-fade-in px-4 pb-20 pt-5 md:px-8 md:pt-8"
+            style={{ maxWidth: tokens.layout.pageMaxWidth }}
+          >
+            <div className="mb-4">
+              <DashboardBackButton />
+            </div>
+            {children}
           </div>
-          {children}
-        </div>
-      </main>
+        </main>
+      </div>
 
       {showOnboarding && (
         <div className="fixed inset-0 z-[120] bg-[rgba(22,10,38,0.58)] backdrop-blur-sm">

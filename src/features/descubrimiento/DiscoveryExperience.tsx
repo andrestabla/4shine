@@ -2497,7 +2497,7 @@ export function DiscoveryExperience() {
         subtitle="Avanza por bloques cortos. El sistema guarda tus respuestas automáticamente."
       />
 
-      <div className="sticky top-[5rem] z-10 rounded-[22px] border border-[var(--app-border)] bg-[rgba(255,255,255,0.88)] px-4 py-4 shadow-[0_20px_42px_rgba(55,32,80,0.08)] backdrop-blur-xl md:px-5">
+      <div className="sticky top-0 z-10 rounded-[22px] border border-[var(--app-border)] bg-[rgba(255,255,255,0.88)] px-4 py-4 shadow-[0_20px_42px_rgba(55,32,80,0.08)] backdrop-blur-xl md:px-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h3 className="text-2xl font-black text-[var(--app-ink)] md:text-3xl">Preguntas {start + 1} a {end}</h3>
