@@ -3573,7 +3573,10 @@ export async function getDiscoveryOverview(
       invitationId: row.invitation_id ?? null,
       participantName: row.participant_name || "Sin nombre",
       sourceType: row.primary_role === "invitado" ? ("invited" as const) : ("platform" as const),
-      invitedEmail: row.primary_role === "invitado" ? row.user_email : "",
+      // Correo del participante para cualquier sesión de plataforma (líder,
+      // invitado o admin). Antes solo se mostraba para el rol "invitado", dejando
+      // la columna Correo vacía para los líderes.
+      invitedEmail: row.user_email ?? "",
       country: row.country ?? "",
       jobRole: row.job_role ?? "",
       gender: row.gender ?? "",

@@ -148,6 +148,13 @@ function buildWriter(pdf: jsPDF, branding: PdfBrandingResolved) {
   let currentY = PAGE_MARGIN;
   const fontFamily = branding.font.family;
 
+  // La fuente de marca suele ser "variable" (un único TTF con eje de peso):
+  // jsPDF no puede seleccionar el peso 700 de ese archivo, así que
+  // setFont(...,'bold') se dibuja con el peso por defecto (regular) y la negrita
+  // no se ve. Simulamos la negrita trazando el contorno del glifo (faux-bold),
+  // proporcional al tamaño de fuente. Mismo tipo de letra, negrita garantizada.
+  const fauxBoldStroke = (fontSize: number) => Math.max(0.12, fontSize * 0.013);
+
   const startNewPage = () => {
     pdf.addPage();
     currentY = PAGE_MARGIN;
@@ -184,14 +191,20 @@ function buildWriter(pdf: jsPDF, branding: PdfBrandingResolved) {
       width = CONTENT_WIDTH,
     } = options ?? {};
 
-    pdf.setFont(fontFamily, fontStyle);
+    const isBold = fontStyle === "bold";
+    pdf.setFont(fontFamily, "normal");
     pdf.setFontSize(fontSize);
     pdf.setTextColor(...color);
+    const textOpts = isBold ? { renderingMode: "fillThenStroke" as const } : undefined;
+    if (isBold) {
+      pdf.setDrawColor(...color);
+      pdf.setLineWidth(fauxBoldStroke(fontSize));
+    }
 
     const lines = pdf.splitTextToSize(text, width) as string[];
     for (const line of lines) {
       ensureSpace(lineHeight);
-      pdf.text(line, x, currentY);
+      pdf.text(line, x, currentY, textOpts);
       currentY += lineHeight;
     }
     currentY += gapAfter;
@@ -254,6 +267,7 @@ function buildWriter(pdf: jsPDF, branding: PdfBrandingResolved) {
 
     pdf.setFont(fontFamily, "normal");
     const spaceWidth = pdf.getTextWidth(" ");
+    const boldStroke = fauxBoldStroke(fontSize);
 
     let line: Array<{ text: string; bold: boolean; lead: number; w: number }> = [];
     let lineWidth = 0;
@@ -264,8 +278,15 @@ function buildWriter(pdf: jsPDF, branding: PdfBrandingResolved) {
       let cursorX = x;
       for (const token of line) {
         cursorX += token.lead;
-        pdf.setFont(fontFamily, token.bold ? "bold" : "normal");
-        pdf.text(token.text, cursorX, currentY);
+        pdf.setFont(fontFamily, "normal");
+        if (token.bold) {
+          // faux-bold: traza el contorno del glifo (ver fauxBoldStroke).
+          pdf.setDrawColor(...color);
+          pdf.setLineWidth(boldStroke);
+          pdf.text(token.text, cursorX, currentY, { renderingMode: "fillThenStroke" });
+        } else {
+          pdf.text(token.text, cursorX, currentY);
+        }
         cursorX += token.w;
       }
       currentY += lineHeight;
@@ -274,7 +295,7 @@ function buildWriter(pdf: jsPDF, branding: PdfBrandingResolved) {
     };
 
     for (const word of words) {
-      pdf.setFont(fontFamily, word.bold ? "bold" : "normal");
+      pdf.setFont(fontFamily, "normal");
       const w = pdf.getTextWidth(word.text);
       const lead = line.length > 0 && word.spaceBefore ? spaceWidth : 0;
       const proposed = lineWidth + lead + w;
