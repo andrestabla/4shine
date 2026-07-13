@@ -111,8 +111,13 @@ function normalizeMarkdownText(content: string): Array<{ type: "heading" | "para
     .map((block) => block.trim())
     .filter(Boolean)
     .map((block) => {
-      if (block.startsWith("## ")) {
-        return { type: "heading" as const, text: block.replace(/^##\s+/, "").trim() };
+      // Títulos y subtítulos: cualquier encabezado markdown (#..######) va en
+      // negrita; quitamos también marcadores ** sobrantes del texto del título.
+      if (/^#{1,6}\s+/.test(block)) {
+        return {
+          type: "heading" as const,
+          text: block.replace(/^#{1,6}\s+/, "").replace(/\*\*/g, "").trim(),
+        };
       }
 
       return {
@@ -192,6 +197,100 @@ function buildWriter(pdf: jsPDF, branding: PdfBrandingResolved) {
     currentY += gapAfter;
   };
 
+  // Igual que writeWrappedLines pero interpreta la negrita inline de Markdown
+  // (**texto**): reparte las palabras en líneas y dibuja cada palabra con su
+  // estilo (normal/negrita), quitando los marcadores **. Así los subtítulos y
+  // términos enfatizados del análisis IA salen en negrilla en el PDF.
+  const writeRichLines = (
+    text: string,
+    options?: {
+      fontSize?: number;
+      color?: [number, number, number];
+      lineHeight?: number;
+      gapAfter?: number;
+      x?: number;
+      width?: number;
+    },
+  ) => {
+    const {
+      fontSize = 11,
+      color = branding.body,
+      lineHeight = BODY_LINE_HEIGHT,
+      gapAfter = BODY_GAP,
+      x = PAGE_MARGIN,
+      width = CONTENT_WIDTH,
+    } = options ?? {};
+
+    const trimmed = text.trim();
+    pdf.setFontSize(fontSize);
+    pdf.setTextColor(...color);
+
+    // Sin marcador de negrita → camino simple (idéntico a writeWrappedLines).
+    if (!trimmed.includes("**")) {
+      writeWrappedLines(trimmed, { fontSize, color, lineHeight, gapAfter, x, width });
+      return;
+    }
+
+    // Tokeniza en palabras conservando si cada una lleva espacio antes. Los
+    // límites de ** (marcador de negrita) NO introducen espacio, así la
+    // puntuación pegada queda bien: "**sólido**." → "sólido." y no "sólido .".
+    const words: Array<{ text: string; bold: boolean; spaceBefore: boolean }> = [];
+    let pendingSpace = false;
+    trimmed.split("**").forEach((segment, index) => {
+      const bold = index % 2 === 1;
+      if (/^\s/.test(segment)) pendingSpace = true;
+      const parts = segment.split(/\s+/).filter(Boolean);
+      parts.forEach((word, wordIndex) => {
+        const spaceBefore = wordIndex === 0 ? pendingSpace : true;
+        words.push({ text: word, bold, spaceBefore: words.length === 0 ? false : spaceBefore });
+        pendingSpace = false;
+      });
+      if (/\s$/.test(segment)) pendingSpace = true;
+    });
+    if (words.length === 0) {
+      currentY += gapAfter;
+      return;
+    }
+
+    pdf.setFont(fontFamily, "normal");
+    const spaceWidth = pdf.getTextWidth(" ");
+
+    let line: Array<{ text: string; bold: boolean; lead: number; w: number }> = [];
+    let lineWidth = 0;
+
+    const flushLine = () => {
+      if (line.length === 0) return;
+      ensureSpace(lineHeight);
+      let cursorX = x;
+      for (const token of line) {
+        cursorX += token.lead;
+        pdf.setFont(fontFamily, token.bold ? "bold" : "normal");
+        pdf.text(token.text, cursorX, currentY);
+        cursorX += token.w;
+      }
+      currentY += lineHeight;
+      line = [];
+      lineWidth = 0;
+    };
+
+    for (const word of words) {
+      pdf.setFont(fontFamily, word.bold ? "bold" : "normal");
+      const w = pdf.getTextWidth(word.text);
+      const lead = line.length > 0 && word.spaceBefore ? spaceWidth : 0;
+      const proposed = lineWidth + lead + w;
+      if (proposed > width && line.length > 0) {
+        flushLine();
+        line.push({ text: word.text, bold: word.bold, lead: 0, w });
+        lineWidth = w;
+      } else {
+        line.push({ text: word.text, bold: word.bold, lead, w });
+        lineWidth = proposed;
+      }
+    }
+    flushLine();
+    currentY += gapAfter;
+  };
+
   const writeHeading = (
     text: string,
     level: "kicker" | "title" | "section" | "subsection" = "section",
@@ -221,6 +320,7 @@ function buildWriter(pdf: jsPDF, branding: PdfBrandingResolved) {
     startNewPage,
     writeHeading,
     writeWrappedLines,
+    writeRichLines,
   };
 }
 
@@ -529,7 +629,7 @@ export async function downloadDiscoveryPdfReport({
       if (block.type === "heading") {
         writer.writeHeading(block.text, "subsection");
       } else {
-        writer.writeWrappedLines(block.text, {
+        writer.writeRichLines(block.text, {
           fontSize: 11,
           color: resolvedBranding.body,
           lineHeight: BODY_LINE_HEIGHT,
