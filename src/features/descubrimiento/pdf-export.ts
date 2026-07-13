@@ -3,7 +3,7 @@
 import { jsPDF } from "jspdf";
 import { PILLAR_INFO } from "./DiagnosticsData";
 import { buildDiscoveryReports, getDiscoveryStatus } from "./reporting";
-import { registerBrandFontInPdf, resolvePdfBranding, type PdfBrandingInput, type PdfBrandingResolved } from "@/lib/pdf-branding";
+import { hexToRgb, registerBrandFontInPdf, resolvePdfBranding, type PdfBrandingInput, type PdfBrandingResolved } from "@/lib/pdf-branding";
 import { formatDateTime } from "@/lib/format-date";
 
 function shade(rgb: [number, number, number], whiteRatio: number): [number, number, number] {
@@ -27,6 +27,13 @@ function pillarPalette(b: PdfBrandingResolved): {
     up: b.accent,
     beyond: shade(b.accent, 0.35),
   };
+}
+
+// Color de texto legible (blanco u oscuro) según la luminancia del fondo.
+// Permite usar el color del pilar como fondo del separador con contraste seguro.
+function onColor(rgb: [number, number, number]): [number, number, number] {
+  const luminance = 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
+  return luminance > 150 ? [28, 30, 42] : [255, 255, 255];
 }
 import type {
   DiscoveryAiReports,
@@ -150,6 +157,80 @@ function drawPageFooter(
   pdf.text(`Página ${pageNum} de ${totalPages}`, PAGE_WIDTH_MM - PAGE_MARGIN, textY, {
     align: "right",
   });
+}
+
+// Separador de sección: banda redondeada con el COLOR del pilar como fondo
+// (texto legible por luminancia) + una etiqueta a la derecha (p. ej. el índice).
+// Devuelve la Y donde continúa el contenido.
+function drawSectionBanner(
+  pdf: jsPDF,
+  branding: PdfBrandingResolved,
+  y: number,
+  title: string,
+  rightLabel: string | null,
+  bg: [number, number, number],
+): number {
+  const height = 15;
+  const txt = onColor(bg);
+  pdf.setFillColor(bg[0], bg[1], bg[2]);
+  pdf.roundedRect(PAGE_MARGIN, y, CONTENT_WIDTH, height, 3.5, 3.5, "F");
+
+  pdf.setFont(branding.font.family, "normal");
+  pdf.setTextColor(txt[0], txt[1], txt[2]);
+  pdf.setDrawColor(txt[0], txt[1], txt[2]);
+  pdf.setLineWidth(0.18);
+  pdf.setFontSize(13);
+  pdf.text(title, PAGE_MARGIN + 6, y + 9.8, { renderingMode: "fillThenStroke" });
+
+  if (rightLabel) {
+    pdf.setFontSize(10);
+    pdf.text(rightLabel, PAGE_WIDTH_MM - PAGE_MARGIN - 6, y + 9.6, {
+      align: "right",
+      renderingMode: "fillThenStroke",
+    });
+  }
+  return y + height + 7;
+}
+
+// Tabla de contenidos: título + filas "Sección ....... página" con guía de puntos.
+function drawTableOfContents(
+  pdf: jsPDF,
+  branding: PdfBrandingResolved,
+  entries: Array<{ title: string; page: number }>,
+) {
+  let y = RUNNING_HEADER_HEIGHT + 14;
+  pdf.setFont(branding.font.family, "normal");
+  pdf.setFontSize(20);
+  pdf.setTextColor(branding.primary[0], branding.primary[1], branding.primary[2]);
+  pdf.setDrawColor(branding.primary[0], branding.primary[1], branding.primary[2]);
+  pdf.setLineWidth(0.3);
+  pdf.text("Contenido", PAGE_MARGIN, y, { renderingMode: "fillThenStroke" });
+  y += 15;
+
+  for (const entry of entries) {
+    pdf.setFont(branding.font.family, "normal");
+    pdf.setFontSize(11.5);
+    pdf.setTextColor(branding.body[0], branding.body[1], branding.body[2]);
+    pdf.text(entry.title, PAGE_MARGIN, y);
+
+    const pageStr = String(entry.page);
+    pdf.setTextColor(branding.muted[0], branding.muted[1], branding.muted[2]);
+    pdf.text(pageStr, PAGE_WIDTH_MM - PAGE_MARGIN, y, { align: "right" });
+
+    // Guía de puntos entre el título y el número de página.
+    const titleWidth = pdf.getTextWidth(entry.title);
+    const pageWidth = pdf.getTextWidth(pageStr);
+    const leaderStart = PAGE_MARGIN + titleWidth + 2.5;
+    const leaderEnd = PAGE_WIDTH_MM - PAGE_MARGIN - pageWidth - 2.5;
+    if (leaderEnd > leaderStart) {
+      pdf.setDrawColor(branding.subtle[0], branding.subtle[1], branding.subtle[2]);
+      pdf.setLineWidth(0.3);
+      pdf.setLineDashPattern([0.4, 1.2], 0);
+      pdf.line(leaderStart, y - 1, leaderEnd, y - 1);
+      pdf.setLineDashPattern([], 0);
+    }
+    y += 9.5;
+  }
 }
 
 function sanitizeParticipantName(name: string): string {
@@ -531,72 +612,105 @@ export async function downloadDiscoveryPdfReport({
   const pillars: DiscoveryPillarKey[] = ["within", "out", "up", "beyond"];
   const generatedAt = formatDateTime(new Date());
 
+  // ═══════════════════════ PORTADA (página 1) ═══════════════════════
+  writer.setY(BRANDED_HEADER_HEIGHT + 18);
   writer.writeHeading("Reporte ejecutivo de liderazgo", "title");
   writer.writeWrappedLines(participantName, {
-    fontSize: 12,
-    color: resolvedBranding.body,
-    lineHeight: 5.2,
-    gapAfter: 3.5,
+    fontSize: 16,
+    fontStyle: "bold",
+    color: resolvedBranding.primary,
+    lineHeight: 7,
+    gapAfter: 1.5,
   });
-
-  // Ficha del participante: correo, cargo, país y años de experiencia.
-  // El cargo/país/experiencia vienen en `state.profile`; el correo se pasa aparte.
-  const metaParts: string[] = [];
-  const trimmedEmail = email?.trim();
-  if (trimmedEmail) metaParts.push(`Correo: ${trimmedEmail}`);
-  if (state.profile.jobRole) metaParts.push(`Cargo: ${state.profile.jobRole}`);
-  if (state.profile.country) metaParts.push(`País: ${state.profile.country}`);
-  if (state.profile.yearsExperience !== null && state.profile.yearsExperience !== undefined) {
-    const yrs = state.profile.yearsExperience;
-    metaParts.push(`Experiencia: ${yrs} ${yrs === 1 ? "año" : "años"}`);
-  }
-  if (metaParts.length > 0) {
-    writer.writeWrappedLines(metaParts.join("   ·   "), {
-      fontSize: 9.5,
-      color: resolvedBranding.body,
-      lineHeight: 4.6,
-      gapAfter: 3,
-    });
-  }
-
-  writer.writeWrappedLines(`Generado: ${generatedAt}`, {
+  writer.writeWrappedLines(`Generado el ${generatedAt}`, {
     fontSize: 9.5,
     color: resolvedBranding.muted,
-    lineHeight: 4.3,
-    gapAfter: 6,
+    lineHeight: 4.4,
+    gapAfter: 8,
   });
 
-  const summaryCardY = writer.getY();
-  drawRoundedCard(pdf, PAGE_MARGIN, summaryCardY, CONTENT_WIDTH, 24, resolvedBranding.surface);
-  pdf.setFont(resolvedBranding.font.family, "bold");
+  // — Hero: índice global grande + estado + radar —
+  const heroY = writer.getY();
+  const heroH = 76;
+  drawRoundedCard(pdf, PAGE_MARGIN, heroY, CONTENT_WIDTH, heroH, resolvedBranding.surface);
+  pdf.setFont(resolvedBranding.font.family, "normal");
   pdf.setFontSize(9);
   pdf.setTextColor(resolvedBranding.muted[0], resolvedBranding.muted[1], resolvedBranding.muted[2]);
-  pdf.text("ÍNDICE GLOBAL", PAGE_MARGIN + 6, summaryCardY + 7);
-  pdf.setFontSize(30);
-  pdf.setTextColor(
-    resolvedBranding.primary[0],
-    resolvedBranding.primary[1],
-    resolvedBranding.primary[2],
-  );
-  pdf.text(`${scoring.globalIndex}%`, PAGE_MARGIN + 6, summaryCardY + 18);
-  pdf.setFillColor(
-    resolvedBranding.accent[0],
-    resolvedBranding.accent[1],
-    resolvedBranding.accent[2],
-  );
-  pdf.roundedRect(PAGE_MARGIN + CONTENT_WIDTH - 42, summaryCardY + 7, 34, 8, 4, 4, "F");
+  pdf.text("ÍNDICE GLOBAL DE LIDERAZGO", PAGE_MARGIN + 9, heroY + 13);
+  pdf.setFontSize(52);
+  pdf.setTextColor(resolvedBranding.primary[0], resolvedBranding.primary[1], resolvedBranding.primary[2]);
+  pdf.setDrawColor(resolvedBranding.primary[0], resolvedBranding.primary[1], resolvedBranding.primary[2]);
+  pdf.setLineWidth(0.5);
+  pdf.text(`${scoring.globalIndex}%`, PAGE_MARGIN + 9, heroY + 38, { renderingMode: "fillThenStroke" });
+  const statusRgb = hexToRgb(globalStatus.color, resolvedBranding.accent);
+  const statusTxt = onColor(statusRgb);
+  pdf.setFillColor(statusRgb[0], statusRgb[1], statusRgb[2]);
+  pdf.roundedRect(PAGE_MARGIN + 9, heroY + 45, 50, 9.5, 4.75, 4.75, "F");
   pdf.setFontSize(9);
-  pdf.setTextColor(
-    resolvedBranding.primary[0],
-    resolvedBranding.primary[1],
-    resolvedBranding.primary[2],
-  );
-  pdf.text(globalStatus.label.toUpperCase(), PAGE_MARGIN + CONTENT_WIDTH - 25, summaryCardY + 12.2, {
+  pdf.setTextColor(statusTxt[0], statusTxt[1], statusTxt[2]);
+  pdf.setDrawColor(statusTxt[0], statusTxt[1], statusTxt[2]);
+  pdf.setLineWidth(0.13);
+  pdf.text(globalStatus.label.toUpperCase(), PAGE_MARGIN + 34, heroY + 51.3, {
     align: "center",
+    renderingMode: "fillThenStroke",
   });
-  writer.setY(summaryCardY + 31);
+  drawGlobalRadarChart(pdf, PAGE_MARGIN + CONTENT_WIDTH - 76, heroY + 6, 66, scoring, resolvedBranding);
+  writer.setY(heroY + heroH + 8);
 
-  writer.writeHeading("Mapa global de pilares", "section");
+  // — Ficha de datos del participante —
+  const trimmedEmail = email?.trim();
+  const fichaRows: Array<[string, string]> = [];
+  if (trimmedEmail) fichaRows.push(["Correo", trimmedEmail]);
+  if (state.profile.jobRole) fichaRows.push(["Cargo", state.profile.jobRole]);
+  if (state.profile.country) fichaRows.push(["País", state.profile.country]);
+  if (state.profile.yearsExperience !== null && state.profile.yearsExperience !== undefined) {
+    const yrs = state.profile.yearsExperience;
+    fichaRows.push(["Experiencia", `${yrs} ${yrs === 1 ? "año" : "años"}`]);
+  }
+  if (fichaRows.length > 0) {
+    const fichaY = writer.getY();
+    const rowsPerCol = Math.ceil(fichaRows.length / 2);
+    const fichaH = 14 + rowsPerCol * 11;
+    drawRoundedCard(pdf, PAGE_MARGIN, fichaY, CONTENT_WIDTH, fichaH, resolvedBranding.surfaceMuted);
+    pdf.setFont(resolvedBranding.font.family, "normal");
+    pdf.setFontSize(8.5);
+    pdf.setTextColor(resolvedBranding.muted[0], resolvedBranding.muted[1], resolvedBranding.muted[2]);
+    pdf.setDrawColor(resolvedBranding.muted[0], resolvedBranding.muted[1], resolvedBranding.muted[2]);
+    pdf.setLineWidth(0.1);
+    pdf.text("FICHA DEL PARTICIPANTE", PAGE_MARGIN + 8, fichaY + 8.5, { renderingMode: "fillThenStroke" });
+    const colW = (CONTENT_WIDTH - 16) / 2;
+    fichaRows.forEach(([label, value], i) => {
+      const col = Math.floor(i / rowsPerCol);
+      const rowInCol = i % rowsPerCol;
+      const cx = PAGE_MARGIN + 8 + col * colW;
+      const cy = fichaY + 18 + rowInCol * 11;
+      pdf.setFont(resolvedBranding.font.family, "normal");
+      pdf.setFontSize(7.5);
+      pdf.setTextColor(resolvedBranding.muted[0], resolvedBranding.muted[1], resolvedBranding.muted[2]);
+      pdf.text(label.toUpperCase(), cx, cy);
+      pdf.setFontSize(10);
+      pdf.setTextColor(resolvedBranding.body[0], resolvedBranding.body[1], resolvedBranding.body[2]);
+      const val = (pdf.splitTextToSize(value, colW - 4) as string[])[0] ?? value;
+      pdf.text(val, cx, cy + 5);
+    });
+    writer.setY(fichaY + fichaH + 6);
+  }
+
+  // ══════════ TABLA DE CONTENIDOS (página 2, se rellena al final) ══════════
+  pdf.addPage();
+  const tocPageNumber = pdf.getNumberOfPages();
+  const tocEntries: Array<{ title: string; page: number }> = [];
+  const beginSection = (
+    title: string,
+    bg: [number, number, number],
+    rightLabel: string | null = null,
+  ) => {
+    writer.startNewPage();
+    tocEntries.push({ title, page: pdf.getNumberOfPages() });
+    writer.setY(drawSectionBanner(pdf, resolvedBranding, writer.getY(), title, rightLabel, bg));
+  };
+
+  beginSection("Mapa global de pilares", resolvedBranding.primary);
   const chartRowY = writer.getY();
   drawRoundedCard(pdf, PAGE_MARGIN, chartRowY, 84, 68, [255, 255, 255]);
   pdf.setFont(resolvedBranding.font.family, "bold");
@@ -657,8 +771,11 @@ export async function downloadDiscoveryPdfReport({
   ];
 
   for (const section of reportSections) {
-    writer.startNewPage();
-    writer.writeHeading(section.title, "section");
+    const bannerBg = section.pillar ? pillarColors[section.pillar] : resolvedBranding.primary;
+    const rightLabel = section.pillar
+      ? `Índice ${scoring.pillarMetrics[section.pillar].total}%`
+      : null;
+    beginSection(section.title, bannerBg, rightLabel);
 
     const sectionChartY = writer.getY();
     if (section.pillar) {
@@ -720,6 +837,11 @@ export async function downloadDiscoveryPdfReport({
       }
     }
   }
+
+  // Rellena la tabla de contenidos (página 2) ahora que se conocen las páginas
+  // donde arrancó cada sección.
+  pdf.setPage(tocPageNumber);
+  drawTableOfContents(pdf, resolvedBranding, tocEntries);
 
   // Marco editorial en TODAS las páginas: cabecera corrida (2+, la portada
   // conserva su banda de marca) y pie con paginación "Página X de Y". Se hace al
