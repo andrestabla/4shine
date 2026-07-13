@@ -249,52 +249,25 @@ export async function POST(request: Request) {
           }
         }
 
-        if (!resolvedSessionId) {
-          // Sin session resuelta, cae al flujo sincrono original.
-          const data = await generateDiscoveryAnalysisContract(client, identity, {
-            sessionId: body?.sessionId,
-            username,
-            role: body?.role ?? 'Lider',
-            scores,
-            pillar,
-            fallbackReport: body?.fallbackReport,
-            force: body?.force,
-          });
-          return NextResponse.json({ ok: true, data }, { status: 200 });
-        }
-
-        const job = await createOrReuseAiJob(client, {
-          scope: 'session',
-          sessionId: resolvedSessionId,
-          userId: identity.userId,
-          inputPayload: { username, role, scores },
+        // Generación SÍNCRONA para la sesión del usuario logueado (incluye el
+        // rol "invitado" con acceso solo a Descubrimiento). Antes se encolaba un
+        // job con waitUntil(processAiJob) en scope 'session', pero ese waitUntil
+        // a veces no arrancaba (started_at nulo) y el informe quedaba huérfano →
+        // spinner infinito para el usuario y descargas admin sin IA. Generar
+        // dentro del request (maxDuration=300) lo vuelve determinista: el informe
+        // del pilar se genera, se persiste en discovery_sessions.ai_reports y se
+        // devuelve 200. Cada pilar que dispara ResultsView resuelve de forma
+        // independiente (la persistencia por pilar es un UPDATE atómico).
+        const data = await generateDiscoveryAnalysisContract(client, identity, {
+          sessionId: body?.sessionId ?? resolvedSessionId ?? undefined,
+          username,
+          role: body?.role ?? 'Lider',
+          scores,
+          pillar,
+          fallbackReport: body?.fallbackReport,
+          force: body?.force,
         });
-        if (job.status === 'queued') {
-          waitUntil(
-            processAiJob(job.jobId, {
-              sessionId: resolvedSessionId,
-              actorUserId: identity.userId,
-              username,
-              role,
-              scores,
-              scope: 'session',
-            }),
-          );
-        }
-        return NextResponse.json(
-          {
-            ok: true,
-            data: {
-              report: '',
-              source: 'pending',
-              jobId: job.jobId,
-              jobStatus: job.status,
-              pillarsCompleted: job.pillarsCompleted,
-              pillarsPending: ALL_PILLARS.filter((p) => !job.pillarsCompleted.includes(p)),
-            },
-          },
-          { status: 202 },
-        );
+        return NextResponse.json({ ok: true, data }, { status: 200 });
       }),
     );
   } catch (error) {

@@ -607,6 +607,28 @@ export function DiscoveryExperience() {
         // solo con el botón explícito "Regenerar" (handleRegenerateOverviewReport).
         const detail = await ensureOverviewDetail(row.sessionId, { force: true });
 
+        // El informe completo incluye el análisis IA de los 5 pilares. NO
+        // regeneramos al descargar (eso es exclusivo del botón "Regenerar"); si
+        // el análisis aún no está, avisamos y dejamos decidir en vez de bajar en
+        // silencio un PDF sin IA.
+        const AI_PILLARS = ["all", "within", "out", "up", "beyond"];
+        const reportsMap = (detail.aiReports ?? {}) as Record<string, unknown>;
+        const missingPillars = AI_PILLARS.filter((key) => {
+          const value = reportsMap[key];
+          return !(typeof value === "string" && value.trim().length > 0);
+        });
+        if (missingPillars.length > 0) {
+          const proceed = await confirm({
+            title: "Análisis IA aún no disponible",
+            message:
+              'El análisis de IA de este participante todavía no está completo, así que el PDF saldría solo con los puntajes (sin el análisis). Usa "Regenerar" para generarlo. ¿Descargar de todas formas sin el análisis IA?',
+            tone: "warning",
+            confirmText: "Descargar sin IA",
+            cancelText: "Cancelar",
+          });
+          if (!proceed) return;
+        }
+
         await downloadDiscoveryPdfReport({
           participantName: row.participantName,
           state: detail.state,
@@ -625,7 +647,7 @@ export function DiscoveryExperience() {
         setRowActionLoadingKey((current) => (current === loadingKey ? null : current));
       }
     },
-    [alert, ensureOverviewDetail, pdfBrandingInput],
+    [alert, confirm, ensureOverviewDetail, pdfBrandingInput],
   );
 
   const handleRegenerateOverviewReport = React.useCallback(
