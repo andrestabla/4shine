@@ -84,8 +84,8 @@ export const DB: Question[] = [
     { id: 68, type: 'likert', pillar: 'up', comp: 'Gestión del error constructivo', text: "Si alguien de mi equipo comete un error, reacciono con calma y lo tomo como una oportunidad de coaching, ayudándole a corregir sin avergonzarlo públicamente.", scale: 'freq' },
     { id: 69, type: 'likert', pillar: 'up', comp: 'Lectura de poder y patrocinio', text: "Soy consciente de quiénes en la organización tienen la influencia o el poder de apoyar nuestras iniciativas, e intento involucrarlos como patrocinadores de mi equipo.", scale: 'agree' },
     { id: 70, type: 'likert', pillar: 'up', comp: 'Lectura de poder y patrocinio', text: "Navego la política interna de forma ética: construyo redes de apoyo y consenso para las iniciativas de mi equipo, evitando caer en favoritismos o maniobras poco éticas.", scale: 'agree' },
-    { id: 71, type: 'likert', pillar: 'up', comp: 'Liderazgo en la industria 5.0', text: "Me mantengo actualizado sobre tendencias emergentes (como IA, automatización o sostenibilidad) que puedan afectar a nuestra industria y al futuro de nuestro negocio.", scale: 'freq' },
-    { id: 72, type: 'likert', pillar: 'up', comp: 'Liderazgo en la industria 5.0', text: "Busco adaptar las prácticas de mi equipo integrando nuevas tecnologías o enfoques innovadores que aporten valor a nuestro trabajo.", scale: 'freq' },
+    { id: 71, type: 'likert', pillar: 'up', comp: 'Liderazgo en entornos de transformación tecnológica', text: "Me mantengo actualizado sobre tendencias emergentes (como IA, automatización o sostenibilidad) que puedan afectar a nuestra industria y al futuro de nuestro negocio.", scale: 'freq' },
+    { id: 72, type: 'likert', pillar: 'up', comp: 'Liderazgo en entornos de transformación tecnológica', text: "Busco adaptar las prácticas de mi equipo integrando nuevas tecnologías o enfoques innovadores que aporten valor a nuestro trabajo.", scale: 'freq' },
 
     // --- PILLAR 4: SHINE BEYOND (73-96) ---
     { id: 73, type: 'likert', pillar: 'beyond', comp: 'Mentoría y sucesión', text: "Identifico a personas con alto potencial en mi organización y dedico tiempo a orientarlas, preparando así una posible sucesión y continuidad de liderazgo.", scale: 'freq' },
@@ -372,7 +372,7 @@ export const COMP_DEFINITIONS: Record<string, string> = {
     'Estimulación intelectual (innovación)': 'Desafiar al equipo a pensar de formas nuevas.',
     'Gestión del error constructivo': 'Tratar el error como fuente de aprendizaje, no de castigo.',
     'Lectura de poder y patrocinio': 'Entender las dinámicas políticas de la organización.',
-    'Liderazgo en la industria 5.0': 'Integrar tecnología y humanidad en la gestión.',
+    'Liderazgo en entornos de transformación tecnológica': 'Integrar tecnología y humanidad en la gestión.',
     'Mentoría y sucesión': 'Preparar a la próxima generación de líderes.',
     'Empoderamiento (empowerment)': 'Otorga poder y autonomía real al equipo.',
     'Desafío para el crecimiento': 'Impulsar al equipo a superar sus propios límites.',
