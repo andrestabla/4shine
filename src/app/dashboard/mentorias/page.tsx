@@ -2471,7 +2471,11 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
           return (
             <section className="app-panel p-5 sm:p-6">
               <div className="mb-4 flex items-center justify-between gap-2">
-                <p className="app-section-kicker">Mi Agenda</p>
+                {/* El título depende del rol: el Advisor edita SU agenda; admin y
+                    gestor editan la de cualquier Advisor (selector debajo). */}
+                <p className="app-section-kicker">
+                  {currentRole === 'mentor' ? 'Mi Agenda' : 'Agenda de disponibilidad de Advisors'}
+                </p>
                 {agendaStep > 1 && (
                   <button
                     type="button"
