@@ -922,7 +922,7 @@ export default function AprendizajePage() {
                   <p className="mt-2 text-sm leading-relaxed text-[var(--app-muted)]">
                     {isCoursesTab
                       ? "Todos los cursos disponibles para ti."
-                      : "Videos, pódcasts, documentos y lecturas sueltas."}
+                      : "Videos, pódcasts, documentos y lecturas en un solo lugar."}
                   </p>
                 </div>
               </div>
