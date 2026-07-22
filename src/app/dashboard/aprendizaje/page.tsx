@@ -691,10 +691,13 @@ export default function AprendizajePage() {
             {activeTabMeta.label}
           </h2>
           <p className="mt-3 text-sm leading-relaxed text-[var(--app-muted)] md:text-base">
+            {/* El copy de gestión (publicar, organizar) se decide por
+                isResourceManager, no por isOpenLeader: un líder con plan no
+                administra la biblioteca, solo la consulta. */}
             {isResourcesTab
-              ? isOpenLeader
-                ? "Explora el contenido libre de la plataforma: videos, pódcasts, documentos y cursos."
-                : "Publica y organiza los contenidos de la biblioteca. Usa los filtros para encontrar lo que buscas."
+              ? isResourceManager
+                ? "Publica y organiza los contenidos de la biblioteca. Usa los filtros para encontrar lo que buscas."
+                : "Videos, pódcasts, documentos y lecturas en un solo lugar. Usa los filtros para encontrar lo que buscas."
               : isCoursesTab
                 ? isOpenLeader
                   ? "Revisa las rutas de aprendizaje disponibles y activa el programa para desbloquear la experiencia completa."
