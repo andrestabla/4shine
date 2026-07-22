@@ -83,6 +83,32 @@ export function verifyGhlSignature(
   return token ? safeEqual(token, secret) : false;
 }
 
+/**
+ * Diagnóstico legible del fallo de firma. NUNCA incluye el secreto ni el valor
+ * recibido: solo si el encabezado llegó y si coincidió.
+ */
+export function describeSignatureFailure(
+  headers: Headers,
+  payloadSecret: string | null,
+  secret: string | null,
+): string {
+  if (!secret) {
+    return 'No hay secreto configurado en Administración → Integraciones → GoHighLevel.';
+  }
+  const firma = headers.get('x-4shine-signature') ?? headers.get('x-ghl-signature');
+  if (firma) {
+    return 'Llegó x-4shine-signature pero el HMAC no coincide. Verifica que el secreto en GHL sea idéntico al de 4Shine y que la firma se calcule sobre el cuerpo sin modificar.';
+  }
+  const token = (headers.get('x-4shine-token') ?? '').trim();
+  if (token) {
+    return 'Llegó x-4shine-token pero su valor no coincide con el secreto configurado. Revisa que esté copiado completo, sin espacios ni saltos de línea.';
+  }
+  if ((payloadSecret ?? '').trim()) {
+    return 'El secreto llegó dentro del cuerpo pero no coincide con el configurado.';
+  }
+  return 'No llegó ningún encabezado de autenticación. En GHL, en la acción Webhook, sección ENCABEZADOS, agrega la clave x-4shine-token con el secreto compartido.';
+}
+
 function safeEqual(a: string, b: string): boolean {
   const bufA = Buffer.from(a);
   const bufB = Buffer.from(b);
@@ -293,10 +319,13 @@ async function processGhlWebhookInner(
 
   const signatureOk = verifyGhlSignature(rawBody, headers, payload.secret, config.webhookSecret);
   if (!signatureOk) {
-    // Se registra igualmente para que el admin vea intentos rechazados.
-    const eventId = await insertEvent(client, payload, false, 'invalid_signature', 'Firma o token compartido inválido.');
-    await notifyAdminsOfFailure(client, config, payload, 'invalid_signature', 'Firma o token compartido inválido.');
-    return { status: 'invalid_signature', message: 'Firma inválida.', eventId, userId: null, planId: null, expiresAt: null, httpStatus: 401 };
+    // Se explica QUÉ falló sin revelar nunca el secreto: "token inválido" a
+    // secas obliga a adivinar entre "no llegó el encabezado" y "llegó pero no
+    // coincide", que se arreglan de formas distintas en GHL.
+    const detalle = describeSignatureFailure(headers, payload.secret, config.webhookSecret);
+    const eventId = await insertEvent(client, payload, false, 'invalid_signature', detalle);
+    await notifyAdminsOfFailure(client, config, payload, 'invalid_signature', detalle);
+    return { status: 'invalid_signature', message: detalle, eventId, userId: null, planId: null, expiresAt: null, httpStatus: 401 };
   }
 
   const eventId = await insertEvent(client, payload, true, 'received', null);
