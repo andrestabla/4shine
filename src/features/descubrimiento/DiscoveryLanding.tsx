@@ -137,6 +137,17 @@ export function DiscoveryLanding({ discoveryProduct }: DiscoveryLandingProps) {
   const handleCheckout = async () => {
     setIsCheckingOut(true);
     setCheckoutError(null);
+
+    // El catálogo permite configurar un checkout externo por producto
+    // (product_catalog.checkout_url). Si está definido, manda ahí: hoy el cobro
+    // del diagnóstico vive en GoHighLevel, y llamar a Stripe —deshabilitado—
+    // solo producía "Error al crear la sesión de pago".
+    const externalCheckout = discoveryProduct?.checkoutUrl?.trim();
+    if (externalCheckout) {
+      window.location.href = externalCheckout;
+      return;
+    }
+
     try {
       const res = await fetch("/api/v1/payments/stripe/checkout", {
         method: "POST",
