@@ -1,4 +1,5 @@
 import { NextResponse, after } from 'next/server';
+import { validatePassword } from '@/server/auth/password-policy';
 import { withClient } from '@/server/db/pool';
 import { buildRequestSummary, writeAuditLog } from '@/server/audit/service';
 import { selfRegisterUser, sendVerificationEmail } from '@/features/usuarios/service';
@@ -35,8 +36,11 @@ export async function POST(request: Request) {
 
   const isGoogleRegistration = !!body.googleIdToken;
 
-  if (!isGoogleRegistration && !body.password) {
-    return NextResponse.json({ ok: false, error: 'La contraseña es obligatoria' }, { status: 400 });
+  if (!isGoogleRegistration) {
+    const check = validatePassword(body.password);
+    if (!check.ok) {
+      return NextResponse.json({ ok: false, error: check.error }, { status: 400 });
+    }
   }
 
   if (isGoogleRegistration) {

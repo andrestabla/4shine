@@ -4,6 +4,7 @@ import type { PoolClient } from 'pg';
 import { createDirectThread, sendMessage } from '@/features/mensajes/service';
 import { ForbiddenError, requireModulePermission } from '@/server/auth/module-permissions';
 import { hashPassword } from '@/server/auth/password';
+import { validatePassword } from '@/server/auth/password-policy';
 import { revokeAllUserSessions } from '@/server/auth/session';
 import { withClient } from '@/server/db/pool';
 import type { Role } from '@/server/bootstrap/types';
@@ -2240,13 +2241,17 @@ export async function resetUserPassword(
 
   const credentialsResult = await client.query<{ password_updated_at: string }>(
     `
-      INSERT INTO app_auth.user_credentials (user_id, password_hash, failed_attempts, locked_until)
-      VALUES ($1, $2, 0, NULL)
+      -- must_change_password: la contraseña la generó un admin y viajó por
+      -- correo, así que es una credencial temporal. Obliga a cambiarla en el
+      -- primer ingreso en lugar de dejarla vigente indefinidamente.
+      INSERT INTO app_auth.user_credentials (user_id, password_hash, failed_attempts, locked_until, must_change_password)
+      VALUES ($1, $2, 0, NULL, true)
       ON CONFLICT (user_id) DO UPDATE
       SET
         password_hash = EXCLUDED.password_hash,
         failed_attempts = 0,
         locked_until = NULL,
+        must_change_password = true,
         password_updated_at = now(),
         updated_at = now()
       RETURNING password_updated_at::text
@@ -2645,6 +2650,13 @@ export async function selfRegisterUser(
     throw new Error('Este correo ya está registrado.');
   }
 
+  // La política se aplica en el SERVICIO, no solo en la ruta: así cubre a
+  // cualquier futuro llamador. Si no hay contraseña es un registro por Google y
+  // se genera un secreto aleatorio inutilizable.
+  if (input.password !== undefined) {
+    const check = validatePassword(input.password);
+    if (!check.ok) throw new Error(check.error ?? 'Contraseña inválida');
+  }
   const rawPassword = input.password ?? randomBytes(32).toString('hex');
   const passwordHash = await hashPassword(rawPassword);
   const firstName = input.firstName.trim();

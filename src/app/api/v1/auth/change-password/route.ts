@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { validatePassword } from '@/server/auth/password-policy';
 import { authenticateRequest } from '@/server/auth/request-auth';
 import { withClient, withRoleContext } from '@/server/db/pool';
 import { hashPassword, verifyPassword } from '@/server/auth/password';
@@ -28,28 +29,39 @@ export async function POST(request: Request) {
   }
 
   const newPassword = body.newPassword ?? '';
-  if (newPassword.length < 8) {
-    return NextResponse.json(
-      { ok: false, error: 'La contraseña debe tener al menos 8 caracteres' },
-      { status: 400 },
-    );
+  const policy = validatePassword(newPassword);
+  if (!policy.ok) {
+    return NextResponse.json({ ok: false, error: policy.error }, { status: 400 });
   }
 
   const currentPassword = body.currentPassword;
-  const verifyCurrent = typeof currentPassword === 'string' && currentPassword.length > 0;
 
   try {
     const passwordHash = await hashPassword(newPassword);
     const result = await withClient((client) =>
       withRoleContext(client, identity.userId, identity.role, async () => {
-        if (verifyCurrent) {
-          const { rows } = await client.query<{ password_hash: string | null }>(
-            `SELECT password_hash FROM app_auth.user_credentials WHERE user_id = $1::uuid LIMIT 1`,
-            [identity.userId],
-          );
-          const storedHash = rows[0]?.password_hash;
-          if (!storedHash || !(await verifyPassword(currentPassword!, storedHash))) {
-            return { ok: false as const };
+        // La contraseña actual es OBLIGATORIA salvo que el servidor tenga
+        // marcada la cuenta con must_change_password (primer ingreso o reset
+        // hecho por un admin). Antes la comprobación se activaba solo si el
+        // cliente enviaba el campo: omitirlo la saltaba por completo, y
+        // cualquier sesión robada se convertía en toma de control permanente.
+        const { rows } = await client.query<{
+          password_hash: string | null;
+          must_change_password: boolean | null;
+        }>(
+          `SELECT password_hash, must_change_password
+             FROM app_auth.user_credentials WHERE user_id = $1::uuid LIMIT 1`,
+          [identity.userId],
+        );
+        const storedHash = rows[0]?.password_hash;
+        const forcedChange = rows[0]?.must_change_password === true;
+
+        if (!forcedChange) {
+          if (typeof currentPassword !== 'string' || currentPassword.length === 0) {
+            return { ok: false as const, reason: 'missing_current' as const };
+          }
+          if (!storedHash || !(await verifyPassword(currentPassword, storedHash))) {
+            return { ok: false as const, reason: 'invalid_current' as const };
           }
         }
         await client.query(
@@ -65,20 +77,26 @@ export async function POST(request: Request) {
           moduleCode: 'usuarios',
           entityTable: 'app_auth.user_credentials',
           entityId: identity.userId,
-          changeSummary: { forced: !verifyCurrent },
+          changeSummary: { forced: forcedChange },
         });
         return { ok: true as const };
       }),
     );
     if (!result.ok) {
       return NextResponse.json(
-        { ok: false, error: 'La contraseña actual no es correcta' },
+        {
+          ok: false,
+          error:
+            result.reason === 'missing_current'
+              ? 'Debes ingresar tu contraseña actual'
+              : 'La contraseña actual no es correcta',
+        },
         { status: 400 },
       );
     }
     return NextResponse.json({ ok: true, data: { ok: true } }, { status: 200 });
   } catch (error) {
-    const detail = error instanceof Error ? error.message : 'Unknown error';
-    return NextResponse.json({ ok: false, error: 'No se pudo cambiar la contraseña', detail }, { status: 500 });
+    console.error('[auth/change-password] failed:', error);
+    return NextResponse.json({ ok: false, error: 'No se pudo cambiar la contraseña' }, { status: 500 });
   }
 }

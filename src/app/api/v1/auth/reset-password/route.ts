@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { validatePassword } from '@/server/auth/password-policy';
 import { resetPasswordWithToken } from '@/features/usuarios/service';
 
 interface ResetBody {
@@ -19,11 +20,9 @@ export async function POST(request: Request) {
   if (!token) {
     return NextResponse.json({ ok: false, error: 'Token requerido' }, { status: 400 });
   }
-  if (password.length < 8) {
-    return NextResponse.json(
-      { ok: false, error: 'La contraseña debe tener al menos 8 caracteres' },
-      { status: 400 },
-    );
+  const policy = validatePassword(password);
+  if (!policy.ok) {
+    return NextResponse.json({ ok: false, error: policy.error }, { status: 400 });
   }
 
   try {
