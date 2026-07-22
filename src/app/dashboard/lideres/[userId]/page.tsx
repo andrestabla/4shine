@@ -674,7 +674,7 @@ export default function Leader360Page() {
 
             <div className="rounded-3xl border border-[var(--brand-accent)]/30 bg-[var(--brand-accent)]/10 p-4 text-xs text-[var(--brand-primary)]">
                 <Sparkles size={14} className="mr-1 inline" />
-                Esta vista 360 se actualiza cada vez que abres la página. Los enlaces a cada WB ya abren la edición del workbook del líder seleccionado para admin/gestor/advisor.
+                Esta vista se actualiza cada vez que abres la página. Desde cada workbook puedes entrar a editarlo.
             </div>
 
             {scheduleOpen && (

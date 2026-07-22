@@ -765,7 +765,7 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
   def({
     type: 'phasedList',
     label: 'Lista por fases',
-    description: 'Lista numerada con meta y etiqueta de fase coloreada (p. ej. los workbooks).',
+    description: 'Lista numerada con etiqueta de fase en color (por ejemplo, los workbooks).',
     category: 'Contenido',
     fields: [
       { key: 'kicker', label: 'Kicker', type: 'text' },
@@ -1068,7 +1068,7 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
   def({
     type: 'advisors',
     label: 'Advisors (dinámico)',
-    description: 'Perfiles públicos de los advisors activos en la plataforma: foto, nombre, LinkedIn y biografía. Se actualiza solo.',
+    description: 'Perfiles de los advisors activos: foto, nombre, LinkedIn y biografía.',
     category: 'Social',
     fields: [
       { key: 'kicker', label: 'Kicker', type: 'text' },

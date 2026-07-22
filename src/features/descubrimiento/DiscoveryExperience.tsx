@@ -1397,7 +1397,7 @@ export function DiscoveryExperience() {
       <div className="space-y-6">
         <PageTitle
           title="Descubrimiento · Gestión"
-          subtitle="Gestión ejecutiva del módulo por pestañas: vista previa, mailing, RAG y resultados generales."
+          subtitle="Administra el diagnóstico: vista previa, invitaciones, base de conocimiento y resultados."
         />
 
         <div className="app-panel p-3">
@@ -1570,7 +1570,7 @@ export function DiscoveryExperience() {
                   Validación de profundidad de informe y productos generados
                 </h3>
                 <p className="mt-2 text-sm text-[var(--app-muted)]">
-                  Esta simulación no persiste datos en base de datos. Se usa para pruebas de comportamiento del análisis.
+                  Esta es una simulación de prueba: no se guarda ningún dato.
                 </p>
 
                 <div className="mt-5">

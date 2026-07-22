@@ -489,7 +489,7 @@ function AudioRecorder({
     async function handleTranscribe() {
         if (!audioUrl) return
         if (audioUrl.startsWith('blob:')) {
-            setError('Sube el audio para poder transcribirlo (necesitamos un workbookId real).')
+            setError('Sube el audio para poder transcribirlo.')
             return
         }
         setError(null)
@@ -1179,8 +1179,8 @@ function TranscriptAnalysisModal({
                                 disabled={busy}
                             />
                             <p className="mt-2 text-xs text-slate-500">
-                                Mínimo 200 caracteres recomendados. La transcripción no se almacena: sólo se envía a OpenAI para
-                                generar los borradores. Cuanto más literal y completa, mejor el resultado.
+                                Se recomiendan al menos 200 caracteres. Cuanto más literal y completa sea,
+                                mejor será el resultado.
                             </p>
                             {error && (
                                 <div className="mt-3 flex items-start gap-2 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">

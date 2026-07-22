@@ -22,7 +22,7 @@ export default async function PlanesPreciosPage() {
   return (
     <MarketingShell
       title="Planes y precios"
-      subtitle="Elige el acceso que mejor se ajusta a tu momento. Todos los caminos llevan a Stripe — pago seguro, sin fricciones."
+      subtitle="Elige el acceso que mejor se ajusta a tu momento. Pago seguro, sin complicaciones."
     >
       <PricingMatrix />
     </MarketingShell>

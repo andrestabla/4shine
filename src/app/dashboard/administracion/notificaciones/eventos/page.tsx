@@ -654,8 +654,8 @@ function CustomEventModal({ initial, allEvents, saving, onClose, onSave }: Custo
                 </div>
               </div>
               <p className="text-[11px] text-[var(--app-muted)]">
-                El evento se dispara automáticamente desde el cron (cada 15 min) cuando se cumple la
-                condición, solo si está activo y tiene una plantilla asignada.
+                El evento se envía automáticamente cuando se cumple la condición (se revisa cada 15
+                minutos), siempre que esté activo y tenga una plantilla asignada.
               </p>
             </div>
           )}

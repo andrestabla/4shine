@@ -404,7 +404,7 @@ export default function ContenidoPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <PageTitle
           title="Gestión de Contenido"
-          subtitle="Biblioteca académica y recursos de formación. Crea, organiza y publica."
+          subtitle="Crea, organiza y publica los contenidos de la plataforma."
         />
         {canCreate && (
           <button

@@ -397,7 +397,7 @@ function DashboardLayoutInner({
             <p className="app-section-kicker">Bienvenida</p>
             <h2 className="mt-2 text-2xl font-black text-[var(--app-ink)]">Completa tu perfil para comenzar</h2>
             <p className="mt-2 text-sm text-[var(--app-muted)]">
-              Puedes completar tus datos manualmente o extraerlos desde tu CV cargándolo en R2.
+              Puedes completar tus datos manualmente o extraerlos de tu hoja de vida.
             </p>
 
             <div className="mt-5 flex gap-2">

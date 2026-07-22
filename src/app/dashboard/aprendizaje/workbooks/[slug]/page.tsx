@@ -128,8 +128,8 @@ export default async function WorkbookPage({ params }: { params: Promise<{ slug:
                         Pilar: <span className="font-semibold text-[var(--app-ink)]">{workbook.pillar}</span>
                     </p>
                     <p className="mt-6 text-base leading-relaxed text-[var(--app-muted)]">
-                        Este workbook sí existe en el catálogo del proyecto origen, pero todavía no tiene el componente digital operativo
-                        dentro de esta integración. Dejé el registro y la navegación preparados para conectarlo cuando el archivo final esté listo.
+                        Este workbook todavía no está disponible en versión digital. Te avisaremos en cuanto
+                        puedas trabajarlo desde aquí.
                     </p>
 
                     <div className="app-panel-soft mt-8 p-5">

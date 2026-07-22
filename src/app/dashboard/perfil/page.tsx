@@ -553,7 +553,7 @@ export default function PerfilPage() {
                     }}
                   />
                   <p className="text-[11px] text-[var(--app-muted)]">
-                    Recorte automático cuadrado + optimización 512x512 antes de subir a R2.
+                    La imagen se recorta y optimiza automáticamente.
                   </p>
                   {form.avatarUrl && (
                     <button

@@ -598,11 +598,9 @@ export default function TrayectoriaPage() {
             La ruta del líder, explicada
           </h1>
           <p className="mt-4 max-w-3xl text-sm leading-relaxed text-[var(--app-muted)] md:text-base">
-            La Trayectoria es la hoja de ruta oficial del líder 4Shine: <strong>24 semanas</strong> organizadas
-            en <strong>5 hitos de transformación</strong> que conectan el diagnóstico, los workbooks, las
-            mentorías y las señales de progreso en una sola línea de tiempo. Como advisor, esta vista es tu
-            referencia para entender qué vive el líder en cada etapa y acompañarlo mejor. Usa los accesos
-            directos para explorar cada componente.
+            La Trayectoria es la ruta oficial del líder 4Shine: <strong>24 semanas</strong> organizadas en
+            <strong> 5 hitos de transformación</strong>. Aquí ves en qué etapa está cada líder y qué le toca
+            trabajar, para acompañarlo mejor.
           </p>
         </div>
 
@@ -815,7 +813,7 @@ export default function TrayectoriaPage() {
         moduleName="Trayectoria"
         moduleCode="trayectoria"
         icon={Sparkles}
-        description="Tu hoja de ruta personalizada de 24 semanas que conecta diagnóstico, workbooks, mentorías y señales de progreso en una sola línea de tiempo."
+        description="Tu ruta de 24 semanas: diagnóstico, workbooks, mentorías y tu avance, paso a paso."
         features={[
           "Las 5 fases del journey 4Shine, desde Autoconocimiento hasta Legado e impacto.",
           "Timeline visual con tus hitos y avance por semana.",

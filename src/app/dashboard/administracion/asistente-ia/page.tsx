@@ -418,8 +418,8 @@ export default function AsistenteIaAdminPage() {
                   onChange={(e) => setForm((p) => ({ ...p, systemPrompt: e.target.value }))}
                 />
                 <p className="mt-1 text-xs text-[var(--app-muted)]">
-                  El asistente siempre recibe el contexto real del usuario (plan, accesos, días de suscripción, progreso) y
-                  el mapa de rutas internas. No ejecuta acciones: guía con enlaces.
+                  El asistente conoce el plan, los accesos y el progreso de cada usuario, y sabe a qué
+                  sección enviarlo. No realiza acciones por él: orienta y comparte enlaces.
                 </p>
               </div>
 
@@ -458,8 +458,7 @@ export default function AsistenteIaAdminPage() {
             <div className="space-y-5 rounded-[18px] border border-[var(--app-border)] bg-white p-5 md:p-6">
               <div className="rounded-[14px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-3 text-xs text-[var(--app-muted)]">
                 Este asistente aparece en el <strong>sitio público</strong> (inicio, metodología,
-                descubrimiento, planes y precios, advisors). <strong>No consulta la base de datos</strong>:
-                saluda, ofrece asesoría sobre programas/planes mediante botones y, al hacer clic o escribir,
+                descubrimiento, planes y precios, advisors). Saluda, orienta sobre los programas y planes, y
                 conecta a la persona por WhatsApp con todo el contexto de la conversación.
               </div>
 

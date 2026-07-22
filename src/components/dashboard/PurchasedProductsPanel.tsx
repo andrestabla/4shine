@@ -88,7 +88,7 @@ function userTypeSummary(
     if (isSubscribed) {
       return {
         label: "Líder con suscripción",
-        detail: "Acceso al programa completo según el plan legacy asignado.",
+        detail: "Acceso al programa completo según el plan asignado.",
       };
     }
     return {
@@ -276,8 +276,8 @@ export function PurchasedProductsPanel({
         {activePlan && vigentes.length > 0 && (
           <p className="mt-3 inline-flex items-start gap-1.5 rounded-[10px] border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
             <Info size={12} className="mt-0.5 shrink-0" />
-            El acceso efectivo del usuario es la unión entre lo que habilita su plan
-            actual y los productos contratados que ya posee.
+            Tu acceso combina lo que incluye tu plan actual con los productos que
+            ya adquiriste.
           </p>
         )}
       </div>
@@ -289,10 +289,9 @@ export function PurchasedProductsPanel({
             Reemplazados por el plan actual ({archivadas.length})
           </p>
           <p className="mt-1 text-[11px] text-slate-500">
-            Estos productos pertenecen al catálogo histórico y ya no se venden. Tus
-            accesos quedaron incorporados en el plan{" "}
-            <strong className="text-slate-700">{activePlan?.name}</strong> según las
-            directivas configuradas en /administracion/planes.
+            Estos productos ya no se venden. Tus accesos quedaron incorporados en el
+            plan{" "}
+            <strong className="text-slate-700">{activePlan?.name}</strong>.
           </p>
           <ul className="mt-2 space-y-2">
             {archivadas.map((purchase) => (

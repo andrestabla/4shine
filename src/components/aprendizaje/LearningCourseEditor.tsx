@@ -273,10 +273,10 @@ const CONTENT_TYPE_EXPERIENCE: Record<
     tagPresets: ["deck", "presentación", "ejecutivo"],
   },
   scorm: {
-    description: "Pensado para cursos completos con módulos, recursos internos y experiencia secuencial.",
+    description: "Para cursos completos que se recorren por módulos.",
     assetLabel: "Paquete o URL de lanzamiento del curso",
     uploadLabel: "Subir curso a R2",
-    uploadHelp: "Carga el ZIP final del curso o vincula la URL de lanzamiento. Además puedes estructurarlo por módulos y recursos internos.",
+    uploadHelp: "Carga el ZIP del curso o pega su enlace. También puedes organizarlo en módulos.",
     urlPlaceholder: "https://... o URL generada en R2",
     accept: ".zip,application/zip,application/x-zip-compressed",
     categoryPresets: ["Curso", "Ruta", "Academia", "Programa"],
@@ -678,7 +678,7 @@ function LearningEditorSupportRail({
         <p className="mt-3 text-sm leading-relaxed text-white/80">
           {description.trim() ||
             (isCourseEditor
-              ? "Aquí verás una lectura rápida del curso mientras completas estructura, metadatos y acceso."
+              ? "Aquí verás un resumen del curso a medida que lo completas."
               : "Aquí verás una lectura rápida del recurso mientras completas la configuración.")}
         </p>
 
@@ -1123,7 +1123,7 @@ export function LearningCourseEditor({
         message:
           editorKind === "course"
             ? "Antes de publicar el curso, vincula una URL o construye al menos un módulo con recursos internos."
-            : "Antes de publicar, sube el archivo a R2 o agrega una URL válida para que el recurso quede disponible.",
+            : "Antes de publicar, sube el archivo o agrega un enlace válido.",
         tone: "warning",
       });
       return;
@@ -1570,7 +1570,7 @@ export function LearningCourseEditor({
         await alert({
           title: "Completa la base del contenido",
           message:
-            "Antes de continuar, define al menos el título y la categoría. Eso ayuda a que el resto del flujo sea más inteligente.",
+            "Antes de continuar, define al menos el título y la categoría.",
           tone: "warning",
         });
         return;
@@ -1658,8 +1658,8 @@ export function LearningCourseEditor({
                   </h3>
                   <p className="mt-2 text-sm leading-relaxed text-[var(--app-muted)]">
                     {isCourseEditor
-                      ? "Define base editorial, acceso principal, estructura interna, metadatos y publicación desde una sola experiencia."
-                      : "Completa base editorial, activo, metadatos y descubrimiento con una secuencia clara y ligera."}
+                      ? "Completa la información del curso, sus módulos y su publicación."
+                      : "Completa la información del contenido, el archivo y su clasificación."}
                   </p>
                 </div>
 
@@ -1781,7 +1781,7 @@ export function LearningCourseEditor({
                                 Asistente IA de metadatos
                               </h4>
                               <p className="text-sm text-[var(--app-muted)]">
-                                Usa OpenAI para sugerir metadatos editoriales y, cuando detecta un enlace de YouTube, aprovecha la YouTube Data API para leer título, descripción y duración antes de clasificar.
+                                Sugiere título, descripción y clasificación automáticamente. Si pegas un enlace de YouTube, los toma del video.
                               </p>
                             </div>
                           </div>
@@ -1947,7 +1947,7 @@ export function LearningCourseEditor({
                             >
                               <p className="text-sm font-semibold">Curso</p>
                               <p className="mt-1 text-sm leading-relaxed">
-                                Experiencia estructurada con módulos y recursos internos.
+                                Curso con módulos y materiales.
                               </p>
                             </button>
                           </div>

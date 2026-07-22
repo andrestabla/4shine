@@ -561,7 +561,7 @@ export default function LideresPage() {
         <div className="space-y-6">
             <PageTitle
                 title="Líderes"
-                subtitle="Dashboard ejecutivo: avatar, país, empresa, plan, progreso en workbooks, mentorías 1:1 y cursos, con acceso a la vista 360 de cada líder."
+                subtitle="Consulta el avance de cada líder y entra a su vista completa."
             />
 
             <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">

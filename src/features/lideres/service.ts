@@ -618,7 +618,7 @@ async function fetchConvocatorias(client: PoolClient, userId: string): Promise<L
             appliedAt: row.applied_at,
         })),
         note:
-            'El tracking de convocatorias “vistas” aún no está instrumentado. Mostramos las aplicadas.',
+            'Mostramos las convocatorias a las que se ha postulado.',
     };
 }
 
@@ -665,7 +665,7 @@ async function fetchWorkshops(client: PoolClient, userId: string): Promise<Leade
         totalAttended: items.filter((item) => item.attendanceStatus === 'attended').length,
         items,
         note:
-            'El tracking de workshops “vistos” aún no está instrumentado. Mostramos los inscritos y asistidos.',
+            'Mostramos los workshops en los que se inscribió y a los que asistió.',
     };
 }
 

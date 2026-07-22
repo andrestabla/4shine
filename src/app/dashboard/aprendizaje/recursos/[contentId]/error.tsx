@@ -31,7 +31,7 @@ export default function ResourceError({
           <h2 className="text-lg font-black text-[var(--app-ink)]">Error al cargar el recurso</h2>
         </div>
         <p className="mb-4 text-sm text-[var(--app-muted)]">
-          Algo falló al renderizar este recurso. El detalle técnico está abajo para que el equipo lo arregle.
+          No pudimos mostrar este recurso. Intenta de nuevo; si persiste, avísanos.
         </p>
 
         <pre className="overflow-x-auto whitespace-pre-wrap rounded-[12px] border border-rose-200 bg-rose-50 p-3 text-xs text-rose-900">

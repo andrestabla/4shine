@@ -112,8 +112,7 @@ export default function AdministracionPage() {
       <div className="rounded-[1rem] border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm text-amber-900 flex gap-2 items-start">
         <Settings size={16} className="mt-0.5 shrink-0" />
         <p>
-          Estas capacidades están agrupadas para rol <strong>Administrador</strong> y accesibles por permiso
-          <code className="mx-1">usuarios:manage</code>.
+          Estas capacidades están reservadas para el rol <strong>Administrador</strong>.
         </p>
       </div>
     </div>

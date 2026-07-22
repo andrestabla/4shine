@@ -312,7 +312,7 @@ export default function BrandingAdminPage() {
 
       await alert({
         title: 'Branding actualizado',
-        message: 'Configuración persistida y aplicada en tiempo real en la plataforma.',
+        message: 'Los cambios se aplican de inmediato en toda la plataforma.',
         tone: 'success',
       });
     } catch (error) {
@@ -1063,7 +1063,7 @@ export default function BrandingAdminPage() {
 
                   {settings.loginImageUrls.length === 0 && (
                     <p className="text-xs text-slate-500">
-                      Sin imágenes específicas para panel. Se usarán las de background como fallback.
+                      Sin imágenes propias para el panel: se usarán las del fondo general.
                     </p>
                   )}
 
@@ -1229,7 +1229,7 @@ export default function BrandingAdminPage() {
                       Bloque sobre imagen
                     </p>
                     <p className="text-[11px] text-white/60 mt-1">
-                      Imagen panel: {previewPanelImage ? 'rotación activa' : 'fallback background'}
+                      Imagen del panel: {previewPanelImage ? 'rotación activa' : 'se usa la del fondo general'}
                     </p>
                     {settings.showImageLoginHeadline && (
                       <p className="text-sm font-semibold text-white mt-1">

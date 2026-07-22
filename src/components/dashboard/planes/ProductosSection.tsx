@@ -30,7 +30,7 @@ import type {
 const GROUP_LABELS: Record<ProductGroup, string> = {
   discovery: 'Diagnóstico',
   mentoring_pack: 'Packs de Mentorías',
-  program: 'Programa (legacy)',
+  program: 'Programa',
 };
 
 const GROUP_ICONS: Record<ProductGroup, typeof Stethoscope> = {

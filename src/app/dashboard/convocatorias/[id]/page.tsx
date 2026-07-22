@@ -1275,7 +1275,7 @@ export default function ConvocatoriaDetailPage() {
                     onUploaded={(url) => void onImageUploaded(url)}
                   />
                   <p className="text-xs text-[var(--app-muted)]">
-                    La primera imagen de la galería se usa como portada si no hay cover_image_url.
+                    Si no defines una portada, se usará la primera imagen de la galería.
                   </p>
                 </div>
                 {item.images.length === 0 ? (

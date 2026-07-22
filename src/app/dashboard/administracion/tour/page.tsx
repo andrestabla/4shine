@@ -225,7 +225,7 @@ export default function TourAdminPage() {
             <div className="app-panel flex flex-col items-center gap-2 p-10 text-center">
               <Compass size={28} className="text-[var(--app-muted)]" />
               <p className="text-sm text-[var(--app-muted)]">
-                Aún no hay pasos. Crea el primero o ejecuta el seed por defecto.
+                Aún no hay pasos. Crea el primero o carga el recorrido por defecto.
               </p>
             </div>
           ) : (

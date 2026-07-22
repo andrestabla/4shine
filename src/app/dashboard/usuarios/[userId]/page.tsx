@@ -802,7 +802,7 @@ export default function UsuarioDetallePage() {
             }
             emptyHint={
               detail.primaryRole === 'invitado'
-                ? 'Aún no se ha registrado la compra de Descubrimiento. Se creará automáticamente al primer login del invitado.'
+                ? 'Aún no se ha registrado la compra de Descubrimiento. Se registrará cuando el invitado ingrese por primera vez.'
                 : 'Este usuario no tiene productos puntuales registrados.'
             }
           />

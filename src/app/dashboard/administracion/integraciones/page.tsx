@@ -125,7 +125,7 @@ const INTEGRATION_ASSISTANTS: Record<IntegrationKey, AssistantDefinition> = {
       {
         id: 'governance',
         title: 'Gobernanza y seguridad',
-        description: 'Establece scopes y fallback operativo.',
+        description: 'Define los permisos que solicita el inicio de sesión.',
         fields: [
           { key: 'scopes', label: 'Scopes OAuth', type: 'textarea', required: true, defaultValue: 'https://www.googleapis.com/auth/calendar.events\nhttps://www.googleapis.com/auth/calendar.readonly' },
           { key: 'fallbackOrganizerEmail', label: 'Email organizador fallback', type: 'text', placeholder: 'ops@4shine.co' },
@@ -937,7 +937,7 @@ const GOOGLE_SSO_STEP_GUIDES: Record<
       'Define el rol por defecto para nuevos usuarios SSO y ajusta permisos finos desde RBAC.',
       'Activa sincronización de perfil si quieres mantener nombre/foto alineados con Google.',
       'Verifica en audit logs los eventos de login SSO y creación/actualización de usuario.',
-      'Documenta este flujo para versión app: Google Sign-In cliente + validación centralizada en backend.',
+      'Verifica que el inicio de sesión con Google funcione desde la aplicación.',
     ],
   },
 };
@@ -1238,7 +1238,7 @@ export default function IntegracionesAdminPage() {
       closeAssistant();
       await alert({
         title: 'Integración configurada',
-        message: 'El asistente se aplicó correctamente y la configuración quedó en base de datos.',
+        message: 'La integración quedó configurada y activa.',
         tone: 'success',
       });
       return;
@@ -1282,7 +1282,7 @@ export default function IntegracionesAdminPage() {
     closeAssistant();
     await alert({
       title: 'Correo saliente configurado',
-      message: 'La configuración de envío de correos quedó registrada en base de datos.',
+      message: 'El envío de correos quedó configurado.',
       tone: 'success',
     });
   };
@@ -1316,7 +1316,7 @@ export default function IntegracionesAdminPage() {
     <div className="space-y-4">
       <PageTitle
         title="Integraciones"
-        subtitle="Asistentes de configuración por integración + correo saliente para operación de plataforma."
+        subtitle="Configura cada servicio conectado y el envío de correos de la plataforma."
       />
 
       {loading ? (
@@ -1672,7 +1672,7 @@ export default function IntegracionesAdminPage() {
         </div>
 
         <p className="text-xs text-slate-500">
-          Persistencia activa en base de datos. Recomendado siguiente paso: cifrado de secretos con KMS.
+          Las credenciales quedan guardadas y activas.
         </p>
       </section>
         </>

@@ -98,22 +98,22 @@ const LEARNING_TABS: LearningTabItem[] = [
   {
     key: "recursos",
     label: "Contenidos libres",
-    description: "Videos, pódcasts, documentos, cursos y piezas individuales en una sola biblioteca.",
+    description: "Videos, pódcasts, documentos y lecturas.",
   },
   {
     key: "cursos",
     label: "Cursos",
-    description: "Vista enfocada solo en cursos estructurados con módulos y recursos internos.",
+    description: "Cursos completos, con sus módulos y materiales.",
   },
   {
     key: "workbooks",
     label: "Workbooks",
-    description: "Cuadernos digitales del programa con avance sincronizado.",
+    description: "Tus cuadernos de trabajo del programa.",
   },
   {
     key: "certificados",
     label: "Certificados",
-    description: "Plantillas editables que se adjuntan a cursos completados.",
+    description: "Diseña los certificados que reciben quienes completan un curso.",
     adminOnly: true,
   },
   {
@@ -693,17 +693,17 @@ export default function AprendizajePage() {
           <p className="mt-3 text-sm leading-relaxed text-[var(--app-muted)] md:text-base">
             {isResourcesTab
               ? isOpenLeader
-                ? "Explora el contenido libre de la plataforma: videos, pódcasts, documentos y cursos en una sola biblioteca."
-                : "Carga y gestiona videos, pódcasts, documentos y cursos en una sola biblioteca. Filtra por formato, pilar, competencia o etapa."
+                ? "Explora el contenido libre de la plataforma: videos, pódcasts, documentos y cursos."
+                : "Publica y organiza los contenidos de la biblioteca. Usa los filtros para encontrar lo que buscas."
               : isCoursesTab
                 ? isOpenLeader
                   ? "Revisa las rutas de aprendizaje disponibles y activa el programa para desbloquear la experiencia completa."
-                  : "Accede a cursos estructurados con módulos y recursos internos, listos para navegar como experiencias completas."
+                  : "Retoma un curso donde lo dejaste o empieza uno nuevo."
                 : isCertificadosTab
                   ? "Edita las plantillas de certificado y asígnalas a los cursos para que se entreguen automáticamente al completar el 100%."
                   : isOpenLeader
                     ? "Los workbooks del programa se activan al comprar el plan 4Shine."
-                    : "Cada workbook vive en su propio espacio, con progreso real sincronizado por usuario y acceso según cronograma."}
+                    : "Tus cuadernos de trabajo del programa. Tu avance se guarda automáticamente."}
           </p>
         </div>
 
@@ -921,8 +921,8 @@ export default function AprendizajePage() {
                   </h3>
                   <p className="mt-2 text-sm leading-relaxed text-[var(--app-muted)]">
                     {isCoursesTab
-                      ? "Cada curso se consulta de forma independiente, con su propia estructura interna y una navegación más limpia."
-                      : "Las piezas individuales viven en una biblioteca separada para reducir carga cognitiva y facilitar búsqueda, filtrado y visualización."}
+                      ? "Todos los cursos disponibles para ti."
+                      : "Videos, pódcasts, documentos y lecturas sueltas."}
                   </p>
                 </div>
               </div>
@@ -1024,11 +1024,6 @@ export default function AprendizajePage() {
                         {resourceTotal === 0
                           ? `Aún no hay ${activeCollectionLabel} con este filtro.`
                           : `Mostrando ${visibleResourceStart}-${visibleResourceEnd} de ${resourceTotal} ${activeCollectionLabel}`}
-                      </p>
-                      <p className="mt-1 text-sm text-[var(--app-muted)]">
-                        {isCoursesTab
-                          ? "Los cursos se paginan por separado para mantener una navegación clara cuando el catálogo crezca."
-                          : "La biblioteca de recursos está preparada para crecer por páginas sin mezclar piezas individuales con cursos o workbooks."}
                       </p>
                     </div>
                     <span className="rounded-full border border-[var(--app-border)] bg-white px-3 py-1 text-sm text-[var(--app-muted)]">

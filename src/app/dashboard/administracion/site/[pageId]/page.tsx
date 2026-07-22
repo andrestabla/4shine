@@ -1160,7 +1160,7 @@ export default function SiteBuilderEditorPage() {
                       />
                     </div>
                     <p className="text-[10px] leading-snug text-[var(--app-muted)]">
-                      Activado: el sitio muestra los bloques de este editor. Desactivado: muestra la versión original codificada de la página.
+                      Activado: el sitio muestra los bloques de este editor. Desactivado: muestra la versión original de la página.
                     </p>
                   </div>
                 )}
