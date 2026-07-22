@@ -544,6 +544,18 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
     }
   }, [forcedSection]);
 
+  // Al llegar con ?agendaMentor, bajar hasta la agenda: la sección vive al final
+  // de una página larga y aterrizar arriba obliga a buscarla.
+  React.useEffect(() => {
+    if (!overview || typeof window === 'undefined') return;
+    if (!new URLSearchParams(window.location.search).get('agendaMentor')) return;
+    // La sección se monta con el overview ya resuelto; un frame basta.
+    const timer = window.setTimeout(() => {
+      document.getElementById('agenda-advisors')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 150);
+    return () => window.clearTimeout(timer);
+  }, [overview]);
+
   // Load payment providers once when entering "comprar".
   React.useEffect(() => {
     if (activeSection !== 'comprar' || paymentProviders !== null) return;
@@ -2486,7 +2498,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
           }
           const sortedDays = Object.keys(slotsByDay).sort();
           return (
-            <section className="app-panel p-5 sm:p-6">
+            <section id="agenda-advisors" className="app-panel scroll-mt-6 p-5 sm:p-6">
               <div className="mb-4 flex items-center justify-between gap-2">
                 {/* El título depende del rol: el Advisor edita SU agenda; admin y
                     gestor editan la de cualquier Advisor (selector debajo). */}

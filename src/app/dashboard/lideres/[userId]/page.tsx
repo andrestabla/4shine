@@ -783,7 +783,7 @@ export default function Leader360Page() {
                                             <>
                                                 Puedes{' '}
                                                 <Link
-                                                    href={`/dashboard/mentorias?agendaMentor=${scheduleForm.mentorUserId}`}
+                                                    href={`/dashboard/mentorias/programa?agendaMentor=${scheduleForm.mentorUserId}#agenda-advisors`}
                                                     className="font-semibold underline"
                                                 >
                                                     crearle franjas ahora
@@ -816,7 +816,7 @@ export default function Leader360Page() {
                                     más; el atajo evita tener que buscar al advisor a mano. */}
                                 {canManageAgenda && scheduleForm.mentorUserId && slots.length > 0 && (
                                     <Link
-                                        href={`/dashboard/mentorias?agendaMentor=${scheduleForm.mentorUserId}`}
+                                        href={`/dashboard/mentorias/programa?agendaMentor=${scheduleForm.mentorUserId}#agenda-advisors`}
                                         className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-[var(--app-muted)] underline"
                                     >
                                         <CalendarPlus size={12} /> Gestionar las franjas de este advisor
