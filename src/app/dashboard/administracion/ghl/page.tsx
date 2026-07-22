@@ -233,21 +233,33 @@ export default function GhlAdminPage() {
                     <code className="text-xs text-[var(--app-muted)]">{program.programId}</code>
                   </td>
                   <td className="py-2.5 pr-3">
-                    <select
-                      value={program.planId ?? ''}
-                      onChange={(event) => void handleProgramChange(program.programId, event.target.value)}
-                      className="app-input w-full min-w-[180px] py-1.5 text-sm"
-                    >
-                      <option value="">— Sin asignar —</option>
-                      {plans.map((plan) => (
-                        <option key={plan.planId} value={plan.planId}>
-                          {plan.name}
-                        </option>
-                      ))}
-                    </select>
+                    {program.kind === 'diagnostico' ? (
+                      // El diagnóstico no se asigna por plan: el acceso viene de
+                      // una compra puntual, así que no hay nada que elegir aquí.
+                      <span className="text-[var(--app-muted)]">
+                        No aplica · compra puntual de Descubrimiento
+                      </span>
+                    ) : (
+                      <select
+                        value={program.planId ?? ''}
+                        onChange={(event) => void handleProgramChange(program.programId, event.target.value)}
+                        className="app-input w-full min-w-[180px] py-1.5 text-sm"
+                      >
+                        <option value="">— Sin asignar —</option>
+                        {plans.map((plan) => (
+                          <option key={plan.planId} value={plan.planId}>
+                            {plan.name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </td>
                   <td className="py-2.5 pr-3 text-[var(--app-muted)]">
-                    {program.durationDays ? `${program.durationDays} días` : 'Según el plan'}
+                    {program.kind === 'diagnostico'
+                      ? 'Sin vencimiento'
+                      : program.durationDays
+                        ? `${program.durationDays} días`
+                        : 'Según el plan'}
                   </td>
                   <td className="py-2.5 pr-3 text-[var(--app-muted)]">{program.roleOverride ?? 'lider'}</td>
                   <td className="py-2.5">

@@ -204,6 +204,7 @@ interface ProgramRow {
   duration_days: number | null;
   role_override: string | null;
   plan_type: string | null;
+  product_code: string | null;
   is_active: boolean;
 }
 
@@ -265,7 +266,7 @@ async function processGhlWebhookInner(
   }
 
   const { rows: programRows } = await client.query<ProgramRow>(
-    `SELECT program_id, kind, plan_id::text, duration_days, role_override, plan_type, is_active
+    `SELECT program_id, kind, plan_id::text, duration_days, role_override, plan_type, product_code, is_active
        FROM app_billing.ghl_program_map WHERE program_id = $1`,
     [payload.programId],
   );
@@ -457,16 +458,77 @@ async function grantAccess(
     );
   }
 
-  const expiresAt = await applySubscription(client, userId, program, durationDays);
-
   const verb = created ? 'creado' : payload.eventType === 'subscription_renewed' ? 'renovado' : 'actualizado';
+  const status: GhlEventStatus = created
+    ? 'created'
+    : payload.eventType === 'subscription_renewed'
+      ? 'renewed'
+      : 'updated';
+
+  // El diagnóstico no es una suscripción: es una compra puntual. Se registra en
+  // user_purchases (product_group='discovery'), que es el grant que
+  // readAccessStateForActor respeta aunque el líder no tenga plan y que
+  // sobrevive si más adelante se le asigna uno.
+  if (program.kind === 'diagnostico') {
+    await grantDiscoveryPurchase(client, userId, program, payload);
+    return {
+      status,
+      message: `Usuario ${verb} como líder sin suscripción, con acceso a Descubrimiento por compra del diagnóstico.`,
+      userId,
+      planId: null,
+      expiresAt: null,
+    };
+  }
+
+  const expiresAt = await applySubscription(client, userId, program, durationDays);
   return {
-    status: created ? 'created' : payload.eventType === 'subscription_renewed' ? 'renewed' : 'updated',
+    status,
     message: `Usuario ${verb} con acceso a "${payload.productName ?? program.program_id}" hasta ${expiresAt?.slice(0, 10) ?? 'sin vencimiento'}.`,
     userId,
     planId: program.plan_id,
     expiresAt,
   };
+}
+
+/**
+ * Registra la compra puntual del diagnóstico. Es idempotente por su cuenta: si
+ * el líder ya tiene una compra activa del mismo producto no se duplica, así un
+ * reenvío manual desde GHL no ensucia su historial de compras.
+ */
+async function grantDiscoveryPurchase(
+  client: PoolClient,
+  userId: string,
+  program: ProgramRow,
+  payload: GhlNormalizedPayload,
+): Promise<void> {
+  const productCode = program.product_code ?? program.program_id;
+  const { rows: productRows } = await client.query<{ price_amount: string }>(
+    `SELECT price_amount::text FROM app_billing.product_catalog
+      WHERE product_code = $1 AND product_group = 'discovery' LIMIT 1`,
+    [productCode],
+  );
+  if (productRows.length === 0) {
+    throw new Error(
+      `El producto "${productCode}" no existe en app_billing.product_catalog con product_group='discovery'.`,
+    );
+  }
+
+  await client.query(
+    `INSERT INTO app_billing.user_purchases
+       (user_id, product_code, status, quantity, unit_price_amount, currency_code, metadata, activated_at)
+     SELECT $1::uuid, $2, 'active', 1, $3::numeric, $4, $5::jsonb, now()
+      WHERE NOT EXISTS (
+        SELECT 1 FROM app_billing.user_purchases
+         WHERE user_id = $1::uuid AND product_code = $2 AND status = 'active'
+      )`,
+    [
+      userId,
+      productCode,
+      payload.amount ?? Number(productRows[0].price_amount ?? 0),
+      (payload.currency ?? 'USD').toUpperCase(),
+      JSON.stringify({ source: 'ghl', transaction_id: payload.transactionId, program_id: program.program_id }),
+    ],
+  );
 }
 
 async function planDurationDays(client: PoolClient, planId: string | null): Promise<number | null> {
