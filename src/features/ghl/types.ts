@@ -51,6 +51,8 @@ export interface GhlWebhookEventRecord {
   planName: string | null;
   expiresAt: string | null;
   payload: unknown;
+  /** Encabezados con los valores sensibles ya redactados. */
+  headers: Record<string, string> | null;
   receivedAt: string;
   processedAt: string | null;
 }

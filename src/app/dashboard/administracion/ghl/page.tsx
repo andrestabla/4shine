@@ -103,7 +103,9 @@ export default function GhlAdminPage() {
     const ok = await confirm({
       title: 'Reprocesar evento',
       message:
-        'Se volverá a ejecutar el aprovisionamiento con el payload almacenado. Úsalo después de corregir el mapeo del producto.',
+        'Se volverá a ejecutar el aprovisionamiento con el payload almacenado. ' +
+        'Ojo: el reproceso lo firma la propia plataforma, así que OMITE la verificación de firma. ' +
+        'Que funcione aquí no prueba que GHL esté enviando bien el token.',
       confirmText: 'Reprocesar',
     });
     if (!ok) return;
@@ -386,9 +388,39 @@ export default function GhlAdminPage() {
                               {event.signatureOk ? 'válida' : 'inválida'} · Procesado:{' '}
                               {formatDateTime(event.processedAt)}
                             </p>
-                            <pre className="mt-3 max-h-56 overflow-auto rounded-[0.75rem] bg-[var(--app-ink)]/5 p-3 text-xs">
-                              {JSON.stringify(event.payload, null, 2)}
-                            </pre>
+                            <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                              <div>
+                                <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--app-muted)]">
+                                  Cuerpo recibido
+                                </p>
+                                <pre className="max-h-56 overflow-auto rounded-[0.75rem] bg-[var(--app-ink)]/5 p-3 text-xs">
+                                  {JSON.stringify(event.payload, null, 2)}
+                                </pre>
+                              </div>
+                              <div>
+                                <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--app-muted)]">
+                                  Encabezados enviados
+                                </p>
+                                {event.headers && Object.keys(event.headers).length > 0 ? (
+                                  <pre className="max-h-56 overflow-auto rounded-[0.75rem] bg-[var(--app-ink)]/5 p-3 text-xs">
+                                    {JSON.stringify(event.headers, null, 2)}
+                                  </pre>
+                                ) : (
+                                  <p className="rounded-[0.75rem] bg-[var(--app-ink)]/5 p-3 text-xs text-[var(--app-muted)]">
+                                    Este evento se registró antes de que guardáramos los encabezados.
+                                  </p>
+                                )}
+                                {/* El valor del token nunca se guarda: de los
+                                    encabezados con credenciales solo queda su
+                                    longitud, que basta para detectar un recorte
+                                    al copiar sin exponer el secreto. */}
+                                <p className="mt-1.5 text-[11px] text-[var(--app-muted)]">
+                                  Los encabezados con credenciales se muestran como
+                                  <code className="mx-1">‹presente · N caracteres›</code>: su valor nunca se
+                                  almacena.
+                                </p>
+                              </div>
+                            </div>
                             {isFailure && (
                               <button
                                 type="button"

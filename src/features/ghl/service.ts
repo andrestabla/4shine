@@ -84,6 +84,35 @@ export function verifyGhlSignature(
 }
 
 /**
+ * Encabezados de la petición listos para guardarse.
+ *
+ * Los que llevan credenciales se redactan AQUÍ, antes de tocar la base: de
+ * ellos solo queda constancia de que llegaron y cuánto medían, nunca su valor.
+ * Saber "llegó un token de 47 caracteres" cuando el secreto tiene 48 basta para
+ * diagnosticar un recorte al copiar, sin exponer nada.
+ */
+const SENSITIVE_HEADERS = new Set([
+  'x-4shine-token', 'x-4shine-signature', 'x-ghl-signature',
+  'authorization', 'cookie', 'x-api-key',
+]);
+
+export function redactHeaders(headers: Headers): Record<string, string> {
+  const output: Record<string, string> = {};
+  headers.forEach((value, key) => {
+    const name = key.toLowerCase();
+    if (SENSITIVE_HEADERS.has(name)) {
+      const trimmed = value.trim();
+      output[name] = trimmed
+        ? `‹presente · ${trimmed.length} caracteres›`
+        : '‹presente pero vacío›';
+      return;
+    }
+    output[name] = value.length > 200 ? `${value.slice(0, 200)}…` : value;
+  });
+  return output;
+}
+
+/**
  * Diagnóstico legible del fallo de firma. NUNCA incluye el secreto ni el valor
  * recibido: solo si el encabezado llegó y si coincidió.
  */
@@ -296,7 +325,7 @@ async function processGhlWebhookInner(
   try {
     parsed = JSON.parse(rawBody);
   } catch {
-    const eventId = await insertRawFailure(client, rawBody, 'Cuerpo no es JSON válido.');
+    const eventId = await insertRawFailure(client, rawBody, 'Cuerpo no es JSON válido.', headers);
     return { status: 'invalid_payload', message: 'Cuerpo no es JSON válido.', eventId, userId: null, planId: null, expiresAt: null, httpStatus: 400 };
   }
 
@@ -312,7 +341,7 @@ async function processGhlWebhookInner(
       .join(' ');
     // Se registra con el cuerpo crudo: sin esto no hay forma de ver qué envió
     // GHL realmente y el diagnóstico se vuelve adivinanza.
-    const eventId = await insertRawFailure(client, rawBody, detail);
+    const eventId = await insertRawFailure(client, rawBody, detail, headers);
     await notifyAdminsOfFailure(client, config, null, 'invalid_payload', detail);
     return { status: 'invalid_payload', message: detail, eventId, userId: null, planId: null, expiresAt: null, httpStatus: 400 };
   }
@@ -323,12 +352,12 @@ async function processGhlWebhookInner(
     // secas obliga a adivinar entre "no llegó el encabezado" y "llegó pero no
     // coincide", que se arreglan de formas distintas en GHL.
     const detalle = describeSignatureFailure(headers, payload.secret, config.webhookSecret);
-    const eventId = await insertEvent(client, payload, false, 'invalid_signature', detalle);
+    const eventId = await insertEvent(client, payload, false, 'invalid_signature', detalle, headers);
     await notifyAdminsOfFailure(client, config, payload, 'invalid_signature', detalle);
     return { status: 'invalid_signature', message: detalle, eventId, userId: null, planId: null, expiresAt: null, httpStatus: 401 };
   }
 
-  const eventId = await insertEvent(client, payload, true, 'received', null);
+  const eventId = await insertEvent(client, payload, true, 'received', null, headers);
   if (!eventId) {
     return { status: 'duplicate_ignored', message: 'Evento ya procesado anteriormente.', eventId: null, userId: null, planId: null, expiresAt: null, httpStatus: 200 };
   }
@@ -386,12 +415,13 @@ async function insertEvent(
   signatureOk: boolean,
   status: string,
   resultMessage: string | null,
+  headers?: Headers,
 ): Promise<string | null> {
   const { rows } = await client.query<{ event_id: string }>(
     `INSERT INTO app_billing.ghl_webhook_events (
        transaction_id, event_type, program_id, product_name, email,
-       first_name, last_name, mode, signature_ok, status, result_message, payload
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb)
+       first_name, last_name, mode, signature_ok, status, result_message, payload, headers
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb,$13::jsonb)
      ON CONFLICT (transaction_id, event_type) DO NOTHING
      RETURNING event_id::text`,
     [
@@ -407,6 +437,7 @@ async function insertEvent(
       status,
       resultMessage,
       JSON.stringify(redactPayload(payload)),
+      headers ? JSON.stringify(redactHeaders(headers)) : null,
     ],
   );
   return rows[0]?.event_id ?? null;
@@ -421,6 +452,7 @@ async function insertRawFailure(
   client: PoolClient,
   rawBody: string,
   message: string,
+  headers?: Headers,
 ): Promise<string | null> {
   const fingerprint = createHash('sha256').update(rawBody).digest('hex').slice(0, 24);
   let payloadJson: string;
@@ -434,15 +466,16 @@ async function insertRawFailure(
 
   const { rows } = await client.query<{ event_id: string }>(
     `INSERT INTO app_billing.ghl_webhook_events
-       (transaction_id, event_type, signature_ok, status, result_message, payload, processed_at)
-     VALUES ($1, 'invalid_payload', false, 'invalid_payload', $2, $3::jsonb, now())
+       (transaction_id, event_type, signature_ok, status, result_message, payload, headers, processed_at)
+     VALUES ($1, 'invalid_payload', false, 'invalid_payload', $2, $3::jsonb, $4::jsonb, now())
      ON CONFLICT (transaction_id, event_type) DO UPDATE
        SET result_message = EXCLUDED.result_message,
            payload        = EXCLUDED.payload,
+           headers        = EXCLUDED.headers,
            received_at    = now(),
            processed_at   = now()
      RETURNING event_id::text`,
-    [`invalid-${fingerprint}`, message, payloadJson],
+    [`invalid-${fingerprint}`, message, payloadJson, headers ? JSON.stringify(redactHeaders(headers)) : null],
   );
   return rows[0]?.event_id ?? null;
 }
@@ -784,7 +817,7 @@ export async function getGhlDashboard(
   const { rows: eventRows } = await client.query(
     `SELECT e.event_id::text, e.transaction_id, e.event_type, e.program_id, e.product_name,
             e.email::text, e.first_name, e.last_name, e.mode, e.signature_ok, e.status,
-            e.result_message, e.user_id::text, u.display_name AS user_display_name,
+            e.result_message, e.headers, e.user_id::text, u.display_name AS user_display_name,
             e.plan_id::text, p.name AS plan_name, e.expires_at::text, e.payload,
             e.received_at::text, e.processed_at::text
        FROM app_billing.ghl_webhook_events e
@@ -858,6 +891,7 @@ function toEventRecord(row: any): GhlWebhookEventRecord {
     planName: row.plan_name,
     expiresAt: row.expires_at,
     payload: row.payload,
+    headers: row.headers ?? null,
     receivedAt: row.received_at,
     processedAt: row.processed_at,
   };
