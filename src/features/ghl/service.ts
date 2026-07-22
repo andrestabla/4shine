@@ -113,8 +113,39 @@ function str(value: unknown): string {
 }
 
 /**
+ * Nombres que GHL usa para el mismo evento según el disparador del workflow.
+ * Se traducen a los cinco tipos canónicos para que el admin no tenga que
+ * escribirlos exactos en "Datos personalizados".
+ *
+ * OJO con order_submitted: en GHL dispara al enviarse el formulario de orden.
+ * Solo debe usarse en workflows cuyo disparador exija pago aprobado; de lo
+ * contrario se provisionaría acceso a una compra sin cobrar.
+ */
+const EVENT_TYPE_ALIASES: Record<string, string> = {
+  order_submitted: 'purchase_completed',
+  order_completed: 'purchase_completed',
+  purchase: 'purchase_completed',
+  payment_received: 'purchase_completed',
+  invoice_paid: 'purchase_completed',
+  subscription_renewal: 'subscription_renewed',
+  renewal: 'subscription_renewed',
+  subscription_cancel: 'subscription_cancelled',
+  cancellation: 'subscription_cancelled',
+  payment_failure: 'payment_failed',
+  refund: 'refund_issued',
+  refunded: 'refund_issued',
+};
+
+function normalizeEventType(raw: string): string {
+  const key = raw.trim().toLowerCase();
+  return EVENT_TYPE_ALIASES[key] ?? key;
+}
+
+/**
  * GHL envía los campos de `customData` o bien anidados o bien aplanados en la
- * raíz según cómo se configure el workflow; aceptamos ambos.
+ * raíz según cómo se configure el workflow; aceptamos ambos. Las claves se
+ * buscan además en minúsculas sin guion bajo (firstname, lastname), que es como
+ * las nombra el editor de GHL por defecto.
  */
 export function normalizeGhlPayload(body: unknown): GhlNormalizedPayload | null {
   if (!body || typeof body !== 'object') return null;
@@ -131,20 +162,20 @@ export function normalizeGhlPayload(body: unknown): GhlNormalizedPayload | null 
     return '';
   };
 
-  const transactionId = pick('transaction_id', 'transactionId');
-  const eventType = pick('event_type', 'eventType').toLowerCase();
-  const email = pick('email', 'contact_email').toLowerCase();
+  const transactionId = pick('transaction_id', 'transactionId', 'transactionid');
+  const eventType = normalizeEventType(pick('event_type', 'eventType', 'eventtype'));
+  const email = pick('email', 'contact_email', 'contactEmail').toLowerCase();
   if (!transactionId || !eventType || !email) return null;
 
   const amountRaw = pick('amount', 'price');
   return {
     transactionId,
     eventType,
-    programId: pick('program_id', 'programId'),
-    productName: pick('product_name', 'productName') || null,
+    programId: pick('program_id', 'programId', 'programid'),
+    productName: pick('product_name', 'productName', 'productname') || null,
     email,
-    firstName: pick('first_name', 'firstName') || email.split('@')[0],
-    lastName: pick('last_name', 'lastName'),
+    firstName: pick('first_name', 'firstName', 'firstname') || email.split('@')[0],
+    lastName: pick('last_name', 'lastName', 'lastname'),
     phone: pick('phone') || null,
     country: pick('country') || null,
     amount: amountRaw ? Number(amountRaw.replace(/[^\d.-]/g, '')) || null : null,
@@ -240,7 +271,12 @@ async function processGhlWebhookInner(
   );
   const program = programRows[0];
   if (!program || !program.is_active) {
-    const message = `program_id "${payload.programId}" no está mapeado o está inactivo.`;
+    // Se listan los válidos: el error casi siempre es una errata en GHL.
+    const { rows: validRows } = await client.query<{ program_id: string }>(
+      `SELECT program_id FROM app_billing.ghl_program_map WHERE is_active ORDER BY program_id`,
+    );
+    const valid = validRows.map((row) => row.program_id).join(', ');
+    const message = `program_id "${payload.programId}" no está mapeado o está inactivo. Válidos: ${valid}.`;
     await finalizeEvent(client, eventId, 'unknown_program', message, null, null, null);
     await notifyAdminsOfFailure(client, config, payload, 'unknown_program', message);
     return { status: 'unknown_program', message, eventId, userId: null, planId: null, expiresAt: null, httpStatus: 422 };
