@@ -90,6 +90,16 @@ export async function POST(request: Request) {
       const config = await withClient((client) =>
         withRoleContext(client, identity.userId, identity.role, async () => {
           await requireModulePermission(client, 'aprendizaje', 'create');
+          // El contenido de estos paquetes se sirve como HTML desde el dominio
+          // con sesión, así que subirlos equivale a publicar código en la
+          // plataforma. Se exige contenido:create (gestor/admin), que es quien
+          // tiene el editor de cursos; aprendizaje:create incluye a los advisors.
+          await requireModulePermission(client, 'contenido', 'create');
+        // El contenido de estos paquetes se sirve como HTML desde el dominio
+        // con sesión, así que subirlos equivale a publicar código en la
+        // plataforma. Se exige contenido:create (gestor/admin), que es quien
+        // tiene el editor de cursos; aprendizaje:create incluye a los advisors.
+        await requireModulePermission(client, 'contenido', 'create');
           return getR2StorageConfig(client, identity.userId);
         }),
       );
@@ -162,6 +172,11 @@ export async function POST(request: Request) {
     const config = await withClient((client) =>
       withRoleContext(client, identity.userId, identity.role, async () => {
         await requireModulePermission(client, 'aprendizaje', 'create');
+        // El contenido de estos paquetes se sirve como HTML desde el dominio
+        // con sesión, así que subirlos equivale a publicar código en la
+        // plataforma. Se exige contenido:create (gestor/admin), que es quien
+        // tiene el editor de cursos; aprendizaje:create incluye a los advisors.
+        await requireModulePermission(client, 'contenido', 'create');
         return getR2StorageConfig(client, identity.userId);
       }),
     );

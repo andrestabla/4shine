@@ -29,6 +29,13 @@ export async function GET(
       return segment;
     }
   });
+  // Ningún segmento puede ser "." ni "..": fetch los normaliza al construir la
+  // URL, así que un ".." colado aquí sacaba la petición fuera del prefijo
+  // permitido y servía cualquier objeto del bucket.
+  if (segments.some((segment) => segment === '.' || segment === '..')) {
+    return new Response('Not Found', { status: 404 });
+  }
+
   let filePath = segments.join('/');
 
   if (!PATH_RE.test(filePath)) {
@@ -113,12 +120,13 @@ export async function GET(
   const filename = segments[segments.length - 1] ?? '';
   const ext = filename.includes('.') ? (filename.split('.').pop()?.toLowerCase() ?? '') : '';
 
-  // Treat as HTML: explicit content-type, .html/.htm, or extensionless (SCORM entry points)
+  // Solo se sirve como HTML lo que declara serlo o tiene extensión .html/.htm.
+  // Antes también entraba aquí cualquier archivo SIN extensión, ignorando su
+  // MIME real: bastaba subir un "payload" (sin punto) declarando image/png
+  // —que pasa la lista blanca— para que se ejecutara como página del dominio
+  // de 4Shine, con la sesión de quien abriera el enlace.
   const isHtml =
-    rawContentType.startsWith('text/html') ||
-    ext === 'html' ||
-    ext === 'htm' ||
-    ext === '';
+    rawContentType.startsWith('text/html') || ext === 'html' || ext === 'htm';
 
   if (isHtml) {
     const text = await r2Res.text();

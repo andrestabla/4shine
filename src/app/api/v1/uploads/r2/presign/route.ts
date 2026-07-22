@@ -130,10 +130,22 @@ export async function POST(request: Request) {
     );
   }
 
+  // El moduleCode lo elige el CLIENTE y no estaba atado al pathPrefix: bastaba
+  // pedir permiso sobre un módulo cualquiera (p. ej. perfil:update, que tiene
+  // todo el mundo para su avatar) y escribir igualmente bajo aprendizaje/scorm.
+  // Ese prefijo se sirve como HTML desde el dominio con sesión, así que era la
+  // vía para colocar un XSS almacenado. Se exige permiso de contenido.
+  const normalizedPrefix = (pathPrefix ?? '').toLowerCase();
+  const isServedAsHtmlPrefix =
+    normalizedPrefix.startsWith('aprendizaje/scorm') || normalizedPrefix.startsWith('aprendizaje/html');
+
   try {
     const data = await withClient((client) =>
       withRoleContext(client, identity.userId, identity.role, async () => {
         await requireModulePermission(client, moduleCode, action);
+        if (isServedAsHtmlPrefix) {
+          await requireModulePermission(client, 'contenido', 'create');
+        }
 
         const config = await getR2StorageConfig(client, identity.userId);
         if (isDiscoveryContextUpload) {

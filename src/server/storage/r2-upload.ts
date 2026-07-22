@@ -78,7 +78,11 @@ function normalizePrefix(value: string | undefined): string {
   const segments = value
     .split('/')
     .map((segment) => sanitizeSegment(segment.trim()))
-    .filter((segment) => segment.length > 0);
+    // sanitizeSegment conserva el punto (hace falta para las extensiones), así
+    // que "." y ".." sobrevivían y permitían salir del prefijo: con
+    // pathPrefix "aprendizaje/scorm/x/../../../otro" se escribía en cualquier
+    // parte del bucket.
+    .filter((segment) => segment.length > 0 && segment !== '.' && segment !== '..');
 
   return segments.length > 0 ? segments.join('/') : 'uploads';
 }

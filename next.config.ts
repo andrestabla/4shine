@@ -22,9 +22,37 @@ const securityHeaders = [
   },
   // XSS protection for legacy browsers
   { key: "X-XSS-Protection", value: "1; mode=block" },
+  // CSP en modo REPORTE: no bloquea nada todavía, solo registra en la consola
+  // del navegador lo que incumpliría la política. Es el paso previo obligado
+  // antes de aplicarla de verdad: la plataforma usa estilos en línea, Google
+  // Fonts, R2, Pusher y OpenAI, y una CSP estricta de golpe rompería media
+  // interfaz. Cuando los informes salgan limpios, se cambia la cabecera a
+  // "Content-Security-Policy" y empieza a bloquear.
+  {
+    key: "Content-Security-Policy-Report-Only",
+    value: [
+      "default-src 'self'",
+      // 'unsafe-inline'/'unsafe-eval' son necesarios hoy por Next y los estilos
+      // en línea; el objetivo a medio plazo es sustituirlos por nonces.
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "font-src 'self' data: https://fonts.gstatic.com",
+      "img-src 'self' data: blob: https:",
+      "media-src 'self' blob: https:",
+      "connect-src 'self' https: wss:",
+      // Los paquetes SCORM se embeben desde el propio origen.
+      "frame-src 'self' https://www.youtube.com https://player.vimeo.com",
+      "frame-ancestors 'self'",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+    ].join("; "),
+  },
 ];
 
 const nextConfig: NextConfig = {
+  // No anunciar el framework: facilita dirigir exploits de versión.
+  poweredByHeader: false,
   async redirects() {
     return [
       // La página de afiliados/advisers vive ahora en /advisers
