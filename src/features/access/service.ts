@@ -106,6 +106,31 @@ async function readPlanTypeCode(client: PoolClient, userId: string): Promise<Pla
   return rows[0]?.plan_type ?? null;
 }
 
+/**
+ * Fecha desde la que se cuentan las semanas del Camino del líder.
+ *
+ * Se prefiere el inicio de la suscripción (el día que realmente arrancó el
+ * programa) y se cae al alta del usuario cuando no hay plan: un líder invitado
+ * o sin suscripción también necesita una referencia temporal.
+ */
+async function readProgramStartedAt(
+  client: PoolClient,
+  userId: string,
+): Promise<string | null> {
+  const { rows } = await client.query<{ started_at: string | null }>(
+    `
+      SELECT COALESCE(up.subscription_started_at, u.created_at)::text AS started_at
+      FROM app_core.users u
+      LEFT JOIN app_core.user_profiles up ON up.user_id = u.user_id
+      WHERE u.user_id = $1::uuid
+      LIMIT 1
+    `,
+    [userId],
+  );
+
+  return rows[0]?.started_at ?? null;
+}
+
 interface ActivePlanRow {
   plan_id: string;
   plan_code: string;
@@ -295,6 +320,7 @@ export async function getViewerAccessState(
       return {
         viewerTier: "staff",
         planTypeCode: null,
+        programStartedAt: null,
         activePlan: null,
         planFeatures: {},
         hasProgramSubscription: false,
@@ -325,6 +351,7 @@ export async function getViewerAccessState(
     return {
       viewerTier: "staff",
       planTypeCode: null,
+      programStartedAt: null,
       activePlan: null,
       planFeatures: {},
       hasProgramSubscription: true,
@@ -351,11 +378,12 @@ export async function getViewerAccessState(
     };
   }
 
-  const [planTypeCode, purchases, planWithFeatures, catalog] = await Promise.all([
+  const [planTypeCode, purchases, planWithFeatures, catalog, programStartedAt] = await Promise.all([
     readPlanTypeCode(client, actor.userId),
     listActivePurchases(client, actor.userId),
     readActivePlanWithFeatures(client, actor.userId),
     catalogPromise,
+    readProgramStartedAt(client, actor.userId),
   ]);
 
   const purchasedProductCodes = Array.from(
@@ -452,6 +480,7 @@ export async function getViewerAccessState(
   return {
     viewerTier: hasProgramSubscription ? "subscriber" : "open_leader",
     planTypeCode,
+    programStartedAt,
     activePlan,
     planFeatures,
     hasProgramSubscription,

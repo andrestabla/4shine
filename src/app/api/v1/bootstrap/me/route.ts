@@ -9,6 +9,7 @@ function invitedViewerAccess(): ViewerAccessState {
   return {
     viewerTier: 'staff',
     planTypeCode: null,
+    programStartedAt: null,
     activePlan: null,
     planFeatures: {},
     hasProgramSubscription: false,

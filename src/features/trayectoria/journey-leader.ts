@@ -31,6 +31,9 @@ export interface JourneyPhaseDefinition {
   shortTitle: string;
   subtitle: string;
   weekRangeLabel: string;
+  /** Semanas del cronograma oficial que cubre la fase (ambas inclusive). */
+  weekStart: number;
+  weekEnd: number;
   transformationMoment: string;
   milestoneCodes: JourneyMilestoneCode[];
   goal: string;
@@ -344,6 +347,8 @@ export const LEADER_JOURNEY_PHASES: JourneyPhaseDefinition[] = [
     shortTitle: "Diagnóstico inicial",
     subtitle: "Leer el punto de partida y activar la ruta de transformación.",
     weekRangeLabel: "Semana 1",
+    weekStart: 1,
+    weekEnd: 1,
     transformationMoment: "Descubrimiento",
     milestoneCodes: ["discovery"],
     goal: "Completa el diagnóstico 4Shine y descarga tu lectura ejecutiva.",
@@ -362,6 +367,8 @@ export const LEADER_JOURNEY_PHASES: JourneyPhaseDefinition[] = [
     shortTitle: "Esencia",
     subtitle: "Autoliderazgo, identidad y regulación para sostener decisiones más conscientes.",
     weekRangeLabel: "Semanas 2-8",
+    weekStart: 2,
+    weekEnd: 8,
     transformationMoment: "Shine Within (Esencia)",
     milestoneCodes: ["wb1", "wb2", "wb3"],
     goal: "Trabaja tu base interna con WB1, WB2 y WB3 para llegar a una visión más clara de ti.",
@@ -380,6 +387,8 @@ export const LEADER_JOURNEY_PHASES: JourneyPhaseDefinition[] = [
     shortTitle: "Presencia estratégica",
     subtitle: "Narrativa, comunicación e impacto visible en tu entorno.",
     weekRangeLabel: "Semanas 9-14",
+    weekStart: 9,
+    weekEnd: 14,
     transformationMoment: "Shine Out (Presencia Estratégica)",
     milestoneCodes: ["wb4", "wb5", "wb6"],
     goal: "Convierte tu identidad en presencia ejecutiva con narrativa, voz y comunicación de alto impacto.",
@@ -398,6 +407,8 @@ export const LEADER_JOURNEY_PHASES: JourneyPhaseDefinition[] = [
     shortTitle: "Ecosistema relacional",
     subtitle: "Estrategia, red y toma de decisiones con lectura de sistema.",
     weekRangeLabel: "Semanas 15-20",
+    weekStart: 15,
+    weekEnd: 20,
     transformationMoment: "Shine Up (Ecosistema Relacional)",
     milestoneCodes: ["wb7", "wb8"],
     goal: "Expande tu criterio estratégico con visibilidad, red y decisiones más estructuradas.",
@@ -416,6 +427,8 @@ export const LEADER_JOURNEY_PHASES: JourneyPhaseDefinition[] = [
     shortTitle: "Legado",
     subtitle: "Marca, visión y expansión del liderazgo más allá del rol actual.",
     weekRangeLabel: "Semanas 21-24",
+    weekStart: 21,
+    weekEnd: 24,
     transformationMoment: "Shine Beyond (El Legado)",
     milestoneCodes: ["wb9", "wb10"],
     goal: "Cierra el programa con marca ejecutiva y una visión estratégica personal accionable.",
@@ -464,3 +477,31 @@ export function computeRouteProgressPercent(
   return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
 }
 
+
+
+/** Total de semanas del Camino del líder. */
+export const LEADER_JOURNEY_TOTAL_WEEKS = 24;
+
+/**
+ * Semana de calendario en la que va el líder, contada desde el inicio de su
+ * programa. Devuelve null si no hay fecha de inicio.
+ *
+ * Es DISTINTA del avance: mide tiempo transcurrido, no trabajo hecho. La
+ * comparación entre ambas es justamente lo que revela si alguien se quedó atrás.
+ * No se acota a 24: pasar de 24 es información valiosa, no un error.
+ */
+export function calculateCalendarWeek(programStartedAt: string | null): number | null {
+  if (!programStartedAt) return null;
+  const start = new Date(programStartedAt);
+  if (Number.isNaN(start.getTime())) return null;
+  const elapsedDays = (Date.now() - start.getTime()) / 86_400_000;
+  if (elapsedDays < 0) return 1;
+  return Math.floor(elapsedDays / 7) + 1;
+}
+
+/** Fase que le correspondería a esa semana según el cronograma oficial. */
+export function phaseForCalendarWeek(week: number): JourneyPhaseDefinition {
+  const phase = LEADER_JOURNEY_PHASES.find((item) => week >= item.weekStart && week <= item.weekEnd);
+  // Más allá de la semana 24 el cronograma terminó: corresponde la última fase.
+  return phase ?? LEADER_JOURNEY_PHASES[LEADER_JOURNEY_PHASES.length - 1];
+}

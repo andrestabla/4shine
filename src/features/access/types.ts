@@ -69,6 +69,11 @@ export interface ActivePlanInfo {
 export interface ViewerAccessState {
   viewerTier: ViewerAccessTier;
   planTypeCode: PlanTypeCode;
+  /**
+   * Inicio del programa para contar las semanas del Camino del líder
+   * (subscription_started_at, o el alta del usuario si no hay plan).
+   */
+  programStartedAt: string | null;
   /** Plan activo del líder (null si no se ha asignado). */
   activePlan: ActivePlanInfo | null;
   /**

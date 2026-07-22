@@ -48,6 +48,9 @@ import {
 import {
   LEADER_JOURNEY_PHASES,
   LEADER_JOURNEY_STEPS,
+  LEADER_JOURNEY_TOTAL_WEEKS,
+  calculateCalendarWeek,
+  phaseForCalendarWeek,
   type JourneyMilestoneCode,
   type JourneyPhaseDefinition,
   type JourneyWeekStep,
@@ -137,24 +140,6 @@ function buildMilestoneProgressMap(
   }
 
   return milestoneProgress;
-}
-
-function calculateCurrentJourneyWeek(
-  milestoneProgress: Map<JourneyMilestoneCode, number>,
-): number {
-  let completedStepUnits = 0;
-
-  for (const step of LEADER_JOURNEY_STEPS) {
-    const progress = milestoneProgress.get(step.milestoneCode) ?? 0;
-    completedStepUnits += progress / 100;
-  }
-
-  const normalized = Math.max(
-    1,
-    Math.min(24, Math.round(completedStepUnits)),
-  );
-
-  return normalized;
 }
 
 function buildLeaderPhaseModels(
@@ -442,15 +427,21 @@ export default function TrayectoriaPage() {
     currentRole === "lider"
       ? buildLeaderPhaseModels(workbooks, discoverySession)
       : buildFallbackPhaseModels();
-  const currentJourneyWeek =
-    currentRole === "lider"
-      ? calculateCurrentJourneyWeek(
-          buildMilestoneProgressMap(workbooks, discoverySession),
-        )
-      : 1;
   const activePhase =
     leaderPhaseModels.find((phase) => phase.status === "current") ??
     leaderPhaseModels[leaderPhaseModels.length - 1];
+
+  // Semana REAL de calendario desde que arrancó su programa. Es distinta del
+  // avance: currentJourneyWeek cuenta hitos completados, no tiempo. Mostrar las
+  // dos juntas es lo único que permite ver si alguien se quedó atrás — antes la
+  // etiqueta decía "Semana" pero medía avance, y un líder con cuatro meses en la
+  // plataforma leía "Semana 1" y concluía que el dato estaba roto.
+  const calendarWeek = calculateCalendarWeek(viewerAccess?.programStartedAt ?? null);
+  const expectedPhase = phaseForCalendarWeek(calendarWeek ?? 1);
+  const activePhaseIndex = LEADER_JOURNEY_PHASES.findIndex((p) => p.id === activePhase?.id);
+  const expectedPhaseIndex = LEADER_JOURNEY_PHASES.findIndex((p) => p.id === expectedPhase.id);
+  const isBehindSchedule =
+    calendarWeek !== null && activePhaseIndex >= 0 && activePhaseIndex < expectedPhaseIndex;
   const completedPhases = leaderPhaseModels.filter(
     (phase) => phase.status === "completed",
   ).length;
@@ -480,9 +471,20 @@ export default function TrayectoriaPage() {
       hint: "Tramos estratégicos completados",
     },
     {
+      // Antes esta tarjeta mostraba currentJourneyWeek (que cuenta hitos, no
+      // tiempo) rotulado como "Semanas": un líder con meses en la plataforma
+      // veía "Semana 1" y daba el dato por roto. Ahora muestra el calendario real.
       label: "Semanas",
-      value: `${currentJourneyWeek}/24`,
-      hint: "Punto actual del journey oficial",
+      value:
+        calendarWeek === null
+          ? "—"
+          : `${Math.min(calendarWeek, LEADER_JOURNEY_TOTAL_WEEKS)}/${LEADER_JOURNEY_TOTAL_WEEKS}`,
+      hint:
+        calendarWeek === null
+          ? "Sin fecha de inicio registrada"
+          : calendarWeek > LEADER_JOURNEY_TOTAL_WEEKS
+            ? `Semana ${calendarWeek} desde tu inicio`
+            : "Semanas desde que iniciaste",
     },
     {
       label: "Workbooks",
@@ -881,17 +883,25 @@ export default function TrayectoriaPage() {
 
       {activePhase && (
         <ModuleGuidanceBanner
-          tone="amber"
+          tone={isBehindSchedule ? "amber" : "emerald"}
           kicker="Tu ruta"
           title={
             completedPhases >= 5
               ? "¡Completaste tu ruta de 24 semanas!"
-              : `Estás en la fase ${activePhase.title} · Semana ${currentJourneyWeek}/24`
+              : calendarWeek === null
+                ? `Estás en la fase ${activePhase.title}`
+                : calendarWeek > LEADER_JOURNEY_TOTAL_WEEKS
+                  ? `Vas en la semana ${calendarWeek} en la plataforma · el programa dura ${LEADER_JOURNEY_TOTAL_WEEKS} semanas`
+                  : `Esta es tu semana ${calendarWeek} de ${LEADER_JOURNEY_TOTAL_WEEKS} en la plataforma`
           }
           message={
             completedPhases >= 5
               ? "Revisa tus hitos y sigue consolidando tu liderazgo."
-              : `Tu siguiente paso: ${activePhase.primaryLabel}.`
+              : calendarWeek === null
+                ? `Tu siguiente paso: ${activePhase.primaryLabel}.`
+                : isBehindSchedule
+                  ? `Deberías estar en la fase ${expectedPhase.title}, y vas en ${activePhase.title}. Retomar es más fácil de lo que parece: ${activePhase.primaryLabel}.`
+                  : `Deberías estar en la fase ${expectedPhase.title} — vas al día. Tu siguiente paso: ${activePhase.primaryLabel}.`
           }
           cta={{ label: activePhase.primaryLabel, href: activePhase.primaryHref }}
         />
