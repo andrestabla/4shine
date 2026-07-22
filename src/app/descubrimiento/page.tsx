@@ -4,6 +4,7 @@ import { MarketingShell } from "@/components/marketing/MarketingShell";
 import { loadServerBranding } from "@/lib/server-branding";
 import { BlockRenderer } from "@/components/site-builder/BlockRenderer";
 import { getPublicPageByKey } from "@/lib/site-pages";
+import { getPublicDiscoveryProduct } from "@/lib/server-discovery-product";
 
 import {
   DiscoveryRadarChart,
@@ -81,9 +82,12 @@ const SAMPLE_REPORT = `Tu perfil muestra una orientación estratégica sólida �
 Shine Out es el área con mayor potencial de desarrollo: la brecha entre tu visión (Up, 81) y tu capacidad de comunicarla con impacto (Out, 58) es frecuente en líderes técnicos que han crecido por resultados más que por influencia directa. Desarrollar deliberadamente tu presencia ejecutiva y comunicación estratégica es la palanca de mayor retorno en esta etapa de tu carrera.`;
 
 export default async function DescubrimientoPublicPage() {
-  const [branding, builderPage] = await Promise.all([
+  // Precio y checkout salen del catálogo (Admin → Planes → Productos), no
+  // escritos aquí: la página anunciaba $50 mientras el catálogo cobraba $15.
+  const [branding, builderPage, discoveryProduct] = await Promise.all([
     loadServerBranding(),
     getPublicPageByKey('descubrimiento'),
+    getPublicDiscoveryProduct(),
   ]);
   if (builderPage && !builderPage.isVisible) notFound();
   if (builderPage?.useBuilder && builderPage.sections.length > 0) {
@@ -154,11 +158,11 @@ export default async function DescubrimientoPublicPage() {
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link
-                  href="/acceso"
+                  href={discoveryProduct.checkoutUrl}
                   className="inline-flex items-center gap-2 rounded-full px-7 py-3.5 text-sm font-extrabold shadow-[0_4px_20px_rgba(0,0,0,0.25)] transition hover:-translate-y-0.5 hover:opacity-90"
                   style={{ background: 'var(--brand-accent)', color: 'var(--brand-on-accent)' }}
                 >
-                  Activar diagnóstico · $50 USD
+                  {discoveryProduct.ctaLabel} · {discoveryProduct.priceLabel} {discoveryProduct.currencyCode}
                 </Link>
                 <Link
                   href="#metodologia"
@@ -254,11 +258,11 @@ export default async function DescubrimientoPublicPage() {
             </ul>
             <div className="mt-7 border-t border-white/10 pt-6">
               <Link
-                href="/acceso"
+                href={discoveryProduct.checkoutUrl}
                 className="block rounded-full py-3 text-center text-sm font-extrabold transition hover:opacity-90"
                 style={{ background: 'var(--brand-accent)', color: 'var(--brand-on-accent)' }}
               >
-                Activar diagnóstico · $50 USD
+                {discoveryProduct.ctaLabel} · {discoveryProduct.priceLabel} {discoveryProduct.currencyCode}
               </Link>
             </div>
           </div>
@@ -513,11 +517,11 @@ export default async function DescubrimientoPublicPage() {
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link
-                  href="/acceso"
+                  href={discoveryProduct.checkoutUrl}
                   className="inline-flex items-center gap-2 rounded-full px-8 py-3.5 text-sm font-extrabold shadow-[0_4px_24px_rgba(0,0,0,0.25)] transition hover:-translate-y-0.5 hover:opacity-90"
                   style={{ background: 'var(--brand-accent)', color: 'var(--brand-on-accent)' }}
                 >
-                  Activar diagnóstico
+                  {discoveryProduct.ctaLabel}
                 </Link>
                 <Link
                   href="/planes-precios"
@@ -543,13 +547,13 @@ export default async function DescubrimientoPublicPage() {
                   WebkitTextFillColor: "transparent",
                 }}
               >
-                $50
+                {discoveryProduct.priceLabel}
               </p>
               <p
                 className="mt-1 text-sm font-semibold"
                 style={{ color: 'color-mix(in srgb, var(--brand-accent) 40%, white)' }}
               >
-                USD · Pago único
+                {discoveryProduct.currencyCode} · Pago único
               </p>
             </div>
           </div>
