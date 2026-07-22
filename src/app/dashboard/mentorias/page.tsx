@@ -36,6 +36,7 @@ import { PageTitle } from '@/components/dashboard/PageTitle';
 import { StatGrid } from '@/components/dashboard/StatGrid';
 import { ModuleGuidanceBanner } from '@/components/dashboard/ModuleGuidanceBanner';
 import { ModuleLockedScreen } from '@/components/access/ModuleLockedScreen';
+import { useModuleVisibility } from '@/context/ModuleVisibilityContext';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useBranding } from '@/context/BrandingContext';
 import { useUser } from '@/context/UserContext';
@@ -345,6 +346,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
   const { tokens: brandingTokens } = useBranding();
   const tz = brandingTokens.layout.timezone || undefined;
   const { can, currentRole, currentUser, refreshBootstrap, viewerAccess } = useUser();
+  const { isModuleEnabled } = useModuleVisibility();
   const [overview, setOverview] = React.useState<MentorshipOverviewRecord | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [submittingProgram, setSubmittingProgram] = React.useState(false);
@@ -614,6 +616,13 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
   // decide por su propia bandera.
   const canUseOneOnOne =
     currentRole !== 'lider' || viewerAccess?.canAccessMentoring1on1 !== false;
+
+  // Visibilidad configurada en Administración → Módulos. Un submódulo apagado
+  // debe DESAPARECER para el usuario final, no solo bloquear su ruta: si la
+  // pestaña sigue visible, el usuario la pulsa y lo redirigen — la confusión que
+  // se quiere evitar. El admin sí las ve, para poder gestionarlas.
+  const canSeeSubmodule = (key: string) =>
+    currentRole === 'admin' || isModuleEnabled(key);
   const mentorshipOffers = filterCommercialProducts(viewerAccess?.catalog, {
     groups: ['program', 'mentoring_pack'],
   });
@@ -1369,6 +1378,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
 
   const sectionTabs = (
     <div className="inline-flex rounded-[16px] border border-[var(--app-border)] bg-white p-1">
+      {canSeeSubmodule('mentorias.grupales') && (
       <Link
         href="/dashboard/mentorias/grupales"
         className={clsx(
@@ -1380,7 +1390,8 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
       >
         Sesiones grupales
       </Link>
-      {canUseOneOnOne && (
+      )}
+      {canUseOneOnOne && canSeeSubmodule('mentorias.programa') && (
         <Link
           href="/dashboard/mentorias/programa"
           className={clsx(
@@ -1393,6 +1404,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
           Mentorías del programa
         </Link>
       )}
+      {canSeeSubmodule('mentorias.comprar') && (
       <Link
         href="/dashboard/mentorias/comprar"
         className={clsx(
@@ -1404,6 +1416,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
       >
         Comprar sesiones
       </Link>
+      )}
     </div>
   );
 

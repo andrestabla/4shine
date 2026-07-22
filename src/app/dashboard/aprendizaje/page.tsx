@@ -40,6 +40,7 @@ import { ModuleGuidanceBanner } from "@/components/dashboard/ModuleGuidanceBanne
 import { useAppDialog } from "@/components/ui/AppDialogProvider";
 import { R2UploadButton } from "@/components/ui/R2UploadButton";
 import { useUser } from "@/context/UserContext";
+import { useModuleVisibility } from "@/context/ModuleVisibilityContext";
 import { filterCommercialProducts } from "@/features/access/catalog";
 import {
   getLearningResourceDetail,
@@ -123,6 +124,13 @@ const LEARNING_TABS: LearningTabItem[] = [
     adminOnly: true,
   },
 ];
+
+// Pestañas que corresponden a un submódulo del catálogo de visibilidad
+// (Administración → Módulos). Apagarlas ahí las oculta al usuario final.
+const TAB_MODULE_KEY: Partial<Record<LearningTabKey, string>> = {
+  recursos: "aprendizaje.recursos",
+  workbooks: "aprendizaje.workbooks",
+};
 
 function isLearningTabKey(value: string | null): value is LearningTabKey {
   return (
@@ -228,6 +236,7 @@ function workbookVisualClasses(sequenceNo: number): string {
 
 export default function AprendizajePage() {
   const { currentRole, refreshBootstrap, viewerAccess } = useUser();
+  const { isModuleEnabled } = useModuleVisibility();
   const { alert, confirm } = useAppDialog();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -283,6 +292,15 @@ export default function AprendizajePage() {
     currentRole !== "lider" || viewerAccess?.canAccessProgramWorkbooks !== false;
   const showCoursesWall = currentRole === "lider" && !canUseCourses;
   const showWorkbooksWall = currentRole === "lider" && !canUseWorkbooks;
+
+  const canSeeLearningTab = (tab: LearningTabItem) => {
+    // Pestañas de solo-admin: únicamente gestor/admin.
+    if (tab.adminOnly && !isResourceManager) return false;
+    // Pestañas apagadas en el panel: ocultas para el usuario final, no el admin.
+    const moduleKey = TAB_MODULE_KEY[tab.key];
+    if (moduleKey && currentRole !== "admin" && !isModuleEnabled(moduleKey)) return false;
+    return true;
+  };
   const programOffers = filterCommercialProducts(viewerAccess?.catalog, {
     codes: ["program_4shine"],
   });
@@ -290,8 +308,20 @@ export default function AprendizajePage() {
   const editResourceId = searchParams.get("edit");
   const activeLearningTab = React.useMemo<LearningTabKey>(() => {
     const requestedTab = searchParams.get("tab");
-    return isLearningTabKey(requestedTab) ? requestedTab : "recursos";
-  }, [searchParams]);
+    const resolved: LearningTabKey = isLearningTabKey(requestedTab) ? requestedTab : "recursos";
+    // Si la pestaña pedida está apagada en el panel (para el usuario final),
+    // no renderizar su contenido aunque llegue por ?tab= en la URL: se repliega
+    // a la primera pestaña visible. El admin nunca cae aquí.
+    const isTabHidden = (key: LearningTabKey) => {
+      const moduleKey = TAB_MODULE_KEY[key];
+      return Boolean(moduleKey) && currentRole !== "admin" && !isModuleEnabled(moduleKey!);
+    };
+    if (!isTabHidden(resolved)) return resolved;
+    const fallback = LEARNING_TABS.find(
+      (tab) => (!tab.adminOnly || isResourceManager) && !isTabHidden(tab.key),
+    );
+    return fallback?.key ?? "recursos";
+  }, [searchParams, currentRole, isResourceManager, isModuleEnabled]);
   const isResourcesTab = activeLearningTab === "recursos";
   const isCoursesTab = activeLearningTab === "cursos";
   const isWorkbooksTab = activeLearningTab === "workbooks";
@@ -802,7 +832,7 @@ export default function AprendizajePage() {
         ) : null)}
 
       <nav className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 md:hidden">
-        {LEARNING_TABS.filter((tab) => !tab.adminOnly || isResourceManager).map((tab) => {
+        {LEARNING_TABS.filter(canSeeLearningTab).map((tab) => {
           const isActive = tab.key === activeLearningTab;
           const Icon =
             tab.key === "recursos"
@@ -831,7 +861,7 @@ export default function AprendizajePage() {
       </nav>
 
       <nav className={`hidden grid-cols-1 gap-3 md:grid ${isResourceManager ? "md:grid-cols-4" : "md:grid-cols-3"}`}>
-        {LEARNING_TABS.filter((tab) => !tab.adminOnly || isResourceManager).map((tab) => {
+        {LEARNING_TABS.filter(canSeeLearningTab).map((tab) => {
           const isActive = tab.key === activeLearningTab;
           const Icon =
             tab.key === "recursos"
