@@ -23,6 +23,8 @@ import {
   Sparkles,
   Tag,
   Trash2,
+  RotateCcw,
+  RefreshCcw,
   X,
 } from "lucide-react";
 import { CertificateBuilder, CertificateBuilderPreview } from "@/components/aprendizaje/CertificateBuilder";
@@ -51,6 +53,10 @@ import {
 } from "@/features/aprendizaje/client";
 import {
   deleteContent,
+  listContent,
+  purgeContent,
+  restoreContent,
+  type ContentItemRecord,
   type ContentStatus,
   type ContentType,
 } from "@/features/content/client";
@@ -79,7 +85,7 @@ const RESOURCE_STATUS_OPTIONS: ContentStatus[] = [
 ];
 const RESOURCE_PAGE_SIZE = 18;
 
-type LearningTabKey = "recursos" | "cursos" | "workbooks" | "certificados";
+type LearningTabKey = "recursos" | "cursos" | "workbooks" | "certificados" | "papelera";
 
 interface LearningTabItem {
   key: LearningTabKey;
@@ -110,10 +116,22 @@ const LEARNING_TABS: LearningTabItem[] = [
     description: "Plantillas editables que se adjuntan a cursos completados.",
     adminOnly: true,
   },
+  {
+    key: "papelera",
+    label: "Papelera",
+    description: "Contenidos y cursos eliminados. Puedes restaurarlos o borrarlos definitivamente.",
+    adminOnly: true,
+  },
 ];
 
 function isLearningTabKey(value: string | null): value is LearningTabKey {
-  return value === "recursos" || value === "cursos" || value === "workbooks" || value === "certificados";
+  return (
+    value === "recursos" ||
+    value === "cursos" ||
+    value === "workbooks" ||
+    value === "certificados" ||
+    value === "papelera"
+  );
 }
 
 // Constantes, helpers y sub-componentes del editor de cursos/recursos viven
@@ -267,6 +285,7 @@ export default function AprendizajePage() {
   const isCoursesTab = activeLearningTab === "cursos";
   const isWorkbooksTab = activeLearningTab === "workbooks";
   const isCertificadosTab = activeLearningTab === "certificados";
+  const isPapeleraTab = activeLearningTab === "papelera";
 
   const showError = React.useCallback(
     async (fallbackMessage: string, cause: unknown) => {
@@ -396,6 +415,69 @@ export default function AprendizajePage() {
       }
     },
     [confirm, loadModule, showError],
+  );
+
+  // ─── Papelera ──────────────────────────────────────────────────────────────
+  // Reutiliza el borrado lógico que ya existía en el backend (content_items
+  // .deleted_at) y sus endpoints de restaurar y purgar.
+  const [trashedItems, setTrashedItems] = React.useState<ContentItemRecord[]>([]);
+  const [trashLoading, setTrashLoading] = React.useState(false);
+  const [trashBusyId, setTrashBusyId] = React.useState<string | null>(null);
+
+  const loadTrash = React.useCallback(async () => {
+    setTrashLoading(true);
+    try {
+      setTrashedItems(await listContent("aprendizaje", { trashed: true }));
+    } catch (error) {
+      await showError("No se pudo cargar la papelera", error);
+    } finally {
+      setTrashLoading(false);
+    }
+  }, [showError]);
+
+  React.useEffect(() => {
+    if (isPapeleraTab) void loadTrash();
+  }, [isPapeleraTab, loadTrash]);
+
+  const onRestoreTrashed = React.useCallback(
+    async (item: ContentItemRecord) => {
+      setTrashBusyId(item.contentId);
+      try {
+        await restoreContent(item.contentId);
+        await loadTrash();
+        // El listado activo cambia al restaurar: refrescarlo evita que el
+        // contenido reaparezca solo tras recargar la página a mano.
+        void loadModule();
+      } catch (error) {
+        await showError("No se pudo restaurar", error);
+      } finally {
+        setTrashBusyId(null);
+      }
+    },
+    [loadTrash, loadModule, showError],
+  );
+
+  const onPurgeTrashed = React.useCallback(
+    async (item: ContentItemRecord) => {
+      const accepted = await confirm({
+        title: "Eliminar definitivamente",
+        message: `Esto borra "${item.title}" de forma permanente e irreversible, junto con su progreso y comentarios. ¿Continuar?`,
+        confirmText: "Eliminar para siempre",
+        cancelText: "Cancelar",
+        tone: "error",
+      });
+      if (!accepted) return;
+      setTrashBusyId(item.contentId);
+      try {
+        await purgeContent(item.contentId);
+        await loadTrash();
+      } catch (error) {
+        await showError("No se pudo eliminar definitivamente", error);
+      } finally {
+        setTrashBusyId(null);
+      }
+    },
+    [confirm, loadTrash, showError],
   );
 
   React.useEffect(() => {
@@ -644,7 +726,7 @@ export default function AprendizajePage() {
           {isOpenLeader ? (
             <span className="app-chip-soft">Cuenta free</span>
           ) : null}
-          {isResourceManager && !isWorkbooksTab && !isCertificadosTab ? (
+          {isResourceManager && !isWorkbooksTab && !isCertificadosTab && !isPapeleraTab ? (
             isResourcesTab ? (
               <>
                 <button
@@ -1030,6 +1112,64 @@ export default function AprendizajePage() {
                   )}
                 </>
               ) : null}
+            </section>
+          )}
+
+          {isPapeleraTab && isResourceManager && (
+            <section className="app-panel p-5 sm:p-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="app-section-kicker">Papelera</p>
+                  <p className="mt-1 text-sm text-[var(--app-muted)]">
+                    Contenidos y cursos eliminados. Siguen ocultos para los usuarios hasta que los
+                    restaures; nada se borra de verdad hasta que lo elimines definitivamente.
+                  </p>
+                </div>
+                <button type="button" className="app-button-secondary" onClick={() => void loadTrash()}>
+                  <RefreshCcw size={15} /> Actualizar
+                </button>
+              </div>
+
+              <div className="mt-5">
+                {trashLoading ? (
+                  <p className="py-8 text-center text-sm text-[var(--app-muted)]">Cargando papelera…</p>
+                ) : trashedItems.length === 0 ? (
+                  <EmptyState message="La papelera está vacía. Lo que elimines desde Contenidos libres o Cursos aparecerá aquí." />
+                ) : (
+                  <ul className="space-y-3">
+                    {trashedItems.map((item) => (
+                      <li
+                        key={item.contentId}
+                        className="flex flex-wrap items-center gap-4 rounded-[16px] border border-[var(--app-border)] bg-white p-4"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-semibold text-[var(--app-ink)]">{item.title}</p>
+                          <p className="mt-0.5 text-xs text-[var(--app-muted)]">
+                            {item.contentType} · {item.category}
+                            {item.deletedAt ? ` · eliminado el ${formatDate(item.deletedAt)}` : ""}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          className="app-button-secondary"
+                          disabled={trashBusyId === item.contentId}
+                          onClick={() => void onRestoreTrashed(item)}
+                        >
+                          <RotateCcw size={15} /> Restaurar
+                        </button>
+                        <button
+                          type="button"
+                          className="app-button-secondary text-rose-700"
+                          disabled={trashBusyId === item.contentId}
+                          onClick={() => void onPurgeTrashed(item)}
+                        >
+                          <Trash2 size={15} /> Eliminar definitivamente
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </section>
           )}
 

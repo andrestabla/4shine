@@ -993,6 +993,11 @@ export async function listLearningResources(
           OR (COALESCE(ci.competency_metadata->>'audience', 'all') = 'ishiners' AND $11::text = 'mentor')
         )
         AND ($12::text IS NULL OR ci.library_location = $12)
+        -- El COUNT de arriba ya excluía la papelera pero este listado no, así que
+        -- los contenidos borrados seguían apareciendo como tarjetas fantasma:
+        -- el contador mostraba "1-4 de 3" y al intentar borrarlas otra vez el
+        -- UPDATE no encontraba fila viva ("Content item not found").
+        AND ci.deleted_at IS NULL
       ORDER BY
         ci.is_recommended DESC,
         CASE ci.status
@@ -1150,6 +1155,10 @@ export async function getLearningResourceDetail(
       ) comments ON comments.content_id = ci.content_id
       WHERE ci.content_id = $2
         AND ci.scope = ANY($3::text[])
+        -- Un contenido en la papelera desaparece del listado pero seguía
+        -- abriéndose por enlace directo. La restauración se hace desde la
+        -- papelera, así que aquí nunca debe servirse.
+        AND ci.deleted_at IS NULL
       LIMIT 1
     `,
     [actor.userId, contentId, LEARNING_SCOPES as readonly string[]],
