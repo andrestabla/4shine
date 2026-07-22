@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual, randomBytes } from 'node:crypto';
+import { createHash, createHmac, timingSafeEqual, randomBytes } from 'node:crypto';
 import type { PoolClient } from 'pg';
 import type { AuthUser } from '@/server/auth/types';
 import { requireModulePermission } from '@/server/auth/module-permissions';
@@ -148,27 +148,58 @@ function normalizeEventType(raw: string): string {
  * las nombra el editor de GHL por defecto.
  */
 export function normalizeGhlPayload(body: unknown): GhlNormalizedPayload | null {
-  if (!body || typeof body !== 'object') return null;
+  return parseGhlPayload(body).payload;
+}
+
+/**
+ * Igual que normalizeGhlPayload pero explicando POR QUÉ falló: qué campo falta
+ * y si llegó como etiqueta sin resolver. Sin esto, el mensaje de error obliga a
+ * adivinar cuál de los tres campos obligatorios es el que viene vacío.
+ */
+export function parseGhlPayload(body: unknown): {
+  payload: GhlNormalizedPayload | null;
+  missing: string[];
+  unresolved: string[];
+} {
+  if (!body || typeof body !== 'object') return { payload: null, missing: ['body'], unresolved: [] };
   const root = body as Record<string, unknown>;
   const custom =
     root.customData && typeof root.customData === 'object'
       ? (root.customData as Record<string, unknown>)
       : {};
+
+  const unresolved: string[] = [];
   const pick = (...keys: string[]): string => {
     for (const key of keys) {
       const value = str(custom[key]) || str(root[key]);
-      if (value) return value;
+      if (!value) continue;
+      // GHL envía la etiqueta literal cuando el workflow no tiene ese dato en
+      // contexto (p. ej. {{payment.transaction_id}} en un disparador sin pago).
+      // Tomarla como válida guardaría basura y rompería la idempotencia.
+      if (/^\{\{.*\}\}$/.test(value)) {
+        unresolved.push(`${keys[0]} = ${value}`);
+        continue;
+      }
+      return value;
     }
     return '';
   };
 
-  const transactionId = pick('transaction_id', 'transactionId', 'transactionid');
+  const transactionId = pick(
+    'transaction_id', 'transactionId', 'transactionid',
+    'order_id', 'orderId', 'payment_id', 'invoice_id',
+  );
   const eventType = normalizeEventType(pick('event_type', 'eventType', 'eventtype'));
   const email = pick('email', 'contact_email', 'contactEmail').toLowerCase();
-  if (!transactionId || !eventType || !email) return null;
+
+  const missing: string[] = [];
+  if (!transactionId) missing.push('transaction_id');
+  if (!eventType) missing.push('event_type');
+  if (!email) missing.push('email');
+  if (missing.length > 0) return { payload: null, missing, unresolved };
 
   const amountRaw = pick('amount', 'price');
-  return {
+  const payload: GhlNormalizedPayload = {
     transactionId,
     eventType,
     programId: pick('program_id', 'programId', 'programid'),
@@ -183,6 +214,7 @@ export function normalizeGhlPayload(body: unknown): GhlNormalizedPayload | null 
     mode: (pick('mode') || 'live').toLowerCase(),
     secret: pick('secret', 'webhook_secret') || null,
   };
+  return { payload, missing: [], unresolved };
 }
 
 // ─── Procesamiento del webhook ───────────────────────────────────────────────
@@ -238,12 +270,25 @@ async function processGhlWebhookInner(
   try {
     parsed = JSON.parse(rawBody);
   } catch {
-    return { status: 'invalid_payload', message: 'Cuerpo no es JSON válido.', eventId: null, userId: null, planId: null, expiresAt: null, httpStatus: 400 };
+    const eventId = await insertRawFailure(client, rawBody, 'Cuerpo no es JSON válido.');
+    return { status: 'invalid_payload', message: 'Cuerpo no es JSON válido.', eventId, userId: null, planId: null, expiresAt: null, httpStatus: 400 };
   }
 
-  const payload = normalizeGhlPayload(parsed);
+  const { payload, missing, unresolved } = parseGhlPayload(parsed);
   if (!payload) {
-    return { status: 'invalid_payload', message: 'Faltan transaction_id, event_type o email.', eventId: null, userId: null, planId: null, expiresAt: null, httpStatus: 400 };
+    const detail = [
+      `Faltan campos obligatorios: ${missing.join(', ')}.`,
+      unresolved.length > 0
+        ? `Etiquetas de GHL sin resolver (llegaron literales, el workflow no tiene ese dato en contexto): ${unresolved.join('; ')}.`
+        : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
+    // Se registra con el cuerpo crudo: sin esto no hay forma de ver qué envió
+    // GHL realmente y el diagnóstico se vuelve adivinanza.
+    const eventId = await insertRawFailure(client, rawBody, detail);
+    await notifyAdminsOfFailure(client, config, null, 'invalid_payload', detail);
+    return { status: 'invalid_payload', message: detail, eventId, userId: null, planId: null, expiresAt: null, httpStatus: 400 };
   }
 
   const signatureOk = verifyGhlSignature(rawBody, headers, payload.secret, config.webhookSecret);
@@ -334,6 +379,41 @@ async function insertEvent(
       resultMessage,
       JSON.stringify(redactPayload(payload)),
     ],
+  );
+  return rows[0]?.event_id ?? null;
+}
+
+/**
+ * Registra un intento cuyo cuerpo no se pudo interpretar, guardando el JSON tal
+ * como llegó para poder verlo en el panel. La transacción sintética es un hash
+ * del cuerpo: reintentos idénticos de GHL no llenan la bitácora de duplicados.
+ */
+async function insertRawFailure(
+  client: PoolClient,
+  rawBody: string,
+  message: string,
+): Promise<string | null> {
+  const fingerprint = createHash('sha256').update(rawBody).digest('hex').slice(0, 24);
+  let payloadJson: string;
+  try {
+    // Se guarda el cuerpo tal cual si es JSON; si no, envuelto como texto.
+    JSON.parse(rawBody);
+    payloadJson = rawBody.slice(0, 20_000);
+  } catch {
+    payloadJson = JSON.stringify({ raw_body: rawBody.slice(0, 20_000) });
+  }
+
+  const { rows } = await client.query<{ event_id: string }>(
+    `INSERT INTO app_billing.ghl_webhook_events
+       (transaction_id, event_type, signature_ok, status, result_message, payload, processed_at)
+     VALUES ($1, 'invalid_payload', false, 'invalid_payload', $2, $3::jsonb, now())
+     ON CONFLICT (transaction_id, event_type) DO UPDATE
+       SET result_message = EXCLUDED.result_message,
+           payload        = EXCLUDED.payload,
+           received_at    = now(),
+           processed_at   = now()
+     RETURNING event_id::text`,
+    [`invalid-${fingerprint}`, message, payloadJson],
   );
   return rows[0]?.event_id ?? null;
 }
