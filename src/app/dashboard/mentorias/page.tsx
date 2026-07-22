@@ -35,6 +35,7 @@ import { EmptyState } from '@/components/dashboard/EmptyState';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { StatGrid } from '@/components/dashboard/StatGrid';
 import { ModuleGuidanceBanner } from '@/components/dashboard/ModuleGuidanceBanner';
+import { ModuleLockedScreen } from '@/components/access/ModuleLockedScreen';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useBranding } from '@/context/BrandingContext';
 import { useUser } from '@/context/UserContext';
@@ -607,6 +608,12 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
     currentRole === 'lider' &&
     (viewerAccess?.viewerTier === 'open_leader' ||
       viewerAccess?.canAccessProgramMentorships === false);
+  // canAccessProgramMentorships es un OR entre 1:1 y grupales, así que abre el
+  // módulo entero a quien solo tiene grupales — el caso del Círculo VIP, que
+  // incluye grupales pero NO mentorías 1:1. La pestaña del programa (1:1) se
+  // decide por su propia bandera.
+  const canUseOneOnOne =
+    currentRole !== 'lider' || viewerAccess?.canAccessMentoring1on1 !== false;
   const mentorshipOffers = filterCommercialProducts(viewerAccess?.catalog, {
     groups: ['program', 'mentoring_pack'],
   });
@@ -1373,17 +1380,19 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
       >
         Sesiones grupales
       </Link>
-      <Link
-        href="/dashboard/mentorias/programa"
-        className={clsx(
-          'rounded-[12px] px-4 py-2 text-sm font-semibold',
-          activeSection === 'programa'
-            ? 'bg-[var(--brand-primary)] font-bold text-white'
-            : 'text-[var(--app-muted)]',
-        )}
-      >
-        Mentorías del programa
-      </Link>
+      {canUseOneOnOne && (
+        <Link
+          href="/dashboard/mentorias/programa"
+          className={clsx(
+            'rounded-[12px] px-4 py-2 text-sm font-semibold',
+            activeSection === 'programa'
+              ? 'bg-[var(--brand-primary)] font-bold text-white'
+              : 'text-[var(--app-muted)]',
+          )}
+        >
+          Mentorías del programa
+        </Link>
+      )}
       <Link
         href="/dashboard/mentorias/comprar"
         className={clsx(
@@ -3231,6 +3240,32 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
         />
         {sectionTabs}
         {groupSection}
+      </div>
+    );
+  }
+
+  // Ocultar la pestaña no basta: la ruta /dashboard/mentorias/programa es
+  // alcanzable escribiéndola. El muro explica por qué y ofrece la salida.
+  if (activeSection === 'programa' && !canUseOneOnOne) {
+    return (
+      <div className="space-y-8">
+        <PageTitle
+          title="Mentorías"
+          subtitle="Tu plan incluye sesiones grupales. Las mentorías 1:1 se adquieren aparte."
+        />
+        {sectionTabs}
+        <ModuleLockedScreen
+          moduleName="Mentorías 1:1"
+          moduleCode="mentorias"
+          icon={Video}
+          description="Tu plan actual incluye las sesiones grupales, pero no mentorías individuales con un advisor."
+          features={[
+            'Sesiones 1:1 de 90 minutos con el advisor que elijas.',
+            'Agenda según la disponibilidad publicada de cada advisor.',
+            'Seguimiento de tu plan de desarrollo entre sesión y sesión.',
+          ]}
+          footnote="También puedes comprar sesiones sueltas desde la pestaña «Comprar sesiones»."
+        />
       </div>
     );
   }
