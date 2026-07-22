@@ -4,6 +4,7 @@ import { authConfig } from './config';
 import { sha256 } from './crypto';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from './tokens';
 import type { AuthSessionTokens, AuthUser } from './types';
+import { SESSION_IDLE_LIMIT_MS } from '@/lib/session-timeout';
 
 function refreshExpiryDate(): Date {
   return new Date(Date.now() + authConfig.refreshTtlSeconds * 1000);
@@ -62,6 +63,7 @@ export async function rotateFromRefreshToken(
     refresh_token_hash: string;
     revoked_at: string | null;
     expires_at: string;
+    last_used_at: string | null;
   }>(
     `
       SELECT
@@ -71,7 +73,8 @@ export async function rotateFromRefreshToken(
         u.primary_role,
         rs.refresh_token_hash,
         rs.revoked_at::text,
-        rs.expires_at::text
+        rs.expires_at::text,
+        rs.last_used_at::text
       FROM app_auth.refresh_sessions rs
       JOIN app_core.users u ON u.user_id = rs.user_id
       WHERE rs.session_id = $1
@@ -97,6 +100,27 @@ export async function rotateFromRefreshToken(
 
   if (row.refresh_token_hash !== refreshTokenHash) {
     throw new Error('Refresh token mismatch');
+  }
+
+  // Inactividad verificada en el SERVIDOR. Antes la ventana se calculaba con un
+  // lastActivityAt que enviaba el cliente: omitirlo saltaba la comprobación, así
+  // que la sesión "caducaba por inactividad" solo para los usuarios honestos —
+  // quien robara la cookie la renovaba indefinidamente durante 30 días.
+  // Margen sobre la ventana nominal: el access token dura exactamente lo mismo
+  // que el límite de inactividad (30 min), así que un usuario activo que refresca
+  // justo al expirar caería en el borde y sería expulsado. El margen evita ese
+  // falso positivo sin perder el control: una cookie robada deja de renovarse a
+  // los ~35 minutos del último uso legítimo, en vez de durar 30 días.
+  const IDLE_GRACE_MS = 5 * 60 * 1000;
+  if (row.last_used_at) {
+    const idleMs = Date.now() - new Date(row.last_used_at).getTime();
+    if (idleMs >= SESSION_IDLE_LIMIT_MS + IDLE_GRACE_MS) {
+      await client.query(
+        `UPDATE app_auth.refresh_sessions SET revoked_at = now() WHERE session_id = $1`,
+        [claims.sessionId],
+      );
+      throw new Error('Refresh session idle expired');
+    }
   }
 
   const user: AuthUser = {
