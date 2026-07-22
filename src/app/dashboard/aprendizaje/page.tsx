@@ -272,6 +272,17 @@ export default function AprendizajePage() {
   const isResourceManager = currentRole === "gestor" || currentRole === "admin";
   const isOpenLeader =
     currentRole === "lider" && viewerAccess?.viewerTier === "open_leader";
+  // El muro de cada pestaña se decidía solo por isOpenLeader (líder SIN plan
+  // alguno), así que un líder CON un plan que no incluye workbooks o cursos
+  // —p. ej. el Círculo VIP— caía en la rama normal y veía la sección vacía en
+  // vez de un aviso claro. Estos flags atan cada pestaña a SU feature del plan.
+  // El dato ya está protegido en el servicio; esto alinea la interfaz.
+  const canUseCourses =
+    currentRole !== "lider" || viewerAccess?.canAccessAprendizajeCursos !== false;
+  const canUseWorkbooks =
+    currentRole !== "lider" || viewerAccess?.canAccessProgramWorkbooks !== false;
+  const showCoursesWall = currentRole === "lider" && !canUseCourses;
+  const showWorkbooksWall = currentRole === "lider" && !canUseWorkbooks;
   const programOffers = filterCommercialProducts(viewerAccess?.catalog, {
     codes: ["program_4shine"],
   });
@@ -888,7 +899,7 @@ export default function AprendizajePage() {
                 </div>
               ) : null}
 
-              {isOpenLeader && isCoursesTab ? (
+              {(isOpenLeader || showCoursesWall) && isCoursesTab ? (
                 <div className="rounded-[1.5rem] border border-[var(--app-border)] bg-white px-6 py-8 text-center">
                   <div
                     className="mx-auto flex h-12 w-12 items-center justify-center rounded-[0.9rem]"
@@ -937,7 +948,7 @@ export default function AprendizajePage() {
                 />
               ) : null}
 
-              {!isOpenLeader || isResourcesTab ? (
+              {isResourcesTab || (!isOpenLeader && !showCoursesWall) ? (
                 <>
                   <div
                     className={`grid grid-cols-1 gap-3 ${
@@ -1190,7 +1201,7 @@ export default function AprendizajePage() {
                 </p>
               </div>
 
-              {isOpenLeader ? (
+              {isOpenLeader || showWorkbooksWall ? (
                 <div className="rounded-[1.5rem] border border-[var(--app-border)] bg-white px-6 py-8 text-center">
                   <div
                     className="mx-auto flex h-12 w-12 items-center justify-center rounded-[0.9rem]"
