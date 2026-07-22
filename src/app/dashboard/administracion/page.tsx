@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { PageTitle } from '@/components/dashboard/PageTitle';
-import { Settings, Palette, PlugZap, Users, ShieldCheck, Globe, Bell, CreditCard, Receipt, Compass, Bot, FileCode2, Webhook } from 'lucide-react';
+import { Settings, Palette, PlugZap, Users, ShieldCheck, Globe, Bell, CreditCard, Receipt, Compass, Bot, FileCode2, Webhook, Power } from 'lucide-react';
 
 const ADMIN_CARDS = [
   {
@@ -34,6 +34,12 @@ const ADMIN_CARDS = [
     description: 'Administrar conectores: Meet, Calendar, R2, Gemini, SSO Google, OpenAI, Stripe, Wompi y GoHighLevel.',
     href: '/dashboard/administracion/integraciones',
     icon: PlugZap,
+  },
+  {
+    title: 'Módulos',
+    description: 'Encender o apagar módulos y submódulos de la plataforma para todos los usuarios.',
+    href: '/dashboard/administracion/modulos',
+    icon: Power,
   },
   {
     title: 'GoHighLevel (GHL)',

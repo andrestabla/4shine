@@ -30,6 +30,7 @@ import {
   Globe,
   CreditCard,
   Lock,
+  PowerOff,
 } from "lucide-react";
 import type { ViewerAccessState } from "@/features/access/types";
 import Link from "next/link";
@@ -37,6 +38,8 @@ import { usePathname } from "next/navigation";
 import clsx from "clsx";
 import type { ModuleCode, PermissionAction } from "@/lib/permissions";
 import { anchorKeyForPath } from "@/features/tour/catalog";
+import { moduleKeysForPath } from "@/features/modulos/catalog";
+import { useModuleVisibility } from "@/context/ModuleVisibilityContext";
 import { getOnColorText, rgbaFromHex } from "@/lib/color-contrast";
 
 interface SidebarProps {
@@ -215,6 +218,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const { currentUser, currentRole, can, logout, viewerAccess } = useUser();
   const { branding, tokens } = useBranding();
   const { confirm } = useAppDialog();
+  const { isModuleEnabled } = useModuleVisibility();
   const pathname = usePathname();
 
   const [isCollapsed, setIsCollapsed] = React.useState(false);
@@ -228,8 +232,15 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const hasAccess = (item: NavItem) => {
     if (item.adminOnly && currentRole !== "admin") return false;
     if (item.roles && currentRole && !item.roles.includes(currentRole)) return false;
+    // Módulo apagado en /administracion/modulos: desaparece del menú para
+    // todos menos el admin, que lo conserva marcado (ver isModuleOff).
+    if (currentRole !== "admin" && isNavItemModuleOff(item)) return false;
     return can(item.moduleCode, item.requiredAction ?? "view");
   };
+
+  /** Solo aplica a ítems cuyo path coincide con un módulo del catálogo. */
+  const isNavItemModuleOff = (item: NavItem) =>
+    moduleKeysForPath(item.path).some((key) => !isModuleEnabled(key));
 
   const mainNavItems = MAIN_NAV_ITEMS.filter(hasAccess);
   const adminNavItems = ADMIN_NAV_ITEMS.filter(hasAccess);
@@ -277,6 +288,8 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const navItem = (item: NavItem) => {
     const isActive = item.path === activeNavPath;
     const locked = Boolean(viewerAccess && PLAN_LOCKED_MODULES[item.moduleCode]?.(viewerAccess));
+    // Solo el admin llega aquí con un módulo apagado (hasAccess filtra al resto).
+    const moduleOff = isNavItemModuleOff(item);
     return (
       <Link
         key={item.path}
@@ -290,14 +303,22 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
             : isLightPrimary
               ? "hover:bg-black/10"
               : "hover:bg-white/10",
-          locked && !isActive && "opacity-70",
+          (locked || moduleOff) && !isActive && "opacity-70",
           isCollapsed && "justify-center px-0",
         )}
         style={{
           color: isActive ? "#4f2360" : mutedText,
           backgroundColor: isActive ? activeBg : "transparent",
         }}
-        title={isCollapsed ? (locked ? `${item.label} · requiere plan` : item.label) : undefined}
+        title={
+          isCollapsed
+            ? moduleOff
+              ? `${item.label} · apagado para los usuarios`
+              : locked
+                ? `${item.label} · requiere plan`
+                : item.label
+            : undefined
+        }
       >
         <div
           className={clsx(
@@ -310,9 +331,15 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
         {!isCollapsed && (
           <span className="flex flex-1 items-center gap-2 truncate">
             <span className="truncate">{item.label}</span>
-            {locked && (
+            {moduleOff ? (
+              <PowerOff
+                size={13}
+                className="ml-auto shrink-0 opacity-70"
+                aria-label="Apagado para los usuarios"
+              />
+            ) : locked ? (
               <Lock size={13} className="ml-auto shrink-0 opacity-60" aria-label="Requiere plan" />
-            )}
+            ) : null}
           </span>
         )}
 

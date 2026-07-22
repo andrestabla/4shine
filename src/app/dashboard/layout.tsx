@@ -24,6 +24,7 @@ import {
   USER_JOB_ROLE_OPTIONS,
   type UserJobRoleOption,
 } from "@/lib/user-demographics";
+import { ModuleVisibilityProvider, useModuleVisibility } from "@/context/ModuleVisibilityContext";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
@@ -120,12 +121,23 @@ function resolveRouteAccess(pathname: string): RouteAccess | undefined {
   return undefined;
 }
 
-export default function DashboardLayout({
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  // El provider envuelve al layout porque tanto este guard como el Sidebar
+  // consumen el estado de encendido de módulos.
+  return (
+    <ModuleVisibilityProvider>
+      <DashboardLayoutInner>{children}</DashboardLayoutInner>
+    </ModuleVisibilityProvider>
+  );
+}
+
+function DashboardLayoutInner({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const { currentUser, currentRole, isHydrating, isAuthenticated, can, mustChangePassword } = useUser();
+  const { isLoaded: isVisibilityLoaded, isPathDisabled } = useModuleVisibility();
   const { alert } = useAppDialog();
   const { tokens } = useBranding();
   const router = useRouter();
@@ -149,9 +161,17 @@ export default function DashboardLayout({
   const [showWelcome, setShowWelcome] = useState(false);
   const didFetchTour = useRef(false);
   const routeAccess = resolveRouteAccess(pathname);
-  const canViewRoute = routeAccess
+  const hasRoutePermission = routeAccess
     ? can(routeAccess.moduleCode, routeAccess.action ?? "view")
     : true;
+
+  // Módulo apagado desde /administracion/modulos. El admin sí entra: lo ve
+  // marcado como apagado en el menú y necesita poder revisarlo antes de
+  // reactivarlo. Mientras la visibilidad no ha cargado no se bloquea nada,
+  // para no parpadear una redirección en cada navegación.
+  const isRouteDisabled =
+    isVisibilityLoaded && currentRole !== "admin" && isPathDisabled(pathname);
+  const canViewRoute = hasRoutePermission && !isRouteDisabled;
 
   useEffect(() => {
     if (!isHydrating && !isAuthenticated) {
