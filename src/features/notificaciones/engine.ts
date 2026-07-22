@@ -18,6 +18,7 @@ import type { PoolClient } from 'pg';
 import { buildBrandedEmailHtml } from '@/lib/email-template';
 import type { DispatchContext, VariableKey } from './types';
 import { EVENTS_BY_KEY } from './events-catalog';
+import { renderTemplateHtmlSafe } from '@/lib/html-escape';
 import { resolveEventConfig, insertUserNotification, getNotificationSettingsByOrg } from './service';
 
 // ─── Template rendering ───────────────────────────────────────────────────────
@@ -259,7 +260,10 @@ export async function dispatchNotification(
   // ── Email notification ───────────────────────────────────────────────────
   if (resolved.channelEmail && tmpl.channelEmail && tmpl.subjectTemplate && ctx.recipientEmail) {
     const subject = renderTemplate(tmpl.subjectTemplate, vars);
-    const bodyHtml = renderTemplate(tmpl.bodyHtmlTemplate, vars);
+    // El cuerpo HTML escapa cada variable: su valor suele venir del perfil
+    // de un usuario (p. ej. su nombre) y termina guardado como snapshot que
+    // luego el admin abre en el historial.
+    const bodyHtml = renderTemplateHtmlSafe(tmpl.bodyHtmlTemplate, vars);
     const bodyText = renderTemplate(tmpl.bodyTextTemplate, vars);
     const actionUrl = tmpl.inAppActionUrlTemplate
       ? renderTemplate(tmpl.inAppActionUrlTemplate, vars)
@@ -465,7 +469,7 @@ export function renderTemplatePreview(
 ) {
   return {
     subject: renderTemplate(subject, vars),
-    bodyHtml: renderTemplate(bodyHtml, vars),
+    bodyHtml: renderTemplateHtmlSafe(bodyHtml, vars),
     bodyText: renderTemplate(bodyText, vars),
     inAppTitle: renderTemplate(inAppTitle, vars),
     inAppBody: renderTemplate(inAppBody, vars),

@@ -15,6 +15,7 @@ import { buildBrandedEmailHtml } from '@/lib/email-template';
 import type { AuthUser } from '@/server/auth/types';
 import { getTemplate, getNotificationSettingsByOrg, insertUserNotification } from './service';
 import { sendEmailToAddress } from './engine';
+import { renderTemplateHtmlSafe } from '@/lib/html-escape';
 import type {
   AudiencePage,
   BulkAudienceFilter,
@@ -633,7 +634,8 @@ export async function sendBulkMessage(
       if (!r.email) continue;
       try {
         const subject = renderTemplate(baseSubject, vars);
-        const html = renderTemplate(baseHtml, vars);
+        // Igual que en el engine: el HTML escapa las variables, el texto no.
+        const html = renderTemplateHtmlSafe(baseHtml, vars);
         const text = renderTemplate(baseText, vars);
         const providerMessageId = await sendEmailToAddress(
           client,

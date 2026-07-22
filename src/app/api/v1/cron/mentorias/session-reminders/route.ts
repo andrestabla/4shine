@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { isAuthorizedCronRequest } from '@/server/auth/cron-auth';
 import { withClient, withRoleContext } from '@/server/db/pool';
 import { sendIndividualSessionReminders, sendGroupSessionReminders } from '@/features/mentorias/service';
 import { sendDiscoveryReminders } from '@/features/descubrimiento/service';
@@ -18,22 +19,10 @@ export const dynamic = 'force-dynamic';
  * env var is set. Locally you can call it with the same header.
  */
 export async function GET(request: Request) {
-  const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret) {
-    const authHeader = request.headers.get('authorization') ?? '';
-    const expected = `Bearer ${cronSecret}`;
-    if (authHeader !== expected) {
-      return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
-    }
-  } else {
-    // If no CRON_SECRET configured, require the Vercel cron header (best-effort fallback).
-    const isVercelCron = request.headers.get('x-vercel-cron') !== null;
-    if (!isVercelCron) {
-      return NextResponse.json(
-        { ok: false, error: 'CRON_SECRET not configured.' },
-        { status: 503 },
-      );
-    }
+  // Falla cerrado: sin CRON_SECRET no se ejecuta. Antes se aceptaba la
+  // cabecera x-vercel-cron como respaldo, y esa la pone el cliente.
+  if (!isAuthorizedCronRequest(request)) {
+    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
   }
 
   try {

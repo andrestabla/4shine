@@ -378,9 +378,16 @@ export default function HistorialPage() {
                   <p className="mb-2 text-xs font-bold uppercase tracking-[0.16em] text-[var(--app-muted)]">
                     Cuerpo HTML enviado
                   </p>
-                  <div
-                    className="prose prose-sm max-w-none"
-                    dangerouslySetInnerHTML={{ __html: selected.bodyHtmlSnapshot }}
+                  {/* El snapshot se renderiza en un iframe con sandbox y SIN
+                      allow-scripts: aunque el HTML guardado contenga un script
+                      —los snapshots antiguos se generaron antes de escapar las
+                      variables— no puede ejecutarse ni tocar esta página, que
+                      corre con la sesión del administrador. */}
+                  <iframe
+                    title="Cuerpo HTML enviado"
+                    sandbox=""
+                    srcDoc={selected.bodyHtmlSnapshot}
+                    className="h-[38vh] w-full rounded-lg border border-[var(--app-border)] bg-white"
                   />
                 </div>
               ) : (

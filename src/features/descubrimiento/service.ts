@@ -14,6 +14,7 @@ import { resolveOrganizationIdForActor } from "@/server/integrations/config";
 import type { AuthUser } from "@/server/auth/types";
 import { USER_COUNTRY_SET, USER_GENDER_SET, USER_JOB_ROLE_SET } from "@/lib/user-demographics";
 import { buildBrandedEmailHtml } from "@/lib/email-template";
+import { escapeHtml } from "@/lib/html-escape";
 import { getNotificationSettingsByOrg, resolveEventConfig, insertUserNotification } from "@/features/notificaciones/service";
 import { dispatchNotification, notifyUserFull } from "@/features/notificaciones/engine";
 import { markJobCompleted, markJobFailed } from "./ai-jobs";
@@ -4518,7 +4519,7 @@ export async function sendDiscoveryReportEmail(
 
   const subject = `¡Tu informe de liderazgo ${branding.platformName} está listo! Revísalo aquí.`;
   const bodyHtml = `
-    <p style="margin:0 0 16px;font-size:15px;color:#0f172a;">Hola <strong>${name}</strong>,</p>
+    <p style="margin:0 0 16px;font-size:15px;color:#0f172a;">Hola <strong>${escapeHtml(name)}</strong>,</p>
     <p style="margin:0 0 28px;font-size:15px;color:#334155;line-height:1.6;">
       Tu diagnóstico de liderazgo ha sido procesado con éxito. Hemos generado un análisis profundo de tu perfil, tus impulsos actuales y tu plan de aceleración.
     </p>

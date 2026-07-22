@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { isAuthorizedCronRequest } from '@/server/auth/cron-auth';
 import { withClient } from '@/server/db/pool';
 import { drainStuckDiscoveryAiJobs } from '@/features/descubrimiento/service';
 import type { AuthUser } from '@/server/auth/types';
@@ -20,20 +21,10 @@ export const maxDuration = 300;
  * secreto configurado, exige el header `x-vercel-cron`.
  */
 export async function GET(request: Request) {
-  const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret) {
-    const authHeader = request.headers.get('authorization') ?? '';
-    if (authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
-    }
-  } else {
-    const isVercelCron = request.headers.get('x-vercel-cron') !== null;
-    if (!isVercelCron) {
-      return NextResponse.json(
-        { ok: false, error: 'CRON_SECRET not configured.' },
-        { status: 503 },
-      );
-    }
+  // Falla cerrado: sin CRON_SECRET no se ejecuta. Antes se aceptaba la
+  // cabecera x-vercel-cron como respaldo, y esa la pone el cliente.
+  if (!isAuthorizedCronRequest(request)) {
+    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
   }
 
   try {

@@ -12,11 +12,13 @@
  *   5. En el `from` del email, asegurar el header X-SES-CONFIGURATION-SET
  *      apuntando al Configuration Set (algunos clientes ya lo agregan).
  *
- * Este handler NO requiere autenticación, pero valida la firma del mensaje SNS.
+ * Este handler NO requiere autenticación de sesión: valida la firma criptográfica
+ * del mensaje SNS contra el certificado publicado por AWS.
  */
 
 import { NextResponse } from 'next/server';
 import { applySesEvent } from '@/features/notificaciones/bulk-service';
+import { isValidSigningCertUrl, verifySnsSignature } from '@/server/integrations/sns-signature';
 
 interface SnsEnvelope {
   Type?: string;
@@ -62,9 +64,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: 'invalid_body' }, { status: 400 });
   }
 
+  // La firma se verifica ANTES de cualquier otra cosa. El comentario de la
+  // cabecera de este archivo afirmaba que se validaba, pero no se hacía: un
+  // POST anónimo podía marcar correos legítimos como rebotados y, vía
+  // SubscribeURL, obligar al servidor a hacer un GET a cualquier host interno.
+  const signatureOk = await verifySnsSignature(envelope);
+  if (!signatureOk) {
+    console.warn('[SES webhook] mensaje rechazado: firma SNS inválida o ausente');
+    return NextResponse.json({ ok: false, error: 'invalid_signature' }, { status: 401 });
+  }
+
   // SNS subscription confirmation: la primera vez que se suscribe el topic,
   // SNS envía un SubscribeURL. Hacemos GET para confirmar la subscripción.
+  // Solo se sigue si la URL pertenece a AWS: el mensaje ya está firmado, pero
+  // esto evita convertir el endpoint en un proxy si el certificado se reutiliza.
   if (envelope.Type === 'SubscriptionConfirmation' && envelope.SubscribeURL) {
+    if (!isValidSigningCertUrl(envelope.SubscribeURL)) {
+      return NextResponse.json({ ok: false, error: 'invalid_subscribe_url' }, { status: 400 });
+    }
     try {
       await fetch(envelope.SubscribeURL, { method: 'GET' });
       console.log('[SES webhook] SNS subscription confirmed');

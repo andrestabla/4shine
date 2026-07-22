@@ -327,7 +327,27 @@ function normalizeDate(value: string | null | undefined): string | null {
   return date.toISOString();
 }
 
-function normalizeWizardData(value: unknown): Record<string, string> {
+/**
+ * Claves de wizard_data cuyo valor es un secreto y NUNCA debe salir por la API.
+ *
+ * secret_value ya se enmascaraba, pero wizard_data se devolvía íntegro y ahí
+ * viven el clientSecret de Zoom, el secretAccessKey de R2, el eventsSecret de
+ * Wompi (que permite falsificar eventos de pago) y el secreto del webhook de
+ * GHL. Se comparan en minúsculas para no depender de cómo se nombró el campo.
+ */
+const SENSITIVE_WIZARD_KEYS = new Set(
+  [
+    'clientsecret', 'secretaccesskey', 'accesskeyid', 'privatekey', 'apikey',
+    'apisecret', 'secret', 'secretkey', 'eventssecret', 'integritysecret',
+    'webhooksecret', 'password', 'token', 'refreshtoken', 'servicekey',
+  ],
+);
+
+function isSensitiveWizardKey(key: string): boolean {
+  return SENSITIVE_WIZARD_KEYS.has(key.toLowerCase());
+}
+
+function normalizeWizardData(value: unknown, maskSecrets = false): Record<string, string> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return {};
   }
@@ -343,7 +363,7 @@ function normalizeWizardData(value: unknown): Record<string, string> {
         .replace(/\\r/gi, '\n');
       continue;
     }
-    output[key] = raw;
+    output[key] = maskSecrets && isSensitiveWizardKey(key) && raw.length > 0 ? SECRET_MASK : raw;
   }
 
   return output;
@@ -658,7 +678,7 @@ async function writeBrandingRevision(
   return rows[0]?.revision_id ?? null;
 }
 
-function mapOutboundRow(row: OutboundRow): OutboundEmailConfigRecord {
+function mapOutboundRow(row: OutboundRow, maskSecrets = false): OutboundEmailConfigRecord {
   return {
     outboundEmailId: row.outbound_email_id,
     organizationId: row.organization_id,
@@ -670,9 +690,9 @@ function mapOutboundRow(row: OutboundRow): OutboundEmailConfigRecord {
     smtpHost: row.smtp_host,
     smtpPort: String(row.smtp_port),
     smtpUser: row.smtp_user,
-    smtpPassword: row.smtp_password,
+    smtpPassword: maskSecrets && hasText(row.smtp_password) ? SECRET_MASK : row.smtp_password,
     smtpSecure: row.smtp_secure,
-    apiKey: row.api_key,
+    apiKey: maskSecrets && hasText(row.api_key) ? SECRET_MASK : row.api_key,
     sesRegion: row.ses_region,
     testRecipient: row.test_recipient,
     lastTestedAt: row.last_tested_at,
@@ -895,9 +915,15 @@ function mergeOutbound(
     smtpHost: typeof update.smtpHost === 'string' ? update.smtpHost : current.smtpHost,
     smtpPort: typeof update.smtpPort === 'string' ? update.smtpPort : current.smtpPort,
     smtpUser: typeof update.smtpUser === 'string' ? update.smtpUser : current.smtpUser,
-    smtpPassword: typeof update.smtpPassword === 'string' ? update.smtpPassword : current.smtpPassword,
+    smtpPassword:
+      typeof update.smtpPassword === 'string' && !isSecretMask(update.smtpPassword)
+        ? update.smtpPassword
+        : current.smtpPassword,
     smtpSecure: typeof update.smtpSecure === 'boolean' ? update.smtpSecure : current.smtpSecure,
-    apiKey: typeof update.apiKey === 'string' ? update.apiKey : current.apiKey,
+    apiKey:
+      typeof update.apiKey === 'string' && !isSecretMask(update.apiKey)
+        ? update.apiKey
+        : current.apiKey,
     sesRegion: typeof update.sesRegion === 'string' ? update.sesRegion : current.sesRegion,
     testRecipient: typeof update.testRecipient === 'string' ? update.testRecipient : current.testRecipient,
   };
@@ -1638,6 +1664,7 @@ export async function getPublicBrandingSettings(
 export async function getIntegrationsSettings(
   client: PoolClient,
   actor: AuthUser,
+  options?: { unmasked?: boolean },
 ): Promise<IntegrationsSettingsRecord> {
   await requireModulePermission(client, 'usuarios', 'manage');
 
@@ -1683,7 +1710,10 @@ export async function getIntegrationsSettings(
       provider: hasText(row.provider) ? row.provider : catalog.provider,
       enabled: row.enabled,
       value: hasText(row.secret_value) ? SECRET_MASK : '',
-      wizardData: normalizeWizardData(row.wizard_data),
+      // Enmascarado solo aquí, en el borde de la API. El merge de escritura
+      // usa la lectura SIN máscara (unmasked), o guardaría los puntos suspensivos
+      // encima de los secretos reales.
+      wizardData: normalizeWizardData(row.wizard_data, !options?.unmasked),
       lastConfiguredAt: row.last_configured_at,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
@@ -1720,7 +1750,7 @@ export async function getIntegrationsSettings(
 
   const outboundRow = outboundRows[0];
   const outboundEmail = outboundRow
-    ? mapOutboundRow(outboundRow)
+    ? mapOutboundRow(outboundRow, !options?.unmasked)
     : {
         outboundEmailId: null,
         organizationId,
@@ -1743,7 +1773,9 @@ export async function updateIntegrationsSettings(
 ): Promise<IntegrationsSettingsRecord> {
   await requireModulePermission(client, 'usuarios', 'manage');
 
-  const current = await getIntegrationsSettings(client, actor);
+  // Sin máscara: este objeto es la base del merge y debe conservar los
+  // secretos reales de los campos que el admin no está editando.
+  const current = await getIntegrationsSettings(client, actor, { unmasked: true });
   const organizationId = current.outboundEmail.organizationId;
   const integrations = mergeIntegrations(current.integrations, input.integrations);
   const outboundEmail = mergeOutbound(current.outboundEmail, input.outboundEmail);

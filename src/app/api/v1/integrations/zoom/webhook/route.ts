@@ -1,4 +1,4 @@
-import { createHmac } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { NextResponse } from 'next/server';
 import { withClient } from '@/server/db/pool';
 import { ingestZoomRecording } from '@/features/mentorias/service';
@@ -45,18 +45,31 @@ export async function POST(request: Request) {
     return NextResponse.json({ plainToken, encryptedToken }, { status: 200 });
   }
 
-  // Actual webhook events — verify x-zm-signature before processing
+  // Verificación de firma OBLIGATORIA. Antes era condicional: si el llamante
+  // omitía las cabeceras, el evento se procesaba sin validar nada, y bastaba un
+  // POST anónimo con un meeting_id conocido para publicar una "grabación" con
+  // URL arbitraria que luego se mostraba a líderes y advisors como oficial.
   const zmSignature = request.headers.get('x-zm-signature');
   const zmTimestamp = request.headers.get('x-zm-request-timestamp');
-  if (zmSignature && zmTimestamp) {
-    const secret = await withClient((client) => getZoomWebhookSecret(client));
-    if (secret) {
-      const message = `v0:${zmTimestamp}:${rawBody}`;
-      const hash = 'v0=' + createHmac('sha256', secret).update(message).digest('hex');
-      if (hash !== zmSignature) {
-        return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
-      }
-    }
+  const secret = await withClient((client) => getZoomWebhookSecret(client));
+
+  if (!secret || !zmSignature || !zmTimestamp) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // Ventana anti-replay: sin ella, una petición firmada capturada sirve para
+  // siempre.
+  const timestampSeconds = Number(zmTimestamp);
+  if (!Number.isFinite(timestampSeconds) || Math.abs(Date.now() / 1000 - timestampSeconds) > 300) {
+    return NextResponse.json({ error: 'Stale request' }, { status: 401 });
+  }
+
+  const message = `v0:${zmTimestamp}:${rawBody}`;
+  const expected = 'v0=' + createHmac('sha256', secret).update(message).digest('hex');
+  const provided = Buffer.from(zmSignature);
+  const expectedBuffer = Buffer.from(expected);
+  if (provided.length !== expectedBuffer.length || !timingSafeEqual(provided, expectedBuffer)) {
+    return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
   }
 
   if (body.event === 'recording.completed') {
