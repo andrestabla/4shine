@@ -719,6 +719,70 @@ const INTEGRATION_ASSISTANTS: Record<IntegrationKey, AssistantDefinition> = {
       },
     ],
   },
+  ghl: {
+    intro:
+      'GoHighLevel es el embudo comercial: allí ocurre el pago. Cuando una compra se aprueba, GHL dispara un webhook a 4Shine y la plataforma crea el usuario y le asigna el plan automáticamente. El reporte de todos los eventos recibidos está en Administración → GoHighLevel.',
+    primarySecretField: 'webhookSecret',
+    steps: [
+      {
+        id: 'webhook',
+        title: 'Webhook entrante (obligatorio)',
+        description:
+          'Este es el único paso indispensable. El secreto lo defines tú aquí y lo pegas en GHL: sin él, cualquiera podría crear usuarios enviando un POST a la URL.',
+        fields: [
+          {
+            key: 'webhookSecret',
+            label: 'Secreto compartido del webhook',
+            type: 'password',
+            required: true,
+            placeholder: '••••••••••••',
+            helpText:
+              'Cadena larga y aleatoria que tú inventas. En GHL se envía como header x-4shine-token, o como firma HMAC-SHA256 en x-4shine-signature.',
+          },
+          {
+            key: 'webhookUrl',
+            label: 'URL del webhook',
+            type: 'url',
+            defaultValue: `${DEFAULT_PUBLIC_APP_URL}/api/v1/webhooks/ghl`,
+            helpText:
+              'Pégala en GHL → Workflow → Acción "Webhook", método POST. Es la misma para todos los productos: el program_id del customData define qué plan se asigna.',
+          },
+          {
+            key: 'mode',
+            label: 'Modo',
+            type: 'text',
+            defaultValue: 'live',
+            placeholder: 'live | test',
+            helpText:
+              'En "test" los eventos se registran y validan, pero NO se crean usuarios ni se asignan planes. Útil para probar el workflow antes de salir a producción.',
+          },
+        ],
+      },
+      {
+        id: 'api',
+        title: 'API de GHL (opcional, recomendado)',
+        description:
+          'Permite verificar contra GHL que la transacción existe realmente antes de provisionar. Sin esto, la única defensa contra un webhook falsificado es el secreto compartido.',
+        fields: [
+          {
+            key: 'apiKey',
+            label: 'Private Integration Token',
+            type: 'password',
+            placeholder: 'pit-…',
+            helpText:
+              'GHL → Settings → Private Integrations. Solo lectura de pagos/contactos es suficiente.',
+          },
+          {
+            key: 'locationId',
+            label: 'Location ID',
+            type: 'text',
+            placeholder: 'p.ej. ve9EPM428h8vShlRW1KT',
+            helpText: 'Identifica la subcuenta de GHL desde la que llegan las compras.',
+          },
+        ],
+      },
+    ],
+  },
 };
 
 const OUTBOUND_EMAIL_ASSISTANT: AssistantDefinition = {

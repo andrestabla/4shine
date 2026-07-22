@@ -9,6 +9,7 @@ export const INTEGRATION_CATALOG = [
   { key: 'zoom', label: 'Zoom', provider: 'Zoom Video Communications' },
   { key: 'stripe', label: 'Stripe', provider: 'Stripe Payments' },
   { key: 'wompi', label: 'Wompi', provider: 'Wompi (Bancolombia)' },
+  { key: 'ghl', label: 'GoHighLevel', provider: 'GoHighLevel (HighLevel Inc.)' },
 ] as const;
 
 export type IntegrationKey = (typeof INTEGRATION_CATALOG)[number]['key'];

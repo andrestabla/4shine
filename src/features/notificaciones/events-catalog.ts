@@ -255,6 +255,16 @@ export const NOTIFICATION_EVENTS: NotificationEventDef[] = [
     variables: ['nombre', 'correo', 'contrasena', 'plataforma', 'enlace_plataforma', 'remitente_nombre'],
     defaultInAppType: 'success',
   },
+  {
+    key: 'ghl.webhook_failed',
+    moduleCode: 'usuarios',
+    moduleLabel: 'Usuarios',
+    label: 'Fallo en webhook de GoHighLevel',
+    description:
+      'Se envía a los administradores cuando una compra reportada por GHL no pudo provisionarse (firma inválida, producto no mapeado o error interno). El acceso del cliente queda pendiente hasta resolverlo.',
+    variables: ['motivo', 'correo', 'titulo', 'descripcion', 'plataforma', 'enlace_plataforma'],
+    defaultInAppType: 'alert',
+  },
 
   // ── MENTORIAS ─────────────────────────────────────────────────────────────
   {
