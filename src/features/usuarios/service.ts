@@ -1892,6 +1892,38 @@ export async function updateUser(
 ): Promise<UserRecord> {
   await requireModulePermission(client, 'usuarios', 'update');
   const currentUserState = await getUserRoleAndPlan(client, userId);
+
+  // El permiso usuarios:update lo tiene también el gestor, así que por sí solo
+  // no basta: con él, un gestor podía asignarse primaryRole='admin' y quedarse
+  // con la plataforma, o cambiar el correo de un admin al suyo y pedir un
+  // restablecimiento de contraseña.
+  //
+  // El corte es por PRIVILEGIO, no por "cualquier cambio de rol": el gestor
+  // sigue administrando líderes e invitados con normalidad —incluida la
+  // promoción invitado → líder al asignarle un plan—, que es justo su trabajo.
+  const PRIVILEGED_ROLES = new Set(['admin', 'gestor']);
+  const actorIsAdmin = actor.role === 'admin';
+
+  if (!actorIsAdmin) {
+    if (input.primaryRole !== undefined && PRIVILEGED_ROLES.has(input.primaryRole)) {
+      throw new ForbiddenError('Solo un administrador puede otorgar el rol de administrador o gestor.');
+    }
+    if (PRIVILEGED_ROLES.has(currentUserState.primaryRole ?? '')) {
+      throw new ForbiddenError('Solo un administrador puede modificar una cuenta de administrador o gestor.');
+    }
+  }
+
+  // Ni siquiera un admin cambia su propio rol: evita la auto-degradación
+  // accidental (quedarse sin ningún admin) y elimina el auto-ascenso como
+  // vector si alguna cuenta admin queda comprometida a medias.
+  if (
+    input.primaryRole !== undefined &&
+    input.primaryRole !== currentUserState.primaryRole &&
+    userId === actor.userId
+  ) {
+    throw new ForbiddenError('No puedes cambiar tu propio rol. Pídeselo a otro administrador.');
+  }
+
   const resolvedPlanType = resolvePlanTypeForUpdate(currentUserState, input);
   const shouldUpdatePlanType = resolvedPlanType !== undefined;
   const shouldPersistProfile =
@@ -2183,6 +2215,15 @@ export async function resetUserPassword(
   userId: string,
 ): Promise<ResetUserPasswordResult> {
   await requireModulePermission(client, 'usuarios', 'update');
+
+  // Un gestor no restablece la contraseña de un administrador: sería la otra
+  // mitad de la escalada (cambiar el correo del admin y luego pedir el reset).
+  const targetState = await getUserRoleAndPlan(client, userId);
+  if (targetState.primaryRole === 'admin' && actor.role !== 'admin') {
+    throw new ForbiddenError(
+      'Solo un administrador puede restablecer la contraseña de otro administrador.',
+    );
+  }
 
   const user = await getUserById(client, userId);
   if (!hasUsableEmail(user.email)) {

@@ -1,21 +1,8 @@
 import { NextResponse } from 'next/server';
 import { authenticateRequest } from '@/server/auth/request-auth';
+import { assertPublicUrl } from '@/server/net/ssrf-guard';
 
 export const runtime = 'nodejs';
-
-const PRIVATE_PATTERNS = [
-  /^localhost$/i,
-  /^127\./,
-  /^10\./,
-  /^172\.(1[6-9]|2\d|3[01])\./,
-  /^192\.168\./,
-  /^::1$/,
-  /^0\.0\.0\.0$/,
-];
-
-function isPrivateHost(hostname: string): boolean {
-  return PRIVATE_PATTERNS.some((p) => p.test(hostname));
-}
 
 export async function GET(request: Request) {
   const identity = await authenticateRequest(request);
@@ -36,13 +23,25 @@ export async function GET(request: Request) {
     return new NextResponse('Only http(s) URLs allowed', { status: 400 });
   }
 
-  if (isPrivateHost(parsed.hostname)) {
-    return new NextResponse('Private hosts not allowed', { status: 403 });
+  // El filtro por texto no cubría 169.254.0.0/16 (metadatos de nube), las IPs
+  // en decimal ni el DNS rebinding. assertPublicUrl resuelve el nombre y valida
+  // la IP real.
+  const check = await assertPublicUrl(rawUrl);
+  if (!check.ok) {
+    return new NextResponse(check.reason ?? 'Host not allowed', { status: 403 });
   }
 
   try {
-    const res = await fetch(rawUrl, { headers: { Accept: 'image/*' } });
+    const res = await fetch(rawUrl, { headers: { Accept: 'image/*' }, redirect: 'manual' });
     if (!res.ok) return new NextResponse('Upstream error', { status: 502 });
+
+    // Sin esto el proxy devolvía el Content-Type del origen: bastaba alojar un
+    // text/html para que se ejecutara como página del dominio de 4Shine, con la
+    // sesión de quien abriera el enlace.
+    const upstreamType = (res.headers.get('content-type') ?? '').toLowerCase();
+    if (!upstreamType.startsWith('image/')) {
+      return new NextResponse('Upstream is not an image', { status: 415 });
+    }
 
     const contentType = res.headers.get('content-type') || 'application/octet-stream';
     const buffer = await res.arrayBuffer();

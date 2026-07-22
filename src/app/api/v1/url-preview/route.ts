@@ -1,11 +1,29 @@
 import { NextResponse } from 'next/server';
+import { authenticateRequest } from '@/server/auth/request-auth';
+import { assertPublicUrl } from '@/server/net/ssrf-guard';
+
+export const runtime = 'nodejs';
 
 export async function GET(request: Request) {
+  // Antes esta ruta era anónima y descargaba cualquier URL: servía para
+  // escanear la red interna desde el servidor y para leer los metadatos de
+  // instancia de la nube (169.254.169.254). Ahora exige sesión, como su
+  // endpoint hermano /api/v1/image-proxy, y valida la IP de destino.
+  const identity = await authenticateRequest(request);
+  if (!identity) {
+    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { searchParams } = new URL(request.url);
   const url = searchParams.get('url');
 
-  if (!url || !/^https?:\/\//i.test(url)) {
+  if (!url) {
     return NextResponse.json({ ok: false, error: 'Invalid URL' }, { status: 400 });
+  }
+
+  const check = await assertPublicUrl(url);
+  if (!check.ok) {
+    return NextResponse.json({ ok: false, error: check.reason ?? 'URL no permitida' }, { status: 400 });
   }
 
   try {
@@ -14,6 +32,9 @@ export async function GET(request: Request) {
         'User-Agent': 'Mozilla/5.0 (compatible; 4Shine-LinkPreview/1.0)',
         Accept: 'text/html,application/xhtml+xml',
       },
+      // Sin esto, un host público podía redirigir a 127.0.0.1 y saltarse el
+      // control anterior, que solo mira la URL inicial.
+      redirect: 'manual',
       signal: AbortSignal.timeout(8000),
     });
 

@@ -2829,12 +2829,15 @@ async function provisionInvitedUserAccount(
   const existing = existingRows[0];
   if (existing) {
     if (existing.primary_role !== "invitado") {
-      return {
-        userId: existing.user_id,
-        email,
-        name: existing.display_name || displayName,
-        role: existing.primary_role as AuthUser["role"],
-      };
+      // ESCALADA DE PRIVILEGIOS: esta rama devolvía el rol REAL de la cuenta y
+      // la ruta pública /invitaciones/verify emitía cookies de sesión con él.
+      // Como admin y gestor pueden crear invitaciones —y la respuesta les
+      // entrega el token—, un gestor invitaba el correo de un admin y obtenía
+      // su sesión en dos peticiones. Una cuenta real debe autenticarse por la
+      // vía normal; la invitación nunca puede sustituir al login.
+      throw new Error(
+        "Este correo ya tiene una cuenta en 4Shine. Inicia sesión con tu contraseña para realizar el diagnóstico.",
+      );
     }
     userId = existing.user_id;
     userName = existing.display_name || displayName;
@@ -2990,12 +2993,16 @@ export async function verifyDiscoveryInvitationAccessAndProvisionInvitedUser(
             [candidateUserId],
           );
           const existing = rows[0];
-          if (existing?.is_active) {
+          // Igual que en provisionInvitedUserAccount: esta vía emite sesión sin
+          // contraseña, así que solo puede resolver cuentas 'invitado'. Devolver
+          // el rol real convertía la invitación en una puerta de entrada a
+          // cualquier cuenta, incluidas las de administrador.
+          if (existing?.is_active && existing.primary_role === "invitado") {
             return {
               userId: existing.user_id,
               email: existing.email,
               name: existing.display_name || access.session?.nameSnapshot || "Invitado 4Shine",
-              role: existing.primary_role as AuthUser["role"],
+              role: "invitado",
             };
           }
         }
@@ -3016,12 +3023,12 @@ export async function verifyDiscoveryInvitationAccessAndProvisionInvitedUser(
           [normalizedEmail],
         );
         const existing = rows[0];
-        if (existing?.is_active) {
+        if (existing?.is_active && existing.primary_role === "invitado") {
           return {
             userId: existing.user_id,
             email: existing.email,
             name: existing.display_name || access.session?.nameSnapshot || "Invitado 4Shine",
-            role: existing.primary_role as AuthUser["role"],
+            role: "invitado",
           };
         }
 
@@ -6581,6 +6588,25 @@ export async function sendDiscoveryResultsEmailViaAdmin(
   publicId: string,
   emails: string[],
 ): Promise<void> {
+  // Tope de destinatarios: este envío usa el SMTP corporativo, así que sin
+  // límite la ruta es un relay abierto — bastaba un publicId para lanzar miles
+  // de correos con la marca 4Shine y quemar la reputación de envío.
+  const MAX_DESTINATARIOS = 5;
+  const destinatarios = Array.from(
+    new Set(
+      emails
+        .map((item) => String(item ?? "").trim().toLowerCase())
+        .filter((item) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(item)),
+    ),
+  );
+  if (destinatarios.length === 0) {
+    throw new Error("No hay destinatarios válidos.");
+  }
+  if (destinatarios.length > MAX_DESTINATARIOS) {
+    throw new Error(`Puedes compartir los resultados con máximo ${MAX_DESTINATARIOS} correos a la vez.`);
+  }
+  emails = destinatarios;
+
   const session = await getDiscoverySessionByPublicId(client, publicId);
   if (!session) {
     throw new Error("No se pudo encontrar la sesión para enviar el correo.");

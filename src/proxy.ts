@@ -18,6 +18,12 @@ const RATE_LIMITED_PATHS = new Set([
   '/api/v1/auth/register',
   '/api/v1/auth/resend-verification',
   '/api/v1/auth/google',
+  // Rutas que consumen recursos externos con coste o reputación asociada y
+  // estaban sin ningún límite: envío de correo con el SMTP corporativo,
+  // peticiones salientes desde el servidor y generación por IA.
+  '/api/v1/auth/request-password-reset',
+  '/api/v1/public/descubrimiento/share/email',
+  '/api/v1/url-preview',
 ]);
 
 function getRateLimitKey(request: NextRequest, path: string): string {
