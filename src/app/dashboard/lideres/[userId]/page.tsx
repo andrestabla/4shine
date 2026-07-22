@@ -97,6 +97,8 @@ export default function Leader360Page() {
     const { currentRole, can } = useUser();
     const { alert } = useAppDialog();
     const isElevated = currentRole === 'admin' || currentRole === 'gestor' || currentRole === 'mentor';
+    // Solo admin y gestor gestionan la agenda de OTROS advisors.
+    const canManageAgenda = currentRole === 'admin' || currentRole === 'gestor';
     const canSchedule = can('mentorias', 'create');
 
     const [snapshot, setSnapshot] = React.useState<Leader360Snapshot | null>(null);
@@ -777,9 +779,24 @@ export default function Leader360Page() {
                                 ) : slots.length === 0 ? (
                                     <div className="rounded-[12px] border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
                                         Este advisor aún no publicó franjas disponibles.{' '}
-                                        <strong>Elige otro advisor</strong> en el selector de arriba, o escríbele por{' '}
-                                        <Link href="/dashboard/mensajes" className="font-semibold underline">Mensajes</Link>{' '}
-                                        para coordinar.
+                                        {canManageAgenda ? (
+                                            <>
+                                                Puedes{' '}
+                                                <Link
+                                                    href={`/dashboard/mentorias?agendaMentor=${scheduleForm.mentorUserId}`}
+                                                    className="font-semibold underline"
+                                                >
+                                                    crearle franjas ahora
+                                                </Link>
+                                                , o elegir otro advisor arriba.
+                                            </>
+                                        ) : (
+                                            <>
+                                                <strong>Elige otro advisor</strong> en el selector de arriba, o escríbele por{' '}
+                                                <Link href="/dashboard/mensajes" className="font-semibold underline">Mensajes</Link>{' '}
+                                                para coordinar.
+                                            </>
+                                        )}
                                     </div>
                                 ) : (
                                     <select
@@ -794,6 +811,16 @@ export default function Leader360Page() {
                                             </option>
                                         ))}
                                     </select>
+                                )}
+                                {/* Con pocas franjas publicadas casi siempre hace falta crear
+                                    más; el atajo evita tener que buscar al advisor a mano. */}
+                                {canManageAgenda && scheduleForm.mentorUserId && slots.length > 0 && (
+                                    <Link
+                                        href={`/dashboard/mentorias?agendaMentor=${scheduleForm.mentorUserId}`}
+                                        className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-[var(--app-muted)] underline"
+                                    >
+                                        <CalendarPlus size={12} /> Gestionar las franjas de este advisor
+                                    </Link>
                                 )}
                             </div>
 

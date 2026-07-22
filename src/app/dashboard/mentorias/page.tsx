@@ -507,9 +507,26 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
       note: prev.note,
     }));
     if (currentRole !== 'lider') {
-      const defaultMentorId = currentRole === 'mentor'
-        ? (currentUser?.id ?? '')
-        : (overview.mentorCatalog[0]?.mentorUserId ?? '');
+      // ?agendaMentor=<id> permite llegar aquí desde el modal de agendamiento
+      // con el Advisor ya seleccionado, en vez de tener que buscarlo a mano.
+      const requestedMentorId =
+        typeof window !== 'undefined'
+          ? new URLSearchParams(window.location.search).get('agendaMentor')
+          : null;
+      const isKnownMentor =
+        requestedMentorId !== null &&
+        overview.mentorCatalog.some((mentor) => mentor.mentorUserId === requestedMentorId);
+      const defaultMentorId = isKnownMentor
+        ? (requestedMentorId as string)
+        : currentRole === 'mentor'
+          ? (currentUser?.id ?? '')
+          : (overview.mentorCatalog[0]?.mentorUserId ?? '');
+      // Con ?agendaMentor la intención es explícita: gana sobre lo ya elegido.
+      if (isKnownMentor) {
+        setAvailabilitySlotForm((prev) => ({ ...prev, mentorUserId: defaultMentorId }));
+        setAvailabilityBulkForm((prev) => ({ ...prev, mentorUserId: defaultMentorId }));
+        return;
+      }
       setAvailabilitySlotForm((prev) => ({
         ...prev,
         mentorUserId: prev.mentorUserId || defaultMentorId,
