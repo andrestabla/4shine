@@ -613,6 +613,9 @@ async function grantAccess(
   // sobrevive si más adelante se le asigna uno.
   if (program.kind === 'diagnostico') {
     await grantDiscoveryPurchase(client, userId, program, payload);
+    if (!created) {
+      await notifyExistingUserPurchase(client, userId, payload, null);
+    }
     return {
       status,
       message: `Usuario ${verb} como líder sin suscripción, con acceso a Descubrimiento por compra del diagnóstico.`,
@@ -623,6 +626,11 @@ async function grantAccess(
   }
 
   const expiresAt = await applySubscription(client, userId, program, durationDays);
+  // Usuario nuevo → ya recibió credenciales (correo de bienvenida). Usuario
+  // existente → NO se le mandan credenciales otra vez; se le avisa del producto.
+  if (!created) {
+    await notifyExistingUserPurchase(client, userId, payload, expiresAt);
+  }
   return {
     status,
     message: `Usuario ${verb} con acceso a "${payload.productName ?? program.program_id}" hasta ${expiresAt?.slice(0, 10) ?? 'sin vencimiento'}.`,
@@ -764,6 +772,50 @@ async function revokeAccess(client: PoolClient, payload: GhlNormalizedPayload): 
 }
 
 // ─── Notificación de fallo al administrador ──────────────────────────────────
+
+/**
+ * Aviso a un usuario que YA tenía cuenta de que adquirió un producto nuevo.
+ *
+ * No lleva credenciales: la cuenta ya existe, reenviarlas sería confuso e
+ * inseguro. Solo notifica el producto y, para las suscripciones, la vigencia.
+ * Falla en silencio: un correo que no sale no debe tumbar el aprovisionamiento.
+ */
+async function notifyExistingUserPurchase(
+  client: PoolClient,
+  userId: string,
+  payload: GhlNormalizedPayload,
+  expiresAt: string | null,
+): Promise<void> {
+  try {
+    const { dispatchNotification } = await import('@/features/notificaciones/engine');
+    const { rows } = await client.query<{
+      email: string;
+      first_name: string | null;
+      organization_id: string | null;
+    }>(
+      `SELECT email::text, first_name, organization_id::text
+         FROM app_core.users WHERE user_id = $1::uuid LIMIT 1`,
+      [userId],
+    );
+    const user = rows[0];
+    if (!user?.organization_id || !user.email) return;
+
+    await dispatchNotification(client, {
+      organizationId: user.organization_id,
+      recipientUserId: userId,
+      recipientEmail: user.email,
+      eventKey: 'ghl.product_acquired',
+      variables: {
+        nombre: user.first_name ?? payload.firstName,
+        titulo: payload.productName ?? 'tu nuevo producto',
+        fecha: expiresAt ? expiresAt.slice(0, 10) : 'sin vencimiento',
+        enlace_plataforma: `${PLATFORM_URL}/acceso`,
+      },
+    });
+  } catch (error) {
+    console.error('[ghl] product-acquired notification could not be sent:', error);
+  }
+}
 
 async function notifyAdminsOfFailure(
   client: PoolClient,

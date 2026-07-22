@@ -256,6 +256,16 @@ export const NOTIFICATION_EVENTS: NotificationEventDef[] = [
     defaultInAppType: 'success',
   },
   {
+    key: 'ghl.product_acquired',
+    moduleCode: 'usuarios',
+    moduleLabel: 'Usuarios',
+    label: 'Nuevo producto adquirido (usuario existente)',
+    description:
+      'Se envía a un usuario que YA tenía cuenta cuando adquiere un producto o plan (p. ej. vía GoHighLevel). Notifica lo que compró y su vigencia, SIN credenciales — la cuenta ya existe.',
+    variables: ['nombre', 'titulo', 'fecha', 'plataforma', 'enlace_plataforma'],
+    defaultInAppType: 'success',
+  },
+  {
     key: 'ghl.webhook_failed',
     moduleCode: 'usuarios',
     moduleLabel: 'Usuarios',
