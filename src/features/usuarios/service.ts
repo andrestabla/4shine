@@ -1760,16 +1760,30 @@ export async function createUser(
 
   await client.query(
     `
-      INSERT INTO app_auth.user_credentials (user_id, password_hash, failed_attempts, locked_until)
-      VALUES ($1, $2, 0, NULL)
+      INSERT INTO app_auth.user_credentials (
+        user_id, password_hash, failed_attempts, locked_until,
+        must_change_password, email_verified_at
+      )
+      VALUES ($1, $2, 0, NULL, $3, now())
       ON CONFLICT (user_id) DO UPDATE
       SET password_hash = EXCLUDED.password_hash,
           failed_attempts = 0,
           locked_until = NULL,
+          must_change_password = EXCLUDED.must_change_password,
+          email_verified_at = COALESCE(app_auth.user_credentials.email_verified_at, now()),
           password_updated_at = now(),
           updated_at = now()
     `,
-    [userId, passwordHash],
+    // email_verified_at = now(): la cuenta la crea un admin o el sistema (compra
+    // GHL), no el propio usuario. La verificación por correo existe para que
+    // quien SE REGISTRA pruebe que controla su bandeja; aquí un tercero de
+    // confianza afirma el correo y las credenciales viajan a esa misma bandeja.
+    // Sin esto el login bloqueaba con "correo pendiente de verificación" pese a
+    // haber recibido la contraseña.
+    //
+    // must_change_password: si la contraseña se envió por correo, es temporal y
+    // debe cambiarse en el primer ingreso.
+    [userId, passwordHash, input.sendWelcomeEmail === true],
   );
 
   await client.query(
