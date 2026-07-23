@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import React from 'react';
 import {
   Activity, Eye, Search, ShieldCheck, UserPlus, Users, UserX, Lock, Loader2,
-  FileSpreadsheet, FileText, CalendarClock, Send, LogOut, KeyRound, X, Building2,
+  FileSpreadsheet, FileText, CreditCard, CalendarClock, Send, LogOut, KeyRound, X, Building2,
 } from 'lucide-react';
 import { EmptyState } from '@/components/dashboard/EmptyState';
 import { PageTitle } from '@/components/dashboard/PageTitle';
@@ -35,6 +35,8 @@ import { subscriptionStatus, formatExpiry, type SubscriptionStatus } from '@/fea
 import { exportUsersXlsx, exportUsersPdf } from '@/features/usuarios/export';
 import { RolesMatrixSection } from '@/components/dashboard/usuarios/RolesMatrixSection';
 import { BulkImportWizard } from '@/components/dashboard/usuarios/BulkImportWizard';
+import { PlanPickerDialog } from '@/components/dashboard/usuarios/PlanPickerDialog';
+import type { SubscriptionPlanWithFeatures } from '@/features/planes/types';
 import { formatDate as formatDateCanonical, formatDateTime } from '@/lib/format-date';
 
 interface ListFilters {
@@ -89,6 +91,7 @@ export default function UsuariosPage() {
   const router = useRouter();
   const [tab, setTab] = React.useState<Tab>('usuarios');
   const [showBulkImport, setShowBulkImport] = React.useState(false);
+  const [showBulkPlan, setShowBulkPlan] = React.useState(false);
   const [users, setUsers] = React.useState<UserRecord[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [filters, setFilters] = React.useState<ListFilters>({
@@ -268,6 +271,26 @@ export default function UsuariosPage() {
 
   const onBulkForcePassword = async () => {
     await runBulk('force_password_change', {}, (n) => `Se exigirá cambio de contraseña a ${n} usuario(s).`, 'forzar el cambio de contraseña');
+  };
+
+  const onBulkAssignPlan = async (plan: SubscriptionPlanWithFeatures) => {
+    const ids = [...selected];
+    setBulkBusy(true);
+    try {
+      const r = await bulkUserAction('assign_plan', ids, { planId: plan.planId });
+      setShowBulkPlan(false);
+      await alert({
+        title: 'Plan asignado',
+        message: `Se asignó "${plan.name}" a ${r.affected} usuario(s).`,
+        tone: 'success',
+      });
+      setSelected(new Set());
+      await loadUsers();
+    } catch (error) {
+      await alert({ title: 'No se pudo asignar el plan', message: error instanceof Error ? error.message : 'Error desconocido.', tone: 'error' });
+    } finally {
+      setBulkBusy(false);
+    }
   };
 
   const onBulkSetOrganization = async () => {
@@ -730,6 +753,15 @@ export default function UsuariosPage() {
             </button>
             <button
               type="button"
+              onClick={() => setShowBulkPlan(true)}
+              disabled={bulkBusy}
+              className="app-button-secondary inline-flex items-center gap-1.5 text-xs disabled:opacity-50"
+            >
+              <CreditCard size={14} />
+              Asignar plan
+            </button>
+            <button
+              type="button"
               onClick={() => void onBulkSetOrganization()}
               disabled={bulkBusy}
               className="app-button-secondary inline-flex items-center gap-1.5 text-xs disabled:opacity-50"
@@ -754,6 +786,16 @@ export default function UsuariosPage() {
         <BulkImportWizard
           onClose={() => setShowBulkImport(false)}
           onDone={() => { void loadUsers(); }}
+        />
+      )}
+
+      {showBulkPlan && (
+        <PlanPickerDialog
+          title="Asignar plan a los seleccionados"
+          description={`El plan y su vigencia se aplicarán a ${selected.size} usuario(s). Los invitados pasan a líder.`}
+          busy={bulkBusy}
+          onConfirm={(plan) => void onBulkAssignPlan(plan)}
+          onClose={() => setShowBulkPlan(false)}
         />
       )}
     </div>

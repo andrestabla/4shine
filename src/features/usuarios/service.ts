@@ -2914,6 +2914,51 @@ export async function bulkSetOrganization(
   return { affected: userIds.length, errors: [] };
 }
 
+/**
+ * Asigna (o cambia) un plan de suscripción a varios usuarios de golpe.
+ *
+ * Refleja el flujo de un solo usuario (updateUser con subscriptionPlanId): fija
+ * subscription_plan_id + inicio + vigencia según duration_days del plan. El
+ * acceso lo derivan las features del plan, no plan_type. Los invitados se
+ * promueven a líder — un plan pagado no tiene sentido en un invitado.
+ */
+export async function bulkAssignPlan(
+  client: PoolClient,
+  _actor: AuthUser,
+  userIds: string[],
+  planId: string,
+): Promise<BulkActionResult> {
+  await requireModulePermission(client, 'usuarios', 'update');
+  if (userIds.length === 0) return { affected: 0, errors: [] };
+
+  const { rows: planRows } = await client.query<{ duration_days: number }>(
+    `SELECT duration_days FROM app_billing.subscription_plans
+     WHERE plan_id = $1::uuid AND is_active = true LIMIT 1`,
+    [planId],
+  );
+  if (!planRows[0]) throw new Error('El plan seleccionado no existe o está inactivo.');
+  const durationDays = Number(planRows[0].duration_days ?? 0);
+
+  // Un invitado que recibe un plan pasa a líder (mismo criterio que el flujo
+  // individual). No se tocan mentor/gestor/admin.
+  await client.query(
+    `UPDATE app_core.users SET primary_role = 'lider', updated_at = now()
+     WHERE user_id = ANY($1::uuid[]) AND primary_role = 'invitado'`,
+    [userIds],
+  );
+
+  const { rowCount } = await client.query(
+    `UPDATE app_core.user_profiles
+        SET subscription_plan_id    = $2::uuid,
+            subscription_started_at = now(),
+            subscription_expires_at = now() + ($3::int || ' days')::interval,
+            updated_at = now()
+      WHERE user_id = ANY($1::uuid[])`,
+    [userIds, planId, durationDays],
+  );
+  return { affected: rowCount ?? 0, errors: [] };
+}
+
 // ─── Resumen de Networking de un usuario (para el detalle admin) ─────────────
 
 export interface UserNetworkingCommunity {

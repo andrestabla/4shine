@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { authenticateRequest } from '@/server/auth/request-auth';
 import { withClient, withRoleContext } from '@/server/db/pool';
 import {
+  bulkAssignPlan,
   bulkExtendSubscription,
   bulkForcePasswordChange,
   bulkRevokeSessions,
@@ -16,7 +17,8 @@ type BulkAction =
   | 'send_message'
   | 'logout'
   | 'force_password_change'
-  | 'set_organization';
+  | 'set_organization'
+  | 'assign_plan';
 
 interface BulkBody {
   action: BulkAction;
@@ -27,6 +29,7 @@ interface BulkBody {
     body?: string;
     channels?: Array<'in_app' | 'email'>;
     organizationId?: string;
+    planId?: string;
   };
 }
 
@@ -65,6 +68,12 @@ export async function POST(request: Request) {
               throw new Error('organizationId es obligatorio.');
             }
             result = await bulkSetOrganization(client, identity, body.userIds, body.params.organizationId);
+            break;
+          case 'assign_plan':
+            if (!body.params?.planId) {
+              throw new Error('planId es obligatorio.');
+            }
+            result = await bulkAssignPlan(client, identity, body.userIds, body.params.planId);
             break;
           default:
             throw new Error('Acción no soportada');

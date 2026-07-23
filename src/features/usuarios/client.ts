@@ -277,7 +277,8 @@ export type BulkAction =
   | 'send_message'
   | 'logout'
   | 'force_password_change'
-  | 'set_organization';
+  | 'set_organization'
+  | 'assign_plan';
 
 export interface BulkActionParams {
   days?: number;
@@ -285,6 +286,7 @@ export interface BulkActionParams {
   body?: string;
   channels?: Array<'in_app' | 'email'>;
   organizationId?: string;
+  planId?: string;
 }
 
 // ─── Organizaciones (gestión solo admin) ────────────────────────────────────

@@ -92,9 +92,13 @@ export function validateUsers(rows: BulkImportRow[]): Promise<BulkImportResult> 
 }
 
 /** Crea las filas válidas. sendWelcomeEmail controla el correo con credenciales. */
-export function commitUsers(rows: BulkImportRow[], sendWelcomeEmail: boolean): Promise<BulkImportResult> {
+export function commitUsers(
+  rows: BulkImportRow[],
+  sendWelcomeEmail: boolean,
+  planId?: string | null,
+): Promise<BulkImportResult> {
   return requestApi<BulkImportResult>('/api/v1/modules/usuarios/bulk-import', {
     method: 'POST',
-    body: JSON.stringify({ rows, dryRun: false, sendWelcomeEmail }),
+    body: JSON.stringify({ rows, dryRun: false, sendWelcomeEmail, planId: planId ?? null }),
   });
 }

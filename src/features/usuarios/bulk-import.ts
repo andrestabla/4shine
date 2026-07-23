@@ -3,7 +3,7 @@ import type { PoolClient } from 'pg';
 import type { AuthUser } from '@/server/auth/types';
 import type { Role } from '@/server/bootstrap/types';
 import { requireModulePermission } from '@/server/auth/module-permissions';
-import { createUser } from './service';
+import { createUser, bulkAssignPlan } from './service';
 import { USER_COUNTRY_SET, USER_JOB_ROLE_SET } from '@/lib/user-demographics';
 
 /** Roles que la importación permite asignar. */
@@ -68,7 +68,7 @@ export async function bulkImportUsers(
   client: PoolClient,
   actor: AuthUser,
   rows: BulkImportRow[],
-  options: { dryRun: boolean; sendWelcomeEmail: boolean },
+  options: { dryRun: boolean; sendWelcomeEmail: boolean; planId?: string | null },
 ): Promise<BulkImportResult> {
   await requireModulePermission(client, 'usuarios', 'create');
 
@@ -81,6 +81,7 @@ export async function bulkImportUsers(
   let creados = 0;
   let errores = 0;
   let omitidos = 0;
+  const lideresCreados: string[] = []; // para asignar el plan opcional al final
 
   // Correos que ya existen en la BD, en una sola consulta (no una por fila).
   const correosArchivo = rows.map((r) => normStr(r.correo).toLowerCase()).filter(Boolean);
@@ -140,7 +141,7 @@ export async function bulkImportUsers(
       // Contraseña temporal; el usuario la recibe en el correo de bienvenida y,
       // por must_change_password, la cambia en el primer ingreso.
       const tempPassword = `4S-${randomBytes(6).toString('base64url')}`;
-      await createUser(client, actor, {
+      const record = await createUser(client, actor, {
         email: correo,
         firstName: nombres,
         lastName: apellidos,
@@ -151,9 +152,25 @@ export async function bulkImportUsers(
         profession: normStr(row.profesion) || null,
         sendWelcomeEmail: options.sendWelcomeEmail,
       });
+      if (role === 'lider') lideresCreados.push(record.userId);
       push('creado');
     } catch (error) {
       push('error', error instanceof Error ? error.message : 'Error desconocido al crear.');
+    }
+  }
+
+  // Plan opcional: se asigna a los líderes recién creados. Un error aquí no
+  // deshace las creaciones; solo se anota en el reporte.
+  if (!options.dryRun && options.planId && lideresCreados.length > 0) {
+    try {
+      await bulkAssignPlan(client, actor, lideresCreados, options.planId);
+    } catch (error) {
+      resultados.push({
+        fila: 0,
+        correo: '',
+        estado: 'error',
+        motivo: `Usuarios creados, pero no se pudo asignar el plan: ${error instanceof Error ? error.message : 'error'}.`,
+      });
     }
   }
 

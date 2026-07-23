@@ -8,6 +8,7 @@ interface BulkImportBody {
   rows: BulkImportRow[];
   dryRun?: boolean;
   sendWelcomeEmail?: boolean;
+  planId?: string | null;
 }
 
 /**
@@ -30,7 +31,7 @@ export async function POST(request: Request) {
   try {
     const data = await withClient((client) =>
       withRoleContext(client, identity.userId, identity.role, async () => {
-        const result = await bulkImportUsers(client, identity, body.rows, { dryRun, sendWelcomeEmail });
+        const result = await bulkImportUsers(client, identity, body.rows, { dryRun, sendWelcomeEmail, planId: body.planId ?? null });
         // Solo se audita la creación real, no las validaciones.
         if (!dryRun) {
           await logModuleAudit(client, request, identity, {
