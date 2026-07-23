@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { authenticateRequest } from '@/server/auth/request-auth';
 import { getBootstrapPayloadForIdentity } from '@/server/bootstrap/service';
 import type { BootstrapPayload, Role, User } from '@/server/bootstrap/types';
@@ -115,20 +115,25 @@ export async function GET(request: Request) {
         ? buildInvitedBootstrapPayload(identity)
         : await getBootstrapPayloadForIdentity(identity.userId, identity.role);
 
-    try {
-      await recordAuditEvent(
-        {
-          action: 'bootstrap_me_load',
-          moduleCode: 'dashboard',
-          entityTable: 'app_core.users',
-          entityId: identity.userId,
-          changeSummary: buildRequestSummary(request, { role: identity.role }),
-        },
-        identity,
-      );
-    } catch (auditError) {
-      console.error('Audit log failed', auditError);
-    }
+    // La auditoría corre DESPUÉS de enviar la respuesta: bootstrap/me está en el
+    // camino más caliente (cada carga de página) y no debe esperar un INSERT
+    // que además abre una segunda conexión. after() lo difiere sin perderlo.
+    after(async () => {
+      try {
+        await recordAuditEvent(
+          {
+            action: 'bootstrap_me_load',
+            moduleCode: 'dashboard',
+            entityTable: 'app_core.users',
+            entityId: identity.userId,
+            changeSummary: buildRequestSummary(request, { role: identity.role }),
+          },
+          identity,
+        );
+      } catch (auditError) {
+        console.error('Audit log failed', auditError);
+      }
+    });
 
     return NextResponse.json(
       {

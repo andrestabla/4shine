@@ -394,9 +394,13 @@ async function hydrateUserRecord(
 }
 
 async function fetchUsers(client: PoolClient): Promise<Record<Role, User>> {
+  // Esta función solo conserva UN usuario representativo por rol (el bucle de
+  // abajo descarta el resto). Antes traía la tabla completa de usuarios activos
+  // para quedarse con ~5 filas: en cada bootstrap, y creciendo con cada alta.
+  // DISTINCT ON pide directamente el más antiguo por rol — 5 filas, no 200+.
   const { rows } = await client.query<UserHydrationRow>(
     `
-      SELECT
+      SELECT DISTINCT ON (u.primary_role)
         u.user_id,
         u.email,
         u.display_name,
@@ -416,7 +420,7 @@ async function fetchUsers(client: PoolClient): Promise<Record<Role, User>> {
       LEFT JOIN app_core.organizations o ON o.organization_id = u.organization_id
       LEFT JOIN app_core.user_profiles p ON p.user_id = u.user_id
       WHERE u.is_active = true
-      ORDER BY u.created_at
+      ORDER BY u.primary_role, u.created_at
     `,
   );
 
