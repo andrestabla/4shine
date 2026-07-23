@@ -34,6 +34,7 @@ import {
 import { subscriptionStatus, formatExpiry, type SubscriptionStatus } from '@/features/usuarios/subscription-status';
 import { exportUsersXlsx, exportUsersPdf } from '@/features/usuarios/export';
 import { RolesMatrixSection } from '@/components/dashboard/usuarios/RolesMatrixSection';
+import { BulkImportWizard } from '@/components/dashboard/usuarios/BulkImportWizard';
 import { formatDate as formatDateCanonical, formatDateTime } from '@/lib/format-date';
 
 interface ListFilters {
@@ -87,6 +88,7 @@ export default function UsuariosPage() {
   const { branding, tokens } = useBranding();
   const router = useRouter();
   const [tab, setTab] = React.useState<Tab>('usuarios');
+  const [showBulkImport, setShowBulkImport] = React.useState(false);
   const [users, setUsers] = React.useState<UserRecord[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [filters, setFilters] = React.useState<ListFilters>({
@@ -345,10 +347,16 @@ export default function UsuariosPage() {
           subtitle="Administra cuentas, planes, permisos y políticas. La gestión de roles está reservada al administrador."
         />
         {tab === 'usuarios' && can('usuarios', 'create') && (
-          <Link href="/dashboard/usuarios/nuevo" className="app-button-primary">
-            <UserPlus size={16} />
-            Nuevo Usuario
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => setShowBulkImport(true)} className="app-button-secondary">
+              <FileSpreadsheet size={16} />
+              Carga masiva
+            </button>
+            <Link href="/dashboard/usuarios/nuevo" className="app-button-primary">
+              <UserPlus size={16} />
+              Nuevo Usuario
+            </Link>
+          </div>
         )}
       </div>
 
@@ -742,6 +750,12 @@ export default function UsuariosPage() {
         </div>
       )}
 
+      {showBulkImport && (
+        <BulkImportWizard
+          onClose={() => setShowBulkImport(false)}
+          onDone={() => { void loadUsers(); }}
+        />
+      )}
     </div>
   );
 }
@@ -909,6 +923,7 @@ function DeletedUsersTabSection() {
           </table>
         </div>
       )}
+
     </div>
   );
 }
