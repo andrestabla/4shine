@@ -34,6 +34,7 @@ import { StatGrid } from "@/components/dashboard/StatGrid";
 import { ModuleGuidanceBanner } from "@/components/dashboard/ModuleGuidanceBanner";
 import { formatDateTime } from "@/lib/format-date";
 import { useUser } from "@/context/UserContext";
+import { useAppDialog } from "@/components/ui/AppDialogProvider";
 import {
   listEarnedCertificates,
   listLearningWorkbooks,
@@ -282,6 +283,7 @@ function challengeHref(challenge: { title: string; description: string }): strin
 
 export default function TrayectoriaPage() {
   const { currentUser, currentRole, bootstrapData, viewerAccess, refreshBootstrap } = useUser();
+  const { alert } = useAppDialog();
   const [isLoading, setIsLoading] = React.useState(false);
   const [loadError, setLoadError] = React.useState<string | null>(null);
   const [workbooks, setWorkbooks] = React.useState<WorkbookRecord[]>([]);
@@ -1238,6 +1240,17 @@ export default function TrayectoriaPage() {
                           recipientName: cert.recipientName,
                           courseName: cert.courseTitle,
                           completedAt: cert.completedAt,
+                        });
+                      } catch (error) {
+                        // Antes el error se tragaba (no había catch) y el botón
+                        // simplemente dejaba de girar sin descargar nada.
+                        await alert({
+                          title: "No se pudo generar el certificado",
+                          message:
+                            error instanceof Error
+                              ? error.message
+                              : "Inténtalo de nuevo en un momento.",
+                          tone: "error",
                         });
                       } finally {
                         setDownloadingCertId(null);

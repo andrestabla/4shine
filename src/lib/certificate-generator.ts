@@ -325,45 +325,72 @@ async function ensureFontsLoaded(): Promise<void> {
 async function htmlToCanvas(html: string): Promise<HTMLCanvasElement> {
   const { default: html2canvas } = await import('html2canvas');
 
-  const wrap = document.createElement('div');
-  wrap.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:1123px;height:794px;overflow:hidden;';
-  wrap.innerHTML = html;
-  document.body.appendChild(wrap);
+  // El certificado se renderiza en un IFRAME aislado, no en document.body.
+  // Motivo: globals.css define variables :root con color-mix() (--background,
+  // --foreground, etc.), que el wrapper heredaba; html2canvas no sabe parsear
+  // color-mix()/oklab() y lanzaba "unsupported color function", abortando la
+  // descarga. El HTML del certificado es autónomo (colores en hex), así que
+  // dentro de un iframe sin la hoja de estilos de la app no queda nada que
+  // html2canvas no entienda.
+  const iframe = document.createElement('iframe');
+  iframe.setAttribute('aria-hidden', 'true');
+  iframe.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:1123px;height:794px;border:0;';
+  document.body.appendChild(iframe);
 
-  // Wait for every img to be fully decoded before html2canvas captures the DOM.
-  // img.decode() is the most reliable signal — it resolves when pixels are ready to paint.
-  const imgs = Array.from(wrap.querySelectorAll<HTMLImageElement>('img'));
-  await Promise.all(
-    imgs.map(async (img) => {
-      try {
-        const decodable = img as HTMLImageElement & { decode?(): Promise<void> };
-        if (typeof decodable.decode === 'function') {
-          await decodable.decode();
-        } else if (!img.complete) {
-          await new Promise<void>((resolve) => {
-            img.onload = img.onerror = () => resolve();
-            setTimeout(resolve, 8000);
-          });
-        }
-      } catch { /* image failed to load — continue without it */ }
-    }),
+  const idoc = iframe.contentDocument;
+  if (!idoc) {
+    document.body.removeChild(iframe);
+    throw new Error('No se pudo preparar el lienzo del certificado.');
+  }
+
+  idoc.open();
+  idoc.write(
+    `<!doctype html><html><head><meta charset="utf-8">` +
+      `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap">` +
+      `<style>html,body{margin:0;padding:0;background:#ffffff;color:#333333;}</style>` +
+      `</head><body>${html}</body></html>`,
   );
+  idoc.close();
 
-  // One tick for layout to settle after decode
-  await new Promise<void>((r) => setTimeout(r, 80));
+  try {
+    // Fuentes e imágenes cargadas en el CONTEXTO del iframe antes de capturar.
+    const idocFonts = (idoc as Document & { fonts?: FontFaceSet }).fonts;
+    if (idocFonts?.ready) await idocFonts.ready;
+    await new Promise<void>((r) => setTimeout(r, 300));
 
-  const canvas = await html2canvas(wrap, {
-    scale: 2,
-    useCORS: false,   // proxy URLs are same-origin — no CORS needed
-    allowTaint: false, // same-origin images don't taint canvas
-    width: 1123,
-    height: 794,
-    logging: false,
-    backgroundColor: null,
-  });
+    const imgs = Array.from(idoc.querySelectorAll<HTMLImageElement>('img'));
+    await Promise.all(
+      imgs.map(async (img) => {
+        try {
+          const decodable = img as HTMLImageElement & { decode?(): Promise<void> };
+          if (typeof decodable.decode === 'function') {
+            await decodable.decode();
+          } else if (!img.complete) {
+            await new Promise<void>((resolve) => {
+              img.onload = img.onerror = () => resolve();
+              setTimeout(resolve, 8000);
+            });
+          }
+        } catch { /* imagen falló — continuar sin ella */ }
+      }),
+    );
+    await new Promise<void>((r) => setTimeout(r, 80));
 
-  document.body.removeChild(wrap);
-  return canvas;
+    const canvas = await html2canvas(idoc.body, {
+      scale: 2,
+      useCORS: false,
+      allowTaint: false,
+      width: 1123,
+      height: 794,
+      windowWidth: 1123,
+      windowHeight: 794,
+      logging: false,
+      backgroundColor: '#ffffff',
+    });
+    return canvas;
+  } finally {
+    document.body.removeChild(iframe);
+  }
 }
 
 // ─── Builder layout rendering ─────────────────────────────────────────────────
