@@ -25,6 +25,7 @@ import type {
   ProgramMentorshipStatus,
   ScheduleProgramMentorshipInput,
   UpdateGroupSessionInput,
+  UpdateGroupSessionRecordingInput,
   UpdateMentorshipInput,
 } from './service';
 
@@ -54,6 +55,7 @@ export type {
   ProgramMentorshipStatus,
   ScheduleProgramMentorshipInput,
   UpdateGroupSessionInput,
+  UpdateGroupSessionRecordingInput,
   UpdateMentorshipInput,
 };
 
@@ -154,6 +156,25 @@ export async function createGroupSessionRecording(
   return requestApi<GroupSessionRecordingRecord>('/api/v1/modules/mentorias/group-sessions/recordings', {
     method: 'POST',
     body: JSON.stringify(input),
+  });
+}
+
+export async function updateGroupSessionRecording(
+  recordingId: string,
+  input: UpdateGroupSessionRecordingInput,
+): Promise<GroupSessionRecordingRecord> {
+  return requestApi<GroupSessionRecordingRecord>(
+    `/api/v1/modules/mentorias/group-sessions/recordings/${recordingId}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export async function deleteGroupSessionRecording(recordingId: string): Promise<void> {
+  await requestApi<void>(`/api/v1/modules/mentorias/group-sessions/recordings/${recordingId}`, {
+    method: 'DELETE',
   });
 }
 

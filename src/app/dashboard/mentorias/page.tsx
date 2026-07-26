@@ -53,6 +53,7 @@ import {
   createGroupSessionRecording,
   createMentorship,
   deleteGroupSession,
+  deleteGroupSessionRecording,
   deleteMentorship,
   dispatchGroupSessionReminders,
   dispatchProgramMentorshipReminders,
@@ -65,6 +66,7 @@ import {
   commentGroupSessionRecording,
   upsertMentorAvailabilitySlot,
   updateGroupSession,
+  updateGroupSessionRecording,
   updateMentorship,
   type AdditionalMentorshipOrderRecord,
   type GroupSessionAnalyticsRecord,
@@ -424,6 +426,15 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
   const [recordingCommentDrafts, setRecordingCommentDrafts] = React.useState<Record<string, string>>({});
   const [recordingSearch, setRecordingSearch] = React.useState('');
   const [recordingTopicFilter, setRecordingTopicFilter] = React.useState<string | null>(null);
+  // Edición inline de una grabación (solo admin/gestor).
+  const [editingRecordingId, setEditingRecordingId] = React.useState<string | null>(null);
+  const [recordingEditForm, setRecordingEditForm] = React.useState<{ title: string; recordingUrl: string; durationMinutes: string; description: string }>({
+    title: '',
+    recordingUrl: '',
+    durationMinutes: '',
+    description: '',
+  });
+  const [submittingRecordingEdit, setSubmittingRecordingEdit] = React.useState(false);
   const [groupAnalytics, setGroupAnalytics] = React.useState<GroupSessionAnalyticsRecord[]>([]);
   const [availabilitySlotForm, setAvailabilitySlotForm] = React.useState<AvailabilitySlotFormState>({
     mentorUserId: '',
@@ -636,11 +647,12 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
   const groupSessions = [...(overview?.groupSessions ?? [])].sort(
     (left, right) => new Date(left.startsAt).getTime() - new Date(right.startsAt).getTime(),
   );
-  const upcomingGroupSession =
-    groupSessions.find((item) => new Date(item.startsAt).getTime() >= Date.now()) ?? groupSessions[0] ?? null;
   // Split por estado real (la sesión es "pasada" cuando ya terminó).
   const upcomingGroupSessions = groupSessions.filter((s) => !isGroupSessionPast(s));
   const pastGroupSessions = [...groupSessions].filter((s) => isGroupSessionPast(s)).reverse();
+  // La "próxima sesión recomendada" es la más cercana que aún no ha terminado.
+  // Si no hay ninguna futura, no se recomienda nada (nunca se muestra una pasada).
+  const upcomingGroupSession = upcomingGroupSessions[0] ?? null;
   const groupRecordings = overview?.groupSessionRecordings ?? [];
 
   // Tarjeta de sesión grupal: clic abre el modal de detalle; los botones de
@@ -1189,6 +1201,65 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
       await load();
     } catch (error) {
       await showError('No se pudo publicar el comentario.', error);
+    }
+  };
+
+  const handleStartEditRecording = (recording: GroupSessionRecordingRecord) => {
+    setEditingRecordingId(recording.recordingId);
+    setRecordingEditForm({
+      title: recording.title,
+      recordingUrl: recording.recordingUrl,
+      durationMinutes: recording.durationMinutes ? String(recording.durationMinutes) : '',
+      description: recording.description ?? '',
+    });
+  };
+
+  const handleCancelEditRecording = () => {
+    setEditingRecordingId(null);
+    setRecordingEditForm({ title: '', recordingUrl: '', durationMinutes: '', description: '' });
+  };
+
+  const handleUpdateRecording = async (recording: GroupSessionRecordingRecord) => {
+    if (!recordingEditForm.title.trim() || !recordingEditForm.recordingUrl.trim()) {
+      await alert({
+        title: 'Faltan datos',
+        message: 'El título y la URL de grabación son obligatorios.',
+        tone: 'warning',
+      });
+      return;
+    }
+    setSubmittingRecordingEdit(true);
+    try {
+      await updateGroupSessionRecording(recording.recordingId, {
+        title: recordingEditForm.title.trim(),
+        recordingUrl: recordingEditForm.recordingUrl.trim(),
+        description: recordingEditForm.description.trim() || null,
+        durationMinutes: recordingEditForm.durationMinutes ? Number(recordingEditForm.durationMinutes) : 0,
+      });
+      handleCancelEditRecording();
+      await load();
+    } catch (error) {
+      await showError('No se pudo actualizar la grabación.', error);
+    } finally {
+      setSubmittingRecordingEdit(false);
+    }
+  };
+
+  const handleDeleteRecording = async (recording: GroupSessionRecordingRecord) => {
+    const isConfirmed = await confirm({
+      title: 'Eliminar grabación',
+      message: `¿Deseas eliminar la grabación "${recording.title}"? Esta acción no se puede deshacer.`,
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
+      tone: 'warning',
+    });
+    if (!isConfirmed) return;
+    try {
+      await deleteGroupSessionRecording(recording.recordingId);
+      if (editingRecordingId === recording.recordingId) handleCancelEditRecording();
+      await load();
+    } catch (error) {
+      await showError('No se pudo eliminar la grabación.', error);
     }
   };
 
@@ -1950,6 +2021,74 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                             {recording.hostName ? ` · ${recording.hostName}` : ''}
                           </p>
                         </div>
+
+                        {/* Editar / eliminar (solo admin/gestor) */}
+                        {(currentRole === 'admin' || currentRole === 'gestor') && (
+                          editingRecordingId === recording.recordingId ? (
+                            <div className="space-y-2 rounded-[14px] border border-[var(--brand-primary)]/30 bg-[var(--app-surface-muted)] p-3">
+                              <input
+                                className="w-full rounded-[12px] border border-[var(--app-border)] bg-white px-3 py-2 text-sm"
+                                placeholder="Título de grabación"
+                                value={recordingEditForm.title}
+                                onChange={(e) => setRecordingEditForm((prev) => ({ ...prev, title: e.target.value }))}
+                              />
+                              <input
+                                className="w-full rounded-[12px] border border-[var(--app-border)] bg-white px-3 py-2 text-sm"
+                                placeholder="URL de grabación"
+                                value={recordingEditForm.recordingUrl}
+                                onChange={(e) => setRecordingEditForm((prev) => ({ ...prev, recordingUrl: e.target.value }))}
+                              />
+                              <input
+                                className="w-full rounded-[12px] border border-[var(--app-border)] bg-white px-3 py-2 text-sm"
+                                placeholder="Duración (min)"
+                                inputMode="numeric"
+                                value={recordingEditForm.durationMinutes}
+                                onChange={(e) => setRecordingEditForm((prev) => ({ ...prev, durationMinutes: e.target.value.replace(/[^\d]/g, '') }))}
+                              />
+                              <textarea
+                                className="min-h-[70px] w-full rounded-[12px] border border-[var(--app-border)] bg-white px-3 py-2 text-sm"
+                                placeholder="Descripción"
+                                value={recordingEditForm.description}
+                                onChange={(e) => setRecordingEditForm((prev) => ({ ...prev, description: e.target.value }))}
+                              />
+                              <div className="flex gap-2">
+                                <button
+                                  type="button"
+                                  className="flex-1 rounded-[12px] bg-[var(--brand-primary)] px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
+                                  onClick={() => void handleUpdateRecording(recording)}
+                                  disabled={submittingRecordingEdit}
+                                >
+                                  {submittingRecordingEdit ? 'Guardando…' : 'Guardar cambios'}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="rounded-[12px] border border-[var(--app-border)] px-3 py-2 text-xs font-semibold text-[var(--app-muted)]"
+                                  onClick={handleCancelEditRecording}
+                                  disabled={submittingRecordingEdit}
+                                >
+                                  Cancelar
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                className="inline-flex items-center gap-1.5 rounded-[10px] border border-[var(--app-border)] bg-white px-2.5 py-1.5 text-xs font-semibold text-[var(--app-muted)] transition hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)]"
+                                onClick={() => handleStartEditRecording(recording)}
+                              >
+                                <Pencil size={12} /> Editar
+                              </button>
+                              <button
+                                type="button"
+                                className="inline-flex items-center gap-1.5 rounded-[10px] border border-red-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50"
+                                onClick={() => void handleDeleteRecording(recording)}
+                              >
+                                <Trash2 size={12} /> Eliminar
+                              </button>
+                            </div>
+                          )
+                        )}
 
                         {/* Reactions */}
                         <div className="flex flex-wrap gap-1.5">

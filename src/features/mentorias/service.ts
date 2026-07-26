@@ -2207,6 +2207,94 @@ export async function createGroupSessionRecording(
   return found;
 }
 
+export interface UpdateGroupSessionRecordingInput {
+  title?: string;
+  description?: string | null;
+  recordingUrl?: string;
+  thumbnailUrl?: string | null;
+  durationMinutes?: number;
+  recordedAt?: string | null;
+}
+
+/** Edita una grabación existente. Solo admin/gestor. Actualiza solo los campos provistos. */
+export async function updateGroupSessionRecording(
+  client: PoolClient,
+  actor: AuthUser,
+  recordingId: string,
+  input: UpdateGroupSessionRecordingInput,
+): Promise<GroupSessionRecordingRecord> {
+  if (actor.role !== 'admin' && actor.role !== 'gestor') {
+    throw new Error('Only admin or gestor can edit recordings');
+  }
+  await requireModulePermission(client, 'mentorias', 'update');
+
+  const sets: string[] = [];
+  const values: unknown[] = [];
+  let i = 1;
+  if (input.title !== undefined) {
+    const title = input.title.trim();
+    if (!title) throw new Error('El título no puede estar vacío.');
+    sets.push(`title = $${i++}`);
+    values.push(title);
+  }
+  if (input.description !== undefined) {
+    sets.push(`description = $${i++}`);
+    values.push(input.description?.trim() || null);
+  }
+  if (input.recordingUrl !== undefined) {
+    const url = input.recordingUrl.trim();
+    if (!url) throw new Error('La URL de grabación no puede estar vacía.');
+    sets.push(`recording_url = $${i++}`);
+    values.push(url);
+  }
+  if (input.thumbnailUrl !== undefined) {
+    sets.push(`thumbnail_url = $${i++}`);
+    values.push(input.thumbnailUrl?.trim() || null);
+  }
+  if (input.durationMinutes !== undefined) {
+    sets.push(`duration_minutes = $${i++}`);
+    values.push(Math.max(0, Math.floor(input.durationMinutes ?? 0)));
+  }
+  if (input.recordedAt !== undefined) {
+    sets.push(`recorded_at = $${i++}`);
+    values.push(input.recordedAt ?? null);
+  }
+
+  if (sets.length === 0) throw new Error('No hay cambios para guardar.');
+  sets.push('updated_at = now()');
+  values.push(recordingId);
+
+  const { rowCount } = await client.query(
+    `UPDATE app_mentoring.group_session_recordings SET ${sets.join(', ')} WHERE recording_id = $${i}`,
+    values,
+  );
+  if (!rowCount) throw new Error('Recording not found');
+
+  const recordings = await listGroupSessionRecordings(client, actor, 300);
+  const updated = recordings.find((item) => item.recordingId === recordingId);
+  if (!updated) throw new Error('Recording not found');
+  return updated;
+}
+
+/** Borra una grabación (reactions y comments caen por CASCADE). Solo admin/gestor. */
+export async function deleteGroupSessionRecording(
+  client: PoolClient,
+  actor: AuthUser,
+  recordingId: string,
+): Promise<{ recordingId: string }> {
+  if (actor.role !== 'admin' && actor.role !== 'gestor') {
+    throw new Error('Only admin or gestor can delete recordings');
+  }
+  await requireModulePermission(client, 'mentorias', 'delete');
+
+  const { rowCount } = await client.query(
+    `DELETE FROM app_mentoring.group_session_recordings WHERE recording_id = $1`,
+    [recordingId],
+  );
+  if (!rowCount) throw new Error('Recording not found');
+  return { recordingId };
+}
+
 export interface ZoomRecordingPayload {
   meetingId: string;
   topic: string;
