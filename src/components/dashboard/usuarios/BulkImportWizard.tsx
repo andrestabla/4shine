@@ -77,11 +77,11 @@ export function BulkImportWizard({ onClose, onDone }: { onClose: () => void; onD
   const problemas = (commitResult ?? validation)?.resultados.filter((r) => r.estado !== 'creado') ?? [];
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-start justify-center overflow-y-auto bg-[rgba(22,10,38,0.6)] p-4 backdrop-blur-sm">
-      <div className="mt-6 w-[min(96vw,880px)] overflow-hidden rounded-[22px] border border-[var(--app-border)] bg-white shadow-2xl">
+    <div className="fixed inset-0 z-[120] flex items-center justify-center overflow-y-auto bg-[rgba(22,10,38,0.6)] p-4 backdrop-blur-sm">
+      <div className="flex max-h-[calc(100dvh-2rem)] w-[min(96vw,880px)] flex-col overflow-hidden rounded-[22px] border border-[var(--app-border)] bg-white shadow-2xl">
         {/* Cabecera con degradado de marca */}
         <div
-          className="relative px-6 py-5"
+          className="relative shrink-0 px-6 py-5"
           style={{ background: 'linear-gradient(120deg, var(--brand-primary), color-mix(in srgb, var(--brand-primary) 78%, black))' }}
         >
           <button type="button" onClick={onClose} className="absolute right-4 top-4 rounded-full p-1 text-white/70 hover:bg-white/10 hover:text-white">
@@ -119,7 +119,7 @@ export function BulkImportWizard({ onClose, onDone }: { onClose: () => void; onD
           </div>
         </div>
 
-        <div className="px-6 py-5">
+        <div className="flex-1 overflow-y-auto px-6 py-5">
           {/* ── Paso 1 ─────────────────────────────────────────────── */}
           {step === 'subir' && (
             <div className="space-y-5">

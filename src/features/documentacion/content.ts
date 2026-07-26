@@ -74,8 +74,8 @@ const ARCHITECTURE_SECTIONS: DocSection[] = [
   <text x="380" y="195" text-anchor="middle" font-size="9" fill="var(--app-muted)">route handlers</text>
   <text x="380" y="209" text-anchor="middle" font-size="9" fill="var(--app-muted)">(serverless)</text>
   <rect x="510" y="142" width="190" height="96" rx="9" fill="var(--app-surface-muted)" stroke="var(--app-border)"/>
-  <text x="605" y="178" text-anchor="middle" font-size="12" font-weight="600" fill="var(--app-ink)">Cron · cada 15 min</text>
-  <text x="605" y="195" text-anchor="middle" font-size="9" fill="var(--app-muted)">recordatorios</text>
+  <text x="605" y="178" text-anchor="middle" font-size="12" font-weight="600" fill="var(--app-ink)">Cron · 5–15 min</text>
+  <text x="605" y="195" text-anchor="middle" font-size="9" fill="var(--app-muted)">recordatorios · IA</text>
   <line x1="250" y1="190" x2="284" y2="190" stroke="var(--app-muted)" stroke-width="1.3" marker-end="url(#arrA)"/>
   <line x1="510" y1="190" x2="476" y2="190" stroke="var(--app-muted)" stroke-width="1.3" marker-end="url(#arrA)"/>
   <rect x="60" y="300" width="200" height="74" rx="9" fill="var(--app-surface)" stroke="var(--app-border-strong)"/>
@@ -167,9 +167,10 @@ const ARCHITECTURE_SECTIONS: DocSection[] = [
           ['app_core', 'Usuarios, perfiles, organizaciones, cohortes, notificaciones, eventos de trayectoria.'],
           ['app_assessment', 'Diagnósticos, intentos y puntajes por pilar (Descubrimiento).'],
           ['app_learning', 'Contenido de aprendizaje: cursos, recursos, actividades, tareas, progreso, workbooks.'],
-          ['app_mentoring', 'Sesiones de mentoría (1:1 y grupales), participantes, asignaciones, recordatorios.'],
+          ['app_mentoring', 'Sesiones de mentoría (1:1 y grupales), participantes, asignaciones, grabaciones, recordatorios.'],
           ['app_networking', 'Conexiones, hilos de chat, mensajes, comunidades, convocatorias.'],
-          ['app_admin', 'Auditoría, configuración de integraciones, branding, plantillas de notificación, site builder.'],
+          ['app_billing', 'Planes de suscripción y sus features por módulo (subscription_plans, plan_module_features), catálogo de productos.'],
+          ['app_admin', 'Auditoría, configuración de integraciones, branding, plantillas de notificación, site builder, ledger de migraciones.'],
         ],
       },
       {
@@ -229,6 +230,7 @@ const ARCHITECTURE_SECTIONS: DocSection[] = [
         items: [
           'Las migraciones son archivos SQL en db/migrations, nombrados por timestamp (YYYYMMDD..._descripcion.sql) y aplicados en orden.',
           'No hay migraciones de ORM: el esquema se versiona como SQL plano e idempotente.',
+          'Hay un ledger en app_admin.schema_migrations (filename, checksum, applied_at): el runner scripts/db-apply-migration.mjs registra cada migración aplicada, salta las ya registradas y con --status reporta pendientes y drift de checksum.',
         ],
       },
       {
@@ -521,16 +523,16 @@ export async function GET(request: Request) {
           ['Pusher', 'Mensajería y notificaciones en tiempo real mediante canales privados.'],
           ['Nodemailer (SMTP)', 'Envío de emails transaccionales con plantillas de marca.'],
           ['OpenAI / Claude', 'Asistente IA, sugerencias de metadatos y transcripción/análisis de sesiones.'],
+          ['GoHighLevel (GHL)', 'CRM externo: un webhook de compras (/api/v1/webhooks/ghl) crea o activa usuarios y les asigna el plan o el diagnóstico comprado. Se gestiona en Administración → GHL.'],
         ],
       },
       { type: 'subheading', text: 'Tareas programadas (cron)' },
       {
         type: 'bullets',
         items: [
-          'Vercel Cron invoca /api/v1/cron/... cada 15 minutos, autenticado con CRON_SECRET.',
-          'Envía recordatorios de sesiones 1:1 y grupales (ventanas configurables: 72h, 24h, …, 30 min).',
-          'Envía recordatorios de Descubrimiento a quienes iniciaron el diagnóstico y no lo completaron.',
-          'Es idempotente: cada (sesión/usuario, ventana) se notifica una sola vez.',
+          'Hay dos crons declaradas en vercel.json (solo corren en Production, autenticadas con CRON_SECRET).',
+          'Recordatorios (/api/v1/cron/mentorias/session-reminders, cada 15 min): avisa de sesiones 1:1 y grupales en ventanas configurables (72h, 24h, …, 30 min), de Descubrimiento a quienes lo iniciaron y no lo completaron, y dispara los eventos de notificación personalizados programados (fecha ancla / dependencia). Idempotente: cada (sesión/usuario, ventana) se notifica una sola vez.',
+          'Trabajos de IA de Descubrimiento (/api/v1/cron/descubrimiento/drain-ai-jobs, cada 5 min): procesa en cola los trabajos de generación del informe con IA (tabla discovery_ai_jobs).',
         ],
       },
       {
@@ -666,7 +668,7 @@ export async function GET(request: Request) {
       { type: 'subheading', text: 'Tareas programadas (cron)' },
       {
         type: 'p',
-        text: 'Las crons declaradas en vercel.json solo se ejecutan en Production. Hoy hay una: /api/v1/cron/mentorias/session-reminders cada 15 minutos, que envía recordatorios de sesiones y de Descubrimiento. Se autentica con CRON_SECRET.',
+        text: 'Las crons declaradas en vercel.json solo se ejecutan en Production. Hoy hay dos: /api/v1/cron/mentorias/session-reminders (cada 15 min: recordatorios de sesiones, de Descubrimiento y disparo de eventos de notificación personalizados) y /api/v1/cron/descubrimiento/drain-ai-jobs (cada 5 min, procesa los trabajos de IA de Descubrimiento en cola). Ambas se autentican con CRON_SECRET.',
       },
     ],
   },
@@ -734,7 +736,7 @@ export async function GET(request: Request) {
         type: 'callout',
         tone: 'info',
         title: 'Migraciones y seed',
-        text: 'El esquema se versiona como SQL plano en db/migrations (la migración base es 20260301_initial_platform_schema.sql) y se aplica de forma ordenada e idempotente. El seeder inicial crea roles, permisos y usuarios de prueba.',
+        text: 'El esquema se versiona como SQL plano en db/migrations (la migración base es 20260301_initial_platform_schema.sql) y se aplica de forma ordenada e idempotente. npm run db:migrate registra cada migración en el ledger app_admin.schema_migrations y aplica solo las pendientes (--status muestra pendientes y drift; --baseline marca las actuales como aplicadas sin ejecutarlas). El seeder inicial crea roles, permisos y usuarios de prueba.',
       },
     ],
   },
@@ -846,7 +848,7 @@ export async function GET(request: Request) {
           'Crea un archivo db/migrations/<YYYYMMDD>_<descripcion>.sql.',
           'Escribe SQL idempotente (CREATE ... IF NOT EXISTS, ADD COLUMN IF NOT EXISTS, etc.) para que reaplicarlo sea seguro.',
           'Para tablas nuevas, incluye sus políticas RLS y los grants para el rol de ejecución (app_runtime).',
-          'Aplica con npm run db:migrate. Nunca edites una migración ya aplicada: agrega una nueva.',
+          'Aplica con npm run db:migrate: registra la migración en el ledger (app_admin.schema_migrations) y solo corre las pendientes. Revisa el estado con npm run db:migrate -- --status. Nunca edites una migración ya aplicada (el checksum del ledger lo detectaría como drift): agrega una nueva.',
         ],
       },
       { type: 'subheading', text: 'Pruebas y calidad' },
@@ -957,7 +959,8 @@ const MODULE_SECTIONS: DocSection[] = [
         type: 'bullets',
         items: [
           'Sesiones 1:1: el líder elige un advisor y una franja real disponible; la reserva descuenta de las mentorías incluidas del programa o se agenda como adicional.',
-          'Sesiones grupales: webinars en vivo, con calendario destacado y vistas de próximas/pasadas.',
+          'Sesiones grupales: webinars en vivo, con calendario destacado y vistas de próximas/pasadas (la tarjeta de "próxima sesión recomendada" solo muestra sesiones que aún no terminaron).',
+          'Grabaciones de sesiones grupales: se publican manualmente (URL) o llegan automáticamente de Zoom; admin y gestor pueden editarlas o eliminarlas. Los líderes las ven, reaccionan y comentan.',
           'Zoom: al crear una sesión se genera la reunión (host = advisor) con grabación en la nube y transcripción automática; opcionalmente se admite un enlace manual.',
           'Recordatorios: el cron envía avisos en ventanas configurables por evento (1:1 y grupal), de forma idempotente.',
         ],
@@ -990,7 +993,7 @@ const MODULE_SECTIONS: DocSection[] = [
           ['Clave de módulo', 'descubrimiento'],
           ['UI', '/dashboard/descubrimiento (y landing pública /descubrimiento)'],
           ['Feature', 'src/features/descubrimiento/'],
-          ['Base de datos', 'app_assessment (assessments, assessment_attempts, pillar_scores)'],
+          ['Base de datos', 'app_assessment (tests, test_attempts, test_attempt_scores, pillars, discovery_sessions, discovery_invitations, discovery_ai_jobs)'],
           ['Roles', 'lider y admin; el rol invitado accede únicamente a este módulo'],
         ],
       },
@@ -1285,6 +1288,7 @@ const MODULE_SECTIONS: DocSection[] = [
           'Plantillas con variables tipo {{variable}} y vista previa en tiempo real.',
           'Configuración por evento: qué plantilla, qué canales y quién recibe.',
           'Ventanas de recordatorio configurables por evento (sesiones 1:1 y grupales).',
+          'Eventos personalizados: se crean en el panel con un disparador por fecha ancla (date_anchor), por dependencia de otro evento (event_dependency) o manual. Los automáticos los dispara el cron de recordatorios (processCustomEventSchedules).',
           'Envío masivo segmentado por plan, días de suscripción, rol, país, etc.',
         ],
       },
@@ -1416,6 +1420,7 @@ const MODULE_SECTIONS: DocSection[] = [
         items: [
           'Tablas: app_core.users (identidad, primary_role, is_active, organización), app_core.user_profiles (demografía y plan), app_auth.user_credentials (hash, intentos, tokens), app_auth.user_roles y app_auth.refresh_sessions (sesiones).',
           'Alta: createUser inserta en esas tablas; si es líder con plan premium/vip, calcula la vigencia como ahora + duration_days del plan, y puede enviar email de bienvenida con contraseña temporal.',
+          'Alta masiva: el asistente "Carga masiva" importa usuarios desde XLSX/CSV con validación fila por fila (dry-run) antes de crear, y opcionalmente asigna un plan a los líderes creados. Sobre los seleccionados hay acciones masivas (entre ellas "Asignar plan").',
           'Baja: "suspender" es is_active = false (bloquea el login, conserva los datos). "Eliminar" es un borrado físico irreversible que primero deja un registro en app_admin.deleted_users_log.',
           'Seguridad: cambiar el rol o desactivar a un usuario revoca todas sus sesiones. El reseteo por el admin envía email; el autoservicio usa un token de un solo uso con 1 hora de validez.',
           'Auditoría: las acciones y la bitácora de navegación quedan en app_admin.audit_logs; las sesiones activas (IP, user-agent, en línea) se listan aparte.',
@@ -1465,7 +1470,7 @@ const MODULE_SECTIONS: DocSection[] = [
           'Estados: draft → pending_review → published → archived / rejected. Publicar requiere el permiso de aprobar.',
           'Borrado en dos pasos: deleteContent es lógico (deleted_at, va a Papelera), restoreContent lo recupera y purgeContent lo elimina definitivamente (irreversible).',
           'Actividades (content_activities + activity_questions + activity_attempts): quizzes autocalificados con tipos de pregunta single_choice, multiple_choice, true_false, fill_blank, numeric y ordering, con puntaje de aprobación e intentos.',
-          'Tareas (content_assignments + assignment_submissions): definen instrucciones, criterios, formatos aceptados y puntaje; las entregas pasan por draft → submitted → graded / rejected / revision_requested.',
+          'Tareas (content_tasks + task_submissions): definen instrucciones, criterios, formatos aceptados y puntaje; las entregas pasan por draft → submitted → graded / rejected / revision_requested.',
         ],
       },
     ],
