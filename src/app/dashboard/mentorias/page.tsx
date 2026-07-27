@@ -2226,6 +2226,21 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                     </a>
                   )
                 )}
+                {isGroupSessionPast(selectedGroupSession) && (() => {
+                  const recording = groupRecordings.find((r) => r.eventId === selectedGroupSession.eventId);
+                  if (!recording) return null;
+                  return (
+                    <a
+                      href={recording.recordingUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-4 py-2 text-sm font-bold text-white"
+                    >
+                      <Play size={14} />
+                      Ver grabación
+                    </a>
+                  );
+                })()}
                 {(currentRole === 'lider' || currentRole === 'mentor') && (
                   selectedGroupSession.participationStatus === 'joined' ? (
                     <span className="inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-4 py-2 text-sm font-semibold text-green-700">
