@@ -40,9 +40,9 @@ const CARDS = [
     icon: MousePointerClick,
   },
   {
-    title: 'Recordatorios de sesiones grupales',
+    title: 'Recordatorios de Expertos en vivo',
     description:
-      'Activa las ventanas de recordatorio (72h, 24h, 12h, 6h, 3h, 1h, 30 min) para las sesiones grupales. Los recordatorios se envían automáticamente a los usuarios con acceso a mentorías grupales usando la plantilla del evento.',
+      'Activa las ventanas de recordatorio (72h, 24h, 12h, 6h, 3h, 1h, 30 min) para los Expertos en vivo. Los recordatorios se envían automáticamente a los usuarios con acceso a Expertos en vivo usando la plantilla del evento.',
     href: '/dashboard/administracion/notificaciones/recordatorios-grupales',
     icon: Clock,
   },

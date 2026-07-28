@@ -66,7 +66,7 @@ export const DEFAULT_PRICING_COPY: PricingCopy = {
   mentoriasFootnote:
     '* Cada sesión dura 60 minutos. Las sesiones no tienen fecha de vencimiento.',
   circuloDescription:
-    'Acceso al Círculo de Líderes 4Shine: sesiones grupales en vivo, cursos exclusivos, comunidad y workshops. Elige la duración que más se ajuste a tu momento.',
+    'Acceso al Círculo de Líderes 4Shine: Expertos en vivo, cursos exclusivos, comunidad y workshops. Elige la duración que más se ajuste a tu momento.',
   circuloUnavailable: 'Aún no hay planes de Círculo activos. Vuelve más tarde.',
 };
 

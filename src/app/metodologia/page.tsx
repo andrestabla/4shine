@@ -340,7 +340,7 @@ export default async function MetodologiaPage() {
               title: 'Comunidad · Networking',
               summary: 'Una red de líderes con el mismo nivel de ambición y compromiso. Colaboración real, no solo contactos.',
               items: [
-                { title: 'Sesiones grupales en vivo', text: 'Encuentros semanales con el grupo del programa para compartir avances y desafíos reales.' },
+                { title: 'Expertos en vivo', text: 'Encuentros semanales con el grupo del programa para compartir avances y desafíos reales.' },
                 { title: 'Workshops y convocatorias', text: 'Eventos de profundización, talleres temáticos y encuentros presenciales o virtuales.' },
                 { title: `Red de líderes ${platformName}`, text: 'Acceso permanente a la comunidad: más de 1.000 líderes activos en distintas industrias.' },
               ],

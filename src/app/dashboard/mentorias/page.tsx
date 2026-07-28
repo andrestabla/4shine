@@ -1095,7 +1095,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
       setGroupWizardStep(1);
       await load();
     } catch (error) {
-      await showError(editingEventId ? 'No se pudo actualizar la sesión.' : 'No se pudo crear la sesión grupal.', error);
+      await showError(editingEventId ? 'No se pudo actualizar la sesión.' : 'No se pudo crear la sesión de Expertos en vivo.', error);
     } finally {
       setSubmittingGroupSession(false);
     }
@@ -1459,7 +1459,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
             : 'text-[var(--app-muted)]',
         )}
       >
-        Sesiones grupales
+        Expertos en vivo
       </Link>
       )}
       {canUseOneOnOne && canSeeSubmodule('mentorias.programa') && (
@@ -1504,9 +1504,9 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
           >
             <span className="text-xl">👥</span>
           </div>
-          <p className="mt-4 text-base font-extrabold text-[var(--app-ink)]">Sesiones grupales del programa</p>
+          <p className="mt-4 text-base font-extrabold text-[var(--app-ink)]">Expertos en vivo del programa</p>
           <p className="mx-auto mt-2 max-w-xs text-sm text-[var(--app-muted)]">
-            Las sesiones grupales en vivo con tu cohorte se desbloquean al activar tu plan.
+            Los Expertos en vivo con tu cohorte se desbloquean al activar tu plan.
           </p>
           <Link
             href="/dashboard/suscripcion"
@@ -1519,7 +1519,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
       )}
       {(currentRole === 'admin' || currentRole === 'gestor') && (
         <section className="app-panel p-5 sm:p-6">
-          {wizardHeader(editingEventId ? 'Editar sesión grupal' : 'Nueva sesión grupal', groupWizardStep)}
+          {wizardHeader(editingEventId ? 'Editar sesión de Expertos en vivo' : 'Nueva sesión de Expertos en vivo', groupWizardStep)}
           <form className="mt-4 grid gap-3" onSubmit={handleCreateGroupSession}>
             {groupWizardStep === 1 && (
               <>
@@ -1675,7 +1675,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                 >
                   {submittingGroupSession
                     ? (editingEventId ? 'Guardando…' : 'Creando sesión…')
-                    : (editingEventId ? 'Guardar cambios' : 'Crear sesión grupal')}
+                    : (editingEventId ? 'Guardar cambios' : 'Crear sesión de Expertos en vivo')}
                 </button>
                 {editingEventId && (
                   <button
@@ -1762,7 +1762,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
           </article>
         ) : (
           <div className="mt-4">
-            <EmptyState message="No hay sesiones grupales próximas por ahora." />
+            <EmptyState message="No hay Expertos en vivo próximos por ahora." />
           </div>
         )}
       </section>
@@ -1804,7 +1804,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                   {hasEvents && (
                     <span
                       className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--brand-primary)] px-1 text-[9px] font-bold text-white"
-                      title={`${dayEvents.length} sesión(es) grupal(es)`}
+                      title={`${dayEvents.length} sesión(es) de Expertos en vivo`}
                     >
                       {dayEvents.length}
                     </span>
@@ -1879,11 +1879,11 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
 
       {!isOpenLeader && (
       <section className="app-panel p-5 sm:p-6">
-        <p className="app-section-kicker">Sesiones grupales próximas</p>
+        <p className="app-section-kicker">Próximos Expertos en vivo</p>
         <p className="mt-1 text-xs text-[var(--app-muted)]">Toca una sesión para ver su descripción y entrar.</p>
         <div className={clsx('mt-4 space-y-3', upcomingGroupSessions.length > 5 && 'max-h-[28rem] overflow-y-auto overscroll-contain pr-1')}>
           {upcomingGroupSessions.length === 0 ? (
-            <EmptyState message="No tienes sesiones grupales próximas." />
+            <EmptyState message="No tienes Expertos en vivo próximos." />
           ) : (
             upcomingGroupSessions.map((eventItem) => renderGroupCard(eventItem))
           )}
@@ -1893,7 +1893,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
 
       {!isOpenLeader && pastGroupSessions.length > 0 && (
       <section className="app-panel p-5 sm:p-6">
-        <p className="app-section-kicker">Sesiones grupales pasadas</p>
+        <p className="app-section-kicker">Expertos en vivo pasados</p>
         <p className="mt-1 text-xs text-[var(--app-muted)]">Toca una sesión para ver su descripción o la grabación.</p>
         <div className={clsx('mt-4 space-y-3', pastGroupSessions.length > 5 && 'max-h-[28rem] overflow-y-auto overscroll-contain pr-1')}>
           {pastGroupSessions.map((eventItem) => renderGroupCard(eventItem))}
@@ -1911,7 +1911,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
               onChange={(event) => setGroupRecordingForm((prev) => ({ ...prev, eventId: event.target.value }))}
               required
             >
-              <option value="">Selecciona sesión grupal</option>
+              <option value="">Selecciona una sesión de Expertos en vivo</option>
               {groupSessions.map((item) => (
                 <option key={item.eventId} value={item.eventId}>
                   {item.title} · {formatDateTime(item.startsAt, tz)}
@@ -2501,7 +2501,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
         <div className="space-y-8">
         <PageTitle
           title="Mentorías"
-          subtitle="Sesiones grupales: agenda, participación, grabaciones y colaboración por rol."
+          subtitle="Expertos en vivo: agenda, participación, grabaciones y colaboración por rol."
         />
           {sectionTabs}
           {groupSection}
@@ -2556,7 +2556,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                 }
               >
                 <option value="individual">Individual</option>
-                <option value="grupal">Grupal</option>
+                <option value="grupal">Experto en vivo</option>
               </select>
               <button
                 className="rounded-[16px] bg-[var(--brand-primary)] px-4 py-3 text-sm font-bold text-white disabled:opacity-50"
@@ -3403,7 +3403,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
       <div className="space-y-8">
         <PageTitle
           title="Mentorías"
-          subtitle="Sesiones grupales para líderes con suscripción: participa en vivo y consulta grabaciones."
+          subtitle="Expertos en vivo para líderes con suscripción: participa en directo y consulta grabaciones."
         />
         {sectionTabs}
         {groupSection}
@@ -3418,14 +3418,14 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
       <div className="space-y-8">
         <PageTitle
           title="Mentorías"
-          subtitle="Tu plan incluye sesiones grupales. Las mentorías 1:1 se adquieren aparte."
+          subtitle="Tu plan incluye Expertos en vivo. Las mentorías 1:1 se adquieren aparte."
         />
         {sectionTabs}
         <ModuleLockedScreen
           moduleName="Mentorías 1:1"
           moduleCode="mentorias"
           icon={Video}
-          description="Tu plan actual incluye las sesiones grupales, pero no mentorías individuales con un advisor."
+          description="Tu plan actual incluye los Expertos en vivo, pero no mentorías individuales con un advisor."
           features={[
             'Sesiones 1:1 de 90 minutos con el advisor que elijas.',
             'Agenda según la disponibilidad publicada de cada advisor.',

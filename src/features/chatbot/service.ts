@@ -421,7 +421,7 @@ function enabledModulesText(access: Awaited<ReturnType<typeof getViewerAccessSta
     [access.canAccessAprendizajeCursos, 'Aprendizaje (cursos)'],
     [access.canAccessProgramWorkbooks, 'Workbooks'],
     [access.canAccessMentoring1on1, 'Mentorías 1:1'],
-    [access.canAccessMentoringGroup, 'Mentorías grupales'],
+    [access.canAccessMentoringGroup, 'Expertos en vivo'],
     [access.canAccessNetworking, 'Networking'],
     [access.canAccessMensajes, 'Mensajes'],
     [access.canAccessConvocatorias, 'Convocatorias'],

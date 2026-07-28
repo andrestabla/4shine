@@ -9,8 +9,8 @@ export default function GroupRemindersAdminPage() {
   return (
     <div className="space-y-6">
       <PageTitle
-        title="Recordatorios de sesiones grupales"
-        subtitle="Define con cuánta anticipación se envían los recordatorios automáticos de cada sesión grupal."
+        title="Recordatorios de Expertos en vivo"
+        subtitle="Define con cuánta anticipación se envían los recordatorios automáticos de cada sesión de Expertos en vivo."
       />
 
       <div className="rounded-[1rem] border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-3 text-sm text-[var(--app-muted)] flex items-start gap-3">
@@ -18,13 +18,13 @@ export default function GroupRemindersAdminPage() {
         <div>
           <p className="mb-1 font-medium text-[var(--app-ink)]">¿Cómo funciona?</p>
           <p>
-            Por cada ventana activa, todos los usuarios con acceso a mentorías grupales reciben un recordatorio de las
+            Por cada ventana activa, todos los usuarios con acceso a Expertos en vivo reciben un recordatorio de las
             sesiones próximas. El mensaje se toma de la plantilla del evento{" "}
             <Link
               href="/dashboard/administracion/notificaciones/plantillas"
               className="font-semibold text-[var(--brand-primary)] underline"
             >
-              «Recordatorio de sesión grupal»
+              «Recordatorio de Expertos en vivo»
             </Link>
             . El envío es automático y no se duplica.
           </p>

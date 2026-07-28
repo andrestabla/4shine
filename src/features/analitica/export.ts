@@ -65,7 +65,7 @@ export function exportAnalyticsXlsx(d: AnalyticsResult): void {
   add('Mentorias', [
     ...ncRows('Por estado', d.mentorias.byStatus),
     ...ncRows('Individual vs Grupal', d.mentorias.individualVsGroup),
-    ...ncRows('Participación grupal', d.mentorias.groupParticipation),
+    ...ncRows('Participación en Expertos en vivo', d.mentorias.groupParticipation),
     ...seriesRows('Sesiones por día', d.mentorias.sessionsSeries),
   ]);
 

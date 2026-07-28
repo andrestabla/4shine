@@ -37,7 +37,7 @@ const ACTION_LABELS: Record<string, string> = {
   create_mentorship: 'Agendó una mentoría',
   update_mentorship: 'Actualizó una mentoría',
   schedule_program_mentorship: 'Programó una mentoría',
-  participate_group_session: 'Participó en sesión grupal',
+  participate_group_session: 'Participó en una sesión de Expertos en vivo',
   create_additional_mentorship_order: 'Compró mentorías adicionales',
   // Networking
   query_connections: 'Revisó sus contactos',

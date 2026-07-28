@@ -339,7 +339,7 @@ export default function DashboardHomePage() {
     {
       href: "/dashboard/mentorias",
       label: "Mentorías",
-      description: "Sesiones grupales y del programa.",
+      description: "Expertos en vivo y mentorías del programa.",
       icon: CalendarDays,
       visible: can("mentorias", "view"),
     },

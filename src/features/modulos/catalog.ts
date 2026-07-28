@@ -113,9 +113,9 @@ export const MODULE_CATALOG: ModuleCatalogEntry[] = [
       },
       {
         key: 'mentorias.grupales',
-        label: 'Sesiones grupales',
+        label: 'Expertos en vivo',
         path: '/dashboard/mentorias/grupales',
-        description: 'Sesiones grupales y masterclasses.',
+        description: 'Expertos en vivo y masterclasses.',
       },
       {
         key: 'mentorias.comprar',

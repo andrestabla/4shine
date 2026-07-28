@@ -122,9 +122,9 @@ const plans = [
     label: 'Comunidad',
     price: '57',
     currency: 'USD / mes',
-    description: 'Sesiones en vivo grupales semanales, cursos exclusivos, comunidad de práctica continua, convocatorias y workshops.',
+    description: 'Expertos en vivo semanales, cursos exclusivos, comunidad de práctica continua, convocatorias y workshops.',
     features: [
-      '1 sesión en vivo grupal por semana',
+      '1 sesión de Expertos en vivo por semana',
       'Todos los cursos y material exclusivo',
       'Comunidad y networking',
       'Convocatorias y workshops',

@@ -2098,7 +2098,7 @@ export async function participateInGroupSession(
   await requireModulePermission(client, 'mentorias', 'view');
   // El plan manda: un líder solo participa en mentorías grupales si su plan
   // habilita 'mentorias_grupales' (canAccessMentoringGroup). Pasa para staff.
-  await requireViewerAccessFlag(client, actor, 'canAccessMentoringGroup', 'Mentorías grupales');
+  await requireViewerAccessFlag(client, actor, 'canAccessMentoringGroup', 'Expertos en vivo');
 
   await client.query(
     `
@@ -2461,7 +2461,7 @@ export async function inviteGroupSessionByRoles(
         VALUES (
           $1,
           'info',
-          'Invitación a sesión grupal',
+          'Invitación a Expertos en vivo',
           $2,
           jsonb_build_object('eventId', $3::text, 'zoomJoinUrl', $4::text, 'type', 'group_session_invitation')
         )
@@ -2588,14 +2588,14 @@ export async function dispatchGroupSessionReminders(
       `
         INSERT INTO app_core.notifications (user_id, notification_type, title, message, payload)
         VALUES (
-          $1, 'info', 'Recordatorio de sesión grupal',
+          $1, 'info', 'Recordatorio de Expertos en vivo',
           $2,
           jsonb_build_object('eventId', $3, 'zoomJoinUrl', $4, 'type', 'group_session_reminder', 'windowType', $5)
         )
       `,
       [
         row.user_id,
-        `Tu sesión grupal "${row.title}" inicia pronto. Revisa el enlace de conexión.`,
+        `Tu sesión de Expertos en vivo "${row.title}" inicia pronto. Revisa el enlace de conexión.`,
         row.event_id,
         row.zoom_join_url,
         windowType,

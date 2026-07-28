@@ -121,7 +121,7 @@ export async function getAnalytics(
     [org],
   );
   const mentByType = await nc(
-    `SELECT CASE ms.session_type WHEN 'grupal' THEN 'Grupal' ELSE 'Individual' END AS label, count(*)::int AS value
+    `SELECT CASE ms.session_type WHEN 'grupal' THEN 'Experto en vivo' ELSE 'Individual' END AS label, count(*)::int AS value
      FROM app_mentoring.mentorship_sessions ms
      JOIN app_core.users u ON u.user_id = ms.mentor_user_id
      WHERE u.organization_id = $1

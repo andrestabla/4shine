@@ -44,8 +44,8 @@ export const PLAN_FEATURES: PlanFeatureDef[] = [
     key: 'mentorias_grupales',
     moduleCode: 'mentorias',
     moduleLabel: 'Mentorías',
-    label: 'Mentorías grupales',
-    description: 'Sesiones grupales en vivo con Advisor.',
+    label: 'Expertos en vivo',
+    description: 'Expertos en vivo con Advisor.',
     supportsQuota: true,
   },
   {

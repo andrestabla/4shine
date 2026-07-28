@@ -375,7 +375,7 @@ function Mentorias({ d }: { d: AnalyticsResult }) {
         <Panel title="Individual vs Grupal">
           <Donut data={m.individualVsGroup} />
         </Panel>
-        <Panel title="Participación en sesiones grupales">
+        <Panel title="Participación en Expertos en vivo">
           <Bars data={m.groupParticipation} />
         </Panel>
       </Grid>

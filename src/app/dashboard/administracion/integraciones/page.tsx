@@ -481,7 +481,7 @@ const INTEGRATION_ASSISTANTS: Record<IntegrationKey, AssistantDefinition> = {
   },
   zoom: {
     intro:
-      'Configura Zoom como proveedor de videollamadas para mentorías y sesiones grupales. Usa Server-to-Server OAuth (recomendado por Zoom desde 2023) para crear reuniones programáticamente sin intervención manual.',
+      'Configura Zoom como proveedor de videollamadas para mentorías y Expertos en vivo. Usa Server-to-Server OAuth (recomendado por Zoom desde 2023) para crear reuniones programáticamente sin intervención manual.',
     primarySecretField: 'clientSecret',
     steps: [
       {
@@ -552,7 +552,7 @@ const INTEGRATION_ASSISTANTS: Record<IntegrationKey, AssistantDefinition> = {
             label: 'Duración por defecto (min)',
             type: 'number',
             defaultValue: '60',
-            helpText: 'Duración en minutos para nuevas sesiones de mentoría y sesiones grupales.',
+            helpText: 'Duración en minutos para nuevas sesiones de mentoría y Expertos en vivo.',
           },
           {
             key: 'waitingRoom',
