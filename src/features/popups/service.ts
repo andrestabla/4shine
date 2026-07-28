@@ -2,10 +2,13 @@ import type { PoolClient } from 'pg';
 import { requireModulePermission } from '@/server/auth/module-permissions';
 import type { AuthUser } from '@/server/auth/types';
 import type {
+  BannerStyle,
   CreatePopupInput,
+  PopupDisplayMode,
   PopupFrequency,
   PopupRecord,
   PopupRole,
+  PopupSubscriptionTarget,
   PopupTargetMode,
   PopupTrigger,
   PublicPopup,
@@ -25,6 +28,9 @@ interface PopupRow {
   target_paths: string[];
   target_roles: string[];
   target_plans: string[];
+  target_subscription: PopupSubscriptionTarget;
+  display_mode: PopupDisplayMode;
+  banner_style: BannerStyle;
   frequency: PopupFrequency;
   title: string;
   message: string;
@@ -39,7 +45,8 @@ interface PopupRow {
 const POPUP_SELECT = `
   popup_id::text, organization_id::text, name, is_active, trigger_type,
   delay_seconds, scroll_percent, target_mode, target_paths,
-  target_roles, target_plans::text[] AS target_plans, frequency,
+  target_roles, target_plans::text[] AS target_plans,
+  target_subscription, display_mode, banner_style, frequency,
   title, message, cta_label, cta_url, dismiss_label, sort_order,
   created_at::text, updated_at::text
 `;
@@ -70,6 +77,9 @@ function toRecord(row: PopupRow): PopupRecord {
     targetPaths: row.target_paths ?? [],
     targetRoles: (row.target_roles ?? []) as PopupRecord['targetRoles'],
     targetPlans: row.target_plans ?? [],
+    targetSubscription: row.target_subscription,
+    displayMode: row.display_mode,
+    bannerStyle: row.banner_style,
     frequency: row.frequency,
     title: row.title,
     message: row.message,
@@ -85,6 +95,8 @@ function toRecord(row: PopupRow): PopupRecord {
 function toPublic(row: PopupRow): PublicPopup {
   return {
     popupId: row.popup_id,
+    displayMode: row.display_mode,
+    bannerStyle: row.banner_style,
     triggerType: row.trigger_type,
     delaySeconds: row.delay_seconds,
     scrollPercent: row.scroll_percent,
@@ -157,9 +169,10 @@ export async function createPopup(
   const { rows } = await client.query<PopupRow>(
     `INSERT INTO app_admin.popups
        (organization_id, name, is_active, trigger_type, delay_seconds, scroll_percent,
-        target_mode, target_paths, target_roles, target_plans, frequency, title, message, cta_label, cta_url,
+        target_mode, target_paths, target_roles, target_plans, target_subscription, display_mode,
+        banner_style, frequency, title, message, cta_label, cta_url,
         dismiss_label, sort_order, created_by, updated_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::uuid[],$11,$12,$13,$14,$15,$16,$17,$18,$18)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::uuid[],$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$21)
      RETURNING ${POPUP_SELECT}`,
     [
       orgId,
@@ -172,6 +185,9 @@ export async function createPopup(
       sanitizePaths(input.targetPaths),
       sanitizeRoles(input.targetRoles),
       sanitizePlans(input.targetPlans),
+      input.targetSubscription ?? 'any',
+      input.displayMode ?? 'popup',
+      input.bannerStyle ?? 'brand',
       input.frequency ?? 'session',
       input.title?.trim() ?? '',
       input.message?.trim() ?? '',
@@ -215,6 +231,9 @@ export async function updatePopup(
     params.push(sanitizePlans(input.targetPlans));
     idx += 1;
   }
+  if (input.targetSubscription !== undefined) push('target_subscription', input.targetSubscription);
+  if (input.displayMode !== undefined) push('display_mode', input.displayMode);
+  if (input.bannerStyle !== undefined) push('banner_style', input.bannerStyle);
   if (input.frequency !== undefined) push('frequency', input.frequency);
   if (input.title !== undefined) push('title', input.title.trim());
   if (input.message !== undefined) push('message', input.message.trim());
@@ -260,9 +279,15 @@ export async function listPopupsForVisitor(
 
   let role: string | null = null;
   let planId: string | null = null;
+  let hasActivePlan = false;
   if (identity) {
-    const { rows: userRows } = await client.query<{ primary_role: string; plan_id: string | null }>(
-      `SELECT u.primary_role, p.subscription_plan_id::text AS plan_id
+    const { rows: userRows } = await client.query<{
+      primary_role: string;
+      plan_id: string | null;
+      expires: string | null;
+    }>(
+      `SELECT u.primary_role, p.subscription_plan_id::text AS plan_id,
+              p.subscription_expires_at::text AS expires
        FROM app_core.users u
        LEFT JOIN app_core.user_profiles p ON p.user_id = u.user_id
        WHERE u.user_id = $1 LIMIT 1`,
@@ -270,6 +295,8 @@ export async function listPopupsForVisitor(
     );
     role = userRows[0]?.primary_role ?? identity.role ?? null;
     planId = userRows[0]?.plan_id ?? null;
+    const expires = userRows[0]?.expires ?? null;
+    hasActivePlan = planId !== null && (expires === null || new Date(expires) > new Date());
   }
 
   return rows
@@ -278,7 +305,13 @@ export async function listPopupsForVisitor(
       const plans = row.target_plans ?? [];
       const roleOk = roles.length === 0 || (role !== null && roles.includes(role));
       const planOk = plans.length === 0 || (planId !== null && plans.includes(planId));
-      return roleOk && planOk;
+      // Audiencia por estado de suscripción: exige sesión (el visitante anónimo
+      // solo ve piezas con target 'any').
+      const sub = row.target_subscription ?? 'any';
+      const subOk =
+        sub === 'any' ||
+        (identity !== null && (sub === 'with_plan' ? hasActivePlan : !hasActivePlan));
+      return roleOk && planOk && subOk;
     })
     .map(toPublic);
 }

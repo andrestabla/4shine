@@ -67,11 +67,12 @@ export function PopupCard({
 
 // ─── Supresión por frecuencia (storage por popup) ───────────────────────────
 
-function storageKey(popupId: string): string {
+export function popupStorageKey(popupId: string): string {
   return `popup_seen_${popupId}`;
 }
+const storageKey = popupStorageKey;
 
-function isSuppressed(p: PublicPopup): boolean {
+export function isSuppressed(p: PublicPopup): boolean {
   if (typeof window === "undefined") return true;
   const key = storageKey(p.popupId);
   try {
@@ -88,7 +89,7 @@ function isSuppressed(p: PublicPopup): boolean {
   return false;
 }
 
-function markSeen(p: PublicPopup): void {
+export function markSeen(p: PublicPopup): void {
   if (typeof window === "undefined") return;
   const key = storageKey(p.popupId);
   try {
@@ -126,7 +127,9 @@ export default function PopupRuntime() {
     (async () => {
       const popups = await getActivePopups();
       if (cancelled) return;
-      const candidate = popups.find((p) => matchesPath(p, pathname) && !isSuppressed(p));
+      const candidate = popups.find(
+        (p) => p.displayMode !== 'banner' && matchesPath(p, pathname) && !isSuppressed(p),
+      );
       if (!candidate) return;
 
       const show = () => {

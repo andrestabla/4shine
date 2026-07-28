@@ -21,6 +21,8 @@ const SEGMENT_LABELS: Record<string, string> = {
   historial: "Historial",
   popups: "Popups",
   "recordatorios-grupales": "Recordatorios",
+  "comprar-sesiones": "Comprar sesiones",
+  "banners": "Banner Builder",
   "asistente-ia": "Asistente IA",
   tour: "Tour",
   politicas: "Políticas",

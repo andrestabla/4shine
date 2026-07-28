@@ -757,7 +757,8 @@ IMPORTANTE: usa SIEMPRE la ruta RELATIVA tal cual (empieza con "/"). NUNCA antep
 - Perfil, editar datos, foto, cambiar contraseña, eliminar cuenta: /dashboard/perfil
 - Suscripción, plan, días restantes: /dashboard/suscripcion
 - Workshops (inscribirse): /dashboard/workshops
-- Mentorías (agendar/comprar): /dashboard/mentorias
+- Mentorías (agendar): /dashboard/mentorias
+- Comprar sesiones con Advisors: /dashboard/comprar-sesiones
 - Advisors / mentores (perfiles PÚBLICOS de quienes acompañan): /advisors
 - Líderes (panel de los LÍDERES/clientes del programa y su progreso; solo para advisor/mentor, gestor o admin): /dashboard/lideres
 - Formación de advisors (cursos para mentores): /dashboard/formacion-mentores

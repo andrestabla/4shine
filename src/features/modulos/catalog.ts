@@ -117,13 +117,14 @@ export const MODULE_CATALOG: ModuleCatalogEntry[] = [
         path: '/dashboard/mentorias/grupales',
         description: 'Expertos en vivo y masterclasses.',
       },
-      {
-        key: 'mentorias.comprar',
-        label: 'Comprar mentorías',
-        path: '/dashboard/mentorias/comprar',
-        description: 'Compra de sesiones adicionales.',
-      },
     ],
+  },
+  {
+    key: 'comprar_sesiones',
+    label: 'Comprar sesiones',
+    moduleCode: 'mentorias',
+    path: '/dashboard/comprar-sesiones',
+    description: 'Compra de sesiones individuales con Advisors.',
   },
   {
     key: 'networking',

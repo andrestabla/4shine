@@ -9,6 +9,10 @@ export type {
   PopupTrigger,
   PopupFrequency,
   PopupTargetMode,
+  PopupDisplayMode,
+  BannerStyle,
+  PopupSubscriptionTarget,
+  PopupRole,
 } from './types';
 
 interface SafeResponse<T> {

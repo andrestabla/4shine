@@ -948,7 +948,7 @@ const MODULE_SECTIONS: DocSection[] = [
         headers: ['Aspecto', 'Detalle'],
         rows: [
           ['Clave de módulo', 'mentorias'],
-          ['UI', '/dashboard/mentorias (programa, grupales, comprar)'],
+          ['UI', '/dashboard/mentorias (programa, Expertos en vivo) y /dashboard/comprar-sesiones (compra de sesiones, módulo independiente)'],
           ['API', '/api/v1/modules/mentorias/...'],
           ['Feature', 'src/features/mentorias/'],
           ['Base de datos', 'app_mentoring (mentorship_sessions, session_participants, mentor_assignments, session_feedback)'],
@@ -1276,7 +1276,7 @@ const MODULE_SECTIONS: DocSection[] = [
         headers: ['Aspecto', 'Detalle'],
         rows: [
           ['Clave de módulo', 'notificaciones'],
-          ['UI', '/dashboard/administracion/notificaciones (plantillas, eventos, enviar, historial, popups, recordatorios)'],
+          ['UI', '/dashboard/administracion/notificaciones (plantillas, eventos, enviar, historial, popups, banners, recordatorios)'],
           ['Feature', 'src/features/notificaciones/'],
           ['Base de datos', 'app_admin (notification_templates, notification_event_configs) + app_core.notifications'],
           ['Canales', 'In-app (persistente + Pusher) y email (Nodemailer SMTP)'],
@@ -1290,6 +1290,7 @@ const MODULE_SECTIONS: DocSection[] = [
           'Ventanas de recordatorio configurables por evento (sesiones 1:1 y grupales).',
           'Eventos personalizados: se crean en el panel con un disparador por fecha ancla (date_anchor), por dependencia de otro evento (event_dependency) o manual. Los automáticos los dispara el cron de recordatorios (processCustomEventSchedules).',
           'Envío masivo segmentado por plan, días de suscripción, rol, país, etc.',
+          'Banner Builder: banners premium en línea dentro del dashboard, dirigidos por rol, estado de suscripción (p. ej. líderes sin plan) y módulo; comparten la tabla de popups (display_mode).',
         ],
       },
     ],

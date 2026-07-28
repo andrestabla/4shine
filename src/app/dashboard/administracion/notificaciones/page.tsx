@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { NotificationSettingsPanel } from '@/components/dashboard/notificaciones/NotificationSettingsPanel';
-import { LayoutTemplate, ListChecks, Bell, Send, History, MousePointerClick, Clock } from 'lucide-react';
+import { LayoutTemplate, ListChecks, Bell, Send, History, MousePointerClick, Clock, Megaphone } from 'lucide-react';
 
 const CARDS = [
   {
@@ -31,6 +31,13 @@ const CARDS = [
       'Registro de todos los mensajes que salen de la plataforma (manuales y automáticos), con fecha, remitente, destinatario, estado de entrega y apertura. Cada fila abre el contenido completo.',
     href: '/dashboard/administracion/notificaciones/historial',
     icon: History,
+  },
+  {
+    title: 'Banner Builder',
+    description:
+      'Constructor premium de banners destacados dentro del dashboard: elige estilo, rol objetivo, audiencia por suscripción (p. ej. líderes sin plan) y los módulos donde aparece, con vista previa en vivo.',
+    href: '/dashboard/administracion/notificaciones/banners',
+    icon: Megaphone,
   },
   {
     title: 'Popup Builder',

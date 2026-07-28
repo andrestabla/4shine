@@ -107,7 +107,8 @@ export default function PopupsAdminPage() {
   const load = React.useCallback(async () => {
     setLoading(true);
     const res = await listPopups();
-    if (res.ok && res.data) setPopups(res.data);
+    // Este builder gestiona solo popups; los banners tienen su propio builder.
+    if (res.ok && res.data) setPopups(res.data.filter((p) => p.displayMode !== 'banner'));
     setLoading(false);
   }, []);
 

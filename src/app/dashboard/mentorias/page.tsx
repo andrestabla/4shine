@@ -1475,19 +1475,6 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
           Mentorías del programa
         </Link>
       )}
-      {canSeeSubmodule('mentorias.comprar') && (
-      <Link
-        href="/dashboard/mentorias/comprar"
-        className={clsx(
-          'rounded-[12px] px-4 py-2 text-sm font-semibold',
-          activeSection === 'comprar'
-            ? 'bg-[var(--brand-primary)] font-bold text-white'
-            : 'text-[var(--app-muted)]',
-        )}
-      >
-        Comprar sesiones
-      </Link>
-      )}
     </div>
   );
 
@@ -3515,7 +3502,6 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
             title="Comprar mentorías"
             subtitle="Reserva sesiones individuales con nuestros Advisors especializados."
           />
-          {sectionTabs}
           <Stepper />
 
           {overview.mentorCatalog.length === 0 ? (
@@ -4568,7 +4554,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
             kicker="Mentorías"
             title="No tienes sesiones agendadas"
             message="Adquiere sesiones adicionales con los advisors disponibles."
-            cta={{ label: 'Comprar sesiones', href: '/dashboard/mentorias/comprar' }}
+            cta={{ label: 'Comprar sesiones', href: '/dashboard/comprar-sesiones' }}
           />
         );
       })()}
@@ -4926,7 +4912,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
           </p>
         </div>
         <Link
-          href="/dashboard/mentorias/comprar"
+          href="/dashboard/comprar-sesiones"
           className="shrink-0 inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-4 py-2 text-sm font-bold text-white transition hover:opacity-90"
         >
           <ShoppingBag size={14} />

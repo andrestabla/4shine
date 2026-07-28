@@ -45,6 +45,8 @@ const PATH_TITLES: Record<string, string> = {
   "/dashboard/administracion/notificaciones/eventos": "Configuración de eventos",
   "/dashboard/administracion/notificaciones/popups": "Popup Builder",
   "/dashboard/administracion/notificaciones/recordatorios-grupales": "Recordatorios de Expertos en vivo",
+  "/dashboard/administracion/notificaciones/banners": "Banner Builder",
+  "/dashboard/comprar-sesiones": "Comprar sesiones",
   "/dashboard/administracion/planes": "Planes y Precios",
   "/dashboard/administracion/planes/nuevo": "Nuevo plan",
   "/dashboard/administracion/tour": "Tour de Onboarding",

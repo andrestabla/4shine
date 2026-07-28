@@ -4,6 +4,7 @@ import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
 import TourRunner from "@/components/tour/TourRunner";
 import PopupRuntime from "@/components/popups/PopupRuntime";
+import BannerRuntime from "@/components/popups/BannerRuntime";
 import ChatWidget from "@/components/chatbot/ChatWidget";
 import { DashboardBackButton } from "@/components/dashboard/DashboardBackButton";
 import FirstLoginWelcomeModal from "@/components/dashboard/FirstLoginWelcomeModal";
@@ -52,6 +53,7 @@ const ACCESS_BY_PATH: Record<string, RouteAccess> = {
   "/dashboard/descubrimiento": { moduleCode: "descubrimiento" },
   "/dashboard/aprendizaje": { moduleCode: "aprendizaje" },
   "/dashboard/mentorias": { moduleCode: "mentorias" },
+  "/dashboard/comprar-sesiones": { moduleCode: "mentorias" },
   "/dashboard/networking": { moduleCode: "networking" },
   "/dashboard/convocatorias": { moduleCode: "convocatorias" },
   "/dashboard/mensajes": { moduleCode: "mensajes" },
@@ -386,6 +388,7 @@ function DashboardLayoutInner({
             <div className="mb-4">
               <DashboardBackButton />
             </div>
+            <BannerRuntime />
             {children}
           </div>
         </main>

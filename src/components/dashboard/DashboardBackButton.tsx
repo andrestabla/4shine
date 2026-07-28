@@ -56,6 +56,8 @@ const DASHBOARD_ROUTES: string[] = [
   "/dashboard/mensajes",
   "/dashboard/mentorias",
   "/dashboard/mentorias/comprar",
+  "/dashboard/comprar-sesiones",
+  "/dashboard/administracion/notificaciones/banners",
   "/dashboard/mentorias/grupales",
   "/dashboard/mentorias/programa",
   "/dashboard/networking",

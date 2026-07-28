@@ -261,8 +261,8 @@ async function createStripeCheckoutForOrder(
         },
       },
     ],
-    success_url: `${appUrl}/dashboard/mentorias/comprar?payment=success&order=${order.orderId}`,
-    cancel_url: `${appUrl}/dashboard/mentorias/comprar?payment=cancel&order=${order.orderId}`,
+    success_url: `${appUrl}/dashboard/comprar-sesiones?payment=success&order=${order.orderId}`,
+    cancel_url: `${appUrl}/dashboard/comprar-sesiones?payment=cancel&order=${order.orderId}`,
   });
   if (!session.url) throw new Error('Stripe no devolvió URL de checkout.');
   await markOrderPending(client, order.orderId, 'stripe', session.id, session.url);
@@ -298,7 +298,7 @@ async function createWompiCheckoutForOrder(
   const signaturePayload = `${reference}${amountInCents}${currency}${credentials.integritySecret}`;
   const integritySignature = sha256Hex(signaturePayload);
   const appUrl = getAppUrl();
-  const redirectUrl = `${appUrl}/dashboard/mentorias/comprar?payment=success&order=${order.orderId}`;
+  const redirectUrl = `${appUrl}/dashboard/comprar-sesiones?payment=success&order=${order.orderId}`;
 
   const params = new URLSearchParams({
     'public-key': credentials.publicKey,

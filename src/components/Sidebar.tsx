@@ -31,6 +31,7 @@ import {
   CreditCard,
   Lock,
   PowerOff,
+  ShoppingCart,
 } from "lucide-react";
 import type { ViewerAccessState } from "@/features/access/types";
 import Link from "next/link";
@@ -99,6 +100,12 @@ const MAIN_NAV_ITEMS: NavItem[] = [
     label: "Mentorías",
     icon: Video,
     path: "/dashboard/mentorias",
+  },
+  {
+    moduleCode: "mentorias",
+    label: "Comprar sesiones",
+    icon: ShoppingCart,
+    path: "/dashboard/comprar-sesiones",
   },
   {
     moduleCode: "networking",

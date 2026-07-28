@@ -1,4 +1,7 @@
 export type PopupTrigger = 'time' | 'scroll' | 'exit_intent' | 'immediate';
+export type PopupDisplayMode = 'popup' | 'banner';
+export type BannerStyle = 'brand' | 'gold' | 'navy' | 'light';
+export type PopupSubscriptionTarget = 'any' | 'without_plan' | 'with_plan';
 export type PopupFrequency = 'session' | 'daily' | 'once' | 'always';
 export type PopupTargetMode = 'all' | 'include';
 export type PopupRole = 'lider' | 'mentor' | 'gestor' | 'admin' | 'invitado';
@@ -25,6 +28,9 @@ export interface PopupRecord {
   targetPaths: string[];
   targetRoles: PopupRole[];
   targetPlans: string[];
+  targetSubscription: PopupSubscriptionTarget;
+  displayMode: PopupDisplayMode;
+  bannerStyle: BannerStyle;
   frequency: PopupFrequency;
   title: string;
   message: string;
@@ -46,6 +52,9 @@ export interface CreatePopupInput {
   targetPaths?: string[];
   targetRoles?: PopupRole[];
   targetPlans?: string[];
+  targetSubscription?: PopupSubscriptionTarget;
+  displayMode?: PopupDisplayMode;
+  bannerStyle?: BannerStyle;
   frequency?: PopupFrequency;
   title?: string;
   message?: string;
@@ -60,6 +69,8 @@ export type UpdatePopupInput = Partial<CreatePopupInput>;
 /** Subconjunto que necesita el runtime público (sin metadatos internos). */
 export interface PublicPopup {
   popupId: string;
+  displayMode: PopupDisplayMode;
+  bannerStyle: BannerStyle;
   triggerType: PopupTrigger;
   delaySeconds: number;
   scrollPercent: number;
@@ -78,6 +89,19 @@ export const POPUP_TRIGGER_LABELS: Record<PopupTrigger, string> = {
   scroll: 'Por scroll',
   exit_intent: 'Al intentar salir',
   immediate: 'Inmediato',
+};
+
+export const BANNER_STYLE_LABELS: Record<BannerStyle, string> = {
+  brand: 'Marca (navy + dorado)',
+  gold: 'Dorado',
+  navy: 'Navy minimal',
+  light: 'Claro',
+};
+
+export const SUBSCRIPTION_TARGET_LABELS: Record<PopupSubscriptionTarget, string> = {
+  any: 'Cualquier usuario',
+  without_plan: 'Sin suscripción activa',
+  with_plan: 'Con suscripción activa',
 };
 
 export const POPUP_FREQUENCY_LABELS: Record<PopupFrequency, string> = {
