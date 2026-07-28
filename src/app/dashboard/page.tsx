@@ -384,41 +384,7 @@ export default function DashboardHomePage() {
     return (
       <div className="space-y-4">
 
-        {/* Promo banner */}
-        <section
-          className="relative overflow-hidden rounded-[1.5rem] px-7 py-7 sm:px-9 sm:py-8"
-          style={{
-            background:
-              "linear-gradient(135deg, var(--brand-primary) 0%, color-mix(in srgb, var(--brand-primary) 55%, var(--brand-accent)) 45%, var(--brand-accent) 100%)",
-          }}
-        >
-          <div
-            className="pointer-events-none absolute right-0 top-0 h-48 w-48 rounded-full opacity-20"
-            style={{ background: "radial-gradient(circle, white 0%, transparent 70%)", transform: "translate(35%, -35%)" }}
-          />
-          <div
-            className="pointer-events-none absolute bottom-0 left-1/4 h-28 w-28 rounded-full opacity-10"
-            style={{ background: "radial-gradient(circle, white 0%, transparent 70%)", transform: "translateY(40%)" }}
-          />
-          <div className="relative">
-            <p className="text-[11px] font-extrabold uppercase tracking-[0.28em] text-white/70">
-              Bienvenido, {firstName}
-            </p>
-            <h1 className="mt-2 text-[1.85rem] font-black leading-tight text-white sm:text-[2.1rem]">
-              Tu liderazgo<br />empieza aquí.
-            </h1>
-            <p className="mt-2.5 max-w-md text-sm leading-relaxed text-white/78">
-              Accede a recursos gratuitos, activa tu diagnóstico o agenda una mentoría cuando lo necesites.
-            </p>
-            <Link
-              href="/dashboard/aprendizaje"
-              className="mt-5 inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-bold shadow-sm transition hover:-translate-y-0.5"
-              style={{ color: "var(--brand-primary)" }}
-            >
-              Explorar recursos <ArrowRight size={14} />
-            </Link>
-          </div>
-        </section>
+        {/* El hero de bienvenida ahora es un banner gestionable (Banner Builder). */}
 
         {/* Quick access */}
         <div>
@@ -600,39 +566,6 @@ export default function DashboardHomePage() {
         </section>
       )}
 
-      {isOpenLeader ? (
-        <section
-          className="app-panel overflow-hidden"
-        >
-          <div
-            className="px-6 py-8 sm:px-10 sm:py-10 text-white"
-            style={{
-              background:
-                "linear-gradient(140deg, var(--brand-primary) 0%, color-mix(in srgb, var(--brand-primary) 70%, #1e293b) 100%)",
-            }}
-          >
-            <div className="flex items-center gap-2 text-white/75">
-              <span className="text-[10px] font-extrabold uppercase tracking-[0.28em]">
-                Líder sin suscripción
-              </span>
-            </div>
-            <h2 className="mt-4 max-w-xl text-2xl font-semibold leading-tight text-white sm:text-3xl">
-              Activa tu plan para desbloquear todo el journey 4Shine
-            </h2>
-            <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/85">
-              Tu cuenta tiene acceso a Descubrimiento. El resto del programa
-              (Trayectoria, Workbooks, Mentorías, Convocatorias, Networking,
-              Workshops y Mensajes) se desbloquea al activar tu plan.
-            </p>
-            <Link
-              href="/dashboard/suscripcion"
-              className="mt-6 inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-bold text-[var(--brand-primary)] shadow-sm transition hover:-translate-y-0.5"
-            >
-              Ver planes y activar
-            </Link>
-          </div>
-        </section>
-      ) : null}
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.7fr)]">
         <section className="app-panel p-5 sm:p-6">

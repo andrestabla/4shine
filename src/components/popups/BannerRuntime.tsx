@@ -5,6 +5,14 @@ import { usePathname } from "next/navigation";
 import { Sparkles, X, ArrowRight } from "lucide-react";
 import { getActivePopups, type PublicPopup, type BannerStyle } from "@/features/popups/client";
 import { isSuppressed, markSeen } from "@/components/popups/PopupRuntime";
+import { useUser } from "@/context/UserContext";
+
+/** Sustituye {{nombre}} por el nombre del usuario; sin nombre, limpia la coma sobrante. */
+export function applyNombre(text: string, name: string): string {
+  if (!text) return text;
+  if (name) return text.replace(/\{\{\s*nombre\s*\}\}/gi, name);
+  return text.replace(/,?\s*\{\{\s*nombre\s*\}\}/gi, "").trim();
+}
 
 // ─── Tarjeta presentacional del banner (reutilizada por el preview admin) ────
 
@@ -73,6 +81,7 @@ export function BannerCard({
   message,
   ctaLabel,
   ctaUrl,
+  kicker = "",
   style = "brand",
   visuals,
   onCta,
@@ -82,6 +91,7 @@ export function BannerCard({
   message: string;
   ctaLabel: string;
   ctaUrl: string;
+  kicker?: string;
   style?: BannerStyle;
   visuals?: BannerVisualOverrides;
   onCta?: () => void;
@@ -120,6 +130,58 @@ export function BannerCard({
     ? `linear-gradient(120deg, ${overlayA}, ${overlayB}), url("${visuals.imageUrl}") center / cover no-repeat`
     : v.bg;
   const minHeight = visuals?.minHeight && visuals.minHeight > 0 ? `${visuals.minHeight}px` : undefined;
+  // Modo hero (altura >= 200): tipografía grande y contenido apilado, como los
+  // heros del Inicio. Debajo de eso, formato de franja compacta.
+  const isHero = (visuals?.minHeight ?? 0) >= 200;
+
+  if (isHero) {
+    return (
+      <div
+        className="relative flex flex-col justify-center gap-1 overflow-hidden rounded-[1.5rem] px-7 py-7 shadow-lg sm:px-9 sm:py-8"
+        style={{ background, border: v.border, minHeight }}
+      >
+        {onDismiss && (
+          <button
+            type="button"
+            onClick={onDismiss}
+            aria-label="Cerrar"
+            className="absolute right-3 top-3 rounded-full p-1 transition hover:opacity-80"
+            style={{ color: v.dismiss }}
+          >
+            <X size={16} />
+          </button>
+        )}
+        {kicker && (
+          <p className="text-[11px] font-extrabold uppercase tracking-[0.28em]" style={{ color: v.text }}>
+            {kicker}
+          </p>
+        )}
+        {title && (
+          <h2 className="mt-1 max-w-xl whitespace-pre-line text-[1.85rem] font-black leading-tight sm:text-[2.1rem]" style={{ color: v.title }}>
+            {title}
+          </h2>
+        )}
+        {message && (
+          <p className="mt-2 max-w-md text-sm leading-relaxed" style={{ color: v.text }}>
+            {message}
+          </p>
+        )}
+        {ctaLabel && ctaUrl && (
+          <div className="mt-5">
+            <button
+              type="button"
+              onClick={onCta}
+              className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold shadow-sm transition hover:-translate-y-0.5"
+              style={{ background: v.cta, color: v.ctaText }}
+            >
+              {ctaLabel}
+              <ArrowRight size={14} />
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div
@@ -138,6 +200,11 @@ export function BannerCard({
         <Sparkles size={20} />
       </div>
       <div className="min-w-0 flex-1 pr-7 sm:pr-0">
+        {kicker && (
+          <p className="text-[10px] font-extrabold uppercase tracking-[0.22em]" style={{ color: v.text }}>
+            {kicker}
+          </p>
+        )}
         {title && (
           <p className="text-sm font-black leading-snug sm:text-base" style={{ color: v.title }}>
             {title}
@@ -194,6 +261,8 @@ function bannerMatchesPath(p: PublicPopup, pathname: string): boolean {
 
 export default function BannerRuntime() {
   const pathname = usePathname();
+  const { currentUser } = useUser();
+  const firstName = (currentUser?.name ?? "").split(" ")[0] ?? "";
   const [banners, setBanners] = React.useState<PublicPopup[]>([]);
 
   React.useEffect(() => {
@@ -236,8 +305,9 @@ export default function BannerRuntime() {
       {banners.map((b) => (
         <BannerCard
           key={b.popupId}
-          title={b.title}
-          message={b.message}
+          kicker={applyNombre(b.bannerKicker, firstName)}
+          title={applyNombre(b.title, firstName)}
+          message={applyNombre(b.message, firstName)}
           ctaLabel={b.ctaLabel}
           ctaUrl={b.ctaUrl}
           style={b.bannerStyle}

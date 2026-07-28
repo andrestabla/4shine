@@ -47,6 +47,7 @@ export interface PopupRecord {
   bannerCtaColor: string;
   bannerImageUrl: string;
   bannerMinHeight: number;
+  bannerKicker: string;
   frequency: PopupFrequency;
   title: string;
   message: string;
@@ -77,6 +78,7 @@ export interface CreatePopupInput {
   bannerCtaColor?: string;
   bannerImageUrl?: string;
   bannerMinHeight?: number;
+  bannerKicker?: string;
   frequency?: PopupFrequency;
   title?: string;
   message?: string;
@@ -99,6 +101,7 @@ export interface PublicPopup {
   bannerCtaColor: string;
   bannerImageUrl: string;
   bannerMinHeight: number;
+  bannerKicker: string;
   triggerType: PopupTrigger;
   delaySeconds: number;
   scrollPercent: number;

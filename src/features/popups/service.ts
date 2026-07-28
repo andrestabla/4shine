@@ -37,6 +37,7 @@ interface PopupRow {
   banner_cta_color: string;
   banner_image_url: string;
   banner_min_height: number;
+  banner_kicker: string;
   frequency: PopupFrequency;
   title: string;
   message: string;
@@ -54,7 +55,7 @@ const POPUP_SELECT = `
   target_roles, target_plans::text[] AS target_plans,
   target_subscription, display_mode, banner_style,
   banner_bg_start, banner_bg_end, banner_text_color, banner_cta_color,
-  banner_image_url, banner_min_height, frequency,
+  banner_image_url, banner_min_height, banner_kicker, frequency,
   title, message, cta_label, cta_url, dismiss_label, sort_order,
   created_at::text, updated_at::text
 `;
@@ -94,6 +95,7 @@ function toRecord(row: PopupRow): PopupRecord {
     bannerCtaColor: row.banner_cta_color,
     bannerImageUrl: row.banner_image_url,
     bannerMinHeight: row.banner_min_height,
+    bannerKicker: row.banner_kicker,
     frequency: row.frequency,
     title: row.title,
     message: row.message,
@@ -117,6 +119,7 @@ function toPublic(row: PopupRow): PublicPopup {
     bannerCtaColor: row.banner_cta_color,
     bannerImageUrl: row.banner_image_url,
     bannerMinHeight: row.banner_min_height,
+    bannerKicker: row.banner_kicker,
     triggerType: row.trigger_type,
     delaySeconds: row.delay_seconds,
     scrollPercent: row.scroll_percent,
@@ -191,7 +194,7 @@ export async function createPopup(
        (organization_id, name, is_active, trigger_type, delay_seconds, scroll_percent,
         target_mode, target_paths, target_roles, target_plans, target_subscription, display_mode,
         banner_style, banner_bg_start, banner_bg_end, banner_text_color, banner_cta_color,
-        banner_image_url, banner_min_height, frequency, title, message, cta_label, cta_url,
+        banner_image_url, banner_min_height, banner_kicker, frequency, title, message, cta_label, cta_url,
         dismiss_label, sort_order, created_by, updated_by)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::uuid[],$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$27)
      RETURNING ${POPUP_SELECT}`,
@@ -215,6 +218,7 @@ export async function createPopup(
       input.bannerCtaColor?.trim() ?? '',
       input.bannerImageUrl?.trim() ?? '',
       Math.max(0, Math.min(640, Math.floor(input.bannerMinHeight ?? 0))),
+      input.bannerKicker?.trim() ?? '',
       input.frequency ?? 'session',
       input.title?.trim() ?? '',
       input.message?.trim() ?? '',
@@ -267,6 +271,7 @@ export async function updatePopup(
   if (input.bannerCtaColor !== undefined) push('banner_cta_color', input.bannerCtaColor.trim());
   if (input.bannerImageUrl !== undefined) push('banner_image_url', input.bannerImageUrl.trim());
   if (input.bannerMinHeight !== undefined) push('banner_min_height', Math.max(0, Math.min(640, Math.floor(input.bannerMinHeight))));
+  if (input.bannerKicker !== undefined) push('banner_kicker', input.bannerKicker.trim());
   if (input.frequency !== undefined) push('frequency', input.frequency);
   if (input.title !== undefined) push('title', input.title.trim());
   if (input.message !== undefined) push('message', input.message.trim());

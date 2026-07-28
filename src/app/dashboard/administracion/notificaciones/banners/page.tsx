@@ -10,7 +10,8 @@ import React from 'react';
 import { Megaphone, Pencil, Plus, Power, Trash2 } from 'lucide-react';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
-import { BannerCard } from '@/components/popups/BannerRuntime';
+import { applyNombre, BannerCard } from '@/components/popups/BannerRuntime';
+import { useUser } from '@/context/UserContext';
 import { MODULE_CATALOG } from '@/features/modulos/catalog';
 import {
   createPopup,
@@ -45,6 +46,7 @@ interface EditorState {
   targetAllModules: boolean;
   targetPaths: string[];
   frequency: PopupFrequency;
+  kicker: string;
   bgStart: string;
   bgEnd: string;
   textColor: string;
@@ -67,6 +69,7 @@ const EMPTY: EditorState = {
   targetAllModules: false,
   targetPaths: ['/dashboard'],
   frequency: 'session',
+  kicker: '',
   bgStart: '#0D1B2A',
   bgEnd: '#1A1F2B',
   textColor: '#FFFFFF',
@@ -83,6 +86,8 @@ const MODULE_OPTIONS = MODULE_CATALOG.filter((m) => m.key !== 'usuarios').map((m
 
 export default function BannerBuilderPage() {
   const { confirm, alert } = useAppDialog();
+  const { currentUser } = useUser();
+  const previewName = (currentUser?.name ?? '').split(' ')[0] ?? '';
   const [banners, setBanners] = React.useState<PopupRecord[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
@@ -139,6 +144,7 @@ export default function BannerBuilderPage() {
       targetAllModules: b.targetMode === 'all',
       targetPaths: b.targetPaths.length > 0 ? b.targetPaths : ['/dashboard'],
       frequency: b.frequency,
+      kicker: b.bannerKicker,
       bgStart: b.bannerBgStart || '#0D1B2A',
       bgEnd: b.bannerBgEnd || '#1A1F2B',
       textColor: b.bannerTextColor || '#FFFFFF',
@@ -180,6 +186,7 @@ export default function BannerBuilderPage() {
       bannerCtaColor: editor.bannerStyle === 'custom' ? editor.ctaColor : '',
       bannerImageUrl: editor.imageUrl.trim(),
       bannerMinHeight: editor.minHeight,
+      bannerKicker: editor.kicker.trim(),
     };
     const res = editor.popupId
       ? await updatePopup(editor.popupId, payload)
@@ -260,8 +267,9 @@ export default function BannerBuilderPage() {
           <div>
             <p className="mb-2 text-xs font-extrabold uppercase tracking-wider text-[var(--app-muted)]">Vista previa</p>
             <BannerCard
-              title={editor.title || 'Título del banner'}
-              message={editor.message || 'Mensaje del banner: cuenta en una línea qué gana el usuario.'}
+              kicker={applyNombre(editor.kicker, previewName)}
+              title={applyNombre(editor.title || 'Título del banner', previewName)}
+              message={applyNombre(editor.message || 'Mensaje del banner: cuenta en una línea qué gana el usuario.', previewName)}
               ctaLabel={editor.ctaLabel || 'Acción'}
               ctaUrl={editor.ctaUrl || '#'}
               style={editor.bannerStyle}
@@ -286,10 +294,19 @@ export default function BannerBuilderPage() {
             />
             <input
               className="rounded-[14px] border border-[var(--app-border)] bg-white px-4 py-2.5 text-sm md:col-span-2"
+              placeholder="Kicker (línea superior en mayúsculas, p. ej. Bienvenido, {{nombre}}) — opcional"
+              value={editor.kicker}
+              onChange={(e) => setEditor((p) => (p ? { ...p, kicker: e.target.value } : p))}
+            />
+            <input
+              className="rounded-[14px] border border-[var(--app-border)] bg-white px-4 py-2.5 text-sm md:col-span-2"
               placeholder="Título visible"
               value={editor.title}
               onChange={(e) => setEditor((p) => (p ? { ...p, title: e.target.value } : p))}
             />
+            <p className="-mt-1 text-xs text-[var(--app-muted)] md:col-span-2">
+              Tip: usa <code>{'{{nombre}}'}</code> en kicker, título o mensaje para personalizar con el nombre del usuario.
+            </p>
             <textarea
               className="min-h-[64px] rounded-[14px] border border-[var(--app-border)] bg-white px-4 py-2.5 text-sm md:col-span-2"
               placeholder="Mensaje"
