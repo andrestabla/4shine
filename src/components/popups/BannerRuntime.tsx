@@ -8,8 +8,9 @@ import { isSuppressed, markSeen } from "@/components/popups/PopupRuntime";
 
 // ─── Tarjeta presentacional del banner (reutilizada por el preview admin) ────
 
+// 'custom' se resuelve en BannerCard a partir de los colores del builder.
 const STYLES: Record<
-  BannerStyle,
+  Exclude<BannerStyle, 'custom'>,
   { bg: string; border: string; title: string; text: string; chipBg: string; chipColor: string; cta: string; ctaText: string; dismiss: string }
 > = {
   brand: {
@@ -58,12 +59,22 @@ const STYLES: Record<
   },
 };
 
+export interface BannerVisualOverrides {
+  bgStart?: string;
+  bgEnd?: string;
+  textColor?: string;
+  ctaColor?: string;
+  imageUrl?: string;
+  minHeight?: number;
+}
+
 export function BannerCard({
   title,
   message,
   ctaLabel,
   ctaUrl,
   style = "brand",
+  visuals,
   onCta,
   onDismiss,
 }: {
@@ -72,14 +83,53 @@ export function BannerCard({
   ctaLabel: string;
   ctaUrl: string;
   style?: BannerStyle;
+  visuals?: BannerVisualOverrides;
   onCta?: () => void;
   onDismiss?: () => void;
 }) {
-  const v = STYLES[style] ?? STYLES.brand;
+  const base = STYLES[style === "custom" ? "brand" : style] ?? STYLES.brand;
+  // Estilo 'custom': los colores del builder mandan (con fallback de marca).
+  const v =
+    style === "custom"
+      ? {
+          ...base,
+          bg: `linear-gradient(120deg, ${visuals?.bgStart || "var(--brand-primary)"}, ${
+            visuals?.bgEnd || visuals?.bgStart || "var(--brand-primary)"
+          })`,
+          border: `1px solid color-mix(in srgb, ${visuals?.ctaColor || "var(--brand-accent)"} 45%, transparent)`,
+          title: visuals?.textColor || "#ffffff",
+          text: `color-mix(in srgb, ${visuals?.textColor || "#ffffff"} 78%, transparent)`,
+          chipBg: `color-mix(in srgb, ${visuals?.ctaColor || "var(--brand-accent)"} 22%, transparent)`,
+          chipColor: visuals?.ctaColor || "var(--brand-accent)",
+          cta: visuals?.ctaColor || "var(--brand-accent)",
+          ctaText: visuals?.textColor && visuals?.bgStart ? visuals.bgStart : "var(--brand-on-accent, #0D1B2A)",
+          dismiss: `color-mix(in srgb, ${visuals?.textColor || "#ffffff"} 60%, transparent)`,
+        }
+      : base;
+
+  // Imagen de fondo: cover + velo del degradado para mantener la legibilidad.
+  const overlayA =
+    style === "custom" && visuals?.bgStart
+      ? `color-mix(in srgb, ${visuals.bgStart} 82%, transparent)`
+      : "color-mix(in srgb, var(--brand-primary) 78%, transparent)";
+  const overlayB =
+    style === "custom" && (visuals?.bgEnd || visuals?.bgStart)
+      ? `color-mix(in srgb, ${visuals.bgEnd || visuals.bgStart} 38%, transparent)`
+      : "color-mix(in srgb, var(--brand-primary) 30%, transparent)";
+  const background = visuals?.imageUrl
+    ? `linear-gradient(120deg, ${overlayA}, ${overlayB}), url("${visuals.imageUrl}") center / cover no-repeat`
+    : v.bg;
+  const minHeight = visuals?.minHeight && visuals.minHeight > 0 ? `${visuals.minHeight}px` : undefined;
+
   return (
     <div
       className="relative flex flex-col gap-3 overflow-hidden rounded-[18px] p-4 shadow-lg sm:flex-row sm:items-center sm:gap-4 sm:p-5"
-      style={{ background: v.bg, border: v.border }}
+      style={{
+        background,
+        border: v.border,
+        minHeight,
+        color: visuals?.imageUrl ? "#ffffff" : undefined,
+      }}
     >
       <div
         className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-[14px] sm:flex"
@@ -191,6 +241,14 @@ export default function BannerRuntime() {
           ctaLabel={b.ctaLabel}
           ctaUrl={b.ctaUrl}
           style={b.bannerStyle}
+          visuals={{
+            bgStart: b.bannerBgStart,
+            bgEnd: b.bannerBgEnd,
+            textColor: b.bannerTextColor,
+            ctaColor: b.bannerCtaColor,
+            imageUrl: b.bannerImageUrl,
+            minHeight: b.bannerMinHeight,
+          }}
           onCta={() => onCta(b)}
           onDismiss={() => dismiss(b)}
         />

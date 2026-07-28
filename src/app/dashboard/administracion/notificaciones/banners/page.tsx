@@ -45,6 +45,12 @@ interface EditorState {
   targetAllModules: boolean;
   targetPaths: string[];
   frequency: PopupFrequency;
+  bgStart: string;
+  bgEnd: string;
+  textColor: string;
+  ctaColor: string;
+  imageUrl: string;
+  minHeight: number;
 }
 
 const EMPTY: EditorState = {
@@ -61,6 +67,12 @@ const EMPTY: EditorState = {
   targetAllModules: false,
   targetPaths: ['/dashboard'],
   frequency: 'session',
+  bgStart: '#0D1B2A',
+  bgEnd: '#1A1F2B',
+  textColor: '#FFFFFF',
+  ctaColor: '#D4AF37',
+  imageUrl: '',
+  minHeight: 0,
 };
 
 // Módulos elegibles como destino (top-level del catálogo).
@@ -75,6 +87,30 @@ export default function BannerBuilderPage() {
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [editor, setEditor] = React.useState<EditorState | null>(null);
+  const [uploading, setUploading] = React.useState(false);
+
+  const onUploadImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('moduleCode', 'usuarios');
+      fd.append('action', 'manage');
+      fd.append('pathPrefix', 'banners');
+      const res = await fetch('/api/v1/uploads/r2', { method: 'POST', body: fd });
+      const json = await res.json();
+      const url: string | undefined = json?.data?.url;
+      if (!res.ok || !url) throw new Error(json?.detail || json?.error || 'No se pudo subir la imagen.');
+      setEditor((p) => (p ? { ...p, imageUrl: url } : p));
+    } catch (err) {
+      await alert({ title: 'Error al subir', message: err instanceof Error ? err.message : 'Error inesperado.', tone: 'error' });
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -103,6 +139,12 @@ export default function BannerBuilderPage() {
       targetAllModules: b.targetMode === 'all',
       targetPaths: b.targetPaths.length > 0 ? b.targetPaths : ['/dashboard'],
       frequency: b.frequency,
+      bgStart: b.bannerBgStart || '#0D1B2A',
+      bgEnd: b.bannerBgEnd || '#1A1F2B',
+      textColor: b.bannerTextColor || '#FFFFFF',
+      ctaColor: b.bannerCtaColor || '#D4AF37',
+      imageUrl: b.bannerImageUrl,
+      minHeight: b.bannerMinHeight,
     });
 
   const save = async () => {
@@ -132,6 +174,12 @@ export default function BannerBuilderPage() {
       targetMode: (editor.targetAllModules ? 'all' : 'include') as 'all' | 'include',
       targetPaths: editor.targetAllModules ? [] : editor.targetPaths,
       frequency: editor.frequency,
+      bannerBgStart: editor.bannerStyle === 'custom' ? editor.bgStart : '',
+      bannerBgEnd: editor.bannerStyle === 'custom' ? editor.bgEnd : '',
+      bannerTextColor: editor.bannerStyle === 'custom' ? editor.textColor : '',
+      bannerCtaColor: editor.bannerStyle === 'custom' ? editor.ctaColor : '',
+      bannerImageUrl: editor.imageUrl.trim(),
+      bannerMinHeight: editor.minHeight,
     };
     const res = editor.popupId
       ? await updatePopup(editor.popupId, payload)
@@ -217,6 +265,14 @@ export default function BannerBuilderPage() {
               ctaLabel={editor.ctaLabel || 'Acción'}
               ctaUrl={editor.ctaUrl || '#'}
               style={editor.bannerStyle}
+              visuals={{
+                bgStart: editor.bgStart,
+                bgEnd: editor.bgEnd,
+                textColor: editor.textColor,
+                ctaColor: editor.ctaColor,
+                imageUrl: editor.imageUrl.trim(),
+                minHeight: editor.minHeight,
+              }}
               onDismiss={() => undefined}
             />
           </div>
@@ -272,6 +328,90 @@ export default function BannerBuilderPage() {
                   {BANNER_STYLE_LABELS[styleKey]}
                 </button>
               ))}
+            </div>
+          </div>
+
+          {/* Colores personalizados */}
+          {editor.bannerStyle === 'custom' && (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {([
+                ['bgStart', 'Fondo (inicio)'],
+                ['bgEnd', 'Fondo (fin)'],
+                ['textColor', 'Texto'],
+                ['ctaColor', 'Botón'],
+              ] as const).map(([key, label]) => (
+                <label key={key} className="flex items-center gap-2 rounded-[14px] border border-[var(--app-border)] bg-white px-3 py-2">
+                  <input
+                    type="color"
+                    className="h-8 w-10 cursor-pointer rounded border-0 bg-transparent p-0"
+                    value={editor[key]}
+                    onChange={(e) => setEditor((p) => (p ? { ...p, [key]: e.target.value } : p))}
+                  />
+                  <span className="text-xs font-semibold text-[var(--app-muted)]">{label}</span>
+                </label>
+              ))}
+            </div>
+          )}
+
+          {/* Imagen de fondo + altura */}
+          <div className="grid gap-3 md:grid-cols-2">
+            <div>
+              <p className="mb-2 text-xs font-extrabold uppercase tracking-wider text-[var(--app-muted)]">Imagen de fondo (opcional)</p>
+              <div className="flex gap-2">
+                <input
+                  className="min-w-0 flex-1 rounded-[14px] border border-[var(--app-border)] bg-white px-4 py-2.5 text-sm"
+                  placeholder="URL de la imagen"
+                  value={editor.imageUrl}
+                  onChange={(e) => setEditor((p) => (p ? { ...p, imageUrl: e.target.value } : p))}
+                />
+                <label className="inline-flex shrink-0 cursor-pointer items-center rounded-[14px] border border-[var(--app-border)] bg-white px-3 py-2.5 text-xs font-bold text-[var(--app-ink)] hover:bg-[var(--app-surface-muted)]">
+                  {uploading ? 'Subiendo…' : 'Subir'}
+                  <input type="file" accept="image/*" className="hidden" disabled={uploading} onChange={(e) => void onUploadImage(e)} />
+                </label>
+                {editor.imageUrl && (
+                  <button
+                    type="button"
+                    className="shrink-0 rounded-[14px] border border-[var(--app-border)] px-3 text-xs font-semibold text-[var(--app-muted)]"
+                    onClick={() => setEditor((p) => (p ? { ...p, imageUrl: '' } : p))}
+                  >
+                    Quitar
+                  </button>
+                )}
+              </div>
+              <p className="mt-1.5 text-xs text-[var(--app-muted)]">La imagen va al fondo (cover) con un velo del color elegido para que el texto se lea.</p>
+            </div>
+            <div>
+              <p className="mb-2 text-xs font-extrabold uppercase tracking-wider text-[var(--app-muted)]">Altura</p>
+              <div className="flex flex-wrap items-center gap-2">
+                {([
+                  [0, 'Auto'],
+                  [120, 'Compacto'],
+                  [180, 'Medio'],
+                  [260, 'Hero'],
+                ] as const).map(([px, label]) => (
+                  <button
+                    key={px}
+                    type="button"
+                    onClick={() => setEditor((p) => (p ? { ...p, minHeight: px } : p))}
+                    className={`rounded-full border px-3.5 py-1.5 text-xs font-bold transition ${
+                      editor.minHeight === px
+                        ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)] text-white'
+                        : 'border-[var(--app-border)] bg-white text-[var(--app-muted)]'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+                <input
+                  type="number"
+                  min={0}
+                  max={640}
+                  className="w-24 rounded-[14px] border border-[var(--app-border)] bg-white px-3 py-2 text-sm"
+                  value={editor.minHeight}
+                  onChange={(e) => setEditor((p) => (p ? { ...p, minHeight: Math.max(0, Math.min(640, Number(e.target.value) || 0)) } : p))}
+                />
+                <span className="text-xs text-[var(--app-muted)]">px (0 = auto)</span>
+              </div>
             </div>
           </div>
 
@@ -462,6 +602,14 @@ export default function BannerBuilderPage() {
                 ctaLabel={b.ctaLabel}
                 ctaUrl={b.ctaUrl}
                 style={b.bannerStyle}
+                visuals={{
+                  bgStart: b.bannerBgStart,
+                  bgEnd: b.bannerBgEnd,
+                  textColor: b.bannerTextColor,
+                  ctaColor: b.bannerCtaColor,
+                  imageUrl: b.bannerImageUrl,
+                  minHeight: Math.min(b.bannerMinHeight, 140),
+                }}
               />
             </div>
           ))

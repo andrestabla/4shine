@@ -31,6 +31,12 @@ interface PopupRow {
   target_subscription: PopupSubscriptionTarget;
   display_mode: PopupDisplayMode;
   banner_style: BannerStyle;
+  banner_bg_start: string;
+  banner_bg_end: string;
+  banner_text_color: string;
+  banner_cta_color: string;
+  banner_image_url: string;
+  banner_min_height: number;
   frequency: PopupFrequency;
   title: string;
   message: string;
@@ -46,7 +52,9 @@ const POPUP_SELECT = `
   popup_id::text, organization_id::text, name, is_active, trigger_type,
   delay_seconds, scroll_percent, target_mode, target_paths,
   target_roles, target_plans::text[] AS target_plans,
-  target_subscription, display_mode, banner_style, frequency,
+  target_subscription, display_mode, banner_style,
+  banner_bg_start, banner_bg_end, banner_text_color, banner_cta_color,
+  banner_image_url, banner_min_height, frequency,
   title, message, cta_label, cta_url, dismiss_label, sort_order,
   created_at::text, updated_at::text
 `;
@@ -80,6 +88,12 @@ function toRecord(row: PopupRow): PopupRecord {
     targetSubscription: row.target_subscription,
     displayMode: row.display_mode,
     bannerStyle: row.banner_style,
+    bannerBgStart: row.banner_bg_start,
+    bannerBgEnd: row.banner_bg_end,
+    bannerTextColor: row.banner_text_color,
+    bannerCtaColor: row.banner_cta_color,
+    bannerImageUrl: row.banner_image_url,
+    bannerMinHeight: row.banner_min_height,
     frequency: row.frequency,
     title: row.title,
     message: row.message,
@@ -97,6 +111,12 @@ function toPublic(row: PopupRow): PublicPopup {
     popupId: row.popup_id,
     displayMode: row.display_mode,
     bannerStyle: row.banner_style,
+    bannerBgStart: row.banner_bg_start,
+    bannerBgEnd: row.banner_bg_end,
+    bannerTextColor: row.banner_text_color,
+    bannerCtaColor: row.banner_cta_color,
+    bannerImageUrl: row.banner_image_url,
+    bannerMinHeight: row.banner_min_height,
     triggerType: row.trigger_type,
     delaySeconds: row.delay_seconds,
     scrollPercent: row.scroll_percent,
@@ -170,9 +190,10 @@ export async function createPopup(
     `INSERT INTO app_admin.popups
        (organization_id, name, is_active, trigger_type, delay_seconds, scroll_percent,
         target_mode, target_paths, target_roles, target_plans, target_subscription, display_mode,
-        banner_style, frequency, title, message, cta_label, cta_url,
+        banner_style, banner_bg_start, banner_bg_end, banner_text_color, banner_cta_color,
+        banner_image_url, banner_min_height, frequency, title, message, cta_label, cta_url,
         dismiss_label, sort_order, created_by, updated_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::uuid[],$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$21)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::uuid[],$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$27)
      RETURNING ${POPUP_SELECT}`,
     [
       orgId,
@@ -188,6 +209,12 @@ export async function createPopup(
       input.targetSubscription ?? 'any',
       input.displayMode ?? 'popup',
       input.bannerStyle ?? 'brand',
+      input.bannerBgStart?.trim() ?? '',
+      input.bannerBgEnd?.trim() ?? '',
+      input.bannerTextColor?.trim() ?? '',
+      input.bannerCtaColor?.trim() ?? '',
+      input.bannerImageUrl?.trim() ?? '',
+      Math.max(0, Math.min(640, Math.floor(input.bannerMinHeight ?? 0))),
       input.frequency ?? 'session',
       input.title?.trim() ?? '',
       input.message?.trim() ?? '',
@@ -234,6 +261,12 @@ export async function updatePopup(
   if (input.targetSubscription !== undefined) push('target_subscription', input.targetSubscription);
   if (input.displayMode !== undefined) push('display_mode', input.displayMode);
   if (input.bannerStyle !== undefined) push('banner_style', input.bannerStyle);
+  if (input.bannerBgStart !== undefined) push('banner_bg_start', input.bannerBgStart.trim());
+  if (input.bannerBgEnd !== undefined) push('banner_bg_end', input.bannerBgEnd.trim());
+  if (input.bannerTextColor !== undefined) push('banner_text_color', input.bannerTextColor.trim());
+  if (input.bannerCtaColor !== undefined) push('banner_cta_color', input.bannerCtaColor.trim());
+  if (input.bannerImageUrl !== undefined) push('banner_image_url', input.bannerImageUrl.trim());
+  if (input.bannerMinHeight !== undefined) push('banner_min_height', Math.max(0, Math.min(640, Math.floor(input.bannerMinHeight))));
   if (input.frequency !== undefined) push('frequency', input.frequency);
   if (input.title !== undefined) push('title', input.title.trim());
   if (input.message !== undefined) push('message', input.message.trim());

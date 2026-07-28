@@ -1,6 +1,16 @@
 export type PopupTrigger = 'time' | 'scroll' | 'exit_intent' | 'immediate';
 export type PopupDisplayMode = 'popup' | 'banner';
-export type BannerStyle = 'brand' | 'gold' | 'navy' | 'light';
+export type BannerStyle = 'brand' | 'gold' | 'navy' | 'light' | 'custom';
+
+/** Personalización visual del banner (vacío/0 = usar el estilo elegido). */
+export interface BannerVisuals {
+  bannerBgStart: string;
+  bannerBgEnd: string;
+  bannerTextColor: string;
+  bannerCtaColor: string;
+  bannerImageUrl: string;
+  bannerMinHeight: number;
+}
 export type PopupSubscriptionTarget = 'any' | 'without_plan' | 'with_plan';
 export type PopupFrequency = 'session' | 'daily' | 'once' | 'always';
 export type PopupTargetMode = 'all' | 'include';
@@ -31,6 +41,12 @@ export interface PopupRecord {
   targetSubscription: PopupSubscriptionTarget;
   displayMode: PopupDisplayMode;
   bannerStyle: BannerStyle;
+  bannerBgStart: string;
+  bannerBgEnd: string;
+  bannerTextColor: string;
+  bannerCtaColor: string;
+  bannerImageUrl: string;
+  bannerMinHeight: number;
   frequency: PopupFrequency;
   title: string;
   message: string;
@@ -55,6 +71,12 @@ export interface CreatePopupInput {
   targetSubscription?: PopupSubscriptionTarget;
   displayMode?: PopupDisplayMode;
   bannerStyle?: BannerStyle;
+  bannerBgStart?: string;
+  bannerBgEnd?: string;
+  bannerTextColor?: string;
+  bannerCtaColor?: string;
+  bannerImageUrl?: string;
+  bannerMinHeight?: number;
   frequency?: PopupFrequency;
   title?: string;
   message?: string;
@@ -71,6 +93,12 @@ export interface PublicPopup {
   popupId: string;
   displayMode: PopupDisplayMode;
   bannerStyle: BannerStyle;
+  bannerBgStart: string;
+  bannerBgEnd: string;
+  bannerTextColor: string;
+  bannerCtaColor: string;
+  bannerImageUrl: string;
+  bannerMinHeight: number;
   triggerType: PopupTrigger;
   delaySeconds: number;
   scrollPercent: number;
@@ -96,6 +124,7 @@ export const BANNER_STYLE_LABELS: Record<BannerStyle, string> = {
   gold: 'Dorado',
   navy: 'Navy minimal',
   light: 'Claro',
+  custom: 'Personalizado',
 };
 
 export const SUBSCRIPTION_TARGET_LABELS: Record<PopupSubscriptionTarget, string> = {
