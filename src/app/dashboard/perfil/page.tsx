@@ -108,7 +108,7 @@ function roleLabel(role: string | undefined): string {
       return 'Líder';
     case 'mentor':
     case 'advisor':
-      return 'Adviser';
+      return 'Advisor';
     case 'gestor':
       return 'Gestor';
     case 'admin':
