@@ -144,7 +144,10 @@ export default function Leader360Page() {
     });
 
     const programNext = snapshot?.mentorship.programNext ?? null;
-    const canConsumeProgram = Boolean(programNext?.schedulable);
+    // Gestor/admin pueden agendar la incluida aunque la cadencia no la haya
+    // habilitado todavía (el backend aplica el mismo criterio por rol).
+    const cadenceOverride = Boolean(programNext && !programNext.schedulable && canManageAgenda);
+    const canConsumeProgram = Boolean(programNext && (programNext.schedulable || canManageAgenda));
 
     const openSchedule = () => {
         // Por defecto descuenta del programa si hay una mentoría incluida disponible.
@@ -721,7 +724,11 @@ export default function Leader360Page() {
                                             <span className="mt-0.5 block text-xs text-[var(--app-muted)]">
                                                 {programNext
                                                     ? canConsumeProgram
-                                                        ? `Consumirá ${programNext.code} «${programNext.title}» de las ${snapshot.mentorship.programIncludedTotal} incluidas.`
+                                                        ? cadenceOverride
+                                                            ? `Consumirá ${programNext.code} «${programNext.title}». La cadencia la habilitaba ${
+                                                                  programNext.unlockDate ? `el ${formatDate(programNext.unlockDate)}` : 'más adelante'
+                                                              }; como ${currentRole === 'admin' ? 'admin' : 'gestor'} puedes adelantarla.`
+                                                            : `Consumirá ${programNext.code} «${programNext.title}» de las ${snapshot.mentorship.programIncludedTotal} incluidas.`
                                                         : `La siguiente (${programNext.code}) se habilita ${
                                                               programNext.unlockDate ? `el ${formatDate(programNext.unlockDate)}` : 'según la cadencia'
                                                           }.`

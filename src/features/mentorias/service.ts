@@ -2976,10 +2976,15 @@ export async function scheduleProgramMentorship(
   const entitlementList = await listProgramEntitlements(client, actor.userId);
   const nowSchedule = new Date();
   const TEN_DAYS_MS_S = 10 * 24 * 60 * 60 * 1000;
+  // Gestor y admin pueden ADELANTAR la siguiente mentoría aunque la cadencia de
+  // 10 días aún no la haya habilitado: para ellos, una sesión ya agendada no
+  // "ancla" el objetivo (se salta a la siguiente pendiente). El orden del
+  // programa se sigue respetando; el advisor conserva la regla completa.
+  const staffOverridesCadence = actor.role === 'admin' || actor.role === 'gestor';
   const firstPending = entitlementList
     .filter((item) => {
       if (item.status === 'available' || item.status === 'locked') return true;
-      if (item.status === 'scheduled' && item.scheduledStartsAt) {
+      if (!staffOverridesCadence && item.status === 'scheduled' && item.scheduledStartsAt) {
         const unlockAt = new Date(new Date(item.scheduledStartsAt).getTime() + TEN_DAYS_MS_S);
         if (unlockAt > nowSchedule) return true;
       }
@@ -3149,10 +3154,15 @@ export async function scheduleProgramMentorshipForLeader(
 
   const nowSchedule = new Date();
   const TEN_DAYS_MS_S = 10 * 24 * 60 * 60 * 1000;
+  // Gestor y admin pueden ADELANTAR la siguiente mentoría aunque la cadencia de
+  // 10 días aún no la haya habilitado: para ellos, una sesión ya agendada no
+  // "ancla" el objetivo (se salta a la siguiente pendiente). El orden del
+  // programa se sigue respetando; el advisor conserva la regla completa.
+  const staffOverridesCadence = actor.role === 'admin' || actor.role === 'gestor';
   const firstPending = entitlementList
     .filter((item) => {
       if (item.status === 'available' || item.status === 'locked') return true;
-      if (item.status === 'scheduled' && item.scheduledStartsAt) {
+      if (!staffOverridesCadence && item.status === 'scheduled' && item.scheduledStartsAt) {
         const unlockAt = new Date(new Date(item.scheduledStartsAt).getTime() + TEN_DAYS_MS_S);
         if (unlockAt > nowSchedule) return true;
       }
