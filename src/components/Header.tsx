@@ -179,8 +179,9 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
                 {headerPlatformName}
               </p>
             )}
+            {/* Móvil: una sola línea (elipsis si no cabe); md+: comportamiento original. */}
             <h1
-              className="app-display-title text-[1.55rem] font-semibold leading-tight [overflow-wrap:anywhere] sm:text-[1.9rem] md:text-[2.2rem]"
+              className="app-display-title truncate text-[1.3rem] font-semibold leading-tight sm:text-[1.9rem] md:overflow-visible md:whitespace-normal md:[overflow-wrap:anywhere] md:text-[2.2rem]"
               data-display-font="true"
             >
               {pageTitle}
