@@ -765,7 +765,7 @@ export default function AsistenteIaAdminPage() {
 
           {/* ── Conversaciones ── */}
           {tab === "conversaciones" && (
-            <div className="grid gap-4 md:grid-cols-[minmax(0,340px)_1fr]">
+            <div className="grid gap-4 md:grid-cols-[300px_minmax(0,1fr)]">
               <div className="space-y-2">
                 {conversations.length === 0 && (
                   <p className="rounded-[14px] border border-dashed border-[var(--app-border)] px-4 py-6 text-center text-sm text-[var(--app-muted)]">
@@ -791,7 +791,7 @@ export default function AsistenteIaAdminPage() {
                 ))}
               </div>
 
-              <div className="rounded-[18px] border border-[var(--app-border)] bg-white p-4">
+              <div className="min-w-0 rounded-[18px] border border-[var(--app-border)] bg-white p-4">
                 {!activeConv ? (
                   <p className="py-10 text-center text-sm text-[var(--app-muted)]">
                     Selecciona una conversación para verla.
