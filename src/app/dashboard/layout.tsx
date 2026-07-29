@@ -175,6 +175,21 @@ function DashboardLayoutInner({
     isVisibilityLoaded && currentRole !== "admin" && isPathDisabled(pathname);
   const canViewRoute = hasRoutePermission && !isRouteDisabled;
 
+  // Candado de scroll del documento (móvil): iOS Safari puede desplazar el body
+  // (teclado, gestos) y "perder" la franja del header. Se fija el body y, como
+  // segunda defensa, cualquier desplazamiento residual de la ventana se revierte.
+  useEffect(() => {
+    document.body.classList.add("dashboard-body-lock");
+    const onWindowScroll = () => {
+      if (window.scrollY !== 0 || window.scrollX !== 0) window.scrollTo(0, 0);
+    };
+    window.addEventListener("scroll", onWindowScroll, { passive: true });
+    return () => {
+      document.body.classList.remove("dashboard-body-lock");
+      window.removeEventListener("scroll", onWindowScroll);
+    };
+  }, []);
+
   useEffect(() => {
     if (!isHydrating && !isAuthenticated) {
       router.push("/");

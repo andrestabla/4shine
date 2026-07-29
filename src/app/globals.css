@@ -476,3 +476,15 @@ h3,
       );
   }
 }
+
+/* El dashboard bloquea el scroll del DOCUMENTO: en iOS Safari el body puede
+   desplazarse con el teclado o gestos aunque exista un scroller interno, y la
+   franja superior (header + menú) desaparecía. Con el body fijado, el único
+   scroller es el <main> del dashboard y el header queda SIEMPRE visible. */
+body.dashboard-body-lock {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
