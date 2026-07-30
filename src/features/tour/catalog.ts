@@ -46,6 +46,7 @@ const SIDEBAR_SEEDS: NavAnchorSeed[] = [
   { path: '/dashboard/descubrimiento', label: 'Descubrimiento', moduleCode: 'descubrimiento' },
   { path: '/dashboard/aprendizaje', label: 'Aprendizaje', moduleCode: 'aprendizaje' },
   { path: '/dashboard/mentorias', label: 'Mentorías', moduleCode: 'mentorias' },
+  { path: '/dashboard/comprar-sesiones', label: 'Comprar sesiones', moduleCode: 'mentorias' },
   { path: '/dashboard/networking', label: 'Networking', moduleCode: 'networking' },
   { path: '/dashboard/convocatorias', label: 'Convocatorias', moduleCode: 'convocatorias' },
   { path: '/dashboard/mensajes', label: 'Mensajes', moduleCode: 'mensajes' },
