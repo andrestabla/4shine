@@ -196,7 +196,7 @@ export async function createPopup(
         banner_style, banner_bg_start, banner_bg_end, banner_text_color, banner_cta_color,
         banner_image_url, banner_min_height, banner_kicker, frequency, title, message, cta_label, cta_url,
         dismiss_label, sort_order, created_by, updated_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::uuid[],$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$27)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::uuid[],$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$28)
      RETURNING ${POPUP_SELECT}`,
     [
       orgId,
