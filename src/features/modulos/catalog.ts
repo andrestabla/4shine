@@ -231,10 +231,20 @@ export const ALL_MODULE_KEYS = new Set(
   MODULE_CATALOG.flatMap((entry) => [entry.key, ...(entry.children ?? []).map((c) => c.key)]),
 );
 
-/** moduleCode → clave del módulo de nivel superior. */
-export const MODULE_KEY_BY_CODE = new Map<string, string>(
-  MODULE_CATALOG.map((entry) => [entry.moduleCode, entry.key]),
-);
+/**
+ * moduleCode → clave del módulo de nivel superior CANÓNICO (la primera entrada
+ * del catálogo con ese code). Varios módulos pueden compartir moduleCode
+ * (p. ej. comprar_sesiones usa 'mentorias' para permisos): si aquí ganara la
+ * última entrada, apagar ese módulo satélite cerraría el API de TODO el code
+ * (bug: apagar "Comprar sesiones" bloqueaba /dashboard/mentorias con
+ * "Missing permission mentorias:view").
+ */
+export const MODULE_KEY_BY_CODE = new Map<string, string>();
+for (const entry of MODULE_CATALOG) {
+  if (!MODULE_KEY_BY_CODE.has(entry.moduleCode)) {
+    MODULE_KEY_BY_CODE.set(entry.moduleCode, entry.key);
+  }
+}
 
 /**
  * Resuelve qué clave de módulo/submódulo gobierna una ruta del dashboard.
