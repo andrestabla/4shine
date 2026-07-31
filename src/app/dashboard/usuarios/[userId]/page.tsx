@@ -972,9 +972,10 @@ export default function UsuarioDetallePage() {
               </h2>
             </div>
             <p className="mb-4 text-xs text-[var(--app-muted)]">
-              Módulos que este usuario puede ver según su rol. Verde = encendido, gris = apagado.
-              Apagar un módulo cierra su menú y su API para esta cuenta; encenderlo manualmente
-              le da acceso aunque su plan no lo incluya. Con la flecha vuelves al valor por defecto.
+              Módulos y secciones que este usuario puede ver según su rol (Mentorías y Aprendizaje
+              se controlan por sección). Verde = encendido, gris = apagado. Apagar cierra el acceso
+              para esta cuenta; encender manualmente le da acceso aunque su plan no lo incluya.
+              Con la flecha vuelves al valor por defecto.
             </p>
 
             {detail.moduleAccess.length === 0 ? (

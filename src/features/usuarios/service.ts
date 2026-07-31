@@ -1579,6 +1579,29 @@ const PLAN_GATED_FLAG_BY_MODULE: Record<string, keyof ViewerAccessState> = {
   workshops: 'canAccessWorkshops',
 };
 
+// Módulos con secciones diferenciadas para líderes: en la ficha se muestran
+// (y se apagan/prenden) por sección, con la misma nomenclatura del catálogo
+// de features de planes.
+const LEADER_MODULE_SECTIONS: Record<
+  string,
+  Array<{ key: string; label: string; flag: keyof ViewerAccessState }>
+> = {
+  aprendizaje: [
+    { key: 'aprendizaje_cursos', label: 'Aprendizaje · Cursos', flag: 'canAccessAprendizajeCursos' },
+    { key: 'aprendizaje_workbooks', label: 'Aprendizaje · Workbooks', flag: 'canAccessProgramWorkbooks' },
+  ],
+  mentorias: [
+    { key: 'mentorias_1on1', label: 'Mentorías · 1:1 del programa', flag: 'canAccessMentoring1on1' },
+    { key: 'mentorias_grupales', label: 'Mentorías · Expertos en vivo', flag: 'canAccessMentoringGroup' },
+  ],
+};
+
+// Claves de sección válidas para setUserModuleAccess (además de los módulos
+// reales de app_auth.modules).
+const SECTION_ACCESS_KEYS = new Set(
+  Object.values(LEADER_MODULE_SECTIONS).flatMap((sections) => sections.map((s) => s.key)),
+);
+
 async function buildUserModuleAccess(
   client: PoolClient,
   user: Pick<UserRecord, 'userId' | 'primaryRole'>,
@@ -1598,21 +1621,44 @@ async function buildUserModuleAccess(
 
   return rolePermissions
     .filter((permission) => permission.canView && !MODULE_ACCESS_HIDDEN.has(permission.moduleCode))
-    .map((permission) => {
+    .flatMap((permission) => {
+      const sections = isLeader ? LEADER_MODULE_SECTIONS[permission.moduleCode] : undefined;
+
+      // Módulos con secciones (líder): un toggle por sección, en lugar del
+      // módulo completo. La clave de sección gana sobre la del módulo.
+      if (sections && baseAccess) {
+        return sections.map((section) => {
+          const override = overrides.has(section.key)
+            ? overrides.get(section.key)!
+            : overrides.has(permission.moduleCode)
+              ? overrides.get(permission.moduleCode)!
+              : null;
+          const defaultEnabled = baseAccess[section.flag] === true;
+          return {
+            moduleCode: section.key,
+            moduleName: section.label,
+            override,
+            defaultEnabled,
+            effectiveEnabled: override ?? defaultEnabled,
+            planGated: true,
+          };
+        });
+      }
+
       const flag = PLAN_GATED_FLAG_BY_MODULE[permission.moduleCode];
       const planGated = isLeader && !!flag;
       const defaultEnabled = planGated && baseAccess ? baseAccess[flag] === true : true;
       const override = overrides.has(permission.moduleCode)
         ? overrides.get(permission.moduleCode)!
         : null;
-      return {
+      return [{
         moduleCode: permission.moduleCode,
         moduleName: permission.moduleName,
         override,
         defaultEnabled,
         effectiveEnabled: override ?? defaultEnabled,
         planGated,
-      };
+      }];
     });
 }
 
@@ -1727,12 +1773,14 @@ export async function setUserModuleAccess(
     throw new ForbiddenError('Ese módulo no admite apagado por usuario.');
   }
 
-  const { rows: moduleRows } = await client.query<{ module_code: string }>(
-    `SELECT module_code FROM app_auth.modules WHERE module_code = $1`,
-    [moduleCode],
-  );
-  if (!moduleRows[0]) {
-    throw new Error(`Módulo desconocido: ${moduleCode}`);
+  if (!SECTION_ACCESS_KEYS.has(moduleCode)) {
+    const { rows: moduleRows } = await client.query<{ module_code: string }>(
+      `SELECT module_code FROM app_auth.modules WHERE module_code = $1`,
+      [moduleCode],
+    );
+    if (!moduleRows[0]) {
+      throw new Error(`Módulo desconocido: ${moduleCode}`);
+    }
   }
 
   if (enabled === null) {

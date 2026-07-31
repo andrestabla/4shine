@@ -475,6 +475,17 @@ export async function getViewerAccessState(
     const override = overrides.get(moduleCode);
     return override === undefined ? base : override;
   };
+  // Secciones: la clave específica (p. ej. mentorias_1on1) gana sobre la del
+  // módulo completo; sin ninguna de las dos, rige el default del plan.
+  const withSectionOverride = (
+    sectionKey: string,
+    moduleCode: string,
+    base: boolean,
+  ): boolean => {
+    const section = overrides.get(sectionKey);
+    if (section !== undefined) return section;
+    return withOverride(moduleCode, base);
+  };
 
   let canAccessAprendizajeRecursosFree = true;
   const canAccessTrayectoria = withOverride(
@@ -485,19 +496,23 @@ export async function getViewerAccessState(
     "descubrimiento",
     planEnables("descubrimiento") || legacyProgramGrants || grantsFromDiscovery,
   );
-  const canAccessAprendizajeCursos = withOverride(
+  const canAccessAprendizajeCursos = withSectionOverride(
+    "aprendizaje_cursos",
     "aprendizaje",
     planEnables("aprendizaje_cursos") || legacyProgramGrants,
   );
-  const canAccessProgramWorkbooks = withOverride(
+  const canAccessProgramWorkbooks = withSectionOverride(
+    "aprendizaje_workbooks",
     "aprendizaje",
     planEnables("aprendizaje_workbooks") || legacyProgramGrants,
   );
-  const canAccessMentoring1on1 = withOverride(
+  const canAccessMentoring1on1 = withSectionOverride(
+    "mentorias_1on1",
     "mentorias",
     planEnables("mentorias_1on1") || legacyProgramGrants || grantsFromMentoringPack,
   );
-  const canAccessMentoringGroup = withOverride(
+  const canAccessMentoringGroup = withSectionOverride(
+    "mentorias_grupales",
     "mentorias",
     planEnables("mentorias_grupales") || legacyProgramGrants,
   );
