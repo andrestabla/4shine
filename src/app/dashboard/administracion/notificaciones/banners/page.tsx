@@ -93,6 +93,14 @@ export default function BannerBuilderPage() {
   const [saving, setSaving] = React.useState(false);
   const [editor, setEditor] = React.useState<EditorState | null>(null);
   const [uploading, setUploading] = React.useState(false);
+  const editorRef = React.useRef<HTMLElement | null>(null);
+
+  // El editor vive arriba de la lista: al editar un banner de abajo, sin este
+  // scroll parecía que el botón "no hacía nada".
+  const editorKey = editor ? editor.popupId ?? 'nuevo' : null;
+  React.useEffect(() => {
+    if (editorKey) editorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [editorKey]);
 
   const onUploadImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -251,7 +259,7 @@ export default function BannerBuilderPage() {
 
       {/* ── Editor ─────────────────────────────────────────────────────── */}
       {editor ? (
-        <section className="app-panel space-y-5 p-5 sm:p-6">
+        <section ref={editorRef} className="app-panel space-y-5 p-5 sm:p-6">
           <div className="flex items-center justify-between">
             <p className="app-section-kicker">{editor.popupId ? 'Editar banner' : 'Nuevo banner'}</p>
             <button
