@@ -600,8 +600,12 @@ export default function BannerBuilderPage() {
                 <div className="flex items-center gap-1.5">
                   <button
                     type="button"
-                    title={b.isActive ? 'Desactivar' : 'Activar'}
-                    className="rounded-full border border-[var(--app-border)] p-2 text-[var(--app-muted)] hover:text-[var(--app-ink)]"
+                    title={b.isActive ? 'Activo · clic para desactivar' : 'Apagado · clic para activar'}
+                    className={`rounded-full border p-2 transition-colors ${
+                      b.isActive
+                        ? 'border-emerald-300 bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
+                        : 'border-[var(--app-border)] bg-slate-100 text-slate-400 hover:text-slate-600'
+                    }`}
                     onClick={() => void toggleActive(b)}
                   >
                     <Power size={14} />
