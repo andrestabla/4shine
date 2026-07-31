@@ -270,8 +270,8 @@ export default function BannerBuilderPage() {
               kicker={applyNombre(editor.kicker, previewName)}
               title={applyNombre(editor.title || 'Título del banner', previewName)}
               message={applyNombre(editor.message || 'Mensaje del banner: cuenta en una línea qué gana el usuario.', previewName)}
-              ctaLabel={editor.ctaLabel || 'Acción'}
-              ctaUrl={editor.ctaUrl || '#'}
+              ctaLabel={editor.ctaLabel.trim()}
+              ctaUrl={editor.ctaLabel.trim() ? editor.ctaUrl.trim() || '#' : ''}
               style={editor.bannerStyle}
               visuals={{
                 bgStart: editor.bgStart,
@@ -325,6 +325,9 @@ export default function BannerBuilderPage() {
               value={editor.ctaUrl}
               onChange={(e) => setEditor((p) => (p ? { ...p, ctaUrl: e.target.value } : p))}
             />
+            <p className="-mt-1 text-xs text-[var(--app-muted)] md:col-span-2">
+              El botón es opcional: si dejas el CTA vacío, el banner se muestra solo con el texto.
+            </p>
           </div>
 
           {/* Estilo */}
