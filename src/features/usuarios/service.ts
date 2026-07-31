@@ -17,8 +17,8 @@ import {
 } from '@/lib/user-demographics';
 import { buildBrandedEmailHtml, type EmailBranding } from '@/lib/email-template';
 import { insertUserNotification } from '@/features/notificaciones/service';
-import { listUserPurchases } from '@/features/access/service';
-import type { UserPurchaseRecord } from '@/features/access/types';
+import { getViewerAccessState, listUserPurchases, readUserModuleOverrides } from '@/features/access/service';
+import type { UserPurchaseRecord, ViewerAccessState } from '@/features/access/types';
 
 type PlanType = 'standard' | 'premium' | 'vip' | 'empresa_elite';
 type SeniorityLevel = 'senior' | 'c_level' | 'director' | 'manager' | 'vp';
@@ -94,6 +94,31 @@ export interface RolePermissionRecord {
   canManage: boolean;
 }
 
+/** Acceso efectivo del usuario a un módulo, con su override manual si existe. */
+export interface UserModuleAccessItem {
+  moduleCode: string;
+  moduleName: string;
+  /** true/false = override manual; null = por defecto (rol + plan). */
+  override: boolean | null;
+  /** Acceso que tendría sin override (rol y, para líder/invitado, plan). */
+  defaultEnabled: boolean;
+  /** Acceso resultante (override ?? default). */
+  effectiveEnabled: boolean;
+  /** El módulo está gateado por plan para este usuario (líder). */
+  planGated: boolean;
+}
+
+/** Resumen de mentorías 1:1 del programa para la ficha de usuario. */
+export interface UserProgramMentorshipSummary {
+  /** Cupo manual (user_profiles.mentorship_sessions_limit). null = sin límite. */
+  sessionsLimit: number | null;
+  /** Plantillas activas del programa (máximo asignable). */
+  totalTemplates: number;
+  available: number;
+  scheduled: number;
+  completed: number;
+}
+
 export interface UserDetailRecord extends UserRecord {
   passwordUpdatedAt: string | null;
   lastSessionAt: string | null;
@@ -101,6 +126,8 @@ export interface UserDetailRecord extends UserRecord {
   rolePermissions: RolePermissionRecord[];
   policyHistory: UserPolicyAcceptanceRecord[];
   purchases: UserPurchaseRecord[];
+  moduleAccess: UserModuleAccessItem[];
+  programMentorships: UserProgramMentorshipSummary | null;
 }
 
 export interface UserSessionRecord {
@@ -1534,6 +1561,97 @@ export async function listUsers(client: PoolClient, input: ListUsersInput = {}):
   return rows.map(mapUser);
 }
 
+// Módulos que no se exponen al toggle por usuario: apagar el panel base o el
+// perfil dejaría la cuenta inutilizable sin ganancia de negocio.
+const MODULE_ACCESS_HIDDEN = new Set(['dashboard', 'perfil']);
+
+// Para líderes, estos módulos además están gateados por plan; el default
+// efectivo sale de ViewerAccessState y el override manual puede encenderlos
+// aunque el plan no los incluya.
+const PLAN_GATED_FLAG_BY_MODULE: Record<string, keyof ViewerAccessState> = {
+  trayectoria: 'canAccessTrayectoria',
+  descubrimiento: 'canAccessDescubrimiento',
+  aprendizaje: 'canAccessLearningLibrary',
+  mentorias: 'canAccessProgramMentorships',
+  networking: 'canAccessNetworking',
+  mensajes: 'canAccessMensajes',
+  convocatorias: 'canAccessConvocatorias',
+  workshops: 'canAccessWorkshops',
+};
+
+async function buildUserModuleAccess(
+  client: PoolClient,
+  user: Pick<UserRecord, 'userId' | 'primaryRole'>,
+  rolePermissions: RolePermissionRecord[],
+): Promise<UserModuleAccessItem[]> {
+  const overrides = await readUserModuleOverrides(client, user.userId);
+  const isLeader = user.primaryRole === 'lider';
+
+  // Acceso por plan SIN overrides: el default que se muestra junto al toggle.
+  const baseAccess = isLeader
+    ? await getViewerAccessState(
+        client,
+        { userId: user.userId, role: user.primaryRole },
+        { includeCatalog: false, skipUserOverrides: true },
+      )
+    : null;
+
+  return rolePermissions
+    .filter((permission) => permission.canView && !MODULE_ACCESS_HIDDEN.has(permission.moduleCode))
+    .map((permission) => {
+      const flag = PLAN_GATED_FLAG_BY_MODULE[permission.moduleCode];
+      const planGated = isLeader && !!flag;
+      const defaultEnabled = planGated && baseAccess ? baseAccess[flag] === true : true;
+      const override = overrides.has(permission.moduleCode)
+        ? overrides.get(permission.moduleCode)!
+        : null;
+      return {
+        moduleCode: permission.moduleCode,
+        moduleName: permission.moduleName,
+        override,
+        defaultEnabled,
+        effectiveEnabled: override ?? defaultEnabled,
+        planGated,
+      };
+    });
+}
+
+async function getUserProgramMentorshipSummary(
+  client: PoolClient,
+  userId: string,
+): Promise<UserProgramMentorshipSummary> {
+  const { rows } = await client.query<{
+    sessions_limit: number | null;
+    total_templates: string | number;
+    available: string | number;
+    scheduled: string | number;
+    completed: string | number;
+  }>(
+    `
+      SELECT
+        (SELECT up.mentorship_sessions_limit FROM app_core.user_profiles up WHERE up.user_id = $1::uuid) AS sessions_limit,
+        (SELECT COUNT(*) FROM app_mentoring.program_mentorship_templates t WHERE t.is_active = true) AS total_templates,
+        COUNT(*) FILTER (WHERE upm.status = 'available') AS available,
+        COUNT(*) FILTER (WHERE upm.status = 'scheduled') AS scheduled,
+        COUNT(*) FILTER (WHERE upm.status = 'completed') AS completed
+      FROM app_mentoring.user_program_mentorships upm
+      WHERE upm.owner_user_id = $1::uuid
+    `,
+    [userId],
+  );
+
+  const row = rows[0];
+  return {
+    sessionsLimit: row?.sessions_limit === null || row?.sessions_limit === undefined
+      ? null
+      : Number(row.sessions_limit),
+    totalTemplates: Number(row?.total_templates ?? 0),
+    available: Number(row?.available ?? 0),
+    scheduled: Number(row?.scheduled ?? 0),
+    completed: Number(row?.completed ?? 0),
+  };
+}
+
 export async function getUserDetail(client: PoolClient, userId: string): Promise<UserDetailRecord> {
   await requireModulePermission(client, 'usuarios', 'view');
 
@@ -1547,6 +1665,13 @@ export async function getUserDetail(client: PoolClient, userId: string): Promise
     listUserPurchases(client, userId),
   ]);
 
+  const [moduleAccess, programMentorships] = await Promise.all([
+    buildUserModuleAccess(client, user, rolePermissions),
+    user.primaryRole === 'lider'
+      ? getUserProgramMentorshipSummary(client, userId)
+      : Promise.resolve(null),
+  ]);
+
   return {
     ...user,
     passwordUpdatedAt: sessionMeta.password_updated_at,
@@ -1555,7 +1680,116 @@ export async function getUserDetail(client: PoolClient, userId: string): Promise
     rolePermissions,
     policyHistory,
     purchases,
+    moduleAccess,
+    programMentorships,
   };
+}
+
+/**
+ * Guardas compartidas para las mutaciones de acceso de la ficha de usuario:
+ * mismo corte de privilegio que updateUser (un gestor no toca cuentas
+ * admin/gestor) y nadie se modifica el acceso a sí mismo (anti-lockout).
+ */
+async function requireModuleAccessMutationGuards(
+  client: PoolClient,
+  actor: AuthUser,
+  userId: string,
+): Promise<{ primaryRole: Role | null }> {
+  await requireModulePermission(client, 'usuarios', 'update');
+  const target = await getUserRoleAndPlan(client, userId);
+
+  const PRIVILEGED_ROLES = new Set(['admin', 'gestor']);
+  if (actor.role !== 'admin' && PRIVILEGED_ROLES.has(target.primaryRole ?? '')) {
+    throw new ForbiddenError('Solo un administrador puede modificar una cuenta de administrador o gestor.');
+  }
+  if (userId === actor.userId) {
+    throw new ForbiddenError('No puedes modificar tu propio acceso a módulos.');
+  }
+
+  return target;
+}
+
+/**
+ * Prende/apaga manualmente un módulo para un usuario, o vuelve al valor por
+ * defecto (enabled = null). El apagado gana sobre rol y plan; el encendido
+ * levanta el gating por plan para líderes.
+ */
+export async function setUserModuleAccess(
+  client: PoolClient,
+  actor: AuthUser,
+  userId: string,
+  moduleCode: string,
+  enabled: boolean | null,
+): Promise<UserModuleAccessItem[]> {
+  await requireModuleAccessMutationGuards(client, actor, userId);
+
+  if (MODULE_ACCESS_HIDDEN.has(moduleCode)) {
+    throw new ForbiddenError('Ese módulo no admite apagado por usuario.');
+  }
+
+  const { rows: moduleRows } = await client.query<{ module_code: string }>(
+    `SELECT module_code FROM app_auth.modules WHERE module_code = $1`,
+    [moduleCode],
+  );
+  if (!moduleRows[0]) {
+    throw new Error(`Módulo desconocido: ${moduleCode}`);
+  }
+
+  if (enabled === null) {
+    await client.query(
+      `DELETE FROM app_auth.user_module_access WHERE user_id = $1::uuid AND module_code = $2`,
+      [userId, moduleCode],
+    );
+  } else {
+    await client.query(
+      `
+        INSERT INTO app_auth.user_module_access (user_id, module_code, is_enabled, updated_by, updated_at)
+        VALUES ($1::uuid, $2, $3, $4::uuid, now())
+        ON CONFLICT (user_id, module_code)
+        DO UPDATE SET is_enabled = EXCLUDED.is_enabled, updated_by = EXCLUDED.updated_by, updated_at = now()
+      `,
+      [userId, moduleCode, enabled, actor.userId],
+    );
+  }
+
+  const user = await getUserById(client, userId);
+  const rolePermissions = await listRolePermissionMatrix(client, user.primaryRole);
+  return buildUserModuleAccess(client, user, rolePermissions);
+}
+
+/**
+ * Fija el cupo manual de mentorías 1:1 del programa para un líder y
+ * re-sincroniza sus entitlements (m1..mN). null = sin límite manual.
+ * Las sesiones ya agendadas o completadas nunca se eliminan.
+ */
+export async function setUserMentorshipLimit(
+  client: PoolClient,
+  actor: AuthUser,
+  userId: string,
+  limit: number | null,
+): Promise<UserProgramMentorshipSummary> {
+  const target = await requireModuleAccessMutationGuards(client, actor, userId);
+
+  if (target.primaryRole !== 'lider') {
+    throw new ForbiddenError('El cupo de mentorías 1:1 solo aplica a cuentas de líder.');
+  }
+  if (limit !== null && (!Number.isInteger(limit) || limit < 0 || limit > 50)) {
+    throw new Error('El cupo debe ser un entero entre 0 y 50, o null para quitar el límite.');
+  }
+
+  await client.query(
+    `
+      INSERT INTO app_core.user_profiles (user_id, mentorship_sessions_limit)
+      VALUES ($1::uuid, $2)
+      ON CONFLICT (user_id)
+      DO UPDATE SET mentorship_sessions_limit = EXCLUDED.mentorship_sessions_limit
+    `,
+    [userId, limit],
+  );
+
+  await client.query(`SELECT app_mentoring.sync_program_mentorships_for_user($1::uuid)`, [userId]);
+
+  return getUserProgramMentorshipSummary(client, userId);
 }
 
 /**

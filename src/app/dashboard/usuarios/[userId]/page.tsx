@@ -8,8 +8,10 @@ import {
   Mail,
   PauseCircle,
   PlayCircle,
+  RotateCcw,
   Save,
   Shield,
+  SlidersHorizontal,
   Trash2,
   Users,
 } from 'lucide-react';
@@ -26,10 +28,13 @@ import {
   listUserAuditLogs,
   resetUserPassword,
   sendUserDirectMessage,
+  setUserMentorshipLimit,
+  setUserModuleAccess,
   updateUser,
   type AppRole,
   type AuditLogRecord,
   type UserDetailRecord,
+  type UserModuleAccessItem,
   type UserNetworkingSummary,
 } from '@/features/usuarios/client';
 import { actionLabel, moduleLabel, logDetail } from '@/features/usuarios/audit-labels';
@@ -85,6 +90,17 @@ interface DemographicsFormState {
   yearsExperience: string;
 }
 
+function moduleAccessStatusLabel(item: UserModuleAccessItem): string {
+  if (item.override === true) return 'Encendido manual';
+  if (item.override === false) return 'Apagado manual';
+  if (item.planGated) {
+    return item.defaultEnabled
+      ? 'Por defecto · incluido en su plan'
+      : 'Por defecto · no incluido en su plan';
+  }
+  return 'Por defecto · por rol';
+}
+
 function toDemographicsForm(detail: UserDetailRecord): DemographicsFormState {
   return {
     country: detail.country ?? '',
@@ -97,7 +113,7 @@ function toDemographicsForm(detail: UserDetailRecord): DemographicsFormState {
 export default function UsuarioDetallePage() {
   const params = useParams();
   const router = useRouter();
-  const { can, refreshBootstrap } = useUser();
+  const { can, refreshBootstrap, currentUser, currentRole } = useUser();
   const { alert, confirm, prompt } = useAppDialog();
 
   const userId = asUserId(params?.userId);
@@ -114,6 +130,7 @@ export default function UsuarioDetallePage() {
   const [availablePlans, setAvailablePlans] = React.useState<SubscriptionPlanWithFeatures[]>([]);
   const [showDeleteModal, setShowDeleteModal] = React.useState(false);
   const [networking, setNetworking] = React.useState<UserNetworkingSummary | null>(null);
+  const [mentorshipLimitInput, setMentorshipLimitInput] = React.useState('');
 
   React.useEffect(() => {
     let cancelled = false;
@@ -140,6 +157,11 @@ export default function UsuarioDetallePage() {
       setDemographicsForm(toDemographicsForm(detailData));
       setLogs(logData);
       setNetworking(netData);
+      setMentorshipLimitInput(
+        detailData.programMentorships?.sessionsLimit != null
+          ? String(detailData.programMentorships.sessionsLimit)
+          : '',
+      );
     } catch (error) {
       await alert({
         title: 'Error',
@@ -321,6 +343,77 @@ export default function UsuarioDetallePage() {
     }
   };
 
+  const onToggleModuleAccess = async (item: UserModuleAccessItem) => {
+    if (!detail) return;
+    setProcessingAction(`module-access-${item.moduleCode}`);
+    try {
+      const next = await setUserModuleAccess(detail.userId, item.moduleCode, !item.effectiveEnabled);
+      setDetail((prev) => (prev ? { ...prev, moduleAccess: next } : prev));
+    } catch (error) {
+      await alert({
+        title: 'Error',
+        message: error instanceof Error ? error.message : 'No se pudo actualizar el acceso al módulo.',
+        tone: 'error',
+      });
+    } finally {
+      setProcessingAction(null);
+    }
+  };
+
+  const onResetModuleAccess = async (item: UserModuleAccessItem) => {
+    if (!detail) return;
+    setProcessingAction(`module-access-${item.moduleCode}`);
+    try {
+      const next = await setUserModuleAccess(detail.userId, item.moduleCode, null);
+      setDetail((prev) => (prev ? { ...prev, moduleAccess: next } : prev));
+    } catch (error) {
+      await alert({
+        title: 'Error',
+        message: error instanceof Error ? error.message : 'No se pudo restablecer el acceso al módulo.',
+        tone: 'error',
+      });
+    } finally {
+      setProcessingAction(null);
+    }
+  };
+
+  const onSaveMentorshipLimit = async () => {
+    if (!detail) return;
+    const raw = mentorshipLimitInput.trim();
+    const limit = raw === '' ? null : Number(raw);
+    if (limit !== null && (!Number.isInteger(limit) || limit < 0 || limit > 50)) {
+      await alert({
+        title: 'Cupo inválido',
+        message: 'El cupo debe ser un entero entre 0 y 50, o dejarse vacío para quitar el límite.',
+        tone: 'warning',
+      });
+      return;
+    }
+
+    setProcessingAction('mentorship-limit');
+    try {
+      const summary = await setUserMentorshipLimit(detail.userId, limit);
+      setDetail((prev) => (prev ? { ...prev, programMentorships: summary } : prev));
+      setMentorshipLimitInput(summary.sessionsLimit != null ? String(summary.sessionsLimit) : '');
+      await alert({
+        title: 'Cupo actualizado',
+        message:
+          limit === null
+            ? 'Se quitó el límite manual: las sesiones vuelven a regirse por el plan.'
+            : `El líder tiene ahora acceso a ${limit} sesión(es) 1:1 del programa.`,
+        tone: 'success',
+      });
+    } catch (error) {
+      await alert({
+        title: 'Error',
+        message: error instanceof Error ? error.message : 'No se pudo actualizar el cupo de mentorías.',
+        tone: 'error',
+      });
+    } finally {
+      setProcessingAction(null);
+    }
+  };
+
   const onDeleteUser = () => {
     if (!detail) return;
     setShowDeleteModal(true);
@@ -412,6 +505,12 @@ export default function UsuarioDetallePage() {
 
   const canUpdate = can('usuarios', 'update');
   const canDelete = can('usuarios', 'delete');
+  // Misma regla que el servidor: nadie se toca su propio acceso (anti-lockout)
+  // y un gestor no modifica cuentas admin/gestor.
+  const canEditModuleAccess =
+    canUpdate &&
+    detail.userId !== currentUser?.id &&
+    (currentRole === 'admin' || (detail.primaryRole !== 'admin' && detail.primaryRole !== 'gestor'));
   const currentUserType = deriveUserTypeSelection(detail);
   const currentDemographics = toDemographicsForm(detail);
   const hasDemographicsChanges =
@@ -864,6 +963,118 @@ export default function UsuarioDetallePage() {
               )}
             </article>
           )}
+
+          <article className="app-panel p-5">
+            <div className="mb-1 flex items-center justify-between">
+              <h2 className="flex items-center gap-2 text-2xl font-bold text-[var(--app-ink)]">
+                <SlidersHorizontal size={22} />
+                Acceso a módulos
+              </h2>
+            </div>
+            <p className="mb-4 text-xs text-[var(--app-muted)]">
+              Módulos que este usuario puede ver según su rol. Verde = encendido, gris = apagado.
+              Apagar un módulo cierra su menú y su API para esta cuenta; encenderlo manualmente
+              le da acceso aunque su plan no lo incluya. Con la flecha vuelves al valor por defecto.
+            </p>
+
+            {detail.moduleAccess.length === 0 ? (
+              <EmptyState message="El rol de este usuario no tiene módulos configurables." />
+            ) : (
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                {detail.moduleAccess.map((item) => (
+                  <div
+                    key={item.moduleCode}
+                    className="flex items-center justify-between gap-3 rounded-[0.9rem] border border-[var(--app-border)] px-3 py-2.5"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-[var(--app-ink)]">
+                        {item.moduleName}
+                      </p>
+                      <p className="text-[11px] text-[var(--app-muted)]">
+                        {moduleAccessStatusLabel(item)}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      {canEditModuleAccess && item.override !== null && (
+                        <button
+                          type="button"
+                          title="Volver al valor por defecto"
+                          disabled={processingAction !== null}
+                          onClick={() => void onResetModuleAccess(item)}
+                          className="rounded-full border border-[var(--app-border)] p-1.5 text-[var(--app-muted)] transition hover:text-[var(--app-ink)] disabled:opacity-50"
+                        >
+                          <RotateCcw size={12} />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={item.effectiveEnabled}
+                        title={item.effectiveEnabled ? 'Apagar módulo' : 'Encender módulo'}
+                        disabled={!canEditModuleAccess || processingAction !== null}
+                        onClick={() => void onToggleModuleAccess(item)}
+                        className={`relative h-6 w-11 rounded-full transition-colors disabled:opacity-50 ${
+                          item.effectiveEnabled ? 'bg-emerald-500' : 'bg-slate-300'
+                        }`}
+                      >
+                        <span
+                          className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${
+                            item.effectiveEnabled ? 'left-[1.375rem]' : 'left-0.5'
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {detail.programMentorships && (
+              <div className="mt-4 rounded-[1rem] border border-[var(--app-border)] bg-[var(--app-surface-muted)]/60 p-4">
+                <p className="text-sm font-bold text-[var(--app-ink)]">Mentorías 1:1 del programa</p>
+                <p className="mt-1 text-xs text-[var(--app-muted)]">
+                  Define cuántas sesiones incluidas (en orden, de la 1 a la N) tiene este líder.
+                  Vacío = sin límite manual ({detail.programMentorships.totalTemplates} sesiones cuando
+                  su plan las incluye). Las sesiones ya agendadas o completadas nunca se eliminan.
+                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-bold text-emerald-700">
+                    Disponibles: {detail.programMentorships.available}
+                  </span>
+                  <span className="rounded-full bg-blue-100 px-2.5 py-1 text-[11px] font-bold text-blue-700">
+                    Agendadas: {detail.programMentorships.scheduled}
+                  </span>
+                  <span className="rounded-full bg-slate-200 px-2.5 py-1 text-[11px] font-bold text-slate-700">
+                    Completadas: {detail.programMentorships.completed}
+                  </span>
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <input
+                    type="number"
+                    min={0}
+                    max={50}
+                    step={1}
+                    placeholder="Sin límite"
+                    className="app-input w-36"
+                    value={mentorshipLimitInput}
+                    disabled={!canEditModuleAccess || processingAction !== null}
+                    onChange={(event) => setMentorshipLimitInput(event.target.value)}
+                  />
+                  {canEditModuleAccess && (
+                    <button
+                      type="button"
+                      onClick={() => void onSaveMentorshipLimit()}
+                      disabled={processingAction !== null}
+                      className="app-button-primary disabled:opacity-60"
+                    >
+                      <Save size={16} />
+                      Guardar cupo
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </article>
 
           <article className="app-panel p-5">
             <div className="mb-4 flex items-center justify-between">

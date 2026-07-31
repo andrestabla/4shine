@@ -307,10 +307,26 @@ async function listActivePurchases(client: PoolClient, userId: string): Promise<
   return rows;
 }
 
+/**
+ * Overrides manuales por usuario (ficha de usuario → Acceso a módulos).
+ * false = módulo apagado aunque el plan lo incluya; true = módulo encendido
+ * aunque el plan no lo incluya. Sin fila = por defecto.
+ */
+export async function readUserModuleOverrides(
+  client: PoolClient,
+  userId: string,
+): Promise<Map<string, boolean>> {
+  const { rows } = await client.query<{ module_code: string; is_enabled: boolean }>(
+    `SELECT module_code, is_enabled FROM app_auth.user_module_access WHERE user_id = $1::uuid`,
+    [userId],
+  );
+  return new Map(rows.map((row) => [row.module_code, !!row.is_enabled]));
+}
+
 export async function getViewerAccessState(
   client: PoolClient,
   actor: Pick<AuthUser, "userId" | "role">,
-  options?: { includeCatalog?: boolean },
+  options?: { includeCatalog?: boolean; skipUserOverrides?: boolean },
 ): Promise<ViewerAccessState> {
   const includeCatalog = options?.includeCatalog ?? true;
   const catalogPromise = includeCatalog ? listCatalog(client) : Promise.resolve([]);
@@ -449,22 +465,61 @@ export async function getViewerAccessState(
 
   // Recursos free siempre son libres en el modelo histórico para todo
   // líder — no se revocan al asignar un plan minimalista.
-  const canAccessAprendizajeRecursosFree = true;
-  const canAccessTrayectoria = planEnables("trayectoria") || legacyProgramGrants;
-  const canAccessDescubrimiento =
-    planEnables("descubrimiento") || legacyProgramGrants || grantsFromDiscovery;
-  const canAccessAprendizajeCursos =
-    planEnables("aprendizaje_cursos") || legacyProgramGrants;
-  const canAccessProgramWorkbooks =
-    planEnables("aprendizaje_workbooks") || legacyProgramGrants;
-  const canAccessMentoring1on1 =
-    planEnables("mentorias_1on1") || legacyProgramGrants || grantsFromMentoringPack;
-  const canAccessMentoringGroup =
-    planEnables("mentorias_grupales") || legacyProgramGrants;
-  const canAccessNetworking = planEnables("networking") || legacyProgramGrants;
-  const canAccessMensajes = planEnables("mensajes") || legacyProgramGrants;
-  const canAccessConvocatorias = planEnables("convocatorias") || legacyProgramGrants;
-  const canAccessWorkshops = planEnables("workshops") || legacyProgramGrants;
+  // Overrides manuales por usuario: el apagado gana sobre plan/legacy y el
+  // encendido levanta el gating por plan (no los permisos de rol, que para
+  // líder ya permiten ver estos módulos).
+  const overrides = options?.skipUserOverrides
+    ? new Map<string, boolean>()
+    : await readUserModuleOverrides(client, actor.userId);
+  const withOverride = (moduleCode: string, base: boolean): boolean => {
+    const override = overrides.get(moduleCode);
+    return override === undefined ? base : override;
+  };
+
+  let canAccessAprendizajeRecursosFree = true;
+  const canAccessTrayectoria = withOverride(
+    "trayectoria",
+    planEnables("trayectoria") || legacyProgramGrants,
+  );
+  const canAccessDescubrimiento = withOverride(
+    "descubrimiento",
+    planEnables("descubrimiento") || legacyProgramGrants || grantsFromDiscovery,
+  );
+  const canAccessAprendizajeCursos = withOverride(
+    "aprendizaje",
+    planEnables("aprendizaje_cursos") || legacyProgramGrants,
+  );
+  const canAccessProgramWorkbooks = withOverride(
+    "aprendizaje",
+    planEnables("aprendizaje_workbooks") || legacyProgramGrants,
+  );
+  const canAccessMentoring1on1 = withOverride(
+    "mentorias",
+    planEnables("mentorias_1on1") || legacyProgramGrants || grantsFromMentoringPack,
+  );
+  const canAccessMentoringGroup = withOverride(
+    "mentorias",
+    planEnables("mentorias_grupales") || legacyProgramGrants,
+  );
+  const canAccessNetworking = withOverride(
+    "networking",
+    planEnables("networking") || legacyProgramGrants,
+  );
+  const canAccessMensajes = withOverride(
+    "mensajes",
+    planEnables("mensajes") || legacyProgramGrants,
+  );
+  const canAccessConvocatorias = withOverride(
+    "convocatorias",
+    planEnables("convocatorias") || legacyProgramGrants,
+  );
+  const canAccessWorkshops = withOverride(
+    "workshops",
+    planEnables("workshops") || legacyProgramGrants,
+  );
+  if (overrides.get("aprendizaje") === false) {
+    canAccessAprendizajeRecursosFree = false;
+  }
 
   const canAccessProgramMentorships =
     canAccessMentoring1on1 || canAccessMentoringGroup;

@@ -38,15 +38,29 @@ export async function hasModulePermission(
     if (!isModuleEnabledIn(visibility, moduleKey)) return false;
   }
 
+  // Apagado manual por usuario (ficha de usuario → Acceso a módulos): cierra
+  // la API del módulo para esa cuenta aunque su rol lo permita. El encendido
+  // manual (is_enabled=true) no eleva permisos aquí — solo levanta el gating
+  // por plan en getViewerAccessState; el rol sigue mandando.
+  const userContext = await client.query<{ user_id: string | null }>(
+    `SELECT current_setting('app.current_user_id', true) AS user_id`,
+  );
+  const contextUserId = (userContext.rows[0]?.user_id ?? '').trim();
+  const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (UUID_PATTERN.test(contextUserId)) {
+    const { rows: overrideRows } = await client.query<{ is_enabled: boolean }>(
+      `SELECT is_enabled FROM app_auth.user_module_access
+        WHERE user_id = $1::uuid AND module_code = $2`,
+      [contextUserId, moduleCode],
+    );
+    if (overrideRows[0] && overrideRows[0].is_enabled === false) return false;
+  }
+
   if (contextRole === 'invitado') {
     if (moduleCode !== 'descubrimiento') return false;
     return action === 'view' || action === 'create' || action === 'update';
   }
 
-  const invitedContext = await client.query<{ user_id: string | null }>(
-    `SELECT current_setting('app.current_user_id', true) AS user_id`,
-  );
-  const contextUserId = invitedContext.rows[0]?.user_id ?? '';
   if (contextUserId.startsWith('invited:')) {
     if (moduleCode !== 'descubrimiento') return false;
     return action === 'view' || action === 'create' || action === 'update';

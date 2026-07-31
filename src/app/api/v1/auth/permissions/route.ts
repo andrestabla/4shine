@@ -25,8 +25,24 @@ export async function GET(request: Request) {
   }
 
   if (identity.guestScope === 'descubrimiento' || identity.role === 'invitado') {
+    // Un invitado real (cuenta con uuid) también respeta el apagado manual.
+    let discoveryDisabled = false;
+    if (identity.role === 'invitado' && /^[0-9a-f-]{36}$/i.test(identity.userId)) {
+      try {
+        discoveryDisabled = await withClient(async (client) => {
+          const { rows } = await client.query<{ is_enabled: boolean }>(
+            `SELECT is_enabled FROM app_auth.user_module_access
+              WHERE user_id = $1::uuid AND module_code = 'descubrimiento'`,
+            [identity.userId],
+          );
+          return rows[0] ? rows[0].is_enabled === false : false;
+        });
+      } catch {
+        discoveryDisabled = false;
+      }
+    }
     const permissions: ModulePermissions[] = MODULE_CODES.map((moduleCode) => {
-      const allowDiscovery = moduleCode === 'descubrimiento';
+      const allowDiscovery = moduleCode === 'descubrimiento' && !discoveryDisabled;
       return {
         moduleCode,
         moduleName: moduleCode,
@@ -72,17 +88,34 @@ export async function GET(request: Request) {
         [identity.role],
       );
 
-      return rows.map((row) => ({
-        moduleCode: row.module_code,
-        moduleName: row.module_name,
-        canView: row.can_view,
-        canCreate: row.can_create,
-        canUpdate: row.can_update,
-        canDelete: row.can_delete,
-        canApprove: row.can_approve,
-        canModerate: row.can_moderate,
-        canManage: row.can_manage,
-      }));
+      // Apagado manual por usuario (ficha de usuario → Acceso a módulos):
+      // el módulo desaparece del mapa de permisos del cliente (menú y can()).
+      // El admin conserva todo: su bypass de servidor no consulta este mapa
+      // y apagarse un módulo a sí mismo sería un lockout accidental.
+      const disabledModules = new Set<string>();
+      if (identity.role !== 'admin') {
+        const { rows: overrideRows } = await client.query<{ module_code: string }>(
+          `SELECT module_code FROM app_auth.user_module_access
+            WHERE user_id = $1::uuid AND is_enabled = false`,
+          [identity.userId],
+        );
+        for (const row of overrideRows) disabledModules.add(row.module_code);
+      }
+
+      return rows.map((row) => {
+        const disabled = disabledModules.has(row.module_code);
+        return {
+          moduleCode: row.module_code,
+          moduleName: row.module_name,
+          canView: disabled ? false : row.can_view,
+          canCreate: disabled ? false : row.can_create,
+          canUpdate: disabled ? false : row.can_update,
+          canDelete: disabled ? false : row.can_delete,
+          canApprove: disabled ? false : row.can_approve,
+          canModerate: disabled ? false : row.can_moderate,
+          canManage: disabled ? false : row.can_manage,
+        };
+      });
     });
 
     return NextResponse.json(

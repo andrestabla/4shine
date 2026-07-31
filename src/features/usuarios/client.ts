@@ -74,6 +74,24 @@ export interface RolePermissionRecord {
   canManage: boolean;
 }
 
+export interface UserModuleAccessItem {
+  moduleCode: string;
+  moduleName: string;
+  /** true/false = override manual; null = por defecto (rol + plan). */
+  override: boolean | null;
+  defaultEnabled: boolean;
+  effectiveEnabled: boolean;
+  planGated: boolean;
+}
+
+export interface UserProgramMentorshipSummary {
+  sessionsLimit: number | null;
+  totalTemplates: number;
+  available: number;
+  scheduled: number;
+  completed: number;
+}
+
 export interface UserDetailRecord extends UserRecord {
   passwordUpdatedAt: string | null;
   lastSessionAt: string | null;
@@ -81,6 +99,8 @@ export interface UserDetailRecord extends UserRecord {
   rolePermissions: RolePermissionRecord[];
   policyHistory: UserPolicyAcceptanceRecord[];
   purchases: UserPurchaseRecord[];
+  moduleAccess: UserModuleAccessItem[];
+  programMentorships: UserProgramMentorshipSummary | null;
 }
 
 export interface UserSessionRecord {
@@ -223,6 +243,30 @@ export async function updateUser(userId: string, input: UpdateUserInput): Promis
     method: 'PATCH',
     body: JSON.stringify(input),
   });
+}
+
+export async function setUserModuleAccess(
+  userId: string,
+  moduleCode: string,
+  enabled: boolean | null,
+): Promise<UserModuleAccessItem[]> {
+  return requestApi<UserModuleAccessItem[]>(`/api/v1/modules/usuarios/${userId}/module-access`, {
+    method: 'PATCH',
+    body: JSON.stringify({ moduleCode, enabled }),
+  });
+}
+
+export async function setUserMentorshipLimit(
+  userId: string,
+  limit: number | null,
+): Promise<UserProgramMentorshipSummary> {
+  return requestApi<UserProgramMentorshipSummary>(
+    `/api/v1/modules/usuarios/${userId}/mentorship-limit`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ limit }),
+    },
+  );
 }
 
 export async function hardDeleteUser(
