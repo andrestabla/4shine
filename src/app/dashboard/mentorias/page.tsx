@@ -1361,6 +1361,38 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
     setAgendaCalendarSelected(new Set());
   }, []);
 
+  // Instantes exactos de las franjas recurrentes, calculados EN LA ZONA HORARIA
+  // DEL NAVEGADOR. Es la única fuente: la vista previa los muestra y el submit
+  // envía estos mismos ISO al servidor (antes el servidor recalculaba las horas
+  // en su reloj UTC y las franjas quedaban corridas 5 horas).
+  const computeRecurringSlotIsos = React.useCallback((): string[] => {
+    if (
+      !availabilityBulkForm.fromDate ||
+      !availabilityBulkForm.toDate ||
+      availabilityBulkForm.weekdays.length === 0 ||
+      agendaSelectedHours.length === 0
+    ) {
+      return [];
+    }
+    const out: string[] = [];
+    const start = new Date(`${availabilityBulkForm.fromDate}T00:00:00`);
+    const end = new Date(`${availabilityBulkForm.toDate}T23:59:59`);
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const wd = d.getDay() === 0 ? 7 : d.getDay();
+      if (!availabilityBulkForm.weekdays.includes(wd)) continue;
+      for (const hour of agendaSelectedHours) {
+        for (let n = 0; n < Number(availabilityBulkForm.numberOfSlots); n++) {
+          const startsAt = new Date(d);
+          startsAt.setHours(hour, 0, 0, 0);
+          startsAt.setMinutes(startsAt.getMinutes() + n * 90);
+          out.push(startsAt.toISOString());
+          if (out.length > 200) return out; // safety
+        }
+      }
+    }
+    return out;
+  }, [availabilityBulkForm.fromDate, availabilityBulkForm.toDate, availabilityBulkForm.weekdays, availabilityBulkForm.numberOfSlots, agendaSelectedHours]);
+
   const handleAgendaBulkConfirm = async () => {
     if (!availabilityBulkForm.mentorUserId || agendaSelectedHours.length === 0) return;
     setAgendaSubmitting(true);
@@ -1372,6 +1404,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
         startHours: agendaSelectedHours,
         weekdays: availabilityBulkForm.weekdays,
         numberOfSlots: Number(availabilityBulkForm.numberOfSlots),
+        slots: computeRecurringSlotIsos(),
       });
       setAgendaResultMessage(`Se crearon ${result.created} franjas nuevas.`);
       await load();
@@ -2615,38 +2648,15 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
             ? availabilitySlotForm.startsAt.split('T')[1]
             : '09:00';
 
-          // Preview de franjas a crear en modo recurring (bulk multi-hora)
-          const recurringPreviewSlots = (() => {
-            if (
-              agendaMode !== 'recurring' ||
-              !availabilityBulkForm.fromDate ||
-              !availabilityBulkForm.toDate ||
-              availabilityBulkForm.weekdays.length === 0 ||
-              agendaSelectedHours.length === 0
-            ) {
-              return [] as Array<{ startsAtIso: string; label: string }>;
-            }
-            const slots: Array<{ startsAtIso: string; label: string }> = [];
-            const start = new Date(`${availabilityBulkForm.fromDate}T00:00:00`);
-            const end = new Date(`${availabilityBulkForm.toDate}T23:59:59`);
-            for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-              const wd = d.getDay() === 0 ? 7 : d.getDay();
-              if (!availabilityBulkForm.weekdays.includes(wd)) continue;
-              for (const hour of agendaSelectedHours) {
-                for (let n = 0; n < Number(availabilityBulkForm.numberOfSlots); n++) {
-                  const startsAt = new Date(d);
-                  startsAt.setHours(hour, 0, 0, 0);
-                  startsAt.setMinutes(startsAt.getMinutes() + n * 90);
-                  slots.push({
-                    startsAtIso: startsAt.toISOString(),
-                    label: formatDateTime(startsAt.toISOString(), tz),
-                  });
-                  if (slots.length > 200) return slots; // safety
-                }
-              }
-            }
-            return slots;
-          })();
+          // Preview de franjas a crear en modo recurring: mismos instantes que
+          // se enviarán al servidor (computeRecurringSlotIsos), etiquetados.
+          const recurringPreviewSlots =
+            agendaMode !== 'recurring'
+              ? ([] as Array<{ startsAtIso: string; label: string }>)
+              : computeRecurringSlotIsos().map((iso) => ({
+                  startsAtIso: iso,
+                  label: formatDateTime(iso, tz),
+                }));
           // Mapa de existentes para detectar duplicados en preview
           const existingSet = new Set(agendaFullSlots.map((s) => new Date(s.startsAt).toISOString()));
           const newCount = recurringPreviewSlots.filter((s) => !existingSet.has(s.startsAtIso)).length;

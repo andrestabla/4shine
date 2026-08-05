@@ -301,6 +301,13 @@ export interface BulkMentorAvailabilityInput {
   startHours?: number[];
   weekdays: number[];
   numberOfSlots: number;
+  /**
+   * Instantes exactos (ISO) calculados por el cliente EN SU ZONA HORARIA.
+   * Cuando llega, el servidor inserta exactamente estas franjas y no genera
+   * nada: evita el desfase de interpretar horas en el reloj del servidor
+   * (UTC en Vercel), que corría las franjas 5 horas para Colombia.
+   */
+  slots?: string[];
 }
 
 export interface MentorAvailabilityFullRecord {
@@ -2697,6 +2704,31 @@ export async function bulkCreateMentorAvailability(
   if (actor.role === 'mentor' && actor.userId !== input.mentorUserId) {
     throw new Error('Un Advisor solo puede editar su propia disponibilidad.');
   }
+  // Camino preferido: el cliente manda los instantes exactos que mostró en la
+  // vista previa (lo que el advisor aprobó es lo que se guarda).
+  if (Array.isArray(input.slots) && input.slots.length > 0) {
+    const instants = input.slots
+      .map((iso) => new Date(iso))
+      .filter((d) => !Number.isNaN(d.getTime()))
+      .slice(0, 500);
+    let createdFromSlots = 0;
+    for (const startsAt of instants) {
+      const endsAt = new Date(startsAt.getTime() + 90 * 60000);
+      const { rowCount } = await client.query(
+        `
+          INSERT INTO app_mentoring.mentor_availability (
+            mentor_user_id, starts_at, ends_at, is_booked
+          )
+          VALUES ($1::uuid, $2::timestamptz, $3::timestamptz, false)
+          ON CONFLICT (mentor_user_id, starts_at, ends_at) DO NOTHING
+        `,
+        [input.mentorUserId, startsAt.toISOString(), endsAt.toISOString()],
+      );
+      createdFromSlots += rowCount ?? 0;
+    }
+    return { created: createdFromSlots };
+  }
+
   if (input.numberOfSlots <= 0) return { created: 0 };
 
   // Normalize base hours: prefer startHours[]; fallback to single startHour.
