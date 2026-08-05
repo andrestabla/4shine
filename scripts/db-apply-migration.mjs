@@ -103,6 +103,11 @@ async function applyOne(client, filename) {
 const client = new Client({ connectionString, ssl: { rejectUnauthorized: false } });
 await client.connect();
 try {
+  // La DATABASE_URL de prod aterriza la sesión como app_runtime (SET ROLE en
+  // las options de la connection string), que no tiene CREATE sobre la BD y
+  // hace fallar ensureLedger con "permission denied for database". RESET ROLE
+  // vuelve al login role real (neondb_owner). Es no-op si no había SET ROLE.
+  await client.query('RESET ROLE');
   await ensureLedger(client);
   const files = await listMigrationFiles();
   const applied = await getApplied(client);
