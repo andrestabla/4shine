@@ -213,6 +213,13 @@ export interface UpdateUserInput {
    * - undefined deja la fecha actual sin cambios.
    */
   subscriptionExpiresAt?: string | null;
+  /**
+   * Cuando true, se envía al usuario el correo/notificación informando el
+   * cambio de rol y/o plan (y, si era invitado, sus credenciales temporales).
+   * Default false: el admin decide explícitamente con el botón
+   * "Actualizar y enviar notificación" — guardar sin más NO dispara correo.
+   */
+  notifyChanges?: boolean;
   seniorityLevel?: SeniorityLevel | null;
   bio?: string | null;
   location?: string | null;
@@ -2580,31 +2587,46 @@ export async function updateUser(
   // Idem createUser: ya no se crea / mantiene la compra sintética
   // program_4shine. La licencia vive en user_profiles.subscription_plan_id.
 
-  // ── Notificaciones automáticas ────────────────────────────────────────────
+  // ── Notificaciones (opt-in) ───────────────────────────────────────────────
+  // Solo se envían cuando el admin lo pide explícitamente con
+  // notifyChanges=true (botón "Actualizar y enviar notificación" en la UI).
   // Best-effort: si falla el envío no abortamos — el cambio ya está en BD.
+  const shouldNotify = input.notifyChanges === true;
 
-  // 1) Cambio de rol: solo si primaryRole vino en el input Y realmente cambió.
-  //    Caso especial: si el usuario ERA invitado, nunca tuvo contraseña (entraba
-  //    con código único a Descubrimiento). Le generamos una temporal, marcamos
-  //    su correo como verificado y le enviamos el correo de promoción CON la
-  //    contraseña y las instrucciones de ingreso, en vez del genérico.
-  if (roleChanged && input.primaryRole) {
-    if (currentUserState.primaryRole === 'invitado') {
+  // 1) Promoción desde invitado. Dos cosas distintas aquí:
+  //    - email_verified_at se marca SIEMPRE que se promueve (con o sin
+  //      notificación): sin esto el ex-invitado queda bloqueado del login,
+  //      porque el bypass de verificación solo aplica al rol 'invitado'.
+  //    - La contraseña temporal solo se genera cuando se envía el correo:
+  //      ese correo es su único vehículo de entrega. Si el admin guarda sin
+  //      notificar, el invitado conserva su acceso actual y siempre puede
+  //      usar "Olvidé mi contraseña" (funciona porque el correo ya quedó
+  //      verificado).
+  if (roleChanged && input.primaryRole && currentUserState.primaryRole === 'invitado') {
+    if (shouldNotify) {
       const tempPassword = await provisionCredentialsForPromotedInvitado(client, userId);
       await notifyInvitadoPromoted(client, userId, tempPassword, input.primaryRole);
     } else {
-      await notifyUserRoleChanged(
-        client,
-        userId,
-        currentUserState.primaryRole,
-        input.primaryRole,
+      await client.query(
+        `UPDATE app_auth.user_credentials
+         SET email_verified_at = COALESCE(email_verified_at, now()),
+             updated_at = now()
+         WHERE user_id = $1::uuid`,
+        [userId],
       );
     }
+  } else if (shouldNotify && roleChanged && input.primaryRole) {
+    await notifyUserRoleChanged(
+      client,
+      userId,
+      currentUserState.primaryRole,
+      input.primaryRole,
+    );
   }
 
-  // 2) Cambio de plan: solo si subscriptionPlanId vino en el input.
-  //    (Puede haber cambiado a otro plan, o haberse retirado con null.)
-  if (input.subscriptionPlanId !== undefined) {
+  // 2) Cambio de plan: solo si vino en el input, cambió de verdad y el
+  //    admin pidió notificar.
+  if (shouldNotify && input.subscriptionPlanId !== undefined) {
     const previousPlanId = currentUserState.subscriptionPlanId;
     const newPlanId = input.subscriptionPlanId;
     if (previousPlanId !== newPlanId) {
@@ -3332,9 +3354,13 @@ export async function bulkAssignPlan(
   _actor: AuthUser,
   userIds: string[],
   planId: string,
+  options?: { notify?: boolean },
 ): Promise<BulkActionResult> {
   await requireModulePermission(client, 'usuarios', 'update');
   if (userIds.length === 0) return { affected: 0, errors: [] };
+  // Opt-in: igual que el flujo individual, el correo solo se envía si el
+  // admin lo pidió explícitamente ("Actualizar y enviar notificación").
+  const shouldNotify = options?.notify === true;
 
   const { rows: planRows } = await client.query<{ duration_days: number }>(
     `SELECT duration_days FROM app_billing.subscription_plans
@@ -3401,14 +3427,28 @@ export async function bulkAssignPlan(
   for (const uid of userIds) {
     const prev = previousByUser.get(uid);
     if (!prev) continue;
-    // Invitado → líder: nunca tuvo contraseña (entraba con código único).
-    // Generamos temporal + verificamos correo + correo con credenciales.
     if (prev.role === 'invitado') {
-      const tempPassword = await provisionCredentialsForPromotedInvitado(client, uid);
-      await notifyInvitadoPromoted(client, uid, tempPassword, 'lider');
+      if (shouldNotify) {
+        // Invitado → líder con notificación: contraseña temporal + correo
+        // verificado + correo con credenciales.
+        const tempPassword = await provisionCredentialsForPromotedInvitado(client, uid);
+        await notifyInvitadoPromoted(client, uid, tempPassword, 'lider');
+      } else {
+        // Sin notificación: solo marcamos el correo como verificado para que
+        // el ex-invitado no quede bloqueado del login (el bypass de
+        // verificación solo aplica al rol 'invitado'). Podrá usar
+        // "Olvidé mi contraseña" cuando quiera entrar.
+        await client.query(
+          `UPDATE app_auth.user_credentials
+           SET email_verified_at = COALESCE(email_verified_at, now()),
+               updated_at = now()
+           WHERE user_id = $1::uuid`,
+          [uid],
+        );
+      }
     }
-    // Cambio de plan (siempre — si tenía otro plan o ninguno, ahora tiene planId)
-    if (prev.planId !== planId) {
+    // Cambio de plan: solo si cambió de verdad y el admin pidió notificar.
+    if (shouldNotify && prev.planId !== planId) {
       await notifyUserPlanChanged(client, uid, prev.planId, planId, newExpiresAt);
     }
   }

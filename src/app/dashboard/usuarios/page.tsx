@@ -275,9 +275,21 @@ export default function UsuariosPage() {
 
   const onBulkAssignPlan = async (plan: SubscriptionPlanWithFeatures) => {
     const ids = [...selected];
+
+    // Opt-in de notificación: ambos botones ASIGNAN el plan; la diferencia
+    // es si los usuarios reciben el correo (con credenciales temporales
+    // para los que eran invitados).
+    const notify = await confirm({
+      title: 'Notificación a los usuarios',
+      message: `¿Enviar correo a los ${ids.length} usuario(s) informando el plan "${plan.name}" y su vigencia? Los que eran invitados recibirán además sus credenciales temporales.`,
+      confirmText: 'Actualizar y enviar notificación',
+      cancelText: 'Actualizar sin notificar',
+      tone: 'info',
+    });
+
     setBulkBusy(true);
     try {
-      const r = await bulkUserAction('assign_plan', ids, { planId: plan.planId });
+      const r = await bulkUserAction('assign_plan', ids, { planId: plan.planId, notify });
       setShowBulkPlan(false);
       await alert({
         title: 'Plan asignado',

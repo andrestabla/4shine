@@ -30,6 +30,8 @@ interface BulkBody {
     channels?: Array<'in_app' | 'email'>;
     organizationId?: string;
     planId?: string;
+    /** assign_plan: true = notificar por correo a los usuarios afectados. */
+    notify?: boolean;
   };
 }
 
@@ -73,7 +75,9 @@ export async function POST(request: Request) {
             if (!body.params?.planId) {
               throw new Error('planId es obligatorio.');
             }
-            result = await bulkAssignPlan(client, identity, body.userIds, body.params.planId);
+            result = await bulkAssignPlan(client, identity, body.userIds, body.params.planId, {
+              notify: body.params?.notify === true,
+            });
             break;
           default:
             throw new Error('Acción no soportada');

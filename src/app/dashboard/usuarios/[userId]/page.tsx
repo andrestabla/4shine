@@ -280,10 +280,21 @@ export default function UsuarioDetallePage() {
     const ok = await confirm({
       title: 'Cambiar tipo de usuario',
       message: `¿Asignar ${userTypeLabel(userType)} a ${detail.displayName}?`,
-      confirmText: 'Guardar tipo',
+      confirmText: 'Continuar',
       tone: 'warning',
     });
     if (!ok) return;
+
+    // Segundo paso: decidir si se notifica. Ambos botones GUARDAN el cambio;
+    // la diferencia es solo si el usuario recibe el correo (con credenciales
+    // temporales incluidas cuando era invitado).
+    const notifyChanges = await confirm({
+      title: 'Notificación al usuario',
+      message: `¿Enviar correo a ${detail.email} informando el cambio de rol? Si era invitado, el correo incluye sus credenciales temporales de acceso.`,
+      confirmText: 'Actualizar y enviar notificación',
+      cancelText: 'Actualizar sin notificar',
+      tone: 'info',
+    });
 
     setProcessingAction('change-user-type');
     try {
@@ -291,6 +302,7 @@ export default function UsuarioDetallePage() {
         primaryRole: selection.primaryRole,
         planType: selection.planType,
         subscriptionPlanId: userType === 'leader_with_subscription' ? undefined : null,
+        notifyChanges,
       });
       await refreshBootstrap();
       await loadData();
@@ -315,10 +327,19 @@ export default function UsuarioDetallePage() {
     const ok = await confirm({
       title: 'Asignar plan de suscripción',
       message: `¿Asignar el plan "${targetPlan.name}" a ${detail.displayName}?`,
-      confirmText: 'Asignar plan',
+      confirmText: 'Continuar',
       tone: 'warning',
     });
     if (!ok) return;
+
+    // Segundo paso: decidir si se notifica. Ambos botones GUARDAN el cambio.
+    const notifyChanges = await confirm({
+      title: 'Notificación al usuario',
+      message: `¿Enviar correo a ${detail.email} informando el nuevo plan y su vigencia? Si era invitado, el correo incluye sus credenciales temporales de acceso.`,
+      confirmText: 'Actualizar y enviar notificación',
+      cancelText: 'Actualizar sin notificar',
+      tone: 'info',
+    });
 
     setProcessingAction('change-subscription-plan');
     try {
@@ -329,6 +350,7 @@ export default function UsuarioDetallePage() {
         primaryRole: 'lider',
         planType: null,
         subscriptionPlanId: planId,
+        notifyChanges,
       });
       await refreshBootstrap();
       await loadData();

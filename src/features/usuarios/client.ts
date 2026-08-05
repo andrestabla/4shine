@@ -172,6 +172,12 @@ export interface UpdateUserInput {
   jobRole?: JobRole | null;
   gender?: string | null;
   yearsExperience?: number | null;
+  /**
+   * true = enviar al usuario el correo informando el cambio de rol/plan
+   * (con credenciales temporales si era invitado). Default false: guardar
+   * sin notificar.
+   */
+  notifyChanges?: boolean;
 }
 
 function buildQuery(input: Record<string, string | number | undefined | null>): string {
@@ -331,6 +337,8 @@ export interface BulkActionParams {
   channels?: Array<'in_app' | 'email'>;
   organizationId?: string;
   planId?: string;
+  /** assign_plan: true = notificar por correo a los usuarios afectados. */
+  notify?: boolean;
 }
 
 // ─── Organizaciones (gestión solo admin) ────────────────────────────────────
