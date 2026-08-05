@@ -326,31 +326,25 @@ export default function UsuarioDetallePage() {
 
     const ok = await confirm({
       title: 'Asignar plan de suscripción',
-      message: `¿Asignar el plan "${targetPlan.name}" a ${detail.displayName}?`,
-      confirmText: 'Continuar',
+      message: `¿Asignar el plan "${targetPlan.name}" a ${detail.displayName}? La vigencia inicial se calcula automáticamente (${targetPlan.durationDays} días); podrás ajustarla y notificar al usuario al confirmar la fecha de vencimiento.`,
+      confirmText: 'Asignar plan',
       tone: 'warning',
     });
     if (!ok) return;
-
-    // Segundo paso: decidir si se notifica. Ambos botones GUARDAN el cambio.
-    const notifyChanges = await confirm({
-      title: 'Notificación al usuario',
-      message: `¿Enviar correo a ${detail.email} informando el nuevo plan y su vigencia? Si era invitado, el correo incluye sus credenciales temporales de acceso.`,
-      confirmText: 'Actualizar y enviar notificación',
-      cancelText: 'Actualizar sin notificar',
-      tone: 'info',
-    });
 
     setProcessingAction('change-subscription-plan');
     try {
       // No mandamos planType. La fuente de verdad para el acceso es
       // subscription_plan_id + plan_module_features. plan_type legacy
       // queda en NULL para evitar contaminar la lógica de grants.
+      //
+      // La notificación NO se dispara aquí: el modal "Actualizar y enviar
+      // notificación" vive en la confirmación de la fecha de vigencia, para
+      // que el correo siempre lleve la fecha definitiva y no la automática.
       await updateUser(detail.userId, {
         primaryRole: 'lider',
         planType: null,
         subscriptionPlanId: planId,
-        notifyChanges,
       });
       await refreshBootstrap();
       await loadData();
@@ -826,11 +820,25 @@ export default function UsuarioDetallePage() {
                               }
                               if (value === isoForInput) return;
                               const newIso = value ? `${value}T23:59:59.000Z` : null;
+
+                              // El modal de notificación vive AQUÍ (al confirmar
+                              // la vigencia), no en la selección del plan: así el
+                              // correo siempre informa la fecha definitiva. Ambos
+                              // botones guardan; la diferencia es solo el envío.
+                              const notifyChanges = await confirm({
+                                title: 'Notificación al usuario',
+                                message: `¿Enviar correo a ${detail.email} informando el plan y su nueva vigencia? Si era invitado, el correo incluye sus credenciales temporales de acceso.`,
+                                confirmText: 'Actualizar y enviar notificación',
+                                cancelText: 'Actualizar sin notificar',
+                                tone: 'info',
+                              });
+
                               setProcessingAction('change-subscription-expires');
                               try {
                                 await updateUser(detail.userId, {
                                   primaryRole: 'lider',
                                   subscriptionExpiresAt: newIso,
+                                  notifyChanges,
                                 });
                                 await refreshBootstrap();
                                 await loadData();

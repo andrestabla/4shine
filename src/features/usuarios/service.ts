@@ -2624,27 +2624,47 @@ export async function updateUser(
     );
   }
 
-  // 2) Cambio de plan: solo si vino en el input, cambió de verdad y el
-  //    admin pidió notificar.
-  if (shouldNotify && input.subscriptionPlanId !== undefined) {
-    const previousPlanId = currentUserState.subscriptionPlanId;
-    const newPlanId = input.subscriptionPlanId;
-    if (previousPlanId !== newPlanId) {
-      // Leemos el nuevo subscription_expires_at recién persistido para
-      // informarlo al usuario.
-      const { rows: expRows } = await client.query<{ expires: string | null }>(
-        `SELECT subscription_expires_at::text AS expires
+  // 2) Notificación de plan. Dos disparadores posibles:
+  //    a) Vino subscriptionPlanId y cambió de verdad (asignación/cambio/retiro).
+  //    b) Vino SOLO subscriptionExpiresAt (confirmación de vigencia): el
+  //       admin ajustó la fecha definitiva del plan actual y quiere
+  //       informarla. El modal de la UI vive en ese paso, no en la selección
+  //       del plan, así el correo siempre lleva la vigencia final.
+  if (shouldNotify) {
+    if (input.subscriptionPlanId !== undefined) {
+      const previousPlanId = currentUserState.subscriptionPlanId;
+      const newPlanId = input.subscriptionPlanId;
+      if (previousPlanId !== newPlanId) {
+        const { rows: expRows } = await client.query<{ expires: string | null }>(
+          `SELECT subscription_expires_at::text AS expires
+           FROM app_core.user_profiles WHERE user_id = $1::uuid LIMIT 1`,
+          [userId],
+        );
+        const newExpiresAt = expRows[0]?.expires ?? null;
+        await notifyUserPlanChanged(client, userId, previousPlanId, newPlanId, newExpiresAt);
+      }
+    } else if (input.subscriptionExpiresAt !== undefined) {
+      // Confirmación de vigencia sobre el plan vigente (el plan no cambió).
+      const { rows: stateRows } = await client.query<{
+        plan_id: string | null;
+        expires: string | null;
+      }>(
+        `SELECT subscription_plan_id::text AS plan_id,
+                subscription_expires_at::text AS expires
          FROM app_core.user_profiles WHERE user_id = $1::uuid LIMIT 1`,
         [userId],
       );
-      const newExpiresAt = expRows[0]?.expires ?? null;
-      await notifyUserPlanChanged(
-        client,
-        userId,
-        previousPlanId,
-        newPlanId,
-        newExpiresAt,
-      );
+      const currentPlanId = stateRows[0]?.plan_id ?? null;
+      if (currentPlanId) {
+        await notifyUserPlanChanged(
+          client,
+          userId,
+          currentPlanId,
+          currentPlanId,
+          stateRows[0]?.expires ?? null,
+          { force: true },
+        );
+      }
     }
   }
 
@@ -3728,9 +3748,17 @@ export async function notifyUserPlanChanged(
   previousPlanId: string | null,
   newPlanId: string | null,
   newExpiresAt: string | null,
+  options?: {
+    /**
+     * true = enviar aunque previousPlanId === newPlanId. Lo usa la
+     * confirmación de vigencia: el plan no cambió, pero el admin acaba de
+     * fijar la fecha definitiva y quiere informarla.
+     */
+    force?: boolean;
+  },
 ): Promise<void> {
   try {
-    if (previousPlanId === newPlanId) return;
+    if (!options?.force && previousPlanId === newPlanId) return;
     const target = await loadUserNotificationTarget(client, userId);
     if (!target) return;
 
