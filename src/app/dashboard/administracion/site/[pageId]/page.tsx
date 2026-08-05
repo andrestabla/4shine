@@ -256,12 +256,16 @@ function PricingItemsPickerInput({ value, onChange }: { value: unknown; onChange
         };
         const fmt = (amount: number, currency: string) =>
           `${currency} ${Number(amount ?? 0).toLocaleString('en-US')}`;
-        const fromCatalog = (json.data.catalog ?? []).map((p) => ({
-          code: p.productCode,
-          name: p.name,
-          group: groupLabel[p.productGroup] ?? p.productGroup,
-          price: fmt(p.priceAmount, p.currencyCode),
-        }));
+        // Solo los grupos que la matriz realmente renderiza (los productos
+        // sintéticos como 'program' legacy no aparecen en el sitio).
+        const fromCatalog = (json.data.catalog ?? [])
+          .filter((p) => p.productGroup === 'discovery' || p.productGroup === 'mentoring_pack')
+          .map((p) => ({
+            code: p.productCode,
+            name: p.name,
+            group: groupLabel[p.productGroup] ?? p.productGroup,
+            price: fmt(p.priceAmount, p.currencyCode),
+          }));
         const fromPlans = (json.data.plans ?? []).map((p) => ({
           code: p.planCode,
           name: p.name,
