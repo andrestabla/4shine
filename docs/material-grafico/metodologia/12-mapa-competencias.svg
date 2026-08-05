@@ -1,0 +1,124 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 900" width="100%" role="img" aria-label="Mapa de competencias 4Shine: 22 componentes y 47 competencias, organizados en cuatro pilares Within, Out, Up y Beyond.">
+<rect x="0" y="0" width="1280" height="900" fill="#FFFFFF"/>
+<text x="24" y="52" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="26" font-weight="800" fill="#0D1B2A">Mapa de competencias 4Shine</text>
+<text x="24" y="80" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="600" fill="#64748B">22 componentes · 47 competencias</text>
+<rect x="24" y="96" width="120" height="4" rx="2" fill="#D4AF37"/>
+<rect x="24.0" y="132" width="294.5" height="64" rx="8" fill="#0D1B2A"/>
+<rect x="24.0" y="192" width="294.5" height="4" rx="2" fill="#D4AF37"/>
+<text x="36.0" y="155" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="800" fill="#FFFFFF" letter-spacing="0.5">SHINE WITHIN</text>
+<text x="36.0" y="172.0" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="10" font-weight="600" fill="#E8CE86">Esencia — 7 componentes · 15 competencias</text>
+<rect x="24.0" y="204.0" width="294.5" height="381.0" rx="8" fill="#F4F6F9" stroke="#E2E8F0" stroke-width="1"/>
+<circle cx="38.0" cy="223.0" r="2.5" fill="#D4AF37"/>
+<text x="48.0" y="228.5" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11.5" font-weight="700" fill="#D4AF37">Autoconfianza y autoliderazgo</text>
+<text x="48.0" y="243.5" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Autoeficacia y seguridad</text>
+<text x="48.0" y="255.5" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Gestión de creencias (mindset)</text>
+<text x="48.0" y="267.5" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Responsabilidad radical (accountability)</text>
+<circle cx="38.0" cy="283.5" r="2.5" fill="#D4AF37"/>
+<text x="48.0" y="289.0" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11.5" font-weight="700" fill="#D4AF37">Inteligencia emocional y regulación</text>
+<text x="48.0" y="304.0" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Autoconciencia emocional</text>
+<text x="48.0" y="316.0" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Regulación emocional</text>
+<text x="48.0" y="328.0" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Gestión de la energía</text>
+<circle cx="38.0" cy="344.0" r="2.5" fill="#D4AF37"/>
+<text x="48.0" y="349.5" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11.5" font-weight="700" fill="#D4AF37">Propósito y valores (integridad)</text>
+<text x="48.0" y="364.5" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Claridad de propósito (Ikigai)</text>
+<text x="48.0" y="376.5" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Integridad y coherencia</text>
+<text x="48.0" y="388.5" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Autenticidad</text>
+<circle cx="38.0" cy="404.5" r="2.5" fill="#D4AF37"/>
+<text x="48.0" y="410.0" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11.5" font-weight="700" fill="#D4AF37">Aprendizaje y reflexión</text>
+<text x="48.0" y="425.0" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Práctica reflexiva</text>
+<text x="48.0" y="437.0" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Apertura al feedback</text>
+<text x="48.0" y="449.0" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Mentalidad de crecimiento</text>
+<circle cx="38.0" cy="465.0" r="2.5" fill="#D4AF37"/>
+<text x="48.0" y="470.5" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11.5" font-weight="700" fill="#D4AF37">Gestión de energía y bienestar</text>
+<text x="48.0" y="485.5" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Regulación somática y fisiológica</text>
+<circle cx="38.0" cy="501.5" r="2.5" fill="#D4AF37"/>
+<text x="48.0" y="507.0" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11.5" font-weight="700" fill="#D4AF37">Toma de decisiones y resolución de</text>
+<text x="48.0" y="520.5" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11.5" font-weight="700" fill="#D4AF37">problemas</text>
+<text x="48.0" y="535.5" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Compostura</text>
+<circle cx="38.0" cy="551.5" r="2.5" fill="#D4AF37"/>
+<text x="48.0" y="557.0" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11.5" font-weight="700" fill="#D4AF37">Identidad de liderazgo</text>
+<text x="48.0" y="572.0" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Re-alineación Cognitiva</text>
+<rect x="336.5" y="132" width="294.5" height="64" rx="8" fill="#0D1B2A"/>
+<rect x="336.5" y="192" width="294.5" height="4" rx="2" fill="#D4AF37"/>
+<text x="348.5" y="155" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="800" fill="#FFFFFF" letter-spacing="0.5">SHINE OUT</text>
+<text x="348.5" y="172.0" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="10" font-weight="600" fill="#E8CE86">Presencia Estratégica — 4 componentes · 8</text>
+<text x="348.5" y="185.0" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="10" font-weight="600" fill="#E8CE86">competencias</text>
+<rect x="336.5" y="204.0" width="294.5" height="223.5" rx="8" fill="#F4F6F9" stroke="#E2E8F0" stroke-width="1"/>
+<circle cx="350.5" cy="223.0" r="2.5" fill="#D4AF37"/>
+<text x="360.5" y="228.5" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11.5" font-weight="700" fill="#D4AF37">Comunicación de impacto</text>
+<text x="360.5" y="243.5" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Claridad e inspiración</text>
+<text x="360.5" y="255.5" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Escucha Activa y Empática</text>
+<text x="360.5" y="267.5" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Adaptabilidad Comunicativa</text>
+<circle cx="350.5" cy="283.5" r="2.5" fill="#D4AF37"/>
+<text x="360.5" y="289.0" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11.5" font-weight="700" fill="#D4AF37">Influencia positiva</text>
+<text x="360.5" y="304.0" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Construcción de confianza (Trust)</text>
+<text x="360.5" y="316.0" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Influencia ética y persuasión</text>
+<text x="360.5" y="328.0" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Reconocimiento y feedback</text>
+<circle cx="350.5" cy="344.0" r="2.5" fill="#D4AF37"/>
+<text x="360.5" y="349.5" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11.5" font-weight="700" fill="#D4AF37">Presencia digital e híbrida</text>
+<text x="360.5" y="364.5" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Influencia asíncrona y virtual</text>
+<circle cx="350.5" cy="380.5" r="2.5" fill="#D4AF37"/>
+<text x="360.5" y="386.0" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11.5" font-weight="700" fill="#D4AF37">Competencia conversacional</text>
+<text x="360.5" y="399.5" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11.5" font-weight="700" fill="#D4AF37">(ontológica)</text>
+<text x="360.5" y="414.5" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Ingeniería del lenguaje (promesas y pedidos)</text>
+<rect x="649.0" y="132" width="294.5" height="64" rx="8" fill="#0D1B2A"/>
+<rect x="649.0" y="192" width="294.5" height="4" rx="2" fill="#D4AF37"/>
+<text x="661.0" y="155" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="800" fill="#FFFFFF" letter-spacing="0.5">SHINE UP</text>
+<text x="661.0" y="172.0" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="10" font-weight="600" fill="#E8CE86">Ecosistema Relacional — 6 componentes · 13</text>
+<text x="661.0" y="185.0" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="10" font-weight="600" fill="#E8CE86">competencias</text>
+<rect x="649.0" y="204.0" width="294.5" height="344.5" rx="8" fill="#F4F6F9" stroke="#E2E8F0" stroke-width="1"/>
+<circle cx="663.0" cy="223.0" r="2.5" fill="#D4AF37"/>
+<text x="673.0" y="228.5" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11.5" font-weight="700" fill="#D4AF37">Networking estratégico</text>
+<text x="673.0" y="243.5" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Conectividad interna y externa</text>
+<text x="673.0" y="255.5" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Gestión de relaciones</text>
+<text x="673.0" y="267.5" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Visibilidad estratégica</text>
+<circle cx="663.0" cy="283.5" r="2.5" fill="#D4AF37"/>
+<text x="673.0" y="289.0" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11.5" font-weight="700" fill="#D4AF37">Visión de futuro y estrategia</text>
+<text x="673.0" y="304.0" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Pensamiento estratégico</text>
+<text x="673.0" y="316.0" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Visión compartida</text>
+<text x="673.0" y="328.0" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Alineación de metas</text>
+<circle cx="663.0" cy="344.0" r="2.5" fill="#D4AF37"/>
+<text x="673.0" y="349.5" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11.5" font-weight="700" fill="#D4AF37">Toma de decisiones y resolución de</text>
+<text x="673.0" y="363.0" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11.5" font-weight="700" fill="#D4AF37">problemas</text>
+<text x="673.0" y="378.0" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Decisión bajo incertidumbre</text>
+<text x="673.0" y="390.0" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Resolución de causa raíz</text>
+<circle cx="663.0" cy="406.0" r="2.5" fill="#D4AF37"/>
+<text x="673.0" y="411.5" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11.5" font-weight="700" fill="#D4AF37">Adaptabilidad e innovación</text>
+<text x="673.0" y="426.5" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Agilidad y adaptabilidad</text>
+<text x="673.0" y="438.5" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Estimulación intelectual (innovación)</text>
+<text x="673.0" y="450.5" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Gestión del error constructivo</text>
+<circle cx="663.0" cy="466.5" r="2.5" fill="#D4AF37"/>
+<text x="673.0" y="472.0" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11.5" font-weight="700" fill="#D4AF37">Inteligencia política y contextual</text>
+<text x="673.0" y="487.0" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Lectura de poder y patrocinio</text>
+<circle cx="663.0" cy="503.0" r="2.5" fill="#D4AF37"/>
+<text x="673.0" y="508.5" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11.5" font-weight="700" fill="#D4AF37">Agilidad tecnológica</text>
+<text x="673.0" y="523.5" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Liderazgo en entornos de transformación</text>
+<text x="673.0" y="535.5" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">tecnológica</text>
+<rect x="961.5" y="132" width="294.5" height="64" rx="8" fill="#0D1B2A"/>
+<rect x="961.5" y="192" width="294.5" height="4" rx="2" fill="#D4AF37"/>
+<text x="973.5" y="155" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="800" fill="#FFFFFF" letter-spacing="0.5">SHINE BEYOND</text>
+<text x="973.5" y="172.0" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="10" font-weight="600" fill="#E8CE86">Legado — 5 componentes · 11 competencias</text>
+<rect x="961.5" y="204.0" width="294.5" height="270.5" rx="8" fill="#F4F6F9" stroke="#E2E8F0" stroke-width="1"/>
+<circle cx="975.5" cy="223.0" r="2.5" fill="#D4AF37"/>
+<text x="985.5" y="228.5" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11.5" font-weight="700" fill="#D4AF37">Desarrollo de otros líderes</text>
+<text x="985.5" y="243.5" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Mentoría y sucesión</text>
+<text x="985.5" y="255.5" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Empoderamiento</text>
+<text x="985.5" y="267.5" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Desafío para el crecimiento</text>
+<circle cx="975.5" cy="283.5" r="2.5" fill="#D4AF37"/>
+<text x="985.5" y="289.0" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11.5" font-weight="700" fill="#D4AF37">Impacto social y humano</text>
+<text x="985.5" y="304.0" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Ética y responsabilidad social</text>
+<text x="985.5" y="316.0" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Liderazgo de servicio</text>
+<text x="985.5" y="328.0" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Inclusión y equidad</text>
+<circle cx="975.5" cy="344.0" r="2.5" fill="#D4AF37"/>
+<text x="985.5" y="349.5" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11.5" font-weight="700" fill="#D4AF37">Legado personal y trascendencia</text>
+<text x="985.5" y="364.5" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Institucionalización de cultura</text>
+<text x="985.5" y="376.5" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Reconocimiento y humildad</text>
+<text x="985.5" y="388.5" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Conexión con el propósito</text>
+<circle cx="975.5" cy="404.5" r="2.5" fill="#D4AF37"/>
+<text x="985.5" y="410.0" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11.5" font-weight="700" fill="#D4AF37">Inteligencia cultural e inclusiva</text>
+<text x="985.5" y="425.0" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Gestión de la diversidad cognitiva</text>
+<circle cx="975.5" cy="441.0" r="2.5" fill="#D4AF37"/>
+<text x="985.5" y="446.5" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11.5" font-weight="700" fill="#D4AF37">Liderazgo regenerativo</text>
+<text x="985.5" y="461.5" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="500" fill="#0D1B2A">• Conciencia sistémica y comunitaria</text>
+<text x="24" y="886" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="10" font-weight="500" fill="#64748B">Within → Out → Up → Beyond · Metodología 4Shine</text>
+</svg>

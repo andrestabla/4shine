@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 760 432" width="100%" role="img" aria-label="Esquemas de base de datos y conexiones" xmlns="http://www.w3.org/2000/svg">
+  <rect x="0" y="0" width="100%" height="100%" fill="#FFFFFF"/>
+  <g stroke="#CBD5E1" stroke-width="1.4">
+  <line x1="380" y1="196" x2="380" y2="102"/>
+  <line x1="300" y1="212" x2="222" y2="124"/>
+  <line x1="460" y1="212" x2="540" y2="124"/>
+  <line x1="300" y1="262" x2="222" y2="330"/>
+  <line x1="380" y1="278" x2="380" y2="356"/>
+  <line x1="460" y1="262" x2="540" y2="330"/>
+  </g>
+  <text x="388" y="152" font-size="8.5" fill="#64748B">roles · permisos</text>
+  <text x="468" y="170" font-size="8.5" fill="#64748B">user_id</text>
+  <text x="468" y="305" font-size="8.5" fill="#64748B">actor</text>
+  <rect x="295" y="196" width="170" height="82" rx="10" fill="#0D1B2A"/>
+  <text x="380" y="224" text-anchor="middle" font-size="13" font-weight="700" fill="#ffffff">app_core</text>
+  <text x="380" y="242" text-anchor="middle" font-size="9" fill="#cbd5e1">users · perfiles · orgs</text>
+  <text x="380" y="256" text-anchor="middle" font-size="9" fill="#cbd5e1">notificaciones · cohortes</text>
+  <g font-size="11.5" font-weight="600" fill="#0D1B2A" text-anchor="middle">
+  <rect x="300" y="36" width="160" height="66" rx="9" fill="#F4F6F9" stroke="#E2E8F0"/><text x="380" y="62">app_auth</text>
+  <rect x="36" y="62" width="184" height="62" rx="9" fill="#F4F6F9" stroke="#E2E8F0"/><text x="128" y="88">app_assessment</text>
+  <rect x="540" y="62" width="184" height="62" rx="9" fill="#F4F6F9" stroke="#E2E8F0"/><text x="632" y="86">app_learning</text>
+  <rect x="36" y="330" width="184" height="62" rx="9" fill="#F4F6F9" stroke="#E2E8F0"/><text x="128" y="356">app_mentoring</text>
+  <rect x="295" y="356" width="170" height="66" rx="9" fill="#F4F6F9" stroke="#E2E8F0"/><text x="380" y="382">app_networking</text>
+  <rect x="540" y="330" width="184" height="62" rx="9" fill="#F4F6F9" stroke="#E2E8F0"/><text x="632" y="356">app_admin</text>
+  </g>
+  <g font-size="9" fill="#64748B" text-anchor="middle">
+  <text x="380" y="80">roles · permisos · sesiones</text>
+  <text x="128" y="106">diagnósticos · pilares</text>
+  <text x="632" y="101">cursos · progreso · workbooks</text>
+  <text x="128" y="374">sesiones · participantes</text>
+  <text x="380" y="400">conexiones · chat · convocatorias</text>
+  <text x="632" y="374">auditoría · branding · site</text>
+  </g>
+</svg>

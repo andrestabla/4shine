@@ -213,6 +213,36 @@ export const VARIABLE_DEFS: Record<VariableKey, VariableDef> = {
     description: 'URL al detalle del workshop dentro de la plataforma',
     example: 'https://4shine.co/dashboard/workshops/abc-123',
   },
+  rol_anterior: {
+    key: 'rol_anterior',
+    label: 'Rol anterior',
+    description: 'Rol que tenía el usuario antes del cambio (label legible)',
+    example: 'Líder',
+  },
+  rol_nuevo: {
+    key: 'rol_nuevo',
+    label: 'Rol nuevo',
+    description: 'Rol que ahora tiene el usuario (label legible)',
+    example: 'Advisor',
+  },
+  plan_anterior: {
+    key: 'plan_anterior',
+    label: 'Plan anterior',
+    description: 'Nombre del plan de suscripción anterior (o "Sin plan")',
+    example: 'Sin plan',
+  },
+  plan_nuevo: {
+    key: 'plan_nuevo',
+    label: 'Plan nuevo',
+    description: 'Nombre del nuevo plan asignado (o "Sin plan" si se retiró)',
+    example: 'Programa Marca Ejecutiva',
+  },
+  fecha_vencimiento: {
+    key: 'fecha_vencimiento',
+    label: 'Fecha de vencimiento',
+    description: 'Fecha de vencimiento del nuevo plan (si aplica)',
+    example: '15 de diciembre de 2026',
+  },
 };
 
 // ─── Event Catalog ────────────────────────────────────────────────────────────
@@ -274,6 +304,41 @@ export const NOTIFICATION_EVENTS: NotificationEventDef[] = [
       'Se envía a los administradores cuando una compra reportada por GHL no pudo provisionarse (firma inválida, producto no mapeado o error interno). El acceso del cliente queda pendiente hasta resolverlo.',
     variables: ['motivo', 'correo', 'titulo', 'descripcion', 'plataforma', 'enlace_plataforma'],
     defaultInAppType: 'alert',
+  },
+  {
+    key: 'usuarios.role_changed',
+    moduleCode: 'usuarios',
+    moduleLabel: 'Usuarios',
+    label: 'Cambio de rol',
+    description:
+      'Se envía al usuario cuando un admin/gestor cambia su rol en la plataforma. Recuerda su correo de acceso y la URL para ingresar (sin incluir contraseña, por seguridad — si la olvidó puede usar "restablecer contraseña" desde el login).',
+    variables: [
+      'nombre',
+      'correo',
+      'rol_anterior',
+      'rol_nuevo',
+      'plataforma',
+      'enlace_plataforma',
+    ],
+    defaultInAppType: 'info',
+  },
+  {
+    key: 'usuarios.plan_changed',
+    moduleCode: 'usuarios',
+    moduleLabel: 'Usuarios',
+    label: 'Cambio de plan',
+    description:
+      'Se envía al usuario cuando un admin/gestor asigna, cambia o retira su plan de suscripción. Incluye plan nuevo, fecha de vencimiento (si aplica), correo de acceso y URL de la plataforma.',
+    variables: [
+      'nombre',
+      'correo',
+      'plan_anterior',
+      'plan_nuevo',
+      'fecha_vencimiento',
+      'plataforma',
+      'enlace_plataforma',
+    ],
+    defaultInAppType: 'success',
   },
 
   // ── MENTORIAS ─────────────────────────────────────────────────────────────

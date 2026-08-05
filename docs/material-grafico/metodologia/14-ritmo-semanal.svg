@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 380" width="100%" role="img" aria-label="Ritmo semanal 4Shine: los tres tiempos — Antes (72 horas antes, Workbook), Durante (90 minutos, mentoría 1-a-1 con el 4Shine Advisor) y Después (micro-compromiso y sesión grupal).">
+  <defs>
+    <style>
+      .ff { font-family: Manrope, ui-sans-serif, system-ui, sans-serif; }
+    </style>
+    <linearGradient id="goldGrad2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E8CE86"/>
+      <stop offset="1" stop-color="#D4AF37"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="0" y="0" width="900" height="380" fill="#FFFFFF"/>
+
+  <!-- Header -->
+  <text class="ff" x="48" y="56" font-size="28" font-weight="800" fill="#0D1B2A">Ritmo semanal · los tres tiempos</text>
+
+  <!-- Card ANTES -->
+  <g transform="translate(48,110)">
+    <rect x="0" y="0" width="238" height="210" rx="14" fill="#F4F6F9" stroke="#E2E8F0" stroke-width="1"/>
+    <rect x="0" y="0" width="238" height="6" rx="3" fill="#D4AF37"/>
+    <path d="M 34 44 L 46 56 L 34 68 L 22 56 Z" fill="url(#goldGrad2)"/>
+    <text class="ff" x="70" y="52" font-size="24" font-weight="800" fill="#0D1B2A">ANTES</text>
+    <text class="ff" x="70" y="72" font-size="12.5" font-weight="700" fill="#D4AF37">72 h antes</text>
+    <line x1="24" y1="92" x2="214" y2="92" stroke="#E2E8F0" stroke-width="1"/>
+    <text class="ff" x="24" y="124" font-size="13" fill="#64748B">El líder trabaja su</text>
+    <text class="ff" x="24" y="144" font-size="13" fill="#64748B">Workbook y los</text>
+    <text class="ff" x="24" y="164" font-size="13" fill="#64748B">contenidos habilitados.</text>
+  </g>
+
+  <!-- Arrow 1 -->
+  <g transform="translate(300,215)">
+    <path d="M 0 0 L 26 0 M 26 0 L 18 -7 M 26 0 L 18 7" fill="none" stroke="#D4AF37" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- Card DURANTE -->
+  <g transform="translate(332,110)">
+    <rect x="0" y="0" width="238" height="210" rx="14" fill="#0D1B2A" stroke="#0D1B2A" stroke-width="1"/>
+    <rect x="0" y="0" width="238" height="6" rx="3" fill="url(#goldGrad2)"/>
+    <path d="M 34 44 L 46 56 L 34 68 L 22 56 Z" fill="url(#goldGrad2)"/>
+    <text class="ff" x="70" y="52" font-size="24" font-weight="800" fill="#FFFFFF">DURANTE</text>
+    <text class="ff" x="70" y="72" font-size="12.5" font-weight="700" fill="#E8CE86">90 min</text>
+    <line x1="24" y1="92" x2="214" y2="92" stroke="#1A1F2B" stroke-width="1"/>
+    <text class="ff" x="24" y="124" font-size="13" fill="#E2E8F0">Mentoría 1-a-1 con</text>
+    <text class="ff" x="24" y="144" font-size="13" fill="#E2E8F0">su 4Shine Advisor.</text>
+  </g>
+
+  <!-- Arrow 2 -->
+  <g transform="translate(584,215)">
+    <path d="M 0 0 L 26 0 M 26 0 L 18 -7 M 26 0 L 18 7" fill="none" stroke="#D4AF37" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- Card DESPUÉS -->
+  <g transform="translate(616,110)">
+    <rect x="0" y="0" width="238" height="210" rx="14" fill="#F4F6F9" stroke="#E2E8F0" stroke-width="1"/>
+    <rect x="0" y="0" width="238" height="6" rx="3" fill="#D4AF37"/>
+    <path d="M 34 44 L 46 56 L 34 68 L 22 56 Z" fill="url(#goldGrad2)"/>
+    <text class="ff" x="70" y="52" font-size="24" font-weight="800" fill="#0D1B2A">DESPUÉS</text>
+    <text class="ff" x="70" y="72" font-size="12.5" font-weight="700" fill="#D4AF37">Seguimiento</text>
+    <line x1="24" y1="92" x2="214" y2="92" stroke="#E2E8F0" stroke-width="1"/>
+    <text class="ff" x="24" y="124" font-size="13" fill="#64748B">Práctica del</text>
+    <text class="ff" x="24" y="144" font-size="13" fill="#64748B">micro-compromiso +</text>
+    <text class="ff" x="24" y="164" font-size="13" fill="#64748B">sesión grupal / speaker.</text>
+  </g>
+</svg>

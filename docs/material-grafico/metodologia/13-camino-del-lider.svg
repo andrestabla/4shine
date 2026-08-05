@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 560" width="100%" role="img" aria-label="El Camino del Líder — 24 semanas: roadmap de implementación del sistema 4Shine con cinco momentos, Descubrimiento, Shine Within, Shine Out, Shine Up y Shine Beyond.">
+  <rect x="0" y="0" width="980" height="560" fill="#FFFFFF"/>
+
+  <!-- Title -->
+  <text x="40" y="52" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="27" font-weight="800" fill="#0D1B2A">El Camino del Líder — 24 semanas</text>
+  <text x="40" y="80" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="500" fill="#64748B">El roadmap de implementación del sistema 4Shine®.</text>
+
+  <!-- Timeline spine -->
+  <line x1="70" y1="150" x2="910" y2="150" stroke="#E2E8F0" stroke-width="4" stroke-linecap="round"/>
+  <line x1="70" y1="150" x2="910" y2="150" stroke="#D4AF37" stroke-width="4" stroke-linecap="round" stroke-dasharray="2 14"/>
+
+  <!-- Station dots -->
+  <circle cx="130" cy="150" r="9" fill="#0D1B2A" stroke="#D4AF37" stroke-width="3"/>
+  <circle cx="315" cy="150" r="9" fill="#0D1B2A" stroke="#D4AF37" stroke-width="3"/>
+  <circle cx="500" cy="150" r="9" fill="#0D1B2A" stroke="#D4AF37" stroke-width="3"/>
+  <circle cx="685" cy="150" r="9" fill="#0D1B2A" stroke="#D4AF37" stroke-width="3"/>
+  <circle cx="870" cy="150" r="9" fill="#0D1B2A" stroke="#D4AF37" stroke-width="3"/>
+
+  <!-- ===== Card 1: Descubrimiento ===== -->
+  <g>
+    <line x1="130" y1="150" x2="130" y2="196" stroke="#E2E8F0" stroke-width="2"/>
+    <rect x="42" y="196" width="176" height="150" rx="12" fill="#F4F6F9" stroke="#E2E8F0" stroke-width="1"/>
+    <rect x="42" y="196" width="176" height="6" rx="3" fill="#D4AF37"/>
+    <circle cx="66" cy="228" r="13" fill="#0D1B2A"/>
+    <text x="66" y="233" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="800" fill="#E8CE86" text-anchor="middle">1</text>
+    <text x="90" y="226" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="10.5" font-weight="700" fill="#D4AF37" letter-spacing="0.5">SEMANA 1</text>
+    <text x="60" y="266" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="16" font-weight="800" fill="#0D1B2A">Descubrimiento</text>
+    <line x1="60" y1="284" x2="200" y2="284" stroke="#E2E8F0" stroke-width="1"/>
+    <text x="60" y="308" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" font-weight="600" fill="#1A1F2B">Diagnóstico + PDI.</text>
+  </g>
+
+  <!-- ===== Card 2: Shine Within ===== -->
+  <g>
+    <line x1="315" y1="150" x2="315" y2="196" stroke="#E2E8F0" stroke-width="2"/>
+    <rect x="227" y="196" width="176" height="150" rx="12" fill="#F4F6F9" stroke="#E2E8F0" stroke-width="1"/>
+    <rect x="227" y="196" width="176" height="6" rx="3" fill="#D4AF37"/>
+    <circle cx="251" cy="228" r="13" fill="#0D1B2A"/>
+    <text x="251" y="233" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="800" fill="#E8CE86" text-anchor="middle">2</text>
+    <text x="275" y="226" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="10.5" font-weight="700" fill="#D4AF37" letter-spacing="0.5">SEMANAS 2–8</text>
+    <text x="245" y="264" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="16" font-weight="800" fill="#0D1B2A">Shine Within</text>
+    <text x="245" y="281" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="600" fill="#64748B">Esencia</text>
+    <line x1="245" y1="293" x2="385" y2="293" stroke="#E2E8F0" stroke-width="1"/>
+    <text x="245" y="314" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" font-weight="700" fill="#1A1F2B">WB1, WB2, WB3</text>
+    <text x="245" y="332" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="600" fill="#64748B">3 mentorías</text>
+  </g>
+
+  <!-- ===== Card 3: Shine Out ===== -->
+  <g>
+    <line x1="500" y1="150" x2="500" y2="196" stroke="#E2E8F0" stroke-width="2"/>
+    <rect x="412" y="196" width="176" height="150" rx="12" fill="#F4F6F9" stroke="#E2E8F0" stroke-width="1"/>
+    <rect x="412" y="196" width="176" height="6" rx="3" fill="#D4AF37"/>
+    <circle cx="436" cy="228" r="13" fill="#0D1B2A"/>
+    <text x="436" y="233" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="800" fill="#E8CE86" text-anchor="middle">3</text>
+    <text x="460" y="226" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="10.5" font-weight="700" fill="#D4AF37" letter-spacing="0.5">SEMANAS 9–14</text>
+    <text x="430" y="264" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="16" font-weight="800" fill="#0D1B2A">Shine Out</text>
+    <text x="430" y="281" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="600" fill="#64748B">Presencia Estratégica</text>
+    <line x1="430" y1="293" x2="570" y2="293" stroke="#E2E8F0" stroke-width="1"/>
+    <text x="430" y="314" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" font-weight="700" fill="#1A1F2B">WB4, WB5, WB6</text>
+    <text x="430" y="332" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="600" fill="#64748B">3 mentorías</text>
+  </g>
+
+  <!-- ===== Card 4: Shine Up ===== -->
+  <g>
+    <line x1="685" y1="150" x2="685" y2="196" stroke="#E2E8F0" stroke-width="2"/>
+    <rect x="597" y="196" width="176" height="150" rx="12" fill="#F4F6F9" stroke="#E2E8F0" stroke-width="1"/>
+    <rect x="597" y="196" width="176" height="6" rx="3" fill="#D4AF37"/>
+    <circle cx="621" cy="228" r="13" fill="#0D1B2A"/>
+    <text x="621" y="233" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="800" fill="#E8CE86" text-anchor="middle">4</text>
+    <text x="645" y="226" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="10.5" font-weight="700" fill="#D4AF37" letter-spacing="0.5">SEMANAS 15–20</text>
+    <text x="615" y="264" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="16" font-weight="800" fill="#0D1B2A">Shine Up</text>
+    <text x="615" y="281" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="600" fill="#64748B">Ecosistema Relacional</text>
+    <line x1="615" y1="293" x2="755" y2="293" stroke="#E2E8F0" stroke-width="1"/>
+    <text x="615" y="314" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" font-weight="700" fill="#1A1F2B">WB7, WB8</text>
+    <text x="615" y="332" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="600" fill="#64748B">2 mentorías</text>
+  </g>
+
+  <!-- ===== Card 5: Shine Beyond ===== -->
+  <g>
+    <line x1="870" y1="150" x2="870" y2="196" stroke="#E2E8F0" stroke-width="2"/>
+    <rect x="782" y="196" width="176" height="150" rx="12" fill="#0D1B2A" stroke="#D4AF37" stroke-width="1.5"/>
+    <rect x="782" y="196" width="176" height="6" rx="3" fill="#D4AF37"/>
+    <circle cx="806" cy="228" r="13" fill="#D4AF37"/>
+    <text x="806" y="233" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="800" fill="#0D1B2A" text-anchor="middle">5</text>
+    <text x="830" y="226" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="10.5" font-weight="700" fill="#E8CE86" letter-spacing="0.5">SEMANAS 21–24</text>
+    <text x="800" y="264" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="16" font-weight="800" fill="#FFFFFF">Shine Beyond</text>
+    <text x="800" y="281" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="600" fill="#E8CE86">Legado</text>
+    <line x1="800" y1="293" x2="940" y2="293" stroke="#1A1F2B" stroke-width="1"/>
+    <text x="800" y="314" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" font-weight="700" fill="#FFFFFF">WB9, WB10</text>
+    <text x="800" y="332" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="600" fill="#E8CE86">2 mentorías</text>
+  </g>
+
+  <!-- Closing note: re-diagnostico -->
+  <rect x="42" y="386" width="916" height="52" rx="12" fill="#F4F6F9" stroke="#D4AF37" stroke-width="1.5"/>
+  <circle cx="76" cy="412" r="14" fill="#D4AF37"/>
+  <text x="76" y="417" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="800" fill="#0D1B2A" text-anchor="middle">24</text>
+  <text x="104" y="408" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="800" fill="#0D1B2A">Semana 24: re-diagnóstico</text>
+  <text x="104" y="427" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" font-weight="600" fill="#64748B">mide el delta de transformación.</text>
+
+  <!-- Footer totals strip -->
+  <rect x="42" y="470" width="916" height="52" rx="12" fill="#0D1B2A"/>
+  <text x="500" y="502" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="700" fill="#FFFFFF" text-anchor="middle">24 semanas  ·  10 workbooks  ·  12 mentorías  ·  2 diagnósticos (Sem 1 y 24)</text>
+</svg>

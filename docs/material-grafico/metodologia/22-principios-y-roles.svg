@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 620" width="100%" role="img" aria-label="Principios de diseño del programa y roles de mentoría de 4Shine">
+  <rect x="0" y="0" width="960" height="620" fill="#FFFFFF"/>
+
+  <!-- Título -->
+  <text x="40" y="50" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="28" font-weight="700" fill="#0D1B2A">Principios de diseño y roles de mentoría</text>
+  <rect x="40" y="64" width="68" height="4" rx="2" fill="#D4AF37"/>
+
+  <!-- ===== Sección A ===== -->
+  <text x="40" y="102" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="700" fill="#64748B" letter-spacing="1.5">SECCIÓN A &#183; 6 PRINCIPIOS DEL PROGRAMA</text>
+
+  <!-- Fila 1 -->
+  <!-- P1 -->
+  <rect x="40" y="118" width="286" height="112" rx="12" fill="#F4F6F9"/>
+  <circle cx="70" cy="150" r="17" fill="#0D1B2A"/>
+  <text x="70" y="156" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="16" font-weight="700" fill="#E8CE86" text-anchor="middle">1</text>
+  <text x="100" y="150" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="700" fill="#0D1B2A">La secuencia importa</text>
+  <text x="60" y="186" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" fill="#64748B">El orden es intencional:</text>
+  <text x="60" y="205" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" font-weight="600" fill="#1A1F2B">Within &#8594; Out &#8594; Up &#8594; Beyond</text>
+
+  <!-- P2 -->
+  <rect x="337" y="118" width="286" height="112" rx="12" fill="#F4F6F9"/>
+  <circle cx="367" cy="150" r="17" fill="#0D1B2A"/>
+  <text x="367" y="156" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="16" font-weight="700" fill="#E8CE86" text-anchor="middle">2</text>
+  <text x="397" y="150" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="700" fill="#0D1B2A">Práctica antes que teoría</text>
+  <text x="357" y="186" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" fill="#64748B">Cada aprendizaje se ancla</text>
+  <text x="357" y="205" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" fill="#64748B">en la aplicación real.</text>
+
+  <!-- P3 -->
+  <rect x="634" y="118" width="286" height="112" rx="12" fill="#F4F6F9"/>
+  <circle cx="664" cy="150" r="17" fill="#0D1B2A"/>
+  <text x="664" y="156" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="16" font-weight="700" fill="#E8CE86" text-anchor="middle">3</text>
+  <text x="694" y="150" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="700" fill="#0D1B2A">Velocidad individual</text>
+  <text x="654" y="186" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" fill="#64748B">Ritmo personalizado según</text>
+  <text x="654" y="205" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" fill="#64748B">el diagnóstico inicial.</text>
+
+  <!-- Fila 2 -->
+  <!-- P4 -->
+  <rect x="40" y="242" width="286" height="112" rx="12" fill="#F4F6F9"/>
+  <circle cx="70" cy="274" r="17" fill="#0D1B2A"/>
+  <text x="70" y="280" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="16" font-weight="700" fill="#E8CE86" text-anchor="middle">4</text>
+  <text x="100" y="274" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="700" fill="#0D1B2A">Mentores, no profesores</text>
+  <text x="60" y="310" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" fill="#64748B">Acompañamiento cercano,</text>
+  <text x="60" y="329" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" fill="#64748B">no clases magistrales.</text>
+
+  <!-- P5 -->
+  <rect x="337" y="242" width="286" height="112" rx="12" fill="#F4F6F9"/>
+  <circle cx="367" cy="274" r="17" fill="#0D1B2A"/>
+  <text x="367" y="280" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="16" font-weight="700" fill="#E8CE86" text-anchor="middle">5</text>
+  <text x="397" y="274" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="700" fill="#0D1B2A">Doble registro</text>
+  <text x="357" y="310" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" fill="#64748B">Diagnóstico en Semana 1</text>
+  <text x="357" y="329" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" fill="#64748B">y Semana 24.</text>
+
+  <!-- P6 -->
+  <rect x="634" y="242" width="286" height="112" rx="12" fill="#F4F6F9"/>
+  <circle cx="664" cy="274" r="17" fill="#0D1B2A"/>
+  <text x="664" y="280" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="16" font-weight="700" fill="#E8CE86" text-anchor="middle">6</text>
+  <text x="694" y="274" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="700" fill="#0D1B2A">Comunidad como acelerador</text>
+  <text x="654" y="310" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" fill="#64748B">El grupo potencia y sostiene</text>
+  <text x="654" y="329" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" fill="#64748B">el avance individual.</text>
+
+  <!-- ===== Sección B ===== -->
+  <text x="40" y="398" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="700" fill="#64748B" letter-spacing="1.5">SECCIÓN B &#183; ROLES DE ACOMPAÑAMIENTO</text>
+
+  <!-- Rol 1: Mentor Guía -->
+  <rect x="40" y="414" width="286" height="118" rx="12" fill="#0D1B2A"/>
+  <rect x="40" y="414" width="6" height="118" rx="3" fill="#D4AF37"/>
+  <text x="68" y="450" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="17" font-weight="700" fill="#FFFFFF">Mentor Guía</text>
+  <text x="68" y="480" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" fill="#E8CE86">Acompaña Shine Within,</text>
+  <text x="68" y="499" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" fill="#E8CE86">Up y Beyond.</text>
+
+  <!-- Rol 2: Mentor Experto -->
+  <rect x="337" y="414" width="286" height="118" rx="12" fill="#0D1B2A"/>
+  <rect x="337" y="414" width="6" height="118" rx="3" fill="#D4AF37"/>
+  <text x="365" y="450" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="17" font-weight="700" fill="#FFFFFF">Mentor Experto</text>
+  <text x="365" y="480" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" fill="#E8CE86">Shine Out &#8212; comunicación</text>
+  <text x="365" y="499" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" fill="#E8CE86">y presencia.</text>
+
+  <!-- Rol 3: Speakers / Expertos Temáticos -->
+  <rect x="634" y="414" width="286" height="118" rx="12" fill="#0D1B2A"/>
+  <rect x="634" y="414" width="6" height="118" rx="3" fill="#D4AF37"/>
+  <text x="662" y="450" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="17" font-weight="700" fill="#FFFFFF">Speakers / Expertos</text>
+  <text x="662" y="472" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="17" font-weight="700" fill="#FFFFFF">Temáticos</text>
+  <text x="662" y="502" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" fill="#E8CE86">Sesiones grupales.</text>
+
+  <!-- Nota -->
+  <rect x="40" y="552" width="880" height="44" rx="10" fill="#F4F6F9" stroke="#E2E8F0" stroke-width="1"/>
+  <circle cx="66" cy="574" r="9" fill="#D4AF37"/>
+  <text x="66" y="579" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="700" fill="#0D1B2A" text-anchor="middle">i</text>
+  <text x="86" y="579" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13" fill="#1A1F2B">Nota: en la plataforma el mentor se llama <tspan font-weight="700" fill="#0D1B2A">&#8220;4Shine Advisor&#8221;</tspan>.</text>
+</svg>

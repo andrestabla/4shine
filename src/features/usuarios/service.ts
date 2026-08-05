@@ -16,6 +16,7 @@ import {
   type UserJobRoleOption,
 } from '@/lib/user-demographics';
 import { buildBrandedEmailHtml, type EmailBranding } from '@/lib/email-template';
+import { dispatchNotification } from '@/features/notificaciones/engine';
 import { insertUserNotification } from '@/features/notificaciones/service';
 import { getViewerAccessState, listUserPurchases, readUserModuleOverrides } from '@/features/access/service';
 import type { UserPurchaseRecord, ViewerAccessState } from '@/features/access/types';
@@ -323,12 +324,21 @@ function resolvePlanTypeForCreate(input: CreateUserInput): PlanType | null {
 async function getUserRoleAndPlan(
   client: PoolClient,
   userId: string,
-): Promise<{ primaryRole: Role; planType: PlanType | null }> {
-  const { rows } = await client.query<{ primary_role: Role; plan_type: PlanType | null }>(
+): Promise<{
+  primaryRole: Role;
+  planType: PlanType | null;
+  subscriptionPlanId: string | null;
+}> {
+  const { rows } = await client.query<{
+    primary_role: Role;
+    plan_type: PlanType | null;
+    subscription_plan_id: string | null;
+  }>(
     `
       SELECT
         u.primary_role,
-        up.plan_type
+        up.plan_type,
+        up.subscription_plan_id::text
       FROM app_core.users u
       LEFT JOIN app_core.user_profiles up ON up.user_id = u.user_id
       WHERE u.user_id = $1::uuid
@@ -345,6 +355,7 @@ async function getUserRoleAndPlan(
   return {
     primaryRole: row.primary_role,
     planType: row.plan_type,
+    subscriptionPlanId: row.subscription_plan_id,
   };
 }
 
@@ -2503,6 +2514,43 @@ export async function updateUser(
   // Idem createUser: ya no se crea / mantiene la compra sintética
   // program_4shine. La licencia vive en user_profiles.subscription_plan_id.
 
+  // ── Notificaciones automáticas ────────────────────────────────────────────
+  // Best-effort: si falla el envío no abortamos — el cambio ya está en BD.
+
+  // 1) Cambio de rol: solo si primaryRole vino en el input Y realmente cambió.
+  if (roleChanged && input.primaryRole) {
+    await notifyUserRoleChanged(
+      client,
+      userId,
+      currentUserState.primaryRole,
+      input.primaryRole,
+    );
+  }
+
+  // 2) Cambio de plan: solo si subscriptionPlanId vino en el input.
+  //    (Puede haber cambiado a otro plan, o haberse retirado con null.)
+  if (input.subscriptionPlanId !== undefined) {
+    const previousPlanId = currentUserState.subscriptionPlanId;
+    const newPlanId = input.subscriptionPlanId;
+    if (previousPlanId !== newPlanId) {
+      // Leemos el nuevo subscription_expires_at recién persistido para
+      // informarlo al usuario.
+      const { rows: expRows } = await client.query<{ expires: string | null }>(
+        `SELECT subscription_expires_at::text AS expires
+         FROM app_core.user_profiles WHERE user_id = $1::uuid LIMIT 1`,
+        [userId],
+      );
+      const newExpiresAt = expRows[0]?.expires ?? null;
+      await notifyUserPlanChanged(
+        client,
+        userId,
+        previousPlanId,
+        newPlanId,
+        newExpiresAt,
+      );
+    }
+  }
+
   return getUserById(client, userId);
 }
 
@@ -3221,6 +3269,28 @@ export async function bulkAssignPlan(
   if (!planRows[0]) throw new Error('El plan seleccionado no existe o está inactivo.');
   const durationDays = Number(planRows[0].duration_days ?? 0);
 
+  // Capturamos el estado ANTES del cambio para poder detectar quiénes
+  // realmente sufrieron un cambio de rol y/o plan, y solo a esos les
+  // enviamos notificación. Los usuarios que ya tenían el mismo plan no
+  // reciben nada.
+  const { rows: previousStates } = await client.query<{
+    user_id: string;
+    primary_role: Role;
+    subscription_plan_id: string | null;
+  }>(
+    `SELECT u.user_id::text, u.primary_role, up.subscription_plan_id::text
+     FROM app_core.users u
+     LEFT JOIN app_core.user_profiles up ON up.user_id = u.user_id
+     WHERE u.user_id = ANY($1::uuid[])`,
+    [userIds],
+  );
+  const previousByUser = new Map(
+    previousStates.map((p) => [
+      p.user_id,
+      { role: p.primary_role, planId: p.subscription_plan_id },
+    ]),
+  );
+
   // Un invitado que recibe un plan pasa a líder (mismo criterio que el flujo
   // individual). No se tocan mentor/gestor/admin.
   await client.query(
@@ -3238,6 +3308,33 @@ export async function bulkAssignPlan(
       WHERE user_id = ANY($1::uuid[])`,
     [userIds, planId, durationDays],
   );
+
+  // Notificar cambios (best-effort, en paralelo pero cada uno en su try).
+  // Leemos el subscription_expires_at recién persistido para tenerlo en el
+  // correo. Es la misma fecha para todos los usuarios del lote.
+  const { rows: expRows } = await client.query<{ expires: string | null }>(
+    `SELECT subscription_expires_at::text AS expires
+     FROM app_core.user_profiles
+     WHERE user_id = $1::uuid LIMIT 1`,
+    [userIds[0]],
+  );
+  const newExpiresAt = expRows[0]?.expires ?? null;
+
+  await Promise.all(
+    userIds.map(async (uid) => {
+      const prev = previousByUser.get(uid);
+      if (!prev) return;
+      // Cambio de rol (solo invitado → líder aplica aquí)
+      if (prev.role === 'invitado') {
+        await notifyUserRoleChanged(client, uid, 'invitado', 'lider');
+      }
+      // Cambio de plan (siempre — si tenía otro plan o ninguno, ahora tiene planId)
+      if (prev.planId !== planId) {
+        await notifyUserPlanChanged(client, uid, prev.planId, planId, newExpiresAt);
+      }
+    }),
+  );
+
   return { affected: rowCount ?? 0, errors: [] };
 }
 
@@ -3326,4 +3423,167 @@ export async function getUserNetworkingSummary(
     pending: pendingRows[0]?.n ?? 0,
     communities: communityRows.map((c) => ({ name: c.name, memberCount: c.member_count })),
   };
+}
+
+// ─── Notificaciones automáticas: cambio de rol / cambio de plan ──────────────
+//
+// Cuando admin/gestor asigna o reasigna rol o plan a un usuario, el usuario
+// afectado recibe un email (y notificación in-app) informándolo. Best-effort:
+// si la notificación falla NO abortamos el flujo — el cambio en BD ya está
+// hecho y el fallo se loguea.
+//
+// Diseño de seguridad: NUNCA incluimos la contraseña en el email. Adjuntamos
+// solo el correo de login y la URL de la plataforma. Si el usuario olvidó su
+// contraseña puede usar el flujo "restablecer contraseña" desde el login.
+
+const ROLE_HUMAN_LABELS: Record<string, string> = {
+  admin: 'Administrador',
+  gestor: 'Gestor',
+  mentor: 'Advisor',
+  lider: 'Líder',
+  invitado: 'Invitado',
+};
+
+function humanRoleLabel(roleCode: string | null | undefined): string {
+  if (!roleCode) return 'Sin rol';
+  return ROLE_HUMAN_LABELS[roleCode] ?? roleCode;
+}
+
+interface UserNotificationTarget {
+  userId: string;
+  email: string;
+  firstName: string;
+  organizationId: string;
+}
+
+async function loadUserNotificationTarget(
+  client: PoolClient,
+  userId: string,
+): Promise<UserNotificationTarget | null> {
+  const { rows } = await client.query<{
+    email: string | null;
+    first_name: string | null;
+    display_name: string | null;
+    organization_id: string | null;
+  }>(
+    `SELECT email, first_name, display_name, organization_id::text
+     FROM app_core.users
+     WHERE user_id = $1::uuid
+     LIMIT 1`,
+    [userId],
+  );
+  const row = rows[0];
+  if (!row || !row.email || !row.organization_id) return null;
+  const firstName =
+    (row.first_name ?? '').trim() ||
+    (row.display_name ?? '').trim().split(' ')[0] ||
+    row.email;
+  return {
+    userId,
+    email: row.email,
+    firstName,
+    organizationId: row.organization_id,
+  };
+}
+
+function platformUrl(): string {
+  return process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL ?? 'https://www.4shine.co';
+}
+
+/**
+ * Dispatchea `usuarios.role_changed`. Best-effort: swallow errors.
+ * Solo dispara si el rol EFECTIVAMENTE cambió (previousRole !== newRole).
+ */
+export async function notifyUserRoleChanged(
+  client: PoolClient,
+  userId: string,
+  previousRole: Role | null,
+  newRole: Role,
+): Promise<void> {
+  try {
+    if (previousRole === newRole) return;
+    const target = await loadUserNotificationTarget(client, userId);
+    if (!target) return;
+    await dispatchNotification(client, {
+      organizationId: target.organizationId,
+      recipientUserId: target.userId,
+      recipientEmail: target.email,
+      eventKey: 'usuarios.role_changed',
+      variables: {
+        nombre: target.firstName,
+        correo: target.email,
+        rol_anterior: humanRoleLabel(previousRole),
+        rol_nuevo: humanRoleLabel(newRole),
+        enlace_plataforma: platformUrl(),
+      },
+    });
+  } catch (err) {
+    console.error('[usuarios] notifyUserRoleChanged failed:', err);
+  }
+}
+
+/**
+ * Dispatchea `usuarios.plan_changed`. Best-effort: swallow errors.
+ * Solo dispara si el plan efectivamente cambió (id o vencimiento).
+ * `newPlanId=null` = plan retirado. `newExpiresAt=null` = sin vencimiento.
+ */
+export async function notifyUserPlanChanged(
+  client: PoolClient,
+  userId: string,
+  previousPlanId: string | null,
+  newPlanId: string | null,
+  newExpiresAt: string | null,
+): Promise<void> {
+  try {
+    if (previousPlanId === newPlanId) return;
+    const target = await loadUserNotificationTarget(client, userId);
+    if (!target) return;
+
+    // Resolvemos los nombres legibles de los planes en una sola query.
+    const planIds = [previousPlanId, newPlanId].filter(
+      (id): id is string => typeof id === 'string' && id.length > 0,
+    );
+    const planNames = new Map<string, string>();
+    if (planIds.length > 0) {
+      const { rows: planRows } = await client.query<{
+        plan_id: string;
+        name: string;
+      }>(
+        `SELECT plan_id::text, name
+         FROM app_billing.subscription_plans
+         WHERE plan_id = ANY($1::uuid[])`,
+        [planIds],
+      );
+      for (const p of planRows) planNames.set(p.plan_id, p.name);
+    }
+
+    const fechaVencimiento = newExpiresAt
+      ? new Date(newExpiresAt).toLocaleDateString('es-CO', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        })
+      : 'Sin fecha de vencimiento';
+
+    await dispatchNotification(client, {
+      organizationId: target.organizationId,
+      recipientUserId: target.userId,
+      recipientEmail: target.email,
+      eventKey: 'usuarios.plan_changed',
+      variables: {
+        nombre: target.firstName,
+        correo: target.email,
+        plan_anterior: previousPlanId
+          ? planNames.get(previousPlanId) ?? 'Plan anterior'
+          : 'Sin plan',
+        plan_nuevo: newPlanId
+          ? planNames.get(newPlanId) ?? 'Nuevo plan'
+          : 'Sin plan (plan retirado)',
+        fecha_vencimiento: fechaVencimiento,
+        enlace_plataforma: platformUrl(),
+      },
+    });
+  } catch (err) {
+    console.error('[usuarios] notifyUserPlanChanged failed:', err);
+  }
 }

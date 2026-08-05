@@ -1,0 +1,151 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 780" width="100%" role="img" aria-label="Sobre qué se apoya cada pilar: fundamentos académicos que 4Shine integra, agrupados por los cuatro pilares Shine Within, Shine Out, Shine Up y Shine Beyond, más una franja transversal de carácter.">
+  <rect x="0" y="0" width="1120" height="780" fill="#FFFFFF"/>
+
+  <!-- Title -->
+  <text x="60" y="58" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="30" font-weight="800" fill="#0D1B2A">Sobre qué se apoya cada pilar — fundamentos</text>
+  <text x="60" y="86" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="16" font-weight="500" fill="#64748B">Modelos y marcos académicos que 4Shine integra.</text>
+
+  <!-- ============ COLUMN 1: SHINE WITHIN ============ -->
+  <g>
+    <rect x="60" y="118" width="240" height="500" rx="14" fill="#F4F6F9" stroke="#E2E8F0" stroke-width="1"/>
+    <rect x="60" y="118" width="240" height="46" rx="14" fill="#0D1B2A"/>
+    <rect x="60" y="150" width="240" height="14" fill="#0D1B2A"/>
+    <text x="180" y="147" text-anchor="middle" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="16" font-weight="800" fill="#FFFFFF">SHINE WITHIN</text>
+
+    <g font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="10" font-weight="600" fill="#0D1B2A">
+      <rect x="74" y="176" width="212" height="27" rx="8" fill="#FFFFFF" stroke="#E2E8F0"/>
+      <text x="84" y="193.5">Autoeficacia (Bandura)</text>
+
+      <rect x="74" y="208" width="212" height="27" rx="8" fill="#FFFFFF" stroke="#E2E8F0"/>
+      <text x="84" y="225.5">Growth vs Fixed Mindset (Dweck)</text>
+
+      <rect x="74" y="240" width="212" height="27" rx="8" fill="#FFFFFF" stroke="#E2E8F0"/>
+      <text x="84" y="257.5">Extreme Ownership (Willink &amp; Babin)</text>
+
+      <rect x="74" y="272" width="212" height="40" rx="8" fill="#FFFFFF" stroke="#E2E8F0"/>
+      <text x="84" y="288">Accountability above/below</text>
+      <text x="84" y="303">the line (Connors)</text>
+
+      <rect x="74" y="317" width="212" height="40" rx="8" fill="#FFFFFF" stroke="#E2E8F0"/>
+      <text x="84" y="333">Inteligencia Emocional</text>
+      <text x="84" y="348">(Goleman; Salovey-Mayer)</text>
+
+      <rect x="74" y="362" width="212" height="27" rx="8" fill="#FFFFFF" stroke="#E2E8F0"/>
+      <text x="84" y="379.5">Método STOP</text>
+
+      <rect x="74" y="394" width="212" height="27" rx="8" fill="#FFFFFF" stroke="#E2E8F0"/>
+      <text x="84" y="411.5">Teoría Polivagal (Porges)</text>
+
+      <rect x="74" y="426" width="212" height="40" rx="8" fill="#FFFFFF" stroke="#E2E8F0"/>
+      <text x="84" y="442">Gestión de energía en 4</text>
+      <text x="84" y="457">dimensiones (Loehr &amp; Schwartz)</text>
+
+      <rect x="74" y="471" width="212" height="27" rx="8" fill="#FFFFFF" stroke="#E2E8F0"/>
+      <text x="84" y="488.5">Ikigai</text>
+
+      <rect x="74" y="503" width="212" height="27" rx="8" fill="#FFFFFF" stroke="#E2E8F0"/>
+      <text x="84" y="520.5">Golden Circle / «por qué» (Sinek)</text>
+
+      <rect x="74" y="535" width="212" height="40" rx="8" fill="#FFFFFF" stroke="#E2E8F0"/>
+      <text x="84" y="551">Liderazgo Auténtico</text>
+      <text x="84" y="566">(Avolio &amp; Gardner)</text>
+
+      <rect x="74" y="580" width="212" height="27" rx="8" fill="#FFFFFF" stroke="#E2E8F0"/>
+      <text x="84" y="597.5">Coaching ontológico (Echeverría)</text>
+    </g>
+  </g>
+
+  <!-- ============ COLUMN 2: SHINE OUT ============ -->
+  <g>
+    <rect x="316" y="118" width="240" height="500" rx="14" fill="#F4F6F9" stroke="#E2E8F0" stroke-width="1"/>
+    <rect x="316" y="118" width="240" height="46" rx="14" fill="#D4AF37"/>
+    <rect x="316" y="150" width="240" height="14" fill="#D4AF37"/>
+    <text x="436" y="147" text-anchor="middle" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="16" font-weight="800" fill="#0D1B2A">SHINE OUT</text>
+
+    <g font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11.5" font-weight="600" fill="#0D1B2A">
+      <rect x="330" y="180" width="212" height="58" rx="8" fill="#FFFFFF" stroke="#E2E8F0"/>
+      <text x="340" y="200">Presencia ejecutiva: gravitas</text>
+      <text x="340" y="216">+ comunicación + proyección</text>
+      <text x="340" y="232">(Hewlett)</text>
+
+      <rect x="330" y="244" width="212" height="44" rx="8" fill="#FFFFFF" stroke="#E2E8F0"/>
+      <text x="340" y="260">Confianza como mediador</text>
+      <text x="340" y="276">(Legood et al.)</text>
+
+      <rect x="330" y="294" width="212" height="44" rx="8" fill="#FFFFFF" stroke="#E2E8F0"/>
+      <text x="340" y="310">Actos del habla / ontología</text>
+      <text x="340" y="326">del lenguaje</text>
+
+      <rect x="330" y="344" width="212" height="30" rx="8" fill="#FFFFFF" stroke="#E2E8F0"/>
+      <text x="340" y="363">Metodología STAR (storytelling)</text>
+    </g>
+  </g>
+
+  <!-- ============ COLUMN 3: SHINE UP ============ -->
+  <g>
+    <rect x="572" y="118" width="240" height="500" rx="14" fill="#F4F6F9" stroke="#E2E8F0" stroke-width="1"/>
+    <rect x="572" y="118" width="240" height="46" rx="14" fill="#0D1B2A"/>
+    <rect x="572" y="150" width="240" height="14" fill="#0D1B2A"/>
+    <text x="692" y="147" text-anchor="middle" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="16" font-weight="800" fill="#FFFFFF">SHINE UP</text>
+
+    <g font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11.5" font-weight="600" fill="#0D1B2A">
+      <rect x="586" y="180" width="212" height="58" rx="8" fill="#FFFFFF" stroke="#E2E8F0"/>
+      <text x="596" y="200">Redes de desarrollo/tarea/</text>
+      <text x="596" y="216">estratégicas</text>
+      <text x="596" y="232">(Ibarra &amp; Hunter)</text>
+
+      <rect x="586" y="244" width="212" height="30" rx="8" fill="#FFFFFF" stroke="#E2E8F0"/>
+      <text x="596" y="263">Capital social</text>
+
+      <rect x="586" y="280" width="212" height="30" rx="8" fill="#FFFFFF" stroke="#E2E8F0"/>
+      <text x="596" y="299">Pensamiento sistémico (Senge)</text>
+
+      <rect x="586" y="316" width="212" height="30" rx="8" fill="#FFFFFF" stroke="#E2E8F0"/>
+      <text x="596" y="335">Objetivos SMART</text>
+
+      <rect x="586" y="352" width="212" height="44" rx="8" fill="#FFFFFF" stroke="#E2E8F0"/>
+      <text x="596" y="368">Escalera de valor y</text>
+      <text x="596" y="384">Tablero de KPIs</text>
+    </g>
+  </g>
+
+  <!-- ============ COLUMN 4: SHINE BEYOND ============ -->
+  <g>
+    <rect x="828" y="118" width="240" height="500" rx="14" fill="#F4F6F9" stroke="#E2E8F0" stroke-width="1"/>
+    <rect x="828" y="118" width="240" height="46" rx="14" fill="#D4AF37"/>
+    <rect x="828" y="150" width="240" height="14" fill="#D4AF37"/>
+    <text x="948" y="147" text-anchor="middle" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="16" font-weight="800" fill="#0D1B2A">SHINE BEYOND</text>
+
+    <g font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11.5" font-weight="600" fill="#0D1B2A">
+      <rect x="842" y="180" width="212" height="44" rx="8" fill="#FFFFFF" stroke="#E2E8F0"/>
+      <text x="852" y="196">Liderazgo de servicio /</text>
+      <text x="852" y="212">stewardship</text>
+
+      <rect x="842" y="230" width="212" height="30" rx="8" fill="#FFFFFF" stroke="#E2E8F0"/>
+      <text x="852" y="249">Liderazgo regenerativo</text>
+
+      <rect x="842" y="266" width="212" height="44" rx="8" fill="#FFFFFF" stroke="#E2E8F0"/>
+      <text x="852" y="282">Propósito y aprendizaje</text>
+      <text x="852" y="298">organizacional</text>
+
+      <rect x="842" y="316" width="212" height="44" rx="8" fill="#FFFFFF" stroke="#E2E8F0"/>
+      <text x="852" y="332">Sucesión / pipeline</text>
+      <text x="852" y="348">de liderazgo</text>
+    </g>
+  </g>
+
+  <!-- ============ TRANSVERSAL BAND ============ -->
+  <g>
+    <rect x="60" y="642" width="1008" height="92" rx="14" fill="#0D1B2A"/>
+    <rect x="60" y="642" width="6" height="92" rx="3" fill="#D4AF37"/>
+    <text x="90" y="678" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="800" fill="#E8CE86">TRANSVERSAL — CARÁCTER</text>
+    <text x="90" y="706" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="600" fill="#FFFFFF">Atraviesa los cuatro pilares y sostiene el juicio de liderazgo en todas las etapas.</text>
+
+    <rect x="672" y="668" width="372" height="40" rx="10" fill="#FFFFFF"/>
+    <text x="858" y="693" text-anchor="middle" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" font-weight="700" fill="#0D1B2A">Modelo de carácter y juicio de liderazgo</text>
+    <text x="858" y="726" text-anchor="middle" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11.5" font-weight="600" fill="#E8CE86">(Crossan, Seijts &amp; Gandz)</text>
+  </g>
+
+  <!-- footer -->
+  <text x="60" y="762" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="10.5" font-weight="500" fill="#64748B">4Shine · Fundamentos académicos de la metodología</text>
+</svg>

@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 760" width="100%" role="img" aria-label="Los 10 Workbooks y sus entregables, agrupados por pilar: Within, Out, Up y Beyond">
+  <rect x="0" y="0" width="1000" height="760" fill="#FFFFFF"/>
+
+  <!-- Título -->
+  <text x="48" y="52" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="30" font-weight="700" fill="#0D1B2A">Los 10 Workbooks y sus entregables</text>
+  <rect x="48" y="66" width="72" height="4" rx="2" fill="#D4AF37"/>
+
+  <!-- Encabezado de columnas -->
+  <g font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#64748B">
+    <text x="176" y="106" letter-spacing="1">WB</text>
+    <text x="238" y="106" letter-spacing="1">NOMBRE</text>
+    <text x="606" y="106" letter-spacing="1">ENTREGABLE ESPERADO</text>
+  </g>
+  <line x1="152" y1="118" x2="952" y2="118" stroke="#E2E8F0" stroke-width="1.5"/>
+
+  <!-- ============ WITHIN (WB1-3) ============ -->
+  <rect x="48" y="132" width="96" height="180" rx="12" fill="#0D1B2A"/>
+  <text x="96" y="216" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="16" font-weight="700" fill="#FFFFFF" text-anchor="middle">WITHIN</text>
+  <text x="96" y="238" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11" fill="#E8CE86" text-anchor="middle">WB1&#8211;3</text>
+
+  <!-- WB1 -->
+  <rect x="152" y="132" width="800" height="56" rx="10" fill="#F4F6F9"/>
+  <text x="176" y="165" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="700" fill="#D4AF37">WB1</text>
+  <text x="238" y="158" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="600" fill="#0D1B2A">Creencias, identidad y pilares personales</text>
+  <text x="606" y="158" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" fill="#1A1F2B">Declaración de identidad ejecutiva</text>
+  <text x="606" y="176" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" fill="#1A1F2B">+ 3 creencias empoderadoras</text>
+
+  <!-- WB2 -->
+  <rect x="152" y="194" width="800" height="56" rx="10" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+  <text x="176" y="227" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="700" fill="#D4AF37">WB2</text>
+  <text x="238" y="227" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="600" fill="#0D1B2A">Gestión emocional y PDI estratégico</text>
+  <text x="606" y="227" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" fill="#1A1F2B">Plan de Desarrollo Individual (PDI)</text>
+
+  <!-- WB3 -->
+  <rect x="152" y="256" width="800" height="56" rx="10" fill="#F4F6F9"/>
+  <text x="176" y="289" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="700" fill="#D4AF37">WB3</text>
+  <text x="238" y="289" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="600" fill="#0D1B2A">Propósito y valores no negociables</text>
+  <text x="606" y="289" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" fill="#1A1F2B">Declaración de propósito (Ikigai) + visión personal</text>
+
+  <!-- ============ OUT (WB4-6) ============ -->
+  <rect x="48" y="320" width="96" height="180" rx="12" fill="#1A1F2B"/>
+  <text x="96" y="404" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="16" font-weight="700" fill="#FFFFFF" text-anchor="middle">OUT</text>
+  <text x="96" y="426" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11" fill="#E8CE86" text-anchor="middle">WB4&#8211;6</text>
+
+  <!-- WB4 -->
+  <rect x="152" y="320" width="800" height="56" rx="10" fill="#F4F6F9"/>
+  <text x="176" y="353" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="700" fill="#D4AF37">WB4</text>
+  <text x="238" y="353" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="600" fill="#0D1B2A">Narrativa profesional y Elevator Pitch</text>
+  <text x="606" y="353" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" fill="#1A1F2B">Elevator pitch ejecutivo de 90 segundos</text>
+
+  <!-- WB5 -->
+  <rect x="152" y="382" width="800" height="56" rx="10" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+  <text x="176" y="415" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="700" fill="#D4AF37">WB5</text>
+  <text x="238" y="415" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="600" fill="#0D1B2A">Comunicación ejecutiva estratégica</text>
+  <text x="606" y="415" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" fill="#1A1F2B">Framework personal de conversación estratégica</text>
+
+  <!-- WB6 -->
+  <rect x="152" y="444" width="800" height="56" rx="10" fill="#F4F6F9"/>
+  <text x="176" y="477" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="700" fill="#D4AF37">WB6</text>
+  <text x="238" y="477" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="600" fill="#0D1B2A">Lenguaje verbal y no verbal de impacto</text>
+  <text x="606" y="477" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" fill="#1A1F2B">Checklist de presencia ejecutiva híbrida</text>
+
+  <!-- ============ UP (WB7-8) ============ -->
+  <rect x="48" y="508" width="96" height="118" rx="12" fill="#0D1B2A"/>
+  <text x="96" y="561" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="16" font-weight="700" fill="#FFFFFF" text-anchor="middle">UP</text>
+  <text x="96" y="583" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11" fill="#E8CE86" text-anchor="middle">WB7&#8211;8</text>
+
+  <!-- WB7 -->
+  <rect x="152" y="508" width="800" height="56" rx="10" fill="#F4F6F9"/>
+  <text x="176" y="541" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="700" fill="#D4AF37">WB7</text>
+  <text x="238" y="541" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="600" fill="#0D1B2A">Mapeo del ecosistema estratégico</text>
+  <text x="606" y="541" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" fill="#1A1F2B">Mapa de poder + Plan de networking trimestral</text>
+
+  <!-- WB8 -->
+  <rect x="152" y="570" width="800" height="56" rx="10" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+  <text x="176" y="595" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="700" fill="#D4AF37">WB8</text>
+  <text x="238" y="595" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="600" fill="#0D1B2A">Pensamiento estratégico y toma de decisiones</text>
+  <text x="606" y="588" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" fill="#1A1F2B">Tablero de control de visibilidad</text>
+  <text x="606" y="606" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" fill="#1A1F2B">+ 3 decisiones analizadas</text>
+
+  <!-- ============ BEYOND (WB9-10) ============ -->
+  <rect x="48" y="634" width="96" height="118" rx="12" fill="#1A1F2B"/>
+  <text x="96" y="683" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="16" font-weight="700" fill="#FFFFFF" text-anchor="middle">BEYOND</text>
+  <text x="96" y="705" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11" fill="#E8CE86" text-anchor="middle">WB9&#8211;10</text>
+
+  <!-- WB9 -->
+  <rect x="152" y="634" width="800" height="56" rx="10" fill="#F4F6F9"/>
+  <text x="176" y="667" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="700" fill="#D4AF37">WB9</text>
+  <text x="238" y="667" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="600" fill="#0D1B2A">Latido de Marca Ejecutiva</text>
+  <text x="606" y="667" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" fill="#1A1F2B">Documento de marca ejecutiva + Plan 30-60-90 días</text>
+
+  <!-- WB10 -->
+  <rect x="152" y="696" width="800" height="56" rx="10" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+  <text x="176" y="729" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="700" fill="#D4AF37">WB10</text>
+  <text x="238" y="722" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="600" fill="#0D1B2A">Visión Estratégica Personal</text>
+  <text x="238" y="740" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11.5" fill="#64748B">(One Strategic Page Plan)</text>
+  <text x="606" y="729" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" fill="#1A1F2B">Plan estratégico personal en una página</text>
+</svg>

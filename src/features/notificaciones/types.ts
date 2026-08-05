@@ -124,7 +124,12 @@ export type VariableKey =
   | 'motivo_reembolso'
   | 'estado_inscripcion'
   | 'enlace_workshop'
-  | 'tiempo_restante';
+  | 'tiempo_restante'
+  | 'rol_anterior'
+  | 'rol_nuevo'
+  | 'plan_anterior'
+  | 'plan_nuevo'
+  | 'fecha_vencimiento';
 
 export interface VariableDef {
   key: VariableKey;

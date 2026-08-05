@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 620" width="100%" role="img" aria-label="Análisis de Influencia e Impacto: matriz 2x2 con ejes Relación e Influencia y cuatro cuadrantes de stakeholders">
+  <rect x="0" y="0" width="820" height="620" fill="#FFFFFF"/>
+
+  <!-- Titulo -->
+  <text x="48" y="52" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="24" font-weight="700" fill="#0D1B2A">Análisis de Influencia e Impacto</text>
+  <text x="48" y="78" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="500" fill="#64748B">matriz 2×2</text>
+  <rect x="48" y="92" width="64" height="4" rx="2" fill="#D4AF37"/>
+
+  <!-- ===== Etiqueta eje Y (Influencia) ===== -->
+  <text x="60" y="330" text-anchor="middle" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="700" fill="#0D1B2A" transform="rotate(-90 60 330)">Influencia</text>
+  <text x="98" y="150" text-anchor="middle" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="500" fill="#64748B" transform="rotate(-90 98 150)">Alta</text>
+  <text x="98" y="510" text-anchor="middle" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="500" fill="#64748B" transform="rotate(-90 98 510)">Baja</text>
+
+  <!-- ===== Cuadrantes ===== -->
+  <!-- Coordenadas de la reticula: x 120..760 (ancho 640), y 130..530 (alto 400). Centro en 440,330 -->
+
+  <!-- Arriba-izquierda: Alta influencia + Baja relacion => Conexiones Emergentes -->
+  <rect x="122" y="132" width="316" height="196" rx="12" fill="#F4F6F9" stroke="#E2E8F0" stroke-width="1.5"/>
+  <circle cx="152" cy="164" r="6" fill="#E8CE86"/>
+  <text x="168" y="169" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="16" font-weight="700" fill="#0D1B2A">Conexiones Emergentes</text>
+  <text x="152" y="200" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="500" fill="#64748B">Alta influencia · Baja relación</text>
+  <text x="152" y="228" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" font-weight="700" fill="#1A1F2B">Acción: acércate y genera confianza</text>
+
+  <!-- Arriba-derecha: Alta influencia + Alta relacion => Aliados Clave -->
+  <rect x="442" y="132" width="316" height="196" rx="12" fill="#0D1B2A" stroke="#D4AF37" stroke-width="2"/>
+  <circle cx="472" cy="164" r="6" fill="#D4AF37"/>
+  <text x="488" y="169" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="16" font-weight="700" fill="#FFFFFF">Aliados Clave</text>
+  <text x="472" y="200" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="500" fill="#E8CE86">Alta influencia · Alta relación</text>
+  <text x="472" y="228" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" font-weight="700" fill="#FFFFFF">Acción: cultiva y co-crea</text>
+
+  <!-- Abajo-izquierda: Baja influencia + Baja relacion => Influencia Distante -->
+  <rect x="122" y="332" width="316" height="196" rx="12" fill="#F4F6F9" stroke="#E2E8F0" stroke-width="1.5"/>
+  <circle cx="152" cy="364" r="6" fill="#64748B"/>
+  <text x="168" y="369" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="16" font-weight="700" fill="#0D1B2A">Influencia Distante</text>
+  <text x="152" y="400" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="500" fill="#64748B">Baja influencia · Baja relación</text>
+  <text x="152" y="428" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" font-weight="700" fill="#1A1F2B">Acción: monitorea con bajo esfuerzo</text>
+
+  <!-- Abajo-derecha: Baja influencia + Alta relacion => Colaboradores Cercanos -->
+  <rect x="442" y="332" width="316" height="196" rx="12" fill="#FFFFFF" stroke="#D4AF37" stroke-width="1.5"/>
+  <circle cx="472" cy="364" r="6" fill="#D4AF37"/>
+  <text x="488" y="369" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="16" font-weight="700" fill="#0D1B2A">Colaboradores Cercanos</text>
+  <text x="472" y="400" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="500" fill="#64748B">Baja influencia · Alta relación</text>
+  <text x="472" y="428" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" font-weight="700" fill="#1A1F2B">Acción: apóyate y suma valor</text>
+
+  <!-- ===== Lineas divisorias de ejes ===== -->
+  <line x1="440" y1="132" x2="440" y2="528" stroke="#0D1B2A" stroke-width="2"/>
+  <line x1="122" y1="330" x2="758" y2="330" stroke="#0D1B2A" stroke-width="2"/>
+
+  <!-- ===== Etiqueta eje X (Relacion) ===== -->
+  <text x="440" y="576" text-anchor="middle" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="700" fill="#0D1B2A">Relación</text>
+  <text x="150" y="556" text-anchor="middle" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="500" fill="#64748B">Baja</text>
+  <text x="730" y="556" text-anchor="middle" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="500" fill="#64748B">Alta</text>
+</svg>

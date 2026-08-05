@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 620" width="100%" role="img" aria-label="Frameworks y herramientas 4Shine: 11 herramientas prácticas agrupadas en Shine Up, Shine Beyond y Transversal.">
+  <rect x="0" y="0" width="960" height="620" fill="#FFFFFF"/>
+
+  <!-- Title -->
+  <text x="36" y="48" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="26" font-weight="800" fill="#0D1B2A">Frameworks y herramientas 4Shine</text>
+  <text x="36" y="74" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="14.5" font-weight="500" fill="#64748B">11 herramientas prácticas que operan la metodología (una selección).</text>
+
+  <!-- ===================== GROUP: Shine Up ===================== -->
+  <g>
+    <rect x="36" y="94" width="888" height="26" rx="8" fill="#0D1B2A"/>
+    <rect x="36" y="94" width="6" height="26" rx="3" fill="#D4AF37"/>
+    <text x="56" y="112" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="800" fill="#D4AF37" letter-spacing="0.5">SHINE UP · ECOSISTEMA</text>
+
+    <!-- Row 1 -->
+    <!-- Card: Ecosistema Relacional 4Shine -->
+    <rect x="36" y="130" width="290" height="90" rx="11" fill="#F4F6F9" stroke="#E2E8F0" stroke-width="1"/>
+    <rect x="36" y="130" width="290" height="5" rx="2.5" fill="#D4AF37"/>
+    <text x="52" y="156" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="800" fill="#0D1B2A">Ecosistema Relacional 4Shine</text>
+    <text x="52" y="176" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="10.8" font-weight="600" fill="#1A1F2B">Las 3 redes que sostienen tu influencia:</text>
+    <text x="52" y="191" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="10.8" font-weight="600" fill="#1A1F2B">Red Personal · Red Operativa · Red Estratégica</text>
+    <text x="52" y="209" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.8" font-weight="500" fill="#64748B">roles: influenciadores, decisores, conectores,</text>
+    <text x="52" y="221" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9.8" font-weight="500" fill="#64748B">amplificadores, bloqueadores</text>
+
+    <!-- Card: Mapa de Stakeholders 4Shine -->
+    <rect x="335" y="130" width="290" height="90" rx="11" fill="#F4F6F9" stroke="#E2E8F0" stroke-width="1"/>
+    <rect x="335" y="130" width="290" height="5" rx="2.5" fill="#D4AF37"/>
+    <text x="351" y="156" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="800" fill="#0D1B2A">Mapa de Stakeholders 4Shine</text>
+    <text x="351" y="180" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="500" fill="#64748B">diagrama radial de influencia × relación.</text>
+
+    <!-- Card: Análisis de Influencia e Impacto -->
+    <rect x="634" y="130" width="290" height="90" rx="11" fill="#F4F6F9" stroke="#E2E8F0" stroke-width="1"/>
+    <rect x="634" y="130" width="290" height="5" rx="2.5" fill="#D4AF37"/>
+    <text x="650" y="156" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="800" fill="#0D1B2A">Análisis de Influencia e Impacto</text>
+    <text x="650" y="180" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="500" fill="#64748B">matriz 2×2 (Influencia × Relación).</text>
+
+    <!-- Row 2 -->
+    <!-- Card: Plan de Visibilidad y Presencia Ejecutiva -->
+    <rect x="36" y="230" width="290" height="80" rx="11" fill="#F4F6F9" stroke="#E2E8F0" stroke-width="1"/>
+    <rect x="36" y="230" width="290" height="5" rx="2.5" fill="#D4AF37"/>
+    <text x="52" y="256" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" font-weight="800" fill="#0D1B2A">Plan de Visibilidad y Presencia Ejec.</text>
+    <text x="52" y="278" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="10.6" font-weight="500" fill="#64748B">propósito + 4 audiencias + pilares de</text>
+    <text x="52" y="292" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="10.6" font-weight="500" fill="#64748B">contenido.</text>
+
+    <!-- Card: Plan de Accion y Dashboard de Activacion -->
+    <rect x="335" y="230" width="290" height="80" rx="11" fill="#F4F6F9" stroke="#E2E8F0" stroke-width="1"/>
+    <rect x="335" y="230" width="290" height="5" rx="2.5" fill="#D4AF37"/>
+    <text x="351" y="256" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" font-weight="800" fill="#0D1B2A">Plan de Acción y Dashboard de Activ.</text>
+    <text x="351" y="278" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="10.6" font-weight="500" fill="#64748B">plan 30/60/90 días.</text>
+
+    <!-- Card: Revisión Trimestral del Ecosistema -->
+    <rect x="634" y="230" width="290" height="80" rx="11" fill="#F4F6F9" stroke="#E2E8F0" stroke-width="1"/>
+    <rect x="634" y="230" width="290" height="5" rx="2.5" fill="#D4AF37"/>
+    <text x="650" y="256" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" font-weight="800" fill="#0D1B2A">Revisión Trimestral del Ecosistema</text>
+    <text x="650" y="278" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="10.6" font-weight="500" fill="#64748B">radio de influencia + plan 90 días.</text>
+
+    <!-- Row 3 -->
+    <!-- Card: Ecosystem Balance Scorecard -->
+    <rect x="36" y="320" width="435" height="72" rx="11" fill="#F4F6F9" stroke="#E2E8F0" stroke-width="1"/>
+    <rect x="36" y="320" width="435" height="5" rx="2.5" fill="#D4AF37"/>
+    <text x="52" y="346" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="800" fill="#0D1B2A">Ecosystem Balance Scorecard</text>
+    <text x="52" y="370" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="500" fill="#64748B">score /100 y balance de redes/roles.</text>
+
+    <!-- Card: Expansion Board -->
+    <rect x="480" y="320" width="444" height="72" rx="11" fill="#F4F6F9" stroke="#E2E8F0" stroke-width="1"/>
+    <rect x="480" y="320" width="444" height="5" rx="2.5" fill="#D4AF37"/>
+    <text x="496" y="346" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="800" fill="#0D1B2A">Expansion Board</text>
+    <text x="496" y="370" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="500" fill="#64748B">tablero maestro del ecosistema relacional.</text>
+  </g>
+
+  <!-- ===================== GROUP: Shine Beyond ===================== -->
+  <g>
+    <rect x="36" y="404" width="888" height="26" rx="8" fill="#0D1B2A"/>
+    <rect x="36" y="404" width="6" height="26" rx="3" fill="#D4AF37"/>
+    <text x="56" y="422" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="800" fill="#D4AF37" letter-spacing="0.5">SHINE BEYOND</text>
+
+    <!-- Card: Diseño de Legado 4Shine -->
+    <rect x="36" y="440" width="888" height="60" rx="11" fill="#F4F6F9" stroke="#E2E8F0" stroke-width="1"/>
+    <rect x="36" y="440" width="6" height="60" rx="3" fill="#D4AF37"/>
+    <text x="56" y="466" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="800" fill="#0D1B2A">Diseño de Legado 4Shine</text>
+    <text x="56" y="487" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="500" fill="#64748B">legado personal / profesional / organizacional.</text>
+  </g>
+
+  <!-- ===================== GROUP: Transversal ===================== -->
+  <g>
+    <rect x="36" y="514" width="888" height="26" rx="8" fill="#0D1B2A"/>
+    <rect x="36" y="514" width="6" height="26" rx="3" fill="#D4AF37"/>
+    <text x="56" y="532" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="800" fill="#D4AF37" letter-spacing="0.5">TRANSVERSAL · 4 PILARES</text>
+
+    <!-- Card: Mapa de Expansion de Capacidad -->
+    <rect x="36" y="550" width="435" height="58" rx="11" fill="#F4F6F9" stroke="#E2E8F0" stroke-width="1"/>
+    <rect x="36" y="550" width="435" height="5" rx="2.5" fill="#D4AF37"/>
+    <text x="52" y="575" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="800" fill="#0D1B2A">Mapa de Expansión de Capacidad</text>
+    <text x="52" y="596" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="10.6" font-weight="500" fill="#64748B">autoevaluación de los 4 pilares (escala 1–10).</text>
+
+    <!-- Card: Expansion Capacity Matrix -->
+    <rect x="480" y="550" width="444" height="58" rx="11" fill="#F4F6F9" stroke="#E2E8F0" stroke-width="1"/>
+    <rect x="480" y="550" width="444" height="5" rx="2.5" fill="#D4AF37"/>
+    <text x="496" y="573" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="800" fill="#0D1B2A">Expansion Capacity Matrix</text>
+    <text x="496" y="590" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="10.2" font-weight="500" fill="#64748B">matriz 6 dimensiones × 4 pilares, escala 1–5</text>
+    <text x="496" y="603" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="10.2" font-weight="500" fill="#64748B">(Limitada · En desarrollo · Sólida · Fuerte · Expansionada)</text>
+  </g>
+</svg>

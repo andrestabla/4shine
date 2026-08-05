@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 460" width="100%" role="img" aria-label="Un solo eje, tres lecturas. Tres carriles alineados en cinco columnas: marco por pilar, formación por fase y cronograma por semanas.">
+  <rect x="0" y="0" width="980" height="460" fill="#FFFFFF"/>
+
+  <!-- Título -->
+  <text x="48" y="52" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="26" font-weight="700" fill="#0D1B2A">Un solo eje, tres lecturas</text>
+
+  <!-- Encabezados de columna (5 columnas) -->
+  <!-- Área de columnas: x de 214 a 932 => 718 ancho / 5 = 143.6 por columna -->
+  <!-- centros col: 285.8, 429.4, 573, 716.6, 860.2 -->
+
+  <!-- Carril 1 - Marco (pilar) -->
+  <text x="48" y="128" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#0D1B2A">Marco</text>
+  <text x="48" y="145" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11.5" font-weight="500" fill="#64748B">pilar</text>
+
+  <g font-family="Manrope, ui-sans-serif, system-ui, sans-serif">
+    <rect x="214" y="104" width="134" height="56" rx="12" fill="#0D1B2A"/>
+    <text x="281" y="138" text-anchor="middle" font-size="13.5" font-weight="700" fill="#FFFFFF">Descubrimiento</text>
+
+    <rect x="358" y="104" width="134" height="56" rx="12" fill="#0D1B2A"/>
+    <text x="425" y="138" text-anchor="middle" font-size="13.5" font-weight="700" fill="#FFFFFF">Shine Within</text>
+
+    <rect x="502" y="104" width="134" height="56" rx="12" fill="#0D1B2A"/>
+    <text x="569" y="138" text-anchor="middle" font-size="13.5" font-weight="700" fill="#FFFFFF">Shine Out</text>
+
+    <rect x="646" y="104" width="134" height="56" rx="12" fill="#0D1B2A"/>
+    <text x="713" y="138" text-anchor="middle" font-size="13.5" font-weight="700" fill="#FFFFFF">Shine Up</text>
+
+    <rect x="790" y="104" width="134" height="56" rx="12" fill="#0D1B2A"/>
+    <text x="857" y="138" text-anchor="middle" font-size="13.5" font-weight="700" fill="#FFFFFF">Shine Beyond</text>
+  </g>
+
+  <!-- Carril 2 - Formación (fase) -->
+  <text x="48" y="232" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#0D1B2A">Formación</text>
+  <text x="48" y="249" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11.5" font-weight="500" fill="#64748B">fase</text>
+
+  <g font-family="Manrope, ui-sans-serif, system-ui, sans-serif">
+    <rect x="214" y="208" width="134" height="56" rx="12" fill="#F4F6F9" stroke="#D4AF37" stroke-width="1.5"/>
+    <text x="281" y="242" text-anchor="middle" font-size="13.5" font-weight="600" fill="#0D1B2A">Diagnóstico</text>
+
+    <rect x="358" y="208" width="134" height="56" rx="12" fill="#F4F6F9" stroke="#D4AF37" stroke-width="1.5"/>
+    <text x="425" y="242" text-anchor="middle" font-size="13.5" font-weight="600" fill="#0D1B2A">Esencia</text>
+
+    <rect x="502" y="208" width="134" height="56" rx="12" fill="#F4F6F9" stroke="#D4AF37" stroke-width="1.5"/>
+    <text x="569" y="236" text-anchor="middle" font-size="12.5" font-weight="600" fill="#0D1B2A">Presencia</text>
+    <text x="569" y="252" text-anchor="middle" font-size="12.5" font-weight="600" fill="#0D1B2A">Estratégica</text>
+
+    <rect x="646" y="208" width="134" height="56" rx="12" fill="#F4F6F9" stroke="#D4AF37" stroke-width="1.5"/>
+    <text x="713" y="236" text-anchor="middle" font-size="12.5" font-weight="600" fill="#0D1B2A">Ecosistema</text>
+    <text x="713" y="252" text-anchor="middle" font-size="12.5" font-weight="600" fill="#0D1B2A">Relacional</text>
+
+    <rect x="790" y="208" width="134" height="56" rx="12" fill="#F4F6F9" stroke="#D4AF37" stroke-width="1.5"/>
+    <text x="857" y="242" text-anchor="middle" font-size="13.5" font-weight="600" fill="#0D1B2A">Legado</text>
+  </g>
+
+  <!-- Carril 3 - Cronograma (semanas) -->
+  <text x="48" y="336" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#0D1B2A">Cronograma</text>
+  <text x="48" y="353" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11.5" font-weight="500" fill="#64748B">semanas</text>
+
+  <g font-family="Manrope, ui-sans-serif, system-ui, sans-serif">
+    <rect x="214" y="312" width="134" height="56" rx="12" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.5"/>
+    <text x="281" y="346" text-anchor="middle" font-size="13.5" font-weight="700" fill="#D4AF37">Sem 1</text>
+
+    <rect x="358" y="312" width="134" height="56" rx="12" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.5"/>
+    <text x="425" y="346" text-anchor="middle" font-size="13.5" font-weight="700" fill="#D4AF37">Sem 2–8</text>
+
+    <rect x="502" y="312" width="134" height="56" rx="12" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.5"/>
+    <text x="569" y="346" text-anchor="middle" font-size="13.5" font-weight="700" fill="#D4AF37">Sem 9–14</text>
+
+    <rect x="646" y="312" width="134" height="56" rx="12" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.5"/>
+    <text x="713" y="346" text-anchor="middle" font-size="13.5" font-weight="700" fill="#D4AF37">Sem 15–20</text>
+
+    <rect x="790" y="312" width="134" height="56" rx="12" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.5"/>
+    <text x="857" y="346" text-anchor="middle" font-size="13.5" font-weight="700" fill="#D4AF37">Sem 21–24</text>
+  </g>
+
+  <!-- Guías verticales de alineación (columnas) -->
+  <g stroke="#E2E8F0" stroke-width="1" stroke-dasharray="3 4">
+    <line x1="281" y1="160" x2="281" y2="208"/>
+    <line x1="425" y1="160" x2="425" y2="208"/>
+    <line x1="569" y1="160" x2="569" y2="208"/>
+    <line x1="713" y1="160" x2="713" y2="208"/>
+    <line x1="857" y1="160" x2="857" y2="208"/>
+    <line x1="281" y1="264" x2="281" y2="312"/>
+    <line x1="425" y1="264" x2="425" y2="312"/>
+    <line x1="569" y1="264" x2="569" y2="312"/>
+    <line x1="713" y1="264" x2="713" y2="312"/>
+    <line x1="857" y1="264" x2="857" y2="312"/>
+  </g>
+
+  <!-- Nota al pie -->
+  <text x="48" y="424" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="500" font-style="italic" fill="#64748B">Marco, formación y cronograma son el mismo eje visto de tres maneras.</text>
+</svg>

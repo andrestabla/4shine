@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 560" width="100%" role="img" aria-label="Diagnóstico de Liderazgo 4Shine: instrumento de 125 ítems (106 Likert + 19 SJT), distribución por pilar y semáforo de resultados.">
+  <rect x="0" y="0" width="960" height="560" fill="#FFFFFF"/>
+
+  <!-- Title -->
+  <text x="40" y="46" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="24" font-weight="700" fill="#0D1B2A">Diagnóstico de Liderazgo 4Shine</text>
+  <text x="40" y="72" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="400" fill="#64748B">Instrumento de medición sobre los 4 pilares.</text>
+
+  <!-- Instrument: 125 items block -->
+  <g>
+    <rect x="40" y="94" width="430" height="150" rx="12" fill="#F4F6F9" stroke="#E2E8F0" stroke-width="1"/>
+    <text x="60" y="122" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#64748B" letter-spacing="1">INSTRUMENTO</text>
+    <text x="60" y="152" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="30" font-weight="700" fill="#0D1B2A">125</text>
+    <text x="118" y="152" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="600" fill="#0D1B2A">ítems totales</text>
+
+    <!-- 106 Likert block -->
+    <rect x="60" y="172" width="252" height="54" rx="10" fill="#0D1B2A"/>
+    <text x="76" y="196" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="22" font-weight="700" fill="#D4AF37">106</text>
+    <text x="122" y="192" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#FFFFFF">Likert</text>
+    <text x="122" y="208" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="10" font-weight="400" fill="#E8CE86">Autoinforme, escala 1–5</text>
+
+    <!-- plus sign -->
+    <text x="322" y="206" text-anchor="middle" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="20" font-weight="700" fill="#64748B">+</text>
+
+    <!-- 19 SJT block -->
+    <rect x="336" y="172" width="118" height="54" rx="10" fill="#1A1F2B"/>
+    <text x="350" y="196" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="22" font-weight="700" fill="#D4AF37">19</text>
+    <text x="386" y="192" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#FFFFFF">SJT</text>
+    <text x="386" y="208" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="9" font-weight="400" fill="#E8CE86">Juicio situacional</text>
+  </g>
+
+  <!-- Distribution by pillar -->
+  <g>
+    <rect x="490" y="94" width="430" height="150" rx="12" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+    <text x="510" y="122" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#64748B" letter-spacing="1">ÍTEMS POR PILAR</text>
+
+    <!-- Bars: max value 50 -> bar area width 250 (x from 640 to 890), scale 5 px per item -->
+    <!-- Shine Within: 50 -->
+    <text x="510" y="150" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="600" fill="#0D1B2A">Shine Within</text>
+    <rect x="628" y="140" width="250" height="12" rx="6" fill="#F4F6F9"/>
+    <rect x="628" y="140" width="250" height="12" rx="6" fill="#0D1B2A"/>
+    <text x="890" y="150" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="700" fill="#0D1B2A">50</text>
+
+    <!-- Shine Out: 19 -->
+    <text x="510" y="176" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="600" fill="#0D1B2A">Shine Out</text>
+    <rect x="628" y="166" width="250" height="12" rx="6" fill="#F4F6F9"/>
+    <rect x="628" y="166" width="95" height="12" rx="6" fill="#D4AF37"/>
+    <text x="732" y="176" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="700" fill="#0D1B2A">19</text>
+
+    <!-- Shine Up: 29 -->
+    <text x="510" y="202" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="600" fill="#0D1B2A">Shine Up</text>
+    <rect x="628" y="192" width="250" height="12" rx="6" fill="#F4F6F9"/>
+    <rect x="628" y="192" width="145" height="12" rx="6" fill="#D4AF37"/>
+    <text x="782" y="202" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="700" fill="#0D1B2A">29</text>
+
+    <!-- Shine Beyond: 27 -->
+    <text x="510" y="228" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="600" fill="#0D1B2A">Shine Beyond</text>
+    <rect x="628" y="218" width="250" height="12" rx="6" fill="#F4F6F9"/>
+    <rect x="628" y="218" width="135" height="12" rx="6" fill="#D4AF37"/>
+    <text x="772" y="228" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="700" fill="#0D1B2A">27</text>
+  </g>
+
+  <!-- Semaphore of results -->
+  <g>
+    <text x="40" y="300" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="700" fill="#0D1B2A">Semáforo de resultados</text>
+
+    <!-- Green chip -->
+    <rect x="40" y="320" width="280" height="90" rx="12" fill="#F4F6F9" stroke="#E2E8F0" stroke-width="1"/>
+    <circle cx="72" cy="352" r="12" fill="#16A34A"/>
+    <text x="96" y="350" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="700" fill="#0D1B2A">Verde — Fortaleza</text>
+    <text x="96" y="372" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="400" fill="#64748B">Desempeño consolidado</text>
+    <text x="96" y="396" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="700" fill="#16A34A">≥ 71%</text>
+
+    <!-- Amber chip -->
+    <rect x="340" y="320" width="280" height="90" rx="12" fill="#F4F6F9" stroke="#E2E8F0" stroke-width="1"/>
+    <circle cx="372" cy="352" r="12" fill="#E0A100"/>
+    <text x="396" y="350" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="700" fill="#0D1B2A">Ámbar — En desarrollo</text>
+    <text x="396" y="372" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="400" fill="#64748B">Avance en progreso</text>
+    <text x="396" y="396" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="700" fill="#E0A100">41 – 70%</text>
+
+    <!-- Red chip -->
+    <rect x="640" y="320" width="280" height="90" rx="12" fill="#F4F6F9" stroke="#E2E8F0" stroke-width="1"/>
+    <circle cx="672" cy="352" r="12" fill="#DC2626"/>
+    <text x="696" y="350" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="700" fill="#0D1B2A">Rojo — Brecha crítica</text>
+    <text x="696" y="372" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="400" fill="#64748B">Prioridad de intervención</text>
+    <text x="696" y="396" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="700" fill="#DC2626">≤ 40%</text>
+  </g>
+
+  <!-- Note -->
+  <g>
+    <rect x="40" y="440" width="880" height="88" rx="12" fill="#0D1B2A"/>
+    <rect x="40" y="440" width="6" height="88" rx="3" fill="#D4AF37"/>
+    <text x="68" y="474" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="600" fill="#FFFFFF">Se aplica en Semana 1 (línea base → PDI) y Semana 24 (delta de transformación).</text>
+    <text x="68" y="500" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="400" fill="#E8CE86">El índice global es el promedio de los 4 pilares.</text>
+  </g>
+</svg>

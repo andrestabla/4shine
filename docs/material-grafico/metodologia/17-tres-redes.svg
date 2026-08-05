@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 620" width="100%" role="img" aria-label="Ecosistema Relacional: las 3 redes que sostienen tu influencia, con los 5 roles del ecosistema y los 5 principios">
+  <rect x="0" y="0" width="900" height="620" fill="#FFFFFF"/>
+
+  <!-- Titulo -->
+  <text x="48" y="52" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="24" font-weight="700" fill="#0D1B2A">Ecosistema Relacional</text>
+  <text x="48" y="78" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="500" fill="#64748B">las 3 redes que sostienen tu influencia</text>
+  <rect x="48" y="92" width="64" height="4" rx="2" fill="#D4AF37"/>
+
+  <!-- ===== Diagrama concentrico ===== -->
+  <g>
+    <!-- Anillo externo: Red Estrategica -->
+    <circle cx="300" cy="360" r="220" fill="#F4F6F9" stroke="#E2E8F0" stroke-width="1.5"/>
+    <!-- Anillo medio: Red Operativa -->
+    <circle cx="300" cy="360" r="152" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.5"/>
+    <!-- Anillo interno: Red Personal -->
+    <circle cx="300" cy="360" r="90" fill="#F4F6F9" stroke="#E2E8F0" stroke-width="1.5"/>
+
+    <!-- Nodo central -->
+    <circle cx="300" cy="360" r="52" fill="#0D1B2A" stroke="#D4AF37" stroke-width="2.5"/>
+    <text x="300" y="356" text-anchor="middle" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#D4AF37">TÚ COMO</text>
+    <text x="300" y="374" text-anchor="middle" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#D4AF37">LÍDER</text>
+
+    <!-- Etiquetas de anillos (parte superior de cada banda) -->
+    <text x="300" y="288" text-anchor="middle" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#0D1B2A">Red Personal</text>
+    <text x="300" y="226" text-anchor="middle" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#1A1F2B">Red Operativa</text>
+    <text x="300" y="164" text-anchor="middle" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#1A1F2B">Red Estratégica</text>
+
+    <!-- Descripciones de anillos (parte inferior de cada banda) -->
+    <text x="300" y="440" text-anchor="middle" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="10.5" font-weight="500" fill="#64748B">vínculos de confianza</text>
+    <text x="300" y="500" text-anchor="middle" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="10.5" font-weight="500" fill="#64748B">colaboración diaria</text>
+    <text x="300" y="558" text-anchor="middle" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="10.5" font-weight="500" fill="#64748B">alianzas de largo alcance</text>
+  </g>
+
+  <!-- ===== Leyenda: 5 roles del ecosistema ===== -->
+  <g>
+    <rect x="560" y="118" width="300" height="284" rx="12" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.5"/>
+    <text x="582" y="150" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="700" fill="#0D1B2A">5 roles del ecosistema</text>
+
+    <!-- Influenciadores -->
+    <circle cx="590" cy="180" r="6" fill="#D4AF37"/>
+    <text x="606" y="184" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" font-weight="700" fill="#0D1B2A">Influenciadores</text>
+    <text x="606" y="200" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="500" fill="#64748B">inspiran criterio</text>
+
+    <!-- Decisores -->
+    <circle cx="590" cy="224" r="6" fill="#0D1B2A"/>
+    <text x="606" y="228" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" font-weight="700" fill="#0D1B2A">Decisores</text>
+    <text x="606" y="244" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="500" fill="#64748B">aprueban avances</text>
+
+    <!-- Conectores -->
+    <circle cx="590" cy="268" r="6" fill="#E8CE86"/>
+    <text x="606" y="272" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" font-weight="700" fill="#0D1B2A">Conectores</text>
+    <text x="606" y="288" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="500" fill="#64748B">abren puertas</text>
+
+    <!-- Amplificadores -->
+    <circle cx="590" cy="312" r="6" fill="#1A1F2B"/>
+    <text x="606" y="316" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" font-weight="700" fill="#0D1B2A">Amplificadores</text>
+    <text x="606" y="332" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="500" fill="#64748B">difunden tu voz</text>
+
+    <!-- Bloqueadores -->
+    <circle cx="590" cy="356" r="6" fill="#64748B"/>
+    <text x="606" y="360" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" font-weight="700" fill="#0D1B2A">Bloqueadores</text>
+    <text x="606" y="376" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="500" fill="#64748B">frenan avances</text>
+  </g>
+
+  <!-- ===== Franja: 5 principios ===== -->
+  <g>
+    <rect x="48" y="536" width="804" height="56" rx="12" fill="#0D1B2A"/>
+    <text x="72" y="562" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="700" fill="#E8CE86">5 principios</text>
+
+    <text x="72" y="582" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="700" fill="#FFFFFF">Conoce</text>
+    <text x="228" y="582" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="700" fill="#FFFFFF">Cultiva</text>
+    <text x="388" y="582" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="700" fill="#FFFFFF">Conecta</text>
+    <text x="552" y="582" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="700" fill="#FFFFFF">Amplifica</text>
+    <text x="736" y="582" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13.5" font-weight="700" fill="#FFFFFF">Protege</text>
+
+    <circle cx="200" cy="577" r="3" fill="#D4AF37"/>
+    <circle cx="360" cy="577" r="3" fill="#D4AF37"/>
+    <circle cx="524" cy="577" r="3" fill="#D4AF37"/>
+    <circle cx="708" cy="577" r="3" fill="#D4AF37"/>
+  </g>
+</svg>

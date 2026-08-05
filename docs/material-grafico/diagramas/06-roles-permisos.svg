@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 520" width="100%" role="img" aria-label="Roles del sistema 4Shine: matriz de capacidades por rol (admin, gestor, mentor/Advisor, lider, invitado) y area funcional, con leyenda de control total, parcial y sin acceso. El rol invitado accede exclusivamente a Descubrimiento.">
+  <defs>
+    <style>text{font-family:Manrope, ui-sans-serif, system-ui, sans-serif;}</style>
+  </defs>
+
+  <!-- Fondo -->
+  <rect x="0" y="0" width="960" height="520" fill="#FFFFFF"/>
+
+  <!-- Cabecera -->
+  <rect x="24" y="18" width="912" height="58" rx="12" fill="#0D1B2A"/>
+  <text x="44" y="47" font-size="21" font-weight="700" fill="#FFFFFF">Roles del sistema 4Shine</text>
+  <text x="44" y="66" font-size="12.5" font-weight="500" fill="#E8CE86">Matriz de capacidades por rol y area funcional</text>
+
+  <!-- Leyenda -->
+  <g>
+    <circle cx="614" cy="47" r="7" fill="#D4AF37"/>
+    <text x="626" y="51" font-size="11.5" font-weight="500" fill="#FFFFFF">Control total</text>
+    <circle cx="712" cy="47" r="7" fill="#FFFFFF" stroke="#D4AF37" stroke-width="2.2"/>
+    <path d="M 712 40 A 7 7 0 0 1 712 54 Z" fill="#D4AF37"/>
+    <text x="724" y="51" font-size="11.5" font-weight="500" fill="#FFFFFF">Parcial / consume</text>
+    <circle cx="844" cy="47" r="7" fill="#1A1F2B" stroke="#64748B" stroke-width="1.5"/>
+    <text x="856" y="51" font-size="11.5" font-weight="500" fill="#FFFFFF">Sin acceso</text>
+  </g>
+
+  <!-- Encabezado de columnas -->
+  <rect x="24" y="86" width="912" height="50" rx="10" fill="#F4F6F9" stroke="#E2E8F0"/>
+  <text x="44" y="110" font-size="13" font-weight="700" fill="#0D1B2A">Rol</text>
+  <text x="44" y="127" font-size="10.5" font-weight="500" fill="#64748B">codigo / UI / descripcion</text>
+
+  <text x="372" y="110" font-size="12" font-weight="700" fill="#0D1B2A" text-anchor="middle">Contenido /</text>
+  <text x="372" y="126" font-size="12" font-weight="700" fill="#0D1B2A" text-anchor="middle">Aprendizaje</text>
+  <text x="510" y="118" font-size="12" font-weight="700" fill="#0D1B2A" text-anchor="middle">Mentorias</text>
+  <text x="648" y="110" font-size="12" font-weight="700" fill="#0D1B2A" text-anchor="middle">Usuarios /</text>
+  <text x="648" y="126" font-size="12" font-weight="700" fill="#0D1B2A" text-anchor="middle">Admin</text>
+  <text x="800" y="118" font-size="12" font-weight="700" fill="#0D1B2A" text-anchor="middle">Descubrimiento</text>
+
+  <!-- admin  fila y=146 -->
+  <g>
+    <rect x="24" y="146" width="912" height="62" rx="10" fill="#FFFFFF" stroke="#E2E8F0"/>
+    <rect x="24" y="146" width="4" height="62" rx="2" fill="#D4AF37"/>
+    <text x="44" y="174" font-size="14" font-weight="700" fill="#0D1B2A">admin <tspan font-size="11.5" font-weight="600" fill="#64748B">/ Administrador</tspan></text>
+    <text x="44" y="193" font-size="11" font-weight="500" fill="#64748B">Acceso total al sistema</text>
+    <circle cx="372" cy="177" r="9" fill="#D4AF37"/>
+    <circle cx="510" cy="177" r="9" fill="#D4AF37"/>
+    <circle cx="648" cy="177" r="9" fill="#D4AF37"/>
+    <circle cx="800" cy="177" r="9" fill="#D4AF37"/>
+  </g>
+
+  <!-- gestor  fila y=212 -->
+  <g>
+    <rect x="24" y="212" width="912" height="62" rx="10" fill="#F4F6F9" stroke="#E2E8F0"/>
+    <rect x="24" y="212" width="4" height="62" rx="2" fill="#D4AF37"/>
+    <text x="44" y="240" font-size="14" font-weight="700" fill="#0D1B2A">gestor <tspan font-size="11.5" font-weight="600" fill="#64748B">/ Gestor</tspan></text>
+    <text x="44" y="259" font-size="11" font-weight="500" fill="#64748B">Coordina, crea y modera</text>
+    <circle cx="372" cy="243" r="9" fill="#D4AF37"/>
+    <circle cx="510" cy="243" r="9" fill="#D4AF37"/>
+    <circle cx="648" cy="243" r="9" fill="#FFFFFF" stroke="#D4AF37" stroke-width="2.5"/>
+    <path d="M 648 234 A 9 9 0 0 1 648 252 Z" fill="#D4AF37"/>
+    <circle cx="800" cy="243" r="9" fill="#D4AF37"/>
+  </g>
+
+  <!-- mentor  fila y=278 -->
+  <g>
+    <rect x="24" y="278" width="912" height="62" rx="10" fill="#FFFFFF" stroke="#E2E8F0"/>
+    <rect x="24" y="278" width="4" height="62" rx="2" fill="#D4AF37"/>
+    <text x="44" y="306" font-size="14" font-weight="700" fill="#0D1B2A">mentor <tspan font-size="11.5" font-weight="600" fill="#64748B">/ Advisor (UI)</tspan></text>
+    <text x="44" y="325" font-size="11" font-weight="500" fill="#64748B">Acompana lideres: mentorias y revision de tareas</text>
+    <circle cx="372" cy="309" r="9" fill="#FFFFFF" stroke="#D4AF37" stroke-width="2.5"/>
+    <path d="M 372 300 A 9 9 0 0 1 372 318 Z" fill="#D4AF37"/>
+    <circle cx="510" cy="309" r="9" fill="#D4AF37"/>
+    <circle cx="648" cy="309" r="9" fill="#1A1F2B" stroke="#64748B" stroke-width="1.5"/>
+    <circle cx="800" cy="309" r="9" fill="#1A1F2B" stroke="#64748B" stroke-width="1.5"/>
+  </g>
+
+  <!-- lider  fila y=344 -->
+  <g>
+    <rect x="24" y="344" width="912" height="62" rx="10" fill="#F4F6F9" stroke="#E2E8F0"/>
+    <rect x="24" y="344" width="4" height="62" rx="2" fill="#D4AF37"/>
+    <text x="44" y="372" font-size="14" font-weight="700" fill="#0D1B2A">lider <tspan font-size="11.5" font-weight="600" fill="#64748B">/ Lider</tspan></text>
+    <text x="44" y="391" font-size="11" font-weight="500" fill="#64748B">Participante del programa</text>
+    <circle cx="372" cy="375" r="9" fill="#FFFFFF" stroke="#D4AF37" stroke-width="2.5"/>
+    <path d="M 372 366 A 9 9 0 0 1 372 384 Z" fill="#D4AF37"/>
+    <circle cx="510" cy="375" r="9" fill="#FFFFFF" stroke="#D4AF37" stroke-width="2.5"/>
+    <path d="M 510 366 A 9 9 0 0 1 510 384 Z" fill="#D4AF37"/>
+    <circle cx="648" cy="375" r="9" fill="#1A1F2B" stroke="#64748B" stroke-width="1.5"/>
+    <circle cx="800" cy="375" r="9" fill="#D4AF37"/>
+  </g>
+
+  <!-- invitado  fila y=410 (destacada) -->
+  <g>
+    <rect x="24" y="410" width="912" height="62" rx="10" fill="#FFFFFF" stroke="#D4AF37" stroke-width="1.8"/>
+    <rect x="24" y="410" width="4" height="62" rx="2" fill="#D4AF37"/>
+    <text x="44" y="438" font-size="14" font-weight="700" fill="#0D1B2A">invitado <tspan font-size="11.5" font-weight="600" fill="#64748B">/ Invitado</tspan></text>
+    <text x="44" y="457" font-size="11" font-weight="600" fill="#D4AF37">Accede EXCLUSIVAMENTE a Descubrimiento</text>
+    <circle cx="372" cy="441" r="9" fill="#1A1F2B" stroke="#64748B" stroke-width="1.5"/>
+    <circle cx="510" cy="441" r="9" fill="#1A1F2B" stroke="#64748B" stroke-width="1.5"/>
+    <circle cx="648" cy="441" r="9" fill="#1A1F2B" stroke="#64748B" stroke-width="1.5"/>
+    <circle cx="800" cy="441" r="9" fill="#D4AF37"/>
+  </g>
+
+  <!-- Nota clave -->
+  <text x="44" y="494" font-size="11.5" font-weight="600" fill="#0D1B2A">Regla clave:</text>
+  <text x="128" y="494" font-size="11.5" font-weight="500" fill="#64748B">el rol</text>
+  <text x="164" y="494" font-size="11.5" font-weight="700" fill="#D4AF37">invitado</text>
+  <text x="220" y="494" font-size="11.5" font-weight="500" fill="#64748B">solo ve el modulo de Descubrimiento; ningun otro modulo esta disponible.</text>
+
+  <!-- Separadores verticales sutiles -->
+  <line x1="316" y1="146" x2="316" y2="472" stroke="#E2E8F0" stroke-width="1"/>
+  <line x1="440" y1="146" x2="440" y2="472" stroke="#E2E8F0" stroke-width="1"/>
+  <line x1="580" y1="146" x2="580" y2="472" stroke="#E2E8F0" stroke-width="1"/>
+  <line x1="720" y1="146" x2="720" y2="472" stroke="#E2E8F0" stroke-width="1"/>
+</svg>

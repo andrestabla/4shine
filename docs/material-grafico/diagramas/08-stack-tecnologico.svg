@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 560" width="100%" role="img" aria-label="Stack tecnológico de 4Shine: Frontend, Backend/API, Datos e Integraciones">
+  <rect x="0" y="0" width="960" height="560" fill="#FFFFFF"/>
+
+  <!-- Header -->
+  <rect x="32" y="28" width="6" height="30" rx="3" fill="#D4AF37"/>
+  <text x="52" y="45" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="26" font-weight="700" fill="#0D1B2A">Stack tecnológico de 4Shine</text>
+  <text x="52" y="68" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="500" fill="#64748B">Arquitectura serverless · Next.js · PostgreSQL · integraciones cloud</text>
+
+  <!-- ================= COLUMN 1: Frontend ================= -->
+  <g>
+    <rect x="32" y="100" width="212" height="424" rx="12" fill="#F4F6F9" stroke="#E2E8F0" stroke-width="1"/>
+    <rect x="32" y="100" width="212" height="46" rx="12" fill="#0D1B2A"/>
+    <rect x="32" y="128" width="212" height="18" fill="#0D1B2A"/>
+    <text x="138" y="129" text-anchor="middle" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="16" font-weight="700" fill="#D4AF37">Frontend</text>
+
+    <g font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#0D1B2A">
+      <rect x="48" y="168" width="180" height="40" rx="10" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+      <text x="62" y="192">Next.js 16 · App Router</text>
+
+      <rect x="48" y="220" width="180" height="40" rx="10" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+      <text x="62" y="244">React 19</text>
+
+      <rect x="48" y="272" width="180" height="40" rx="10" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+      <text x="62" y="296">TypeScript 5</text>
+
+      <rect x="48" y="324" width="180" height="40" rx="10" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+      <text x="62" y="348">Tailwind CSS 4</text>
+
+      <rect x="48" y="376" width="180" height="40" rx="10" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+      <text x="62" y="400">Recharts / Chart.js</text>
+
+      <rect x="48" y="428" width="180" height="40" rx="10" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+      <text x="62" y="452">Tiptap (editor)</text>
+    </g>
+  </g>
+
+  <!-- ================= COLUMN 2: Backend/API ================= -->
+  <g>
+    <rect x="264" y="100" width="212" height="424" rx="12" fill="#F4F6F9" stroke="#E2E8F0" stroke-width="1"/>
+    <rect x="264" y="100" width="212" height="46" rx="12" fill="#0D1B2A"/>
+    <rect x="264" y="128" width="212" height="18" fill="#0D1B2A"/>
+    <text x="370" y="129" text-anchor="middle" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="16" font-weight="700" fill="#D4AF37">Backend / API</text>
+
+    <g font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#0D1B2A">
+      <rect x="280" y="168" width="180" height="52" rx="10" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+      <text x="294" y="192">Route handlers</text>
+      <text x="294" y="210" font-size="11" font-weight="500" fill="#64748B">serverless</text>
+
+      <rect x="280" y="232" width="180" height="40" rx="10" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+      <text x="294" y="256">Node.js</text>
+
+      <rect x="280" y="284" width="180" height="52" rx="10" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+      <text x="294" y="308">Auth JWT · jose</text>
+      <text x="294" y="326" font-size="11" font-weight="500" fill="#64748B">+ bcryptjs</text>
+
+      <rect x="280" y="348" width="180" height="52" rx="10" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+      <text x="294" y="372">Sin ORM</text>
+      <text x="294" y="390" font-size="11" font-weight="500" fill="#64748B">driver pg directo</text>
+    </g>
+  </g>
+
+  <!-- ================= COLUMN 3: Datos ================= -->
+  <g>
+    <rect x="496" y="100" width="212" height="424" rx="12" fill="#F4F6F9" stroke="#E2E8F0" stroke-width="1"/>
+    <rect x="496" y="100" width="212" height="46" rx="12" fill="#0D1B2A"/>
+    <rect x="496" y="128" width="212" height="18" fill="#0D1B2A"/>
+    <text x="602" y="129" text-anchor="middle" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="16" font-weight="700" fill="#D4AF37">Datos</text>
+
+    <g font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#0D1B2A">
+      <rect x="512" y="168" width="180" height="72" rx="10" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+      <text x="526" y="192">PostgreSQL</text>
+      <text x="526" y="212" font-size="11" font-weight="500" fill="#64748B">Neon · serverless</text>
+      <text x="526" y="228" font-size="11" font-weight="500" fill="#64748B">SSL · RLS</text>
+
+      <rect x="512" y="252" width="180" height="72" rx="10" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+      <text x="526" y="276">Cloudflare R2</text>
+      <text x="526" y="296" font-size="11" font-weight="500" fill="#64748B">archivos / SCORM</text>
+      <text x="526" y="312" font-size="11" font-weight="500" fill="#64748B">compatible S3</text>
+    </g>
+  </g>
+
+  <!-- ================= COLUMN 4: Integraciones ================= -->
+  <g>
+    <rect x="728" y="100" width="200" height="424" rx="12" fill="#F4F6F9" stroke="#E2E8F0" stroke-width="1"/>
+    <rect x="728" y="100" width="200" height="46" rx="12" fill="#0D1B2A"/>
+    <rect x="728" y="128" width="200" height="18" fill="#0D1B2A"/>
+    <text x="828" y="129" text-anchor="middle" font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="16" font-weight="700" fill="#D4AF37">Integraciones</text>
+
+    <g font-family="Manrope, ui-sans-serif, system-ui, sans-serif" font-size="12.5" font-weight="600" fill="#0D1B2A">
+      <rect x="744" y="166" width="168" height="38" rx="10" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+      <text x="757" y="185">Zoom</text>
+      <text x="757" y="199" font-size="10.5" font-weight="500" fill="#64748B">reuniones + grabación</text>
+
+      <rect x="744" y="212" width="168" height="38" rx="10" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+      <text x="757" y="231">Stripe / Wompi</text>
+      <text x="757" y="245" font-size="10.5" font-weight="500" fill="#64748B">pagos</text>
+
+      <rect x="744" y="258" width="168" height="38" rx="10" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+      <text x="757" y="277">Pusher</text>
+      <text x="757" y="291" font-size="10.5" font-weight="500" fill="#64748B">tiempo real</text>
+
+      <rect x="744" y="304" width="168" height="38" rx="10" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+      <text x="757" y="323">Nodemailer / SMTP</text>
+      <text x="757" y="337" font-size="10.5" font-weight="500" fill="#64748B">email</text>
+
+      <rect x="744" y="350" width="168" height="38" rx="10" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+      <text x="757" y="369">OpenAI / Claude</text>
+      <text x="757" y="383" font-size="10.5" font-weight="500" fill="#64748B">IA</text>
+
+      <rect x="744" y="396" width="168" height="38" rx="10" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+      <text x="757" y="415">GoHighLevel</text>
+      <text x="757" y="429" font-size="10.5" font-weight="500" fill="#64748B">CRM / compras</text>
+
+      <rect x="744" y="442" width="168" height="38" rx="10" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+      <text x="757" y="461">jsPDF + xlsx</text>
+      <text x="757" y="475" font-size="10.5" font-weight="500" fill="#64748B">documentos</text>
+    </g>
+  </g>
+
+  <!-- Footer accent -->
+  <rect x="32" y="536" width="896" height="3" rx="1.5" fill="#E8CE86"/>
+</svg>

@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 620" width="100%" role="img" aria-label="El marco 4Shine: cuatro pilares interdependientes (Shine Within, Shine Out, Shine Up, Shine Beyond) representados por un diamante dorado central y cuatro tarjetas.">
+  <defs>
+    <style>
+      .ff { font-family: Manrope, ui-sans-serif, system-ui, sans-serif; }
+    </style>
+    <linearGradient id="goldGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E8CE86"/>
+      <stop offset="1" stop-color="#D4AF37"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="0" y="0" width="960" height="620" fill="#FFFFFF"/>
+
+  <!-- Header -->
+  <text class="ff" x="48" y="58" font-size="30" font-weight="800" fill="#0D1B2A">El marco 4Shine — 4 pilares</text>
+  <text class="ff" x="48" y="88" font-size="14.5" fill="#64748B">Sistema de escalamiento estratégico del liderazgo en 4 dimensiones interdependientes: identidad, presencia, ecosistema y legado.</text>
+
+  <!-- Central diamond schema -->
+  <g transform="translate(480,238)">
+    <!-- connecting lines between nodes -->
+    <line x1="0" y1="-92" x2="112" y2="0" stroke="#E2E8F0" stroke-width="2"/>
+    <line x1="112" y1="0" x2="0" y2="92" stroke="#E2E8F0" stroke-width="2"/>
+    <line x1="0" y1="92" x2="-112" y2="0" stroke="#E2E8F0" stroke-width="2"/>
+    <line x1="-112" y1="0" x2="0" y2="-92" stroke="#E2E8F0" stroke-width="2"/>
+    <line x1="0" y1="-92" x2="0" y2="92" stroke="#E2E8F0" stroke-width="1.5" stroke-dasharray="3 5"/>
+    <line x1="-112" y1="0" x2="112" y2="0" stroke="#E2E8F0" stroke-width="1.5" stroke-dasharray="3 5"/>
+
+    <!-- outer diamond -->
+    <path d="M 0 -92 L 112 0 L 0 92 L -112 0 Z" fill="none" stroke="url(#goldGrad)" stroke-width="3"/>
+    <!-- inner diamond motif -->
+    <path d="M 0 -46 L 56 0 L 0 46 L -56 0 Z" fill="#0D1B2A"/>
+    <path d="M 0 -26 L 32 0 L 0 26 L -32 0 Z" fill="none" stroke="#D4AF37" stroke-width="2"/>
+
+    <!-- nodes (4 pillars) -->
+    <!-- top: Within -->
+    <circle cx="0" cy="-92" r="22" fill="#0D1B2A" stroke="url(#goldGrad)" stroke-width="2.5"/>
+    <text class="ff" x="0" y="-88" font-size="11.5" font-weight="800" fill="#E8CE86" text-anchor="middle">1</text>
+    <text class="ff" x="0" y="-110" font-size="12.5" font-weight="700" fill="#0D1B2A" text-anchor="middle">Within</text>
+    <!-- right: Out -->
+    <circle cx="112" cy="0" r="22" fill="#0D1B2A" stroke="url(#goldGrad)" stroke-width="2.5"/>
+    <text class="ff" x="112" y="4" font-size="11.5" font-weight="800" fill="#E8CE86" text-anchor="middle">2</text>
+    <text class="ff" x="148" y="4" font-size="12.5" font-weight="700" fill="#0D1B2A" text-anchor="start">Out</text>
+    <!-- bottom: Up -->
+    <circle cx="0" cy="92" r="22" fill="#0D1B2A" stroke="url(#goldGrad)" stroke-width="2.5"/>
+    <text class="ff" x="0" y="96" font-size="11.5" font-weight="800" fill="#E8CE86" text-anchor="middle">3</text>
+    <text class="ff" x="0" y="108" font-size="12.5" font-weight="700" fill="#0D1B2A" text-anchor="middle">Up</text>
+    <!-- left: Beyond -->
+    <circle cx="-112" cy="0" r="22" fill="#0D1B2A" stroke="url(#goldGrad)" stroke-width="2.5"/>
+    <text class="ff" x="-112" y="4" font-size="11.5" font-weight="800" fill="#E8CE86" text-anchor="middle">4</text>
+    <text class="ff" x="-148" y="4" font-size="12.5" font-weight="700" fill="#0D1B2A" text-anchor="end">Beyond</text>
+  </g>
+
+  <!-- 4 cards -->
+  <!-- Card 1 -->
+  <g transform="translate(48,360)">
+    <rect x="0" y="0" width="212" height="180" rx="12" fill="#F4F6F9" stroke="#E2E8F0" stroke-width="1"/>
+    <rect x="0" y="0" width="212" height="5" rx="2.5" fill="#D4AF37"/>
+    <path d="M 24 30 L 34 40 L 24 50 L 14 40 Z" fill="url(#goldGrad)"/>
+    <text class="ff" x="44" y="36" font-size="15" font-weight="800" fill="#0D1B2A">Shine Within</text>
+    <text class="ff" x="44" y="53" font-size="11" font-weight="600" fill="#D4AF37">Esencia</text>
+    <text class="ff" x="16" y="82" font-size="12" font-weight="700" fill="#0D1B2A">«¿Desde dónde lidero?»</text>
+    <text class="ff" x="16" y="110" font-size="11" fill="#64748B">Identidad, autoconocimiento,</text>
+    <text class="ff" x="16" y="126" font-size="11" fill="#64748B">regulación, propósito y</text>
+    <text class="ff" x="16" y="142" font-size="11" fill="#64748B">coherencia interna.</text>
+  </g>
+  <!-- Card 2 -->
+  <g transform="translate(272,360)">
+    <rect x="0" y="0" width="212" height="180" rx="12" fill="#F4F6F9" stroke="#E2E8F0" stroke-width="1"/>
+    <rect x="0" y="0" width="212" height="5" rx="2.5" fill="#D4AF37"/>
+    <path d="M 24 30 L 34 40 L 24 50 L 14 40 Z" fill="url(#goldGrad)"/>
+    <text class="ff" x="44" y="36" font-size="15" font-weight="800" fill="#0D1B2A">Shine Out</text>
+    <text class="ff" x="44" y="53" font-size="11" font-weight="600" fill="#D4AF37">Presencia Estratégica</text>
+    <text class="ff" x="16" y="82" font-size="12" font-weight="700" fill="#0D1B2A">«¿Cómo conecto y movilizo?»</text>
+    <text class="ff" x="16" y="110" font-size="11" fill="#64748B">Presencia, comunicación,</text>
+    <text class="ff" x="16" y="126" font-size="11" fill="#64748B">vínculo, confianza e</text>
+    <text class="ff" x="16" y="142" font-size="11" fill="#64748B">influencia.</text>
+  </g>
+  <!-- Card 3 -->
+  <g transform="translate(496,360)">
+    <rect x="0" y="0" width="212" height="180" rx="12" fill="#F4F6F9" stroke="#E2E8F0" stroke-width="1"/>
+    <rect x="0" y="0" width="212" height="5" rx="2.5" fill="#D4AF37"/>
+    <path d="M 24 30 L 34 40 L 24 50 L 14 40 Z" fill="url(#goldGrad)"/>
+    <text class="ff" x="44" y="36" font-size="15" font-weight="800" fill="#0D1B2A">Shine Up</text>
+    <text class="ff" x="44" y="53" font-size="11" font-weight="600" fill="#D4AF37">Ecosistema Relacional</text>
+    <text class="ff" x="16" y="82" font-size="12" font-weight="700" fill="#0D1B2A">«¿Cómo leo y alineo el sistema?»</text>
+    <text class="ff" x="16" y="110" font-size="11" fill="#64748B">Lectura del entorno,</text>
+    <text class="ff" x="16" y="126" font-size="11" fill="#64748B">pensamiento estratégico</text>
+    <text class="ff" x="16" y="142" font-size="11" fill="#64748B">y redes.</text>
+  </g>
+  <!-- Card 4 -->
+  <g transform="translate(720,360)">
+    <rect x="0" y="0" width="192" height="180" rx="12" fill="#F4F6F9" stroke="#E2E8F0" stroke-width="1"/>
+    <rect x="0" y="0" width="192" height="5" rx="2.5" fill="#D4AF37"/>
+    <path d="M 24 30 L 34 40 L 24 50 L 14 40 Z" fill="url(#goldGrad)"/>
+    <text class="ff" x="44" y="36" font-size="15" font-weight="800" fill="#0D1B2A">Shine Beyond</text>
+    <text class="ff" x="44" y="53" font-size="11" font-weight="600" fill="#D4AF37">Legado</text>
+    <text class="ff" x="16" y="82" font-size="12" font-weight="700" fill="#0D1B2A">«¿Qué dejo y hacia dónde</text>
+    <text class="ff" x="16" y="98" font-size="12" font-weight="700" fill="#0D1B2A">proyecto?»</text>
+    <text class="ff" x="16" y="124" font-size="11" fill="#64748B">Formación de otros, cultura,</text>
+    <text class="ff" x="16" y="140" font-size="11" fill="#64748B">impacto ampliado y</text>
+    <text class="ff" x="16" y="156" font-size="11" fill="#64748B">continuidad.</text>
+  </g>
+
+  <!-- Footer note -->
+  <text class="ff" x="480" y="590" font-size="12.5" font-style="italic" fill="#64748B" text-anchor="middle">El modelo se recorre de adentro hacia afuera: Within → Out → Up → Beyond.</text>
+</svg>

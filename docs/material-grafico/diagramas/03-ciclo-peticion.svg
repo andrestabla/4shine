@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 480 588" width="100%" role="img" aria-label="Ciclo de vida de una petición" xmlns="http://www.w3.org/2000/svg">
+  <rect x="0" y="0" width="100%" height="100%" fill="#FFFFFF"/>
+  <defs><marker id="arrB" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L7,3 L0,6 Z" fill="#64748B"/></marker></defs>
+  <g font-size="11.5" fill="#0D1B2A" text-anchor="middle">
+  <rect x="70" y="14" width="340" height="44" rx="8" fill="#F4F6F9" stroke="#E2E8F0"/><text x="240" y="41">1 · Cliente — requestApi()</text>
+  <rect x="70" y="78" width="340" height="44" rx="8" fill="#F4F6F9" stroke="#E2E8F0"/><text x="240" y="105">2 · Borde (proxy.ts) — host canónico · rate limit</text>
+  <rect x="70" y="142" width="340" height="44" rx="8" fill="#F4F6F9" stroke="#E2E8F0"/><text x="240" y="169">3 · Route handler · /api/v1</text>
+  <rect x="70" y="206" width="340" height="44" rx="8" fill="#F4F6F9" stroke="#E2E8F0"/><text x="240" y="233">4 · authenticateRequest — rol desde BD</text>
+  <rect x="70" y="270" width="340" height="44" rx="8" fill="#F4F6F9" stroke="#E2E8F0"/><text x="240" y="297">5 · withClient + withRoleContext — fija RLS</text>
+  <rect x="70" y="334" width="340" height="44" rx="8" fill="#F4F6F9" stroke="#D4AF37" stroke-width="1.6"/><text x="240" y="361">6 · requireModulePermission — 403 si falla</text>
+  <rect x="70" y="398" width="340" height="44" rx="8" fill="#F4F6F9" stroke="#E2E8F0"/><text x="240" y="425">7 · Service — lógica + SQL</text>
+  <rect x="70" y="462" width="340" height="44" rx="8" fill="#F4F6F9" stroke="#D4AF37" stroke-width="1.6"/><text x="240" y="489">8 · PostgreSQL — políticas RLS</text>
+  <rect x="70" y="526" width="340" height="44" rx="8" fill="#0D1B2A"/><text x="240" y="553" fill="#ffffff">9 · logModuleAudit → { ok, data }</text>
+  </g>
+  <g stroke="#64748B" stroke-width="1.4" marker-end="url(#arrB)">
+  <line x1="240" y1="58" x2="240" y2="76"/><line x1="240" y1="122" x2="240" y2="140"/><line x1="240" y1="186" x2="240" y2="204"/><line x1="240" y1="250" x2="240" y2="268"/><line x1="240" y1="314" x2="240" y2="332"/><line x1="240" y1="378" x2="240" y2="396"/><line x1="240" y1="442" x2="240" y2="460"/><line x1="240" y1="506" x2="240" y2="524"/>
+  </g>
+</svg>

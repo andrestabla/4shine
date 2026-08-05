@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>4Shine · Material gráfico</title>
+<style>
+  :root{
+    --navy:#0D1B2A; --navy2:#1A1F2B; --gold:#D4AF37; --gold-lt:#E8CE86;
+    --ink:#0D1B2A; --muted:#64748B; --border:#E2E8F0; --surface:#F4F6F9; --white:#fff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#F7F8FA;color:var(--ink);
+    font-family:Manrope,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.5}
+  header{background:linear-gradient(120deg,var(--navy),var(--navy2));color:#fff;padding:44px 32px}
+  header .wrap{max-width:1100px;margin:0 auto}
+  header h1{margin:0;font-size:34px;font-weight:800;letter-spacing:.5px}
+  header h1 b{color:var(--gold-lt)}
+  header p{margin:8px 0 0;color:#94A3B8;font-size:15px}
+  main{max-width:1100px;margin:0 auto;padding:32px}
+  section{margin:0 0 40px}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:1.5px;color:var(--gold);
+    font-weight:800;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:14px;margin:0 0 18px}
+  .grid{display:grid;gap:20px}
+  .logos{grid-template-columns:repeat(auto-fill,minmax(180px,1fr))}
+  .diagrams{grid-template-columns:1fr}
+  @media(min-width:820px){.diagrams{grid-template-columns:1fr 1fr}}
+  .card{background:#fff;border:1px solid var(--border);border-radius:16px;overflow:hidden;
+    box-shadow:0 1px 2px rgba(13,27,42,.04)}
+  .card .body{padding:16px 18px}
+  .card h3{margin:0;font-size:15px;font-weight:700}
+  .card p{margin:4px 0 0;font-size:13px;color:var(--muted)}
+  .frame{padding:18px;background:#fff;display:flex;align-items:center;justify-content:center}
+  .frame img{max-width:100%;height:auto;display:block}
+  .logo-tile .frame{min-height:120px}
+  .logo-tile.dark .frame{background:var(--navy)}
+  .full{grid-column:1/-1}
+  .full .frame{background:var(--navy)}
+  footer{max-width:1100px;margin:0 auto;padding:0 32px 48px;color:var(--muted);font-size:12px}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <h1><b>4Shine</b> · Material gráfico</h1>
+  <p>Kit visual para entender la plataforma: esquemas, tablas, infografías, íconos y logo.</p>
+</div></header>
+
+<main>
+  <section>
+    <div class="card full"><div class="frame"><img src="diagramas/00-portada.svg" alt="Portada"></div></div>
+  </section>
+
+  <section>
+    <h2>Logo</h2>
+    <p class="sub">Versiones oficiales del Manual de marca. El isotipo es el "4" con diamante y destello.</p>
+    <div class="grid logos">
+      <div class="card logo-tile dark"><div class="frame"><img src="logo/4shine-logo-amarillo.png" alt="Logo dorado"></div><div class="body"><h3>Dorado</h3><p>Sobre fondo oscuro</p></div></div>
+      <div class="card logo-tile"><div class="frame"><img src="logo/4shine-logo-negro.png" alt="Logo negro"></div><div class="body"><h3>Negro</h3><p>Sobre fondo claro</p></div></div>
+      <div class="card logo-tile dark"><div class="frame"><img src="logo/4shine-logo-blanco.png" alt="Logo blanco"></div><div class="body"><h3>Blanco</h3><p>Sobre fondo oscuro</p></div></div>
+      <div class="card logo-tile"><div class="frame"><img src="logo/4shine-logo-mixto.png" alt="Logo mixto"></div><div class="body"><h3>Mixto</h3><p>Variante combinada</p></div></div>
+      <div class="card logo-tile dark"><div class="frame"><img src="logo/4shine-isotipo-amarillo.png" alt="Isotipo"></div><div class="body"><h3>Isotipo</h3><p>Marca sin texto</p></div></div>
+      <div class="card logo-tile"><div class="frame"><img src="logo/favicon.png" alt="Favicon"></div><div class="body"><h3>Favicon</h3><p>Ícono de pestaña</p></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Esquemas técnicos</h2>
+    <p class="sub">Cómo está construida la plataforma por dentro.</p>
+    <div class="grid diagrams">
+      <div class="card"><div class="frame"><img src="diagramas/01-arquitectura.svg" alt="Arquitectura"></div><div class="body"><h3>Arquitectura de alto nivel</h3><p>Navegador → Vercel/Next.js → Neon, R2 y servicios externos.</p></div></div>
+      <div class="card"><div class="frame"><img src="diagramas/02-esquemas-bd.svg" alt="Esquemas de base de datos"></div><div class="body"><h3>Esquemas de base de datos</h3><p>PostgreSQL: <code>app_core</code> como núcleo y sus satélites.</p></div></div>
+      <div class="card"><div class="frame"><img src="diagramas/03-ciclo-peticion.svg" alt="Ciclo de una petición"></div><div class="body"><h3>Ciclo de una petición</h3><p>Del cliente al borde, API, permisos, servicio y RLS.</p></div></div>
+      <div class="card"><div class="frame"><img src="diagramas/04-mapa-subsistemas.svg" alt="Mapa de subsistemas"></div><div class="body"><h3>Mapa de subsistemas</h3><p>Sitio público, dashboard, webhooks, R2/SCORM, realtime, sesión.</p></div></div>
+      <div class="card"><div class="frame"><img src="diagramas/08-stack-tecnologico.svg" alt="Stack tecnológico"></div><div class="body"><h3>Stack tecnológico</h3><p>Frontend, backend, datos e integraciones.</p></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Programa y acceso</h2>
+    <p class="sub">Qué vive el líder y cómo se decide qué puede ver cada quién.</p>
+    <div class="grid diagrams">
+      <div class="card full"><div class="frame"><img src="diagramas/05-recorrido-5-fases.svg" alt="Recorrido de 5 fases"></div><div class="body"><h3>El recorrido — 5 fases</h3><p>Descubrimiento → Shine Within → Shine Out → Shine Up → Shine Beyond.</p></div></div>
+      <div class="card"><div class="frame"><img src="diagramas/06-roles-permisos.svg" alt="Roles del sistema"></div><div class="body"><h3>Roles del sistema</h3><p>admin, gestor, mentor (Advisor), lider e invitado.</p></div></div>
+      <div class="card"><div class="frame"><img src="diagramas/07-modelo-acceso.svg" alt="Modelo de acceso"></div><div class="body"><h3>Cómo se decide el acceso</h3><p>Permiso de rol + gating por plan.</p></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Íconos</h2>
+    <p class="sub">Los módulos de 4Shine, como hoja de íconos.</p>
+    <div class="grid diagrams">
+      <div class="card full"><div class="frame" style="background:#fff"><img src="iconos/modulos.svg" alt="Íconos de módulos"></div><div class="body"><h3>Módulos de 4Shine</h3><p>Aprendizaje, Mentorías, Descubrimiento, Networking y más.</p></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Metodología y marco 4Shine</h2>
+    <p class="sub">4Shine como sistema, metodología y marco conceptual (derivado del material fuente en <code>Documentos/Entradas</code>).</p>
+    <div class="grid diagrams">
+      <div class="card full"><div class="frame"><img src="metodologia/10-marco-4shine.svg" alt="El marco 4Shine"></div><div class="body"><h3>El marco — 4 pilares</h3><p>Shine Within / Out / Up / Beyond y la pregunta que responde cada uno. El "diamante" como esquema madre.</p></div></div>
+      <div class="card"><div class="frame"><img src="metodologia/11-arquitectura-competencias.svg" alt="Arquitectura de competencias"></div><div class="body"><h3>Arquitectura del modelo</h3><p>4 pilares · 22 componentes · 47 competencias · 96 conductas.</p></div></div>
+      <div class="card"><div class="frame"><img src="metodologia/15-diagnostico.svg" alt="Diagnóstico"></div><div class="body"><h3>Diagnóstico de Liderazgo</h3><p>125 ítems (Likert + SJT), por pilar, con semáforo de resultados.</p></div></div>
+      <div class="card full"><div class="frame"><img src="metodologia/12-mapa-competencias.svg" alt="Mapa de competencias"></div><div class="body"><h3>Mapa de competencias</h3><p>Las 47 competencias por pilar y componente.</p></div></div>
+      <div class="card full"><div class="frame"><img src="metodologia/13-camino-del-lider.svg" alt="Camino del líder"></div><div class="body"><h3>El Camino del Líder — 24 semanas</h3><p>Roadmap de implementación: 10 workbooks, 12 mentorías, 2 diagnósticos.</p></div></div>
+      <div class="card"><div class="frame"><img src="metodologia/14-ritmo-semanal.svg" alt="Ritmo semanal"></div><div class="body"><h3>Ritmo semanal</h3><p>Antes (workbook) → Durante (mentoría) → Después (práctica).</p></div></div>
+      <div class="card"><div class="frame"><img src="metodologia/16-frameworks.svg" alt="Frameworks"></div><div class="body"><h3>Frameworks y herramientas</h3><p>Las 11 herramientas que operan la metodología.</p></div></div>
+      <div class="card"><div class="frame"><img src="metodologia/17-tres-redes.svg" alt="Las 3 redes"></div><div class="body"><h3>Ecosistema — las 3 redes</h3><p>Red Personal / Operativa / Estratégica + 5 roles.</p></div></div>
+      <div class="card"><div class="frame"><img src="metodologia/18-matriz-stakeholders.svg" alt="Matriz de stakeholders"></div><div class="body"><h3>Matriz de stakeholders</h3><p>Influencia × Relación, 4 cuadrantes con acción.</p></div></div>
+      <div class="card"><div class="frame"><img src="metodologia/19-capacity-matrix.svg" alt="Capacity Matrix"></div><div class="body"><h3>Expansion Capacity Matrix</h3><p>6 dimensiones × 4 pilares, escala 1–5.</p></div></div>
+      <div class="card full"><div class="frame"><img src="metodologia/20-workbooks-entregables.svg" alt="Workbooks y entregables"></div><div class="body"><h3>Los 10 workbooks y sus entregables</h3><p>WB1–WB10 con el producto esperado de cada uno, por pilar.</p></div></div>
+      <div class="card full"><div class="frame"><img src="metodologia/21-fundamentos.svg" alt="Fundamentos académicos"></div><div class="body"><h3>Fundamentos académicos por pilar</h3><p>Los modelos que 4Shine integra (Bandura, Dweck, Goleman, Ikigai, Sinek, Senge…).</p></div></div>
+      <div class="card"><div class="frame"><img src="metodologia/22-principios-y-roles.svg" alt="Principios y roles"></div><div class="body"><h3>Principios y roles de mentoría</h3><p>6 principios de diseño + Mentor Guía / Experto / Speakers.</p></div></div>
+      <div class="card"><div class="frame"><img src="metodologia/23-triple-capa.svg" alt="Un eje, tres lecturas"></div><div class="body"><h3>Un eje, tres lecturas</h3><p>Marco ↔ formación ↔ cronograma.</p></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Detalle fino</h2>
+    <p class="sub">El nivel más granular del modelo, como documento de referencia.</p>
+    <div class="grid diagrams">
+      <a class="card full" href="metodologia/conductas-observables.html" style="text-decoration:none;color:inherit">
+        <div class="frame" style="background:linear-gradient(120deg,#0D1B2A,#1A1F2B);min-height:150px;flex-direction:column;gap:8px">
+          <div style="color:#E8CE86;font-size:22px;font-weight:800">96 conductas observables</div>
+          <div style="color:#94A3B8;font-size:13px">4 pilares · 22 componentes · 47 competencias — «El líder…»</div>
+          <div style="margin-top:6px;border:1px solid rgba(212,175,55,.5);color:#E8CE86;border-radius:999px;padding:5px 14px;font-size:12.5px;font-weight:600">Abrir documento →</div>
+        </div>
+        <div class="body"><h3>Conductas observables (HTML)</h3><p>Qué hace, en concreto, un líder que domina cada competencia. Texto literal del Mapa V3.</p></div>
+      </a>
+    </div>
+  </section>
+</main>
+
+<footer>docs/material-grafico · 4Shine — kit gráfico interno. Los SVG son autocontenidos; los diagramas técnicos derivan de la documentación viva.</footer>
+</body>
+</html>
