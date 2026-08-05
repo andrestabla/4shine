@@ -33,6 +33,7 @@ import {
   updateUser,
   type AppRole,
   type AuditLogRecord,
+  type UpdateUserInput,
   type UserDetailRecord,
   type UserModuleAccessItem,
   type UserNetworkingSummary,
@@ -131,6 +132,17 @@ export default function UsuarioDetallePage() {
   const [showDeleteModal, setShowDeleteModal] = React.useState(false);
   const [networking, setNetworking] = React.useState<UserNetworkingSummary | null>(null);
   const [mentorshipLimitInput, setMentorshipLimitInput] = React.useState('');
+
+  // Configuración PENDIENTE de "Tipo de Usuario y Permisos". Nada se guarda
+  // al interactuar con los controles; el único guardado es el botón
+  // "Actualizar" (onApplyTypePlanConfig), que abre el modal de notificación.
+  //   - pendingUserType: null = sin tocar (usa el tipo actual del detail).
+  //   - pendingPlanId: undefined = sin tocar; '' = sin selección; id = elegido.
+  //   - pendingExpiresDate: undefined = sin tocar; '' = limpiar vencimiento;
+  //     'YYYY-MM-DD' = nueva fecha.
+  const [pendingUserType, setPendingUserType] = React.useState<UserTypeOption | null>(null);
+  const [pendingPlanId, setPendingPlanId] = React.useState<string | undefined>(undefined);
+  const [pendingExpiresDate, setPendingExpiresDate] = React.useState<string | undefined>(undefined);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -272,86 +284,88 @@ export default function UsuarioDetallePage() {
     }
   };
 
-  const onChangeUserType = async (userType: UserTypeOption) => {
-    if (!detail || userType === deriveUserTypeSelection(detail)) return;
+  // ── Configuración de tipo/plan/vigencia en un solo guardado ────────────────
+  // El admin arma TODO (tipo de usuario, plan y fecha de vigencia) sin que
+  // nada se persista; el único guardado es el botón "Actualizar", que abre
+  // el modal de notificación y manda un único updateUser con el paquete
+  // completo. Así el correo (si se envía) lleva SIEMPRE la configuración
+  // final: rol + plan + vigencia definitiva.
+  const onApplyTypePlanConfig = async () => {
+    if (!detail) return;
 
-    const selection = resolveUserTypeSelection(userType);
+    const baseType = deriveUserTypeSelection(detail);
+    const nextType = pendingUserType ?? baseType;
+    const typeChanged = nextType !== baseType;
 
-    const ok = await confirm({
-      title: 'Cambiar tipo de usuario',
-      message: `¿Asignar ${userTypeLabel(userType)} a ${detail.displayName}?`,
-      confirmText: 'Continuar',
-      tone: 'warning',
-    });
-    if (!ok) return;
+    const currentPlanId = detail.subscriptionPlanId ?? '';
+    const nextPlanId = pendingPlanId !== undefined ? pendingPlanId : currentPlanId;
+    const planChanged =
+      nextType === 'leader_with_subscription' && nextPlanId !== '' && nextPlanId !== currentPlanId;
 
-    // Segundo paso: decidir si se notifica. Ambos botones GUARDAN el cambio;
-    // la diferencia es solo si el usuario recibe el correo (con credenciales
+    const currentIso = detail.subscriptionExpiresAt
+      ? new Date(detail.subscriptionExpiresAt).toISOString().slice(0, 10)
+      : '';
+    const dateChanged = pendingExpiresDate !== undefined && pendingExpiresDate !== currentIso;
+
+    if (!typeChanged && !planChanged && !dateChanged) return;
+
+    // La vigencia solo tiene sentido con un plan (el que ya tenía o el nuevo).
+    const willHavePlan = planChanged ? true : currentPlanId !== '';
+    if (dateChanged && pendingExpiresDate !== '' && !willHavePlan) {
+      await alert({
+        title: 'Asigna primero un plan',
+        message: 'Necesitas seleccionar un plan antes de fijar su vencimiento.',
+        tone: 'warning',
+      });
+      return;
+    }
+
+    // Modal único: ambos botones GUARDAN toda la configuración; la
+    // diferencia es solo si el usuario recibe el correo (con credenciales
     // temporales incluidas cuando era invitado).
     const notifyChanges = await confirm({
       title: 'Notificación al usuario',
-      message: `¿Enviar correo a ${detail.email} informando el cambio de rol? Si era invitado, el correo incluye sus credenciales temporales de acceso.`,
+      message: `¿Enviar correo a ${detail.email} informando la actualización (rol, plan y vigencia según aplique)? Si era invitado, el correo incluye sus credenciales temporales de acceso.`,
       confirmText: 'Actualizar y enviar notificación',
       cancelText: 'Actualizar sin notificar',
       tone: 'info',
     });
 
-    setProcessingAction('change-user-type');
-    try {
-      await updateUser(detail.userId, {
-        primaryRole: selection.primaryRole,
-        planType: selection.planType,
-        subscriptionPlanId: userType === 'leader_with_subscription' ? undefined : null,
-        notifyChanges,
-      });
-      await refreshBootstrap();
-      await loadData();
-    } catch (error) {
-      await alert({
-        title: 'Error al actualizar tipo de usuario',
-        message: error instanceof Error ? error.message : 'No se pudo actualizar el tipo de usuario.',
-        tone: 'error',
-      });
-    } finally {
-      setProcessingAction(null);
+    const input: UpdateUserInput = { notifyChanges };
+    if (typeChanged) {
+      const selection = resolveUserTypeSelection(nextType);
+      input.primaryRole = selection.primaryRole;
+      input.planType = selection.planType;
+      if (nextType !== 'leader_with_subscription') {
+        input.subscriptionPlanId = null;
+      }
     }
-  };
-
-  const onChangeSubscriptionPlan = async (planId: string) => {
-    if (!detail) return;
-    if (planId === (detail.subscriptionPlanId ?? '')) return;
-
-    const targetPlan = availablePlans.find((p) => p.planId === planId);
-    if (!targetPlan) return;
-
-    const ok = await confirm({
-      title: 'Asignar plan de suscripción',
-      message: `¿Asignar el plan "${targetPlan.name}" a ${detail.displayName}? La vigencia inicial se calcula automáticamente (${targetPlan.durationDays} días); podrás ajustarla y notificar al usuario al confirmar la fecha de vencimiento.`,
-      confirmText: 'Asignar plan',
-      tone: 'warning',
-    });
-    if (!ok) return;
-
-    setProcessingAction('change-subscription-plan');
-    try {
+    if (planChanged) {
       // No mandamos planType. La fuente de verdad para el acceso es
       // subscription_plan_id + plan_module_features. plan_type legacy
       // queda en NULL para evitar contaminar la lógica de grants.
-      //
-      // La notificación NO se dispara aquí: el modal "Actualizar y enviar
-      // notificación" vive en la confirmación de la fecha de vigencia, para
-      // que el correo siempre lleve la fecha definitiva y no la automática.
-      await updateUser(detail.userId, {
-        primaryRole: 'lider',
-        planType: null,
-        subscriptionPlanId: planId,
-      });
+      input.primaryRole = 'lider';
+      input.planType = null;
+      input.subscriptionPlanId = nextPlanId;
+    }
+    if (dateChanged) {
+      // Se aplica DESPUÉS del plan en el backend: puede sobrescribir el
+      // vencimiento automático (now + duration_days) con la fecha elegida.
+      input.subscriptionExpiresAt = pendingExpiresDate ? `${pendingExpiresDate}T23:59:59.000Z` : null;
+    }
+
+    setProcessingAction('apply-type-plan');
+    try {
+      await updateUser(detail.userId, input);
+      setPendingUserType(null);
+      setPendingPlanId(undefined);
+      setPendingExpiresDate(undefined);
       await refreshBootstrap();
       await loadData();
     } catch (error) {
       await alert({
-        title: 'Error al asignar plan',
-        message: error instanceof Error ? error.message : 'No se pudo asignar el plan.',
+        title: 'Error al actualizar la configuración',
+        message: error instanceof Error ? error.message : 'No se pudo aplicar la configuración.',
         tone: 'error',
       });
     } finally {
@@ -528,6 +542,22 @@ export default function UsuarioDetallePage() {
     detail.userId !== currentUser?.id &&
     (currentRole === 'admin' || (detail.primaryRole !== 'admin' && detail.primaryRole !== 'gestor'));
   const currentUserType = deriveUserTypeSelection(detail);
+
+  // Valores efectivos de la tarjeta "Tipo de Usuario": lo pendiente (si el
+  // admin tocó algo) o lo persistido. hasTypePlanChanges habilita "Actualizar".
+  const effectiveUserType = pendingUserType ?? currentUserType;
+  const effectivePlanId =
+    pendingPlanId !== undefined ? pendingPlanId : detail.subscriptionPlanId ?? '';
+  const persistedExpiresIso = (() => {
+    if (!detail.subscriptionExpiresAt) return '';
+    const d = new Date(detail.subscriptionExpiresAt);
+    return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
+  })();
+  const effectiveExpiresDate = pendingExpiresDate ?? persistedExpiresIso;
+  const hasTypePlanChanges =
+    effectiveUserType !== currentUserType ||
+    (pendingPlanId !== undefined && effectivePlanId !== (detail.subscriptionPlanId ?? '')) ||
+    (pendingExpiresDate !== undefined && pendingExpiresDate !== persistedExpiresIso);
   const currentDemographics = toDemographicsForm(detail);
   const hasDemographicsChanges =
     demographicsForm.country.trim() !== currentDemographics.country.trim() ||
@@ -742,27 +772,32 @@ export default function UsuarioDetallePage() {
                   key={option}
                   type="button"
                   disabled={!canUpdate || processingAction !== null}
-                  onClick={() => void onChangeUserType(option)}
+                  onClick={() => setPendingUserType(option === currentUserType ? null : option)}
                   className={`rounded-xl border px-3 py-3 text-left text-sm font-semibold transition disabled:opacity-60 ${
-                    currentUserType === option
+                    effectiveUserType === option
                       ? 'border-[var(--app-ink)] bg-[var(--app-ink)] text-white'
                       : 'border-[var(--app-border)] bg-white text-[var(--app-ink)] hover:bg-[var(--app-surface-muted)]'
                   }`}
                 >
                   {userTypeLabel(option)}
+                  {effectiveUserType === option && option !== currentUserType && (
+                    <span className="ml-2 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider">
+                      Pendiente
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
 
-            {currentUserType === 'leader_with_subscription' && (
+            {effectiveUserType === 'leader_with_subscription' && (
               <div className="mb-4 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)]/60 p-3">
                 <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-[var(--app-muted)]">
                   Plan de suscripción
                 </label>
                 <select
                   className="app-select w-full"
-                  value={detail.subscriptionPlanId ?? ''}
-                  onChange={(event) => void onChangeSubscriptionPlan(event.target.value)}
+                  value={effectivePlanId}
+                  onChange={(event) => setPendingPlanId(event.target.value)}
                   disabled={!canUpdate || processingAction !== null || availablePlans.length === 0}
                 >
                   <option value="" disabled>
@@ -795,67 +830,15 @@ export default function UsuarioDetallePage() {
                       : null;
                     const isExpired =
                       !!expiresAt && !Number.isNaN(expiresAt.getTime()) && expiresAt.getTime() < Date.now();
-                    const isoForInput =
-                      expiresAt && !Number.isNaN(expiresAt.getTime())
-                        ? expiresAt.toISOString().slice(0, 10)
-                        : '';
                     return (
                       <>
                         <div className="flex flex-wrap items-center gap-2">
                           <input
                             type="date"
                             className="app-input flex-1"
-                            defaultValue={isoForInput}
+                            value={effectiveExpiresDate}
                             disabled={!canUpdate || processingAction !== null}
-                            onBlur={async (event) => {
-                              const value = event.target.value.trim();
-                              if (!detail.subscriptionPlanId) {
-                                await alert({
-                                  title: 'Asigna primero un plan',
-                                  message: 'Necesitas asignar un plan antes de fijar su vencimiento.',
-                                  tone: 'warning',
-                                });
-                                event.target.value = isoForInput;
-                                return;
-                              }
-                              if (value === isoForInput) return;
-                              const newIso = value ? `${value}T23:59:59.000Z` : null;
-
-                              // El modal de notificación vive AQUÍ (al confirmar
-                              // la vigencia), no en la selección del plan: así el
-                              // correo siempre informa la fecha definitiva. Ambos
-                              // botones guardan; la diferencia es solo el envío.
-                              const notifyChanges = await confirm({
-                                title: 'Notificación al usuario',
-                                message: `¿Enviar correo a ${detail.email} informando el plan y su nueva vigencia? Si era invitado, el correo incluye sus credenciales temporales de acceso.`,
-                                confirmText: 'Actualizar y enviar notificación',
-                                cancelText: 'Actualizar sin notificar',
-                                tone: 'info',
-                              });
-
-                              setProcessingAction('change-subscription-expires');
-                              try {
-                                await updateUser(detail.userId, {
-                                  primaryRole: 'lider',
-                                  subscriptionExpiresAt: newIso,
-                                  notifyChanges,
-                                });
-                                await refreshBootstrap();
-                                await loadData();
-                              } catch (error) {
-                                await alert({
-                                  title: 'Error',
-                                  message:
-                                    error instanceof Error
-                                      ? error.message
-                                      : 'No se pudo actualizar el vencimiento.',
-                                  tone: 'error',
-                                });
-                                event.target.value = isoForInput;
-                              } finally {
-                                setProcessingAction(null);
-                              }
-                            }}
+                            onChange={(event) => setPendingExpiresDate(event.target.value)}
                           />
                           {expiresAt && !Number.isNaN(expiresAt.getTime()) && (
                             <span
@@ -877,13 +860,25 @@ export default function UsuarioDetallePage() {
                         <p className="mt-1 text-[11px] text-[var(--app-muted)]">
                           {isExpired
                             ? `Esta licencia venció el ${formatDate(expiresAt)}. Mientras esté vencida, el líder pasa a "sin suscripción" y pierde el acceso del plan (las compras previas se conservan).`
-                            : 'Editar la fecha extiende o acorta la licencia. Vacío = sin vencimiento.'}
+                            : 'Editar la fecha extiende o acorta la licencia. Vacío = sin vencimiento. Si asignas un plan nuevo sin fijar fecha, la vigencia se calcula automáticamente con la duración del plan.'}
                         </p>
                       </>
                     );
                   })()}
                 </div>
               </div>
+            )}
+
+            {canUpdate && (
+              <button
+                type="button"
+                onClick={() => void onApplyTypePlanConfig()}
+                disabled={processingAction !== null || !hasTypePlanChanges}
+                className="app-button-primary mb-4 w-full disabled:opacity-60"
+              >
+                <Save size={16} />
+                {processingAction === 'apply-type-plan' ? 'Actualizando…' : 'Actualizar'}
+              </button>
             )}
 
             <p className="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-[var(--app-muted)]/74">
