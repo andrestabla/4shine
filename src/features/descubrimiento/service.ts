@@ -3256,6 +3256,48 @@ export async function saveDiscoveryInvitationProgress(
     }
   }
 
+  // Sync del perfil REAL del usuario invitado (app_core.users/user_profiles).
+  // Sin esto, los datos demográficos que el invitado diligencia antes del
+  // diagnóstico (país, cargo, género, años de experiencia, nombre) quedaban
+  // solo en discovery_sessions/invitation.meta: el admin de Descubrimiento
+  // los veía, pero Gestión Usuarios seguía mostrando los placeholders del
+  // provisioning ("No definido", cargo default, etc.).
+  //
+  // Mismo helper que usa el flujo autenticado (updateDiscoverySession), para
+  // que ambos caminos se comporten idéntico. Resolución del dueño:
+  //   1) user_id de la discovery_session vinculada a la invitación, o
+  //   2) fallback: usuario invitado cuyo email coincide con invited_email
+  //      (invitaciones externas sin sesión vinculada).
+  try {
+    let ownerUserId: string | null = null;
+    if (invRow.session_id) {
+      const { rows: ownerRows } = await client.query<{ user_id: string | null }>(
+        `SELECT user_id::text FROM app_assessment.discovery_sessions
+         WHERE session_id = $1::uuid LIMIT 1`,
+        [invRow.session_id],
+      );
+      ownerUserId = ownerRows[0]?.user_id ?? null;
+    }
+    if (!ownerUserId) {
+      const { rows: byEmailRows } = await client.query<{ user_id: string }>(
+        `SELECT u.user_id::text
+         FROM app_assessment.discovery_invitations di
+         JOIN app_core.users u ON lower(u.email) = lower(di.invited_email)
+         WHERE di.invitation_id = $1::uuid
+           AND u.primary_role = 'invitado'
+         LIMIT 1`,
+        [verified.invitation.invitationId],
+      );
+      ownerUserId = byEmailRows[0]?.user_id ?? null;
+    }
+    if (ownerUserId) {
+      await syncDiscoveryProfileToUserProfile(client, ownerUserId, profile);
+    }
+  } catch (err) {
+    // Best-effort: un fallo del sync no debe romper el guardado del progreso.
+    console.error('[descubrimiento] profile sync for invited user failed:', err);
+  }
+
   const updatedSession = invRow.session_id
     ? await getDiscoverySession(client, invRow.session_id)
     : verified.session;
