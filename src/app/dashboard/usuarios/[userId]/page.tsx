@@ -553,7 +553,22 @@ export default function UsuarioDetallePage() {
     const d = new Date(detail.subscriptionExpiresAt);
     return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
   })();
-  const effectiveExpiresDate = pendingExpiresDate ?? persistedExpiresIso;
+  // Al seleccionar un plan distinto al persistido, el campo de vigencia se
+  // pre-llena con la fecha predefinida del plan (hoy + duration_days) — la
+  // misma que el backend calculará si el admin no la cambia. Editable: si el
+  // admin escribe otra fecha (pendingExpiresDate), esa manda.
+  const pendingPlanAutoExpiresIso = (() => {
+    if (pendingPlanId === undefined || pendingPlanId === (detail.subscriptionPlanId ?? '')) {
+      return '';
+    }
+    const plan = availablePlans.find((p) => p.planId === pendingPlanId);
+    if (!plan || !Number.isFinite(plan.durationDays) || plan.durationDays <= 0) return '';
+    return new Date(Date.now() + plan.durationDays * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+  })();
+  const effectiveExpiresDate =
+    pendingExpiresDate ?? (pendingPlanAutoExpiresIso || persistedExpiresIso);
   const hasTypePlanChanges =
     effectiveUserType !== currentUserType ||
     (pendingPlanId !== undefined && effectivePlanId !== (detail.subscriptionPlanId ?? '')) ||
