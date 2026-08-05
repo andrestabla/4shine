@@ -340,6 +340,23 @@ export const NOTIFICATION_EVENTS: NotificationEventDef[] = [
     ],
     defaultInAppType: 'success',
   },
+  {
+    key: 'usuarios.invitado_promoted',
+    moduleCode: 'usuarios',
+    moduleLabel: 'Usuarios',
+    label: 'Invitado promovido (con credenciales)',
+    description:
+      'Se envía cuando un usuario con rol Invitado (que ingresaba solo con código único a Descubrimiento) es promovido a otro rol o recibe un plan. Como nunca tuvo contraseña, se le genera una temporal y se incluye en este correo junto con las instrucciones de ingreso. Deberá cambiarla en su primer login.',
+    variables: [
+      'nombre',
+      'correo',
+      'contrasena',
+      'rol_nuevo',
+      'plataforma',
+      'enlace_plataforma',
+    ],
+    defaultInAppType: 'success',
+  },
 
   // ── MENTORIAS ─────────────────────────────────────────────────────────────
   {

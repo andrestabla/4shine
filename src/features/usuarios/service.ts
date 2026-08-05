@@ -1426,6 +1426,72 @@ export async function resetPasswordWithToken(
   });
 }
 
+// Gap mínimo entre envíos de verificación para el mismo usuario. Evita que
+// alguien spamee la bandeja de un tercero martillando login/resend.
+const VERIFICATION_RESEND_COOLDOWN_MS = 2 * 60 * 1000;
+
+/**
+ * Busca al usuario por email y, si aún no está verificado y no hay un envío
+ * demasiado reciente (cooldown 2 min), dispara sendVerificationEmail.
+ *
+ * Silencioso por diseño (anti user-enumeration): si el correo no existe, ya
+ * está verificado, o el cooldown aplica, simplemente no hace nada.
+ *
+ * Lo usan DOS flujos:
+ *   - POST /api/v1/auth/resend-verification (botón "Reenviar" manual)
+ *   - POST /api/v1/auth/login cuando responde email_not_verified — así el
+ *     usuario recibe el correo AUTOMÁTICAMENTE al intentar entrar, sin tener
+ *     que descubrir el botón "Reenviar". (Antes el login solo mostraba la
+ *     pantalla "revisa tu correo" sin enviar nada: el único correo real era
+ *     el del registro, que podía haberse perdido o expirado.)
+ */
+export async function maybeResendVerificationEmail(emailRaw: string): Promise<void> {
+  const email = emailRaw.trim().toLowerCase();
+  if (!email) return;
+
+  const target = await withClient(async (client) => {
+    await client.query('SELECT set_config($1, $2, true)', ['app.current_role', 'gestor']);
+
+    const { rows } = await client.query<{
+      user_id: string;
+      first_name: string;
+      organization_id: string | null;
+      email_verified_at: string | null;
+      email_verification_expires_at: string | null;
+    }>(
+      `
+        SELECT
+          u.user_id::text,
+          u.first_name,
+          u.organization_id::text,
+          uc.email_verified_at::text,
+          uc.email_verification_expires_at::text
+        FROM app_core.users u
+        JOIN app_auth.user_credentials uc ON uc.user_id = u.user_id
+        WHERE u.email = $1 AND u.is_active = true
+        LIMIT 1
+      `,
+      [email],
+    );
+
+    const row = rows[0];
+    if (!row) return null;
+    if (row.email_verified_at) return null;
+
+    // Cooldown: el token dura 24h; su "fecha de emisión" es expires - 24h.
+    if (row.email_verification_expires_at) {
+      const expiresAt = new Date(row.email_verification_expires_at).getTime();
+      const issuedAt = expiresAt - 24 * 60 * 60 * 1000;
+      if (Date.now() - issuedAt < VERIFICATION_RESEND_COOLDOWN_MS) return null;
+    }
+
+    return { userId: row.user_id, firstName: row.first_name, organizationId: row.organization_id };
+  });
+
+  if (!target) return;
+  await sendVerificationEmail(target.userId, email, target.firstName, target.organizationId);
+}
+
 export async function sendVerificationEmail(
   userId: string,
   email: string,
@@ -2518,13 +2584,22 @@ export async function updateUser(
   // Best-effort: si falla el envío no abortamos — el cambio ya está en BD.
 
   // 1) Cambio de rol: solo si primaryRole vino en el input Y realmente cambió.
+  //    Caso especial: si el usuario ERA invitado, nunca tuvo contraseña (entraba
+  //    con código único a Descubrimiento). Le generamos una temporal, marcamos
+  //    su correo como verificado y le enviamos el correo de promoción CON la
+  //    contraseña y las instrucciones de ingreso, en vez del genérico.
   if (roleChanged && input.primaryRole) {
-    await notifyUserRoleChanged(
-      client,
-      userId,
-      currentUserState.primaryRole,
-      input.primaryRole,
-    );
+    if (currentUserState.primaryRole === 'invitado') {
+      const tempPassword = await provisionCredentialsForPromotedInvitado(client, userId);
+      await notifyInvitadoPromoted(client, userId, tempPassword, input.primaryRole);
+    } else {
+      await notifyUserRoleChanged(
+        client,
+        userId,
+        currentUserState.primaryRole,
+        input.primaryRole,
+      );
+    }
   }
 
   // 2) Cambio de plan: solo si subscriptionPlanId vino en el input.
@@ -3320,20 +3395,23 @@ export async function bulkAssignPlan(
   );
   const newExpiresAt = expRows[0]?.expires ?? null;
 
-  await Promise.all(
-    userIds.map(async (uid) => {
-      const prev = previousByUser.get(uid);
-      if (!prev) return;
-      // Cambio de rol (solo invitado → líder aplica aquí)
-      if (prev.role === 'invitado') {
-        await notifyUserRoleChanged(client, uid, 'invitado', 'lider');
-      }
-      // Cambio de plan (siempre — si tenía otro plan o ninguno, ahora tiene planId)
-      if (prev.planId !== planId) {
-        await notifyUserPlanChanged(client, uid, prev.planId, planId, newExpiresAt);
-      }
-    }),
-  );
+  // Nota: secuencial (no Promise.all) porque provisionCredentials +
+  // dispatch comparten el mismo PoolClient y las queries no pueden
+  // intercalarse en paralelo sobre una sola conexión.
+  for (const uid of userIds) {
+    const prev = previousByUser.get(uid);
+    if (!prev) continue;
+    // Invitado → líder: nunca tuvo contraseña (entraba con código único).
+    // Generamos temporal + verificamos correo + correo con credenciales.
+    if (prev.role === 'invitado') {
+      const tempPassword = await provisionCredentialsForPromotedInvitado(client, uid);
+      await notifyInvitadoPromoted(client, uid, tempPassword, 'lider');
+    }
+    // Cambio de plan (siempre — si tenía otro plan o ninguno, ahora tiene planId)
+    if (prev.planId !== planId) {
+      await notifyUserPlanChanged(client, uid, prev.planId, planId, newExpiresAt);
+    }
+  }
 
   return { affected: rowCount ?? 0, errors: [] };
 }
@@ -3488,6 +3566,83 @@ async function loadUserNotificationTarget(
 
 function platformUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL ?? 'https://www.4shine.co';
+}
+
+/**
+ * Provisiona credenciales para un invitado que está siendo promovido a otro
+ * rol (o que recibe un plan y pasa a líder).
+ *
+ * Los invitados ingresan a Descubrimiento con un código único de invitación:
+ * nunca definieron una contraseña propia y su email_verified_at está NULL.
+ * Al promoverlos, ambas cosas se vuelven un problema:
+ *   - Sin contraseña usable no pueden hacer login normal.
+ *   - Sin email_verified_at, el login los rechaza con "correo pendiente de
+ *     verificación" (el bypass de verificación solo aplica mientras el rol
+ *     es 'invitado').
+ *
+ * Este helper: genera una contraseña temporal, la persiste con
+ * must_change_password=true (deberá rotarla en su primer ingreso) y marca
+ * el correo como verificado — ya probó control de esa bandeja al recibir y
+ * usar el código único de invitación.
+ *
+ * Devuelve la contraseña EN CLARO para incluirla en el correo de promoción.
+ */
+export async function provisionCredentialsForPromotedInvitado(
+  client: PoolClient,
+  userId: string,
+): Promise<string> {
+  const tempPassword = generateTemporaryPassword();
+  const passwordHash = await hashPassword(tempPassword);
+  await client.query(
+    `
+      INSERT INTO app_auth.user_credentials (
+        user_id, password_hash, failed_attempts, locked_until,
+        must_change_password, email_verified_at
+      )
+      VALUES ($1, $2, 0, NULL, true, now())
+      ON CONFLICT (user_id) DO UPDATE
+      SET password_hash = EXCLUDED.password_hash,
+          failed_attempts = 0,
+          locked_until = NULL,
+          must_change_password = true,
+          email_verified_at = COALESCE(app_auth.user_credentials.email_verified_at, now()),
+          password_updated_at = now(),
+          updated_at = now()
+    `,
+    [userId, passwordHash],
+  );
+  return tempPassword;
+}
+
+/**
+ * Dispatchea `usuarios.invitado_promoted` con la contraseña temporal.
+ * Best-effort: swallow errors (el cambio en BD ya está hecho).
+ */
+export async function notifyInvitadoPromoted(
+  client: PoolClient,
+  userId: string,
+  plainPassword: string,
+  newRole: Role,
+): Promise<void> {
+  try {
+    const target = await loadUserNotificationTarget(client, userId);
+    if (!target) return;
+    await dispatchNotification(client, {
+      organizationId: target.organizationId,
+      recipientUserId: target.userId,
+      recipientEmail: target.email,
+      eventKey: 'usuarios.invitado_promoted',
+      variables: {
+        nombre: target.firstName,
+        correo: target.email,
+        contrasena: plainPassword,
+        rol_nuevo: humanRoleLabel(newRole),
+        enlace_plataforma: platformUrl(),
+      },
+    });
+  } catch (err) {
+    console.error('[usuarios] notifyInvitadoPromoted failed:', err);
+  }
 }
 
 /**

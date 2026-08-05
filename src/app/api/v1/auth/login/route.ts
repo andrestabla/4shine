@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { withClient } from '@/server/db/pool';
+import { maybeResendVerificationEmail } from '@/features/usuarios/service';
 import { verifyPassword } from '@/server/auth/password';
 import { authConfig } from '@/server/auth/config';
 import { issueAuthTokens } from '@/server/auth/session';
@@ -112,6 +113,19 @@ export async function POST(request: Request) {
         // El resto de roles sí debe verificar antes de loguearse.
         if (!authRow.email_verified_at && authRow.primary_role !== 'invitado') {
           await client.query('ROLLBACK');
+          // Auto-reenvío del correo de verificación (con cooldown de 2 min).
+          // Antes solo mostrábamos la pantalla "revisa tu correo" sin enviar
+          // nada nuevo: el único correo real era el del registro, que pudo
+          // perderse o expirar, y el usuario tenía que descubrir el botón
+          // "Reenviar" manualmente. Ahora el intento de login ya dispara el
+          // correo — la pantalla dice la verdad.
+          after(async () => {
+            try {
+              await maybeResendVerificationEmail(authRow.email);
+            } catch (err) {
+              console.error('[login] auto-resend verification failed:', err);
+            }
+          });
           return {
             status: 403 as const,
             payload: {
