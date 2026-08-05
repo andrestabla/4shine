@@ -1345,10 +1345,22 @@ function PricingMatrixBlock({ props }: { props: SiteBlockProps }) {
   setStr('circuloDescription', 'circuloDescription');
   setStr('circuloUnavailable', 'circuloUnavailable');
 
+  // Visibilidad configurable desde el builder: pestañas + códigos ocultos.
+  const hiddenCodes = Array.isArray(props.hiddenCodes)
+    ? (props.hiddenCodes as unknown[]).filter((code): code is string => typeof code === 'string')
+    : [];
+  const visibility = {
+    showDiagnostico: bool(props, 'showDiagnostico', true),
+    showProgramas: bool(props, 'showProgramas', true),
+    showMentorias: bool(props, 'showMentorias', true),
+    showCirculo: bool(props, 'showCirculo', true),
+    hiddenCodes,
+  };
+
   return (
     <SectionShell props={props} palette={palette}>
       <SectionHeading props={props} palette={palette} className="mb-8" />
-      <PricingMatrixBlockClient copy={copy} />
+      <PricingMatrixBlockClient copy={copy} visibility={visibility} />
     </SectionShell>
   );
 }

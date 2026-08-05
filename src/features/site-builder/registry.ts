@@ -12,6 +12,7 @@ export type BlockFieldType =
   | 'range'
   | 'icon'
   | 'advisors'
+  | 'pricingItems'
   | 'list';
 
 export type BlockFieldGroup = 'content' | 'style';
@@ -1285,12 +1286,22 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
     type: 'pricingMatrix',
     label: 'Planes y precios (dinámico)',
     description:
-      'Matriz de planes y productos tomada AUTOMÁTICAMENTE de Administración → Planes. Planes, precios, productos puntuales y botones se actualizan solos; aquí solo editas el encabezado.',
+      'Matriz de planes y productos tomada AUTOMÁTICAMENTE de Administración → Planes. Precios y botones se actualizan solos; aquí editas el encabezado, qué pestañas se muestran y qué planes/productos son visibles.',
     category: 'Conversión',
     fields: [
       { key: 'kicker', label: 'Kicker', type: 'text' },
       { key: 'title', label: 'Título', type: 'textarea' },
       { key: 'subtitle', label: 'Subtítulo', type: 'textarea' },
+      { key: 'showDiagnostico', label: 'Mostrar pestaña Diagnóstico', type: 'toggle' },
+      { key: 'showProgramas', label: 'Mostrar pestaña Programas', type: 'toggle' },
+      { key: 'showMentorias', label: 'Mostrar pestaña Mentorías', type: 'toggle' },
+      { key: 'showCirculo', label: 'Mostrar pestaña Círculo de líderes', type: 'toggle' },
+      {
+        key: 'hiddenCodes',
+        label: 'Planes y productos visibles',
+        type: 'pricingItems',
+        help: 'Desmarca lo que no quieras mostrar en el sitio. Lo demás se actualiza solo desde Administración → Planes.',
+      },
       { key: 'diagKicker', label: 'Diagnóstico · Kicker', type: 'text' },
       { key: 'diagHeading', label: 'Diagnóstico · Encabezado', type: 'textarea' },
       { key: 'diagDescription', label: 'Diagnóstico · Descripción', type: 'textarea' },
@@ -1315,6 +1326,11 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
       background: 'dark',
       paddingY: 'normal',
       contentWidth: 'full',
+      showDiagnostico: true,
+      showProgramas: true,
+      showMentorias: true,
+      showCirculo: true,
+      hiddenCodes: [],
     },
   }),
   def({

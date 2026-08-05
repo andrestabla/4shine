@@ -214,6 +214,133 @@ function AdvisorsPickerInput({ value, onChange }: { value: unknown; onChange: (n
   );
 }
 
+interface PricingItemOption {
+  code: string;
+  name: string;
+  group: string;
+  price: string;
+}
+
+/**
+ * Selector de visibilidad para el bloque "Planes y precios (dinámico)".
+ * Lista los planes y productos reales (misma fuente que el bloque) con un
+ * check por elemento. El valor guardado es la lista de códigos OCULTOS, así
+ * los planes nuevos que se creen después aparecen visibles por defecto.
+ */
+function PricingItemsPickerInput({ value, onChange }: { value: unknown; onChange: (next: unknown) => void }) {
+  const [options, setOptions] = React.useState<PricingItemOption[] | null>(null);
+  const hidden = Array.isArray(value) ? (value as string[]).filter((code) => typeof code === 'string') : [];
+
+  React.useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch('/api/v1/public/site/pricing', { cache: 'no-store', credentials: 'include' });
+        const json = (await res.json()) as {
+          ok: boolean;
+          data?: {
+            plans?: Array<{ planCode: string; name: string; planGroup: string; priceAmount: number; currencyCode: string }>;
+            catalog?: Array<{ productCode: string; name: string; productGroup: string; priceAmount: number; currencyCode: string }>;
+          };
+        };
+        if (cancelled) return;
+        if (!json.ok || !json.data) {
+          setOptions([]);
+          return;
+        }
+        const groupLabel: Record<string, string> = {
+          discovery: 'Diagnóstico',
+          mentoring_pack: 'Mentorías',
+          program: 'Programas',
+          circulo: 'Círculo',
+        };
+        const fmt = (amount: number, currency: string) =>
+          `${currency} ${Number(amount ?? 0).toLocaleString('en-US')}`;
+        const fromCatalog = (json.data.catalog ?? []).map((p) => ({
+          code: p.productCode,
+          name: p.name,
+          group: groupLabel[p.productGroup] ?? p.productGroup,
+          price: fmt(p.priceAmount, p.currencyCode),
+        }));
+        const fromPlans = (json.data.plans ?? []).map((p) => ({
+          code: p.planCode,
+          name: p.name,
+          group: groupLabel[p.planGroup] ?? p.planGroup,
+          price: fmt(p.priceAmount, p.currencyCode),
+        }));
+        setOptions([...fromCatalog, ...fromPlans]);
+      } catch {
+        if (!cancelled) setOptions([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (options === null) {
+    return (
+      <div className="flex items-center gap-2 text-[11px] text-[var(--app-muted)]">
+        <Loader2 size={12} className="animate-spin" />
+        Cargando planes y productos...
+      </div>
+    );
+  }
+
+  if (options.length === 0) {
+    return (
+      <p className="text-[11px] text-[var(--app-muted)]">
+        No hay planes ni productos activos. Créalos en Administración → Planes.
+      </p>
+    );
+  }
+
+  const toggle = (code: string) => {
+    onChange(hidden.includes(code) ? hidden.filter((c) => c !== code) : [...hidden, code]);
+  };
+
+  return (
+    <div className="space-y-1.5">
+      {options.map((option) => {
+        const isVisible = !hidden.includes(option.code);
+        return (
+          <button
+            key={option.code}
+            type="button"
+            onClick={() => toggle(option.code)}
+            className={`flex w-full items-center gap-2.5 rounded-lg border px-2.5 py-2 text-left transition ${
+              isVisible
+                ? 'border-[var(--app-accent)] bg-[var(--app-surface)]'
+                : 'border-[var(--app-border)] opacity-60 hover:opacity-90'
+            }`}
+          >
+            <span
+              className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] font-bold ${
+                isVisible
+                  ? 'border-[var(--app-accent)] bg-[var(--app-accent)] text-white'
+                  : 'border-[var(--app-border)] bg-white text-transparent'
+              }`}
+            >
+              ✓
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className={`block truncate text-xs font-semibold ${isVisible ? 'text-[var(--app-ink)]' : 'text-[var(--app-muted)] line-through'}`}>
+                {option.name}
+              </span>
+              <span className="block truncate text-[10px] text-[var(--app-muted)]">
+                {option.group} · {option.price}
+              </span>
+            </span>
+          </button>
+        );
+      })}
+      <p className="text-[10px] text-[var(--app-muted)]">
+        Lo desmarcado no se muestra en el sitio. Los planes nuevos aparecen visibles por defecto.
+      </p>
+    </div>
+  );
+}
+
 function FieldInput({
   field,
   value,
@@ -363,6 +490,8 @@ function FieldInput({
       return <ImageFieldInput value={typeof value === 'string' ? value : ''} onChange={onChange} />;
     case 'advisors':
       return <AdvisorsPickerInput value={value} onChange={onChange} />;
+    case 'pricingItems':
+      return <PricingItemsPickerInput value={value} onChange={onChange} />;
     case 'list': {
       const list = Array.isArray(value) ? (value as Record<string, unknown>[]) : [];
       const itemLabel = field.itemLabel ?? 'Elemento';

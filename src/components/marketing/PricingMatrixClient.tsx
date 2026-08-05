@@ -70,10 +70,29 @@ export const DEFAULT_PRICING_COPY: PricingCopy = {
   circuloUnavailable: 'Aún no hay planes de Círculo activos. Vuelve más tarde.',
 };
 
+/** Qué se muestra en la matriz dinámica (configurable desde el Site Builder). */
+export interface PricingVisibility {
+  showDiagnostico: boolean;
+  showProgramas: boolean;
+  showMentorias: boolean;
+  showCirculo: boolean;
+  /** Códigos de planes/productos que NO se muestran (plan_code / product_code). */
+  hiddenCodes: string[];
+}
+
+export const DEFAULT_PRICING_VISIBILITY: PricingVisibility = {
+  showDiagnostico: true,
+  showProgramas: true,
+  showMentorias: true,
+  showCirculo: true,
+  hiddenCodes: [],
+};
+
 interface PricingMatrixClientProps {
   plans: SubscriptionPlanWithFeatures[];
   catalog?: CommercialProductRecord[];
   copy?: Partial<PricingCopy>;
+  visibility?: Partial<PricingVisibility>;
 }
 
 interface MentoringPack {
@@ -133,9 +152,30 @@ function formatDuration(days: number): string {
   return `${days} días`;
 }
 
-export function PricingMatrixClient({ plans, catalog = [], copy }: PricingMatrixClientProps) {
+export function PricingMatrixClient({ plans, catalog = [], copy, visibility }: PricingMatrixClientProps) {
   const c: PricingCopy = { ...DEFAULT_PRICING_COPY, ...copy };
-  const [tab, setTab] = useState<Tab>('programas');
+  const v: PricingVisibility = { ...DEFAULT_PRICING_VISIBILITY, ...visibility };
+  const visibleTabs = TABS.filter((t) => {
+    if (t.id === 'diagnostico') return v.showDiagnostico;
+    if (t.id === 'programas') return v.showProgramas;
+    if (t.id === 'mentorias') return v.showMentorias;
+    return v.showCirculo;
+  });
+  const hidden = useMemo(
+    () => new Set(v.hiddenCodes.map((code) => code.trim().toLowerCase()).filter(Boolean)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [v.hiddenCodes.join('|')],
+  );
+  const fallbackTab: Tab = visibleTabs.some((t) => t.id === 'programas')
+    ? 'programas'
+    : visibleTabs[0]?.id ?? 'programas';
+  const [tab, setTab] = useState<Tab>(fallbackTab);
+
+  // Si la pestaña activa se oculta desde el builder, salta a la primera visible.
+  useEffect(() => {
+    if (!visibleTabs.some((t) => t.id === tab)) setTab(fallbackTab);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleTabs.map((t) => t.id).join('|')]);
 
   // Deep-link por ancla: /planes-precios#diagnostico | #programas | #mentorias |
   // #circulo abre esa pestaña directamente. Al cambiar de pestaña se actualiza
@@ -143,11 +183,13 @@ export function PricingMatrixClient({ plans, catalog = [], copy }: PricingMatrix
   useEffect(() => {
     const syncFromHash = () => {
       const h = window.location.hash.replace('#', '').toLowerCase();
-      if (TABS.some((t) => t.id === h)) setTab(h as Tab);
+      if (visibleTabs.some((t) => t.id === h)) setTab(h as Tab);
     };
     syncFromHash();
     window.addEventListener('hashchange', syncFromHash);
     return () => window.removeEventListener('hashchange', syncFromHash);
+    // Solo al montar: visibleTabs es estable dentro de una misma página.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const selectTab = (id: Tab) => {
@@ -158,24 +200,31 @@ export function PricingMatrixClient({ plans, catalog = [], copy }: PricingMatrix
   };
 
   const programs = useMemo(
-    () => plans.filter((p) => p.planGroup === 'program').sort((a, b) => a.sortOrder - b.sortOrder),
-    [plans],
+    () =>
+      plans
+        .filter((p) => p.planGroup === 'program' && !hidden.has(p.planCode.toLowerCase()))
+        .sort((a, b) => a.sortOrder - b.sortOrder),
+    [plans, hidden],
   );
   const circulos = useMemo(
-    () => plans.filter((p) => p.planGroup === 'circulo').sort((a, b) => a.sortOrder - b.sortOrder),
-    [plans],
+    () =>
+      plans
+        .filter((p) => p.planGroup === 'circulo' && !hidden.has(p.planCode.toLowerCase()))
+        .sort((a, b) => a.sortOrder - b.sortOrder),
+    [plans, hidden],
   );
   const moduleGroups = useMemo(() => groupFeaturesByModule(), []);
 
   // Diagnóstico y Mentorías se leen del catálogo del admin (misma fuente que cobra
   // el checkout). Si el catálogo no está disponible, se usan valores por defecto.
-  const diagnostic = useMemo(
-    () => catalog.find((p) => p.productGroup === 'discovery') ?? null,
-    [catalog],
-  );
+  const diagnostic = useMemo(() => {
+    const found = catalog.find((p) => p.productGroup === 'discovery') ?? null;
+    if (found && hidden.has(found.productCode.toLowerCase())) return null;
+    return found;
+  }, [catalog, hidden]);
   const mentoringPacks = useMemo<MentoringPack[]>(() => {
     const fromCatalog = catalog
-      .filter((p) => p.productGroup === 'mentoring_pack')
+      .filter((p) => p.productGroup === 'mentoring_pack' && !hidden.has(p.productCode.toLowerCase()))
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .map((p) => {
         const cta = resolveCta({
@@ -199,7 +248,7 @@ export function PricingMatrixClient({ plans, catalog = [], copy }: PricingMatrix
     // del catálogo (los inactivos no llegan aquí porque listActiveProducts filtra
     // is_active = true). Si no hay ninguno activo, no se muestra ningún pack.
     return fromCatalog;
-  }, [catalog]);
+  }, [catalog, hidden]);
   const diagnosticName = diagnostic?.name || 'Diagnóstico Ejecutivo';
   const diagnosticPrice = diagnostic?.priceAmount ?? 50;
   const diagnosticCurrency = diagnostic?.currencyCode || 'USD';
@@ -212,11 +261,13 @@ export function PricingMatrixClient({ plans, catalog = [], copy }: PricingMatrix
   });
   const diagnosticCtaLabel = diagnostic?.ctaLabel || 'Comprar diagnóstico';
 
+  if (visibleTabs.length === 0) return null;
+
   return (
     <div className="mx-auto w-full max-w-[1240px] px-6 pb-24 md:px-10 lg:px-14">
-      {/* Tab filter */}
-      <div className="mb-10 flex flex-wrap gap-2">
-        {TABS.map((t) => {
+      {/* Tab filter (oculto si solo hay una pestaña visible) */}
+      <div className={visibleTabs.length > 1 ? 'mb-10 flex flex-wrap gap-2' : 'hidden'}>
+        {visibleTabs.map((t) => {
           const active = tab === t.id;
           return (
             <button

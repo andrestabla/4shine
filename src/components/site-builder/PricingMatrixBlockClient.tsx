@@ -1,7 +1,11 @@
 'use client';
 
 import React from 'react';
-import { PricingMatrixClient, type PricingCopy } from '@/components/marketing/PricingMatrixClient';
+import {
+  PricingMatrixClient,
+  type PricingCopy,
+  type PricingVisibility,
+} from '@/components/marketing/PricingMatrixClient';
 import type { SubscriptionPlanWithFeatures } from '@/features/planes/types';
 import type { CommercialProductRecord } from '@/features/access/types';
 
@@ -16,7 +20,13 @@ interface PricingData {
  * Es cliente para funcionar tanto en el sitio público como en la vista previa
  * del builder (que es un componente cliente).
  */
-export function PricingMatrixBlockClient({ copy }: { copy?: Partial<PricingCopy> }) {
+export function PricingMatrixBlockClient({
+  copy,
+  visibility,
+}: {
+  copy?: Partial<PricingCopy>;
+  visibility?: Partial<PricingVisibility>;
+}) {
   const [data, setData] = React.useState<PricingData | null>(null);
   const [failed, setFailed] = React.useState(false);
 
@@ -57,5 +67,5 @@ export function PricingMatrixBlockClient({ copy }: { copy?: Partial<PricingCopy>
     );
   }
 
-  return <PricingMatrixClient plans={data.plans} catalog={data.catalog} copy={copy} />;
+  return <PricingMatrixClient plans={data.plans} catalog={data.catalog} copy={copy} visibility={visibility} />;
 }
