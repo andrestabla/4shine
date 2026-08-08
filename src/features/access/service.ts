@@ -154,6 +154,34 @@ async function readHasDiscoverySession(
   return !!rows[0]?.exists;
 }
 
+/**
+ * ¿El líder tiene workbooks con trabajo REAL hecho?
+ *
+ * Ojo: a todo líder se le siembran 10 filas vacías en user_workbooks, así que
+ * la sola existencia de filas no prueba nada. Se exige avance registrado o
+ * contenido guardado; solo entonces aplica el derecho adquirido.
+ */
+async function readHasWorkbookProgress(
+  client: PoolClient,
+  userId: string,
+): Promise<boolean> {
+  const { rows } = await client.query<{ exists: boolean }>(
+    `
+      SELECT EXISTS (
+        SELECT 1
+        FROM app_learning.user_workbooks w
+        WHERE w.owner_user_id = $1::uuid
+          AND (
+            COALESCE(w.completion_percent, 0) > 0
+            OR (w.state_payload IS NOT NULL AND w.state_payload::text NOT IN ('null', '{}', '[]'))
+          )
+      ) AS exists
+    `,
+    [userId],
+  );
+  return !!rows[0]?.exists;
+}
+
 interface ActivePlanRow {
   plan_id: string;
   plan_code: string;
@@ -417,7 +445,15 @@ export async function getViewerAccessState(
     };
   }
 
-  const [planTypeCode, purchases, planWithFeatures, catalog, programStartedAt, hasDiscoverySession] =
+  const [
+    planTypeCode,
+    purchases,
+    planWithFeatures,
+    catalog,
+    programStartedAt,
+    hasDiscoverySession,
+    hasWorkbookProgress,
+  ] =
     await Promise.all([
       readPlanTypeCode(client, actor.userId),
       listActivePurchases(client, actor.userId),
@@ -425,6 +461,7 @@ export async function getViewerAccessState(
       catalogPromise,
       readProgramStartedAt(client, actor.userId),
       readHasDiscoverySession(client, actor.userId),
+      readHasWorkbookProgress(client, actor.userId),
     ]);
 
   const purchasedProductCodes = Array.from(
@@ -528,10 +565,12 @@ export async function getViewerAccessState(
     "aprendizaje",
     planEnables("aprendizaje_cursos") || legacyProgramGrants,
   );
+  // hasWorkbookProgress: derecho adquirido. Lo que el líder ya diligenció en sus
+  // workbooks no se le cierra al cambiar de plan (ver readHasWorkbookProgress).
   const canAccessProgramWorkbooks = withSectionOverride(
     "aprendizaje_workbooks",
     "aprendizaje",
-    planEnables("aprendizaje_workbooks") || legacyProgramGrants,
+    planEnables("aprendizaje_workbooks") || legacyProgramGrants || hasWorkbookProgress,
   );
   const canAccessMentoring1on1 = withSectionOverride(
     "mentorias_1on1",

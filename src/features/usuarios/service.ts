@@ -1782,6 +1782,115 @@ async function getUserProgramMentorshipSummary(
   };
 }
 
+/** Cuenta existente que podría ser la misma persona que se va a crear. */
+export interface SimilarUserRecord {
+  userId: string;
+  displayName: string;
+  email: string;
+  primaryRole: Role;
+  isActive: boolean;
+  planName: string | null;
+  hasDiagnostic: boolean;
+  hasWorkbookProgress: boolean;
+  matchReason: 'email' | 'nombre';
+  createdAt: string;
+}
+
+/**
+ * Busca cuentas que probablemente sean la MISMA persona: mismo correo, o un
+ * nombre que comparte al menos dos palabras significativas.
+ *
+ * Existe para evitar el caso que ya ocurrió: dar de alta una cuenta nueva a
+ * alguien que ya venía de Descubrimiento, con lo que su diagnóstico y su
+ * avance quedan colgando de la cuenta vieja y su ficha aparece vacía.
+ */
+export async function findSimilarUsers(
+  client: PoolClient,
+  input: { name?: string; email?: string },
+): Promise<SimilarUserRecord[]> {
+  await requireModulePermission(client, 'usuarios', 'view');
+
+  const name = (input.name ?? '').trim();
+  const email = (input.email ?? '').trim();
+  if (!name && !email) return [];
+
+  const { rows } = await client.query<{
+    user_id: string;
+    display_name: string;
+    email: string;
+    primary_role: Role;
+    is_active: boolean;
+    plan_name: string | null;
+    has_diagnostic: boolean;
+    has_workbook_progress: boolean;
+    match_reason: 'email' | 'nombre';
+    created_at: string;
+  }>(
+    `
+      WITH objetivo AS (
+        SELECT
+          lower($1) AS email_norm,
+          ARRAY(
+            SELECT t FROM unnest(string_to_array(
+              lower(translate($2, 'áéíóúüñÁÉÍÓÚÜÑ', 'aeiouunAEIOUUN')), ' ')) AS t
+            WHERE length(t) >= 3
+          ) AS tokens
+      )
+      SELECT
+        u.user_id::text,
+        u.display_name,
+        u.email::text,
+        u.primary_role,
+        u.is_active,
+        sp.name AS plan_name,
+        EXISTS (SELECT 1 FROM app_assessment.discovery_sessions d WHERE d.user_id = u.user_id) AS has_diagnostic,
+        EXISTS (
+          SELECT 1 FROM app_learning.user_workbooks w
+          WHERE w.owner_user_id = u.user_id
+            AND (COALESCE(w.completion_percent, 0) > 0
+                 OR (w.state_payload IS NOT NULL AND w.state_payload::text NOT IN ('null', '{}', '[]')))
+        ) AS has_workbook_progress,
+        CASE WHEN lower(u.email::text) = o.email_norm AND o.email_norm <> '' THEN 'email' ELSE 'nombre' END AS match_reason,
+        u.created_at::text
+      FROM app_core.users u
+      CROSS JOIN objetivo o
+      LEFT JOIN app_core.user_profiles up ON up.user_id = u.user_id
+      LEFT JOIN app_billing.subscription_plans sp ON sp.plan_id = up.subscription_plan_id
+      WHERE
+        (o.email_norm <> '' AND lower(u.email::text) = o.email_norm)
+        OR (
+          cardinality(o.tokens) >= 2
+          AND cardinality(
+            ARRAY(
+              SELECT unnest(ARRAY(
+                SELECT t FROM unnest(string_to_array(
+                  lower(translate(u.display_name, 'áéíóúüñÁÉÍÓÚÜÑ', 'aeiouunAEIOUUN')), ' ')) AS t
+                WHERE length(t) >= 3))
+              INTERSECT
+              SELECT unnest(o.tokens)
+            )
+          ) >= 2
+        )
+      ORDER BY (CASE WHEN lower(u.email::text) = o.email_norm THEN 0 ELSE 1 END), u.created_at
+      LIMIT 8
+    `,
+    [email, name],
+  );
+
+  return rows.map((row) => ({
+    userId: row.user_id,
+    displayName: row.display_name,
+    email: row.email,
+    primaryRole: row.primary_role,
+    isActive: row.is_active,
+    planName: row.plan_name,
+    hasDiagnostic: row.has_diagnostic,
+    hasWorkbookProgress: row.has_workbook_progress,
+    matchReason: row.match_reason,
+    createdAt: row.created_at,
+  }));
+}
+
 export async function getUserDetail(client: PoolClient, userId: string): Promise<UserDetailRecord> {
   await requireModulePermission(client, 'usuarios', 'view');
 

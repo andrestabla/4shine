@@ -5,7 +5,12 @@ import { Eye, EyeOff, Mail, RefreshCw, Save, UserPlus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useUser } from '@/context/UserContext';
-import { createUser, listOrganizations, type OrganizationRecord } from '@/features/usuarios/client';
+import {
+  createUser,
+  findSimilarUsers,
+  listOrganizations,
+  type OrganizationRecord,
+} from '@/features/usuarios/client';
 import {
   resolveUserTypeSelection,
   USER_TYPE_OPTIONS,
@@ -57,7 +62,7 @@ function generatePassword(): string {
 export default function NuevoUsuarioPage() {
   const router = useRouter();
   const { can, refreshBootstrap } = useUser();
-  const { alert } = useAppDialog();
+  const { alert, confirm } = useAppDialog();
 
   const [submitting, setSubmitting] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
@@ -150,6 +155,48 @@ export default function NuevoUsuarioPage() {
         tone: 'warning',
       });
       return;
+    }
+
+    // Aviso anti-duplicados: si ya existe una cuenta que parece la misma
+    // persona, se muestra antes de crear. Duplicar deja el diagnóstico y el
+    // avance colgando de la cuenta vieja y la ficha nueva sale vacía.
+    try {
+      const similares = await findSimilarUsers({
+        name: `${firstName} ${lastName}`.trim(),
+        email: form.email.trim(),
+      });
+      if (similares.length > 0) {
+        const detalle = similares
+          .map((u) => {
+            const marcas = [
+              u.hasDiagnostic ? 'con diagnóstico' : null,
+              u.hasWorkbookProgress ? 'con workbooks diligenciados' : null,
+              u.planName,
+              u.isActive ? null : 'inactiva',
+            ]
+              .filter(Boolean)
+              .join(' · ');
+            return `• ${u.displayName} (${u.email}) — ${u.primaryRole}${marcas ? ` · ${marcas}` : ''}`;
+          })
+          .join('\n');
+        const conDatos = similares.some((u) => u.hasDiagnostic || u.hasWorkbookProgress);
+        const seguir = await confirm({
+          title: 'Ya existe una cuenta parecida',
+          message:
+            `Encontramos ${similares.length === 1 ? 'una cuenta' : `${similares.length} cuentas`} que ` +
+            `podría${similares.length === 1 ? '' : 'n'} ser la misma persona:\n\n${detalle}\n\n` +
+            (conDatos
+              ? 'Esa cuenta ya tiene avance registrado. Si creas una nueva, ese progreso NO se traslada: ' +
+                'lo recomendable es abrir la cuenta existente y cambiarle el rol o el plan desde allí.'
+              : 'Si es la misma persona, conviene editar la cuenta existente en lugar de crear otra.'),
+          confirmText: 'Crear de todos modos',
+          cancelText: 'Cancelar',
+          tone: 'warning',
+        });
+        if (!seguir) return;
+      }
+    } catch {
+      // Si la comprobación falla no se bloquea el alta: es una ayuda, no un requisito.
     }
 
     setSubmitting(true);

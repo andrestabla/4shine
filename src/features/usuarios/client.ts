@@ -251,6 +251,28 @@ export async function updateUser(userId: string, input: UpdateUserInput): Promis
   });
 }
 
+export interface SimilarUserRecord {
+  userId: string;
+  displayName: string;
+  email: string;
+  primaryRole: AppRole;
+  isActive: boolean;
+  planName: string | null;
+  hasDiagnostic: boolean;
+  hasWorkbookProgress: boolean;
+  matchReason: 'email' | 'nombre';
+  createdAt: string;
+}
+
+/** Cuentas que podrían ser la misma persona (mismo correo o nombre parecido). */
+export async function findSimilarUsers(input: {
+  name?: string;
+  email?: string;
+}): Promise<SimilarUserRecord[]> {
+  const query = buildQuery({ name: input.name, email: input.email });
+  return requestApi<SimilarUserRecord[]>(`/api/v1/modules/usuarios/similar${query}`);
+}
+
 export async function setUserModuleAccess(
   userId: string,
   moduleCode: string,
