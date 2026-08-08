@@ -131,6 +131,29 @@ async function readProgramStartedAt(
   return rows[0]?.started_at ?? null;
 }
 
+/**
+ * ¿El líder ya tiene un diagnóstico de Descubrimiento (iniciado o terminado)?
+ *
+ * Regla de conservación: lo que un usuario ya hizo no se le puede quitar al
+ * cambiarle el plan. Si alcanzó a diligenciar su diagnóstico —siendo invitado o
+ * con otro plan—, conserva el acceso a sus resultados aunque el plan nuevo no
+ * incluya el módulo.
+ */
+async function readHasDiscoverySession(
+  client: PoolClient,
+  userId: string,
+): Promise<boolean> {
+  const { rows } = await client.query<{ exists: boolean }>(
+    `
+      SELECT EXISTS (
+        SELECT 1 FROM app_assessment.discovery_sessions WHERE user_id = $1::uuid
+      ) AS exists
+    `,
+    [userId],
+  );
+  return !!rows[0]?.exists;
+}
+
 interface ActivePlanRow {
   plan_id: string;
   plan_code: string;
@@ -394,13 +417,15 @@ export async function getViewerAccessState(
     };
   }
 
-  const [planTypeCode, purchases, planWithFeatures, catalog, programStartedAt] = await Promise.all([
-    readPlanTypeCode(client, actor.userId),
-    listActivePurchases(client, actor.userId),
-    readActivePlanWithFeatures(client, actor.userId),
-    catalogPromise,
-    readProgramStartedAt(client, actor.userId),
-  ]);
+  const [planTypeCode, purchases, planWithFeatures, catalog, programStartedAt, hasDiscoverySession] =
+    await Promise.all([
+      readPlanTypeCode(client, actor.userId),
+      listActivePurchases(client, actor.userId),
+      readActivePlanWithFeatures(client, actor.userId),
+      catalogPromise,
+      readProgramStartedAt(client, actor.userId),
+      readHasDiscoverySession(client, actor.userId),
+    ]);
 
   const purchasedProductCodes = Array.from(
     new Set(purchases.map((purchase) => purchase.product_code)),
@@ -492,9 +517,11 @@ export async function getViewerAccessState(
     "trayectoria",
     planEnables("trayectoria") || legacyProgramGrants,
   );
+  // hasDiscoverySession: derecho adquirido. Un diagnóstico ya diligenciado no
+  // se pierde al cambiar de plan (ver readHasDiscoverySession).
   const canAccessDescubrimiento = withOverride(
     "descubrimiento",
-    planEnables("descubrimiento") || legacyProgramGrants || grantsFromDiscovery,
+    planEnables("descubrimiento") || legacyProgramGrants || grantsFromDiscovery || hasDiscoverySession,
   );
   const canAccessAprendizajeCursos = withSectionOverride(
     "aprendizaje_cursos",
