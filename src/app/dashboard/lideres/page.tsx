@@ -19,6 +19,7 @@ import {
     X,
 } from 'lucide-react'
 import { PageTitle } from '@/components/dashboard/PageTitle'
+import { IncidenciasPanel } from '@/components/dashboard/IncidenciasPanel'
 import { useUser } from '@/context/UserContext'
 import { listLeaderSummaries, type LeaderSummary } from '@/features/lideres/client'
 import { subscriptionStatus, type SubscriptionStatus } from '@/features/usuarios/subscription-status'
@@ -563,6 +564,8 @@ export default function LideresPage() {
                 title="Líderes"
                 subtitle="Consulta el avance de cada líder y entra a su vista completa."
             />
+
+            <IncidenciasPanel />
 
             <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-end">

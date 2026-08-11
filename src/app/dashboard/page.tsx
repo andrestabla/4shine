@@ -22,6 +22,7 @@ import { getMentorshipOverview, type GroupSessionEventRecord } from "@/features/
 import { getMyDashboard, type DashboardSummary } from "@/features/dashboard/client";
 import { buildGreeting, buildNextSteps, type NextStep } from "@/features/dashboard/next-steps";
 import { PageTitle } from "@/components/dashboard/PageTitle";
+import { IncidenciasPanel } from "@/components/dashboard/IncidenciasPanel";
 import { StatGrid, type StatItem } from "@/components/dashboard/StatGrid";
 import type { UserStats } from "@/server/bootstrap/types";
 import { formatDateTime } from "@/lib/format-date";
@@ -478,6 +479,9 @@ export default function DashboardHomePage() {
   return (
     <div className="space-y-7">
       <PageTitle title={greeting.title} subtitle={greeting.subtitle} />
+
+      {/* Casos por solucionar: solo lo ven admin y gestor (el panel se oculta solo). */}
+      <IncidenciasPanel />
 
       <section className="app-panel p-5 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
