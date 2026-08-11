@@ -1436,6 +1436,12 @@ export function WorkbookV3Runtime({ config }: { config: WB1Config }) {
             const text = (value.text ?? '').toString()
             if (text.trim()) statePayload[id] = text
         }
+        // Nunca se sube un estado vacío: el runtime hidrata desde el
+        // localStorage del navegador y, si todavía no llegó la carga del
+        // servidor (o el workbook se abre desde otro equipo), ese vacío
+        // borraba las respuestas ya guardadas del líder.
+        if (Object.keys(statePayload).length === 0) return
+
         const snapshot = JSON.stringify({ p: completionPercent, s: statePayload })
         if (snapshot === lastServerPushRef.current) return
 
@@ -1474,6 +1480,7 @@ export function WorkbookV3Runtime({ config }: { config: WB1Config }) {
                 const text = (value.text ?? '').toString()
                 if (text.trim()) statePayload[id] = text
             }
+            if (Object.keys(statePayload).length === 0) return
             const snapshot = JSON.stringify({ p: completionPercent, s: statePayload })
             if (snapshot === lastServerPushRef.current) return
             try {

@@ -1629,11 +1629,41 @@ export async function updateWorkbook(
     typeof input.completionPercent === 'number' && Number.isFinite(input.completionPercent)
       ? Math.max(0, Math.min(100, Math.round(input.completionPercent)))
       : null;
-  const completionPercent = requestedCompletionPercent ?? calculateWorkbookCompletion(mergedFields);
-  const hasStatePayload = input.statePayload !== undefined;
-  const statePayload = hasStatePayload
-    ? normalizeWorkbookStatePayload(input.statePayload)
-    : current.statePayload;
+
+  // ── Protección del trabajo del líder ──────────────────────────────────────
+  // El contenido y el avance solo los escribe SU DUEÑO. Un gestor, un advisor
+  // o un admin que abre el workbook para revisarlo no debe tocarlos: el runtime
+  // hace autoguardado y llegó a sobrescribir las respuestas del líder con el
+  // estado (vacío) del navegador de quien lo abría.
+  const isOwner = current.ownerUserId === actor.userId;
+
+  const incomingState =
+    isOwner && input.statePayload !== undefined
+      ? normalizeWorkbookStatePayload(input.statePayload)
+      : null;
+  const storedHasContent = Object.keys(current.statePayload ?? {}).length > 0;
+  const incomingIsEmpty = incomingState !== null && Object.keys(incomingState).length === 0;
+
+  // Un envío vacío nunca borra contenido ya guardado: si el runtime aún no
+  // hidrató (o falló la carga), su estado vacío no puede pisar lo escrito.
+  const writeState = incomingState !== null && !(incomingIsEmpty && storedHasContent);
+  const hasStatePayload = writeState;
+  const statePayload = writeState ? incomingState : current.statePayload;
+
+  // El porcentaje se conserva salvo que el dueño lo informe explícitamente o
+  // que se editen los campos legacy. Antes se recalculaba SIEMPRE a partir de
+  // cuatro campos antiguos que los workbooks V3 no usan, así que cualquier
+  // PATCH (incluido el de un admin cambiando visibilidad) lo dejaba en 0 %.
+  let completionPercent = current.completionPercent;
+  if (isOwner && requestedCompletionPercent !== null) {
+    completionPercent = requestedCompletionPercent;
+  } else if (isOwner && input.editableFields !== undefined) {
+    completionPercent = calculateWorkbookCompletion(mergedFields);
+  }
+  // Si se descartó un estado vacío, tampoco se baja el porcentaje.
+  if (!writeState && incomingIsEmpty) {
+    completionPercent = current.completionPercent;
+  }
 
   const { rows } = await client.query<{ workbook_id: string }>(
     `

@@ -323,6 +323,12 @@ export function WorkbookDigitalRuntimeShell({
         }
 
         const statePayload = collectScopedStatePayload(workbookId)
+        // Mismo criterio que el runtime: un estado vacío no se sincroniza,
+        // porque solo puede destruir lo que el líder ya escribió.
+        if (Object.keys(statePayload).length === 0) {
+            return
+        }
+
         const completionPercent =
             detectedProgress ?? Math.max(0, Math.min(100, Math.round(remoteWorkbook?.completionPercent ?? 0)))
 
