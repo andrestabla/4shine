@@ -191,6 +191,12 @@ export interface UpdateWorkbookInput {
   editableFields?: Partial<WorkbookEditableFields>;
   completionPercent?: number;
   statePayload?: WorkbookStatePayload;
+  /**
+   * true = el cambio lo pidió una persona (botón Guardar o Completar con IA).
+   * Es lo que habilita a gestor y admin a escribir sobre el workbook de un
+   * líder; el autoguardado nunca lo envía.
+   */
+  explicitSave?: boolean;
   markDownloaded?: boolean;
 }
 
@@ -1631,14 +1637,19 @@ export async function updateWorkbook(
       : null;
 
   // ── Protección del trabajo del líder ──────────────────────────────────────
-  // El contenido y el avance solo los escribe SU DUEÑO. Un gestor, un advisor
-  // o un admin que abre el workbook para revisarlo no debe tocarlos: el runtime
-  // hace autoguardado y llegó a sobrescribir las respuestas del líder con el
-  // estado (vacío) del navegador de quien lo abría.
+  // El autoguardado de quien NO es el dueño nunca escribe: el runtime hidrata
+  // del navegador de quien abre y así se llegó a sobrescribir las respuestas
+  // del líder con un estado vacío.
+  //
+  // Gestor y admin sí pueden escribir, pero solo cuando lo piden de forma
+  // explícita (botón Guardar o Completar con IA), que es acompañamiento
+  // deliberado y no un efecto colateral de abrir la pantalla.
   const isOwner = current.ownerUserId === actor.userId;
+  const isStaffEditor = actor.role === 'admin' || actor.role === 'gestor';
+  const canWriteProgress = isOwner || (isStaffEditor && input.explicitSave === true);
 
   const incomingState =
-    isOwner && input.statePayload !== undefined
+    canWriteProgress && input.statePayload !== undefined
       ? normalizeWorkbookStatePayload(input.statePayload)
       : null;
   const storedHasContent = Object.keys(current.statePayload ?? {}).length > 0;
@@ -1655,9 +1666,9 @@ export async function updateWorkbook(
   // cuatro campos antiguos que los workbooks V3 no usan, así que cualquier
   // PATCH (incluido el de un admin cambiando visibilidad) lo dejaba en 0 %.
   let completionPercent = current.completionPercent;
-  if (isOwner && requestedCompletionPercent !== null) {
+  if (canWriteProgress && requestedCompletionPercent !== null) {
     completionPercent = requestedCompletionPercent;
-  } else if (isOwner && input.editableFields !== undefined) {
+  } else if (canWriteProgress && input.editableFields !== undefined) {
     completionPercent = calculateWorkbookCompletion(mergedFields);
   }
   // Si se descartó un estado vacío, tampoco se baja el porcentaje.

@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
     AlertTriangle,
@@ -1419,6 +1419,32 @@ export function WorkbookV3Runtime({ config }: { config: WB1Config }) {
     const { done, total } = countCompleted(config, values)
     const completionPercent = total === 0 ? 0 : Math.round((done / total) * 100)
 
+    // Guardado EXPLÍCITO (botón Guardar y Completar con IA). Va marcado para
+    // que el servidor lo acepte también cuando quien edita es un gestor o un
+    // admin trabajando sobre el workbook de un líder; el autoguardado de abajo
+    // nunca lleva esa marca, para que abrir la pantalla no altere nada.
+    const pushExplicit = useCallback(async (nextValues?: Record<string, WB1FieldValue>) => {
+        if (isTemplateView || !workbookId || workbookId === 'preview') return
+        const source = nextValues ?? values
+        const statePayload: Record<string, string> = {}
+        for (const [id, value] of Object.entries(source)) {
+            const text = (value.text ?? '').toString()
+            if (text.trim()) statePayload[id] = text
+        }
+        if (Object.keys(statePayload).length === 0) return
+        const { done, total } = countCompleted(config, source)
+        try {
+            await updateLearningWorkbook(workbookId, {
+                completionPercent: total === 0 ? 0 : Math.round((done / total) * 100),
+                statePayload,
+                explicitSave: true
+            })
+            setLastSavedAt(new Date().toISOString())
+        } catch {
+            // El fallo de red no interrumpe el trabajo; queda el autoguardado.
+        }
+    }, [config, isTemplateView, values, workbookId])
+
     // Autosave al servidor: empuja statePayload + completionPercent con
     // debounce de 1500ms. Permite que Trayectoria, Líderes 360 y el index
     // de Aprendizaje vean progreso real sin requerir un botón Guardar.
@@ -1608,6 +1634,10 @@ export function WorkbookV3Runtime({ config }: { config: WB1Config }) {
                     updatedAt: new Date().toISOString()
                 }
             }
+            // Guardado explícito: así el completado con IA que hace un gestor o
+            // un admin queda en la cuenta del líder (el autoguardado no basta,
+            // porque a propósito no escribe workbooks ajenos).
+            void pushExplicit(next)
             return next
         })
     }
@@ -1665,7 +1695,7 @@ export function WorkbookV3Runtime({ config }: { config: WB1Config }) {
                     <button
                         type="button"
                         className={WORKBOOK_V2_EDITORIAL.classes.saveButton}
-                        onClick={() => setLastSavedAt(new Date().toISOString())}
+                        onClick={() => void pushExplicit()}
                     >
                         <Save size={14} /> Guardar
                     </button>

@@ -443,16 +443,32 @@ export function WorkbookDigitalRuntimeShell({
 
     const viewerIsOwner = !currentUser?.id || !remoteWorkbook?.ownerUserId
         || remoteWorkbook.ownerUserId === currentUser.id
+    const canEditOthers = currentRole === 'admin' || currentRole === 'gestor'
 
     return (
         <div className="workbook-digital-shell">
             {!viewerIsOwner && (
-                // El servidor ya impide que alguien distinto al dueño escriba;
-                // esto lo hace evidente para quien revisa.
+                // Gestor y admin sí pueden intervenir el workbook de un líder,
+                // pero solo con un guardado explícito. El resto (advisor) lo ve
+                // en lectura, porque el servidor ignora sus escrituras.
                 <div className="mx-auto mb-3 max-w-5xl px-4">
-                    <p className="rounded-[0.9rem] border border-amber-200 bg-amber-50 px-4 py-2.5 text-[12.6px] font-semibold text-amber-800">
-                        Estás viendo el workbook de {remoteWorkbook?.ownerName || 'otro líder'} en modo lectura.
-                        Lo que escribas aquí no se guarda en su cuenta.
+                    <p className={`rounded-[0.9rem] border px-4 py-2.5 text-[12.6px] font-semibold ${
+                        canEditOthers
+                            ? 'border-[var(--brand-accent)]/45 bg-[var(--brand-accent)]/10 text-[var(--brand-primary)]'
+                            : 'border-amber-200 bg-amber-50 text-amber-800'
+                    }`}>
+                        {canEditOthers ? (
+                            <>
+                                Estás en el workbook de {remoteWorkbook?.ownerName || 'un líder'}. Para que tus
+                                cambios queden en su cuenta usa <b>Guardar</b> o <b>Completar con IA</b>; lo que
+                                escribas sin guardar no se conserva.
+                            </>
+                        ) : (
+                            <>
+                                Estás viendo el workbook de {remoteWorkbook?.ownerName || 'otro líder'} en modo
+                                lectura. Lo que escribas aquí no se guarda en su cuenta.
+                            </>
+                        )}
                     </p>
                 </div>
             )}

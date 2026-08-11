@@ -326,7 +326,8 @@ export default function Leader360Page() {
                                             )}
                                         </td>
                                         <td className="text-[var(--app-muted)]">{formatDate(wb.updatedAt)}</td>
-                                        <td>
+                                        {/* El clic del enlace no debe sumarse al de la fila: abría dos pestañas. */}
+                                        <td onClick={(event) => event.stopPropagation()}>
                                             <Link
                                                 href={wb.deepLink}
                                                 target="_blank"
