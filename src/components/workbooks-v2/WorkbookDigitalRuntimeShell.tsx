@@ -131,7 +131,11 @@ function expandFieldPayload(slug: string, payload: WorkbookStatePayload): Workbo
             // Blob ilegible: se reconstruye desde los campos sueltos.
         }
     }
-    for (const [id, text] of fields) values[id] = { text: String(text) }
+    // Los valores van como TEXTO PLANO, que es lo que el runtime serializa y
+    // sabe leer: su parseFieldValue devuelve vacío para cualquier objeto, así
+    // que escribirlos como { text } dejaba el workbook en blanco. Si el campo
+    // trae audio o IA, ya viene como JSON en string y se pasa tal cual.
+    for (const [id, text] of fields) values[id] = String(text)
 
     out[blobKey] = JSON.stringify({ values, activePage, lastSavedAt })
     return out
