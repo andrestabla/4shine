@@ -229,12 +229,18 @@ async function detectProgressMismatch(client: PoolClient): Promise<IncidentRecor
   }>(
     `
       SELECT u.user_id::text, u.display_name, u.email::text, w.title,
-             (SELECT COUNT(*) FROM jsonb_object_keys(w.state_payload))::int AS llaves
+             (SELECT COUNT(*) FROM jsonb_each_text(w.state_payload) e
+               WHERE e.key ~ '^wb[0-9]+v3-' AND length(btrim(e.value)) > 0)::int AS llaves
       FROM app_learning.user_workbooks w
       JOIN app_core.users u ON u.user_id = w.owner_user_id
       WHERE u.is_active = true
         AND COALESCE(w.completion_percent, 0) = 0
-        AND (SELECT COUNT(*) FROM jsonb_object_keys(COALESCE(w.state_payload, '{}'::jsonb))) >= 5
+        -- Se cuentan RESPUESTAS con texto, no llaves: los workbooks del formato
+        -- antiguo guardan decenas de llaves vacías y aparecían como falsos casos.
+        AND (
+          SELECT COUNT(*) FROM jsonb_each_text(COALESCE(w.state_payload, '{}'::jsonb)) e
+          WHERE e.key ~ '^wb[0-9]+v3-' AND length(btrim(e.value)) > 0
+        ) >= 3
       ORDER BY llaves DESC
       LIMIT 20
     `,
