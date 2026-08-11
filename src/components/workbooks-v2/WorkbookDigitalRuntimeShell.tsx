@@ -92,6 +92,51 @@ function clearScopedStatePayload(rawStorage: StoragePrototype, workbookId: strin
     }
 }
 
+/**
+ * El estado del líder viaja en dos formatos incompatibles entre sí:
+ *   A) una llave por campo  ("wb1v3-1-1": "texto"), que es lo que sube el
+ *      autoguardado del runtime V3;
+ *   B) un blob de localStorage ("workbooks-v2-wb1-v3-state": "{values:…}"),
+ *      que es lo que el runtime LEE al arrancar.
+ *
+ * Sin traducir A → B, abrir un workbook ya diligenciado lo mostraba en blanco:
+ * el servidor tenía las respuestas, pero el runtime buscaba una llave que no
+ * existía. Aquí se sintetiza el blob a partir de los campos sueltos.
+ */
+function expandFieldPayload(slug: string, payload: WorkbookStatePayload): WorkbookStatePayload {
+    const out: WorkbookStatePayload = { ...payload }
+    const fields = Object.entries(payload).filter(([key, value]) => /^wb\d+v3-/.test(key) && String(value ?? '').trim())
+    if (fields.length === 0) return out
+
+    const blobKey = `workbooks-v2-${slug}-v3-state`
+
+    // Los dos formatos pueden convivir en la misma cuenta, así que se FUSIONAN:
+    // se parte del blob existente y encima se aplican los campos sueltos. Antes
+    // se descartaba uno de los dos y un workbook con respuestas abría vacío.
+    let values: Record<string, unknown> = {}
+    let activePage = 0
+    let lastSavedAt: unknown = null
+    const existing = out[blobKey]
+    if (typeof existing === 'string' && existing) {
+        try {
+            const parsed = JSON.parse(existing) as {
+                values?: Record<string, unknown>
+                activePage?: number
+                lastSavedAt?: unknown
+            }
+            if (parsed?.values && typeof parsed.values === 'object') values = { ...parsed.values }
+            if (typeof parsed?.activePage === 'number') activePage = parsed.activePage
+            lastSavedAt = parsed?.lastSavedAt ?? null
+        } catch {
+            // Blob ilegible: se reconstruye desde los campos sueltos.
+        }
+    }
+    for (const [id, text] of fields) values[id] = { text: String(text) }
+
+    out[blobKey] = JSON.stringify({ values, activePage, lastSavedAt })
+    return out
+}
+
 function hydrateScopedStatePayload(
     rawStorage: StoragePrototype,
     workbookId: string,
@@ -268,7 +313,7 @@ export function WorkbookDigitalRuntimeShell({
                 if (!active || !rawStorageRef.current) return
 
                 const localPayload = collectScopedStatePayload(workbookId)
-                const persistedPayload = workbook.statePayload
+                const persistedPayload = expandFieldPayload(slug, workbook.statePayload)
                 const initialPayload =
                     Object.keys(persistedPayload).length > 0 ? persistedPayload : localPayload
 
@@ -392,8 +437,21 @@ export function WorkbookDigitalRuntimeShell({
         )
     }
 
+    const viewerIsOwner = !currentUser?.id || !remoteWorkbook?.ownerUserId
+        || remoteWorkbook.ownerUserId === currentUser.id
+
     return (
         <div className="workbook-digital-shell">
+            {!viewerIsOwner && (
+                // El servidor ya impide que alguien distinto al dueño escriba;
+                // esto lo hace evidente para quien revisa.
+                <div className="mx-auto mb-3 max-w-5xl px-4">
+                    <p className="rounded-[0.9rem] border border-amber-200 bg-amber-50 px-4 py-2.5 text-[12.6px] font-semibold text-amber-800">
+                        Estás viendo el workbook de {remoteWorkbook?.ownerName || 'otro líder'} en modo lectura.
+                        Lo que escribas aquí no se guarda en su cuenta.
+                    </p>
+                </div>
+            )}
             {children}
 
             <style jsx global>{`

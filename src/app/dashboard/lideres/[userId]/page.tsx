@@ -9,7 +9,6 @@ import {
     CalendarPlus,
     CheckCircle2,
     Compass,
-    Eye,
     ExternalLink,
     Loader2,
     Megaphone,
@@ -20,7 +19,6 @@ import {
     X
 } from 'lucide-react';
 import { PageTitle } from '@/components/dashboard/PageTitle';
-import { WorkbookAnswersModal } from '@/components/dashboard/WorkbookAnswersModal';
 import { useUser } from '@/context/UserContext';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import {
@@ -132,10 +130,6 @@ export default function Leader360Page() {
     }, [userId, loadSnapshot]);
 
     // Agendar mentoría 1:1 con el líder, directo desde la vista 360.
-    // Workbook cuyo contenido se está leyendo (solo lectura).
-    const [openWorkbook, setOpenWorkbook] = React.useState<{
-        workbookId: string; templateCode: string; title: string; deepLink: string;
-    } | null>(null);
     const [scheduleOpen, setScheduleOpen] = React.useState(false);
     const [scheduling, setScheduling] = React.useState(false);
     const [advisors, setAdvisors] = React.useState<AdvisorOption[]>([]);
@@ -314,14 +308,9 @@ export default function Leader360Page() {
                                 {workbooks.map((wb) => (
                                     <tr
                                         key={wb.workbookId}
-                                        onClick={() => setOpenWorkbook({
-                                            workbookId: wb.workbookId,
-                                            templateCode: wb.templateCode,
-                                            title: wb.title,
-                                            deepLink: wb.deepLink,
-                                        })}
+                                        onClick={() => window.open(wb.deepLink, '_blank', 'noopener,noreferrer')}
                                         className="cursor-pointer transition hover:bg-[var(--app-surface-muted)]/60"
-                                        title="Ver las respuestas del líder"
+                                        title="Abrir el workbook diligenciado en una pestaña nueva"
                                     >
                                         <td className="font-semibold text-[var(--brand-primary)]">{wb.templateCode}</td>
                                         <td>{wb.title}</td>
@@ -337,28 +326,16 @@ export default function Leader360Page() {
                                             )}
                                         </td>
                                         <td className="text-[var(--app-muted)]">{formatDate(wb.updatedAt)}</td>
-                                        <td onClick={(event) => event.stopPropagation()}>
-                                            <div className="flex items-center gap-1.5">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setOpenWorkbook({
-                                                        workbookId: wb.workbookId,
-                                                        templateCode: wb.templateCode,
-                                                        title: wb.title,
-                                                        deepLink: wb.deepLink,
-                                                    })}
-                                                    className="inline-flex items-center gap-1 rounded-full border border-[var(--brand-accent)]/40 bg-[var(--brand-accent)]/10 px-3 py-1 text-xs font-semibold text-[var(--brand-primary)] hover:bg-[var(--brand-accent)]/20"
-                                                >
-                                                    Ver respuestas <Eye size={12} />
-                                                </button>
-                                                <Link
-                                                    href={wb.deepLink}
-                                                    className="inline-flex items-center gap-1 rounded-full border border-[var(--app-border)] px-3 py-1 text-xs font-semibold text-[var(--app-muted)] hover:text-[var(--app-ink)]"
-                                                    title="Abrir el workbook completo"
-                                                >
-                                                    Abrir <ExternalLink size={12} />
-                                                </Link>
-                                            </div>
+                                        <td>
+                                            <Link
+                                                href={wb.deepLink}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="inline-flex items-center gap-1 rounded-full border border-[var(--brand-accent)]/40 bg-[var(--brand-accent)]/10 px-3 py-1 text-xs font-semibold text-[var(--brand-primary)] hover:bg-[var(--brand-accent)]/20"
+                                                title="Abrir el workbook diligenciado en una pestaña nueva"
+                                            >
+                                                Abrir <ExternalLink size={12} />
+                                            </Link>
                                         </td>
                                     </tr>
                                 ))}
@@ -710,26 +687,6 @@ export default function Leader360Page() {
                 <Sparkles size={14} className="mr-1 inline" />
                 Esta vista se actualiza cada vez que abres la página. Desde cada workbook puedes entrar a editarlo.
             </div>
-
-            {openWorkbook && (
-
-                <WorkbookAnswersModal
-
-                    workbookId={openWorkbook.workbookId}
-
-                    workbookCode={openWorkbook.templateCode}
-
-                    title={openWorkbook.title}
-
-                    ownerName={profile.displayName}
-
-                    deepLink={openWorkbook.deepLink}
-
-                    onClose={() => setOpenWorkbook(null)}
-
-                />
-
-            )}
 
 
             {scheduleOpen && (
