@@ -117,7 +117,7 @@ export async function listTemplates(
   client: PoolClient,
   actor: AuthUser,
 ): Promise<NotificationTemplateRecord[]> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'notificaciones', 'manage');
   const orgId = await resolveOrgId(client, actor.userId);
 
   const { rows } = await client.query<TemplateRow>(
@@ -135,7 +135,7 @@ export async function getTemplate(
   actor: AuthUser,
   templateId: string,
 ): Promise<NotificationTemplateRecord | null> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'notificaciones', 'manage');
   const orgId = await resolveOrgId(client, actor.userId);
 
   const { rows } = await client.query<TemplateRow>(
@@ -153,7 +153,7 @@ export async function createTemplate(
   actor: AuthUser,
   input: CreateTemplateInput,
 ): Promise<NotificationTemplateRecord> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'notificaciones', 'manage');
   const orgId = await resolveOrgId(client, actor.userId);
 
   const { rows } = await client.query<TemplateRow>(
@@ -192,7 +192,7 @@ export async function updateTemplate(
   templateId: string,
   input: UpdateTemplateInput,
 ): Promise<NotificationTemplateRecord> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'notificaciones', 'manage');
   const orgId = await resolveOrgId(client, actor.userId);
 
   const { rows: existing } = await client.query<{ is_system: boolean }>(
@@ -243,7 +243,7 @@ export async function deleteTemplate(
   actor: AuthUser,
   templateId: string,
 ): Promise<void> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'notificaciones', 'manage');
   const orgId = await resolveOrgId(client, actor.userId);
 
   const { rows } = await client.query<{ is_system: boolean }>(
@@ -266,7 +266,7 @@ export async function listEventConfigs(
   client: PoolClient,
   actor: AuthUser,
 ): Promise<NotificationEventConfigRecord[]> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'notificaciones', 'manage');
   const orgId = await resolveOrgId(client, actor.userId);
 
   const { rows } = await client.query<EventConfigRow>(
@@ -287,7 +287,7 @@ export async function upsertEventConfig(
   moduleCode: string,
   input: UpdateEventConfigInput,
 ): Promise<NotificationEventConfigRecord> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'notificaciones', 'manage');
   const orgId = await resolveOrgId(client, actor.userId);
 
   const { rows } = await client.query<EventConfigRow>(
@@ -453,7 +453,7 @@ export async function getNotificationSettings(
   client: PoolClient,
   actor: AuthUser,
 ): Promise<NotificationGlobalSettings> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'notificaciones', 'manage');
   const orgId = await resolveOrgId(client, actor.userId);
   const { rows } = await client.query<GlobalSettingsRow>(
     `SELECT ${GLOBAL_SETTINGS_SELECT}
@@ -469,7 +469,7 @@ export async function upsertNotificationSettings(
   actor: AuthUser,
   input: NotificationGlobalSettings,
 ): Promise<NotificationGlobalSettings> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'notificaciones', 'manage');
   const orgId = await resolveOrgId(client, actor.userId);
   const { rows } = await client.query<GlobalSettingsRow>(
     `INSERT INTO app_admin.notification_global_settings

@@ -150,7 +150,7 @@ function sanitizePlans(plans: string[] | undefined): string[] {
 // ─── Admin CRUD ─────────────────────────────────────────────────────────────
 
 export async function listPopups(client: PoolClient, actor: AuthUser): Promise<PopupRecord[]> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'notificaciones', 'manage');
   const orgId = await resolveOrgId(client, actor.userId);
   const { rows } = await client.query<PopupRow>(
     `SELECT ${POPUP_SELECT} FROM app_admin.popups
@@ -165,7 +165,7 @@ export async function getPopup(
   actor: AuthUser,
   popupId: string,
 ): Promise<PopupRecord | null> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'notificaciones', 'manage');
   const orgId = await resolveOrgId(client, actor.userId);
   const { rows } = await client.query<PopupRow>(
     `SELECT ${POPUP_SELECT} FROM app_admin.popups
@@ -180,7 +180,7 @@ export async function createPopup(
   actor: AuthUser,
   input: CreatePopupInput,
 ): Promise<PopupRecord> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'notificaciones', 'manage');
   const orgId = await resolveOrgId(client, actor.userId);
 
   const { rows: maxRows } = await client.query<{ next: number }>(
@@ -238,7 +238,7 @@ export async function updatePopup(
   popupId: string,
   input: UpdatePopupInput,
 ): Promise<PopupRecord> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'notificaciones', 'manage');
   const orgId = await resolveOrgId(client, actor.userId);
 
   const setClauses: string[] = ['updated_by = $3'];
@@ -291,7 +291,7 @@ export async function updatePopup(
 }
 
 export async function deletePopup(client: PoolClient, actor: AuthUser, popupId: string): Promise<void> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'notificaciones', 'manage');
   const orgId = await resolveOrgId(client, actor.userId);
   await client.query(`DELETE FROM app_admin.popups WHERE organization_id = $1 AND popup_id = $2`, [
     orgId,

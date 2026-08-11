@@ -1,6 +1,7 @@
 export const MODULE_CODES = [
   'analitica',
   'aprendizaje',
+  'asistente_ia',
   'contenido',
   'convocatorias',
   'notificaciones',
@@ -8,6 +9,7 @@ export const MODULE_CODES = [
   'descubrimiento',
   'formacion_mentores',
   'gestion_formacion_mentores',
+  'ghl',
   'lideres',
   'mensajes',
   'mentorias',

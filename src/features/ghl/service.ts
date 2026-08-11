@@ -860,7 +860,7 @@ export async function getGhlDashboard(
   _actor: AuthUser,
   options?: { limit?: number; status?: string | null; search?: string | null },
 ): Promise<GhlDashboardData> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'ghl', 'manage');
 
   const limit = Math.min(Math.max(options?.limit ?? 100, 1), 500);
   const status = options?.status?.trim() || null;
@@ -971,7 +971,7 @@ export async function updateGhlProgram(
   _actor: AuthUser,
   input: UpdateGhlProgramInput,
 ): Promise<GhlProgramMapRecord> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'ghl', 'manage');
 
   const { rows } = await client.query(
     `UPDATE app_billing.ghl_program_map m
@@ -1005,7 +1005,7 @@ export async function retryGhlEvent(
   actor: AuthUser,
   eventId: string,
 ): Promise<GhlProcessResult> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'ghl', 'manage');
 
   const { rows } = await client.query<{ payload: unknown; transaction_id: string; event_type: string }>(
     `SELECT payload, transaction_id, event_type

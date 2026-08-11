@@ -84,7 +84,7 @@ export async function getPublicAssistantSettings(
   client: PoolClient,
   actor: AuthUser,
 ): Promise<PublicAssistantSettings> {
-  await requireModulePermission(client, 'usuarios', 'view');
+  await requireModulePermission(client, 'asistente_ia', 'view');
   const orgId = await resolveOrgId(client, actor.userId);
   return toSettings(await loadOrCreate(client, orgId));
 }
@@ -94,7 +94,7 @@ export async function updatePublicAssistantSettings(
   actor: AuthUser,
   input: UpdatePublicAssistantInput,
 ): Promise<PublicAssistantSettings> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'asistente_ia', 'manage');
   const orgId = await resolveOrgId(client, actor.userId);
   await loadOrCreate(client, orgId);
 

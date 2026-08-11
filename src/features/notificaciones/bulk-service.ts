@@ -249,7 +249,7 @@ export async function previewBulkAudience(
   actor: AuthUser,
   filter: BulkAudienceFilter,
 ): Promise<BulkAudiencePreview> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'notificaciones', 'manage');
   if (!isAllowedManager(actor)) {
     throw new Error('Solo admin y gestor pueden segmentar usuarios.');
   }
@@ -341,7 +341,7 @@ export async function listAudience(
   filter: BulkAudienceFilter,
   pagination: { limit?: number; offset?: number } = {},
 ): Promise<AudiencePage> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'notificaciones', 'manage');
   if (!isAllowedManager(actor)) {
     throw new Error('Solo admin y gestor pueden segmentar usuarios.');
   }
@@ -396,7 +396,7 @@ export async function searchPlatformUsers(
   query: string,
   limit = 20,
 ): Promise<UserSearchResult[]> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'notificaciones', 'manage');
   if (!isAllowedManager(actor)) {
     throw new Error('Solo admin y gestor pueden buscar usuarios.');
   }
@@ -522,7 +522,7 @@ export async function sendBulkMessage(
   actor: AuthUser,
   input: BulkSendInput,
 ): Promise<BulkSendResult> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'notificaciones', 'manage');
   if (!isAllowedManager(actor)) {
     throw new Error('Solo admin y gestor pueden enviar mensajes masivos.');
   }
@@ -797,7 +797,7 @@ export async function listNotificationHistory(
   actor: AuthUser,
   filter: NotificationHistoryFilter = {},
 ): Promise<NotificationHistoryPage> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'notificaciones', 'manage');
   if (!isAllowedManager(actor)) {
     throw new Error('Solo admin y gestor pueden ver el historial.');
   }

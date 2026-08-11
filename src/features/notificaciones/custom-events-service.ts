@@ -89,7 +89,7 @@ export async function listCustomEvents(
   client: PoolClient,
   actor: AuthUser,
 ): Promise<CustomEventRecord[]> {
-  await requireModulePermission(client, 'usuarios', 'view');
+  await requireModulePermission(client, 'notificaciones', 'view');
   const organizationId = await actorOrganizationId(client, actor);
   const { rows } = await client.query<EventRow>(
     `SELECT ${SELECT} FROM app_admin.notification_events
@@ -104,7 +104,7 @@ export async function createCustomEvent(
   actor: AuthUser,
   input: CreateCustomEventInput,
 ): Promise<CustomEventRecord> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'notificaciones', 'manage');
   const organizationId = await actorOrganizationId(client, actor);
   const label = input.label.trim();
   if (!label) throw new Error('El nombre del evento es obligatorio.');
@@ -152,7 +152,7 @@ export async function updateCustomEvent(
   eventId: string,
   input: UpdateCustomEventInput,
 ): Promise<CustomEventRecord> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'notificaciones', 'manage');
   const organizationId = await actorOrganizationId(client, actor);
 
   const fields: Array<[string, unknown]> = [
@@ -194,7 +194,7 @@ export async function deleteCustomEvent(
   actor: AuthUser,
   eventId: string,
 ): Promise<{ eventId: string }> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'notificaciones', 'manage');
   const organizationId = await actorOrganizationId(client, actor);
   await client.query(
     `DELETE FROM app_admin.notification_events WHERE event_id = $1::uuid AND organization_id = $2::uuid`,

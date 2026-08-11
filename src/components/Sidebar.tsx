@@ -173,19 +173,18 @@ const MAIN_NAV_ITEMS: NavItem[] = [
 
 const ADMIN_NAV_ITEMS: NavItem[] = [
   {
+    // Admin y gestor: el índice muestra solo las tarjetas que cada rol puede
+    // abrir (ver ADMIN_CARDS en /dashboard/administracion).
     moduleCode: "usuarios",
     label: "Panel Administración",
     icon: ShieldCheck,
     path: "/dashboard/administracion",
-    requiredAction: "manage",
-    adminOnly: true,
   },
   {
     moduleCode: "usuarios",
     label: "Gestión Usuarios",
     icon: Settings,
     path: "/dashboard/usuarios",
-    adminOnly: true,
   },
   {
     moduleCode: "usuarios",

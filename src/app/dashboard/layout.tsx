@@ -65,7 +65,9 @@ const ACCESS_BY_PATH: Record<string, RouteAccess> = {
     moduleCode: "gestion_formacion_mentores",
   },
   "/dashboard/usuarios": { moduleCode: "usuarios", action: "view" },
-  "/dashboard/administracion": { moduleCode: "usuarios", action: "manage" },
+  // El índice de administración lo ven admin y gestor (usuarios:view); dentro,
+  // cada tarjeta y cada ruta exigen su propia llave.
+  "/dashboard/administracion": { moduleCode: "usuarios", action: "view" },
   "/dashboard/administracion/branding": {
     moduleCode: "usuarios",
     action: "manage",
@@ -79,7 +81,15 @@ const ACCESS_BY_PATH: Record<string, RouteAccess> = {
     action: "manage",
   },
   "/dashboard/administracion/asistente-ia": {
-    moduleCode: "usuarios",
+    moduleCode: "asistente_ia",
+    action: "manage",
+  },
+  "/dashboard/administracion/notificaciones": {
+    moduleCode: "notificaciones",
+    action: "manage",
+  },
+  "/dashboard/administracion/ghl": {
+    moduleCode: "ghl",
     action: "manage",
   },
   "/dashboard/administracion/documentacion": {
@@ -112,10 +122,23 @@ function resolveRouteAccess(pathname: string): RouteAccess | undefined {
     return { moduleCode: "usuarios", action: "view" };
   }
 
-  // Cualquier sección de administración (planes, site, notificaciones, pagos,
-  // políticas, documentación y sus rutas dinámicas) requiere usuarios:manage.
-  // Evita que un gestor u otro rol renderice paneles admin por URL directa antes
-  // de que el backend rechace (auditoría UX B6).
+  // Áreas administrativas con llave propia (el gestor entra a estas):
+  // notificaciones incluye sus subrutas, como el constructor de banners.
+  if (pathname.startsWith("/dashboard/administracion/notificaciones")) {
+    return { moduleCode: "notificaciones", action: "manage" };
+  }
+  if (pathname.startsWith("/dashboard/administracion/asistente-ia")) {
+    return { moduleCode: "asistente_ia", action: "manage" };
+  }
+  if (pathname.startsWith("/dashboard/administracion/ghl")) {
+    return { moduleCode: "ghl", action: "manage" };
+  }
+
+  // El resto de administración (planes, site, branding, integraciones, módulos,
+  // pagos, políticas, tour, documentación y sus rutas dinámicas) sigue exigiendo
+  // usuarios:manage, que solo tiene el administrador. Evita que otro rol
+  // renderice paneles admin por URL directa antes de que el backend rechace
+  // (auditoría UX B6).
   if (pathname.startsWith("/dashboard/administracion")) {
     return { moduleCode: "usuarios", action: "manage" };
   }

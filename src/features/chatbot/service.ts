@@ -92,7 +92,7 @@ async function loadSettings(client: PoolClient, orgId: string): Promise<Settings
 }
 
 export async function getSettings(client: PoolClient, actor: AuthUser): Promise<ChatbotSettings> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'asistente_ia', 'manage');
   const orgId = await resolveOrgId(client, actor.userId);
   return toSettings(await loadSettings(client, orgId));
 }
@@ -102,7 +102,7 @@ export async function updateSettings(
   actor: AuthUser,
   input: UpdateChatbotSettingsInput,
 ): Promise<ChatbotSettings> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'asistente_ia', 'manage');
   const orgId = await resolveOrgId(client, actor.userId);
   await loadSettings(client, orgId);
 
@@ -152,7 +152,7 @@ function toFaq(row: FaqRow): ChatbotFaq {
 }
 
 export async function listFaqs(client: PoolClient, actor: AuthUser): Promise<ChatbotFaq[]> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'asistente_ia', 'manage');
   const orgId = await resolveOrgId(client, actor.userId);
   const { rows } = await client.query<FaqRow>(
     `SELECT ${FAQ_SELECT} FROM app_admin.chatbot_faqs WHERE organization_id = $1 ORDER BY sort_order, created_at`,
@@ -162,7 +162,7 @@ export async function listFaqs(client: PoolClient, actor: AuthUser): Promise<Cha
 }
 
 export async function createFaq(client: PoolClient, actor: AuthUser, input: CreateFaqInput): Promise<ChatbotFaq> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'asistente_ia', 'manage');
   const orgId = await resolveOrgId(client, actor.userId);
   const { rows: maxRows } = await client.query<{ next: number }>(
     `SELECT COALESCE(MAX(sort_order), 0) + 1 AS next FROM app_admin.chatbot_faqs WHERE organization_id = $1`,
@@ -182,7 +182,7 @@ export async function updateFaq(
   faqId: string,
   input: UpdateFaqInput,
 ): Promise<ChatbotFaq> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'asistente_ia', 'manage');
   const orgId = await resolveOrgId(client, actor.userId);
   const setClauses: string[] = ['updated_by = $3'];
   const params: unknown[] = [orgId, faqId, actor.userId];
@@ -205,7 +205,7 @@ export async function updateFaq(
 }
 
 export async function deleteFaq(client: PoolClient, actor: AuthUser, faqId: string): Promise<void> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'asistente_ia', 'manage');
   const orgId = await resolveOrgId(client, actor.userId);
   await client.query(`DELETE FROM app_admin.chatbot_faqs WHERE organization_id = $1 AND faq_id = $2`, [orgId, faqId]);
 }
@@ -213,7 +213,7 @@ export async function deleteFaq(client: PoolClient, actor: AuthUser, faqId: stri
 // ─── Admin: conversaciones + analítica ──────────────────────────────────────
 
 export async function listConversations(client: PoolClient, actor: AuthUser): Promise<AdminConversation[]> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'asistente_ia', 'manage');
   const orgId = await resolveOrgId(client, actor.userId);
   const { rows } = await client.query<{
     conversation_id: string;
@@ -251,7 +251,7 @@ export async function getConversationMessages(
   conversationId: string,
   asAdmin: boolean,
 ): Promise<ChatMessage[]> {
-  if (asAdmin) await requireModulePermission(client, 'usuarios', 'manage');
+  if (asAdmin) await requireModulePermission(client, 'asistente_ia', 'manage');
   // RLS garantiza que un usuario solo lea su conversación; admin/gestor leen todas.
   const { rows } = await client.query<{ message_id: string; role: 'user' | 'assistant'; content: string; created_at: string }>(
     `SELECT message_id::text, role, content, created_at::text
@@ -262,7 +262,7 @@ export async function getConversationMessages(
 }
 
 export async function getAnalytics(client: PoolClient, actor: AuthUser): Promise<ChatbotAnalytics> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'asistente_ia', 'manage');
   const orgId = await resolveOrgId(client, actor.userId);
   const { rows } = await client.query<{ conversations: number; messages: number; active_users: number }>(
     `SELECT
