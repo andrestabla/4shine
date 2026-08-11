@@ -130,8 +130,19 @@ export function WorkbookDigitalRuntimeShell({
     const [remoteReady, setRemoteReady] = React.useState(false)
     const [remoteWorkbook, setRemoteWorkbook] = React.useState<WorkbookRecord | null>(null)
 
-    const injectIdentificationDefaults = React.useCallback((ownerName: string) => {
+    // `force` se usa cuando el workbook es de OTRA persona: ahí el nombre y el
+    // rol del encabezado (y del PDF exportado) deben ser los del dueño, no los
+    // de quien lo abre. Sin esto, un gestor o admin que revisaba el workbook
+    // lo exportaba con su propio nombre.
+    const injectIdentificationDefaults = React.useCallback((
+        ownerName: string,
+        roleLabelText: string = ownerRoleLabel,
+        force: boolean = false,
+    ) => {
         if (typeof window === 'undefined' || !rawStorageRef.current) return
+
+        const pick = (currentValue: string | undefined, ownerValue: string) =>
+            force ? ownerValue : currentValue?.trim() || ownerValue
 
         const rawStorage = rawStorageRef.current
         const today = new Date().toISOString().slice(0, 10)
@@ -149,8 +160,8 @@ export function WorkbookDigitalRuntimeShell({
                 scopeKey(identificationFieldsKey),
                 JSON.stringify({
                     ...current,
-                    leaderName: current.leaderName?.trim() || ownerName,
-                    role: current.role?.trim() || ownerRoleLabel,
+                    leaderName: pick(current.leaderName, ownerName),
+                    role: pick(current.role, roleLabelText),
                     cohort: current.cohort?.trim() || `ID ${scopedIdLabel}`,
                     startDate: current.startDate?.trim() || today,
                 }),
@@ -175,8 +186,8 @@ export function WorkbookDigitalRuntimeShell({
                     ...current,
                     identification: {
                         ...currentIdentification,
-                        leaderName: currentIdentification.leaderName?.trim() || ownerName,
-                        role: currentIdentification.role?.trim() || ownerRoleLabel,
+                        leaderName: pick(currentIdentification.leaderName, ownerName),
+                        role: pick(currentIdentification.role, roleLabelText),
                         cohort: currentIdentification.cohort?.trim() || `ID ${scopedIdLabel}`,
                         startDate: currentIdentification.startDate?.trim() || today,
                     },
@@ -262,7 +273,15 @@ export function WorkbookDigitalRuntimeShell({
                     Object.keys(persistedPayload).length > 0 ? persistedPayload : localPayload
 
                 hydrateScopedStatePayload(rawStorageRef.current, workbookId, initialPayload)
-                injectIdentificationDefaults(workbook.ownerName || fallbackOwnerName)
+                // Si el workbook no es de quien lo abre, se impone la identidad del
+                // dueño (nombre y rol de líder), corrigiendo incluso lo que haya
+                // quedado guardado antes con la identidad equivocada.
+                const viewerIsOwner = !!currentUser?.id && workbook.ownerUserId === currentUser.id
+                injectIdentificationDefaults(
+                    workbook.ownerName || fallbackOwnerName,
+                    viewerIsOwner ? ownerRoleLabel : roleLabel('lider'),
+                    !viewerIsOwner,
+                )
 
                 const remoteSnapshot = JSON.stringify({
                     completionPercent: Math.max(0, Math.min(100, Math.round(workbook.completionPercent))),
