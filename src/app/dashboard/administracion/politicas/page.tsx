@@ -171,7 +171,7 @@ export default function PoliticasPage() {
     }
   };
 
-  const canEdit = can('usuarios', 'manage');
+  const canEdit = can('politicas', 'manage');
 
   return (
     <div className="space-y-5 max-w-4xl">

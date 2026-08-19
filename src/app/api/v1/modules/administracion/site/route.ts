@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { authenticateRequest } from '@/server/auth/request-auth';
 import { withClient, withRoleContext } from '@/server/db/pool';
+import { requireModulePermission } from '@/server/auth/module-permissions';
 import type { PoolClient } from 'pg';
+import { errorResponse } from '../../_utils';
 
 const ALLOWED_PAGE_KEYS = new Set(['home', 'descubrimiento', 'metodologia', 'planes_precios', 'afiliados']);
 
@@ -29,13 +31,14 @@ async function resolveOrganizationId(client: PoolClient, userId: string): Promis
 
 export async function GET(request: Request) {
   const identity = await authenticateRequest(request);
-  if (!identity || identity.role !== 'admin') {
+  if (!identity) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
     const pages = await withClient((client) =>
       withRoleContext(client, identity.userId, identity.role, async () => {
+        await requireModulePermission(client, 'site', 'manage');
         const organizationId = await resolveOrganizationId(client, identity.userId);
         const { rows } = await client.query<{ wizard_data: { pages?: Record<string, boolean> } | null }>(
           `SELECT wizard_data FROM app_admin.integration_configs
@@ -49,14 +52,13 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ ok: true, pages });
   } catch (error) {
-    const detail = error instanceof Error ? error.message : 'Unknown error';
-    return NextResponse.json({ ok: false, error: 'Error al cargar configuración del sitio', detail }, { status: 500 });
+    return errorResponse(error, 'Error al cargar configuración del sitio');
   }
 }
 
 export async function PUT(request: Request) {
   const identity = await authenticateRequest(request);
-  if (!identity || identity.role !== 'admin') {
+  if (!identity) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -81,6 +83,7 @@ export async function PUT(request: Request) {
   try {
     await withClient((client) =>
       withRoleContext(client, identity.userId, identity.role, async () => {
+        await requireModulePermission(client, 'site', 'manage');
         const organizationId = await resolveOrganizationId(client, identity.userId);
         await client.query(
           `INSERT INTO app_admin.integration_configs
@@ -96,7 +99,6 @@ export async function PUT(request: Request) {
     );
     return NextResponse.json({ ok: true });
   } catch (error) {
-    const detail = error instanceof Error ? error.message : 'Unknown error';
-    return NextResponse.json({ ok: false, error: 'Error al guardar configuración del sitio', detail }, { status: 500 });
+    return errorResponse(error, 'Error al guardar configuración del sitio');
   }
 }

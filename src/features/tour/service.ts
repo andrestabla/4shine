@@ -118,7 +118,7 @@ function toSettingsRecord(row: SettingsRow): TourSettingsRecord {
 }
 
 export async function getSettings(client: PoolClient, actor: AuthUser): Promise<TourSettingsRecord> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'tour', 'manage');
   const orgId = await resolveOrgId(client, actor.userId);
   return toSettingsRecord(await loadSettings(client, orgId));
 }
@@ -128,7 +128,7 @@ export async function setEnabled(
   actor: AuthUser,
   isEnabled: boolean,
 ): Promise<TourSettingsRecord> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'tour', 'manage');
   const orgId = await resolveOrgId(client, actor.userId);
   await loadSettings(client, orgId);
   const { rows } = await client.query<SettingsRow>(
@@ -142,7 +142,7 @@ export async function setEnabled(
 }
 
 export async function resetTour(client: PoolClient, actor: AuthUser): Promise<TourSettingsRecord> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'tour', 'manage');
   const orgId = await resolveOrgId(client, actor.userId);
   await loadSettings(client, orgId);
   const { rows } = await client.query<SettingsRow>(
@@ -158,7 +158,7 @@ export async function resetTour(client: PoolClient, actor: AuthUser): Promise<To
 // ─── Step CRUD (admin) ──────────────────────────────────────────────────────
 
 export async function listSteps(client: PoolClient, actor: AuthUser): Promise<TourStepRecord[]> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'tour', 'manage');
   const orgId = await resolveOrgId(client, actor.userId);
   const { rows } = await client.query<StepRow>(
     `SELECT ${STEP_SELECT} FROM app_admin.tour_steps
@@ -174,7 +174,7 @@ export async function getStep(
   actor: AuthUser,
   stepId: string,
 ): Promise<TourStepRecord | null> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'tour', 'manage');
   const orgId = await resolveOrgId(client, actor.userId);
   const { rows } = await client.query<StepRow>(
     `SELECT ${STEP_SELECT} FROM app_admin.tour_steps
@@ -194,7 +194,7 @@ export async function createStep(
   actor: AuthUser,
   input: CreateTourStepInput,
 ): Promise<TourStepRecord> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'tour', 'manage');
   const orgId = await resolveOrgId(client, actor.userId);
 
   if (!getAnchor(input.anchorKey)) {
@@ -242,7 +242,7 @@ export async function updateStep(
   stepId: string,
   input: UpdateTourStepInput,
 ): Promise<TourStepRecord> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'tour', 'manage');
   const orgId = await resolveOrgId(client, actor.userId);
 
   if (input.anchorKey !== undefined && !getAnchor(input.anchorKey)) {
@@ -279,7 +279,7 @@ export async function updateStep(
 }
 
 export async function deleteStep(client: PoolClient, actor: AuthUser, stepId: string): Promise<void> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'tour', 'manage');
   const orgId = await resolveOrgId(client, actor.userId);
   const { rows } = await client.query<{ is_system: boolean }>(
     `SELECT is_system FROM app_admin.tour_steps WHERE organization_id = $1 AND step_id = $2 LIMIT 1`,
@@ -300,7 +300,7 @@ export async function reorderSteps(
   actor: AuthUser,
   orderedStepIds: string[],
 ): Promise<TourStepRecord[]> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'tour', 'manage');
   const orgId = await resolveOrgId(client, actor.userId);
   let order = 1;
   for (const stepId of orderedStepIds) {
@@ -487,7 +487,7 @@ export async function finishTour(
 // ─── Analytics (admin) ──────────────────────────────────────────────────────
 
 export async function getAnalytics(client: PoolClient, actor: AuthUser): Promise<TourAnalytics> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'tour', 'manage');
   const orgId = await resolveOrgId(client, actor.userId);
   const version = await currentVersion(client, orgId);
 

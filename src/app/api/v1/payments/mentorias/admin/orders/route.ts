@@ -13,7 +13,7 @@ export async function GET(request: Request) {
   try {
     const data = await withClient((client) =>
       withRoleContext(client, identity.userId, identity.role, async () => {
-        await requireModulePermission(client, 'usuarios', 'manage');
+        await requireModulePermission(client, 'pagos', 'manage');
         return listMentorshipPayments(client);
       }),
     );

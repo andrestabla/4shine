@@ -41,7 +41,7 @@ function pagePath(page: SitePageSummary): string {
 export default function SitePage() {
   const { can } = useUser();
   const { alert, confirm } = useAppDialog();
-  const canEdit = can('usuarios', 'manage');
+  const canEdit = can('site', 'manage');
 
   const [pages, setPages] = React.useState<SitePageSummary[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);

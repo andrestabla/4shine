@@ -696,7 +696,7 @@ export default function SiteBuilderEditorPage() {
   const router = useRouter();
   const { can } = useUser();
   const { alert, confirm } = useAppDialog();
-  const canEdit = can('usuarios', 'manage');
+  const canEdit = can('site', 'manage');
 
   const [page, setPage] = React.useState<SitePage | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);

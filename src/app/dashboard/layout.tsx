@@ -36,6 +36,9 @@ import clsx from "clsx";
 interface RouteAccess {
   moduleCode: ModuleCode;
   action?: PermissionAction;
+  /** Basta con UNO de estos (módulo, acción) para entrar. Usado por el índice
+   *  de administración, que abre quien pueda ver al menos un área. */
+  anyOf?: Array<[ModuleCode, PermissionAction]>;
 }
 
 interface OnboardingProfileFormState {
@@ -65,19 +68,57 @@ const ACCESS_BY_PATH: Record<string, RouteAccess> = {
     moduleCode: "gestion_formacion_mentores",
   },
   "/dashboard/usuarios": { moduleCode: "usuarios", action: "view" },
-  // El índice de administración lo ven admin y gestor (usuarios:view); dentro,
-  // cada tarjeta y cada ruta exigen su propia llave.
-  "/dashboard/administracion": { moduleCode: "usuarios", action: "view" },
-  "/dashboard/administracion/branding": {
+  // El índice de administración lo ve quien pueda abrir al menos una tarjeta
+  // (usuarios:view); dentro, cada área exige la llave de SU módulo.
+  "/dashboard/administracion": {
     moduleCode: "usuarios",
+    action: "view",
+    anyOf: [
+      ["usuarios", "view"],
+      ["branding", "manage"],
+      ["integraciones", "manage"],
+      ["modulos", "manage"],
+      ["pagos", "manage"],
+      ["planes", "manage"],
+      ["politicas", "manage"],
+      ["site", "manage"],
+      ["tour", "manage"],
+      ["documentacion", "manage"],
+      ["notificaciones", "manage"],
+      ["ghl", "manage"],
+      ["asistente_ia", "manage"],
+    ],
+  },
+  "/dashboard/administracion/branding": {
+    moduleCode: "branding",
     action: "manage",
   },
   "/dashboard/administracion/integraciones": {
-    moduleCode: "usuarios",
+    moduleCode: "integraciones",
+    action: "manage",
+  },
+  "/dashboard/administracion/modulos": {
+    moduleCode: "modulos",
+    action: "manage",
+  },
+  "/dashboard/administracion/pagos": {
+    moduleCode: "pagos",
+    action: "manage",
+  },
+  "/dashboard/administracion/planes": {
+    moduleCode: "planes",
+    action: "manage",
+  },
+  "/dashboard/administracion/politicas": {
+    moduleCode: "politicas",
+    action: "manage",
+  },
+  "/dashboard/administracion/site": {
+    moduleCode: "site",
     action: "manage",
   },
   "/dashboard/administracion/tour": {
-    moduleCode: "usuarios",
+    moduleCode: "tour",
     action: "manage",
   },
   "/dashboard/administracion/asistente-ia": {
@@ -93,12 +134,28 @@ const ACCESS_BY_PATH: Record<string, RouteAccess> = {
     action: "manage",
   },
   "/dashboard/administracion/documentacion": {
-    moduleCode: "usuarios",
+    moduleCode: "documentacion",
     action: "manage",
   },
   "/dashboard/contenido": { moduleCode: "contenido" },
   "/dashboard/analitica": { moduleCode: "analitica" },
 };
+
+/** Segmento de /dashboard/administracion/<segmento> → módulo que lo protege. */
+const ADMIN_AREA_MODULES: Array<[string, ModuleCode]> = [
+  ["notificaciones", "notificaciones"],
+  ["asistente-ia", "asistente_ia"],
+  ["ghl", "ghl"],
+  ["branding", "branding"],
+  ["integraciones", "integraciones"],
+  ["modulos", "modulos"],
+  ["pagos", "pagos"],
+  ["planes", "planes"],
+  ["politicas", "politicas"],
+  ["site", "site"],
+  ["tour", "tour"],
+  ["documentacion", "documentacion"],
+];
 
 function resolveRouteAccess(pathname: string): RouteAccess | undefined {
   if (ACCESS_BY_PATH[pathname]) {
@@ -122,23 +179,19 @@ function resolveRouteAccess(pathname: string): RouteAccess | undefined {
     return { moduleCode: "usuarios", action: "view" };
   }
 
-  // Áreas administrativas con llave propia (el gestor entra a estas):
-  // notificaciones incluye sus subrutas, como el constructor de banners.
-  if (pathname.startsWith("/dashboard/administracion/notificaciones")) {
-    return { moduleCode: "notificaciones", action: "manage" };
-  }
-  if (pathname.startsWith("/dashboard/administracion/asistente-ia")) {
-    return { moduleCode: "asistente_ia", action: "manage" };
-  }
-  if (pathname.startsWith("/dashboard/administracion/ghl")) {
-    return { moduleCode: "ghl", action: "manage" };
+  // Cada área administrativa tiene su propia llave, y sus subrutas heredan la
+  // del área (p. ej. el constructor de banners dentro de notificaciones, o el
+  // editor de una página dentro de site). Bloquear aquí evita que un rol
+  // renderice un panel admin entrando por URL directa antes de que el backend
+  // rechace (auditoría UX B6).
+  for (const [segment, moduleCode] of ADMIN_AREA_MODULES) {
+    if (pathname.startsWith(`/dashboard/administracion/${segment}`)) {
+      return { moduleCode, action: "manage" };
+    }
   }
 
-  // El resto de administración (planes, site, branding, integraciones, módulos,
-  // pagos, políticas, tour, documentación y sus rutas dinámicas) sigue exigiendo
-  // usuarios:manage, que solo tiene el administrador. Evita que otro rol
-  // renderice paneles admin por URL directa antes de que el backend rechace
-  // (auditoría UX B6).
+  // Cualquier ruta administrativa nueva queda cerrada salvo para el
+  // administrador hasta que se le asigne su propio módulo.
   if (pathname.startsWith("/dashboard/administracion")) {
     return { moduleCode: "usuarios", action: "manage" };
   }
@@ -186,9 +239,11 @@ function DashboardLayoutInner({
   const [showWelcome, setShowWelcome] = useState(false);
   const didFetchTour = useRef(false);
   const routeAccess = resolveRouteAccess(pathname);
-  const hasRoutePermission = routeAccess
-    ? can(routeAccess.moduleCode, routeAccess.action ?? "view")
-    : true;
+  const hasRoutePermission = !routeAccess
+    ? true
+    : routeAccess.anyOf
+      ? routeAccess.anyOf.some(([moduleCode, action]) => can(moduleCode, action))
+      : can(routeAccess.moduleCode, routeAccess.action ?? "view");
 
   // Módulo apagado desde /administracion/modulos. El admin sí entra: lo ve
   // marcado como apagado en el menú y necesita poder revisarlo antes de

@@ -1097,7 +1097,7 @@ export async function getBrandingSettings(
   client: PoolClient,
   actor: AuthUser,
 ): Promise<BrandingSettingsRecord> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'branding', 'manage');
 
   const organizationId = await resolveOrganizationId(client, actor.userId);
   const { rows } = await client.query<BrandingRow>(
@@ -1173,7 +1173,7 @@ async function persistBrandingSettings(
     sourceRevisionId?: string | null;
   },
 ): Promise<BrandingUpdateResult> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'branding', 'manage');
 
   const reason = options?.reason ?? 'manual_update';
   const sourceRevisionId = options?.sourceRevisionId ?? null;
@@ -1451,7 +1451,7 @@ export async function listBrandingRevisions(
   actor: AuthUser,
   limit = 40,
 ): Promise<BrandingRevisionRecord[]> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'branding', 'manage');
 
   const organizationId = await resolveOrganizationId(client, actor.userId);
   const requestedLimit = Number.isFinite(limit) ? limit : 40;
@@ -1487,7 +1487,7 @@ export async function revertBrandingRevision(
   actor: AuthUser,
   revisionId: string,
 ): Promise<BrandingUpdateResult> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'branding', 'manage');
 
   const organizationId = await resolveOrganizationId(client, actor.userId);
   const { rows } = await client.query<BrandingRevisionRow>(
@@ -1666,7 +1666,7 @@ export async function getIntegrationsSettings(
   actor: AuthUser,
   options?: { unmasked?: boolean },
 ): Promise<IntegrationsSettingsRecord> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'integraciones', 'manage');
 
   const organizationId = await resolveOrganizationId(client, actor.userId);
   const fallback = integrationFallback(organizationId);
@@ -1771,7 +1771,7 @@ export async function updateIntegrationsSettings(
   actor: AuthUser,
   input: UpdateIntegrationsInput,
 ): Promise<IntegrationsSettingsRecord> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'integraciones', 'manage');
 
   // Sin máscara: este objeto es la base del merge y debe conservar los
   // secretos reales de los campos que el admin no está editando.
@@ -1905,7 +1905,7 @@ export async function queueOutboundEmailTest(
   actor: AuthUser,
   requestedRecipient?: string,
 ): Promise<OutboundEmailTestResult> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'integraciones', 'manage');
 
   const settings = await getIntegrationsSettings(client, actor);
   const missing = requiredOutboundMissing(settings.outboundEmail);

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { authenticateRequest } from '@/server/auth/request-auth';
 import { withClient, withRoleContext } from '@/server/db/pool';
+import { requireModulePermission } from '@/server/auth/module-permissions';
 import {
   SiteBuilderError,
   createSitePage,
@@ -19,11 +20,12 @@ function siteBuilderErrorResponse(error: unknown, fallback: string) {
 
 export async function GET(request: Request) {
   const identity = await authenticateRequest(request);
-  if (!identity || identity.role !== 'admin') return unauthorizedResponse();
+  if (!identity) return unauthorizedResponse();
 
   try {
     const data = await withClient((client) =>
       withRoleContext(client, identity.userId, identity.role, async () => {
+        await requireModulePermission(client, 'site', 'manage');
         const organizationId = await resolveOrganizationId(client, identity.userId);
         return listSitePages(client, organizationId);
       }),
@@ -36,7 +38,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const identity = await authenticateRequest(request);
-  if (!identity || identity.role !== 'admin') return unauthorizedResponse();
+  if (!identity) return unauthorizedResponse();
 
   const body = await parseJsonBody<CreateSitePageInput>(request);
   if (!body) return NextResponse.json({ ok: false, error: 'Invalid JSON body' }, { status: 400 });
@@ -44,10 +46,11 @@ export async function POST(request: Request) {
   try {
     const data = await withClient((client) =>
       withRoleContext(client, identity.userId, identity.role, async () => {
+        await requireModulePermission(client, 'site', 'manage');
         const organizationId = await resolveOrganizationId(client, identity.userId);
         const page = await createSitePage(client, organizationId, identity.userId, body);
         await logModuleAudit(client, request, identity, {
-          moduleCode: 'usuarios',
+          moduleCode: 'site',
           action: 'create_site_page',
           entityTable: 'app_admin.site_pages',
           entityId: page.pageId,

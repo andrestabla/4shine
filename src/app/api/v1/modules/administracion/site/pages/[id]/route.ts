@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { authenticateRequest } from '@/server/auth/request-auth';
 import { withClient, withRoleContext } from '@/server/db/pool';
+import { requireModulePermission } from '@/server/auth/module-permissions';
 import {
   SiteBuilderError,
   deleteSitePage,
@@ -24,12 +25,13 @@ function siteBuilderErrorResponse(error: unknown, fallback: string) {
 
 export async function GET(request: Request, context: RouteContext) {
   const identity = await authenticateRequest(request);
-  if (!identity || identity.role !== 'admin') return unauthorizedResponse();
+  if (!identity) return unauthorizedResponse();
   const { id } = await context.params;
 
   try {
     const data = await withClient((client) =>
       withRoleContext(client, identity.userId, identity.role, async () => {
+        await requireModulePermission(client, 'site', 'manage');
         const organizationId = await resolveOrganizationId(client, identity.userId);
         return getSitePageById(client, organizationId, id);
       }),
@@ -45,7 +47,7 @@ export async function GET(request: Request, context: RouteContext) {
 
 export async function PATCH(request: Request, context: RouteContext) {
   const identity = await authenticateRequest(request);
-  if (!identity || identity.role !== 'admin') return unauthorizedResponse();
+  if (!identity) return unauthorizedResponse();
   const { id } = await context.params;
 
   const body = await parseJsonBody<UpdateSitePageInput>(request);
@@ -54,10 +56,11 @@ export async function PATCH(request: Request, context: RouteContext) {
   try {
     const data = await withClient((client) =>
       withRoleContext(client, identity.userId, identity.role, async () => {
+        await requireModulePermission(client, 'site', 'manage');
         const organizationId = await resolveOrganizationId(client, identity.userId);
         const page = await updateSitePage(client, organizationId, identity.userId, id, body);
         await logModuleAudit(client, request, identity, {
-          moduleCode: 'usuarios',
+          moduleCode: 'site',
           action: 'update_site_page',
           entityTable: 'app_admin.site_pages',
           entityId: id,
@@ -80,16 +83,17 @@ export async function PATCH(request: Request, context: RouteContext) {
 
 export async function DELETE(request: Request, context: RouteContext) {
   const identity = await authenticateRequest(request);
-  if (!identity || identity.role !== 'admin') return unauthorizedResponse();
+  if (!identity) return unauthorizedResponse();
   const { id } = await context.params;
 
   try {
     await withClient((client) =>
       withRoleContext(client, identity.userId, identity.role, async () => {
+        await requireModulePermission(client, 'site', 'manage');
         const organizationId = await resolveOrganizationId(client, identity.userId);
         await deleteSitePage(client, organizationId, id);
         await logModuleAudit(client, request, identity, {
-          moduleCode: 'usuarios',
+          moduleCode: 'site',
           action: 'delete_site_page',
           entityTable: 'app_admin.site_pages',
           entityId: id,

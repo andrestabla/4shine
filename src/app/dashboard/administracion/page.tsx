@@ -19,7 +19,7 @@ const ADMIN_CARDS = [
     title: 'Branding y Marca',
     description: 'Configurar identidad visual de la plataforma: colores, logo, loader, tipografía y favicon.',
     href: '/dashboard/administracion/branding',
-    module: 'usuarios' as ModuleCode,
+    module: 'branding' as ModuleCode,
     action: 'manage' as PermissionAction,
     icon: Palette,
   },
@@ -35,7 +35,7 @@ const ADMIN_CARDS = [
     title: 'Planes y Precios',
     description: 'Crear, editar, activar o desactivar los planes de suscripción y definir el acceso a cada módulo de la plataforma.',
     href: '/dashboard/administracion/planes',
-    module: 'usuarios' as ModuleCode,
+    module: 'planes' as ModuleCode,
     action: 'manage' as PermissionAction,
     icon: CreditCard,
   },
@@ -43,7 +43,7 @@ const ADMIN_CARDS = [
     title: 'Integraciones',
     description: 'Administrar conectores: Meet, Calendar, R2, Gemini, SSO Google, OpenAI, Stripe, Wompi y GoHighLevel.',
     href: '/dashboard/administracion/integraciones',
-    module: 'usuarios' as ModuleCode,
+    module: 'integraciones' as ModuleCode,
     action: 'manage' as PermissionAction,
     icon: PlugZap,
   },
@@ -51,7 +51,7 @@ const ADMIN_CARDS = [
     title: 'Módulos',
     description: 'Encender o apagar módulos y submódulos de la plataforma para todos los usuarios.',
     href: '/dashboard/administracion/modulos',
-    module: 'usuarios' as ModuleCode,
+    module: 'modulos' as ModuleCode,
     action: 'manage' as PermissionAction,
     icon: Power,
   },
@@ -67,7 +67,7 @@ const ADMIN_CARDS = [
     title: 'Pagos de mentorías',
     description: 'Historial de transacciones, intentos por proveedor y gestión de reembolsos (Stripe / Wompi).',
     href: '/dashboard/administracion/pagos',
-    module: 'usuarios' as ModuleCode,
+    module: 'pagos' as ModuleCode,
     action: 'manage' as PermissionAction,
     icon: Receipt,
   },
@@ -75,7 +75,7 @@ const ADMIN_CARDS = [
     title: 'Política de Privacidad',
     description: 'Editar el texto de la política de privacidad que los usuarios deben aceptar al ingresar.',
     href: '/dashboard/administracion/politicas',
-    module: 'usuarios' as ModuleCode,
+    module: 'politicas' as ModuleCode,
     action: 'manage' as PermissionAction,
     icon: ShieldCheck,
   },
@@ -83,7 +83,7 @@ const ADMIN_CARDS = [
     title: 'Site',
     description: 'Habilitar u ocultar las páginas públicas del sitio: home, diagnóstico, metodología, precios y afiliados.',
     href: '/dashboard/administracion/site',
-    module: 'usuarios' as ModuleCode,
+    module: 'site' as ModuleCode,
     action: 'manage' as PermissionAction,
     icon: Globe,
   },
@@ -91,7 +91,7 @@ const ADMIN_CARDS = [
     title: 'Tour de Onboarding',
     description: 'Configurar el recorrido guiado del primer ingreso: pasos por rol, reinicio para todos y analítica de vistas.',
     href: '/dashboard/administracion/tour',
-    module: 'usuarios' as ModuleCode,
+    module: 'tour' as ModuleCode,
     action: 'manage' as PermissionAction,
     icon: Compass,
   },
@@ -107,7 +107,7 @@ const ADMIN_CARDS = [
     title: 'Documentación técnica',
     description: 'Cómo está construida la plataforma (arquitectura, base de datos, permisos) y cómo funciona cada módulo del sistema.',
     href: '/dashboard/administracion/documentacion',
-    module: 'usuarios' as ModuleCode,
+    module: 'documentacion' as ModuleCode,
     action: 'manage' as PermissionAction,
     icon: FileCode2,
   },
@@ -115,8 +115,9 @@ const ADMIN_CARDS = [
 
 export default function AdministracionPage() {
   const { can } = useUser();
-  // Cada rol ve solo lo que puede abrir: el administrador todas, el gestor las
-  // de usuarios, notificaciones, GHL y asistente IA.
+  // Cada área del panel tiene su propio módulo de permisos: la tarjeta se ve
+  // solo si el rol lo tiene concedido en la matriz. `usuarios` ya no es la
+  // llave maestra del panel: solo abre la gestión de usuarios.
   const cards = ADMIN_CARDS.filter((card) => can(card.module, card.action));
 
   return (

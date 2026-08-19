@@ -53,7 +53,7 @@ export async function listModuleVisibility(
   client: PoolClient,
   _actor: AuthUser,
 ): Promise<ModuleVisibilityEntry[]> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'modulos', 'manage');
   const map = await readModuleVisibilityMap(client);
   return MODULE_CATALOG.map((entry) => toEntry(entry, map));
 }
@@ -63,7 +63,7 @@ export async function updateModuleVisibility(
   actor: AuthUser,
   input: UpdateModuleVisibilityInput,
 ): Promise<ModuleVisibilityEntry[]> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'modulos', 'manage');
 
   if (!ALL_MODULE_KEYS.has(input.moduleKey)) {
     throw new Error(`Módulo desconocido: ${input.moduleKey}`);

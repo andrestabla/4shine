@@ -102,7 +102,7 @@ export async function createProduct(
   actor: AuthUser,
   input: CreateProductInput,
 ): Promise<ProductRecord> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'planes', 'manage');
 
   const code = input.productCode.trim().toLowerCase();
   if (!/^[a-z0-9_]+$/.test(code) || code.length < 2 || code.length > 60) {
@@ -144,7 +144,7 @@ export async function updateProduct(
   productCode: string,
   input: UpdateProductInput,
 ): Promise<ProductRecord> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'planes', 'manage');
 
   const { rows: existing } = await client.query<{ is_system: boolean }>(
     `SELECT is_system FROM app_billing.product_catalog WHERE product_code = $1 LIMIT 1`,
@@ -208,7 +208,7 @@ export async function deleteProduct(
   actor: AuthUser,
   productCode: string,
 ): Promise<void> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'planes', 'manage');
 
   const { rows } = await client.query<{ is_system: boolean }>(
     `SELECT is_system FROM app_billing.product_catalog WHERE product_code = $1 LIMIT 1`,

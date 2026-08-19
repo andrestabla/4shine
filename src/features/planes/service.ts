@@ -195,7 +195,7 @@ export async function createPlan(
   actor: AuthUser,
   input: CreatePlanInput,
 ): Promise<SubscriptionPlanWithFeatures> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'planes', 'manage');
 
   const code = input.planCode.trim().toLowerCase();
   if (!/^[a-z0-9_]+$/.test(code) || code.length < 2 || code.length > 60) {
@@ -245,7 +245,7 @@ export async function updatePlan(
   planId: string,
   input: UpdatePlanInput,
 ): Promise<SubscriptionPlanWithFeatures> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'planes', 'manage');
 
   const { rows: existing } = await client.query<{ is_system: boolean }>(
     `SELECT is_system FROM app_billing.subscription_plans WHERE plan_id = $1 LIMIT 1`,
@@ -320,7 +320,7 @@ export async function deletePlan(
   actor: AuthUser,
   planId: string,
 ): Promise<void> {
-  await requireModulePermission(client, 'usuarios', 'manage');
+  await requireModulePermission(client, 'planes', 'manage');
 
   const { rows } = await client.query<{ is_system: boolean }>(
     `SELECT is_system FROM app_billing.subscription_plans WHERE plan_id = $1 LIMIT 1`,

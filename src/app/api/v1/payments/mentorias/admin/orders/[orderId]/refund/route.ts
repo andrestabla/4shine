@@ -40,7 +40,7 @@ export async function POST(
   try {
     const data = await withClient((client) =>
       withRoleContext(client, identity.userId, identity.role, async () => {
-        await requireModulePermission(client, 'usuarios', 'manage');
+        await requireModulePermission(client, 'pagos', 'manage');
         return refundOrder(client, identity.userId, orderId, reason);
       }),
     );

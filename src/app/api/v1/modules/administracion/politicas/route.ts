@@ -1,43 +1,44 @@
 import { NextResponse } from 'next/server';
 import { authenticateRequest } from '@/server/auth/request-auth';
-import { withClient } from '@/server/db/pool';
+import { requireModulePermission } from '@/server/auth/module-permissions';
+import { withClient, withRoleContext } from '@/server/db/pool';
+import { errorResponse, unauthorizedResponse } from '../../_utils';
 
+/**
+ * Política de privacidad para el panel. Se guarda como una fila de
+ * integration_configs (integration_key = 'privacy_policy'), pero es contenido
+ * editorial y no una credencial: la abre el permiso `politicas:manage`, no el
+ * de Integraciones ni el de Gestión de Usuarios.
+ *
+ * La lectura pública (pantalla de aceptación, sitio) va por
+ * /api/v1/public/privacy-policy y no pasa por aquí.
+ */
 export async function GET(request: Request) {
   const identity = await authenticateRequest(request);
-  if (!identity || !['admin', 'gestor'].includes(identity.role)) {
-    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
-  }
+  if (!identity) return unauthorizedResponse();
 
   try {
-    const result = await withClient(async (client) => {
-      await client.query('BEGIN');
-      try {
-        await client.query('SELECT set_config($1, $2, true)', ['app.current_role', 'gestor']);
+    const wizardData = await withClient((client) =>
+      withRoleContext(client, identity.userId, identity.role, async () => {
+        await requireModulePermission(client, 'politicas', 'manage');
         const { rows } = await client.query<{ wizard_data: Record<string, string> | null }>(
           `SELECT wizard_data
            FROM app_admin.integration_configs
            WHERE integration_key = 'privacy_policy'
            LIMIT 1`,
         );
-        await client.query('COMMIT');
         return rows[0]?.wizard_data ?? null;
-      } catch (e) {
-        await client.query('ROLLBACK');
-        throw e;
-      }
-    });
-    return NextResponse.json({ ok: true, wizardData: result });
+      }),
+    );
+    return NextResponse.json({ ok: true, wizardData });
   } catch (error) {
-    const detail = error instanceof Error ? error.message : 'Unknown error';
-    return NextResponse.json({ ok: false, error: 'Error al cargar política', detail }, { status: 500 });
+    return errorResponse(error, 'Error al cargar política');
   }
 }
 
 export async function PUT(request: Request) {
   const identity = await authenticateRequest(request);
-  if (!identity || !['admin', 'gestor'].includes(identity.role)) {
-    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
-  }
+  if (!identity) return unauthorizedResponse();
 
   let body: { version?: string; content?: string };
   try {
@@ -54,11 +55,9 @@ export async function PUT(request: Request) {
   }
 
   try {
-    await withClient(async (client) => {
-      await client.query('BEGIN');
-      try {
-        await client.query('SELECT set_config($1, $2, true)', ['app.current_role', 'gestor']);
-        await client.query('SELECT set_config($1, $2, true)', ['app.current_user_id', identity.userId]);
+    await withClient((client) =>
+      withRoleContext(client, identity.userId, identity.role, async () => {
+        await requireModulePermission(client, 'politicas', 'manage');
         await client.query(
           `INSERT INTO app_admin.integration_configs (integration_key, enabled, wizard_data)
            VALUES ('privacy_policy', true, $1::jsonb)
@@ -66,15 +65,10 @@ export async function PUT(request: Request) {
            DO UPDATE SET wizard_data = $1::jsonb, updated_at = now()`,
           [JSON.stringify({ version, content })],
         );
-        await client.query('COMMIT');
-      } catch (e) {
-        await client.query('ROLLBACK');
-        throw e;
-      }
-    });
+      }),
+    );
     return NextResponse.json({ ok: true });
   } catch (error) {
-    const detail = error instanceof Error ? error.message : 'Unknown error';
-    return NextResponse.json({ ok: false, error: 'Error al guardar política', detail }, { status: 500 });
+    return errorResponse(error, 'Error al guardar política');
   }
 }

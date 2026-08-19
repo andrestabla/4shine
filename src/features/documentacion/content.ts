@@ -289,7 +289,7 @@ if (can('usuarios', 'manage')) { /* ... */ }`,
       {
         type: 'bullets',
         items: [
-          'Todo el panel de administración se protege con el permiso usuarios:manage.',
+          'Cada área del panel de administración tiene su propio módulo: branding, planes, integraciones, modulos, pagos, politicas, site, tour, documentacion, notificaciones, ghl y asistente_ia. usuarios:manage abre solo la gestión de usuarios.',
           'El rol invitado está cableado para acceder solo al módulo descubrimiento.',
           'El layout del dashboard (src/app/dashboard/layout.tsx) mapea cada ruta a su (módulo, acción) requerido y bloquea el acceso antes de renderizar.',
         ],
@@ -1412,7 +1412,7 @@ const MODULE_SECTIONS: DocSection[] = [
           ['UI', '/dashboard/usuarios (lista, detalle, nuevo) y todo /dashboard/administracion'],
           ['Feature', 'src/features/usuarios/'],
           ['Base de datos', 'app_core.users, app_core.user_profiles, app_auth (roles, sesiones, permisos)'],
-          ['Permiso', 'usuarios:view para consultar; usuarios:manage para administrar'],
+          ['Permiso', 'usuarios:view para consultar; usuarios:manage para administrar cuentas (no abre el resto del panel)'],
         ],
       },
       { type: 'subheading', text: 'Cómo funciona por dentro' },
@@ -1562,7 +1562,7 @@ const MODULE_SECTIONS: DocSection[] = [
   {
     slug: 'site-builder',
     roles: [
-      { role: 'Admin', can: 'Control total del sitio público (páginas, bloques, visibilidad). Protegido por usuarios:manage.' },
+      { role: 'Admin', can: 'Control total del sitio público (páginas, bloques, visibilidad). Protegido por site:manage.' },
       { role: 'Gestor / Advisor / Líder / Invitado', can: 'Sin acceso.' },
     ],
     label: 'Site Builder',
@@ -1581,7 +1581,7 @@ const MODULE_SECTIONS: DocSection[] = [
         rows: [
           ['UI', '/dashboard/administracion/site (lista y /site/<pageId> editor)'],
           ['Base de datos', 'app_admin (site_pages)'],
-          ['Acceso', 'Solo admin (usuarios:manage)'],
+          ['Acceso', 'site:manage (por defecto solo admin)'],
         ],
       },
       { type: 'subheading', text: 'Cómo funciona por dentro' },
