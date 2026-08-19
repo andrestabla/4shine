@@ -51,7 +51,6 @@ import {
   smartSearchMentors,
   createGroupSession,
   createGroupSessionRecording,
-  createMentorship,
   deleteGroupSession,
   deleteGroupSessionRecording,
   deleteMentorship,
@@ -78,7 +77,6 @@ import {
   type MentorOfferingRecord,
   type MentorshipOverviewRecord,
   type MentorshipRecord,
-  type MentorshipSessionType,
   type MentorshipStatus,
 } from '@/features/mentorias/client';
 import {
@@ -101,14 +99,6 @@ interface AdditionalPurchaseFormState {
   startsAt: string;
   topic: string;
   note: string;
-}
-
-interface OpsCreateFormState {
-  title: string;
-  startsAt: string;
-  endsAt: string;
-  sessionType: MentorshipSessionType;
-  meetingUrl: string;
 }
 
 interface GroupSessionFormState {
@@ -353,14 +343,12 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
   const [loading, setLoading] = React.useState(true);
   const [submittingProgram, setSubmittingProgram] = React.useState(false);
   const [submittingAdditional, setSubmittingAdditional] = React.useState(false);
-  const [submittingOps, setSubmittingOps] = React.useState(false);
   const [submittingGroupSession, setSubmittingGroupSession] = React.useState(false);
   const [submittingGroupRecording, setSubmittingGroupRecording] = React.useState(false);
   const [activeSection, setActiveSection] = React.useState<MentoriaSection>(forcedSection ?? 'grupales');
   const [selectedWeekStart, setSelectedWeekStart] = React.useState<Date>(() => startOfWeek(new Date()));
   const [selectedMonthStart, setSelectedMonthStart] = React.useState<Date>(() => monthStart(new Date()));
   const [groupWizardStep, setGroupWizardStep] = React.useState<WizardStep>(1);
-  const [opsWizardStep, setOpsWizardStep] = React.useState<WizardStep>(1);
   const [programWizardStep, setProgramWizardStep] = React.useState<WizardStep>(1);
   const [additionalWizardStep, setAdditionalWizardStep] = React.useState<WizardStep>(1);
   const [comprarStep, setComprarStep] = React.useState<ComprarStep>('list');
@@ -389,13 +377,6 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
     startsAt: nextSlotValue(),
     topic: '',
     note: '',
-  });
-  const [opsForm, setOpsForm] = React.useState<OpsCreateFormState>({
-    title: '',
-    startsAt: '',
-    endsAt: '',
-    sessionType: 'individual',
-    meetingUrl: '',
   });
   const [editingEventId, setEditingEventId] = React.useState<string | null>(null);
   const [selectedGroupSession, setSelectedGroupSession] = React.useState<GroupSessionEventRecord | null>(null);
@@ -961,36 +942,6 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
       null
     );
   }, [comprarSelectedMentor, additionalForm.offerId]);
-
-  const handleOpsCreate = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!opsForm.title.trim() || !opsForm.startsAt || !opsForm.endsAt) {
-      return;
-    }
-
-    setSubmittingOps(true);
-    try {
-      await createMentorship({
-        title: opsForm.title.trim(),
-        startsAt: toIso(opsForm.startsAt),
-        endsAt: toIso(opsForm.endsAt),
-        sessionType: opsForm.sessionType,
-        meetingUrl: opsForm.meetingUrl.trim() || null,
-      });
-      setOpsForm({
-        title: '',
-        startsAt: '',
-        endsAt: '',
-        sessionType: 'individual',
-        meetingUrl: '',
-      });
-      await Promise.all([load(), refreshBootstrap()]);
-    } catch (error) {
-      await showError('No se pudo crear la mentoría.', error);
-    } finally {
-      setSubmittingOps(false);
-    }
-  };
 
   const handleDeleteSession = async (session: MentorshipRecord) => {
     const isConfirmed = await confirm({
@@ -2538,80 +2489,6 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
         {sectionTabs}
 
         <StatGrid stats={opsStats} />
-
-        {can('mentorias', 'create') && (
-          <section className="app-panel p-5 sm:p-6">
-            <div className="flex items-center gap-2">
-              <Sparkles size={16} className="text-[var(--brand-primary)]" />
-              <p className="app-section-kicker">Asistente · Crear sesión operativa</p>
-            </div>
-            <p className="mt-1 text-xs text-[var(--app-muted)]">Paso {opsWizardStep} de 3</p>
-            <form className="mt-5 grid gap-3 md:grid-cols-6" onSubmit={handleOpsCreate}>
-              <input
-                className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm md:col-span-2"
-                placeholder="Título"
-                value={opsForm.title}
-                onChange={(event) => setOpsForm((prev) => ({ ...prev, title: event.target.value }))}
-                required
-              />
-              <input
-                className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
-                type="datetime-local"
-                value={opsForm.startsAt}
-                onChange={(event) => setOpsForm((prev) => ({ ...prev, startsAt: event.target.value }))}
-                required
-              />
-              <input
-                className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
-                type="datetime-local"
-                value={opsForm.endsAt}
-                onChange={(event) => setOpsForm((prev) => ({ ...prev, endsAt: event.target.value }))}
-                required
-              />
-              <select
-                className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm"
-                value={opsForm.sessionType}
-                onChange={(event) =>
-                  setOpsForm((prev) => ({ ...prev, sessionType: event.target.value as MentorshipSessionType }))
-                }
-              >
-                <option value="individual">Individual</option>
-                <option value="grupal">Experto en vivo</option>
-              </select>
-              <button
-                className="rounded-[16px] bg-[var(--brand-primary)] px-4 py-3 text-sm font-bold text-white disabled:opacity-50"
-                type="submit"
-                disabled={submittingOps || opsWizardStep !== 3}
-              >
-                {opsWizardStep === 3 ? 'Crear sesión' : 'Completa el asistente para continuar'}
-              </button>
-              <input
-                className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm md:col-span-6"
-                placeholder="URL de reunión (opcional)"
-                value={opsForm.meetingUrl}
-                onChange={(event) => setOpsForm((prev) => ({ ...prev, meetingUrl: event.target.value }))}
-              />
-              <div className="md:col-span-6 flex items-center justify-between">
-                <button
-                  type="button"
-                  className="rounded-[12px] border border-[var(--app-border)] px-3 py-2 text-xs font-semibold disabled:opacity-50"
-                  disabled={opsWizardStep === 1}
-                  onClick={() => setOpsWizardStep((prev) => (prev > 1 ? ((prev - 1) as WizardStep) : prev))}
-                >
-                  Atrás
-                </button>
-                <button
-                  type="button"
-                  className="rounded-[12px] border border-[var(--app-border)] px-3 py-2 text-xs font-semibold disabled:opacity-50"
-                  disabled={opsWizardStep === 3}
-                  onClick={() => setOpsWizardStep((prev) => (prev < 3 ? ((prev + 1) as WizardStep) : prev))}
-                >
-                  Siguiente
-                </button>
-              </div>
-            </form>
-          </section>
-        )}
 
         {(currentRole === 'admin' || currentRole === 'gestor' || currentRole === 'mentor') && (() => {
           const HOUR_OPTIONS_HALF = Array.from({ length: 30 }, (_, i) => {
