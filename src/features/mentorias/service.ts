@@ -974,11 +974,16 @@ export async function sendSessionReminders(
       location: row.meeting_url,
     });
 
+    // La copia comercial va UNA vez por recordatorio: con el aviso del líder
+    // si lo hay, y si la sesión no tiene líder, con el del advisor.
+    const copiaComercial = await commercialCopyFor(client, row.mentor_user_id);
+
     // Notify mentee (líder) if present
     if (row.mentee_user_id) {
       await notifyUserFull(client, {
         recipientUserId: row.mentee_user_id,
         eventKey: 'mentorias.session_reminder',
+        copyToEmails: copiaComercial,
         variables: {
           nombre:
             (row.mentee_first_name ?? row.mentee_display_name ?? '').trim() || 'Líder',
@@ -995,6 +1000,7 @@ export async function sendSessionReminders(
     await notifyUserFull(client, {
       recipientUserId: row.mentor_user_id,
       eventKey: 'mentorias.session_reminder',
+      copyToEmails: row.mentee_user_id ? undefined : copiaComercial,
       variables: {
         nombre:
           (row.mentor_first_name ?? row.mentor_display_name ?? '').trim() || 'Advisor',
@@ -3998,6 +4004,7 @@ export async function sendIndividualSessionReminders(
       await notifyUserFull(client, {
         recipientUserId: s.mentee_user_id,
         eventKey: 'mentorias.session_reminder',
+        copyToEmails: await commercialCopyFor(client, s.mentor_user_id),
         variables: {
           nombre: (s.mentee_first_name ?? s.mentee_display_name ?? '').trim(),
           titulo: s.title,
