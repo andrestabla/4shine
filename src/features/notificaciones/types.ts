@@ -177,6 +177,12 @@ export interface DispatchContext {
   senderUserId?: string | null;
   /** Agrupa varias notificaciones de un mismo envío masivo. */
   batchId?: string | null;
+  /**
+   * Correos que reciben una COPIA del mismo email (además del destinatario).
+   * Se usa para avisos operativos a buzones que no son usuarios de la
+   * plataforma, como el seguimiento comercial de las mentorías 1:1.
+   */
+  copyToEmails?: string[];
 }
 
 // ─── Bulk send (admin/gestor → muchos usuarios) ──────────────────────────────

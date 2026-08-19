@@ -775,6 +775,36 @@ interface SessionParticipantsInfo {
   mentorDisplayName: string;
 }
 
+/**
+ * Seguimiento comercial de las mentorías 1:1.
+ *
+ * Toda notificación de una sesión 1:1 (agendada, reprogramada o cancelada) se
+ * copia a este buzón, salvo cuando el advisor está en la lista de excepciones.
+ * La copia se envía UNA sola vez por evento —va con el aviso al líder— para no
+ * duplicar el correo con el que recibe el advisor.
+ */
+const COMERCIAL_COPY_EMAIL = 'comercialelevatuliderazgo@gmail.com';
+
+/** Advisors cuyas sesiones NO se copian al buzón comercial. */
+const COMERCIAL_COPY_EXCLUDED_ADVISORS = new Set(['carmenza.alarcon.mentor@gmail.com']);
+
+async function commercialCopyFor(client: PoolClient, mentorUserId: string): Promise<string[]> {
+  try {
+    const { rows } = await client.query<{ email: string | null }>(
+      `SELECT email::text FROM app_core.users WHERE user_id = $1::uuid LIMIT 1`,
+      [mentorUserId],
+    );
+    const advisorEmail = (rows[0]?.email ?? '').trim().toLowerCase();
+    if (!advisorEmail || COMERCIAL_COPY_EXCLUDED_ADVISORS.has(advisorEmail)) return [];
+    return [COMERCIAL_COPY_EMAIL];
+  } catch (err) {
+    // Si no se puede resolver el advisor no se copia: es preferible omitir la
+    // copia que mandarla de una sesión excluida.
+    console.error('[mentorias] no se pudo resolver la copia comercial:', err);
+    return [];
+  }
+}
+
 async function loadSessionParticipantsInfo(
   client: PoolClient,
   menteeUserId: string,
@@ -3110,6 +3140,7 @@ export async function scheduleProgramMentorship(
   );
 
   const participants = await loadSessionParticipantsInfo(client, actor.userId, input.mentorUserId);
+  const copiaComercial = await commercialCopyFor(client, input.mentorUserId);
   const tz = await resolveActorOrgTimezone(client, actor.userId);
   const fechaStr = formatFechaCO(input.startsAt, tz);
   const horaStr = formatHoraCO(input.startsAt, tz);
@@ -3131,6 +3162,7 @@ export async function scheduleProgramMentorship(
       enlace_sesion: enlaceSesion,
       enlace_gcal: enlaceGcal,
     },
+    copyToEmails: copiaComercial,
   });
   await notifyUserFull(client, {
     recipientUserId: input.mentorUserId,
@@ -3275,6 +3307,7 @@ export async function scheduleProgramMentorshipForLeader(
   );
 
   const participants = await loadSessionParticipantsInfo(client, ownerUserId, input.mentorUserId);
+  const copiaComercial = await commercialCopyFor(client, input.mentorUserId);
   const tz = await resolveActorOrgTimezone(client, ownerUserId);
   const fechaStr = formatFechaCO(input.startsAt, tz);
   const horaStr = formatHoraCO(input.startsAt, tz);
@@ -3296,6 +3329,7 @@ export async function scheduleProgramMentorshipForLeader(
       enlace_sesion: enlaceSesion,
       enlace_gcal: enlaceGcal,
     },
+    copyToEmails: copiaComercial,
   });
   await notifyUserFull(client, {
     recipientUserId: input.mentorUserId,
@@ -3385,6 +3419,7 @@ export async function scheduleManualMentorshipForLeader(
   }
 
   const participants = await loadSessionParticipantsInfo(client, input.leaderUserId, input.mentorUserId);
+  const copiaComercial = await commercialCopyFor(client, input.mentorUserId);
   const tz = await resolveActorOrgTimezone(client, input.leaderUserId);
   const fechaStr = formatFechaCO(input.startsAt, tz);
   const horaStr = formatHoraCO(input.startsAt, tz);
@@ -3406,6 +3441,7 @@ export async function scheduleManualMentorshipForLeader(
       enlace_sesion: enlaceSesion,
       enlace_gcal: enlaceGcal,
     },
+    copyToEmails: copiaComercial,
   });
   await notifyUserFull(client, {
     recipientUserId: input.mentorUserId,
@@ -3515,6 +3551,7 @@ export async function createAdditionalMentorshipOrder(
   // For paid orders the payment_confirmed event also fires later (via webhook);
   // this dispatch is about the scheduling itself (works in both flows).
   const participants = await loadSessionParticipantsInfo(client, actor.userId, offer.mentor_user_id);
+  const copiaComercial = await commercialCopyFor(client, offer.mentor_user_id);
   const tz = await resolveActorOrgTimezone(client, actor.userId);
   const fechaStr = formatFechaCO(input.startsAt, tz);
   const horaStr = formatHoraCO(input.startsAt, tz);
@@ -3536,6 +3573,7 @@ export async function createAdditionalMentorshipOrder(
       enlace_sesion: enlaceSesion,
       enlace_gcal: enlaceGcal,
     },
+    copyToEmails: copiaComercial,
   });
   await notifyUserFull(client, {
     recipientUserId: offer.mentor_user_id,
@@ -3656,9 +3694,11 @@ export async function updateMentorship(
       current.mentorUserId,
     );
     const tz = await resolveActorOrgTimezone(client, actor.userId);
+    const copiaComercial = await commercialCopyFor(client, current.mentorUserId);
     await notifyUserFull(client, {
       recipientUserId: current.menteeUserId,
       eventKey: 'mentorias.session_cancelled_mentee',
+      copyToEmails: copiaComercial,
       variables: {
         nombre: cancelParticipants.menteeFirstName,
         titulo: current.title,

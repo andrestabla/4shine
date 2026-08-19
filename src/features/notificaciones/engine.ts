@@ -310,6 +310,53 @@ export async function dispatchNotification(
     } catch (err) {
       console.error('[engine] no se pudo registrar email en historial:', err);
     }
+
+    // ── Copias ────────────────────────────────────────────────────────────
+    // Mismo correo a buzones de seguimiento (p. ej. comercial). Se envían por
+    // separado y no como CC, para no exponer esas direcciones al destinatario.
+    // Un fallo aquí nunca afecta al envío principal, que ya salió.
+    const copies = Array.from(
+      new Set(
+        (ctx.copyToEmails ?? [])
+          .map((email) => email.trim().toLowerCase())
+          .filter((email) => email && email !== ctx.recipientEmail.trim().toLowerCase()),
+      ),
+    );
+    for (const copyEmail of copies) {
+      try {
+        const copyMessageId = await sendTemplateEmail(
+          emailConfig,
+          copyEmail,
+          subject,
+          fullHtml,
+          bodyText,
+          emailConfig?.reply_to?.trim() || undefined,
+        );
+        await insertUserNotification(client, {
+          organizationId: ctx.organizationId,
+          userId: null,
+          type: tmpl.inAppType,
+          title: subject,
+          message: bodyText || subject,
+          eventKey: ctx.eventKey,
+          actionUrl,
+          payload: {
+            channel: 'email',
+            html_snapshot: fullHtml,
+            text_snapshot: bodyText,
+            is_external: true,
+            is_copy: true,
+            copy_of_recipient: ctx.recipientEmail,
+          },
+          channel: 'email',
+          recipientEmail: copyEmail,
+          providerMessageId: copyMessageId,
+          deliveredAt: null,
+        });
+      } catch (err) {
+        console.error('[engine] no se pudo enviar copia a', copyEmail, err);
+      }
+    }
   }
 }
 
@@ -356,6 +403,8 @@ export async function notifyUserFull(
     recipientUserId: string;
     eventKey: string;
     variables?: Partial<Record<VariableKey, string>>;
+    /** Buzones que reciben copia del mismo correo (ver DispatchContext). */
+    copyToEmails?: string[];
   },
 ): Promise<void> {
   try {
@@ -371,6 +420,7 @@ export async function notifyUserFull(
       recipientEmail: row.email ?? '',
       eventKey: params.eventKey,
       variables: params.variables ?? {},
+      copyToEmails: params.copyToEmails,
     });
   } catch (err) {
     console.error('[notify] full dispatch failed:', err);
