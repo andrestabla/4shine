@@ -39,7 +39,22 @@ export interface IncidentRecord {
 export interface IncidentsSummary {
   incidents: IncidentRecord[];
   countsBySeverity: Record<IncidentSeverity, number>;
+  /** Casos que alguien ya cerró y por eso no aparecen en la lista. */
+  dismissedCount: number;
   generatedAt: string;
+}
+
+/** Cómo se cerró un caso: se arregló, o no era un caso real. */
+export type IncidentResolution = 'resuelto' | 'descartado';
+
+export interface DismissedIncident {
+  incidentId: string;
+  type: string;
+  title: string;
+  resolution: IncidentResolution;
+  note: string | null;
+  closedAt: string;
+  closedByName: string | null;
 }
 
 const nowIso = () => new Date().toISOString();
@@ -441,12 +456,138 @@ export async function listIncidents(
   if (options?.userId) {
     incidents = incidents.filter((incident) => incident.userIds.includes(options.userId!));
   }
+
+  // Los detectores vuelven a encontrar el caso en cada carga; lo que decide si
+  // se muestra es si alguien ya lo cerró.
+  const closed = await listClosedIncidentIds(client);
+  const detected = incidents.length;
+  incidents = incidents.filter((incident) => !closed.has(incident.incidentId));
+
   incidents.sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
 
   const countsBySeverity: Record<IncidentSeverity, number> = { alta: 0, media: 0, baja: 0 };
   for (const incident of incidents) countsBySeverity[incident.severity] += 1;
 
-  return { incidents, countsBySeverity, generatedAt: nowIso() };
+  return {
+    incidents,
+    countsBySeverity,
+    dismissedCount: detected - incidents.length,
+    generatedAt: nowIso(),
+  };
+}
+
+/* ── Cierre de casos ─────────────────────────────────────────────────────── */
+
+async function listClosedIncidentIds(client: PoolClient): Promise<Set<string>> {
+  const { rows } = await client.query<{ incident_id: string }>(
+    'SELECT incident_id FROM app_admin.incident_dismissals',
+  );
+  return new Set(rows.map((row) => row.incident_id));
+}
+
+/**
+ * Cierra un caso: deja de aparecer en el panel hasta que alguien lo reabra.
+ * Se guarda el título tal como se vio, para que la lista de casos cerrados
+ * siga siendo legible aunque el detector ya no genere ese caso.
+ */
+export async function closeIncident(
+  client: PoolClient,
+  actor: { userId: string },
+  input: {
+    incidentId: string;
+    type: string;
+    title: string;
+    resolution: IncidentResolution;
+    note?: string | null;
+    userIds?: string[];
+  },
+): Promise<DismissedIncident> {
+  await requireModulePermission(client, 'usuarios', 'view');
+
+  const note = input.note?.trim() ? input.note.trim().slice(0, 500) : null;
+  const { rows } = await client.query<{
+    incident_id: string; incident_type: string; title: string;
+    resolution: IncidentResolution; note: string | null; closed_at: string;
+  }>(
+    `
+      INSERT INTO app_admin.incident_dismissals
+        (incident_id, incident_type, title, resolution, note, user_ids, closed_by)
+      VALUES ($1, $2, $3, $4, $5, $6::uuid[], $7)
+      ON CONFLICT (incident_id) DO UPDATE
+        SET incident_type = EXCLUDED.incident_type,
+            title         = EXCLUDED.title,
+            resolution    = EXCLUDED.resolution,
+            note          = EXCLUDED.note,
+            user_ids      = EXCLUDED.user_ids,
+            closed_by     = EXCLUDED.closed_by,
+            closed_at     = now()
+      RETURNING incident_id, incident_type, title, resolution, note, closed_at
+    `,
+    [
+      input.incidentId,
+      input.type,
+      input.title.slice(0, 300),
+      input.resolution,
+      note,
+      input.userIds ?? [],
+      actor.userId,
+    ],
+  );
+
+  const row = rows[0];
+  return {
+    incidentId: row.incident_id,
+    type: row.incident_type,
+    title: row.title,
+    resolution: row.resolution,
+    note: row.note,
+    closedAt: new Date(row.closed_at).toISOString(),
+    closedByName: null,
+  };
+}
+
+/** Reabre un caso cerrado: vuelve al panel si el detector sigue encontrándolo. */
+export async function reopenIncident(client: PoolClient, incidentId: string): Promise<boolean> {
+  await requireModulePermission(client, 'usuarios', 'view');
+  const { rowCount } = await client.query(
+    'DELETE FROM app_admin.incident_dismissals WHERE incident_id = $1',
+    [incidentId],
+  );
+  return (rowCount ?? 0) > 0;
+}
+
+/** Historial de casos cerrados, para consultarlos o reabrirlos. */
+export async function listClosedIncidents(
+  client: PoolClient,
+  options?: { userId?: string },
+): Promise<DismissedIncident[]> {
+  await requireModulePermission(client, 'usuarios', 'view');
+
+  const { rows } = await client.query<{
+    incident_id: string; incident_type: string; title: string;
+    resolution: IncidentResolution; note: string | null; closed_at: string; closed_by_name: string | null;
+  }>(
+    `
+      SELECT d.incident_id, d.incident_type, d.title, d.resolution, d.note, d.closed_at,
+             u.display_name AS closed_by_name
+      FROM app_admin.incident_dismissals d
+      LEFT JOIN app_core.users u ON u.user_id = d.closed_by
+      WHERE $1::uuid IS NULL OR $1::uuid = ANY (d.user_ids)
+      ORDER BY d.closed_at DESC
+      LIMIT 200
+    `,
+    [options?.userId ?? null],
+  );
+
+  return rows.map((row) => ({
+    incidentId: row.incident_id,
+    type: row.incident_type,
+    title: row.title,
+    resolution: row.resolution,
+    note: row.note,
+    closedAt: new Date(row.closed_at).toISOString(),
+    closedByName: row.closed_by_name,
+  }));
 }
 
 /* ── Asistente de incidencias ────────────────────────────────────────────── */

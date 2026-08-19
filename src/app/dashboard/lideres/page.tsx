@@ -565,7 +565,7 @@ export default function LideresPage() {
                 subtitle="Consulta el avance de cada líder y entra a su vista completa."
             />
 
-            <IncidenciasPanel />
+            <IncidenciasPanel defaultCollapsed />
 
             <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
