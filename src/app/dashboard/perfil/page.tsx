@@ -18,6 +18,7 @@ import {
 import { listConnections } from '@/features/networking/client';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { EmptyState } from '@/components/dashboard/EmptyState';
+import { AdvisorProfilePanel } from '@/components/dashboard/AdvisorProfilePanel';
 import { PurchasedProductsPanel } from '@/components/dashboard/PurchasedProductsPanel';
 import { MySubscriptionSection } from '@/components/dashboard/MySubscriptionSection';
 import { DeleteUserReasonModal } from '@/components/dashboard/DeleteUserReasonModal';
@@ -201,7 +202,7 @@ function compactProject(item: ProjectFormItem): ProjectFormItem {
 }
 
 export default function PerfilPage() {
-  const { can, refreshBootstrap, updateUser: updateContextUser, currentUser } = useUser();
+  const { can, refreshBootstrap, updateUser: updateContextUser, currentUser, currentRole } = useUser();
   const { alert } = useAppDialog();
   const [isDeletingSelf, setIsDeletingSelf] = React.useState(false);
   const [showDeleteModal, setShowDeleteModal] = React.useState(false);
@@ -724,6 +725,12 @@ export default function PerfilPage() {
       </section>
 
       {!canEditProfile && <EmptyState message="No tienes permisos para editar tu perfil." />}
+
+      {/* Ficha de Advisor: el propio advisor edita su perfil profesional; los
+          datos comerciales le aparecen en solo lectura. */}
+      {currentRole === 'mentor' && currentUser?.id && (
+        <AdvisorProfilePanel advisorUserId={currentUser.id} />
+      )}
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
         <div className="space-y-5 xl:col-span-2">

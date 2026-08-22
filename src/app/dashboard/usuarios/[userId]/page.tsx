@@ -18,6 +18,7 @@ import {
 import { useParams, useRouter } from 'next/navigation';
 import { EmptyState } from '@/components/dashboard/EmptyState';
 import { PurchasedProductsPanel } from '@/components/dashboard/PurchasedProductsPanel';
+import { AdvisorProfilePanel } from '@/components/dashboard/AdvisorProfilePanel';
 import { DeleteUserReasonModal } from '@/components/dashboard/DeleteUserReasonModal';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { useUser } from '@/context/UserContext';
@@ -1002,6 +1003,10 @@ export default function UsuarioDetallePage() {
                 </div>
               )}
             </article>
+          )}
+
+          {detail.primaryRole === 'mentor' && (
+            <AdvisorProfilePanel advisorUserId={detail.userId} />
           )}
 
           <article className="app-panel p-5">
