@@ -234,6 +234,26 @@ export async function upsertMentorAvailabilitySlot(
   });
 }
 
+export interface CreateExternalSessionRecordingInput {
+  title: string;
+  recordingUrl: string;
+  recordedAt: string;
+  description?: string | null;
+  externalExpertName?: string | null;
+  durationMinutes?: number;
+  thumbnailUrl?: string | null;
+}
+
+/** Sesión externa pasada + su grabación, en un solo paso (admin/gestor). */
+export async function createExternalSessionRecording(
+  input: CreateExternalSessionRecordingInput,
+): Promise<unknown> {
+  return requestApi('/api/v1/modules/mentorias/group-sessions/recordings/external', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
 export async function bulkCreateMentorAvailability(
   input: BulkMentorAvailabilityInput,
 ): Promise<{ created: number }> {

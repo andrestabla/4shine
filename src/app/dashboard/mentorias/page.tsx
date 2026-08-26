@@ -50,6 +50,7 @@ import {
   createAdditionalMentorshipOrder,
   smartSearchMentors,
   createGroupSession,
+  createExternalSessionRecording,
   createGroupSessionRecording,
   deleteGroupSession,
   deleteGroupSessionRecording,
@@ -115,11 +116,15 @@ interface GroupSessionFormState {
 }
 
 interface GroupRecordingFormState {
+  /** id de un evento existente, o '__external__' para sesión fuera de la plataforma. */
   eventId: string;
   title: string;
   recordingUrl: string;
   durationMinutes: string;
   description: string;
+  /** Solo sesión externa: cuándo ocurrió y quién la dictó. */
+  recordedAt: string;
+  externalExpertName: string;
 }
 
 interface AvailabilitySlotFormState {
@@ -403,6 +408,8 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
     recordingUrl: '',
     durationMinutes: '',
     description: '',
+    recordedAt: '',
+    externalExpertName: '',
   });
   const [recordingCommentDrafts, setRecordingCommentDrafts] = React.useState<Record<string, string>>({});
   const [recordingSearch, setRecordingSearch] = React.useState('');
@@ -1109,22 +1116,42 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
     if (!groupRecordingForm.eventId || !groupRecordingForm.title.trim() || !groupRecordingForm.recordingUrl.trim()) {
       return;
     }
+    const isExternal = groupRecordingForm.eventId === '__external__';
+    if (isExternal && !groupRecordingForm.recordedAt) {
+      await showError('Indica la fecha en que ocurrió la sesión externa.', null);
+      return;
+    }
 
     setSubmittingGroupRecording(true);
     try {
-      await createGroupSessionRecording({
-        eventId: groupRecordingForm.eventId,
-        title: groupRecordingForm.title.trim(),
-        description: groupRecordingForm.description.trim() || null,
-        recordingUrl: groupRecordingForm.recordingUrl.trim(),
-        durationMinutes: groupRecordingForm.durationMinutes ? Number(groupRecordingForm.durationMinutes) : 0,
-      });
+      if (isExternal) {
+        // Sesión que ocurrió por enlace externo: se registra el evento pasado
+        // y su grabación en un solo paso, sin notificar a los líderes.
+        await createExternalSessionRecording({
+          title: groupRecordingForm.title.trim(),
+          recordingUrl: groupRecordingForm.recordingUrl.trim(),
+          recordedAt: new Date(groupRecordingForm.recordedAt).toISOString(),
+          description: groupRecordingForm.description.trim() || null,
+          externalExpertName: groupRecordingForm.externalExpertName.trim() || null,
+          durationMinutes: groupRecordingForm.durationMinutes ? Number(groupRecordingForm.durationMinutes) : 60,
+        });
+      } else {
+        await createGroupSessionRecording({
+          eventId: groupRecordingForm.eventId,
+          title: groupRecordingForm.title.trim(),
+          description: groupRecordingForm.description.trim() || null,
+          recordingUrl: groupRecordingForm.recordingUrl.trim(),
+          durationMinutes: groupRecordingForm.durationMinutes ? Number(groupRecordingForm.durationMinutes) : 0,
+        });
+      }
       setGroupRecordingForm({
         eventId: '',
         title: '',
         recordingUrl: '',
         durationMinutes: '',
         description: '',
+        recordedAt: '',
+        externalExpertName: '',
       });
       await load();
     } catch (error) {
@@ -1883,12 +1910,41 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
               required
             >
               <option value="">Selecciona una sesión de Expertos en vivo</option>
+              <option value="__external__">➕ Sesión externa (no creada en la plataforma)</option>
               {groupSessions.map((item) => (
                 <option key={item.eventId} value={item.eventId}>
                   {item.title} · {formatDateTime(item.startsAt, tz)}
                 </option>
               ))}
             </select>
+            {groupRecordingForm.eventId === '__external__' && (
+              <>
+                <p className="text-xs text-[var(--app-muted)] md:col-span-2">
+                  Para sesiones que ocurrieron por enlace externo (Zoom u otro): se registran como
+                  evento pasado con su grabación, sin enviar notificaciones a los líderes.
+                </p>
+                <label className="text-xs font-semibold text-[var(--app-muted)]">
+                  Fecha y hora de la sesión
+                  <input
+                    type="datetime-local"
+                    className="mt-1 w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm text-[var(--app-ink)]"
+                    value={groupRecordingForm.recordedAt}
+                    max={new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)}
+                    onChange={(event) => setGroupRecordingForm((prev) => ({ ...prev, recordedAt: event.target.value }))}
+                    required
+                  />
+                </label>
+                <label className="text-xs font-semibold text-[var(--app-muted)]">
+                  Experto que dictó la sesión (opcional)
+                  <input
+                    className="mt-1 w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm text-[var(--app-ink)]"
+                    placeholder="Nombre del experto"
+                    value={groupRecordingForm.externalExpertName}
+                    onChange={(event) => setGroupRecordingForm((prev) => ({ ...prev, externalExpertName: event.target.value }))}
+                  />
+                </label>
+              </>
+            )}
             <input className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm" placeholder="Título de grabación" value={groupRecordingForm.title} onChange={(event) => setGroupRecordingForm((prev) => ({ ...prev, title: event.target.value }))} required />
             <input className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm" placeholder="Duración (min)" value={groupRecordingForm.durationMinutes} onChange={(event) => setGroupRecordingForm((prev) => ({ ...prev, durationMinutes: event.target.value }))} />
             <input className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm md:col-span-2" placeholder="URL de grabación" value={groupRecordingForm.recordingUrl} onChange={(event) => setGroupRecordingForm((prev) => ({ ...prev, recordingUrl: event.target.value }))} required />

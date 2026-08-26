@@ -2250,6 +2250,105 @@ export async function createGroupSessionRecording(
   return found;
 }
 
+export interface CreateExternalSessionRecordingInput {
+  /** Título de la sesión tal como se mostrará en Expertos en vivo. */
+  title: string;
+  /** URL de la grabación (Zoom u otro proveedor). */
+  recordingUrl: string;
+  /** Fecha/hora en que ocurrió la sesión (debe ser pasada). */
+  recordedAt: string;
+  description?: string | null;
+  /** Nombre del experto que dictó la sesión (opcional). */
+  externalExpertName?: string | null;
+  durationMinutes?: number;
+  thumbnailUrl?: string | null;
+}
+
+/**
+ * Registra una sesión de Expertos en vivo que ocurrió FUERA de la plataforma
+ * (por enlace externo) y publica su grabación en un solo paso.
+ *
+ * Crea el evento en estado 'completed' con fecha pasada y le cuelga la
+ * grabación. A diferencia de createGroupSession, NO envía la notificación de
+ * "sesión publicada": la sesión ya pasó y el broadcast a todos los líderes
+ * sería ruido; los líderes la descubren en el bloque de grabaciones.
+ */
+export async function createExternalSessionRecording(
+  client: PoolClient,
+  actor: AuthUser,
+  input: CreateExternalSessionRecordingInput,
+): Promise<GroupSessionRecordingRecord> {
+  if (actor.role !== 'admin' && actor.role !== 'gestor') {
+    throw new Error('Only admin or gestor can publish recordings');
+  }
+  await requireModulePermission(client, 'mentorias', 'create');
+
+  const title = input.title.trim();
+  if (title.length < 3) throw new Error('El título de la sesión es obligatorio.');
+  const recordingUrl = input.recordingUrl.trim();
+  if (!/^https?:\/\//i.test(recordingUrl)) {
+    throw new Error('La URL de la grabación debe empezar por http:// o https://');
+  }
+  const recordedAt = new Date(input.recordedAt);
+  if (Number.isNaN(recordedAt.getTime())) throw new Error('La fecha de la sesión no es válida.');
+  if (recordedAt.getTime() > Date.now()) {
+    throw new Error('La sesión externa debe ser pasada; para futuras crea el evento normal.');
+  }
+  const durationMinutes = Math.max(0, Math.floor(input.durationMinutes ?? 60));
+  const endsAt = new Date(recordedAt.getTime() + Math.max(durationMinutes, 30) * 60000);
+
+  const session = await createSessionWithParticipants(client, actor, {
+    mentorUserId: actor.userId,
+    title,
+    description: input.description?.trim() || null,
+    startsAt: recordedAt.toISOString(),
+    endsAt: endsAt.toISOString(),
+    sessionType: 'grupal',
+    status: 'completed',
+    meetingUrl: null,
+    sessionOrigin: 'manual',
+    menteeUserIds: [],
+  });
+
+  const { rows: eventRows } = await client.query<{ event_id: string }>(
+    `
+      INSERT INTO app_mentoring.group_session_events (
+        session_id, host_user_id, external_expert_name, external_expert_bio,
+        zoom_join_url, zoom_host_url, zoom_meeting_id, created_by
+      )
+      VALUES ($1, NULL, $2, NULL, NULL, NULL, NULL, $3)
+      RETURNING event_id::text
+    `,
+    [session.sessionId, input.externalExpertName?.trim() || 'Sesión externa', actor.userId],
+  );
+  const eventId = eventRows[0].event_id;
+
+  await client.query(
+    `
+      INSERT INTO app_mentoring.group_session_recordings (
+        event_id, source_type, title, description, recording_url,
+        thumbnail_url, duration_minutes, recorded_at, published_at, created_by
+      )
+      VALUES ($1, 'manual', $2, $3, $4, $5, $6, $7::timestamptz, now(), $8)
+    `,
+    [
+      eventId,
+      title,
+      input.description?.trim() || null,
+      recordingUrl,
+      input.thumbnailUrl?.trim() || null,
+      durationMinutes,
+      recordedAt.toISOString(),
+      actor.userId,
+    ],
+  );
+
+  const recordings = await listGroupSessionRecordings(client, actor, 300);
+  const found = recordings.find((item) => item.eventId === eventId);
+  if (!found) throw new Error('Failed to create external recording');
+  return found;
+}
+
 export interface UpdateGroupSessionRecordingInput {
   title?: string;
   description?: string | null;
