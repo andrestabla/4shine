@@ -166,7 +166,7 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
       style={{ paddingTop: "max(1rem, env(safe-area-inset-top))" }}
     >
       <div className="mx-auto flex w-full max-w-[var(--brand-page-max-width)] items-center justify-between gap-4">
-        <div className="flex min-w-0 items-center gap-4">
+        <div className="flex min-w-0 flex-1 items-center gap-4">
           <button
             onClick={onMenuClick}
             className="flex h-11 w-11 items-center justify-center rounded-[1rem] border border-[var(--app-border)] bg-white/92 text-[var(--app-ink)] shadow-sm transition hover:bg-white md:hidden"
@@ -181,7 +181,7 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
             )}
             {/* Móvil: una sola línea (elipsis si no cabe); md+: comportamiento original. */}
             <h1
-              className="app-display-title truncate text-[1.3rem] font-semibold leading-tight sm:text-[1.9rem] md:overflow-visible md:whitespace-normal md:[overflow-wrap:anywhere] md:text-[2.2rem]"
+              className="app-display-title truncate text-[1.3rem] font-semibold leading-tight sm:text-[1.9rem] md:overflow-visible md:whitespace-normal md:[overflow-wrap:break-word] md:text-[2.2rem]"
               data-display-font="true"
             >
               {pageTitle}
@@ -189,8 +189,8 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 md:gap-4">
-          <div className="hidden md:flex items-center gap-2 rounded-[calc(var(--brand-radius-rem)*1rem)] border border-[var(--app-border)] bg-white/92 px-3.5 h-12 w-56 lg:w-72 focus-within:border-[var(--app-border-strong)] focus-within:shadow-[0_0_0_4px_rgba(201,176,225,0.18)] transition-all">
+        <div className="flex shrink-0 items-center gap-2 md:gap-4">
+          <div className="hidden lg:flex items-center gap-2 rounded-[calc(var(--brand-radius-rem)*1rem)] border border-[var(--app-border)] bg-white/92 px-3.5 h-12 w-56 xl:w-72 focus-within:border-[var(--app-border-strong)] focus-within:shadow-[0_0_0_4px_rgba(201,176,225,0.18)] transition-all">
             <Search size={15} className="shrink-0 text-[var(--app-muted)]" />
             <input
               type="text"

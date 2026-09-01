@@ -154,7 +154,12 @@ export default function GrabacionPage() {
                 className="absolute inset-0 flex items-center justify-center"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={coverUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                <img
+                  src={coverUrl}
+                  alt=""
+                  onError={() => setShowCover(false)}
+                  className="absolute inset-0 h-full w-full object-cover"
+                />
                 <span className="relative flex h-16 w-16 items-center justify-center rounded-full bg-white/90 shadow-lg transition hover:scale-105">
                   <Play size={26} className="translate-x-0.5 text-[var(--brand-primary)]" />
                 </span>
