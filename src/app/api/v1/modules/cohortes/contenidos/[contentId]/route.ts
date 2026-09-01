@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
 import { authenticateRequest } from '@/server/auth/request-auth';
 import { withClient, withRoleContext } from '@/server/db/pool';
-import { getContentCohorts, setContentCohorts } from '@/features/cohortes/service';
+import {
+  getContentCohorts,
+  setContentCohorts,
+  type ContentCohortMode,
+} from '@/features/cohortes/service';
 import { errorResponse, logModuleAudit, parseJsonBody, unauthorizedResponse } from '../../../_utils';
 
 interface ContextParams {
@@ -29,7 +33,7 @@ export async function PUT(request: Request, context: ContextParams) {
   if (!identity) return unauthorizedResponse();
   const { contentId } = await context.params;
 
-  const body = await parseJsonBody<{ cohortIds: string[] }>(request);
+  const body = await parseJsonBody<{ cohortIds: string[]; mode?: ContentCohortMode }>(request);
   if (!body || !Array.isArray(body.cohortIds)) {
     return NextResponse.json({ ok: false, error: 'cohortIds es obligatorio' }, { status: 400 });
   }
@@ -37,13 +41,13 @@ export async function PUT(request: Request, context: ContextParams) {
   try {
     const data = await withClient((client) =>
       withRoleContext(client, identity.userId, identity.role, async () => {
-        const result = await setContentCohorts(client, identity, contentId, body.cohortIds);
+        const result = await setContentCohorts(client, identity, contentId, body.cohortIds, body.mode ?? 'allow');
         await logModuleAudit(client, request, identity, {
           moduleCode: 'cohortes',
           action: 'set_content_cohorts',
           entityTable: 'app_learning.content_cohorts',
           entityId: contentId,
-          changeSummary: { cohortIds: body.cohortIds },
+          changeSummary: { cohortIds: body.cohortIds, mode: body.mode ?? 'allow' },
         });
         return result;
       }),

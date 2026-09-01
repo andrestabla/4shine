@@ -2,6 +2,7 @@ import { requestApi } from '@/lib/api-client';
 import type {
   AssignableUser,
   ContentCohortAssignment,
+  ContentCohortMode,
   CohortDetail,
   CohortMemberRecord,
   CohortRecord,
@@ -14,6 +15,7 @@ import type {
 export type {
   AssignableUser,
   ContentCohortAssignment,
+  ContentCohortMode,
   CohortDetail,
   CohortMemberRecord,
   CohortRecord,
@@ -93,9 +95,10 @@ export async function getContentCohorts(contentId: string): Promise<ContentCohor
 export async function setContentCohorts(
   contentId: string,
   cohortIds: string[],
+  mode: ContentCohortMode = 'allow',
 ): Promise<ContentCohortAssignment[]> {
   return requestApi<ContentCohortAssignment[]>(`${BASE}/contenidos/${contentId}`, {
     method: 'PUT',
-    body: JSON.stringify({ cohortIds }),
+    body: JSON.stringify({ cohortIds, mode }),
   });
 }

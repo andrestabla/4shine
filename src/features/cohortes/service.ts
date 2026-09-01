@@ -586,10 +586,14 @@ export async function listAssignableUsers(
 
 // ── Cursos restringidos a cohortes ──────────────────────────────────────────
 
+/** allow = solo esa cohorte lo ve; deny = esa cohorte no lo ve. */
+export type ContentCohortMode = 'allow' | 'deny';
+
 export interface ContentCohortAssignment {
   cohortId: string;
   name: string;
   status: CohortStatus;
+  mode: ContentCohortMode;
 }
 
 /** Cohortes a las que está restringido un contenido. Vacío = visible según el plan. */
@@ -599,27 +603,39 @@ export async function getContentCohorts(
   contentId: string,
 ): Promise<ContentCohortAssignment[]> {
   await requireModulePermission(client, 'cohortes', 'view');
-  const { rows } = await client.query<{ cohort_id: string; name: string; status: CohortStatus }>(
-    `SELECT c.cohort_id::text, c.name, c.status
+  const { rows } = await client.query<{
+    cohort_id: string;
+    name: string;
+    status: CohortStatus;
+    mode: ContentCohortMode;
+  }>(
+    `SELECT c.cohort_id::text, c.name, c.status, cc.mode
      FROM app_learning.content_cohorts cc
      JOIN app_core.cohorts c ON c.cohort_id = cc.cohort_id
      WHERE cc.content_id = $1::uuid
      ORDER BY c.name`,
     [contentId],
   );
-  return rows.map((row) => ({ cohortId: row.cohort_id, name: row.name, status: row.status }));
+  return rows.map((row) => ({
+    cohortId: row.cohort_id,
+    name: row.name,
+    status: row.status,
+    mode: row.mode,
+  }));
 }
 
 /**
  * Fija la lista completa de cohortes de un contenido (reemplaza la anterior).
- * Lista vacía = quitar la restricción y volver al comportamiento por plan.
+ * Lista vacía = sin restricción, vuelve al comportamiento por plan.
  */
 export async function setContentCohorts(
   client: PoolClient,
   actor: AuthUser,
   contentId: string,
   cohortIds: string[],
+  mode: ContentCohortMode = 'allow',
 ): Promise<ContentCohortAssignment[]> {
+  if (mode !== 'allow' && mode !== 'deny') throw new Error('Modo de cohorte no válido.');
   await requireModulePermission(client, 'cohortes', 'update');
   const organizationId = await resolveOrganizationId(client, actor.userId);
 
@@ -650,10 +666,10 @@ export async function setContentCohorts(
 
   if (ids.length > 0) {
     await client.query(
-      `INSERT INTO app_learning.content_cohorts (content_id, cohort_id, created_by)
-       SELECT $1::uuid, unnest($2::uuid[]), $3::uuid
-       ON CONFLICT (content_id, cohort_id) DO NOTHING`,
-      [contentId, ids, actor.userId],
+      `INSERT INTO app_learning.content_cohorts (content_id, cohort_id, created_by, mode)
+       SELECT $1::uuid, unnest($2::uuid[]), $3::uuid, $4
+       ON CONFLICT (content_id, cohort_id) DO UPDATE SET mode = EXCLUDED.mode`,
+      [contentId, ids, actor.userId, mode],
     );
   }
 

@@ -2908,10 +2908,10 @@ export function LearningCourseEditor({
                         <CourseCohortPicker contentId={editingResourceId} />
                       ) : (
                         <div className="lg:col-span-2">
-                          <label className="app-field-label">Restringir a cohortes</label>
+                          <label className="app-field-label">Cohortes</label>
                           <p className="mt-1 text-[12.5px] text-[var(--app-muted)]">
-                            Guarda el curso primero; al volver a editarlo podrás limitarlo a
-                            cohortes específicas.
+                            Guarda el curso primero; al volver a editarlo podrás asignarlo a
+                            cohortes o restringirlo.
                           </p>
                         </div>
                       )}
