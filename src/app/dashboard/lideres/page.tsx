@@ -22,6 +22,7 @@ import { PageTitle } from '@/components/dashboard/PageTitle'
 import { IncidenciasPanel } from '@/components/dashboard/IncidenciasPanel'
 import { useUser } from '@/context/UserContext'
 import { listLeaderSummaries, type LeaderSummary } from '@/features/lideres/client'
+import { CohortFilter } from '@/components/dashboard/CohortFilter'
 import { subscriptionStatus, type SubscriptionStatus } from '@/features/usuarios/subscription-status'
 import { formatDate as sharedFormatDate } from '@/lib/format-date'
 
@@ -432,6 +433,7 @@ export default function LideresPage() {
     // 30 por página. Al cambiar cualquier filtro / búsqueda volvemos a página 1
     // para no quedar "fuera de rango" cuando el resultado se achica.
     const [page, setPage] = React.useState(1)
+    const [cohortId, setCohortId] = React.useState('')
 
     React.useEffect(() => {
         if (!isElevated) {
@@ -441,7 +443,7 @@ export default function LideresPage() {
         let active = true
         setIsLoading(true)
         setLoadError(null)
-        listLeaderSummaries()
+        listLeaderSummaries(cohortId || null)
             .then((data) => {
                 if (!active) return
                 setLeaders(data)
@@ -460,7 +462,7 @@ export default function LideresPage() {
         return () => {
             active = false
         }
-    }, [isElevated])
+    }, [isElevated, cohortId])
 
     const planOptions = React.useMemo(() => {
         const map = new Map<string, string>()
@@ -595,6 +597,9 @@ export default function LideresPage() {
                                     <X size={14} />
                                 </button>
                             )}
+                        </div>
+                        <div className="mt-2">
+                            <CohortFilter value={cohortId} onChange={setCohortId} />
                         </div>
                         <p className="mt-1 text-[11px] text-slate-500">
                             Múltiples palabras combinan con AND. Tildes y mayúsculas se ignoran.

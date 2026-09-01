@@ -98,6 +98,8 @@ function toPercent(value: number | string | null | undefined): number {
 export async function listLeaderSummaries(
     client: PoolClient,
     actor: AuthUser,
+    /** Filtra por cohorte; null = todos los líderes. */
+    cohortId?: string | null,
 ): Promise<LeaderSummary[]> {
     ensureCanReadLideres(actor)
     await requireModulePermission(client, 'lideres', 'view')
@@ -179,8 +181,18 @@ export async function listLeaderSummaries(
             ) course_stats ON true
             WHERE u.is_active = true
               AND u.primary_role = 'lider'
+              AND (
+                $1::uuid IS NULL
+                OR EXISTS (
+                  SELECT 1 FROM app_core.cohort_memberships cm
+                  WHERE cm.user_id = u.user_id
+                    AND cm.cohort_id = $1::uuid
+                    AND cm.left_at IS NULL
+                )
+              )
             ORDER BY u.display_name ASC
         `,
+        [cohortId?.trim() || null],
     )
 
     return rows.map((row) => {

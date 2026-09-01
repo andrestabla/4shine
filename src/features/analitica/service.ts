@@ -28,11 +28,19 @@ function pct(part: number, total: number): number {
 export async function getAnalytics(
   client: PoolClient,
   actor: AuthUser,
-  opts: { from: string; to: string },
+  opts: { from: string; to: string; cohortId?: string | null },
 ): Promise<AnalyticsResult> {
   await requireModulePermission(client, 'analitica', 'view');
   const org = await resolveOrgId(client, actor.userId);
   const { from, to } = opts;
+
+  // El filtro de cohorte viaja por el contexto de la sesión: así las ~30
+  // consultas de abajo lo aplican sin tener que renumerar sus parámetros.
+  // Las métricas de contenido y workshops se cuentan por su creador, así que
+  // la cohorte no aplica y quedan globales a propósito.
+  await client.query(`SELECT set_config('app.filter_cohort_id', $1, true)`, [
+    opts.cohortId?.trim() || '',
+  ]);
 
   // Helpers ----------------------------------------------------------------
   const nc = async (sql: string, params: unknown[] = []): Promise<NameCount[]> => {
@@ -53,20 +61,20 @@ export async function getAnalytics(
 
   // ── USUARIOS ───────────────────────────────────────────────────────────
   const totalUsers = await scalar(
-    `SELECT count(*)::int AS v FROM app_core.users WHERE organization_id = $1`,
+    `SELECT count(*)::int AS v FROM app_core.users WHERE organization_id = $1 AND (NULLIF(current_setting('app.filter_cohort_id', true), '') IS NULL OR EXISTS (SELECT 1 FROM app_core.cohort_memberships cm WHERE cm.user_id = app_core.users.user_id AND cm.cohort_id = NULLIF(current_setting('app.filter_cohort_id', true), '')::uuid AND cm.left_at IS NULL))`,
     [org],
   );
   const activeUsers = await scalar(
-    `SELECT count(*)::int AS v FROM app_core.users WHERE organization_id = $1 AND is_active = true`,
+    `SELECT count(*)::int AS v FROM app_core.users WHERE organization_id = $1 AND is_active = true AND (NULLIF(current_setting('app.filter_cohort_id', true), '') IS NULL OR EXISTS (SELECT 1 FROM app_core.cohort_memberships cm WHERE cm.user_id = app_core.users.user_id AND cm.cohort_id = NULLIF(current_setting('app.filter_cohort_id', true), '')::uuid AND cm.left_at IS NULL))`,
     [org],
   );
   const newUsers = await scalar(
-    `SELECT count(*)::int AS v FROM app_core.users WHERE organization_id = $1 AND created_at BETWEEN $2 AND $3`,
+    `SELECT count(*)::int AS v FROM app_core.users WHERE organization_id = $1 AND created_at BETWEEN $2 AND $3 AND (NULLIF(current_setting('app.filter_cohort_id', true), '') IS NULL OR EXISTS (SELECT 1 FROM app_core.cohort_memberships cm WHERE cm.user_id = app_core.users.user_id AND cm.cohort_id = NULLIF(current_setting('app.filter_cohort_id', true), '')::uuid AND cm.left_at IS NULL))`,
     [org, from, to],
   );
   const usersByRole = await nc(
     `SELECT primary_role AS label, count(*)::int AS value
-     FROM app_core.users WHERE organization_id = $1 AND is_active = true
+     FROM app_core.users WHERE organization_id = $1 AND is_active = true AND (NULLIF(current_setting('app.filter_cohort_id', true), '') IS NULL OR EXISTS (SELECT 1 FROM app_core.cohort_memberships cm WHERE cm.user_id = user_id AND cm.cohort_id = NULLIF(current_setting('app.filter_cohort_id', true), '')::uuid AND cm.left_at IS NULL))
      GROUP BY primary_role ORDER BY value DESC`,
     [org],
   );
@@ -77,7 +85,7 @@ export async function getAnalytics(
      LEFT JOIN app_billing.subscription_plans sp
        ON sp.plan_id = up.subscription_plan_id
       AND (up.subscription_expires_at IS NULL OR up.subscription_expires_at > now())
-     WHERE u.organization_id = $1 AND u.is_active = true AND u.primary_role = 'lider'
+     WHERE u.organization_id = $1 AND (NULLIF(current_setting('app.filter_cohort_id', true), '') IS NULL OR EXISTS (SELECT 1 FROM app_core.cohort_memberships cm WHERE cm.user_id = u.user_id AND cm.cohort_id = NULLIF(current_setting('app.filter_cohort_id', true), '')::uuid AND cm.left_at IS NULL)) AND u.is_active = true AND u.primary_role = 'lider'
      GROUP BY COALESCE(sp.name, 'Sin plan') ORDER BY value DESC`,
     [org],
   );
@@ -85,7 +93,7 @@ export async function getAnalytics(
     `SELECT COALESCE(NULLIF(TRIM(up.country), ''), 'Sin país') AS label, count(*)::int AS value
      FROM app_core.users u
      JOIN app_core.user_profiles up ON up.user_id = u.user_id
-     WHERE u.organization_id = $1 AND u.is_active = true
+     WHERE u.organization_id = $1 AND (NULLIF(current_setting('app.filter_cohort_id', true), '') IS NULL OR EXISTS (SELECT 1 FROM app_core.cohort_memberships cm WHERE cm.user_id = u.user_id AND cm.cohort_id = NULLIF(current_setting('app.filter_cohort_id', true), '')::uuid AND cm.left_at IS NULL)) AND u.is_active = true
      GROUP BY 1 ORDER BY value DESC LIMIT 12`,
     [org],
   );
@@ -100,13 +108,13 @@ export async function getAnalytics(
        count(*)::int AS value
      FROM app_core.users u
      JOIN app_core.user_profiles up ON up.user_id = u.user_id
-     WHERE u.organization_id = $1 AND u.is_active = true AND u.primary_role = 'lider'
+     WHERE u.organization_id = $1 AND (NULLIF(current_setting('app.filter_cohort_id', true), '') IS NULL OR EXISTS (SELECT 1 FROM app_core.cohort_memberships cm WHERE cm.user_id = u.user_id AND cm.cohort_id = NULLIF(current_setting('app.filter_cohort_id', true), '')::uuid AND cm.left_at IS NULL)) AND u.is_active = true AND u.primary_role = 'lider'
      GROUP BY 1`,
     [org],
   );
   const signupsSeries = await series(
     `SELECT ${dayExpr('created_at')} AS date, count(*)::int AS value
-     FROM app_core.users WHERE organization_id = $1 AND created_at BETWEEN $2 AND $3
+     FROM app_core.users WHERE organization_id = $1 AND created_at BETWEEN $2 AND $3 AND (NULLIF(current_setting('app.filter_cohort_id', true), '') IS NULL OR EXISTS (SELECT 1 FROM app_core.cohort_memberships cm WHERE cm.user_id = user_id AND cm.cohort_id = NULLIF(current_setting('app.filter_cohort_id', true), '')::uuid AND cm.left_at IS NULL))
      GROUP BY 1 ORDER BY 1`,
     [org, from, to],
   );
@@ -116,7 +124,7 @@ export async function getAnalytics(
     `SELECT ms.status AS label, count(*)::int AS value
      FROM app_mentoring.mentorship_sessions ms
      JOIN app_core.users u ON u.user_id = ms.mentor_user_id
-     WHERE u.organization_id = $1
+     WHERE u.organization_id = $1 AND (NULLIF(current_setting('app.filter_cohort_id', true), '') IS NULL OR EXISTS (SELECT 1 FROM app_mentoring.session_participants spc JOIN app_core.cohort_memberships cm ON cm.user_id = spc.user_id WHERE spc.session_id = ms.session_id AND cm.cohort_id = NULLIF(current_setting('app.filter_cohort_id', true), '')::uuid AND cm.left_at IS NULL))
      GROUP BY ms.status ORDER BY value DESC`,
     [org],
   );
@@ -124,7 +132,7 @@ export async function getAnalytics(
     `SELECT CASE ms.session_type WHEN 'grupal' THEN 'Experto en vivo' ELSE 'Individual' END AS label, count(*)::int AS value
      FROM app_mentoring.mentorship_sessions ms
      JOIN app_core.users u ON u.user_id = ms.mentor_user_id
-     WHERE u.organization_id = $1
+     WHERE u.organization_id = $1 AND (NULLIF(current_setting('app.filter_cohort_id', true), '') IS NULL OR EXISTS (SELECT 1 FROM app_mentoring.session_participants spc JOIN app_core.cohort_memberships cm ON cm.user_id = spc.user_id WHERE spc.session_id = ms.session_id AND cm.cohort_id = NULLIF(current_setting('app.filter_cohort_id', true), '')::uuid AND cm.left_at IS NULL))
      GROUP BY 1 ORDER BY value DESC`,
     [org],
   );
@@ -132,26 +140,26 @@ export async function getAnalytics(
     `SELECT ${dayExpr('ms.starts_at')} AS date, count(*)::int AS value
      FROM app_mentoring.mentorship_sessions ms
      JOIN app_core.users u ON u.user_id = ms.mentor_user_id
-     WHERE u.organization_id = $1 AND ms.starts_at BETWEEN $2 AND $3
+     WHERE u.organization_id = $1 AND (NULLIF(current_setting('app.filter_cohort_id', true), '') IS NULL OR EXISTS (SELECT 1 FROM app_mentoring.session_participants spc JOIN app_core.cohort_memberships cm ON cm.user_id = spc.user_id WHERE spc.session_id = ms.session_id AND cm.cohort_id = NULLIF(current_setting('app.filter_cohort_id', true), '')::uuid AND cm.left_at IS NULL)) AND ms.starts_at BETWEEN $2 AND $3
      GROUP BY 1 ORDER BY 1`,
     [org, from, to],
   );
   const totalSessions = await scalar(
     `SELECT count(*)::int AS v FROM app_mentoring.mentorship_sessions ms
-     JOIN app_core.users u ON u.user_id = ms.mentor_user_id WHERE u.organization_id = $1`,
+     JOIN app_core.users u ON u.user_id = ms.mentor_user_id WHERE u.organization_id = $1 AND (NULLIF(current_setting('app.filter_cohort_id', true), '') IS NULL OR EXISTS (SELECT 1 FROM app_mentoring.session_participants spc JOIN app_core.cohort_memberships cm ON cm.user_id = spc.user_id WHERE spc.session_id = ms.session_id AND cm.cohort_id = NULLIF(current_setting('app.filter_cohort_id', true), '')::uuid AND cm.left_at IS NULL))`,
     [org],
   );
   const completedSessions = await scalar(
     `SELECT count(*)::int AS v FROM app_mentoring.mentorship_sessions ms
      JOIN app_core.users u ON u.user_id = ms.mentor_user_id
-     WHERE u.organization_id = $1 AND ms.status = 'completed'`,
+     WHERE u.organization_id = $1 AND (NULLIF(current_setting('app.filter_cohort_id', true), '') IS NULL OR EXISTS (SELECT 1 FROM app_mentoring.session_participants spc JOIN app_core.cohort_memberships cm ON cm.user_id = spc.user_id WHERE spc.session_id = ms.session_id AND cm.cohort_id = NULLIF(current_setting('app.filter_cohort_id', true), '')::uuid AND cm.left_at IS NULL)) AND ms.status = 'completed'`,
     [org],
   );
   const groupParticipation = await nc(
     `SELECT gsp.participation_status AS label, count(*)::int AS value
      FROM app_mentoring.group_session_participation gsp
      JOIN app_core.users u ON u.user_id = gsp.user_id
-     WHERE u.organization_id = $1
+     WHERE u.organization_id = $1 AND (NULLIF(current_setting('app.filter_cohort_id', true), '') IS NULL OR EXISTS (SELECT 1 FROM app_core.cohort_memberships cm WHERE cm.user_id = u.user_id AND cm.cohort_id = NULLIF(current_setting('app.filter_cohort_id', true), '')::uuid AND cm.left_at IS NULL))
      GROUP BY 1 ORDER BY value DESC`,
     [org],
   );
@@ -161,7 +169,7 @@ export async function getAnalytics(
        count(*)::int AS total
      FROM app_mentoring.session_participants sp
      JOIN app_core.users u ON u.user_id = sp.user_id
-     WHERE u.organization_id = $1 AND sp.participant_role = 'mentee'`,
+     WHERE u.organization_id = $1 AND (NULLIF(current_setting('app.filter_cohort_id', true), '') IS NULL OR EXISTS (SELECT 1 FROM app_core.cohort_memberships cm WHERE cm.user_id = u.user_id AND cm.cohort_id = NULLIF(current_setting('app.filter_cohort_id', true), '')::uuid AND cm.left_at IS NULL)) AND sp.participant_role = 'mentee'`,
     [org],
   );
 
@@ -170,19 +178,19 @@ export async function getAnalytics(
     `SELECT ds.status AS label, count(*)::int AS value
      FROM app_assessment.discovery_sessions ds
      JOIN app_core.users u ON u.user_id = ds.user_id
-     WHERE u.organization_id = $1
+     WHERE u.organization_id = $1 AND (NULLIF(current_setting('app.filter_cohort_id', true), '') IS NULL OR EXISTS (SELECT 1 FROM app_core.cohort_memberships cm WHERE cm.user_id = u.user_id AND cm.cohort_id = NULLIF(current_setting('app.filter_cohort_id', true), '')::uuid AND cm.left_at IS NULL))
      GROUP BY ds.status ORDER BY value DESC`,
     [org],
   );
   const discTotal = await scalar(
     `SELECT count(*)::int AS v FROM app_assessment.discovery_sessions ds
-     JOIN app_core.users u ON u.user_id = ds.user_id WHERE u.organization_id = $1`,
+     JOIN app_core.users u ON u.user_id = ds.user_id WHERE u.organization_id = $1 AND (NULLIF(current_setting('app.filter_cohort_id', true), '') IS NULL OR EXISTS (SELECT 1 FROM app_core.cohort_memberships cm WHERE cm.user_id = u.user_id AND cm.cohort_id = NULLIF(current_setting('app.filter_cohort_id', true), '')::uuid AND cm.left_at IS NULL))`,
     [org],
   );
   const discCompleted = await scalar(
     `SELECT count(*)::int AS v FROM app_assessment.discovery_sessions ds
      JOIN app_core.users u ON u.user_id = ds.user_id
-     WHERE u.organization_id = $1 AND ds.status = 'results'`,
+     WHERE u.organization_id = $1 AND (NULLIF(current_setting('app.filter_cohort_id', true), '') IS NULL OR EXISTS (SELECT 1 FROM app_core.cohort_memberships cm WHERE cm.user_id = u.user_id AND cm.cohort_id = NULLIF(current_setting('app.filter_cohort_id', true), '')::uuid AND cm.left_at IS NULL)) AND ds.status = 'results'`,
     [org],
   );
   const avgPillars = await nc(
@@ -191,7 +199,7 @@ export async function getAnalytics(
      JOIN app_assessment.discovery_sessions ds ON ds.attempt_id = tas.attempt_id
      JOIN app_core.users u ON u.user_id = ds.user_id
      LEFT JOIN app_assessment.pillars p ON p.pillar_code = tas.pillar_code
-     WHERE u.organization_id = $1
+     WHERE u.organization_id = $1 AND (NULLIF(current_setting('app.filter_cohort_id', true), '') IS NULL OR EXISTS (SELECT 1 FROM app_core.cohort_memberships cm WHERE cm.user_id = u.user_id AND cm.cohort_id = NULLIF(current_setting('app.filter_cohort_id', true), '')::uuid AND cm.left_at IS NULL))
      GROUP BY 1, p.sequence_no ORDER BY p.sequence_no NULLS LAST`,
     [org],
   );
@@ -199,7 +207,7 @@ export async function getAnalytics(
     `SELECT ${dayExpr('ds.completed_at')} AS date, count(*)::int AS value
      FROM app_assessment.discovery_sessions ds
      JOIN app_core.users u ON u.user_id = ds.user_id
-     WHERE u.organization_id = $1 AND ds.completed_at IS NOT NULL AND ds.completed_at BETWEEN $2 AND $3
+     WHERE u.organization_id = $1 AND (NULLIF(current_setting('app.filter_cohort_id', true), '') IS NULL OR EXISTS (SELECT 1 FROM app_core.cohort_memberships cm WHERE cm.user_id = u.user_id AND cm.cohort_id = NULLIF(current_setting('app.filter_cohort_id', true), '')::uuid AND cm.left_at IS NULL)) AND ds.completed_at IS NOT NULL AND ds.completed_at BETWEEN $2 AND $3
      GROUP BY 1 ORDER BY 1`,
     [org, from, to],
   );
@@ -210,7 +218,7 @@ export async function getAnalytics(
             count(*) FILTER (WHERE uw.completion_percent >= 100)::int AS completed
      FROM app_learning.user_workbooks uw
      JOIN app_core.users u ON u.user_id = uw.owner_user_id
-     WHERE u.organization_id = $1`,
+     WHERE u.organization_id = $1 AND (NULLIF(current_setting('app.filter_cohort_id', true), '') IS NULL OR EXISTS (SELECT 1 FROM app_core.cohort_memberships cm WHERE cm.user_id = u.user_id AND cm.cohort_id = NULLIF(current_setting('app.filter_cohort_id', true), '')::uuid AND cm.left_at IS NULL))`,
     [org],
   );
   // content_items no tiene organization_id; en la práctica la plataforma es de
@@ -227,7 +235,7 @@ export async function getAnalytics(
     `SELECT ${dayExpr('cp.completed_at')} AS date, count(*)::int AS value
      FROM app_learning.content_progress cp
      JOIN app_core.users u ON u.user_id = cp.user_id
-     WHERE u.organization_id = $1 AND cp.completed_at IS NOT NULL AND cp.completed_at BETWEEN $2 AND $3
+     WHERE u.organization_id = $1 AND (NULLIF(current_setting('app.filter_cohort_id', true), '') IS NULL OR EXISTS (SELECT 1 FROM app_core.cohort_memberships cm WHERE cm.user_id = u.user_id AND cm.cohort_id = NULLIF(current_setting('app.filter_cohort_id', true), '')::uuid AND cm.left_at IS NULL)) AND cp.completed_at IS NOT NULL AND cp.completed_at BETWEEN $2 AND $3
      GROUP BY 1 ORDER BY 1`,
     [org, from, to],
   );
@@ -237,20 +245,20 @@ export async function getAnalytics(
     `SELECT c.status AS label, count(*)::int AS value
      FROM app_networking.connections c
      JOIN app_core.users u ON u.user_id = c.requester_user_id
-     WHERE u.organization_id = $1
+     WHERE u.organization_id = $1 AND (NULLIF(current_setting('app.filter_cohort_id', true), '') IS NULL OR EXISTS (SELECT 1 FROM app_core.cohort_memberships cm WHERE cm.user_id = u.user_id AND cm.cohort_id = NULLIF(current_setting('app.filter_cohort_id', true), '')::uuid AND cm.left_at IS NULL))
      GROUP BY c.status ORDER BY value DESC`,
     [org],
   );
   const totalConnections = await scalar(
     `SELECT count(*)::int AS v FROM app_networking.connections c
-     JOIN app_core.users u ON u.user_id = c.requester_user_id WHERE u.organization_id = $1`,
+     JOIN app_core.users u ON u.user_id = c.requester_user_id WHERE u.organization_id = $1 AND (NULLIF(current_setting('app.filter_cohort_id', true), '') IS NULL OR EXISTS (SELECT 1 FROM app_core.cohort_memberships cm WHERE cm.user_id = u.user_id AND cm.cohort_id = NULLIF(current_setting('app.filter_cohort_id', true), '')::uuid AND cm.left_at IS NULL))`,
     [org],
   );
   const connSeries = await series(
     `SELECT ${dayExpr('c.requested_at')} AS date, count(*)::int AS value
      FROM app_networking.connections c
      JOIN app_core.users u ON u.user_id = c.requester_user_id
-     WHERE u.organization_id = $1 AND c.requested_at BETWEEN $2 AND $3
+     WHERE u.organization_id = $1 AND (NULLIF(current_setting('app.filter_cohort_id', true), '') IS NULL OR EXISTS (SELECT 1 FROM app_core.cohort_memberships cm WHERE cm.user_id = u.user_id AND cm.cohort_id = NULLIF(current_setting('app.filter_cohort_id', true), '')::uuid AND cm.left_at IS NULL)) AND c.requested_at BETWEEN $2 AND $3
      GROUP BY 1 ORDER BY 1`,
     [org, from, to],
   );
@@ -271,14 +279,14 @@ export async function getAnalytics(
   );
   const convApplications = await scalar(
     `SELECT count(*)::int AS v FROM app_networking.convocatoria_applications ca
-     JOIN app_core.users u ON u.user_id = ca.applicant_user_id WHERE u.organization_id = $1`,
+     JOIN app_core.users u ON u.user_id = ca.applicant_user_id WHERE u.organization_id = $1 AND (NULLIF(current_setting('app.filter_cohort_id', true), '') IS NULL OR EXISTS (SELECT 1 FROM app_core.cohort_memberships cm WHERE cm.user_id = u.user_id AND cm.cohort_id = NULLIF(current_setting('app.filter_cohort_id', true), '')::uuid AND cm.left_at IS NULL))`,
     [org],
   );
   const convAppSeries = await series(
     `SELECT ${dayExpr('ca.applied_at')} AS date, count(*)::int AS value
      FROM app_networking.convocatoria_applications ca
      JOIN app_core.users u ON u.user_id = ca.applicant_user_id
-     WHERE u.organization_id = $1 AND ca.applied_at BETWEEN $2 AND $3
+     WHERE u.organization_id = $1 AND (NULLIF(current_setting('app.filter_cohort_id', true), '') IS NULL OR EXISTS (SELECT 1 FROM app_core.cohort_memberships cm WHERE cm.user_id = u.user_id AND cm.cohort_id = NULLIF(current_setting('app.filter_cohort_id', true), '')::uuid AND cm.left_at IS NULL)) AND ca.applied_at BETWEEN $2 AND $3
      GROUP BY 1 ORDER BY 1`,
     [org, from, to],
   );
@@ -310,7 +318,7 @@ export async function getAnalytics(
     `SELECT wa.attendance_status AS label, count(*)::int AS value
      FROM app_networking.workshop_attendees wa
      JOIN app_core.users u ON u.user_id = wa.user_id
-     WHERE u.organization_id = $1
+     WHERE u.organization_id = $1 AND (NULLIF(current_setting('app.filter_cohort_id', true), '') IS NULL OR EXISTS (SELECT 1 FROM app_core.cohort_memberships cm WHERE cm.user_id = u.user_id AND cm.cohort_id = NULLIF(current_setting('app.filter_cohort_id', true), '')::uuid AND cm.left_at IS NULL))
      GROUP BY wa.attendance_status ORDER BY value DESC`,
     [org],
   );
@@ -318,7 +326,7 @@ export async function getAnalytics(
     `SELECT ${dayExpr('wa.registered_at')} AS date, count(*)::int AS value
      FROM app_networking.workshop_attendees wa
      JOIN app_core.users u ON u.user_id = wa.user_id
-     WHERE u.organization_id = $1 AND wa.registered_at BETWEEN $2 AND $3
+     WHERE u.organization_id = $1 AND (NULLIF(current_setting('app.filter_cohort_id', true), '') IS NULL OR EXISTS (SELECT 1 FROM app_core.cohort_memberships cm WHERE cm.user_id = u.user_id AND cm.cohort_id = NULLIF(current_setting('app.filter_cohort_id', true), '')::uuid AND cm.left_at IS NULL)) AND wa.registered_at BETWEEN $2 AND $3
      GROUP BY 1 ORDER BY 1`,
     [org, from, to],
   );

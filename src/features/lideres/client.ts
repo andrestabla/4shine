@@ -29,8 +29,9 @@ export async function getLeader360(userId: string): Promise<Leader360Snapshot> {
     });
 }
 
-export async function listLeaderSummaries(): Promise<LeaderSummary[]> {
-    return requestApi<LeaderSummary[]>(`/api/v1/modules/lideres/summary`, {
+export async function listLeaderSummaries(cohortId?: string | null): Promise<LeaderSummary[]> {
+    const query = cohortId ? `?cohortId=${encodeURIComponent(cohortId)}` : '';
+    return requestApi<LeaderSummary[]>(`/api/v1/modules/lideres/summary${query}`, {
         timeoutMs: 30000,
     });
 }

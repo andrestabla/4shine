@@ -132,6 +132,7 @@ export async function getDiscoveryOverview(
   const searchParams = new URLSearchParams();
 
   if (filters.userId) searchParams.set("userId", filters.userId);
+  if (filters.cohortId) searchParams.set("cohortId", filters.cohortId);
   if (filters.country) searchParams.set("country", filters.country);
   if (filters.jobRole) searchParams.set("jobRole", filters.jobRole);
   if (filters.gender) searchParams.set("gender", filters.gender);

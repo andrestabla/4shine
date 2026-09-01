@@ -162,6 +162,8 @@ export interface ListUsersInput {
   role?: Role | 'all';
   status?: 'all' | 'active' | 'inactive';
   policyStatus?: 'all' | PolicyStatus;
+  /** Solo quienes pertenecen a esta cohorte. */
+  cohortId?: string | null;
 }
 
 export interface CreateUserInput {
@@ -1622,6 +1624,18 @@ export async function listUsers(client: PoolClient, input: ListUsersInput = {}):
     filters.push('u.is_active = true');
   } else if (input.status === 'inactive') {
     filters.push('u.is_active = false');
+  }
+
+  if (input.cohortId) {
+    params.push(input.cohortId);
+    filters.push(
+      `EXISTS (
+         SELECT 1 FROM app_core.cohort_memberships cm
+         WHERE cm.user_id = u.user_id
+           AND cm.cohort_id = $${params.length}::uuid
+           AND cm.left_at IS NULL
+       )`,
+    );
   }
 
   if (input.policyStatus === 'accepted') {

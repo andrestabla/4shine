@@ -3413,6 +3413,19 @@ export async function getDiscoveryOverview(
     where.push(`ds.years_experience <= $${params.length}`);
   }
 
+  const cohortId = filters.cohortId?.trim();
+  if (cohortId) {
+    params.push(cohortId);
+    where.push(
+      `EXISTS (
+         SELECT 1 FROM app_core.cohort_memberships cm
+         WHERE cm.user_id = ds.user_id
+           AND cm.cohort_id = $${params.length}::uuid
+           AND cm.left_at IS NULL
+       )`,
+    );
+  }
+
   const whereClause = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
 
   interface DiscoveryOverviewDbRow {

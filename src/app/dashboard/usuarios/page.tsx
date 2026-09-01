@@ -25,6 +25,7 @@ import {
   type BulkActionParams,
   type OrganizationRecord,
 } from '@/features/usuarios/client';
+import { CohortFilter } from '@/components/dashboard/CohortFilter';
 import {
   deriveUserTypeSelection,
   USER_TYPE_OPTIONS,
@@ -46,6 +47,8 @@ interface ListFilters {
   policyStatus: 'all' | 'accepted' | 'pending';
   plan: string; // 'all' | 'none' | planId
   validity: 'all' | SubscriptionStatus;
+  /** '' = todas las cohortes. */
+  cohortId: string;
 }
 
 type Tab = 'usuarios' | 'sesiones' | 'bajas' | 'roles';
@@ -101,6 +104,7 @@ export default function UsuariosPage() {
     policyStatus: 'all',
     plan: 'all',
     validity: 'all',
+    cohortId: '',
   });
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = React.useState(false);
@@ -138,6 +142,7 @@ export default function UsuariosPage() {
         role: baseRoleForFilter,
         status: filters.status,
         policyStatus: filters.policyStatus,
+        cohortId: filters.cohortId || null,
       });
       setUsers(data);
     } catch (error) {
@@ -149,7 +154,7 @@ export default function UsuariosPage() {
     } finally {
       setLoading(false);
     }
-  }, [alert, baseRoleForFilter, filters.policyStatus, filters.search, filters.status]);
+  }, [alert, baseRoleForFilter, filters.cohortId, filters.policyStatus, filters.search, filters.status]);
 
   // Opciones de plan derivadas de los usuarios cargados.
   const planOptions = React.useMemo(() => {
@@ -485,6 +490,14 @@ export default function UsuariosPage() {
                     </option>
                   ))}
                 </select>
+              </label>
+
+              <label>
+                <span className="app-field-label">Cohorte</span>
+                <CohortFilter
+                  value={filters.cohortId}
+                  onChange={(cohortId) => setFilters((prev) => ({ ...prev, cohortId }))}
+                />
               </label>
 
               <label>

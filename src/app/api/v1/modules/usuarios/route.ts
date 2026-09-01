@@ -17,6 +17,7 @@ export async function GET(request: Request) {
       role: (url.searchParams.get('role') as ListUsersInput['role']) ?? undefined,
       status: (url.searchParams.get('status') as ListUsersInput['status']) ?? undefined,
       policyStatus: (url.searchParams.get('policyStatus') as ListUsersInput['policyStatus']) ?? undefined,
+      cohortId: url.searchParams.get('cohortId') ?? undefined,
     };
 
     const data = await withClient((client) =>

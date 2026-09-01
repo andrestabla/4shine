@@ -134,6 +134,8 @@ export interface ListUsersInput {
   role?: AppRole | 'all';
   status?: 'all' | 'active' | 'inactive';
   policyStatus?: 'all' | PolicyStatus;
+  /** Solo quienes pertenecen a esta cohorte. */
+  cohortId?: string | null;
 }
 
 export interface CreateUserInput {
@@ -216,6 +218,7 @@ export async function listUsers(input: ListUsersInput = {}): Promise<UserRecord[
     role: input.role,
     status: input.status,
     policyStatus: input.policyStatus,
+    cohortId: input.cohortId ?? undefined,
   });
   return requestApi<UserRecord[]>(`/api/v1/modules/usuarios${query}`);
 }

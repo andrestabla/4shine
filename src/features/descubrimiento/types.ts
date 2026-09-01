@@ -122,6 +122,8 @@ export interface DiscoveryInvitationWithCode extends DiscoveryInvitationRecord {
 
 export interface DiscoveryOverviewFilters {
   userId?: string;
+  /** Solo sesiones de quienes pertenecen a esta cohorte. */
+  cohortId?: string;
   country?: string;
   jobRole?: string;
   gender?: string;

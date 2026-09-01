@@ -14,7 +14,13 @@ export type {
   WorkshopsAnalytics,
 } from './types';
 
-export async function getAnalytics(from: string, to: string): Promise<AnalyticsResult> {
-  const qs = `from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
+export async function getAnalytics(
+  from: string,
+  to: string,
+  cohortId?: string | null,
+): Promise<AnalyticsResult> {
+  const qs =
+    `from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}` +
+    (cohortId ? `&cohortId=${encodeURIComponent(cohortId)}` : '');
   return requestApi<AnalyticsResult>(`/api/v1/modules/analitica?${qs}`, { timeoutMs: 30000 });
 }

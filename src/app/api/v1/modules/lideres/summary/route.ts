@@ -7,13 +7,14 @@ import { errorResponse, unauthorizedResponse } from '../../_utils'
 export const runtime = 'nodejs'
 
 export async function GET(request: Request) {
+    const cohortId = new URL(request.url).searchParams.get('cohortId')
     const identity = await authenticateRequest(request)
     if (!identity) return unauthorizedResponse()
 
     try {
         const data = await withClient((client) =>
             withRoleContext(client, identity.userId, identity.role, async () => {
-                return listLeaderSummaries(client, identity)
+                return listLeaderSummaries(client, identity, cohortId)
             }),
         )
         return NextResponse.json({ ok: true, data }, { status: 200 })

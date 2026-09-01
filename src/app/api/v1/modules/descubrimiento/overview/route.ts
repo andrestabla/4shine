@@ -23,6 +23,7 @@ export async function GET(request: Request) {
   const filters = {
     userId: url.searchParams.get("userId")?.trim() || undefined,
     country: url.searchParams.get("country")?.trim() || undefined,
+    cohortId: url.searchParams.get("cohortId")?.trim() || undefined,
     jobRole: url.searchParams.get("jobRole")?.trim() || undefined,
     gender: url.searchParams.get("gender")?.trim() || undefined,
     yearsExperienceMin: parseNumeric(url.searchParams.get("yearsExperienceMin")),

@@ -76,6 +76,7 @@ import {
   updateDiscoveryFeedbackSettings,
   updateDiscoverySessionRequest,
 } from "./client";
+import { CohortFilter } from "@/components/dashboard/CohortFilter";
 import { ResultsView } from "./ResultsView";
 import {
   DISCOVERY_COUNTRY_OPTIONS,
@@ -330,6 +331,7 @@ export function DiscoveryExperience() {
 
   const [resultsFilters, setResultsFilters] = React.useState<{
     userId: string;
+    cohortId: string;
     country: string;
     jobRole: string;
     gender: string;
@@ -337,6 +339,7 @@ export function DiscoveryExperience() {
     yearsExperienceMax: string;
   }>({
     userId: "",
+    cohortId: "",
     country: "",
     jobRole: "",
     gender: "",
@@ -430,6 +433,7 @@ export function DiscoveryExperience() {
   const buildCurrentOverviewFilters = React.useCallback(
     (): DiscoveryOverviewFilters => ({
       userId: resultsFilters.userId || undefined,
+      cohortId: resultsFilters.cohortId || undefined,
       country: resultsFilters.country || undefined,
       jobRole: resultsFilters.jobRole || undefined,
       gender: resultsFilters.gender || undefined,
@@ -1337,6 +1341,7 @@ export function DiscoveryExperience() {
 
     const apiFilters: DiscoveryOverviewFilters = {
       userId: next.userId || undefined,
+      cohortId: next.cohortId || undefined,
       country: next.country || undefined,
       jobRole: next.jobRole || undefined,
       gender: next.gender || undefined,
@@ -1765,6 +1770,11 @@ export function DiscoveryExperience() {
                     <option key={user.userId} value={user.userId}>{user.name || user.userId}</option>
                   ))}
                 </select>
+
+                <CohortFilter
+                  value={resultsFilters.cohortId}
+                  onChange={(cohortId) => void handleResultsFilter("cohortId", cohortId)}
+                />
 
                 <select
                   value={resultsFilters.country}

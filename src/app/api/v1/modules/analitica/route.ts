@@ -18,11 +18,12 @@ export async function GET(request: Request) {
   const toRaw = url.searchParams.get('to');
   const from = fromRaw && !Number.isNaN(Date.parse(fromRaw)) ? new Date(fromRaw).toISOString() : defaultFrom;
   const to = toRaw && !Number.isNaN(Date.parse(toRaw)) ? new Date(toRaw).toISOString() : defaultTo;
+  const cohortId = url.searchParams.get('cohortId');
 
   try {
     const data = await withClient((client) =>
       withRoleContext(client, identity.userId, identity.role, async () => {
-        const result = await getAnalytics(client, identity, { from, to });
+        const result = await getAnalytics(client, identity, { from, to, cohortId });
         await logModuleAudit(client, request, identity, {
           moduleCode: 'analitica',
           action: 'query_analytics',

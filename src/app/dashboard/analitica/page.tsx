@@ -25,6 +25,7 @@ import { Loader2, FileSpreadsheet, FileDown } from "lucide-react";
 import { PageTitle } from "@/components/dashboard/PageTitle";
 import { useBranding } from "@/context/BrandingContext";
 import { getAnalytics, type AnalyticsResult, type NameCount, type SeriesPoint } from "@/features/analitica/client";
+import { CohortFilter } from "@/components/dashboard/CohortFilter";
 import { exportAnalyticsXlsx, exportAnalyticsPdf } from "@/features/analitica/export";
 
 const PALETTE = ["#7c3aed", "#0ea5e9", "#10b981", "#f59e0b", "#ef4444", "#6366f1", "#ec4899", "#14b8a6", "#a855f7"];
@@ -167,6 +168,7 @@ export default function AnaliticaPage() {
   const ninetyAgo = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000);
   const [fromInput, setFromInput] = React.useState(isoToInput(ninetyAgo.toISOString()));
   const [toInput, setToInput] = React.useState(isoToInput(today.toISOString()));
+  const [cohortId, setCohortId] = React.useState("");
   const [tab, setTab] = React.useState<TabKey>("resumen");
   const [data, setData] = React.useState<AnalyticsResult | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -177,14 +179,14 @@ export default function AnaliticaPage() {
     setLoading(true);
     setError(null);
     try {
-      const result = await getAnalytics(inputToIso(fromInput), inputToIso(toInput, true));
+      const result = await getAnalytics(inputToIso(fromInput), inputToIso(toInput, true), cohortId || null);
       setData(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo cargar la analítica.");
     } finally {
       setLoading(false);
     }
-  }, [fromInput, toInput]);
+  }, [fromInput, toInput, cohortId]);
 
   React.useEffect(() => {
     void load();
@@ -211,6 +213,10 @@ export default function AnaliticaPage() {
         <div>
           <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">Hasta</label>
           <input type="date" className="app-input" value={toInput} min={fromInput} onChange={(e) => setToInput(e.target.value)} />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-[var(--app-muted)]">Cohorte</label>
+          <CohortFilter value={cohortId} onChange={setCohortId} />
         </div>
         <div className="flex gap-1.5">
           {[
