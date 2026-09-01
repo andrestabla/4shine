@@ -70,6 +70,7 @@ import {
 } from "@/features/aprendizaje/competency-map";
 import type { R2UploadResponse } from "@/lib/r2-upload-client";
 import type { ModuleCode } from "@/lib/permissions";
+import { CourseCohortPicker } from '@/components/aprendizaje/CourseCohortPicker';
 
 // ─── Tipos públicos ──────────────────────────────────────────────────────────
 
@@ -2900,6 +2901,20 @@ export function LearningCourseEditor({
                           ))}
                         </select>
                       </div>
+
+                      {/* La restricción por cohorte necesita que el curso ya
+                          exista, porque se guarda contra su id. */}
+                      {editingResourceId ? (
+                        <CourseCohortPicker contentId={editingResourceId} />
+                      ) : (
+                        <div className="lg:col-span-2">
+                          <label className="app-field-label">Restringir a cohortes</label>
+                          <p className="mt-1 text-[12.5px] text-[var(--app-muted)]">
+                            Guarda el curso primero; al volver a editarlo podrás limitarlo a
+                            cohortes específicas.
+                          </p>
+                        </div>
+                      )}
                     </div>
 
                     <div className="mt-4 rounded-[20px] border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4">

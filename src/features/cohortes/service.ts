@@ -583,3 +583,79 @@ export async function listAssignableUsers(
     cohorts: row.cohorts ?? [],
   }));
 }
+
+// ── Cursos restringidos a cohortes ──────────────────────────────────────────
+
+export interface ContentCohortAssignment {
+  cohortId: string;
+  name: string;
+  status: CohortStatus;
+}
+
+/** Cohortes a las que está restringido un contenido. Vacío = visible según el plan. */
+export async function getContentCohorts(
+  client: PoolClient,
+  actor: AuthUser,
+  contentId: string,
+): Promise<ContentCohortAssignment[]> {
+  await requireModulePermission(client, 'cohortes', 'view');
+  const { rows } = await client.query<{ cohort_id: string; name: string; status: CohortStatus }>(
+    `SELECT c.cohort_id::text, c.name, c.status
+     FROM app_learning.content_cohorts cc
+     JOIN app_core.cohorts c ON c.cohort_id = cc.cohort_id
+     WHERE cc.content_id = $1::uuid
+     ORDER BY c.name`,
+    [contentId],
+  );
+  return rows.map((row) => ({ cohortId: row.cohort_id, name: row.name, status: row.status }));
+}
+
+/**
+ * Fija la lista completa de cohortes de un contenido (reemplaza la anterior).
+ * Lista vacía = quitar la restricción y volver al comportamiento por plan.
+ */
+export async function setContentCohorts(
+  client: PoolClient,
+  actor: AuthUser,
+  contentId: string,
+  cohortIds: string[],
+): Promise<ContentCohortAssignment[]> {
+  await requireModulePermission(client, 'cohortes', 'update');
+  const organizationId = await resolveOrganizationId(client, actor.userId);
+
+  const ids = Array.from(new Set((cohortIds ?? []).map((id) => id.trim()).filter(Boolean)));
+
+  const { rows: content } = await client.query<{ n: string }>(
+    `SELECT COUNT(*)::text AS n FROM app_learning.content_items WHERE content_id = $1::uuid`,
+    [contentId],
+  );
+  if (Number(content[0]?.n ?? 0) === 0) throw new Error('El contenido no existe.');
+
+  if (ids.length > 0) {
+    const { rows: valid } = await client.query<{ n: string }>(
+      `SELECT COUNT(*)::text AS n FROM app_core.cohorts
+       WHERE cohort_id = ANY($1::uuid[]) AND organization_id = $2::uuid`,
+      [ids, organizationId],
+    );
+    if (Number(valid[0]?.n ?? 0) !== ids.length) {
+      throw new Error('Alguna de las cohortes indicadas no existe.');
+    }
+  }
+
+  await client.query(
+    `DELETE FROM app_learning.content_cohorts
+     WHERE content_id = $1::uuid AND NOT (cohort_id = ANY($2::uuid[]))`,
+    [contentId, ids],
+  );
+
+  if (ids.length > 0) {
+    await client.query(
+      `INSERT INTO app_learning.content_cohorts (content_id, cohort_id, created_by)
+       SELECT $1::uuid, unnest($2::uuid[]), $3::uuid
+       ON CONFLICT (content_id, cohort_id) DO NOTHING`,
+      [contentId, ids, actor.userId],
+    );
+  }
+
+  return getContentCohorts(client, actor, contentId);
+}

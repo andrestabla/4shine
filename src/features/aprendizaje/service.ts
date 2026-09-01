@@ -876,6 +876,26 @@ export async function listLearningResources(
         -- Oculto de la biblioteca: solo disponible dentro de cursos / por enlace directo.
         AND ci.show_in_library = true
         AND ci.deleted_at IS NULL
+        -- Cursos restringidos a cohortes: sin cohortes asignadas se comporta
+        -- como siempre; con cohortes, solo lo ve quien pertenezca a alguna.
+        -- Admin y gestor lo ven siempre, porque son quienes lo administran.
+        -- Basta la pertenencia: si la cohorte terminó, sus miembros conservan
+        -- el material (derechos adquiridos). Quien sale de ella deja de verlo.
+        AND (
+          COALESCE(current_setting('app.current_role', true), '') IN ('admin', 'gestor')
+          OR NOT EXISTS (
+            SELECT 1 FROM app_learning.content_cohorts cc
+            WHERE cc.content_id = ci.content_id
+          )
+          OR EXISTS (
+            SELECT 1
+            FROM app_learning.content_cohorts cc
+            JOIN app_core.cohort_memberships m ON m.cohort_id = cc.cohort_id
+            WHERE cc.content_id = ci.content_id
+              AND m.user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
+              AND m.left_at IS NULL
+          )
+        )
     `,
     [
       canManage,
@@ -1004,6 +1024,26 @@ export async function listLearningResources(
         -- el contador mostraba "1-4 de 3" y al intentar borrarlas otra vez el
         -- UPDATE no encontraba fila viva ("Content item not found").
         AND ci.deleted_at IS NULL
+        -- Cursos restringidos a cohortes: sin cohortes asignadas se comporta
+        -- como siempre; con cohortes, solo lo ve quien pertenezca a alguna.
+        -- Admin y gestor lo ven siempre, porque son quienes lo administran.
+        -- Basta la pertenencia: si la cohorte terminó, sus miembros conservan
+        -- el material (derechos adquiridos). Quien sale de ella deja de verlo.
+        AND (
+          COALESCE(current_setting('app.current_role', true), '') IN ('admin', 'gestor')
+          OR NOT EXISTS (
+            SELECT 1 FROM app_learning.content_cohorts cc
+            WHERE cc.content_id = ci.content_id
+          )
+          OR EXISTS (
+            SELECT 1
+            FROM app_learning.content_cohorts cc
+            JOIN app_core.cohort_memberships m ON m.cohort_id = cc.cohort_id
+            WHERE cc.content_id = ci.content_id
+              AND m.user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
+              AND m.left_at IS NULL
+          )
+        )
       ORDER BY
         ci.is_recommended DESC,
         CASE ci.status
@@ -1165,6 +1205,26 @@ export async function getLearningResourceDetail(
         -- abriéndose por enlace directo. La restauración se hace desde la
         -- papelera, así que aquí nunca debe servirse.
         AND ci.deleted_at IS NULL
+        -- Cursos restringidos a cohortes: sin cohortes asignadas se comporta
+        -- como siempre; con cohortes, solo lo ve quien pertenezca a alguna.
+        -- Admin y gestor lo ven siempre, porque son quienes lo administran.
+        -- Basta la pertenencia: si la cohorte terminó, sus miembros conservan
+        -- el material (derechos adquiridos). Quien sale de ella deja de verlo.
+        AND (
+          COALESCE(current_setting('app.current_role', true), '') IN ('admin', 'gestor')
+          OR NOT EXISTS (
+            SELECT 1 FROM app_learning.content_cohorts cc
+            WHERE cc.content_id = ci.content_id
+          )
+          OR EXISTS (
+            SELECT 1
+            FROM app_learning.content_cohorts cc
+            JOIN app_core.cohort_memberships m ON m.cohort_id = cc.cohort_id
+            WHERE cc.content_id = ci.content_id
+              AND m.user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
+              AND m.left_at IS NULL
+          )
+        )
       LIMIT 1
     `,
     [actor.userId, contentId, LEARNING_SCOPES as readonly string[]],
