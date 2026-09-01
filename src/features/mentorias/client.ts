@@ -178,6 +178,14 @@ export async function deleteGroupSessionRecording(recordingId: string): Promise<
   });
 }
 
+export async function getGroupSessionRecording(
+  recordingId: string,
+): Promise<GroupSessionRecordingRecord> {
+  return requestApi<GroupSessionRecordingRecord>(
+    `/api/v1/modules/mentorias/group-sessions/recordings/${recordingId}`,
+  );
+}
+
 export async function reactToGroupSessionRecording(
   recordingId: string,
   reaction: GroupSessionReaction,

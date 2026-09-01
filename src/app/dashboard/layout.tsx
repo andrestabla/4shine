@@ -175,6 +175,12 @@ function resolveRouteAccess(pathname: string): RouteAccess | undefined {
     return { moduleCode: "formacion_mentores" };
   }
 
+  // La grabación de una sesión se reproduce dentro de la plataforma, así que
+  // hereda la llave de Mentorías en vez de quedar abierta por URL directa.
+  if (pathname.startsWith("/dashboard/mentorias/")) {
+    return { moduleCode: "mentorias" };
+  }
+
   if (pathname.startsWith("/dashboard/usuarios/")) {
     return { moduleCode: "usuarios", action: "view" };
   }

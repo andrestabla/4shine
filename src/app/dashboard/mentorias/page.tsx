@@ -2009,7 +2009,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                   {filtered.map((recording) => (
                     <article key={recording.recordingId} className="flex flex-col overflow-hidden rounded-[20px] border border-[var(--app-border)] bg-white">
                       {/* Cover */}
-                      <a href={recording.recordingUrl} target="_blank" rel="noreferrer" className="group relative block aspect-video w-full overflow-hidden bg-[var(--app-surface-muted)]">
+                      <a href={`/dashboard/mentorias/grabaciones/${recording.recordingId}`} target="_blank" rel="noreferrer" className="group relative block aspect-video w-full overflow-hidden bg-[var(--app-surface-muted)]">
                         {recording.bannerImageUrl ? (
                           <img
                             src={recording.bannerImageUrl}
@@ -2258,7 +2258,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                   if (!recording) return null;
                   return (
                     <a
-                      href={recording.recordingUrl}
+                      href={`/dashboard/mentorias/grabaciones/${recording.recordingId}`}
                       target="_blank"
                       rel="noreferrer"
                       className="inline-flex items-center gap-2 rounded-full bg-[var(--brand-primary)] px-4 py-2 text-sm font-bold text-white"

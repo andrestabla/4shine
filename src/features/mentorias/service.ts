@@ -2349,6 +2349,23 @@ export async function createExternalSessionRecording(
   return found;
 }
 
+/**
+ * Una grabación por id, con sus reacciones y comentarios.
+ *
+ * Alimenta la página interna de reproducción: los líderes ven la grabación
+ * dentro de 4Shine en vez de saltar al enlace del proveedor.
+ */
+export async function getGroupSessionRecording(
+  client: PoolClient,
+  actor: AuthUser,
+  recordingId: string,
+): Promise<GroupSessionRecordingRecord> {
+  const recordings = await listGroupSessionRecordings(client, actor, 300);
+  const found = recordings.find((item) => item.recordingId === recordingId);
+  if (!found) throw new Error('Recording not found');
+  return found;
+}
+
 export interface UpdateGroupSessionRecordingInput {
   title?: string;
   description?: string | null;
