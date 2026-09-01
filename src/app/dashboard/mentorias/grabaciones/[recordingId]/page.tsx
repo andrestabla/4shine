@@ -120,13 +120,6 @@ export default function GrabacionPage() {
 
   return (
     <div className="space-y-4">
-      <Link
-        href="/dashboard/mentorias"
-        className="inline-flex items-center gap-2 text-xs font-semibold text-[var(--app-muted)] hover:text-[var(--app-ink)]"
-      >
-        <ArrowLeft size={14} /> Volver a Mentorías
-      </Link>
-
       {/* 80% reproductor · 20% interacción. En móvil se apilan. */}
       <div className="grid gap-4 lg:grid-cols-[minmax(0,4fr)_minmax(0,1fr)]">
         <section className="min-w-0 space-y-3">
@@ -134,7 +127,7 @@ export default function GrabacionPage() {
             {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
             <video
               src={recording.recordingUrl}
-              poster={recording.bannerImageUrl ?? recording.thumbnailUrl ?? undefined}
+              poster={recording.thumbnailUrl ?? recording.bannerImageUrl ?? undefined}
               controls
               controlsList="nodownload noplaybackrate"
               disablePictureInPicture

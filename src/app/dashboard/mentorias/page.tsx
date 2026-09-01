@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { R2UploadButton } from '@/components/ui/R2UploadButton';
 import { RichTextEditor } from '@/components/ui/RichTextEditor';
+import { RecordingCoverPicker } from '@/components/mentorias/RecordingCoverPicker';
 import { EmptyState } from '@/components/dashboard/EmptyState';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { StatGrid } from '@/components/dashboard/StatGrid';
@@ -416,11 +417,12 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
   const [recordingTopicFilter, setRecordingTopicFilter] = React.useState<string | null>(null);
   // Edición inline de una grabación (solo admin/gestor).
   const [editingRecordingId, setEditingRecordingId] = React.useState<string | null>(null);
-  const [recordingEditForm, setRecordingEditForm] = React.useState<{ title: string; recordingUrl: string; durationMinutes: string; description: string }>({
+  const [recordingEditForm, setRecordingEditForm] = React.useState<{ title: string; recordingUrl: string; durationMinutes: string; description: string; thumbnailUrl: string }>({
     title: '',
     recordingUrl: '',
     durationMinutes: '',
     description: '',
+    thumbnailUrl: '',
   });
   const [submittingRecordingEdit, setSubmittingRecordingEdit] = React.useState(false);
   const [groupAnalytics, setGroupAnalytics] = React.useState<GroupSessionAnalyticsRecord[]>([]);
@@ -1189,12 +1191,13 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
       recordingUrl: recording.recordingUrl,
       durationMinutes: recording.durationMinutes ? String(recording.durationMinutes) : '',
       description: recording.description ?? '',
+      thumbnailUrl: recording.thumbnailUrl ?? '',
     });
   };
 
   const handleCancelEditRecording = () => {
     setEditingRecordingId(null);
-    setRecordingEditForm({ title: '', recordingUrl: '', durationMinutes: '', description: '' });
+    setRecordingEditForm({ title: '', recordingUrl: '', durationMinutes: '', description: '', thumbnailUrl: '' });
   };
 
   const handleUpdateRecording = async (recording: GroupSessionRecordingRecord) => {
@@ -1213,6 +1216,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
         recordingUrl: recordingEditForm.recordingUrl.trim(),
         description: recordingEditForm.description.trim() || null,
         durationMinutes: recordingEditForm.durationMinutes ? Number(recordingEditForm.durationMinutes) : 0,
+        thumbnailUrl: recordingEditForm.thumbnailUrl.trim() || null,
       });
       handleCancelEditRecording();
       await load();
@@ -2010,9 +2014,9 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                     <article key={recording.recordingId} className="flex flex-col overflow-hidden rounded-[20px] border border-[var(--app-border)] bg-white">
                       {/* Cover */}
                       <a href={`/dashboard/mentorias/grabaciones/${recording.recordingId}`} target="_blank" rel="noreferrer" className="group relative block aspect-video w-full overflow-hidden bg-[var(--app-surface-muted)]">
-                        {recording.bannerImageUrl ? (
+                        {(recording.thumbnailUrl || recording.bannerImageUrl) ? (
                           <img
-                            src={recording.bannerImageUrl}
+                            src={recording.thumbnailUrl || recording.bannerImageUrl || ''}
                             alt={recording.title}
                             className="h-full w-full object-cover transition group-hover:scale-[1.02]"
                           />
@@ -2078,6 +2082,15 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                                 value={recordingEditForm.description}
                                 onChange={(e) => setRecordingEditForm((prev) => ({ ...prev, description: e.target.value }))}
                               />
+                              {recordingEditForm.recordingUrl.trim() && (
+                                <RecordingCoverPicker
+                                  recordingUrl={recordingEditForm.recordingUrl.trim()}
+                                  currentCoverUrl={recordingEditForm.thumbnailUrl || recording.thumbnailUrl}
+                                  onCaptured={(url) =>
+                                    setRecordingEditForm((prev) => ({ ...prev, thumbnailUrl: url }))
+                                  }
+                                />
+                              )}
                               <div className="flex gap-2">
                                 <button
                                   type="button"
