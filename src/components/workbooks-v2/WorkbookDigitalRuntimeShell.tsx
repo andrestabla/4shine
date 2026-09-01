@@ -153,6 +153,30 @@ function hydrateScopedStatePayload(
     }
 }
 
+/**
+ * Identidad del DUEÑO del workbook (no la de quien lo abre).
+ *
+ * El shell es el único que consulta el workbook remoto, así que es el único
+ * que sabe de quién es. El runtime lo necesita para el PDF: al descargarlo
+ * desde la cuenta de un gestor o advisor, la portada debe decir el nombre del
+ * líder dueño, no el de quien oprimió el botón.
+ */
+export interface WorkbookOwnerIdentity {
+    ownerName: string | null
+    ownerUserId: string | null
+    viewerIsOwner: boolean
+}
+
+const WorkbookOwnerContext = React.createContext<WorkbookOwnerIdentity>({
+    ownerName: null,
+    ownerUserId: null,
+    viewerIsOwner: true,
+})
+
+export function useWorkbookOwner(): WorkbookOwnerIdentity {
+    return React.useContext(WorkbookOwnerContext)
+}
+
 export function WorkbookDigitalRuntimeShell({
     slug,
     children
@@ -445,6 +469,12 @@ export function WorkbookDigitalRuntimeShell({
         || remoteWorkbook.ownerUserId === currentUser.id
     const canEditOthers = currentRole === 'admin' || currentRole === 'gestor'
 
+    const ownerIdentity: WorkbookOwnerIdentity = {
+        ownerName: remoteWorkbook?.ownerName ?? null,
+        ownerUserId: remoteWorkbook?.ownerUserId ?? null,
+        viewerIsOwner,
+    }
+
     return (
         <div className="workbook-digital-shell">
             {!viewerIsOwner && (
@@ -472,7 +502,7 @@ export function WorkbookDigitalRuntimeShell({
                     </p>
                 </div>
             )}
-            {children}
+            <WorkbookOwnerContext.Provider value={ownerIdentity}>{children}</WorkbookOwnerContext.Provider>
 
             <style jsx global>{`
                 .workbook-digital-shell [data-cover-page='true'] > div:last-child > h2,

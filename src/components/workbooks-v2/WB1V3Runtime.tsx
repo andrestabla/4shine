@@ -32,6 +32,7 @@ import { R2UploadButton } from '@/components/ui/R2UploadButton'
 import { SYMBOL_ICONS, parseIconValue } from '@/components/workbooks-v2/symbol-icons'
 import { resolveWorkbookHelp, type WorkbookHelpContent } from '@/lib/workbooks-v2-help'
 import { updateLearningWorkbook } from '@/features/aprendizaje/client'
+import { useWorkbookOwner } from '@/components/workbooks-v2/WorkbookDigitalRuntimeShell'
 
 function WorkbookHelpModal({ help, onClose }: { help: WorkbookHelpContent; onClose: () => void }) {
     useEffect(() => {
@@ -1332,6 +1333,8 @@ function downloadHtml(config: WB1Config, values: Record<string, WB1FieldValue>) 
 }
 
 export function WorkbookV3Runtime({ config }: { config: WB1Config }) {
+    // El PDF lleva el nombre del DUEÑO del workbook, no el de quien descarga.
+    const { ownerName } = useWorkbookOwner()
     const searchParams = useSearchParams()
     const STORAGE_KEY = config.storageKey
     const { currentRole, currentUser } = useUser()
@@ -1708,7 +1711,7 @@ export function WorkbookV3Runtime({ config }: { config: WB1Config }) {
                                 await downloadWb9BrochurePdf(
                                     config,
                                     values,
-                                    currentUser?.name ?? 'Líder 4Shine',
+                                    ownerName || currentUser?.name || 'Líder 4Shine',
                                     branding.logoDarkUrl,
                                 )
                                 return
@@ -1717,7 +1720,7 @@ export function WorkbookV3Runtime({ config }: { config: WB1Config }) {
                             await downloadWorkbookV3Pdf(
                                 config,
                                 values,
-                                currentUser?.name ?? 'Líder 4Shine',
+                                ownerName || currentUser?.name || 'Líder 4Shine',
                                 branding.logoDarkUrl,
                             )
                         }}
