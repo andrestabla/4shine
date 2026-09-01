@@ -1333,11 +1333,17 @@ function downloadHtml(config: WB1Config, values: Record<string, WB1FieldValue>) 
 }
 
 export function WorkbookV3Runtime({ config }: { config: WB1Config }) {
-    // El PDF lleva el nombre del DUEÑO del workbook, no el de quien descarga.
-    const { ownerName } = useWorkbookOwner()
+    const { ownerName, isRemoteWorkbook } = useWorkbookOwner()
     const searchParams = useSearchParams()
     const STORAGE_KEY = config.storageKey
     const { currentRole, currentUser } = useUser()
+
+    // El PDF lleva el nombre del DUEÑO del workbook, no el de quien descarga.
+    // Si es el workbook de alguien pero no se pudo resolver su nombre (por
+    // ejemplo si falló la carga), se usa una etiqueta neutra: nunca el del
+    // visor, que es justo el error que se quiere evitar.
+    const pdfLeaderName =
+        ownerName || (isRemoteWorkbook ? 'Líder 4Shine' : currentUser?.name) || 'Líder 4Shine'
     const { branding } = useBranding()
     const workbookId = searchParams.get('workbookId')?.trim() || 'preview'
     const isElevated = !!currentRole && ELEVATED_ROLES.has(currentRole)
@@ -1711,7 +1717,7 @@ export function WorkbookV3Runtime({ config }: { config: WB1Config }) {
                                 await downloadWb9BrochurePdf(
                                     config,
                                     values,
-                                    ownerName || currentUser?.name || 'Líder 4Shine',
+                                    pdfLeaderName,
                                     branding.logoDarkUrl,
                                 )
                                 return
@@ -1720,7 +1726,7 @@ export function WorkbookV3Runtime({ config }: { config: WB1Config }) {
                             await downloadWorkbookV3Pdf(
                                 config,
                                 values,
-                                ownerName || currentUser?.name || 'Líder 4Shine',
+                                pdfLeaderName,
                                 branding.logoDarkUrl,
                             )
                         }}

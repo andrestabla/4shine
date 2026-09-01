@@ -165,12 +165,20 @@ export interface WorkbookOwnerIdentity {
     ownerName: string | null
     ownerUserId: string | null
     viewerIsOwner: boolean
+    /**
+     * true cuando se abrió el workbook de una persona (hay workbookId), aunque
+     * no se haya podido resolver quién es. Sirve para NO caer nunca en el
+     * nombre del visor: es preferible una etiqueta genérica a un PDF que
+     * atribuya el workbook de un líder a quien lo descargó.
+     */
+    isRemoteWorkbook: boolean
 }
 
 const WorkbookOwnerContext = React.createContext<WorkbookOwnerIdentity>({
     ownerName: null,
     ownerUserId: null,
     viewerIsOwner: true,
+    isRemoteWorkbook: false,
 })
 
 export function useWorkbookOwner(): WorkbookOwnerIdentity {
@@ -473,6 +481,7 @@ export function WorkbookDigitalRuntimeShell({
         ownerName: remoteWorkbook?.ownerName ?? null,
         ownerUserId: remoteWorkbook?.ownerUserId ?? null,
         viewerIsOwner,
+        isRemoteWorkbook: workbookId !== 'preview',
     }
 
     return (

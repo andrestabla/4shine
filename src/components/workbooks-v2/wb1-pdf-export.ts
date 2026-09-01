@@ -284,5 +284,7 @@ export async function downloadWorkbookV3Pdf(
         )
     }
 
-    pdf.save(`WB1_${sanitizeName(leaderName) || 'lider'}.pdf`)
+    // El exportador es común a WB1–WB10: el código sale del config, no fijo,
+    // para que el WB7 de un líder no se descargue llamándose "WB1".
+    pdf.save(`${config.code || 'WB'}_${sanitizeName(leaderName) || 'lider'}.pdf`)
 }
