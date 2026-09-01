@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, Loader2, MessageCircle, Send } from 'lucide-react';
+import { ArrowLeft, Loader2, MessageCircle, Play, Send } from 'lucide-react';
 import {
   commentGroupSessionRecording,
   getGroupSessionRecording,
@@ -41,6 +41,8 @@ export default function GrabacionPage() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [comment, setComment] = React.useState('');
+  const videoRef = React.useRef<HTMLVideoElement | null>(null);
+  const [showCover, setShowCover] = React.useState(true);
   const [sending, setSending] = React.useState(false);
 
   React.useEffect(() => {
@@ -112,6 +114,7 @@ export default function GrabacionPage() {
     );
   }
 
+  const coverUrl = recording.thumbnailUrl || recording.bannerImageUrl || null;
   const reactionTotals = (recording.reactionTotals ?? {}) as Partial<Record<GroupSessionReaction, number>>;
   const totalReactions = Object.values(reactionTotals).reduce(
     (sum, value) => sum + Number(value ?? 0),
@@ -123,17 +126,40 @@ export default function GrabacionPage() {
       {/* 80% reproductor · 20% interacción. En móvil se apilan. */}
       <div className="grid gap-4 lg:grid-cols-[minmax(0,4fr)_minmax(0,1fr)]">
         <section className="min-w-0 space-y-3">
-          <div className="overflow-hidden rounded-[18px] border border-[var(--app-border)] bg-black">
+          <div className="relative overflow-hidden rounded-[18px] border border-[var(--app-border)] bg-black">
             {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
             <video
+              ref={videoRef}
               src={recording.recordingUrl}
-              poster={recording.thumbnailUrl ?? recording.bannerImageUrl ?? undefined}
+              poster={coverUrl ?? undefined}
               controls
               controlsList="nodownload noplaybackrate"
               disablePictureInPicture
+              onPlay={() => setShowCover(false)}
               onContextMenu={(event) => event.preventDefault()}
               className="aspect-video w-full bg-black"
             />
+
+            {/* La portada elegida se pinta encima hasta que se da play: el
+                atributo poster no basta porque el navegador puede mostrar el
+                primer fotograma del video (aquí, negro) en su lugar. */}
+            {coverUrl && showCover && (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCover(false);
+                  void videoRef.current?.play();
+                }}
+                aria-label="Reproducir grabación"
+                className="absolute inset-0 flex items-center justify-center"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={coverUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                <span className="relative flex h-16 w-16 items-center justify-center rounded-full bg-white/90 shadow-lg transition hover:scale-105">
+                  <Play size={26} className="translate-x-0.5 text-[var(--brand-primary)]" />
+                </span>
+              </button>
+            )}
           </div>
 
           <div className="app-panel p-4 sm:p-5">
