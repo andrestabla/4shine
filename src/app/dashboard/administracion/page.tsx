@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { useUser } from '@/context/UserContext';
 import type { ModuleCode, PermissionAction } from '@/lib/permissions';
-import { Settings, Palette, PlugZap, Users, ShieldCheck, Globe, Bell, CreditCard, Receipt, Compass, Bot, FileCode2, Webhook, Power } from 'lucide-react';
+import { Settings, Palette, PlugZap, Users, ShieldCheck, Globe, Bell, CreditCard, Receipt, Compass, Bot, FileCode2, Webhook, Power, UsersRound } from 'lucide-react';
 
 const ADMIN_CARDS = [
   {
@@ -30,6 +30,14 @@ const ADMIN_CARDS = [
     module: 'notificaciones' as ModuleCode,
     action: 'manage' as PermissionAction,
     icon: Bell,
+  },
+  {
+    title: 'Cohortes',
+    description: 'Agrupar líderes para personalizar sus accesos y leer el avance del grupo en conjunto.',
+    href: '/dashboard/administracion/cohortes',
+    module: 'cohortes' as ModuleCode,
+    action: 'manage' as PermissionAction,
+    icon: UsersRound,
   },
   {
     title: 'Planes y Precios',

@@ -63,6 +63,13 @@ export const MODULE_CATALOG: ModuleCatalogEntry[] = [
     isProtected: true,
   },
   {
+    key: 'cohortes',
+    label: 'Cohortes',
+    moduleCode: 'cohortes',
+    path: '/dashboard/administracion/cohortes',
+    description: 'Agrupamiento de líderes para personalizar accesos y generar informes por grupo.',
+  },
+  {
     key: 'trayectoria',
     label: 'Trayectoria',
     moduleCode: 'trayectoria',

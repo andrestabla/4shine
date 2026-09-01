@@ -374,6 +374,31 @@ export async function readUserModuleOverrides(
   return new Map(rows.map((row) => [row.module_code, !!row.is_enabled]));
 }
 
+/**
+ * Overrides heredados de las cohortes activas a las que pertenece la persona.
+ *
+ * Si alguien está en varias cohortes con criterios opuestos, gana el apagado:
+ * ante la duda es preferible no abrir de más, y el caso se resuelve con el
+ * ajuste individual, que manda sobre todo lo demás.
+ */
+export async function readCohortModuleOverrides(
+  client: PoolClient,
+  userId: string,
+): Promise<Map<string, boolean>> {
+  const { rows } = await client.query<{ module_code: string; is_enabled: boolean }>(
+    `SELECT cma.module_code, bool_and(cma.is_enabled) AS is_enabled
+     FROM app_core.cohort_memberships m
+     JOIN app_core.cohorts c ON c.cohort_id = m.cohort_id
+     JOIN app_auth.cohort_module_access cma ON cma.cohort_id = m.cohort_id
+     WHERE m.user_id = $1::uuid
+       AND m.left_at IS NULL
+       AND c.status IN ('planned', 'active')
+     GROUP BY cma.module_code`,
+    [userId],
+  );
+  return new Map(rows.map((row) => [row.module_code, !!row.is_enabled]));
+}
+
 export async function getViewerAccessState(
   client: PoolClient,
   actor: Pick<AuthUser, "userId" | "role">,
@@ -530,9 +555,18 @@ export async function getViewerAccessState(
   // Overrides manuales por usuario: el apagado gana sobre plan/legacy y el
   // encendido levanta el gating por plan (no los permisos de rol, que para
   // líder ya permiten ver estos módulos).
-  const overrides = options?.skipUserOverrides
-    ? new Map<string, boolean>()
-    : await readUserModuleOverrides(client, actor.userId);
+  // Precedencia: plan (base) → cohorte (corrige al grupo) → persona (manda).
+  // Se fusionan en un solo mapa para que la lógica de secciones de abajo
+  // funcione igual sin importar de dónde venga el ajuste.
+  const overrides = new Map<string, boolean>();
+  if (!options?.skipUserOverrides) {
+    for (const [key, value] of await readCohortModuleOverrides(client, actor.userId)) {
+      overrides.set(key, value);
+    }
+    for (const [key, value] of await readUserModuleOverrides(client, actor.userId)) {
+      overrides.set(key, value);
+    }
+  }
   const withOverride = (moduleCode: string, base: boolean): boolean => {
     const override = overrides.get(moduleCode);
     return override === undefined ? base : override;

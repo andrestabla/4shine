@@ -3,6 +3,7 @@ export const MODULE_CODES = [
   'aprendizaje',
   'asistente_ia',
   'branding',
+  'cohortes',
   'contenido',
   'convocatorias',
   'documentacion',

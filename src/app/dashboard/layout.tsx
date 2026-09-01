@@ -143,6 +143,7 @@ const ACCESS_BY_PATH: Record<string, RouteAccess> = {
 
 /** Segmento de /dashboard/administracion/<segmento> → módulo que lo protege. */
 const ADMIN_AREA_MODULES: Array<[string, ModuleCode]> = [
+  ["cohortes", "cohortes"],
   ["notificaciones", "notificaciones"],
   ["asistente-ia", "asistente_ia"],
   ["ghl", "ghl"],
