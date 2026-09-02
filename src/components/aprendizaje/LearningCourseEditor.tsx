@@ -368,6 +368,7 @@ function createEmptyCourseResource(): CourseModuleResource {
     url: "",
     durationLabel: "",
     linkedContentId: null,
+    openMode: "newTab",
   };
 }
 
@@ -402,6 +403,7 @@ function normalizeCourseModulesFromStructure(
           url: resource.url ?? "",
           durationLabel: resource.durationLabel ?? "",
           linkedContentId: resource.linkedContentId ?? null,
+          openMode: (resource.openMode === 'embed' ? 'embed' : 'newTab') as 'embed' | 'newTab',
         }))
       : [createEmptyCourseResource()],
   }));
@@ -422,6 +424,7 @@ function normalizeCourseModulesForSave(modules: CourseModule[]): CourseModule[] 
           url: resource.url?.trim() || null,
           durationLabel: resource.durationLabel?.trim() || null,
           linkedContentId: resource.linkedContentId?.trim() || null,
+          openMode: (resource.openMode === 'embed' ? 'embed' : 'newTab') as 'embed' | 'newTab',
         }))
         .filter((resource) => resource.title.length > 0),
     }))
@@ -1379,7 +1382,8 @@ export function LearningCourseEditor({
         | "contentType"
         | "url"
         | "durationLabel"
-        | "linkedContentId",
+        | "linkedContentId"
+        | "openMode",
       value: string,
     ) => {
       setResourceForm((prev) => ({
@@ -2712,6 +2716,49 @@ export function LearningCourseEditor({
                                                 )
                                               }
                                             />
+                                            {(courseResource.url ?? "").trim().length > 0 && (
+                                              <div className="mt-2">
+                                                <span className="app-field-label">Cómo se abre</span>
+                                                <div className="mt-1 flex flex-wrap gap-1.5">
+                                                  {(
+                                                    [
+                                                      ["newTab", "Abrir en pestaña nueva"],
+                                                      ["embed", "Incrustar en el curso"],
+                                                    ] as Array<[string, string]>
+                                                  ).map(([option, label]) => {
+                                                    const active =
+                                                      (courseResource.openMode ?? "newTab") === option;
+                                                    return (
+                                                      <button
+                                                        key={option}
+                                                        type="button"
+                                                        onClick={() =>
+                                                          updateCourseModuleResource(
+                                                            module.id,
+                                                            courseResource.id,
+                                                            "openMode",
+                                                            option,
+                                                          )
+                                                        }
+                                                        className={
+                                                          active
+                                                            ? "rounded-full border border-[var(--app-ink)] bg-[var(--app-ink)] px-3 py-1.5 text-[11.5px] font-bold text-white"
+                                                            : "rounded-full border border-[var(--app-border)] bg-white px-3 py-1.5 text-[11.5px] font-semibold text-[var(--app-ink)] hover:bg-[var(--app-surface)]"
+                                                        }
+                                                      >
+                                                        {label}
+                                                      </button>
+                                                    );
+                                                  })}
+                                                </div>
+                                                <p className="mt-1 text-[11.5px] leading-relaxed text-[var(--app-muted)]">
+                                                  {(courseResource.openMode ?? "newTab") === "embed"
+                                                    ? "Se verá dentro del curso. Algunos sitios no permiten incrustarse; si queda en blanco, usa pestaña nueva."
+                                                    : "El líder saldrá del curso a una pestaña aparte."}
+                                                </p>
+                                              </div>
+                                            )}
+
                                             <div className="mt-2 text-right">
                                               <R2UploadButton
                                                 moduleCode={moduleCode}

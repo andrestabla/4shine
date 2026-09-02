@@ -17,6 +17,12 @@ export interface CourseModuleResource {
   url?: string | null;
   durationLabel?: string | null;
   linkedContentId?: string | null;
+  /**
+   * Cómo se consume un recurso de tipo enlace: incrustado dentro del curso o
+   * abierto en una pestaña nueva. Por defecto se abre aparte, que es el
+   * comportamiento que ya tenía y el que siempre funciona.
+   */
+  openMode?: 'newTab' | 'embed' | null;
 }
 
 export interface CourseModule {
@@ -310,6 +316,7 @@ function normalizeCourseModuleResource(input: unknown): CourseModuleResource | n
       typeof resource.linkedContentId === 'string' && resource.linkedContentId.trim().length > 0
         ? resource.linkedContentId.trim()
         : null,
+    openMode: resource.openMode === 'embed' ? 'embed' : 'newTab',
   };
 }
 

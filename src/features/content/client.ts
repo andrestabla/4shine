@@ -14,6 +14,8 @@ export interface CourseModuleResource {
   url?: string | null;
   durationLabel?: string | null;
   linkedContentId?: string | null;
+  /** 'embed' incrusta el enlace en el curso; 'newTab' lo abre aparte. */
+  openMode?: 'newTab' | 'embed' | null;
 }
 
 export interface CourseModule {

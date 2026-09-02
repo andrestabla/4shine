@@ -97,6 +97,8 @@ interface CoursePlayerItem {
   url: string | null;
   linkedContentId: string | null;
   durationLabel: string | null;
+  /** 'embed' incrusta el enlace en el curso; por defecto se abre aparte. */
+  openMode: 'newTab' | 'embed';
   globalIndex: number;
 }
 
@@ -308,6 +310,7 @@ export default function LearningResourceDetailPage() {
             typeof item.durationLabel === "string" && item.durationLabel.trim().length > 0
               ? item.durationLabel.trim()
               : null,
+          openMode: item.openMode === "embed" ? "embed" : "newTab",
           globalIndex,
         });
         globalIndex += 1;
@@ -2001,6 +2004,34 @@ export default function LearningResourceDetailPage() {
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                         allowFullScreen
                       />
+                    </div>
+                  ) : currentItem && currentItem.url && currentItem.openMode === 'embed' ? (
+                    // Enlace marcado para incrustarse dentro del curso.
+                    <div className="w-full space-y-2">
+                      <div
+                        className="relative w-full overflow-hidden rounded-[16px] border shadow-2xl aspect-video"
+                        style={{ borderColor: 'var(--brand-border-strong)', background: 'var(--brand-darker)' }}
+                      >
+                        <iframe
+                          key={`embed-${currentItem.id}`}
+                          title={currentItem.title || 'Recurso'}
+                          src={currentItem.url}
+                          className="absolute inset-0 h-full w-full"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                          allowFullScreen
+                        />
+                      </div>
+                      {/* Salida de emergencia: hay sitios que se niegan a ser
+                          incrustados y quedarían en blanco sin este enlace. */}
+                      <a
+                        href={currentItem.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold hover:underline"
+                        style={{ color: 'var(--brand-accent)' }}
+                      >
+                        ¿No se ve? Abrir en nueva pestaña <ExternalLink size={12} />
+                      </a>
                     </div>
                   ) : (
                     // FALLBACK PLACEHOLDER
