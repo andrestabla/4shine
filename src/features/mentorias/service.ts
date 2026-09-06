@@ -1,7 +1,7 @@
 import type { PoolClient } from 'pg';
 import { getViewerAccessState, requireViewerAccessFlag } from '@/features/access/service';
 import type { AuthUser } from '@/server/auth/types';
-import { requireModulePermission } from '@/server/auth/module-permissions';
+import { ForbiddenError, requireModulePermission } from '@/server/auth/module-permissions';
 import { createZoomMeeting } from '@/server/integrations/zoom';
 import { notifyUser, notifyUserFull } from '@/features/notificaciones/engine';
 import { formatDate } from '@/lib/format-date';
@@ -4140,4 +4140,283 @@ export async function sendIndividualSessionReminders(
     summary.push({ windowMinutes: w.window_minutes, sent });
   }
   return summary;
+}
+
+// ── Grabaciones de mentorías 1:1 ────────────────────────────────────────────
+//
+// Las carga manualmente el gestor o el admin sobre una sesión concreta. A
+// diferencia de las grupales, son privadas de esa relación: las ven el líder,
+// su advisor y el equipo (gestor/admin), y no llevan reacciones ni comentarios.
+
+export interface SessionRecordingRecord {
+  recordingId: string;
+  sessionId: string;
+  sessionTitle: string;
+  menteeName: string | null;
+  mentorName: string | null;
+  title: string;
+  description: string | null;
+  recordingUrl: string;
+  thumbnailUrl: string | null;
+  durationMinutes: number;
+  recordedAt: string | null;
+  publishedAt: string | null;
+}
+
+interface SessionRecordingRow {
+  recording_id: string;
+  session_id: string;
+  session_title: string;
+  mentee_name: string | null;
+  mentor_name: string | null;
+  title: string;
+  description: string | null;
+  recording_url: string;
+  thumbnail_url: string | null;
+  duration_minutes: number;
+  recorded_at: string | null;
+  published_at: string | null;
+}
+
+const SESSION_RECORDING_SELECT = `
+  SELECT
+    r.recording_id::text,
+    r.session_id::text,
+    ms.title AS session_title,
+    mentee.display_name AS mentee_name,
+    mentor.display_name AS mentor_name,
+    r.title,
+    r.description,
+    r.recording_url,
+    r.thumbnail_url,
+    r.duration_minutes,
+    r.recorded_at::text,
+    r.published_at::text
+  FROM app_mentoring.session_recordings r
+  JOIN app_mentoring.mentorship_sessions ms ON ms.session_id = r.session_id
+  LEFT JOIN app_core.users mentor ON mentor.user_id = ms.mentor_user_id
+  LEFT JOIN LATERAL (
+    SELECT u.display_name
+    FROM app_mentoring.session_participants sp
+    JOIN app_core.users u ON u.user_id = sp.user_id
+    WHERE sp.session_id = r.session_id AND sp.participant_role = 'mentee'
+    ORDER BY sp.joined_at
+    LIMIT 1
+  ) mentee ON true
+`;
+
+function mapSessionRecording(row: SessionRecordingRow): SessionRecordingRecord {
+  return {
+    recordingId: row.recording_id,
+    sessionId: row.session_id,
+    sessionTitle: row.session_title,
+    menteeName: row.mentee_name,
+    mentorName: row.mentor_name,
+    title: row.title,
+    description: row.description,
+    recordingUrl: row.recording_url,
+    thumbnailUrl: row.thumbnail_url,
+    durationMinutes: Number(row.duration_minutes ?? 0),
+    recordedAt: row.recorded_at,
+    publishedAt: row.published_at,
+  };
+}
+
+/**
+ * Grabaciones de las sesiones 1:1 de un líder.
+ *
+ * El líder solo puede pedir las suyas; el advisor, las de las sesiones que él
+ * acompaña; gestor y admin, las de cualquiera.
+ */
+export async function listSessionRecordingsForLeader(
+  client: PoolClient,
+  actor: AuthUser,
+  leaderUserId: string,
+): Promise<SessionRecordingRecord[]> {
+  await requireModulePermission(client, 'mentorias', 'view');
+
+  const isStaff = actor.role === 'admin' || actor.role === 'gestor';
+  if (!isStaff && actor.role !== 'mentor' && actor.userId !== leaderUserId) {
+    throw new ForbiddenError('No puedes ver las grabaciones de otro líder.');
+  }
+
+  const { rows } = await client.query<SessionRecordingRow>(
+    `${SESSION_RECORDING_SELECT}
+     WHERE EXISTS (
+       SELECT 1 FROM app_mentoring.session_participants sp
+       WHERE sp.session_id = r.session_id
+         AND sp.user_id = $1::uuid
+         AND sp.participant_role = 'mentee'
+     )
+     -- El advisor solo ve las sesiones que él acompañó.
+     AND ($2::boolean = true OR ms.mentor_user_id = $3::uuid OR $3::uuid = $1::uuid)
+     ORDER BY COALESCE(r.recorded_at, r.published_at) DESC`,
+    [leaderUserId, isStaff, actor.userId],
+  );
+
+  return rows.map(mapSessionRecording);
+}
+
+/** Una grabación 1:1 por id, con el control de acceso de quien la pide. */
+export async function getSessionRecording(
+  client: PoolClient,
+  actor: AuthUser,
+  recordingId: string,
+): Promise<SessionRecordingRecord> {
+  await requireModulePermission(client, 'mentorias', 'view');
+  const isStaff = actor.role === 'admin' || actor.role === 'gestor';
+
+  const { rows } = await client.query<SessionRecordingRow>(
+    `${SESSION_RECORDING_SELECT}
+     WHERE r.recording_id = $1::uuid
+       AND (
+         $2::boolean = true
+         OR ms.mentor_user_id = $3::uuid
+         OR EXISTS (
+           SELECT 1 FROM app_mentoring.session_participants sp
+           WHERE sp.session_id = r.session_id AND sp.user_id = $3::uuid
+         )
+       )`,
+    [recordingId, isStaff, actor.userId],
+  );
+
+  const found = rows[0];
+  if (!found) throw new Error('Grabación no encontrada.');
+  return mapSessionRecording(found);
+}
+
+export interface CreateSessionRecordingInput {
+  sessionId: string;
+  title: string;
+  recordingUrl: string;
+  description?: string | null;
+  durationMinutes?: number;
+  recordedAt?: string | null;
+  thumbnailUrl?: string | null;
+}
+
+export async function createSessionRecording(
+  client: PoolClient,
+  actor: AuthUser,
+  input: CreateSessionRecordingInput,
+): Promise<SessionRecordingRecord> {
+  if (actor.role !== 'admin' && actor.role !== 'gestor') {
+    throw new ForbiddenError('Solo gestor o admin pueden cargar grabaciones.');
+  }
+  await requireModulePermission(client, 'mentorias', 'update');
+
+  const title = input.title?.trim();
+  if (!title) throw new Error('El título de la grabación es obligatorio.');
+  const url = input.recordingUrl?.trim();
+  if (!url || !/^https?:\/\//i.test(url)) {
+    throw new Error('La URL de la grabación debe empezar por http:// o https://');
+  }
+
+  const { rows: session } = await client.query<{ n: string }>(
+    `SELECT COUNT(*)::text AS n FROM app_mentoring.mentorship_sessions WHERE session_id = $1::uuid`,
+    [input.sessionId],
+  );
+  if (Number(session[0]?.n ?? 0) === 0) throw new Error('La sesión no existe.');
+
+  const { rows } = await client.query<{ recording_id: string }>(
+    `INSERT INTO app_mentoring.session_recordings
+       (session_id, title, description, recording_url, thumbnail_url, duration_minutes, recorded_at, created_by)
+     VALUES ($1::uuid, $2, $3, $4, $5, $6, $7::timestamptz, $8::uuid)
+     RETURNING recording_id::text`,
+    [
+      input.sessionId,
+      title,
+      input.description?.trim() || null,
+      url,
+      input.thumbnailUrl?.trim() || null,
+      Math.max(0, Math.floor(input.durationMinutes ?? 0)),
+      input.recordedAt || null,
+      actor.userId,
+    ],
+  );
+
+  return getSessionRecording(client, actor, rows[0].recording_id);
+}
+
+export interface UpdateSessionRecordingInput {
+  title?: string;
+  description?: string | null;
+  recordingUrl?: string;
+  durationMinutes?: number;
+  recordedAt?: string | null;
+  thumbnailUrl?: string | null;
+}
+
+export async function updateSessionRecording(
+  client: PoolClient,
+  actor: AuthUser,
+  recordingId: string,
+  input: UpdateSessionRecordingInput,
+): Promise<SessionRecordingRecord> {
+  if (actor.role !== 'admin' && actor.role !== 'gestor') {
+    throw new ForbiddenError('Solo gestor o admin pueden editar grabaciones.');
+  }
+  await requireModulePermission(client, 'mentorias', 'update');
+
+  const sets: string[] = [];
+  const values: unknown[] = [];
+  let i = 1;
+
+  if (input.title !== undefined) {
+    const title = input.title.trim();
+    if (!title) throw new Error('El título no puede quedar vacío.');
+    sets.push(`title = $${i++}`);
+    values.push(title);
+  }
+  if (input.description !== undefined) {
+    sets.push(`description = $${i++}`);
+    values.push(input.description?.trim() || null);
+  }
+  if (input.recordingUrl !== undefined) {
+    const url = input.recordingUrl.trim();
+    if (!/^https?:\/\//i.test(url)) throw new Error('La URL debe empezar por http:// o https://');
+    sets.push(`recording_url = $${i++}`);
+    values.push(url);
+  }
+  if (input.thumbnailUrl !== undefined) {
+    sets.push(`thumbnail_url = $${i++}`);
+    values.push(input.thumbnailUrl?.trim() || null);
+  }
+  if (input.durationMinutes !== undefined) {
+    sets.push(`duration_minutes = $${i++}`);
+    values.push(Math.max(0, Math.floor(input.durationMinutes)));
+  }
+  if (input.recordedAt !== undefined) {
+    sets.push(`recorded_at = $${i++}::timestamptz`);
+    values.push(input.recordedAt || null);
+  }
+
+  if (sets.length === 0) throw new Error('No hay cambios para guardar.');
+  values.push(recordingId);
+
+  const { rowCount } = await client.query(
+    `UPDATE app_mentoring.session_recordings SET ${sets.join(', ')} WHERE recording_id = $${i}::uuid`,
+    values,
+  );
+  if (!rowCount) throw new Error('Grabación no encontrada.');
+
+  return getSessionRecording(client, actor, recordingId);
+}
+
+export async function deleteSessionRecording(
+  client: PoolClient,
+  actor: AuthUser,
+  recordingId: string,
+): Promise<{ recordingId: string }> {
+  if (actor.role !== 'admin' && actor.role !== 'gestor') {
+    throw new ForbiddenError('Solo gestor o admin pueden eliminar grabaciones.');
+  }
+  await requireModulePermission(client, 'mentorias', 'delete');
+
+  const { rowCount } = await client.query(
+    `DELETE FROM app_mentoring.session_recordings WHERE recording_id = $1::uuid`,
+    [recordingId],
+  );
+  if (!rowCount) throw new Error('Grabación no encontrada.');
+  return { recordingId };
 }

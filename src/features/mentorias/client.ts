@@ -27,7 +27,16 @@ import type {
   UpdateGroupSessionInput,
   UpdateGroupSessionRecordingInput,
   UpdateMentorshipInput,
+  SessionRecordingRecord,
+  CreateSessionRecordingInput,
+  UpdateSessionRecordingInput,
 } from './service';
+
+export type {
+  SessionRecordingRecord,
+  CreateSessionRecordingInput,
+  UpdateSessionRecordingInput,
+};
 
 export type {
   AdditionalMentorshipOrderRecord,
@@ -317,4 +326,51 @@ export async function dispatchProgramMentorshipReminders(): Promise<{ notified: 
   return requestApi<{ notified: number }>('/api/v1/modules/mentorias/program-reminders/dispatch', {
     method: 'POST',
   });
+}
+
+// ── Grabaciones de mentorías 1:1 ────────────────────────────────────────────
+
+export async function listSessionRecordingsForLeader(
+  leaderUserId?: string,
+): Promise<SessionRecordingRecord[]> {
+  const query = leaderUserId ? `?leaderUserId=${encodeURIComponent(leaderUserId)}` : '';
+  return requestApi<SessionRecordingRecord[]>(
+    `/api/v1/modules/mentorias/session-recordings${query}`,
+  );
+}
+
+export async function createSessionRecording(
+  input: CreateSessionRecordingInput,
+): Promise<SessionRecordingRecord> {
+  return requestApi<SessionRecordingRecord>('/api/v1/modules/mentorias/session-recordings', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function getSessionRecording(
+  recordingId: string,
+): Promise<SessionRecordingRecord> {
+  return requestApi<SessionRecordingRecord>(
+    `/api/v1/modules/mentorias/session-recordings/${recordingId}`,
+  );
+}
+
+export async function updateSessionRecording(
+  recordingId: string,
+  input: UpdateSessionRecordingInput,
+): Promise<SessionRecordingRecord> {
+  return requestApi<SessionRecordingRecord>(
+    `/api/v1/modules/mentorias/session-recordings/${recordingId}`,
+    { method: 'PATCH', body: JSON.stringify(input) },
+  );
+}
+
+export async function deleteSessionRecording(
+  recordingId: string,
+): Promise<{ recordingId: string }> {
+  return requestApi<{ recordingId: string }>(
+    `/api/v1/modules/mentorias/session-recordings/${recordingId}`,
+    { method: 'DELETE' },
+  );
 }

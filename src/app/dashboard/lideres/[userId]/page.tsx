@@ -31,6 +31,7 @@ import {
     type AdvisorSlot,
 } from '@/features/lideres/client';
 import { formatDate as sharedFormatDate, formatDateTime as sharedFormatDateTime } from '@/lib/format-date';
+import { SessionRecordingsPanel } from '@/components/mentorias/SessionRecordingsPanel';
 
 function formatDate(value: string | null) {
     if (!value) return '—';
@@ -521,6 +522,21 @@ export default function Leader360Page() {
                                 </ul>
                             </div>
                         )}
+
+                        <div className="border-t border-[var(--app-border)] pt-3">
+                            <SessionRecordingsPanel
+                                leaderUserId={userId}
+                                canManage={currentRole === 'admin' || currentRole === 'gestor'}
+                                sessions={[...mentorship.pastSessions, ...mentorship.upcomingSessions].map(
+                                    (s) => ({
+                                        sessionId: s.sessionId,
+                                        title: s.title,
+                                        mentorName: s.mentorName,
+                                        startsAt: s.startsAt,
+                                    }),
+                                )}
+                            />
+                        </div>
                     </div>
                 )}
             </SectionCard>

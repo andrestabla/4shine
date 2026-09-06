@@ -32,6 +32,7 @@ import {
 import { R2UploadButton } from '@/components/ui/R2UploadButton';
 import { RichTextEditor } from '@/components/ui/RichTextEditor';
 import { RecordingCoverPicker } from '@/components/mentorias/RecordingCoverPicker';
+import { SessionRecordingsPanel } from '@/components/mentorias/SessionRecordingsPanel';
 import { EmptyState } from '@/components/dashboard/EmptyState';
 import { PageTitle } from '@/components/dashboard/PageTitle';
 import { StatGrid } from '@/components/dashboard/StatGrid';
@@ -4928,6 +4929,12 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
             ))
           )}
         </div>
+
+        {currentUser?.id && (
+          <div className="mt-6 border-t border-[var(--app-border)] pt-5">
+            <SessionRecordingsPanel leaderUserId={currentUser.id} canManage={false} />
+          </div>
+        )}
       </section>
     </div>
   );

@@ -7,6 +7,7 @@ import { ArrowLeft, Loader2, MessageCircle, Play, Send } from 'lucide-react';
 import {
   commentGroupSessionRecording,
   getGroupSessionRecording,
+  getSessionRecording,
   reactToGroupSessionRecording,
   type GroupSessionReaction,
   type GroupSessionRecordingRecord,
@@ -43,6 +44,8 @@ export default function GrabacionPage() {
   const [comment, setComment] = React.useState('');
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
   const [showCover, setShowCover] = React.useState(true);
+  /** Las 1:1 no tienen muro público de reacciones ni comentarios. */
+  const [isPrivate, setIsPrivate] = React.useState(false);
   const [sending, setSending] = React.useState(false);
 
   React.useEffect(() => {
@@ -52,8 +55,35 @@ export default function GrabacionPage() {
       try {
         const data = await getGroupSessionRecording(recordingId);
         if (active) setRecording(data);
-      } catch (err) {
-        if (active) setError(err instanceof Error ? err.message : 'No se pudo cargar la grabación.');
+      } catch {
+        // Si no es una grabación grupal, puede ser la de una mentoría 1:1: son
+        // privadas de esa relación, así que no llevan reacciones ni comentarios.
+        try {
+          const individual = await getSessionRecording(recordingId);
+          if (!active) return;
+          setIsPrivate(true);
+          setRecording({
+            recordingId: individual.recordingId,
+            eventId: individual.sessionId,
+            eventTitle: individual.sessionTitle,
+            hostName: individual.mentorName,
+            title: individual.title,
+            description: individual.description,
+            recordingUrl: individual.recordingUrl,
+            thumbnailUrl: individual.thumbnailUrl,
+            bannerImageUrl: null,
+            durationMinutes: individual.durationMinutes,
+            recordedAt: individual.recordedAt,
+            publishedAt: individual.publishedAt,
+            reactionTotals: { like: 0, celebrate: 0, insightful: 0, love: 0 },
+            myReaction: null,
+            comments: [],
+          });
+        } catch (err) {
+          if (active) {
+            setError(err instanceof Error ? err.message : 'No se pudo cargar la grabación.');
+          }
+        }
       } finally {
         if (active) setLoading(false);
       }
@@ -124,7 +154,7 @@ export default function GrabacionPage() {
   return (
     <div className="space-y-4">
       {/* 80% reproductor · 20% interacción. En móvil se apilan. */}
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,4fr)_minmax(0,1fr)]">
+      <div className={`grid gap-4 ${isPrivate ? "" : "lg:grid-cols-[minmax(0,4fr)_minmax(0,1fr)]"}`}>
         <section className="min-w-0 space-y-3">
           <div className="relative overflow-hidden rounded-[18px] border border-[var(--app-border)] bg-black">
             {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
@@ -185,6 +215,7 @@ export default function GrabacionPage() {
           </div>
         </section>
 
+        {!isPrivate && (
         <aside className="min-w-0 space-y-3">
           <div className="app-panel p-4">
             <p className="app-section-kicker">Reacciones</p>
@@ -257,6 +288,7 @@ export default function GrabacionPage() {
             </div>
           </div>
         </aside>
+        )}
       </div>
     </div>
   );
