@@ -206,6 +206,13 @@ export async function createAdvisorCategory(
   return listAdvisorCategories(client);
 }
 
+/**
+ * Pilar de las áreas nuevas. mentor_topics lo exige y el formulario del perfil
+ * captura el área como texto libre; Shine Within es el pilar de partida del
+ * modelo, y gestor o admin pueden reclasificarla después.
+ */
+const DEFAULT_TOPIC_PILLAR = 'shine_within';
+
 function assertAdvisorAccess(actor: AuthUser, advisorUserId: string) {
   const isSelf = actor.userId === advisorUserId;
   if (!isSelf && !STAFF_ROLES.has(actor.role)) {
@@ -361,14 +368,31 @@ export async function updateAdvisorProfileRecord(
   }
 
   // Áreas de experticia: se reemplazan por completo, respetando el orden.
+  //
+  // mentor_topics exige pillar_code (NOT NULL). Guardar sin él reventaba el
+  // guardado entero del perfil, que es lo que impedía a los advisors editar su
+  // ficha. Se conserva el pilar que ya tenía cada área por su nombre, y a las
+  // nuevas se les asigna el pilar por defecto; así no se inventa taxonomía
+  // sobre las existentes ni se pierde el trabajo previo.
   if (input.topics !== undefined) {
     const topics = input.topics.map((t) => t.trim()).filter(Boolean).slice(0, 12);
+
+    const { rows: previos } = await client.query<{ topic_label: string; pillar_code: string }>(
+      `SELECT topic_label, pillar_code FROM app_mentoring.mentor_topics WHERE mentor_user_id = $1::uuid`,
+      [advisorUserId],
+    );
+    const pilarPorArea = new Map(
+      previos.map((row) => [row.topic_label.trim().toLowerCase(), row.pillar_code]),
+    );
+
     await client.query(`DELETE FROM app_mentoring.mentor_topics WHERE mentor_user_id = $1::uuid`, [advisorUserId]);
     for (let index = 0; index < topics.length; index += 1) {
+      const label = topics[index];
+      const pillar = pilarPorArea.get(label.toLowerCase()) ?? DEFAULT_TOPIC_PILLAR;
       await client.query(
-        `INSERT INTO app_mentoring.mentor_topics (mentor_user_id, topic_label, sort_order)
-         VALUES ($1::uuid, $2, $3)`,
-        [advisorUserId, topics[index], index + 1],
+        `INSERT INTO app_mentoring.mentor_topics (mentor_user_id, topic_label, pillar_code, sort_order)
+         VALUES ($1::uuid, $2, $3, $4)`,
+        [advisorUserId, label, pillar, index + 1],
       );
     }
   }

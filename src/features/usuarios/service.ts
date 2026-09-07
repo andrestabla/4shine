@@ -1100,14 +1100,30 @@ function buildPasswordResetPayload(
     `Se ha solicitado un reseteo de contraseña desde el panel de administración de ${platformName}.`,
     `Tu nueva contraseña temporal es: ${temporaryPassword}`,
     '',
+    `Accede a la plataforma: ${(process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.4shine.co').trim().replace(/\/$/, '')}/acceso`,
+    '',
     'Te recomendamos cambiarla al iniciar sesión.',
   ].join('\n');
+
+  const accessUrl = `${(process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.4shine.co').trim().replace(/\/$/, '')}/acceso`;
 
   const bodyHtml = [
     `<p style="margin:0 0 16px;font-size:15px;color:#0f172a;">Hola <strong>${safeName}</strong>,</p>`,
     `<p style="margin:0 0 16px;font-size:15px;color:#334155;line-height:1.6;">Se ha solicitado un reseteo de contraseña desde el panel de administración de ${platformName}.</p>`,
     `<p style="margin:0 0 8px;font-size:15px;color:#334155;">Tu nueva contraseña temporal es:</p>`,
     `<p style="margin:0 0 24px;font-size:20px;font-weight:700;color:#0f172a;letter-spacing:1px;">${temporaryPassword}</p>`,
+    // Con la contraseña a la vista, el siguiente paso obvio es entrar: sin el
+    // botón había que buscar la dirección a mano.
+    `<table cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px;">`,
+    `  <tr>`,
+    `    <td align="center" bgcolor="#6366f1" style="border-radius:10px;">`,
+    `      <a href="${accessUrl}" target="_blank" style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:10px;background-color:#6366f1;">`,
+    `        Acceder a la plataforma`,
+    `      </a>`,
+    `    </td>`,
+    `  </tr>`,
+    `</table>`,
+    `<p style="margin:0 0 8px;font-size:12px;color:#94a3b8;word-break:break-all;">Si el botón no funciona: ${accessUrl}</p>`,
     `<p style="margin:0;font-size:13px;color:#94a3b8;">Te recomendamos cambiarla al iniciar sesión.</p>`,
   ].join('');
 
