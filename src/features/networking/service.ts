@@ -590,7 +590,10 @@ export async function followUser(client: PoolClient, actor: AuthUser, followedUs
 }
 
 export async function unfollowUser(client: PoolClient, actor: AuthUser, followedUserId: string): Promise<{ followedUserId: string }> {
-  await requireModulePermission(client, 'networking', 'delete');
+  // Se exige 'create' (no 'delete') para el gating del módulo, igual que en
+  // followUser: dejar de seguir actúa únicamente sobre el seguimiento propio.
+  // La autorización real es el DELETE de abajo, acotado a follower_user_id = actor.
+  await requireModulePermission(client, 'networking', 'create');
   await requireViewerAccessFlag(client, actor, 'canAccessNetworking', 'Networking');
 
   const { rowCount } = await client.query(
@@ -680,7 +683,11 @@ export async function updateConnection(client: PoolClient, actor: AuthUser, conn
 }
 
 export async function deleteConnection(client: PoolClient, actor: AuthUser, connectionId: string): Promise<{ connectionId: string }> {
-  await requireModulePermission(client, 'networking', 'delete');
+  // Se exige 'create' (no 'delete') para el gating del módulo: es el permiso que
+  // tiene cualquier participante de networking. Eliminar un contacto es una acción
+  // sobre la red propia; la autorización real es el DELETE de abajo, acotado a las
+  // conexiones donde el actor es parte (o a quien tenga 'networking:manage').
+  await requireModulePermission(client, 'networking', 'create');
   await requireViewerAccessFlag(client, actor, 'canAccessNetworking', 'Networking');
 
   const { rows } = await client.query<{ connection_id: string }>(
@@ -849,7 +856,11 @@ export async function joinCommunity(client: PoolClient, actor: AuthUser, groupId
 }
 
 export async function leaveCommunity(client: PoolClient, actor: AuthUser, groupId: string): Promise<{ groupId: string }> {
-  await requireModulePermission(client, 'networking', 'delete');
+  // Se exige 'create' (no 'delete') para el gating del módulo: es el permiso que
+  // tiene cualquier participante de networking. Salir de una comunidad actúa sobre
+  // la membresía propia; la autorización real es el DELETE de abajo, acotado a
+  // user_id = actor (y el dueño de la comunidad no puede abandonarla).
+  await requireModulePermission(client, 'networking', 'create');
   await requireViewerAccessFlag(client, actor, 'canAccessNetworking', 'Networking');
 
   const { rowCount } = await client.query(
