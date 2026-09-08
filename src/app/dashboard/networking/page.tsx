@@ -44,6 +44,7 @@ import {
   listNetworkPeople,
   unfollowUser,
   updateCommunity,
+  updateCommunityPost,
   updateConnection,
   toggleReaction,
   listComments,
@@ -320,6 +321,8 @@ function PostCard({
   canDelete,
   onDelete,
   onNotify,
+  canEdit,
+  onEdit,
 }: {
   post: CommunityPostRecord;
   currentUserId: string;
@@ -329,6 +332,8 @@ function PostCard({
   canDelete: boolean;
   onDelete: (post: CommunityPostRecord) => void;
   onNotify: (message: string) => void;
+  canEdit: boolean;
+  onEdit: (postId: string, updates: { title: string; body: string; resourceUrl: string | null }) => Promise<void>;
 }) {
   const [showComments, setShowComments] = React.useState(false);
   const [comments, setComments] = React.useState<CommentRecord[]>([]);
@@ -336,6 +341,30 @@ function PostCard({
   const [commentsLoading, setCommentsLoading] = React.useState(false);
   const [commentInput, setCommentInput] = React.useState('');
   const [submitting, setSubmitting] = React.useState(false);
+  const [editing, setEditing] = React.useState(false);
+  const [editForm, setEditForm] = React.useState({ title: post.title, body: post.body, resourceUrl: post.resourceUrl ?? '' });
+  const [savingEdit, setSavingEdit] = React.useState(false);
+
+  const startEditing = () => {
+    setEditForm({ title: post.title, body: post.body, resourceUrl: post.resourceUrl ?? '' });
+    setEditing(true);
+  };
+
+  const handleSubmitEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (savingEdit) return;
+    setSavingEdit(true);
+    try {
+      await onEdit(post.postId, {
+        title: editForm.title.trim(),
+        body: editForm.body.trim(),
+        resourceUrl: editForm.resourceUrl.trim() || null,
+      });
+      setEditing(false);
+    } finally {
+      setSavingEdit(false);
+    }
+  };
 
   const handleToggleComments = async () => {
     const next = !showComments;
@@ -383,6 +412,17 @@ function PostCard({
               <span className="text-[11px] text-[var(--app-muted)]">{toRelativeTime(post.createdAt)}</span>
             </div>
           </div>
+          {canEdit && !editing && (
+            <button
+              type="button"
+              onClick={startEditing}
+              title="Editar publicación"
+              aria-label="Editar publicación"
+              className="shrink-0 rounded-full p-1.5 text-[var(--app-muted)] transition hover:bg-[var(--app-surface-muted)] hover:text-[var(--app-ink)]"
+            >
+              <Pencil size={14} />
+            </button>
+          )}
           {canDelete && (
             <button
               type="button"
@@ -395,11 +435,35 @@ function PostCard({
             </button>
           )}
         </div>
-        <h4 className="mt-3 text-base font-bold text-[var(--app-ink)] leading-snug">{post.title}</h4>
-        <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-[var(--app-muted)]">{post.body}</p>
+        {editing ? (
+          <form className="mt-3 space-y-2" onSubmit={(e) => void handleSubmitEdit(e)}>
+            <input className="app-input text-sm" value={editForm.title} required
+              onChange={(e) => setEditForm((prev) => ({ ...prev, title: e.target.value }))} />
+            <textarea className="app-textarea min-h-24 text-sm" value={editForm.body} required
+              onChange={(e) => setEditForm((prev) => ({ ...prev, body: e.target.value }))} />
+            <input className="app-input py-1.5 text-xs" placeholder="URL del recurso (imagen, video, documento)…"
+              value={editForm.resourceUrl}
+              onChange={(e) => setEditForm((prev) => ({ ...prev, resourceUrl: e.target.value }))} />
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setEditing(false)}
+                className="rounded-full border border-[var(--app-border)] px-4 py-1.5 text-xs font-bold text-[var(--app-muted)] hover:text-[var(--app-ink)]">
+                Cancelar
+              </button>
+              <button type="submit" disabled={savingEdit || !editForm.title.trim() || !editForm.body.trim()}
+                className="rounded-full bg-[var(--brand-primary)] px-5 py-1.5 text-xs font-bold text-white transition hover:bg-[var(--brand-darker)] disabled:opacity-40">
+                {savingEdit ? 'Guardando…' : 'Guardar'}
+              </button>
+            </div>
+          </form>
+        ) : (
+          <>
+            <h4 className="mt-3 text-base font-bold text-[var(--app-ink)] leading-snug">{post.title}</h4>
+            <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-[var(--app-muted)]">{post.body}</p>
+          </>
+        )}
       </div>
 
-      {post.resourceUrl && (
+      {!editing && post.resourceUrl && (
         <div className="border-t border-[var(--app-border)] px-4 pb-4 pt-3">
           {directVideo ? (
             <video className="w-full rounded-xl border border-[var(--app-line)]" controls preload="metadata">
@@ -1045,6 +1109,16 @@ export default function NetworkingPage() {
     void alert({ title: 'Compartir', message, tone: 'success' });
   }, [alert]);
 
+  const onEditPost = async (postId: string, updates: { title: string; body: string; resourceUrl: string | null }) => {
+    try {
+      const updated = await updateCommunityPost(postId, updates);
+      setCommunityPosts((prev) => prev.map((item) => (item.postId === postId ? updated : item)));
+    } catch (error) {
+      await showError('No se pudo editar la publicación', error);
+      throw error;
+    }
+  };
+
   const onDeletePost = async (post: CommunityPostRecord) => {
     const ok = await confirm({
       title: 'Eliminar publicación',
@@ -1182,7 +1256,9 @@ export default function NetworkingPage() {
                     onToggleReaction={onToggleReaction}
                     canDelete={canManageCommunities || post.authorUserId === myCurrentUserId}
                     onDelete={(target) => void onDeletePost(target)}
-                    onNotify={notifyShare} />
+                    onNotify={notifyShare}
+                    canEdit={canManageCommunities || post.authorUserId === myCurrentUserId}
+                    onEdit={onEditPost} />
                 ))
               )}
             </section>

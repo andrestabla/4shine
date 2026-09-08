@@ -44,6 +44,16 @@ export function buildPostShareLinks(post: ShareablePost): PostShareLinks {
 }
 
 /**
+ * LinkedIn descarga la URL para armar la tarjeta, así que solo tiene sentido
+ * con el enlace público: uno del dashboard le devolvería la pantalla de acceso.
+ * Devuelve null cuando la publicación no es pública.
+ */
+export function buildLinkedInShareUrl(links: PostShareLinks): string | null {
+  if (!links.public) return null;
+  return `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(links.public)}`;
+}
+
+/**
  * Texto para WhatsApp. wa.me sin número abre el selector de contacto del
  * usuario, que es lo que queremos: compartir con quien él elija.
  */

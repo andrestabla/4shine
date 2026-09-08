@@ -151,6 +151,13 @@ export interface CreateCommunityPostInput {
   isPinned?: boolean;
 }
 
+export interface UpdateCommunityPostInput {
+  title?: string;
+  body?: string;
+  resourceUrl?: string | null;
+  isPinned?: boolean;
+}
+
 export interface CreateCommentInput {
   body: string;
 }
@@ -987,6 +994,105 @@ export async function createCommunityPost(
   );
 
   return mapCommunityPost(post.rows[0]);
+}
+
+/**
+ * Edita una publicación. Mismo criterio que el borrado: solo su autor —líder o
+ * advisor, cada uno sobre lo suyo— o alguien con 'networking:manage' (gestor /
+ * admin). El gating de módulo usa 'update', que los líderes sí tienen.
+ */
+export async function updateCommunityPost(
+  client: PoolClient,
+  actor: AuthUser,
+  postId: string,
+  input: UpdateCommunityPostInput,
+): Promise<CommunityPostRecord> {
+  await requireModulePermission(client, 'networking', 'update');
+  await requireViewerAccessFlag(client, actor, 'canAccessNetworking', 'Networking');
+
+  const existing = await client.query<{ author_user_id: string }>(
+    `SELECT p.author_user_id::text
+     FROM app_networking.community_posts p
+     WHERE p.post_id = $1::uuid
+     LIMIT 1`,
+    [postId],
+  );
+
+  const current = existing.rows[0];
+  if (!current) throw new Error('Publicación no encontrada.');
+
+  const isAuthor = current.author_user_id === actor.userId;
+  if (!isAuthor) {
+    const canManage = await hasModulePermission(client, 'networking', 'manage');
+    if (!canManage) {
+      throw new Error('Solo el autor de la publicación, un gestor o un administrador pueden editarla.');
+    }
+  }
+
+  const title = input.title?.trim();
+  const body = input.body?.trim();
+
+  if (title !== undefined && !title) throw new Error('El título del recurso es obligatorio.');
+  if (body !== undefined && !body) throw new Error('La descripción del recurso es obligatoria.');
+
+  // Fijar una publicación es moderación, no autoría: el autor puede corregir su
+  // texto, pero no destacarse a sí mismo en el muro de la comunidad.
+  if (input.isPinned !== undefined && !(await hasModulePermission(client, 'networking', 'manage'))) {
+    throw new Error('Solo un gestor o un administrador pueden fijar una publicación.');
+  }
+
+  const { rowCount } = await client.query(
+    `UPDATE app_networking.community_posts
+        SET title        = COALESCE($2, title),
+            body         = COALESCE($3, body),
+            resource_url = CASE WHEN $4::boolean THEN NULLIF(BTRIM($5), '') ELSE resource_url END,
+            is_pinned    = COALESCE($6, is_pinned),
+            updated_at   = now()
+      WHERE post_id = $1::uuid`,
+    [
+      postId,
+      title ?? null,
+      body ?? null,
+      input.resourceUrl !== undefined,
+      input.resourceUrl ?? null,
+      input.isPinned ?? null,
+    ],
+  );
+
+  if (!rowCount) throw new Error('Publicación no encontrada.');
+
+  const updated = await client.query<CommunityPostRow>(
+    `
+      SELECT
+        p.post_id::text,
+        p.group_id::text,
+        g.name AS group_name,
+        p.author_user_id::text,
+        u.display_name AS author_name,
+        u.avatar_url AS author_avatar_url,
+        p.title,
+        p.body,
+        p.resource_url,
+        p.is_pinned,
+        COALESCE((SELECT COUNT(*) FROM app_networking.post_reactions pr WHERE pr.post_id = p.post_id), 0)::int AS reaction_count,
+        EXISTS (
+          SELECT 1 FROM app_networking.post_reactions pr
+          WHERE pr.post_id = p.post_id AND pr.user_id = $2::uuid
+        ) AS has_reacted,
+        COALESCE((SELECT COUNT(*) FROM app_networking.post_comments pc WHERE pc.post_id = p.post_id), 0)::int AS comment_count,
+        (COALESCE(g.visibility, 'open') = 'open' AND g.is_active) AS is_publicly_shareable,
+        p.created_at::text,
+        p.updated_at::text
+      FROM app_networking.community_posts p
+      JOIN app_networking.interest_groups g ON g.group_id = p.group_id
+      JOIN app_core.users u ON u.user_id = p.author_user_id
+      WHERE p.post_id = $1::uuid
+      LIMIT 1
+    `,
+    [postId, actor.userId],
+  );
+
+  return mapCommunityPost(updated.rows[0]);
 }
 
 export async function deleteCommunityPost(

@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { withClient } from '@/server/db/pool';
 import { getPublicCommunityPost } from '@/features/networking/service';
 import { loadServerBranding } from '@/lib/server-branding';
+import { resolveResourceThumbnail } from '@/features/networking/resource-thumbnail';
 
 interface PageParams {
   params: Promise<{ postId: string }>;
@@ -57,11 +58,19 @@ export async function generateMetadata({ params }: PageParams): Promise<Metadata
 
   if (!post) return { title: 'Publicación no disponible', robots: { index: false, follow: false } };
 
-  const { settings } = await loadServerBranding();
+  const [{ settings }, thumbnail] = await Promise.all([
+    loadServerBranding(),
+    resolveResourceThumbnail(post.resourceUrl),
+  ]);
   const platformName = settings.platformName?.trim() || '4Shine';
   const description = excerpt(post.body);
+  // La miniatura del propio recurso manda; el branding solo cubre las
+  // publicaciones sin recurso o de las que no se puede sacar una imagen.
   const rawOgImage =
-    settings.faviconUrl?.trim() || settings.logoUrl?.trim() || '/branding/4shine-isotipo-amarillo.png';
+    thumbnail
+    || settings.faviconUrl?.trim()
+    || settings.logoUrl?.trim()
+    || '/branding/4shine-isotipo-amarillo.png';
 
   return {
     title: `${post.title} · ${platformName}`,
@@ -77,7 +86,7 @@ export async function generateMetadata({ params }: PageParams): Promise<Metadata
       images: [{ url: rawOgImage }],
     },
     twitter: {
-      card: 'summary_large_image',
+      card: thumbnail ? 'summary_large_image' : 'summary',
       title: post.title,
       description,
       images: [rawOgImage],
@@ -94,6 +103,7 @@ export default async function PublicCommunityPostPage({ params }: PageParams) {
   const resourceUrl = normalizeUrl(post.resourceUrl);
   const embeddedVideo = resourceUrl ? getEmbeddedVideoUrl(resourceUrl) : null;
   const directVideo = resourceUrl && /\.(mp4|webm|ogg|mov|m4v)(\?.*)?$/i.test(resourceUrl) ? resourceUrl : null;
+  const directImage = resourceUrl && /\.(jpe?g|png|gif|webp|avif|bmp|svg)(\?.*)?$/i.test(resourceUrl) ? resourceUrl : null;
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-3xl px-4 py-10 md:px-6">
@@ -132,6 +142,9 @@ export default async function PublicCommunityPostPage({ params }: PageParams) {
               <video className="w-full rounded-xl border border-black/10" controls preload="metadata">
                 <source src={directVideo} />
               </video>
+            ) : directImage ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={directImage} alt={post.title} className="w-full rounded-xl border border-black/10 object-cover" />
             ) : embeddedVideo ? (
               <div className="overflow-hidden rounded-xl border border-black/10">
                 <iframe

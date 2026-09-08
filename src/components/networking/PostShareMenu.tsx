@@ -3,7 +3,15 @@
 import React from 'react';
 import { Share2, Link2, Check, Lock } from 'lucide-react';
 import type { CommunityPostRecord } from '@/features/networking/client';
-import { buildPostShareLinks, buildWhatsAppShareUrl } from '@/features/networking/share';
+import { buildLinkedInShareUrl, buildPostShareLinks, buildWhatsAppShareUrl } from '@/features/networking/share';
+
+function LinkedInIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M4.98 3.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5ZM3 9h4v12H3V9Zm7 0h3.8v1.65h.05c.53-.95 1.83-1.95 3.76-1.95C21.6 8.7 23 10.9 23 14.1V21h-4v-6.1c0-1.46-.03-3.33-2.06-3.33-2.06 0-2.37 1.58-2.37 3.22V21h-4V9Z" />
+    </svg>
+  );
+}
 
 function WhatsAppIcon({ size = 14 }: { size?: number }) {
   // lucide no trae la marca de WhatsApp; glifo mínimo para no cargar otra librería.
@@ -62,8 +70,16 @@ export function PostShareMenu({
     setOpen(false);
   };
 
+  const linkedInUrl = React.useMemo(() => buildLinkedInShareUrl(links), [links]);
+
   const shareWhatsApp = () => {
     window.open(buildWhatsAppShareUrl(post, links.preferred), '_blank', 'noopener,noreferrer');
+    setOpen(false);
+  };
+
+  const shareLinkedIn = () => {
+    if (!linkedInUrl) return;
+    window.open(linkedInUrl, '_blank', 'noopener,noreferrer');
     setOpen(false);
   };
 
@@ -94,6 +110,13 @@ export function PostShareMenu({
             <WhatsAppIcon />
             Compartir por WhatsApp
           </button>
+
+          {linkedInUrl && (
+            <button type="button" role="menuitem" className={itemClass} onClick={() => void shareLinkedIn()}>
+              <LinkedInIcon />
+              Compartir en LinkedIn
+            </button>
+          )}
 
           {links.public ? (
             <>
@@ -131,7 +154,7 @@ export function PostShareMenu({
                 Copiar enlace
               </button>
               <p className="border-t border-[var(--app-border)] px-3 py-2 text-[10px] leading-snug text-[var(--app-muted)]">
-                Esta comunidad es cerrada: quien reciba el enlace necesita iniciar sesión y ser miembro.
+                Esta comunidad es cerrada: quien reciba el enlace necesita iniciar sesión y ser miembro, y por eso no se puede compartir en LinkedIn.
               </p>
             </>
           )}

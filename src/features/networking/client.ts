@@ -245,6 +245,20 @@ export async function createCommunityPost(groupId: string, input: CreateCommunit
   });
 }
 
+export interface UpdateCommunityPostInput {
+  title?: string;
+  body?: string;
+  resourceUrl?: string | null;
+  isPinned?: boolean;
+}
+
+export async function updateCommunityPost(postId: string, input: UpdateCommunityPostInput): Promise<CommunityPostRecord> {
+  return requestApi<CommunityPostRecord>(`/api/v1/modules/networking/community-posts/${postId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+}
+
 export async function deleteCommunityPost(postId: string): Promise<{ postId: string }> {
   return requestApi<{ postId: string }>(`/api/v1/modules/networking/community-posts/${postId}`, {
     method: 'DELETE',
