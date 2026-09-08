@@ -1,7 +1,7 @@
 import type { PoolClient } from 'pg';
 import type { AuthUser } from '@/server/auth/types';
 import { requireViewerAccessFlag } from '@/features/access/service';
-import { requireModulePermission } from '@/server/auth/module-permissions';
+import { hasModulePermission, requireModulePermission } from '@/server/auth/module-permissions';
 import { notifyUser } from '@/features/notificaciones/engine';
 
 export type ConnectionStatus = 'pending' | 'connected' | 'blocked' | 'rejected';
@@ -83,6 +83,12 @@ export interface CommunityPostRecord {
   reactionCount: number;
   hasReacted: boolean;
   commentCount: number;
+  /**
+   * true cuando la publicación vive en una comunidad activa y abierta, es decir,
+   * cuando puede exponerse en la página pública /networking/publicacion/[postId].
+   * Las comunidades cerradas nunca se comparten fuera de la plataforma.
+   */
+  isPubliclyShareable: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -229,6 +235,7 @@ interface CommunityPostRow {
   reaction_count: number;
   has_reacted: boolean;
   comment_count: number;
+  is_publicly_shareable: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -336,6 +343,7 @@ function mapCommunityPost(row: CommunityPostRow): CommunityPostRecord {
     reactionCount: Number(row.reaction_count ?? 0),
     hasReacted: row.has_reacted ?? false,
     commentCount: Number(row.comment_count ?? 0),
+    isPubliclyShareable: row.is_publicly_shareable ?? false,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -872,6 +880,7 @@ export async function listCommunityPosts(client: PoolClient, actor: AuthUser, li
           WHERE pr.post_id = p.post_id AND pr.user_id = $1::uuid
         ) AS has_reacted,
         COALESCE(cc.comment_count, 0)::int AS comment_count,
+        (COALESCE(g.visibility, 'open') = 'open' AND g.is_active) AS is_publicly_shareable,
         p.created_at::text,
         p.updated_at::text
       FROM app_networking.community_posts p
@@ -965,6 +974,7 @@ export async function createCommunityPost(
         0::int AS reaction_count,
         false AS has_reacted,
         0::int AS comment_count,
+        (COALESCE(g.visibility, 'open') = 'open' AND g.is_active) AS is_publicly_shareable,
         p.created_at::text,
         p.updated_at::text
       FROM app_networking.community_posts p
@@ -977,6 +987,130 @@ export async function createCommunityPost(
   );
 
   return mapCommunityPost(post.rows[0]);
+}
+
+export async function deleteCommunityPost(
+  client: PoolClient,
+  actor: AuthUser,
+  postId: string,
+): Promise<{ postId: string }> {
+  // Se exige 'create' (no 'delete') para el gating del módulo: es el permiso que
+  // tiene cualquier participante de networking. La autorización real es de abajo:
+  // solo el autor de la publicación o quien tenga 'networking:manage'
+  // (gestor / admin) puede eliminarla.
+  await requireModulePermission(client, 'networking', 'create');
+  await requireViewerAccessFlag(client, actor, 'canAccessNetworking', 'Networking');
+
+  const post = await client.query<{ author_user_id: string }>(
+    `SELECT p.author_user_id::text
+     FROM app_networking.community_posts p
+     WHERE p.post_id = $1::uuid
+     LIMIT 1`,
+    [postId],
+  );
+
+  const current = post.rows[0];
+  if (!current) throw new Error('Publicación no encontrada.');
+
+  const isAuthor = current.author_user_id === actor.userId;
+  if (!isAuthor) {
+    const canManage = await hasModulePermission(client, 'networking', 'manage');
+    if (!canManage) {
+      throw new Error('Solo el autor de la publicación, un gestor o un administrador pueden eliminarla.');
+    }
+  }
+
+  // Comentarios y reacciones se eliminan en cascada (FK ON DELETE CASCADE).
+  const { rowCount } = await client.query(
+    `DELETE FROM app_networking.community_posts WHERE post_id = $1::uuid`,
+    [postId],
+  );
+
+  if (!rowCount) throw new Error('Publicación no encontrada.');
+  return { postId };
+}
+
+export interface PublicCommunityPostRecord {
+  postId: string;
+  groupId: string;
+  groupName: string;
+  authorName: string;
+  authorAvatarUrl: string | null;
+  title: string;
+  body: string;
+  resourceUrl: string | null;
+  reactionCount: number;
+  commentCount: number;
+  createdAt: string;
+}
+
+/**
+ * Lectura SIN sesión para la página pública de una publicación.
+ *
+ * No pasa por requireModulePermission a propósito (no hay actor), así que la
+ * query es la única barrera: devuelve la publicación solo si su comunidad está
+ * activa y su visibilidad es 'open'. Las comunidades cerradas devuelven null y
+ * la página responde 404, igual que si la publicación no existiera.
+ */
+export async function getPublicCommunityPost(
+  client: PoolClient,
+  postId: string,
+): Promise<PublicCommunityPostRecord | null> {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(postId)) return null;
+
+  const { rows } = await client.query<{
+    post_id: string;
+    group_id: string;
+    group_name: string;
+    author_name: string;
+    author_avatar_url: string | null;
+    title: string;
+    body: string;
+    resource_url: string | null;
+    reaction_count: number;
+    comment_count: number;
+    created_at: string;
+  }>(
+    `
+      SELECT
+        p.post_id::text,
+        p.group_id::text,
+        g.name AS group_name,
+        u.display_name AS author_name,
+        u.avatar_url AS author_avatar_url,
+        p.title,
+        p.body,
+        p.resource_url,
+        COALESCE((SELECT COUNT(*) FROM app_networking.post_reactions pr WHERE pr.post_id = p.post_id), 0)::int AS reaction_count,
+        COALESCE((SELECT COUNT(*) FROM app_networking.post_comments pc WHERE pc.post_id = p.post_id), 0)::int AS comment_count,
+        p.created_at::text
+      FROM app_networking.community_posts p
+      JOIN app_networking.interest_groups g ON g.group_id = p.group_id
+      JOIN app_core.users u ON u.user_id = p.author_user_id
+      WHERE p.post_id = $1::uuid
+        AND g.is_active = true
+        AND COALESCE(g.visibility, 'open') = 'open'
+      LIMIT 1
+    `,
+    [postId],
+  );
+
+  const row = rows[0];
+  if (!row) return null;
+
+  return {
+    postId: row.post_id,
+    groupId: row.group_id,
+    groupName: row.group_name,
+    authorName: row.author_name,
+    authorAvatarUrl: row.author_avatar_url ?? null,
+    title: row.title,
+    body: row.body,
+    resourceUrl: row.resource_url,
+    reactionCount: Number(row.reaction_count ?? 0),
+    commentCount: Number(row.comment_count ?? 0),
+    createdAt: row.created_at,
+  };
 }
 
 // ─── Post reactions ───────────────────────────────────────────────────────────

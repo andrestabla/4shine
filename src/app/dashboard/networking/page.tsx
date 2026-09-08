@@ -25,6 +25,7 @@ import { ModuleLockedScreen } from '@/components/access/ModuleLockedScreen';
 import { EmptyState } from '@/components/dashboard/EmptyState';
 import { R2UploadButton } from '@/components/ui/R2UploadButton';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
+import { PostShareMenu } from '@/components/networking/PostShareMenu';
 import { useUser } from '@/context/UserContext';
 import { createDirectThread } from '@/features/mensajes/client';
 import {
@@ -32,6 +33,7 @@ import {
   createCommunityPost,
   createConnection,
   deleteCommunity,
+  deleteCommunityPost,
   deleteConnection,
   followUser,
   joinCommunity,
@@ -315,12 +317,18 @@ function PostCard({
   currentUserName,
   currentUserAvatarUrl,
   onToggleReaction,
+  canDelete,
+  onDelete,
+  onNotify,
 }: {
   post: CommunityPostRecord;
   currentUserId: string;
   currentUserName: string;
   currentUserAvatarUrl?: string | null;
   onToggleReaction: (postId: string) => void;
+  canDelete: boolean;
+  onDelete: (post: CommunityPostRecord) => void;
+  onNotify: (message: string) => void;
 }) {
   const [showComments, setShowComments] = React.useState(false);
   const [comments, setComments] = React.useState<CommentRecord[]>([]);
@@ -375,6 +383,17 @@ function PostCard({
               <span className="text-[11px] text-[var(--app-muted)]">{toRelativeTime(post.createdAt)}</span>
             </div>
           </div>
+          {canDelete && (
+            <button
+              type="button"
+              onClick={() => onDelete(post)}
+              title="Eliminar publicación"
+              aria-label="Eliminar publicación"
+              className="shrink-0 rounded-full p-1.5 text-[var(--app-muted)] transition hover:bg-[var(--app-surface-muted)] hover:text-[#b3261e]"
+            >
+              <Trash2 size={14} />
+            </button>
+          )}
         </div>
         <h4 className="mt-3 text-base font-bold text-[var(--app-ink)] leading-snug">{post.title}</h4>
         <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-[var(--app-muted)]">{post.body}</p>
@@ -418,6 +437,7 @@ function PostCard({
           <MessageSquare size={13} />
           Comentar{post.commentCount > 0 ? ` · ${post.commentCount}` : ''}
         </button>
+        <PostShareMenu post={post} onNotify={onNotify} />
       </div>
 
       {/* Comments section */}
@@ -1021,6 +1041,25 @@ export default function NetworkingPage() {
     });
   };
 
+  const notifyShare = React.useCallback((message: string) => {
+    void alert({ title: 'Compartir', message, tone: 'success' });
+  }, [alert]);
+
+  const onDeletePost = async (post: CommunityPostRecord) => {
+    const ok = await confirm({
+      title: 'Eliminar publicación',
+      message: `¿Eliminar "${post.title}"? También se borrarán sus comentarios y recomendaciones.`,
+      tone: 'warning',
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
+    });
+    if (!ok) return;
+    try {
+      await deleteCommunityPost(post.postId);
+      setCommunityPosts((prev) => prev.filter((item) => item.postId !== post.postId));
+    } catch (error) { await showError('No se pudo eliminar la publicación', error); }
+  };
+
   const onCreateCommunity = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     try { await createCommunity(communityForm); setCommunityForm({ name: '', description: '', category: '', visibility: 'open' }); await load(); }
@@ -1140,7 +1179,10 @@ export default function NetworkingPage() {
                     currentUserId={myCurrentUserId}
                     currentUserName={currentUser?.name ?? 'U'}
                     currentUserAvatarUrl={currentUser?.avatarUrl}
-                    onToggleReaction={onToggleReaction} />
+                    onToggleReaction={onToggleReaction}
+                    canDelete={canManageCommunities || post.authorUserId === myCurrentUserId}
+                    onDelete={(target) => void onDeletePost(target)}
+                    onNotify={notifyShare} />
                 ))
               )}
             </section>

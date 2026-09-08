@@ -66,6 +66,8 @@ export interface CommunityPostRecord {
   reactionCount: number;
   hasReacted: boolean;
   commentCount: number;
+  /** true si la comunidad está activa y abierta: la publicación admite enlace público. */
+  isPubliclyShareable: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -240,6 +242,12 @@ export async function createCommunityPost(groupId: string, input: CreateCommunit
   return requestApi<CommunityPostRecord>(`/api/v1/modules/networking/communities/${groupId}/posts`, {
     method: 'POST',
     body: JSON.stringify(input),
+  });
+}
+
+export async function deleteCommunityPost(postId: string): Promise<{ postId: string }> {
+  return requestApi<{ postId: string }>(`/api/v1/modules/networking/community-posts/${postId}`, {
+    method: 'DELETE',
   });
 }
 

@@ -17,15 +17,18 @@ import {
   ChevronRight,
   ExternalLink,
   MapPin,
+  Trash2,
 } from 'lucide-react';
 import { useUser } from '@/context/UserContext';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
+import { PostShareMenu } from '@/components/networking/PostShareMenu';
 import {
   getCommunity,
   listCommunityPostsForGroup,
   listCommunityMembers,
   updateMemberRole,
   createCommunityPost,
+  deleteCommunityPost,
   joinCommunity,
   leaveCommunity,
   toggleReaction,
@@ -262,12 +265,20 @@ function PostCard({
   currentUserName,
   currentUserAvatarUrl,
   onToggleReaction,
+  canDelete,
+  onDelete,
+  onNotify,
+  highlighted = false,
 }: {
   post: CommunityPostRecord;
   currentUserId: string;
   currentUserName: string;
   currentUserAvatarUrl?: string | null;
   onToggleReaction: (postId: string) => void;
+  canDelete: boolean;
+  onDelete: (post: CommunityPostRecord) => void;
+  onNotify: (message: string) => void;
+  highlighted?: boolean;
 }) {
   const [showComments, setShowComments] = React.useState(false);
   const [comments, setComments] = React.useState<CommentRecord[]>([]);
@@ -309,7 +320,12 @@ function PostCard({
   const normalizedUrl = normalizeUrl(post.resourceUrl);
 
   return (
-    <article className="app-panel overflow-hidden p-0">
+    <article
+      id={`post-${post.postId}`}
+      className={`app-panel overflow-hidden p-0 scroll-mt-24 transition-shadow ${
+        highlighted ? 'ring-2 ring-[#4f2360] ring-offset-2' : ''
+      }`}
+    >
       <div className="p-4">
         <div className="flex items-start gap-3">
           <Avatar name={post.authorName} avatarUrl={post.authorAvatarUrl} size="md" />
@@ -322,6 +338,17 @@ function PostCard({
               )}
             </div>
           </div>
+          {canDelete && (
+            <button
+              type="button"
+              onClick={() => onDelete(post)}
+              title="Eliminar publicación"
+              aria-label="Eliminar publicación"
+              className="shrink-0 rounded-full p-1.5 text-[var(--app-muted)] transition hover:bg-[var(--app-surface-muted)] hover:text-[#b3261e]"
+            >
+              <Trash2 size={14} />
+            </button>
+          )}
         </div>
         <h4 className="mt-3 text-base font-bold text-[var(--app-ink)] leading-snug">{post.title}</h4>
         <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-[var(--app-muted)]">{post.body}</p>
@@ -374,6 +401,7 @@ function PostCard({
           <MessageSquare size={13} />
           Comentar{post.commentCount > 0 ? ` · ${post.commentCount}` : ''}
         </button>
+        <PostShareMenu post={post} onNotify={onNotify} />
       </div>
 
       {/* Comments */}
@@ -586,6 +614,9 @@ export default function CommunityDetailPage() {
   const [notFound, setNotFound] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState<'publicaciones' | 'miembros'>('publicaciones');
   const [membershipBusy, setMembershipBusy] = React.useState(false);
+  // Publicación señalada por un enlace compartido (?post=<id>): se resalta y se
+  // desplaza a la vista una vez que el feed terminó de cargar.
+  const [highlightPostId, setHighlightPostId] = React.useState<string | null>(null);
 
   const canManage = can('networking', 'manage');
   const canCreate = can('networking', 'create');
@@ -638,6 +669,20 @@ export default function CommunityDetailPage() {
     }
   }, [activeTab, members.length, canSeeMembers, loading, community, groupId]);
 
+  React.useEffect(() => {
+    if (loading || posts.length === 0) return;
+    const target = new URLSearchParams(window.location.search).get('post');
+    if (!target || !posts.some((post) => post.postId === target)) return;
+
+    setActiveTab('publicaciones');
+    setHighlightPostId(target);
+    const node = document.getElementById(`post-${target}`);
+    node?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    const timer = window.setTimeout(() => setHighlightPostId(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [loading, posts]);
+
   const handleToggleMembership = async () => {
     if (!community) return;
     setMembershipBusy(true);
@@ -689,6 +734,27 @@ export default function CommunityDetailPage() {
       setMembers((prev) => prev.map((m) => (m.userId === updated.userId ? updated : m)));
     } catch (error) {
       await alert({ title: 'Error', message: error instanceof Error ? error.message : 'No se pudo cambiar el rol.', tone: 'error' });
+    }
+  };
+
+  const notifyShare = React.useCallback((message: string) => {
+    void alert({ title: 'Compartir', message, tone: 'success' });
+  }, [alert]);
+
+  const handleDeletePost = async (post: CommunityPostRecord) => {
+    const ok = await confirm({
+      title: 'Eliminar publicación',
+      message: `¿Eliminar "${post.title}"? También se borrarán sus comentarios y recomendaciones.`,
+      tone: 'warning',
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
+    });
+    if (!ok) return;
+    try {
+      await deleteCommunityPost(post.postId);
+      setPosts((prev) => prev.filter((item) => item.postId !== post.postId));
+    } catch (error) {
+      await alert({ title: 'Error', message: error instanceof Error ? error.message : 'No se pudo eliminar la publicación.', tone: 'error' });
     }
   };
 
@@ -895,6 +961,10 @@ export default function CommunityDetailPage() {
                   currentUserName={myName}
                   currentUserAvatarUrl={myAvatarUrl}
                   onToggleReaction={handleToggleReaction}
+                  canDelete={canManage || post.authorUserId === myUserId}
+                  onDelete={(target) => void handleDeletePost(target)}
+                  onNotify={notifyShare}
+                  highlighted={highlightPostId === post.postId}
                 />
               ))}
             </div>
