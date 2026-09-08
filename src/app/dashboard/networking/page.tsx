@@ -26,6 +26,7 @@ import { EmptyState } from '@/components/dashboard/EmptyState';
 import { R2UploadButton } from '@/components/ui/R2UploadButton';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { PostShareMenu } from '@/components/networking/PostShareMenu';
+import { PostResourceUpload } from '@/components/networking/PostResourceUpload';
 import { useUser } from '@/context/UserContext';
 import { createDirectThread } from '@/features/mensajes/client';
 import {
@@ -323,6 +324,7 @@ function PostCard({
   onNotify,
   canEdit,
   onEdit,
+  role,
 }: {
   post: CommunityPostRecord;
   currentUserId: string;
@@ -334,6 +336,7 @@ function PostCard({
   onNotify: (message: string) => void;
   canEdit: boolean;
   onEdit: (postId: string, updates: { title: string; body: string; resourceUrl: string | null }) => Promise<void>;
+  role: string | null | undefined;
 }) {
   const [showComments, setShowComments] = React.useState(false);
   const [comments, setComments] = React.useState<CommentRecord[]>([]);
@@ -441,9 +444,13 @@ function PostCard({
               onChange={(e) => setEditForm((prev) => ({ ...prev, title: e.target.value }))} />
             <textarea className="app-textarea min-h-24 text-sm" value={editForm.body} required
               onChange={(e) => setEditForm((prev) => ({ ...prev, body: e.target.value }))} />
-            <input className="app-input py-1.5 text-xs" placeholder="URL del recurso (imagen, video, documento)…"
-              value={editForm.resourceUrl}
-              onChange={(e) => setEditForm((prev) => ({ ...prev, resourceUrl: e.target.value }))} />
+            <div className="flex flex-wrap items-center gap-2">
+              <input className="app-input flex-1 py-1.5 text-xs" placeholder="URL del recurso (imagen, video, documento)…"
+                value={editForm.resourceUrl}
+                onChange={(e) => setEditForm((prev) => ({ ...prev, resourceUrl: e.target.value }))} />
+              <PostResourceUpload role={role} disabled={savingEdit}
+                onUploaded={(url) => setEditForm((prev) => ({ ...prev, resourceUrl: url }))} />
+            </div>
             <div className="flex justify-end gap-2">
               <button type="button" onClick={() => setEditing(false)}
                 className="rounded-full border border-[var(--app-border)] px-4 py-1.5 text-xs font-bold text-[var(--app-muted)] hover:text-[var(--app-ink)]">
@@ -915,7 +922,7 @@ function ConnectionCard({ connection, isInbound, onAccept, onReject, onDelete, o
 
 // ─── PostComposer ─────────────────────────────────────────────────────────────
 
-function PostComposer({ communities, postForm, onFormChange, onSubmit, canCreate, currentUserName, currentUserAvatarUrl }: {
+function PostComposer({ communities, postForm, onFormChange, onSubmit, canCreate, currentUserName, currentUserAvatarUrl, role }: {
   communities: CommunityRecord[];
   postForm: { groupId: string; title: string; body: string; resourceUrl: string };
   onFormChange: (updates: Partial<typeof postForm>) => void;
@@ -923,6 +930,7 @@ function PostComposer({ communities, postForm, onFormChange, onSubmit, canCreate
   canCreate: boolean;
   currentUserName: string;
   currentUserAvatarUrl?: string | null;
+  role: string | null | undefined;
 }) {
   const [open, setOpen] = React.useState(false);
 
@@ -960,6 +968,7 @@ function PostComposer({ communities, postForm, onFormChange, onSubmit, canCreate
           <div className="flex flex-wrap items-center gap-2 border-t border-[var(--app-border)] pt-3">
             <input className="app-input flex-1 py-1.5 text-xs" placeholder="Pega una URL (imagen, video, enlace)…" value={postForm.resourceUrl}
               onChange={(e) => onFormChange({ resourceUrl: e.target.value })} />
+            <PostResourceUpload role={role} onUploaded={(url) => onFormChange({ resourceUrl: url })} />
             <div className="ml-auto flex gap-2">
               <button type="button" onClick={() => setOpen(false)}
                 className="rounded-full border border-[var(--app-border)] px-4 py-1.5 text-xs font-bold text-[var(--app-muted)] hover:text-[var(--app-ink)]">
@@ -1242,7 +1251,8 @@ export default function NetworkingPage() {
               onFormChange={(updates) => setPostForm((prev) => ({ ...prev, ...updates }))}
               onSubmit={onCreatePost} canCreate={canCreate}
               currentUserName={currentUser?.name ?? 'U'}
-              currentUserAvatarUrl={currentUser?.avatarUrl} />
+              currentUserAvatarUrl={currentUser?.avatarUrl}
+              role={currentRole} />
 
             <section className="space-y-3">
               {communityPosts.length === 0 ? (
@@ -1258,7 +1268,8 @@ export default function NetworkingPage() {
                     onDelete={(target) => void onDeletePost(target)}
                     onNotify={notifyShare}
                     canEdit={canManageCommunities || post.authorUserId === myCurrentUserId}
-                    onEdit={onEditPost} />
+                    onEdit={onEditPost}
+                    role={currentRole} />
                 ))
               )}
             </section>

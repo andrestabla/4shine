@@ -23,6 +23,7 @@ import {
 import { useUser } from '@/context/UserContext';
 import { useAppDialog } from '@/components/ui/AppDialogProvider';
 import { PostShareMenu } from '@/components/networking/PostShareMenu';
+import { PostResourceUpload } from '@/components/networking/PostResourceUpload';
 import {
   getCommunity,
   listCommunityPostsForGroup,
@@ -273,6 +274,7 @@ function PostCard({
   highlighted = false,
   canEdit,
   onEdit,
+  role,
 }: {
   post: CommunityPostRecord;
   currentUserId: string;
@@ -285,6 +287,7 @@ function PostCard({
   highlighted?: boolean;
   canEdit: boolean;
   onEdit: (postId: string, updates: { title: string; body: string; resourceUrl: string | null }) => Promise<void>;
+  role: string | null | undefined;
 }) {
   const [showComments, setShowComments] = React.useState(false);
   const [comments, setComments] = React.useState<CommentRecord[]>([]);
@@ -397,9 +400,13 @@ function PostCard({
               onChange={(e) => setEditForm((prev) => ({ ...prev, title: e.target.value }))} />
             <textarea className="app-textarea min-h-24 text-sm" value={editForm.body} required
               onChange={(e) => setEditForm((prev) => ({ ...prev, body: e.target.value }))} />
-            <input className="app-input py-1.5 text-xs" placeholder="URL del recurso (imagen, video, documento)…"
-              value={editForm.resourceUrl}
-              onChange={(e) => setEditForm((prev) => ({ ...prev, resourceUrl: e.target.value }))} />
+            <div className="flex flex-wrap items-center gap-2">
+              <input className="app-input flex-1 py-1.5 text-xs" placeholder="URL del recurso (imagen, video, documento)…"
+                value={editForm.resourceUrl}
+                onChange={(e) => setEditForm((prev) => ({ ...prev, resourceUrl: e.target.value }))} />
+              <PostResourceUpload role={role} disabled={savingEdit}
+                onUploaded={(url) => setEditForm((prev) => ({ ...prev, resourceUrl: url }))} />
+            </div>
             <div className="flex justify-end gap-2">
               <button type="button" onClick={() => setEditing(false)}
                 className="rounded-full border border-[var(--app-border)] px-4 py-1.5 text-xs font-bold text-[var(--app-muted)] hover:text-[var(--app-ink)]">
@@ -526,12 +533,14 @@ function PostComposer({
   currentUserName,
   currentUserAvatarUrl,
   onPostCreated,
+  role,
 }: {
   groupId: string;
   canCreate: boolean;
   currentUserName: string;
   currentUserAvatarUrl?: string | null;
   onPostCreated: (post: CommunityPostRecord) => void;
+  role: string | null | undefined;
 }) {
   const [open, setOpen] = React.useState(false);
   const [form, setForm] = React.useState({ title: '', body: '', resourceUrl: '' });
@@ -601,6 +610,8 @@ function PostComposer({
               value={form.resourceUrl}
               onChange={(e) => setForm((p) => ({ ...p, resourceUrl: e.target.value }))}
             />
+            <PostResourceUpload role={role} disabled={submitting}
+              onUploaded={(url) => setForm((p) => ({ ...p, resourceUrl: url }))} />
             <div className="ml-auto flex gap-2">
               <button
                 type="button"
@@ -669,7 +680,7 @@ export default function CommunityDetailPage() {
   const router = useRouter();
   const params = useParams();
   const groupId = typeof params.groupId === 'string' ? params.groupId : (params.groupId?.[0] ?? '');
-  const { can, currentUser } = useUser();
+  const { can, currentUser, currentRole } = useUser();
   const { alert, confirm } = useAppDialog();
 
   const [community, setCommunity] = React.useState<CommunityRecord | null>(null);
@@ -1015,6 +1026,7 @@ export default function CommunityDetailPage() {
             currentUserName={myName}
             currentUserAvatarUrl={myAvatarUrl}
             onPostCreated={handlePostCreated}
+            role={currentRole}
           />
           {posts.length === 0 ? (
             <div className="app-panel flex flex-col items-center gap-3 py-14 text-center">
@@ -1042,6 +1054,7 @@ export default function CommunityDetailPage() {
                   highlighted={highlightPostId === post.postId}
                   canEdit={canManage || post.authorUserId === myUserId}
                   onEdit={handleEditPost}
+                  role={currentRole}
                 />
               ))}
             </div>

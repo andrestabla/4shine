@@ -41,6 +41,28 @@ const WORKBOOK_COVER_EXTRA_MIME_TYPES = [
   'image/jpeg',
   'image/webp',
 ];
+// Carga de recursos en publicaciones de Networking. Solo gestor, admin y
+// advisor: un líder comparte por URL, no ocupa el bucket de la plataforma.
+const NETWORKING_POST_UPLOAD_ROLES = new Set(['admin', 'gestor', 'mentor']);
+const NETWORKING_POST_MIN_MAX_SIZE_MB = 25;
+const NETWORKING_POST_EXTRA_MIME_TYPES = [
+  'image/png',
+  'image/jpeg',
+  'image/gif',
+  'image/webp',
+  'image/avif',
+  'application/pdf',
+  'text/plain',
+  'text/markdown',
+  'text/csv',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+];
+
 const WORKBOOK_AUDIO_MIN_MAX_SIZE_MB = 25;
 const WORKBOOK_AUDIO_EXTRA_MIME_TYPES = [
   'audio/webm',
@@ -103,6 +125,9 @@ export async function POST(request: Request) {
   const isWorkbookAudioUpload =
     moduleCodeInput === 'aprendizaje' &&
     (fieldName === 'workbook_audio' || (pathPrefix?.startsWith('aprendizaje/workbooks/') ?? false));
+  const isNetworkingPostUpload =
+    moduleCodeInput === 'networking' &&
+    (fieldName === 'post_resource' || (pathPrefix?.startsWith('networking/publicaciones') ?? false));
   const isWorkbookCoverUpload =
     moduleCodeInput === 'aprendizaje' &&
     (fieldName === 'workbook_cover' || (pathPrefix?.startsWith('aprendizaje/templates/') ?? false));
@@ -147,6 +172,24 @@ export async function POST(request: Request) {
           await requireModulePermission(client, 'contenido', 'create');
         }
 
+        // El permiso de módulo no distingue aquí: lider y mentor tienen los
+        // mismos sobre networking, así que la regla se expresa por rol. Y el
+        // tipo se acota a imagen o documento: el video se comparte por URL
+        // (YouTube, Vimeo), no ocupando el bucket.
+        if (isNetworkingPostUpload) {
+          if (!NETWORKING_POST_UPLOAD_ROLES.has(identity.role)) {
+            throw new ForbiddenError(
+              'Solo un gestor, un administrador o un advisor pueden cargar archivos en una publicación. Comparte el recurso por URL.',
+            );
+          }
+          const declaredType = fileType.toLowerCase();
+          if (declaredType.startsWith('video/') || declaredType.startsWith('audio/')) {
+            throw new ForbiddenError(
+              'No se permiten videos ni audios: comparte el enlace del video (YouTube, Vimeo…) en el campo de URL.',
+            );
+          }
+        }
+
         const config = await getR2StorageConfig(client, identity.userId);
         if (isDiscoveryContextUpload) {
           const expandedBytes = Math.max(
@@ -180,6 +223,15 @@ export async function POST(request: Request) {
           );
           config.maxFileSizeBytes = expandedBytes;
           config.allowedMimeTypes = mergedMimeTypes;
+        }
+        if (isNetworkingPostUpload) {
+          config.maxFileSizeBytes = Math.max(
+            config.maxFileSizeBytes,
+            NETWORKING_POST_MIN_MAX_SIZE_MB * 1024 * 1024,
+          );
+          config.allowedMimeTypes = Array.from(
+            new Set([...config.allowedMimeTypes, ...NETWORKING_POST_EXTRA_MIME_TYPES]),
+          );
         }
         if (isWorkbookCoverUpload) {
           const expandedBytes = Math.max(
