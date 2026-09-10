@@ -899,7 +899,7 @@ const MODULE_SECTIONS: DocSection[] = [
       {
         type: 'bullets',
         items: [
-          'Cursos (SCORM): experiencias estructuradas por módulos y recursos internos. content_type = scorm, library_location = cursos. Un recurso interno puede ser video, PDF, artículo, pódcast, HTML, PPT, enlace, actividad, tarea o grabación de Zoom (lo ideal es pegar el enlace con el código incrustado ?pwd= que genera Zoom con «acceso con un clic»; el código de acceso manual es solo un respaldo); los enlaces y las grabaciones de Zoom se abren en pestaña nueva o incrustados, según lo decida quien edita el curso.',
+          'Cursos (SCORM): experiencias estructuradas por módulos y recursos internos. content_type = scorm, library_location = cursos. Un recurso interno puede ser video, PDF, artículo, pódcast, HTML, PPT, enlace, actividad, tarea o grabación de Zoom (al pegar el enlace, el sistema busca la grabación en la cuenta de Zoom conectada vía API y deja la URL con el código incrustado ?pwd=, tanto en el editor como al guardar; el código de acceso manual es solo un respaldo si no se encuentra); los enlaces y las grabaciones de Zoom se abren en pestaña nueva o incrustados, según lo decida quien edita el curso.',
           'Contenidos libres: videos, pódcasts, documentos y piezas sueltas. library_location = contenidos_libres.',
           'Actividades (activity): quizzes y evaluaciones autocalificadas; el contenido se configura en Contenido, no tienen archivo/URL propio.',
           'Tareas (assignment): entregas del líder revisadas por advisor/gestor/admin; solo se consumen dentro de un curso.',

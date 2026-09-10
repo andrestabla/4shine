@@ -116,6 +116,26 @@ export async function updateContent(contentId: string, input: UpdateContentInput
   });
 }
 
+export type ZoomRecordingLookupResult =
+  | { status: 'resolved'; url: string; topic: string | null }
+  | { status: 'already_one_click'; url: string }
+  | { status: 'not_zoom' }
+  | { status: 'not_configured' }
+  | { status: 'not_found' }
+  | { status: 'error'; message: string };
+
+/**
+ * Pide al servidor el enlace de "un clic" de una grabación de Zoom (con el
+ * código de acceso incrustado), usando la integración de Zoom de la cuenta.
+ */
+export async function resolveZoomRecordingLink(url: string): Promise<ZoomRecordingLookupResult> {
+  return requestApi<ZoomRecordingLookupResult>('/api/v1/integrations/zoom/resolve-recording', {
+    method: 'POST',
+    body: JSON.stringify({ url }),
+    timeoutMs: 60000,
+  });
+}
+
 export async function deleteContent(contentId: string): Promise<{ contentId: string }> {
   return requestApi<{ contentId: string }>(`/api/v1/modules/contenido/${contentId}`, {
     method: 'DELETE',

@@ -57,6 +57,7 @@ import {
   type CourseModule,
   type CourseModuleResource,
   type CourseModuleResourceType,
+  resolveZoomRecordingLink,
   type ContentStatus,
   type ContentStructurePayload,
   type ContentType,
@@ -501,6 +502,17 @@ function hasMeaningfulCourseStructure(modules: CourseModule[]): boolean {
  * acceso en el enlace para acceso con un clic". Con ese enlace el líder entra
  * directo y no hace falta pedir ni mostrar ningún código.
  */
+type ZoomLookupState =
+  | { status: "checking" }
+  | { status: "resolved"; topic: string | null }
+  | { status: "not_found" }
+  | { status: "not_configured" }
+  | { status: "error"; message: string };
+
+function isZoomRecordingLink(url: string | null | undefined): boolean {
+  return /zoom\.[a-z.]+\/rec\/(share|play)\//i.test((url ?? "").trim());
+}
+
 function zoomLinkHasEmbeddedPasscode(url: string | null | undefined): boolean {
   return /[?&]pwd=[^&#]+/i.test((url ?? "").trim());
 }
@@ -1463,6 +1475,74 @@ export function LearningCourseEditor({
       }));
     },
     [],
+  );
+
+  // ── Grabaciones de Zoom: enlace de un clic ──
+  // Al pegar un enlace de grabación, el servidor busca en la cuenta de Zoom el
+  // código de acceso cifrado y devuelve la URL con ?pwd=... para que el líder
+  // no tenga que escribir nada. Estado por recurso (id → resultado).
+  const [zoomLookups, setZoomLookups] = React.useState<Record<string, ZoomLookupState>>({});
+  const zoomLookupTimers = React.useRef<Record<string, number>>({});
+
+  const runZoomLookup = React.useCallback(
+    async (moduleId: string, resourceId: string, url: string) => {
+      setZoomLookups((prev) => ({ ...prev, [resourceId]: { status: "checking" } }));
+      try {
+        const result = await resolveZoomRecordingLink(url);
+        if (result.status === "resolved") {
+          updateCourseModuleResource(moduleId, resourceId, "url", result.url);
+          setZoomLookups((prev) => ({
+            ...prev,
+            [resourceId]: { status: "resolved", topic: result.topic },
+          }));
+        } else if (result.status === "already_one_click") {
+          setZoomLookups((prev) => ({ ...prev, [resourceId]: { status: "resolved", topic: null } }));
+        } else if (result.status === "not_zoom") {
+          setZoomLookups((prev) => {
+            const next = { ...prev };
+            delete next[resourceId];
+            return next;
+          });
+        } else if (result.status === "error") {
+          setZoomLookups((prev) => ({
+            ...prev,
+            [resourceId]: { status: "error", message: result.message },
+          }));
+        } else {
+          setZoomLookups((prev) => ({ ...prev, [resourceId]: { status: result.status } }));
+        }
+      } catch (error) {
+        setZoomLookups((prev) => ({
+          ...prev,
+          [resourceId]: {
+            status: "error",
+            message: error instanceof Error ? error.message : String(error),
+          },
+        }));
+      }
+    },
+    [updateCourseModuleResource],
+  );
+
+  const scheduleZoomLookup = React.useCallback(
+    (moduleId: string, resourceId: string, url: string) => {
+      const timers = zoomLookupTimers.current;
+      if (timers[resourceId]) window.clearTimeout(timers[resourceId]);
+      const trimmed = url.trim();
+      if (!trimmed || zoomLinkHasEmbeddedPasscode(trimmed) || !isZoomRecordingLink(trimmed)) {
+        setZoomLookups((prev) => {
+          if (!(resourceId in prev)) return prev;
+          const next = { ...prev };
+          delete next[resourceId];
+          return next;
+        });
+        return;
+      }
+      timers[resourceId] = window.setTimeout(() => {
+        void runZoomLookup(moduleId, resourceId, trimmed);
+      }, 700);
+    },
+    [runZoomLookup],
   );
 
   const removeCourseModuleResource = React.useCallback(
@@ -2676,15 +2756,19 @@ export function LearningCourseEditor({
                                               "contentType",
                                               event.target.value,
                                             );
-                                            if (
-                                              event.target.value === "zoom" &&
-                                              !courseResource.title.trim()
-                                            ) {
-                                              updateCourseModuleResource(
+                                            if (event.target.value === "zoom") {
+                                              if (!courseResource.title.trim()) {
+                                                updateCourseModuleResource(
+                                                  module.id,
+                                                  courseResource.id,
+                                                  "title",
+                                                  "Grabación de Zoom",
+                                                );
+                                              }
+                                              scheduleZoomLookup(
                                                 module.id,
                                                 courseResource.id,
-                                                "title",
-                                                "Grabación de Zoom",
+                                                courseResource.url ?? "",
                                               );
                                             }
                                           }}
@@ -2778,57 +2862,102 @@ export function LearningCourseEditor({
                                                   : "https://..."
                                               }
                                               value={courseResource.url ?? ""}
-                                              onChange={(event) =>
+                                              onChange={(event) => {
                                                 updateCourseModuleResource(
                                                   module.id,
                                                   courseResource.id,
                                                   "url",
                                                   event.target.value,
-                                                )
-                                              }
+                                                );
+                                                if (courseResource.contentType === "zoom") {
+                                                  scheduleZoomLookup(
+                                                    module.id,
+                                                    courseResource.id,
+                                                    event.target.value,
+                                                  );
+                                                }
+                                              }}
                                             />
-                                            {courseResource.contentType === "zoom" &&
-                                              zoomLinkHasEmbeddedPasscode(courseResource.url) && (
-                                                <p className="mt-2 rounded-[12px] border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11.5px] leading-relaxed text-emerald-800">
-                                                  Este enlace ya incluye el código de acceso. El líder entrará a la grabación con un clic, sin escribir nada.
-                                                </p>
-                                              )}
-                                            {courseResource.contentType === "zoom" &&
-                                              !zoomLinkHasEmbeddedPasscode(courseResource.url) && (
-                                              <div className="mt-3">
-                                                <div className="rounded-[12px] border border-amber-200 bg-amber-50 px-3 py-2 text-[11.5px] leading-relaxed text-amber-900">
-                                                  <p className="font-bold">Para que el líder no tenga que escribir el código:</p>
-                                                  <p className="mt-1">
-                                                    En Zoom ve a Configuración → Grabación y transcripción y activa
-                                                    «Incluir código de acceso en el enlace para compartir (acceso con un clic)».
-                                                    Luego vuelve a copiar el enlace de la grabación: traerá el código
-                                                    incrustado (<span className="font-mono">?pwd=…</span>) y pégalo arriba.
-                                                  </p>
+                                            {courseResource.contentType === "zoom" && (() => {
+                                              const zoomState = zoomLookups[courseResource.id];
+                                              const zoomUrl = (courseResource.url ?? "").trim();
+                                              const oneClick =
+                                                zoomLinkHasEmbeddedPasscode(zoomUrl) ||
+                                                zoomState?.status === "resolved";
+                                              return (
+                                                <div className="mt-3 space-y-3">
+                                                  {!zoomUrl ? (
+                                                    <p className="text-[11.5px] leading-relaxed text-[var(--app-muted)]">
+                                                      Pega el enlace «Compartir» de la grabación. El sistema buscará el código de acceso en la cuenta de Zoom y lo dejará incrustado para que el líder no tenga que escribirlo.
+                                                    </p>
+                                                  ) : oneClick ? (
+                                                    <p className="rounded-[12px] border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11.5px] leading-relaxed text-emerald-800">
+                                                      Listo: el enlace abre la grabación sin pedir código.
+                                                      {zoomState?.status === "resolved" && zoomState.topic
+                                                        ? ` Grabación encontrada en Zoom: «${zoomState.topic}».`
+                                                        : ""}
+                                                    </p>
+                                                  ) : zoomState?.status === "checking" ? (
+                                                    <p className="inline-flex items-center gap-2 text-[11.5px] font-semibold text-[var(--app-muted)]">
+                                                      <Loader2 size={13} className="animate-spin" />
+                                                      Buscando el código de acceso en Zoom…
+                                                    </p>
+                                                  ) : (
+                                                    <div className="rounded-[12px] border border-amber-200 bg-amber-50 px-3 py-2 text-[11.5px] leading-relaxed text-amber-900">
+                                                      <p className="font-bold">
+                                                        {zoomState?.status === "not_configured"
+                                                          ? "La integración de Zoom no está configurada, así que no se pudo buscar el código."
+                                                          : zoomState?.status === "error"
+                                                            ? `Zoom respondió con un error al buscar la grabación: ${zoomState.message}`
+                                                            : zoomState?.status === "not_found"
+                                                              ? "No encontramos esta grabación en la cuenta de Zoom conectada (¿la grabó otra cuenta?)."
+                                                              : "Aún no se ha buscado el código de acceso en Zoom."}
+                                                      </p>
+                                                      <p className="mt-1">
+                                                        Para que el líder no tenga que escribir el código: activa en Zoom
+                                                        (Configuración → Grabación y transcripción) «Incluir código de acceso en el
+                                                        enlace para compartir» y pega el enlace nuevo, o escribe el código abajo como respaldo.
+                                                      </p>
+                                                      <button
+                                                        type="button"
+                                                        className="mt-2 rounded-full border border-amber-300 bg-white px-3 py-1 text-[11.5px] font-bold text-amber-900 hover:bg-amber-100"
+                                                        onClick={() =>
+                                                          void runZoomLookup(module.id, courseResource.id, zoomUrl)
+                                                        }
+                                                      >
+                                                        Volver a buscar en Zoom
+                                                      </button>
+                                                    </div>
+                                                  )}
+                                                  {zoomUrl && !oneClick && zoomState?.status !== "checking" && (
+                                                    <div>
+                                                      <label className="app-field-label">
+                                                        Código de acceso (respaldo)
+                                                      </label>
+                                                      <input
+                                                        className="app-input font-mono"
+                                                        placeholder="Ej. kqb@m*2V"
+                                                        autoComplete="off"
+                                                        spellCheck={false}
+                                                        maxLength={120}
+                                                        value={courseResource.accessCode ?? ""}
+                                                        onChange={(event) =>
+                                                          updateCourseModuleResource(
+                                                            module.id,
+                                                            courseResource.id,
+                                                            "accessCode",
+                                                            event.target.value,
+                                                          )
+                                                        }
+                                                      />
+                                                      <p className="mt-1 text-[11.5px] leading-relaxed text-[var(--app-muted)]">
+                                                        Solo se usa si no se logró incrustar el código: el líder lo verá junto al enlace con un botón para copiarlo.
+                                                      </p>
+                                                    </div>
+                                                  )}
                                                 </div>
-                                                <label className="app-field-label mt-3">
-                                                  Código de acceso (solo si no puedes usar el enlace con un clic)
-                                                </label>
-                                                <input
-                                                  className="app-input font-mono"
-                                                  placeholder="Ej. kqb@m*2V"
-                                                  autoComplete="off"
-                                                  spellCheck={false}
-                                                  maxLength={120}
-                                                  value={courseResource.accessCode ?? ""}
-                                                  onChange={(event) =>
-                                                    updateCourseModuleResource(
-                                                      module.id,
-                                                      courseResource.id,
-                                                      "accessCode",
-                                                      event.target.value,
-                                                    )
-                                                  }
-                                                />
-                                                <p className="mt-1 text-[11.5px] leading-relaxed text-[var(--app-muted)]">
-                                                  Alternativa de respaldo: el líder verá este código junto al enlace con un botón para copiarlo y tendrá que pegarlo en Zoom. Déjalo vacío si la grabación no lo requiere.
-                                                </p>
-                                              </div>
-                                            )}
+                                              );
+                                            })()}
                                             {(courseResource.url ?? "").trim().length > 0 && (
                                               <div className="mt-2">
                                                 <span className="app-field-label">Cómo se abre</span>

@@ -286,3 +286,166 @@ export async function setZoomRecordingPublic(
     throw new Error(`Zoom set recording public error ${res.status}: ${await res.text()}`);
   }
 }
+
+// ─── Grabaciones compartidas: enlace de un clic ────────────────────────────
+//
+// Zoom pide un código de acceso al abrir una grabación compartida. La única
+// forma oficial de saltárselo es incluir en la URL el `recording_play_passcode`
+// (un token cifrado, distinto del código que ve la gente) como `?pwd=...`.
+// Ese token solo lo entrega la API, así que aquí buscamos la grabación en la
+// cuenta conectada y devolvemos la URL lista para abrirse sin pedir nada.
+
+const ZOOM_RECORDING_URL_RE = /zoom\.[a-z.]+\/rec\/(share|play)\/([^?#/]+)/i;
+const ZOOM_WINDOW_DAYS = 30; // máximo que admite la API por consulta
+const ZOOM_MAX_WINDOWS = 12; // ~un año hacia atrás
+
+export function isZoomRecordingUrl(url: string): boolean {
+  return ZOOM_RECORDING_URL_RE.test(url.trim());
+}
+
+export function zoomUrlHasEmbeddedPasscode(url: string): boolean {
+  return /[?&]pwd=[^&#]+/i.test(url.trim());
+}
+
+export type ZoomRecordingLookupResult =
+  | { status: 'resolved'; url: string; topic: string | null }
+  | { status: 'already_one_click'; url: string }
+  | { status: 'not_zoom' }
+  | { status: 'not_configured' }
+  | { status: 'not_found' }
+  | { status: 'error'; message: string };
+
+interface ZoomRecordingFile {
+  play_url?: string;
+}
+
+interface ZoomRecordingMeeting {
+  topic?: string;
+  share_url?: string;
+  recording_play_passcode?: string;
+  recording_files?: ZoomRecordingFile[];
+}
+
+function formatZoomDate(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function appendPasscode(url: string, passcode: string): string {
+  const parsed = new URL(url);
+  parsed.searchParams.set('pwd', passcode);
+  return parsed.toString();
+}
+
+async function listZoomUserIds(token: string): Promise<string[]> {
+  try {
+    const res = await fetch('https://api.zoom.us/v2/users?status=active&page_size=300', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return ['me'];
+    const data = (await res.json()) as { users?: Array<{ id?: string }> };
+    const ids = (data.users ?? []).map((u) => u.id).filter((id): id is string => Boolean(id));
+    return ids.length > 0 ? ids : ['me'];
+  } catch {
+    return ['me'];
+  }
+}
+
+/**
+ * Busca una grabación compartida de Zoom en la cuenta conectada y devuelve la
+ * URL con el código de acceso incrustado (`?pwd=`), para que quien la abra no
+ * tenga que escribirlo. Recorre las grabaciones de los usuarios de la cuenta
+ * por ventanas de 30 días, de la más reciente hacia atrás, hasta `maxRequests`
+ * llamadas a la API.
+ */
+// Caché en memoria por URL: evita repetir hasta decenas de llamadas a Zoom
+// cuando el mismo enlace se guarda varias veces seguidas (editor + guardado).
+const zoomLookupCache = new Map<string, { result: ZoomRecordingLookupResult; expiresAt: number }>();
+const ZOOM_CACHE_TTL_MS = { resolved: 24 * 60 * 60 * 1000, not_found: 10 * 60 * 1000 };
+
+export async function resolveZoomRecordingOneClickUrl(
+  client: PoolClient,
+  rawUrl: string,
+  options: { maxRequests?: number } = {},
+): Promise<ZoomRecordingLookupResult> {
+  const url = rawUrl.trim();
+  const match = url.match(ZOOM_RECORDING_URL_RE);
+  if (!match) return { status: 'not_zoom' };
+  if (zoomUrlHasEmbeddedPasscode(url)) return { status: 'already_one_click', url };
+
+  const cached = zoomLookupCache.get(url);
+  if (cached && cached.expiresAt > Date.now()) return cached.result;
+
+  const creds = await getZoomCredentials(client);
+  if (!creds) return { status: 'not_configured' };
+
+  const result = await lookupZoomRecording(url, match[1].toLowerCase(), match[2], creds, options);
+  if (result.status === 'resolved' || result.status === 'already_one_click') {
+    zoomLookupCache.set(url, { result, expiresAt: Date.now() + ZOOM_CACHE_TTL_MS.resolved });
+  } else if (result.status === 'not_found') {
+    zoomLookupCache.set(url, { result, expiresAt: Date.now() + ZOOM_CACHE_TTL_MS.not_found });
+  }
+  return result;
+}
+
+async function lookupZoomRecording(
+  url: string,
+  kind: string,
+  id: string,
+  creds: { accountId: string; clientId: string; clientSecret: string },
+  options: { maxRequests?: number },
+): Promise<ZoomRecordingLookupResult> {
+
+  const maxRequests = Math.max(1, options.maxRequests ?? 60);
+
+  try {
+    const token = await getAccessToken(creds.accountId, creds.clientId, creds.clientSecret);
+    const userIds = await listZoomUserIds(token);
+    let requests = 0;
+
+    const matches = (meeting: ZoomRecordingMeeting): boolean => {
+      if (kind === 'share') {
+        return typeof meeting.share_url === 'string' && meeting.share_url.includes(`/rec/share/${id}`);
+      }
+      return (meeting.recording_files ?? []).some(
+        (file) => typeof file.play_url === 'string' && file.play_url.includes(`/rec/play/${id}`),
+      );
+    };
+
+    const today = new Date();
+    for (let window = 0; window < ZOOM_MAX_WINDOWS; window += 1) {
+      const to = new Date(today);
+      to.setUTCDate(to.getUTCDate() - window * ZOOM_WINDOW_DAYS);
+      const from = new Date(to);
+      from.setUTCDate(from.getUTCDate() - ZOOM_WINDOW_DAYS);
+
+      for (const userId of userIds) {
+        if (requests >= maxRequests) return { status: 'not_found' };
+        requests += 1;
+        const res = await fetch(
+          `https://api.zoom.us/v2/users/${encodeURIComponent(userId)}/recordings?from=${formatZoomDate(from)}&to=${formatZoomDate(to)}&page_size=300`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+        if (res.status === 401 || res.status === 403) {
+          // Sin permiso para leer grabaciones: no tiene sentido seguir.
+          const detail = await res.text();
+          return { status: 'error', message: `Zoom no permitió leer grabaciones (${res.status}): ${detail.slice(0, 200)}` };
+        }
+        if (!res.ok) continue;
+        const data = (await res.json()) as { meetings?: ZoomRecordingMeeting[] };
+        const meeting = (data.meetings ?? []).find(matches);
+        if (!meeting) continue;
+        const passcode = meeting.recording_play_passcode?.trim();
+        if (!passcode) {
+          // Grabación sin código: el enlace ya abre directo.
+          return { status: 'already_one_click', url };
+        }
+        return { status: 'resolved', url: appendPasscode(url, passcode), topic: meeting.topic ?? null };
+      }
+    }
+    return { status: 'not_found' };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('[zoom] no se pudo resolver el enlace de un clic:', message);
+    return { status: 'error', message };
+  }
+}

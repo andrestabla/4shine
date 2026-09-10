@@ -2,6 +2,11 @@ import type { PoolClient } from 'pg';
 import type { AuthUser } from '@/server/auth/types';
 import { ForbiddenError, requireModulePermission } from '@/server/auth/module-permissions';
 import type { ModuleCode } from '@/lib/permissions';
+import {
+  isZoomRecordingUrl,
+  resolveZoomRecordingOneClickUrl,
+  zoomUrlHasEmbeddedPasscode,
+} from '@/server/integrations/zoom';
 
 export type ContentScope = 'aprendizaje' | 'metodologia' | 'formacion_mentores' | 'formacion_lideres';
 export type ContentType = 'video' | 'pdf' | 'scorm' | 'article' | 'podcast' | 'html' | 'ppt' | 'activity' | 'assignment';
@@ -384,6 +389,31 @@ function normalizeStructurePayload(
   };
 }
 
+/**
+ * Para cada grabación de Zoom sin código incrustado, busca la grabación en la
+ * cuenta conectada y reemplaza la URL por la de "un clic" (?pwd=...). Así el
+ * líder nunca tiene que escribir el código, sin depender de que el editor lo
+ * haya resuelto antes. Si Zoom no responde o no encuentra la grabación, se
+ * conserva la URL original y el código manual como respaldo.
+ */
+async function attachZoomOneClickLinks(
+  client: PoolClient,
+  payload: ContentStructurePayload | undefined,
+): Promise<void> {
+  if (!payload) return;
+  for (const moduleItem of payload.modules ?? []) {
+    for (const resource of moduleItem.resources) {
+      if (resource.contentType !== 'zoom' || !resource.url) continue;
+      if (!isZoomRecordingUrl(resource.url) || zoomUrlHasEmbeddedPasscode(resource.url)) continue;
+      const result = await resolveZoomRecordingOneClickUrl(client, resource.url, { maxRequests: 24 });
+      if (result.status === 'resolved') {
+        resource.url = result.url;
+        resource.accessCode = null;
+      }
+    }
+  }
+}
+
 async function syncContentTags(client: PoolClient, contentId: string, tags: string[]) {
   await client.query(
     `
@@ -492,6 +522,7 @@ export async function createContent(
   const status = input.status ?? 'draft';
   const competencyMetadata = normalizeCompetencyMetadata(input.competencyMetadata);
   const structurePayload = normalizeStructurePayload(input.structurePayload, input.contentType);
+  await attachZoomOneClickLinks(client, structurePayload);
   const tags = normalizeTags(input.tags);
   // Para cursos nuevos el default es 'cursos' (mantiene la vista de
   // Cursos por defecto); para cualquier otro tipo, 'contenidos_libres'.
@@ -611,6 +642,7 @@ export async function updateContent(
     input.structurePayload === undefined
       ? undefined
       : normalizeStructurePayload(input.structurePayload, input.contentType);
+  await attachZoomOneClickLinks(client, structurePayload);
 
   // Si el cliente envía libraryLocation, validamos contra el
   // content_type efectivo: solo cursos (scorm) pueden estar en 'cursos';
