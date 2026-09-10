@@ -296,7 +296,7 @@ export async function setZoomRecordingPublic(
 // cuenta conectada y devolvemos la URL lista para abrirse sin pedir nada.
 
 const ZOOM_RECORDING_URL_RE = /zoom\.[a-z.]+\/rec\/(share|play)\/([^?#/]+)/i;
-const ZOOM_WINDOW_DAYS = 30; // máximo que admite la API por consulta
+const ZOOM_WINDOW_DAYS = 29; // la API admite rangos de hasta 30 días
 const ZOOM_MAX_WINDOWS = 12; // ~un año hacia atrás
 
 export function isZoomRecordingUrl(url: string): boolean {
@@ -396,10 +396,20 @@ async function lookupZoomRecording(
 ): Promise<ZoomRecordingLookupResult> {
 
   const maxRequests = Math.max(1, options.maxRequests ?? 60);
+  // Traza de la búsqueda: sale al log cuando no se resuelve, para poder
+  // diagnosticar desde Vercel (scopes faltantes, usuario equivocado, etc.).
+  const trace: string[] = [];
+  const finish = (result: ZoomRecordingLookupResult): ZoomRecordingLookupResult => {
+    if (result.status !== 'resolved') {
+      console.error(`[zoom lookup] ${kind}/${id.slice(0, 12)}… → ${result.status}`, trace.join(' | '));
+    }
+    return result;
+  };
 
   try {
     const token = await getAccessToken(creds.accountId, creds.clientId, creds.clientSecret);
     const userIds = await listZoomUserIds(token);
+    trace.push(`users=${userIds.length}${userIds[0] === 'me' && userIds.length === 1 ? ' (solo me: sin permiso para listar usuarios)' : ''}`);
     let requests = 0;
 
     const matches = (meeting: ZoomRecordingMeeting): boolean => {
@@ -419,33 +429,44 @@ async function lookupZoomRecording(
       from.setUTCDate(from.getUTCDate() - ZOOM_WINDOW_DAYS);
 
       for (const userId of userIds) {
-        if (requests >= maxRequests) return { status: 'not_found' };
+        if (requests >= maxRequests) {
+          trace.push(`tope de ${maxRequests} consultas alcanzado`);
+          return finish({ status: 'not_found' });
+        }
         requests += 1;
+        const range = `${formatZoomDate(from)}..${formatZoomDate(to)}`;
         const res = await fetch(
           `https://api.zoom.us/v2/users/${encodeURIComponent(userId)}/recordings?from=${formatZoomDate(from)}&to=${formatZoomDate(to)}&page_size=300`,
           { headers: { Authorization: `Bearer ${token}` } },
         );
         if (res.status === 401 || res.status === 403) {
           // Sin permiso para leer grabaciones: no tiene sentido seguir.
-          const detail = await res.text();
-          return { status: 'error', message: `Zoom no permitió leer grabaciones (${res.status}): ${detail.slice(0, 200)}` };
+          const detail = (await res.text()).slice(0, 200);
+          trace.push(`${userId} ${range} → ${res.status} ${detail}`);
+          return finish({ status: 'error', message: `Zoom no permitió leer grabaciones (${res.status}): ${detail}` });
         }
-        if (!res.ok) continue;
+        if (!res.ok) {
+          trace.push(`${userId} ${range} → ${res.status} ${(await res.text()).slice(0, 120)}`);
+          continue;
+        }
         const data = (await res.json()) as { meetings?: ZoomRecordingMeeting[] };
-        const meeting = (data.meetings ?? []).find(matches);
+        const meetings = data.meetings ?? [];
+        trace.push(`${userId} ${range} → ${meetings.length} grabaciones`);
+        const meeting = meetings.find(matches);
         if (!meeting) continue;
         const passcode = meeting.recording_play_passcode?.trim();
         if (!passcode) {
           // Grabación sin código: el enlace ya abre directo.
-          return { status: 'already_one_click', url };
+          trace.push('encontrada sin recording_play_passcode');
+          return finish({ status: 'already_one_click', url });
         }
-        return { status: 'resolved', url: appendPasscode(url, passcode), topic: meeting.topic ?? null };
+        return finish({ status: 'resolved', url: appendPasscode(url, passcode), topic: meeting.topic ?? null });
       }
     }
-    return { status: 'not_found' };
+    return finish({ status: 'not_found' });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error('[zoom] no se pudo resolver el enlace de un clic:', message);
-    return { status: 'error', message };
+    trace.push(`excepción: ${message}`);
+    return finish({ status: 'error', message });
   }
 }
