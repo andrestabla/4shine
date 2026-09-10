@@ -412,16 +412,46 @@ function normalizeCourseModulesFromStructure(
   }));
 }
 
+/**
+ * Título de respaldo para un recurso que tiene contenido (URL, actividad o
+ * código) pero al que nadie le escribió título. Antes esos recursos se
+ * descartaban en silencio al guardar y el curso "perdía" el recurso.
+ */
+function fallbackCourseResourceTitle(
+  type: CourseModuleResourceType,
+  index: number,
+): string {
+  if (type === "zoom") return "Grabación de Zoom";
+  if (type === "link") return `Enlace ${index + 1}`;
+  return `${courseModuleResourceTypeLabel(type)} ${index + 1}`;
+}
+
+function courseResourceHasContent(resource: CourseModuleResource): boolean {
+  return (
+    (resource.url?.trim().length ?? 0) > 0 ||
+    (resource.linkedContentId?.trim().length ?? 0) > 0 ||
+    (resource.accessCode?.trim().length ?? 0) > 0
+  );
+}
+
 function normalizeCourseModulesForSave(modules: CourseModule[]): CourseModule[] {
   return modules
-    .map((module) => ({
+    .map((module, moduleIndex) => ({
       id: module.id || buildEditorId(),
-      title: module.title.trim(),
+      title:
+        module.title.trim() ||
+        ((module.resources ?? []).some(courseResourceHasContent)
+          ? `Módulo ${moduleIndex + 1}`
+          : ""),
       description: module.description?.trim() || null,
       resources: (module.resources ?? [])
-        .map((resource) => ({
+        .map((resource, resourceIndex) => ({
           id: resource.id || buildEditorId(),
-          title: resource.title.trim(),
+          title:
+            resource.title.trim() ||
+            (courseResourceHasContent(resource)
+              ? fallbackCourseResourceTitle(resource.contentType, resourceIndex)
+              : ""),
           description: resource.description?.trim() || null,
           contentType: resource.contentType,
           url: resource.url?.trim() || null,
@@ -443,7 +473,10 @@ function normalizeCourseModulesForSave(modules: CourseModule[]): CourseModule[] 
 function countCourseResources(modules: CourseModule[]): number {
   return modules.reduce(
     (total, module) =>
-      total + (module.resources?.filter((resource) => resource.title.trim().length > 0).length ?? 0),
+      total +
+      (module.resources?.filter(
+        (resource) => resource.title.trim().length > 0 || courseResourceHasContent(resource),
+      ).length ?? 0),
     0,
   );
 }
@@ -2636,14 +2669,25 @@ export function LearningCourseEditor({
                                         <select
                                           className="app-select"
                                           value={courseResource.contentType}
-                                          onChange={(event) =>
+                                          onChange={(event) => {
                                             updateCourseModuleResource(
                                               module.id,
                                               courseResource.id,
                                               "contentType",
                                               event.target.value,
-                                            )
-                                          }
+                                            );
+                                            if (
+                                              event.target.value === "zoom" &&
+                                              !courseResource.title.trim()
+                                            ) {
+                                              updateCourseModuleResource(
+                                                module.id,
+                                                courseResource.id,
+                                                "title",
+                                                "Grabación de Zoom",
+                                              );
+                                            }
+                                          }}
                                         >
                                           {COURSE_MODULE_RESOURCE_TYPE_OPTIONS.map((type) => (
                                             <option key={type} value={type}>
