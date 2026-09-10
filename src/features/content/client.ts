@@ -4,7 +4,7 @@ export type ContentScope = 'aprendizaje' | 'metodologia' | 'formacion_mentores' 
 export type ContentType = 'video' | 'pdf' | 'scorm' | 'article' | 'podcast' | 'html' | 'ppt' | 'activity' | 'assignment';
 export type ContentStatus = 'draft' | 'pending_review' | 'published' | 'archived' | 'rejected';
 export type ContentCompetencyMetadata = Record<string, string | null>;
-export type CourseModuleResourceType = Exclude<ContentType, 'scorm'> | 'link';
+export type CourseModuleResourceType = Exclude<ContentType, 'scorm'> | 'link' | 'zoom';
 
 export interface CourseModuleResource {
   id: string;
@@ -16,6 +16,8 @@ export interface CourseModuleResource {
   linkedContentId?: string | null;
   /** 'embed' incrusta el enlace en el curso; 'newTab' lo abre aparte. */
   openMode?: 'newTab' | 'embed' | null;
+  /** Código de acceso de la grabación de Zoom (solo contentType = 'zoom'). */
+  accessCode?: string | null;
 }
 
 export interface CourseModule {

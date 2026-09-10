@@ -8,8 +8,11 @@ import {
   ArrowLeft,
   ArrowRight,
   Award,
+  Check,
+  Copy,
   ExternalLink,
   Heart,
+  KeyRound,
   Layers3,
   Loader2,
   MessageCircle,
@@ -20,6 +23,7 @@ import {
   Menu,
   FileDown,
   Download,
+  Video,
 } from "lucide-react";
 
 import dynamic from "next/dynamic";
@@ -99,6 +103,8 @@ interface CoursePlayerItem {
   durationLabel: string | null;
   /** 'embed' incrusta el enlace en el curso; por defecto se abre aparte. */
   openMode: 'newTab' | 'embed';
+  /** Código de acceso de una grabación de Zoom (contentType = 'zoom'). */
+  accessCode: string | null;
   globalIndex: number;
 }
 
@@ -106,6 +112,53 @@ interface CoursePlayerModule {
   id: string;
   title: string;
   items: CoursePlayerItem[];
+}
+
+/**
+ * Tarjeta con el código de acceso de una grabación de Zoom y un botón para
+ * copiarlo. Zoom lo pide al abrir el enlace, así que el líder lo necesita a
+ * la mano tanto si la grabación se incrusta como si se abre aparte.
+ */
+function ZoomAccessCodeCard({ code }: { code: string }) {
+  const [copied, setCopied] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!copied) return;
+    const timer = window.setTimeout(() => setCopied(false), 2000);
+    return () => window.clearTimeout(timer);
+  }, [copied]);
+
+  const handleCopy = React.useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+    } catch {
+      // Sin permiso de portapapeles: el código queda seleccionable a mano.
+    }
+  }, [code]);
+
+  return (
+    <div
+      className="flex flex-wrap items-center gap-3 rounded-[14px] px-4 py-3 ring-1 ring-white/10"
+      style={{ background: 'var(--brand-darker)' }}
+    >
+      <KeyRound size={18} className="shrink-0 text-white/70" />
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-extrabold uppercase tracking-widest text-white/60">
+          Código de acceso
+        </p>
+        <p className="select-all break-all font-mono text-base font-bold text-white">{code}</p>
+      </div>
+      <button
+        type="button"
+        onClick={handleCopy}
+        className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-[var(--brand-primary)] transition hover:bg-[var(--brand-accent)] hover:text-[var(--brand-on-accent)]"
+      >
+        {copied ? <Check size={14} /> : <Copy size={14} />}
+        {copied ? "Copiado" : "Copiar"}
+      </button>
+    </div>
+  );
 }
 
 interface CoursePlayerErrorBoundaryProps {
@@ -311,6 +364,10 @@ export default function LearningResourceDetailPage() {
               ? item.durationLabel.trim()
               : null,
           openMode: item.openMode === "embed" ? "embed" : "newTab",
+          accessCode:
+            typeof item.accessCode === "string" && item.accessCode.trim().length > 0
+              ? item.accessCode.trim()
+              : null,
           globalIndex,
         });
         globalIndex += 1;
@@ -1940,6 +1997,70 @@ export default function LearningResourceDetailPage() {
                     // ASSIGNMENT (tarea) — render inline en el contexto del módulo del curso
                     <div className="rounded-[16px] bg-white p-3">
                       <AssignmentPlayer contentId={currentItem.linkedContentId} />
+                    </div>
+                  ) : currentItem.contentType === "zoom" && currentItem.url ? (
+                    // GRABACIÓN DE ZOOM — incrustada o abierta en pestaña nueva, con
+                    // el código de acceso siempre visible para el líder.
+                    <div className="w-full space-y-3">
+                      {currentItem.openMode === "embed" ? (
+                        <div
+                          className="relative w-full overflow-hidden rounded-[16px] border shadow-2xl aspect-video"
+                          style={{ borderColor: 'var(--brand-border-strong)', background: 'var(--brand-darker)' }}
+                        >
+                          <iframe
+                            key={`zoom-${currentItem.id}`}
+                            title={currentItem.title || 'Grabación de Zoom'}
+                            src={currentItem.url}
+                            className="absolute inset-0 h-full w-full"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                            allowFullScreen
+                          />
+                        </div>
+                      ) : (
+                        <div
+                          className="flex w-full flex-col justify-between overflow-hidden rounded-[16px] border shadow-2xl aspect-video"
+                          style={{ borderColor: 'var(--brand-border-strong)', background: 'var(--brand-darker)' }}
+                        >
+                          <div className="flex flex-1 items-center justify-center">
+                            <a
+                              href={currentItem.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              aria-label="Abrir grabación en Zoom"
+                              className="flex h-20 w-20 items-center justify-center rounded-full bg-white/10 text-white transition hover:scale-105 hover:bg-white/20"
+                            >
+                              <Video size={32} />
+                            </a>
+                          </div>
+                          <div className="bg-gradient-to-t from-black/60 to-transparent p-8 pb-10">
+                            <h2 className="mb-2 text-2xl font-bold text-white">{currentItem.title || "Grabación de Zoom"}</h2>
+                            <p className="text-sm text-white/80">
+                              {currentItem.description || "Esta grabación se abre en Zoom, en una pestaña aparte."}
+                            </p>
+                            <a
+                              href={currentItem.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="mt-4 inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-bold text-[var(--brand-primary)] transition hover:bg-[var(--brand-accent)] hover:text-[var(--brand-on-accent)]"
+                            >
+                              Abrir grabación en Zoom <ExternalLink size={14} />
+                            </a>
+                          </div>
+                        </div>
+                      )}
+                      {currentItem.accessCode && <ZoomAccessCodeCard code={currentItem.accessCode} />}
+                      {currentItem.openMode === "embed" && (
+                        // Zoom suele bloquear el iframe: el líder siempre tiene salida.
+                        <a
+                          href={currentItem.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold hover:underline"
+                          style={{ color: 'var(--brand-accent)' }}
+                        >
+                          ¿No se ve? Abrir la grabación en Zoom <ExternalLink size={12} />
+                        </a>
+                      )}
                     </div>
                   ) : currentItem.contentType === "video" && isEmbeddableVideoUrl(currentItem.url) ? (
                     // DIRECT VIDEO PLAYER (mp4/webm/mov + HLS .m3u8 via hls.js)

@@ -7,7 +7,7 @@ export type ContentScope = 'aprendizaje' | 'metodologia' | 'formacion_mentores' 
 export type ContentType = 'video' | 'pdf' | 'scorm' | 'article' | 'podcast' | 'html' | 'ppt' | 'activity' | 'assignment';
 export type ContentStatus = 'draft' | 'pending_review' | 'published' | 'archived' | 'rejected';
 export type ContentCompetencyMetadata = Record<string, string | null>;
-export type CourseModuleResourceType = Exclude<ContentType, 'scorm'> | 'link';
+export type CourseModuleResourceType = Exclude<ContentType, 'scorm'> | 'link' | 'zoom';
 
 export interface CourseModuleResource {
   id: string;
@@ -23,6 +23,11 @@ export interface CourseModuleResource {
    * comportamiento que ya tenía y el que siempre funciona.
    */
   openMode?: 'newTab' | 'embed' | null;
+  /**
+   * Código de acceso de una grabación de Zoom (solo aplica a contentType =
+   * 'zoom'). Se muestra al líder junto al enlace para que pueda entrar.
+   */
+  accessCode?: string | null;
 }
 
 export interface CourseModule {
@@ -289,7 +294,8 @@ function normalizeCourseModuleResource(input: unknown): CourseModuleResource | n
     rawType === 'ppt' ||
     rawType === 'activity' ||
     rawType === 'assignment' ||
-    rawType === 'link'
+    rawType === 'link' ||
+    rawType === 'zoom'
       ? rawType
       : 'link';
 
@@ -317,6 +323,14 @@ function normalizeCourseModuleResource(input: unknown): CourseModuleResource | n
         ? resource.linkedContentId.trim()
         : null,
     openMode: resource.openMode === 'embed' ? 'embed' : 'newTab',
+    // Sobra cuando el enlace de Zoom ya trae el código incrustado (?pwd=).
+    accessCode:
+      contentType === 'zoom' &&
+      typeof resource.accessCode === 'string' &&
+      resource.accessCode.trim().length > 0 &&
+      !/[?&]pwd=[^&#]+/i.test(typeof resource.url === 'string' ? resource.url : '')
+        ? resource.accessCode.trim().slice(0, 120)
+        : null,
   };
 }
 

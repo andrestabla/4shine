@@ -185,6 +185,7 @@ const COURSE_MODULE_RESOURCE_TYPE_OPTIONS: CourseModuleResourceType[] = [
   "html",
   "ppt",
   "link",
+  "zoom",
   "activity",
   "assignment",
 ];
@@ -369,6 +370,7 @@ function createEmptyCourseResource(): CourseModuleResource {
     durationLabel: "",
     linkedContentId: null,
     openMode: "newTab",
+    accessCode: "",
   };
 }
 
@@ -404,6 +406,7 @@ function normalizeCourseModulesFromStructure(
           durationLabel: resource.durationLabel ?? "",
           linkedContentId: resource.linkedContentId ?? null,
           openMode: (resource.openMode === 'embed' ? 'embed' : 'newTab') as 'embed' | 'newTab',
+          accessCode: resource.accessCode ?? "",
         }))
       : [createEmptyCourseResource()],
   }));
@@ -425,6 +428,12 @@ function normalizeCourseModulesForSave(modules: CourseModule[]): CourseModule[] 
           durationLabel: resource.durationLabel?.trim() || null,
           linkedContentId: resource.linkedContentId?.trim() || null,
           openMode: (resource.openMode === 'embed' ? 'embed' : 'newTab') as 'embed' | 'newTab',
+          // El código de acceso solo tiene sentido en grabaciones de Zoom y
+          // sobra cuando el enlace ya lo trae incrustado (acceso en un clic).
+          accessCode:
+            resource.contentType === "zoom" && !zoomLinkHasEmbeddedPasscode(resource.url)
+              ? resource.accessCode?.trim() || null
+              : null,
         }))
         .filter((resource) => resource.title.length > 0),
     }))
@@ -453,8 +462,19 @@ function hasMeaningfulCourseStructure(modules: CourseModule[]): boolean {
   );
 }
 
+/**
+ * Zoom puede incluir el código de acceso cifrado en el enlace compartido
+ * (`?pwd=...`) cuando la cuenta tiene activada la opción "Incluir código de
+ * acceso en el enlace para acceso con un clic". Con ese enlace el líder entra
+ * directo y no hace falta pedir ni mostrar ningún código.
+ */
+function zoomLinkHasEmbeddedPasscode(url: string | null | undefined): boolean {
+  return /[?&]pwd=[^&#]+/i.test((url ?? "").trim());
+}
+
 function courseModuleResourceTypeLabel(type: CourseModuleResourceType): string {
   if (type === "link") return "Enlace";
+  if (type === "zoom") return "Grabación de Zoom";
   return contentTypeLabel(type);
 }
 
@@ -1383,7 +1403,8 @@ export function LearningCourseEditor({
         | "url"
         | "durationLabel"
         | "linkedContentId"
-        | "openMode",
+        | "openMode"
+        | "accessCode",
       value: string,
     ) => {
       setResourceForm((prev) => ({
@@ -2701,11 +2722,17 @@ export function LearningCourseEditor({
                                         ) : (
                                           <>
                                             <label className="app-field-label">
-                                              URL o activo del recurso
+                                              {courseResource.contentType === "zoom"
+                                                ? "Enlace de la grabación de Zoom"
+                                                : "URL o activo del recurso"}
                                             </label>
                                             <input
                                               className="app-input"
-                                              placeholder="https://..."
+                                              placeholder={
+                                                courseResource.contentType === "zoom"
+                                                  ? "https://us06web.zoom.us/rec/share/..."
+                                                  : "https://..."
+                                              }
                                               value={courseResource.url ?? ""}
                                               onChange={(event) =>
                                                 updateCourseModuleResource(
@@ -2716,6 +2743,48 @@ export function LearningCourseEditor({
                                                 )
                                               }
                                             />
+                                            {courseResource.contentType === "zoom" &&
+                                              zoomLinkHasEmbeddedPasscode(courseResource.url) && (
+                                                <p className="mt-2 rounded-[12px] border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11.5px] leading-relaxed text-emerald-800">
+                                                  Este enlace ya incluye el código de acceso. El líder entrará a la grabación con un clic, sin escribir nada.
+                                                </p>
+                                              )}
+                                            {courseResource.contentType === "zoom" &&
+                                              !zoomLinkHasEmbeddedPasscode(courseResource.url) && (
+                                              <div className="mt-3">
+                                                <div className="rounded-[12px] border border-amber-200 bg-amber-50 px-3 py-2 text-[11.5px] leading-relaxed text-amber-900">
+                                                  <p className="font-bold">Para que el líder no tenga que escribir el código:</p>
+                                                  <p className="mt-1">
+                                                    En Zoom ve a Configuración → Grabación y transcripción y activa
+                                                    «Incluir código de acceso en el enlace para compartir (acceso con un clic)».
+                                                    Luego vuelve a copiar el enlace de la grabación: traerá el código
+                                                    incrustado (<span className="font-mono">?pwd=…</span>) y pégalo arriba.
+                                                  </p>
+                                                </div>
+                                                <label className="app-field-label mt-3">
+                                                  Código de acceso (solo si no puedes usar el enlace con un clic)
+                                                </label>
+                                                <input
+                                                  className="app-input font-mono"
+                                                  placeholder="Ej. kqb@m*2V"
+                                                  autoComplete="off"
+                                                  spellCheck={false}
+                                                  maxLength={120}
+                                                  value={courseResource.accessCode ?? ""}
+                                                  onChange={(event) =>
+                                                    updateCourseModuleResource(
+                                                      module.id,
+                                                      courseResource.id,
+                                                      "accessCode",
+                                                      event.target.value,
+                                                    )
+                                                  }
+                                                />
+                                                <p className="mt-1 text-[11.5px] leading-relaxed text-[var(--app-muted)]">
+                                                  Alternativa de respaldo: el líder verá este código junto al enlace con un botón para copiarlo y tendrá que pegarlo en Zoom. Déjalo vacío si la grabación no lo requiere.
+                                                </p>
+                                              </div>
+                                            )}
                                             {(courseResource.url ?? "").trim().length > 0 && (
                                               <div className="mt-2">
                                                 <span className="app-field-label">Cómo se abre</span>
@@ -2753,12 +2822,17 @@ export function LearningCourseEditor({
                                                 </div>
                                                 <p className="mt-1 text-[11.5px] leading-relaxed text-[var(--app-muted)]">
                                                   {(courseResource.openMode ?? "newTab") === "embed"
-                                                    ? "Se verá dentro del curso. Algunos sitios no permiten incrustarse; si queda en blanco, usa pestaña nueva."
-                                                    : "El líder saldrá del curso a una pestaña aparte."}
+                                                    ? courseResource.contentType === "zoom"
+                                                      ? "Se verá dentro del curso. Zoom no siempre permite incrustar sus grabaciones; si queda en blanco, el líder tendrá un enlace para abrirla en pestaña nueva."
+                                                      : "Se verá dentro del curso. Algunos sitios no permiten incrustarse; si queda en blanco, usa pestaña nueva."
+                                                    : courseResource.contentType === "zoom"
+                                                      ? "El líder abrirá la grabación en Zoom, en una pestaña aparte."
+                                                      : "El líder saldrá del curso a una pestaña aparte."}
                                                 </p>
                                               </div>
                                             )}
 
+                                            {courseResource.contentType !== "zoom" && (
                                             <div className="mt-2 text-right">
                                               <R2UploadButton
                                                 moduleCode={moduleCode}
@@ -2781,6 +2855,7 @@ export function LearningCourseEditor({
                                                 }}
                                               />
                                             </div>
+                                            )}
                                           </>
                                         )}
                                       </div>
