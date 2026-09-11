@@ -6,13 +6,20 @@ import type { BootstrapPayload, Role, User } from '@/server/bootstrap/types';
 import { useRouter } from 'next/navigation';
 import { hydrateFromBackend } from '@/lib/bootstrap-client';
 import { PrivacyPolicyModal } from '@/components/ui/PrivacyPolicyModal';
+import { SessionExpiredModal } from '@/components/ui/SessionExpiredModal';
 import { SESSION_IDLE_LIMIT_MS } from '@/lib/session-timeout';
 import {
+  SESSION_ACTIVITY_EVENT,
+  SESSION_EXPIRED_EVENT,
   clearTrackedSessionActivity,
+  hasTrackedSessionActivity,
   isSessionIdleExpired,
+  markSessionRefreshed,
   readLastSessionActivity,
-  redirectToLoginAfterSessionTimeout,
+  shouldRefreshSessionProactively,
+  terminateExpiredSession,
   trackSessionActivity,
+  tryRefreshSessionFromActivity,
   tryRestoreSession,
 } from '@/lib/session-timeout-client';
 import {
@@ -126,6 +133,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   const [isHydrating, setIsHydrating] = useState(true);
   const [privacyPolicyAccepted, setPrivacyPolicyAccepted] = useState(true);
   const [mustChangePassword, setMustChangePassword] = useState(false);
+  const [isSessionExpired, setIsSessionExpired] = useState(false);
   const router = useRouter();
 
   const clearSession = React.useCallback(() => {
@@ -167,6 +175,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
       const [permissions, data] = await Promise.all([fetchPermissions(), hydrateFromBackend()]);
 
       trackSessionActivity();
+      markSessionRefreshed();
       setSessionUser(nextSessionUser);
       setCurrentRole(nextSessionUser.role);
       setModulePermissions(permissions);
@@ -211,7 +220,11 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
           const refreshed = await tryRestoreSession();
           if (!refreshed) {
             if (!cancelled) {
+              // Había una sesión y el servidor no la renovó por inactividad:
+              // avisar con el modal en vez de dejar al usuario sin explicación.
+              const expiredByIdle = hasTrackedSessionActivity() && isSessionIdleExpired();
               clearSession();
+              if (expiredByIdle) setIsSessionExpired(true);
               setIsHydrating(false);
             }
             return;
@@ -336,15 +349,30 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   const can = (moduleCode: ModuleCode, action: PermissionAction = 'view') =>
     canModuleAction(modulePermissions, moduleCode, action);
 
+  const handleSessionExpiredConfirm = React.useCallback(() => {
+    setIsSessionExpired(false);
+    window.location.assign('/acceso');
+  }, []);
+
   React.useEffect(() => {
     if (!sessionUser) return;
 
     let timeoutId: number | null = null;
     let lastActivityWriteAt = 0;
+    let expired = false;
 
+    // Cierra la sesión y muestra el modal. La redirección ocurre cuando el
+    // usuario confirma, así siempre ve el motivo de la expulsión.
     const expireSession = async () => {
+      if (expired) return;
+      expired = true;
+      if (timeoutId) {
+        window.clearTimeout(timeoutId);
+        timeoutId = null;
+      }
       clearSession();
-      await redirectToLoginAfterSessionTimeout();
+      setIsSessionExpired(true);
+      await terminateExpiredSession();
     };
 
     const scheduleExpirationCheck = () => {
@@ -370,16 +398,30 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
       }, remainingMs);
     };
 
+    // Mientras haya actividad, renueva los tokens antes de que caduquen aunque
+    // el usuario no haga peticiones a la API (video, grabación, SCORM…).
+    const refreshIfNeeded = () => {
+      if (!shouldRefreshSessionProactively()) return;
+      markSessionRefreshed();
+      void tryRefreshSessionFromActivity().then((ok) => {
+        if (!ok && isSessionIdleExpired()) {
+          void expireSession();
+        }
+      });
+    };
+
     const registerActivity = () => {
+      if (expired) return;
       const now = Date.now();
-      if (now - lastActivityWriteAt < 5000) {
-        scheduleExpirationCheck();
-        return;
-      }
+      // Los eventos de movimiento y reproducción llegan muchas veces por
+      // segundo; una escritura cada 5 s basta (el temporizador relee el
+      // valor antes de expulsar).
+      if (now - lastActivityWriteAt < 5000) return;
 
       lastActivityWriteAt = now;
       trackSessionActivity(now);
       scheduleExpirationCheck();
+      refreshIfNeeded();
     };
 
     const onVisibilityOrFocus = () => {
@@ -393,26 +435,60 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
       registerActivity();
     };
 
+    // Al hacer clic dentro de un iframe (SCORM, video embebido) la ventana
+    // pierde el foco y el elemento activo pasa a ser el iframe.
+    const onWindowBlur = () => {
+      if (document.activeElement?.tagName === 'IFRAME') {
+        registerActivity();
+      }
+    };
+
+    const onSessionExpiredByServer = (event: Event) => {
+      event.preventDefault();
+      void expireSession();
+    };
+
     registerActivity();
 
     const listenerOptions: AddEventListenerOptions = { passive: true };
+    const captureOptions: AddEventListenerOptions = { passive: true, capture: true };
     window.addEventListener('pointerdown', registerActivity, listenerOptions);
+    window.addEventListener('pointermove', registerActivity, listenerOptions);
+    window.addEventListener('wheel', registerActivity, listenerOptions);
     window.addEventListener('keydown', registerActivity);
     window.addEventListener('scroll', registerActivity, listenerOptions);
     window.addEventListener('touchstart', registerActivity, listenerOptions);
+    window.addEventListener('touchmove', registerActivity, listenerOptions);
     window.addEventListener('focus', onVisibilityOrFocus);
+    window.addEventListener('blur', onWindowBlur);
+    window.addEventListener(SESSION_ACTIVITY_EVENT, registerActivity);
+    window.addEventListener(SESSION_EXPIRED_EVENT, onSessionExpiredByServer);
     document.addEventListener('visibilitychange', onVisibilityOrFocus);
+    document.addEventListener('input', registerActivity, captureOptions);
+    // Ver o escuchar contenido cuenta como actividad: los eventos de <video>
+    // y <audio> no burbujean, por eso se capturan en el documento.
+    document.addEventListener('playing', registerActivity, captureOptions);
+    document.addEventListener('timeupdate', registerActivity, captureOptions);
 
     return () => {
       if (timeoutId) {
         window.clearTimeout(timeoutId);
       }
       window.removeEventListener('pointerdown', registerActivity);
+      window.removeEventListener('pointermove', registerActivity);
+      window.removeEventListener('wheel', registerActivity);
       window.removeEventListener('keydown', registerActivity);
       window.removeEventListener('scroll', registerActivity);
       window.removeEventListener('touchstart', registerActivity);
+      window.removeEventListener('touchmove', registerActivity);
       window.removeEventListener('focus', onVisibilityOrFocus);
+      window.removeEventListener('blur', onWindowBlur);
+      window.removeEventListener(SESSION_ACTIVITY_EVENT, registerActivity);
+      window.removeEventListener(SESSION_EXPIRED_EVENT, onSessionExpiredByServer);
       document.removeEventListener('visibilitychange', onVisibilityOrFocus);
+      document.removeEventListener('input', registerActivity, captureOptions);
+      document.removeEventListener('playing', registerActivity, captureOptions);
+      document.removeEventListener('timeupdate', registerActivity, captureOptions);
     };
   }, [clearSession, sessionUser]);
 
@@ -441,6 +517,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
       {!!sessionUser && !privacyPolicyAccepted && sessionUser.role !== 'invitado' && (
         <PrivacyPolicyModal onAccept={acceptPrivacyPolicy} />
       )}
+      {isSessionExpired && <SessionExpiredModal onConfirm={handleSessionExpiredConfirm} />}
     </UserContext.Provider>
   );
 };

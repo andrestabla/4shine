@@ -26,6 +26,7 @@ import { useSearchParams } from 'next/navigation'
 import { useUser } from '@/context/UserContext'
 import { useBranding } from '@/context/BrandingContext'
 import { requestApi } from '@/lib/api-client'
+import { registerSessionActivity } from '@/lib/session-timeout-client'
 import { WORKBOOK_V2_EDITORIAL } from '@/lib/workbooks-v2-editorial'
 import type { WB1Config, WB1Field, WB1Group, WB1Section } from '@/lib/workbooks-v2-wb1'
 import { R2UploadButton } from '@/components/ui/R2UploadButton'
@@ -362,6 +363,8 @@ function AudioRecorder({
         startedAtRef.current = Date.now()
         intervalRef.current = window.setInterval(() => {
             setElapsedMs(elapsedBeforePauseRef.current + (Date.now() - startedAtRef.current))
+            // Grabar es actividad aunque el usuario no toque nada.
+            registerSessionActivity()
         }, 200)
     }
 

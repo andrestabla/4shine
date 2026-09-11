@@ -56,6 +56,7 @@ import {
   type LearningResourceRecord,
 } from "@/features/aprendizaje/client";
 import { downloadCourseCertificate } from "@/lib/certificate-generator";
+import { registerSessionActivity } from "@/lib/session-timeout-client";
 import type { LearningCommentReactionType } from "@/features/aprendizaje/comment-reactions";
 import { buildYouTubeEmbedUrl, isDirectAudioUrl, isEmbeddableVideoUrl } from "@/features/aprendizaje/media";
 import HlsVideoPlayer from "@/components/dashboard/aprendizaje/HlsVideoPlayer";
@@ -750,6 +751,7 @@ export default function LearningResourceDetailPage() {
       },
       LMSSetValue: (el: string, value: unknown) => {
         try {
+          registerSessionActivity();
           setStateValue(el, value);
           markCompletionFromValue(el, value);
           return 'true';
@@ -759,6 +761,7 @@ export default function LearningResourceDetailPage() {
       },
       LMSCommit: () => {
         try {
+          registerSessionActivity();
           void flushScormRuntimeToBackend();
           return 'true';
         } catch {
@@ -794,6 +797,7 @@ export default function LearningResourceDetailPage() {
       },
       SetValue: (el: string, value: unknown) => {
         try {
+          registerSessionActivity();
           setStateValue(el, value);
           markCompletionFromValue(el, value);
           return 'true';
@@ -803,6 +807,7 @@ export default function LearningResourceDetailPage() {
       },
       Commit: () => {
         try {
+          registerSessionActivity();
           void flushScormRuntimeToBackend();
           return 'true';
         } catch {
