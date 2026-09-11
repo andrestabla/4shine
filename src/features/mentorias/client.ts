@@ -1,4 +1,5 @@
 import { requestApi } from '@/lib/api-client';
+import type { GroupSessionRecordingStatus } from './recording-visibility';
 import type {
   AdditionalMentorshipOrderRecord,
   CreateAdditionalMentorshipOrderInput,
@@ -259,6 +260,7 @@ export interface CreateExternalSessionRecordingInput {
   externalExpertName?: string | null;
   durationMinutes?: number;
   thumbnailUrl?: string | null;
+  status?: GroupSessionRecordingStatus;
 }
 
 /** Sesión externa pasada + su grabación, en un solo paso (admin/gestor). */
@@ -374,3 +376,5 @@ export async function deleteSessionRecording(
     { method: 'DELETE' },
   );
 }
+
+export type { GroupSessionRecordingStatus } from './recording-visibility';

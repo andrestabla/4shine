@@ -76,12 +76,18 @@ import {
   type GroupSessionParticipationStatus,
   type GroupSessionReaction,
   type GroupSessionRecordingRecord,
+  type GroupSessionRecordingStatus,
   type MentorCatalogRecord,
   type MentorOfferingRecord,
   type MentorshipOverviewRecord,
   type MentorshipRecord,
   type MentorshipStatus,
 } from '@/features/mentorias/client';
+import {
+  GROUP_SESSION_RECORDING_STATUSES,
+  GROUP_SESSION_RECORDING_STATUS_LABELS,
+  GROUP_SESSION_RECORDING_VISIBILITY_DAYS,
+} from '@/features/mentorias/recording-visibility';
 import {
   createMentorshipCheckout,
   getEnabledPaymentProviders,
@@ -124,10 +130,26 @@ interface GroupRecordingFormState {
   recordingUrl: string;
   durationMinutes: string;
   description: string;
-  /** Solo sesión externa: cuándo ocurrió y quién la dictó. */
+  /** Fecha y hora de la grabación (datetime-local). Se prellena con la fecha de la sesión. */
   recordedAt: string;
+  status: GroupSessionRecordingStatus;
+  /** Solo sesión externa: quién la dictó. */
   externalExpertName: string;
 }
+
+/** ISO → valor de un <input type="datetime-local"> en la zona del navegador. */
+function toDateTimeLocalValue(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
+
+const RECORDING_STATUS_BADGE_CLASS: Record<GroupSessionRecordingStatus, string> = {
+  published: 'border-green-200 bg-green-50 text-green-700',
+  draft: 'border-amber-200 bg-amber-50 text-amber-700',
+  hidden: 'border-slate-200 bg-slate-100 text-slate-600',
+};
 
 interface AvailabilitySlotFormState {
   mentorUserId: string;
@@ -411,6 +433,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
     durationMinutes: '',
     description: '',
     recordedAt: '',
+    status: 'published',
     externalExpertName: '',
   });
   const [recordingCommentDrafts, setRecordingCommentDrafts] = React.useState<Record<string, string>>({});
@@ -418,12 +441,22 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
   const [recordingTopicFilter, setRecordingTopicFilter] = React.useState<string | null>(null);
   // Edición inline de una grabación (solo admin/gestor).
   const [editingRecordingId, setEditingRecordingId] = React.useState<string | null>(null);
-  const [recordingEditForm, setRecordingEditForm] = React.useState<{ title: string; recordingUrl: string; durationMinutes: string; description: string; thumbnailUrl: string }>({
+  const [recordingEditForm, setRecordingEditForm] = React.useState<{
+    title: string;
+    recordingUrl: string;
+    durationMinutes: string;
+    description: string;
+    thumbnailUrl: string;
+    recordedAt: string;
+    status: GroupSessionRecordingStatus;
+  }>({
     title: '',
     recordingUrl: '',
     durationMinutes: '',
     description: '',
     thumbnailUrl: '',
+    recordedAt: '',
+    status: 'published',
   });
   const [submittingRecordingEdit, setSubmittingRecordingEdit] = React.useState(false);
   const [groupAnalytics, setGroupAnalytics] = React.useState<GroupSessionAnalyticsRecord[]>([]);
@@ -1120,8 +1153,8 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
       return;
     }
     const isExternal = groupRecordingForm.eventId === '__external__';
-    if (isExternal && !groupRecordingForm.recordedAt) {
-      await showError('Indica la fecha en que ocurrió la sesión externa.', null);
+    if (!groupRecordingForm.recordedAt) {
+      await showError('Indica la fecha y hora de la grabación.', null);
       return;
     }
 
@@ -1137,6 +1170,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
           description: groupRecordingForm.description.trim() || null,
           externalExpertName: groupRecordingForm.externalExpertName.trim() || null,
           durationMinutes: groupRecordingForm.durationMinutes ? Number(groupRecordingForm.durationMinutes) : 60,
+          status: groupRecordingForm.status,
         });
       } else {
         await createGroupSessionRecording({
@@ -1145,6 +1179,8 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
           description: groupRecordingForm.description.trim() || null,
           recordingUrl: groupRecordingForm.recordingUrl.trim(),
           durationMinutes: groupRecordingForm.durationMinutes ? Number(groupRecordingForm.durationMinutes) : 0,
+          recordedAt: new Date(groupRecordingForm.recordedAt).toISOString(),
+          status: groupRecordingForm.status,
         });
       }
       setGroupRecordingForm({
@@ -1154,6 +1190,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
         durationMinutes: '',
         description: '',
         recordedAt: '',
+        status: 'published',
         externalExpertName: '',
       });
       await load();
@@ -1193,12 +1230,14 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
       durationMinutes: recording.durationMinutes ? String(recording.durationMinutes) : '',
       description: recording.description ?? '',
       thumbnailUrl: recording.thumbnailUrl ?? '',
+      recordedAt: toDateTimeLocalValue(recording.recordedAt),
+      status: recording.status,
     });
   };
 
   const handleCancelEditRecording = () => {
     setEditingRecordingId(null);
-    setRecordingEditForm({ title: '', recordingUrl: '', durationMinutes: '', description: '', thumbnailUrl: '' });
+    setRecordingEditForm({ title: '', recordingUrl: '', durationMinutes: '', description: '', thumbnailUrl: '', recordedAt: '', status: 'published' });
   };
 
   const handleUpdateRecording = async (recording: GroupSessionRecordingRecord) => {
@@ -1218,6 +1257,8 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
         description: recordingEditForm.description.trim() || null,
         durationMinutes: recordingEditForm.durationMinutes ? Number(recordingEditForm.durationMinutes) : 0,
         thumbnailUrl: recordingEditForm.thumbnailUrl.trim() || null,
+        recordedAt: recordingEditForm.recordedAt ? new Date(recordingEditForm.recordedAt).toISOString() : null,
+        status: recordingEditForm.status,
       });
       handleCancelEditRecording();
       await load();
@@ -1911,7 +1952,17 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
             <select
               className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm md:col-span-2"
               value={groupRecordingForm.eventId}
-              onChange={(event) => setGroupRecordingForm((prev) => ({ ...prev, eventId: event.target.value }))}
+              onChange={(event) => {
+                const eventId = event.target.value;
+                // Al elegir una sesión de la plataforma, la fecha de la
+                // grabación se prellena con la de la sesión (editable).
+                const chosen = groupSessions.find((item) => item.eventId === eventId);
+                setGroupRecordingForm((prev) => ({
+                  ...prev,
+                  eventId,
+                  recordedAt: chosen ? toDateTimeLocalValue(chosen.startsAt) : prev.recordedAt,
+                }));
+              }}
               required
             >
               <option value="">Selecciona una sesión de Expertos en vivo</option>
@@ -1928,18 +1979,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                   Para sesiones que ocurrieron por enlace externo (Zoom u otro): se registran como
                   evento pasado con su grabación, sin enviar notificaciones a los líderes.
                 </p>
-                <label className="text-xs font-semibold text-[var(--app-muted)]">
-                  Fecha y hora de la sesión
-                  <input
-                    type="datetime-local"
-                    className="mt-1 w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm text-[var(--app-ink)]"
-                    value={groupRecordingForm.recordedAt}
-                    max={new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)}
-                    onChange={(event) => setGroupRecordingForm((prev) => ({ ...prev, recordedAt: event.target.value }))}
-                    required
-                  />
-                </label>
-                <label className="text-xs font-semibold text-[var(--app-muted)]">
+                <label className="text-xs font-semibold text-[var(--app-muted)] md:col-span-2">
                   Experto que dictó la sesión (opcional)
                   <input
                     className="mt-1 w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm text-[var(--app-ink)]"
@@ -1950,6 +1990,33 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                 </label>
               </>
             )}
+            <label className="text-xs font-semibold text-[var(--app-muted)]">
+              Fecha y hora de la grabación
+              <input
+                type="datetime-local"
+                className="mt-1 w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm text-[var(--app-ink)]"
+                value={groupRecordingForm.recordedAt}
+                max={new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)}
+                onChange={(event) => setGroupRecordingForm((prev) => ({ ...prev, recordedAt: event.target.value }))}
+                required
+              />
+            </label>
+            <label className="text-xs font-semibold text-[var(--app-muted)]">
+              Estado
+              <select
+                className="mt-1 w-full rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm text-[var(--app-ink)]"
+                value={groupRecordingForm.status}
+                onChange={(event) => setGroupRecordingForm((prev) => ({ ...prev, status: event.target.value as GroupSessionRecordingStatus }))}
+              >
+                {GROUP_SESSION_RECORDING_STATUSES.map((status) => (
+                  <option key={status} value={status}>{GROUP_SESSION_RECORDING_STATUS_LABELS[status]}</option>
+                ))}
+              </select>
+            </label>
+            <p className="text-xs text-[var(--app-muted)] md:col-span-2">
+              Solo las grabaciones <strong>Publicadas</strong> se muestran a líderes y advisors, y dejan de
+              mostrarse pasados {GROUP_SESSION_RECORDING_VISIBILITY_DAYS} días desde su fecha.
+            </p>
             <input className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm" placeholder="Título de grabación" value={groupRecordingForm.title} onChange={(event) => setGroupRecordingForm((prev) => ({ ...prev, title: event.target.value }))} required />
             <input className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm" placeholder="Duración (min)" value={groupRecordingForm.durationMinutes} onChange={(event) => setGroupRecordingForm((prev) => ({ ...prev, durationMinutes: event.target.value }))} />
             <input className="rounded-[16px] border border-[var(--app-border)] bg-white px-4 py-3 text-sm md:col-span-2" placeholder="URL de grabación" value={groupRecordingForm.recordingUrl} onChange={(event) => setGroupRecordingForm((prev) => ({ ...prev, recordingUrl: event.target.value }))} required />
@@ -1962,6 +2029,12 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
       {!isOpenLeader && (
       <section className="app-panel p-5 sm:p-6">
         <p className="app-section-kicker">Grabaciones de sesiones pasadas</p>
+        {(currentRole === 'admin' || currentRole === 'gestor') && (
+          <p className="mt-1 text-xs text-[var(--app-muted)]">
+            Los líderes y advisors solo ven las grabaciones publicadas con menos de {GROUP_SESSION_RECORDING_VISIBILITY_DAYS} días.
+            Aquí ves todas, con su estado.
+          </p>
+        )}
 
         {groupRecordings.length > 0 && (() => {
           const uniqueTopics = Array.from(new Set(groupRecordings.map((r) => r.eventTitle))).sort();
@@ -2051,7 +2124,20 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                           <p className="mt-0.5 text-sm text-[var(--app-muted)]">
                             {recording.eventTitle}
                             {recording.hostName ? ` · ${recording.hostName}` : ''}
+                            {recording.recordedAt ? ` · ${sharedFormatDate(recording.recordedAt, { timeZone: tz })}` : ''}
                           </p>
+                          {(currentRole === 'admin' || currentRole === 'gestor') && (
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                              <span className={clsx('rounded-full border px-2 py-0.5 text-[11px] font-semibold', RECORDING_STATUS_BADGE_CLASS[recording.status])}>
+                                {GROUP_SESSION_RECORDING_STATUS_LABELS[recording.status]}
+                              </span>
+                              {recording.isExpired && (
+                                <span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-600">
+                                  Vencida · más de {GROUP_SESSION_RECORDING_VISIBILITY_DAYS} días
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
 
                         {/* Editar / eliminar (solo admin/gestor) */}
@@ -2077,6 +2163,27 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
                                 value={recordingEditForm.durationMinutes}
                                 onChange={(e) => setRecordingEditForm((prev) => ({ ...prev, durationMinutes: e.target.value.replace(/[^\d]/g, '') }))}
                               />
+                              <label className="block text-[11px] font-semibold text-[var(--app-muted)]">
+                                Fecha y hora de la grabación
+                                <input
+                                  type="datetime-local"
+                                  className="mt-1 w-full rounded-[12px] border border-[var(--app-border)] bg-white px-3 py-2 text-sm text-[var(--app-ink)]"
+                                  value={recordingEditForm.recordedAt}
+                                  onChange={(e) => setRecordingEditForm((prev) => ({ ...prev, recordedAt: e.target.value }))}
+                                />
+                              </label>
+                              <label className="block text-[11px] font-semibold text-[var(--app-muted)]">
+                                Estado
+                                <select
+                                  className="mt-1 w-full rounded-[12px] border border-[var(--app-border)] bg-white px-3 py-2 text-sm text-[var(--app-ink)]"
+                                  value={recordingEditForm.status}
+                                  onChange={(e) => setRecordingEditForm((prev) => ({ ...prev, status: e.target.value as GroupSessionRecordingStatus }))}
+                                >
+                                  {GROUP_SESSION_RECORDING_STATUSES.map((status) => (
+                                    <option key={status} value={status}>{GROUP_SESSION_RECORDING_STATUS_LABELS[status]}</option>
+                                  ))}
+                                </select>
+                              </label>
                               <textarea
                                 className="min-h-[70px] w-full rounded-[12px] border border-[var(--app-border)] bg-white px-3 py-2 text-sm"
                                 placeholder="Descripción"

@@ -75,6 +75,8 @@ export default function GrabacionPage() {
             durationMinutes: individual.durationMinutes,
             recordedAt: individual.recordedAt,
             publishedAt: individual.publishedAt,
+            status: 'published',
+            isExpired: false,
             reactionTotals: { like: 0, celebrate: 0, insightful: 0, love: 0 },
             myReaction: null,
             comments: [],

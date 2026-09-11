@@ -1,3 +1,8 @@
+import {
+  GROUP_SESSION_RECORDING_VISIBILITY_DAYS,
+  isGroupSessionRecordingStatus,
+  type GroupSessionRecordingStatus,
+} from './recording-visibility';
 import type { PoolClient } from 'pg';
 import { getViewerAccessState, requireViewerAccessFlag } from '@/features/access/service';
 import type { AuthUser } from '@/server/auth/types';
@@ -23,6 +28,7 @@ export type AdditionalMentorshipOrderStatus =
   | 'cancelled';
 export type GroupSessionParticipationStatus = 'interested' | 'joined' | 'declined';
 export type GroupSessionReaction = 'like' | 'celebrate' | 'insightful' | 'love';
+export type { GroupSessionRecordingStatus } from './recording-visibility';
 
 export interface MentorshipRecord {
   sessionId: string;
@@ -206,6 +212,10 @@ export interface GroupSessionRecordingRecord {
   durationMinutes: number;
   recordedAt: string | null;
   publishedAt: string | null;
+  /** Estado editorial: solo 'published' se muestra a líderes y advisors. */
+  status: GroupSessionRecordingStatus;
+  /** True cuando pasaron más de GROUP_SESSION_RECORDING_VISIBILITY_DAYS desde su fecha. */
+  isExpired: boolean;
   reactionTotals: Record<GroupSessionReaction, number>;
   myReaction: GroupSessionReaction | null;
   comments: GroupSessionRecordingCommentRecord[];
@@ -267,7 +277,9 @@ export interface CreateGroupSessionRecordingInput {
   recordingUrl: string;
   thumbnailUrl?: string | null;
   durationMinutes?: number;
+  /** Fecha de la grabación; si falta se toma la fecha de inicio de la sesión. */
   recordedAt?: string | null;
+  status?: GroupSessionRecordingStatus;
 }
 
 export interface InviteGroupSessionByRolesInput {
@@ -443,6 +455,8 @@ interface GroupSessionRecordingRow {
   duration_minutes: number | null;
   recorded_at: string | null;
   published_at: string | null;
+  status: GroupSessionRecordingStatus;
+  is_expired: boolean | null;
   my_reaction: GroupSessionReaction | null;
   reaction_like: number | null;
   reaction_celebrate: number | null;
@@ -1747,6 +1761,8 @@ async function listGroupSessionRecordings(
         gsr.duration_minutes,
         gsr.recorded_at::text,
         gsr.published_at::text,
+        gsr.status,
+        (COALESCE(gsr.recorded_at, ms.starts_at, gsr.created_at) < now() - make_interval(days => $4::int)) AS is_expired,
         my_reaction.reaction AS my_reaction,
         COALESCE(reactions.reaction_like, 0) AS reaction_like,
         COALESCE(reactions.reaction_celebrate, 0) AS reaction_celebrate,
@@ -1775,13 +1791,18 @@ async function listGroupSessionRecordings(
       WHERE (
         $1 = 'admin'
         OR $1 = 'gestor'
-        OR $1 = 'lider'
-        OR $1 = 'mentor'
+        OR (
+          -- Líderes y advisors: solo publicadas y con menos de N días desde su
+          -- fecha (directiva de vigencia), medidos con la hora del sistema.
+          ($1 = 'lider' OR $1 = 'mentor')
+          AND gsr.status = 'published'
+          AND COALESCE(gsr.recorded_at, ms.starts_at, gsr.created_at) >= now() - make_interval(days => $4::int)
+        )
       )
-      ORDER BY COALESCE(gsr.recorded_at, gsr.created_at) DESC
+      ORDER BY COALESCE(gsr.recorded_at, ms.starts_at, gsr.created_at) DESC
       LIMIT $3
     `,
-    [actor.role, actor.userId, Math.min(Math.max(limit, 1), 300)],
+    [actor.role, actor.userId, Math.min(Math.max(limit, 1), 300), GROUP_SESSION_RECORDING_VISIBILITY_DAYS],
   );
 
   const recordingIds = rows.map((row) => row.recording_id);
@@ -1830,6 +1851,8 @@ async function listGroupSessionRecordings(
     durationMinutes: Number(row.duration_minutes ?? 0),
     recordedAt: row.recorded_at,
     publishedAt: row.published_at,
+    status: row.status,
+    isExpired: row.is_expired === true,
     reactionTotals: {
       ...emptyReactionTotals(),
       like: Number(row.reaction_like ?? 0),
@@ -2206,6 +2229,22 @@ export async function participateInGroupSession(
   return updated;
 }
 
+function normalizeRecordingStatus(value: unknown, fallback: GroupSessionRecordingStatus): GroupSessionRecordingStatus {
+  if (value === undefined || value === null) return fallback;
+  if (!isGroupSessionRecordingStatus(value)) {
+    throw new Error('Estado de grabación no válido (usa published, draft o hidden).');
+  }
+  return value;
+}
+
+/** ISO válido o null; lanza si la cadena no es una fecha. */
+function normalizeRecordedAt(value: string | null | undefined): string | null {
+  if (value === undefined || value === null || value === '') return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) throw new Error('La fecha de la grabación no es válida.');
+  return date.toISOString();
+}
+
 export async function createGroupSessionRecording(
   client: PoolClient,
   actor: AuthUser,
@@ -2216,6 +2255,11 @@ export async function createGroupSessionRecording(
   }
   await requireModulePermission(client, 'mentorias', 'update');
 
+  const status = normalizeRecordingStatus(input.status, 'published');
+  const recordedAt = normalizeRecordedAt(input.recordedAt);
+
+  // Sin fecha explícita, la grabación hereda la fecha de inicio de la sesión:
+  // es la que rige la vigencia de 90 días.
   await client.query(
     `
       INSERT INTO app_mentoring.group_session_recordings (
@@ -2228,9 +2272,22 @@ export async function createGroupSessionRecording(
         duration_minutes,
         recorded_at,
         published_at,
-        created_by
+        created_by,
+        status
       )
-      VALUES ($1, 'manual', $2, $3, $4, $5, $6, $7::timestamptz, now(), $8)
+      VALUES (
+        $1, 'manual', $2, $3, $4, $5, $6,
+        COALESCE(
+          $7::timestamptz,
+          (
+            SELECT ms.starts_at
+            FROM app_mentoring.group_session_events gse
+            JOIN app_mentoring.mentorship_sessions ms ON ms.session_id = gse.session_id
+            WHERE gse.event_id = $1
+          )
+        ),
+        now(), $8, $9
+      )
     `,
     [
       input.eventId,
@@ -2239,8 +2296,9 @@ export async function createGroupSessionRecording(
       input.recordingUrl.trim(),
       input.thumbnailUrl?.trim() || null,
       Math.max(0, Math.floor(input.durationMinutes ?? 0)),
-      input.recordedAt ?? null,
+      recordedAt,
       actor.userId,
+      status,
     ],
   );
 
@@ -2262,6 +2320,7 @@ export interface CreateExternalSessionRecordingInput {
   externalExpertName?: string | null;
   durationMinutes?: number;
   thumbnailUrl?: string | null;
+  status?: GroupSessionRecordingStatus;
 }
 
 /**
@@ -2285,6 +2344,7 @@ export async function createExternalSessionRecording(
 
   const title = input.title.trim();
   if (title.length < 3) throw new Error('El título de la sesión es obligatorio.');
+  const status = normalizeRecordingStatus(input.status, 'published');
   const recordingUrl = input.recordingUrl.trim();
   if (!/^https?:\/\//i.test(recordingUrl)) {
     throw new Error('La URL de la grabación debe empezar por http:// o https://');
@@ -2327,9 +2387,9 @@ export async function createExternalSessionRecording(
     `
       INSERT INTO app_mentoring.group_session_recordings (
         event_id, source_type, title, description, recording_url,
-        thumbnail_url, duration_minutes, recorded_at, published_at, created_by
+        thumbnail_url, duration_minutes, recorded_at, published_at, created_by, status
       )
-      VALUES ($1, 'manual', $2, $3, $4, $5, $6, $7::timestamptz, now(), $8)
+      VALUES ($1, 'manual', $2, $3, $4, $5, $6, $7::timestamptz, now(), $8, $9)
     `,
     [
       eventId,
@@ -2340,6 +2400,7 @@ export async function createExternalSessionRecording(
       durationMinutes,
       recordedAt.toISOString(),
       actor.userId,
+      status,
     ],
   );
 
@@ -2373,6 +2434,7 @@ export interface UpdateGroupSessionRecordingInput {
   thumbnailUrl?: string | null;
   durationMinutes?: number;
   recordedAt?: string | null;
+  status?: GroupSessionRecordingStatus;
 }
 
 /** Edita una grabación existente. Solo admin/gestor. Actualiza solo los campos provistos. */
@@ -2416,7 +2478,11 @@ export async function updateGroupSessionRecording(
   }
   if (input.recordedAt !== undefined) {
     sets.push(`recorded_at = $${i++}`);
-    values.push(input.recordedAt ?? null);
+    values.push(normalizeRecordedAt(input.recordedAt));
+  }
+  if (input.status !== undefined) {
+    sets.push(`status = $${i++}`);
+    values.push(normalizeRecordingStatus(input.status, 'published'));
   }
 
   if (sets.length === 0) throw new Error('No hay cambios para guardar.');

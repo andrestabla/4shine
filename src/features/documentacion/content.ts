@@ -960,7 +960,7 @@ const MODULE_SECTIONS: DocSection[] = [
         items: [
           'Sesiones 1:1: el líder elige un advisor y una franja real disponible; la reserva descuenta de las mentorías incluidas del programa o se agenda como adicional.',
           'Sesiones grupales: webinars en vivo, con calendario destacado y vistas de próximas/pasadas (la tarjeta de "próxima sesión recomendada" solo muestra sesiones que aún no terminaron).',
-          'Grabaciones de sesiones grupales: se publican manualmente (URL) o llegan automáticamente de Zoom; admin y gestor pueden editarlas o eliminarlas. Los líderes las ven, reaccionan y comentan.',
+          'Grabaciones de sesiones grupales: se publican manualmente (URL, con fecha de la grabación) o llegan automáticamente de Zoom; admin y gestor pueden editarlas, eliminarlas y asignarles estado (Publicada, Borrador o No mostrar). Los líderes y advisors solo ven las publicadas con menos de 90 días desde su fecha (hora del sistema); las vencidas siguen visibles para admin y gestor con la marca "Vencida". Los líderes reaccionan y comentan.',
           'Zoom: al crear una sesión se genera la reunión (host = advisor) con grabación en la nube y transcripción automática; opcionalmente se admite un enlace manual.',
           'Recordatorios: el cron envía avisos en ventanas configurables por evento (1:1 y grupal), de forma idempotente.',
         ],
