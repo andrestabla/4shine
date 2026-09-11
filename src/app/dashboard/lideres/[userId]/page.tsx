@@ -26,12 +26,19 @@ import {
     scheduleLeaderMentorship,
     listAdvisorsForSelect,
     listAdvisorSlots,
+    listWorkbookAnnexes,
+    createWorkbookAnnex,
+    deleteWorkbookAnnex,
     type Leader360Snapshot,
     type AdvisorOption,
     type AdvisorSlot,
+    type WorkbookAnnexRecord,
 } from '@/features/lideres/client';
 import { formatDate as sharedFormatDate, formatDateTime as sharedFormatDateTime } from '@/lib/format-date';
 import { SessionRecordingsPanel } from '@/components/mentorias/SessionRecordingsPanel';
+import { SessionNotesPanel } from '@/components/mentorias/SessionNotesPanel';
+import { R2UploadButton } from '@/components/ui/R2UploadButton';
+import { WorkbookAnnexList } from '@/components/lideres/WorkbookAnnexList';
 
 function formatDate(value: string | null) {
     if (!value) return '—';
@@ -95,9 +102,10 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
 export default function Leader360Page() {
     const params = useParams<{ userId: string }>();
     const userId = params?.userId ?? '';
-    const { currentRole, can } = useUser();
-    const { alert } = useAppDialog();
+    const { currentRole, currentUser, can } = useUser();
+    const { alert, confirm } = useAppDialog();
     const isElevated = currentRole === 'admin' || currentRole === 'gestor' || currentRole === 'mentor';
+    const isStaff = currentRole === 'admin' || currentRole === 'gestor';
     // Solo admin y gestor gestionan la agenda de OTROS advisors.
     const canManageAgenda = currentRole === 'admin' || currentRole === 'gestor';
     const canSchedule = can('mentorias', 'create');
@@ -111,6 +119,67 @@ export default function Leader360Page() {
         const data = await getLeader360(userId);
         setSnapshot(data);
     }, [userId]);
+
+    // Anexos PDF por workbook: se cargan aparte del snapshot para poder
+    // refrescarlos tras adjuntar o eliminar sin recargar todo el 360.
+    const [annexes, setAnnexes] = React.useState<WorkbookAnnexRecord[]>([]);
+    const loadAnnexes = React.useCallback(async () => {
+        if (!userId) return;
+        try {
+            setAnnexes(await listWorkbookAnnexes(userId));
+        } catch (err) {
+            console.error('No se pudieron cargar los anexos de workbooks', err);
+        }
+    }, [userId]);
+
+    React.useEffect(() => {
+        void loadAnnexes();
+    }, [loadAnnexes]);
+
+    const handleAnnexUploaded = React.useCallback(
+        async (workbookId: string, url: string, payload: { fileName: string; size: number; contentType: string }) => {
+            try {
+                await createWorkbookAnnex(userId, {
+                    workbookId,
+                    fileUrl: url,
+                    fileName: payload.fileName,
+                    fileSize: payload.size,
+                    contentType: payload.contentType,
+                });
+                await loadAnnexes();
+            } catch (err) {
+                await alert({
+                    title: 'No se pudo guardar el anexo',
+                    message: err instanceof Error ? err.message : 'Inténtalo de nuevo.',
+                    tone: 'error',
+                });
+            }
+        },
+        [alert, loadAnnexes, userId],
+    );
+
+    const handleAnnexDelete = React.useCallback(
+        async (annex: WorkbookAnnexRecord) => {
+            const ok = await confirm({
+                title: 'Eliminar anexo',
+                message: `Se eliminará "${annex.title}" del ${annex.workbookCode}. El líder dejará de verlo.`,
+                confirmText: 'Eliminar',
+                tone: 'warning',
+            });
+            if (!ok) return;
+            try {
+                await deleteWorkbookAnnex(userId, annex.annexId);
+                await loadAnnexes();
+            } catch (err) {
+                await alert({
+                    title: 'No se pudo eliminar el anexo',
+                    message: err instanceof Error ? err.message : 'Inténtalo de nuevo.',
+                    tone: 'error',
+                });
+            }
+        },
+        [alert, confirm, loadAnnexes, userId],
+    );
 
     React.useEffect(() => {
         if (!userId) return;
@@ -287,7 +356,11 @@ export default function Leader360Page() {
             <SectionCard
                 title="Workbooks 4Shine"
                 icon={BookOpen}
-                description="Progreso y acceso directo a cada workbook del líder."
+                description={
+                    isElevated
+                        ? 'Progreso y acceso directo a cada workbook del líder. Puedes anexar documentos PDF a cada uno; el líder los verá en Aprendizaje.'
+                        : 'Progreso y acceso directo a cada workbook del líder.'
+                }
             >
                 {workbooks.length === 0 ? (
                     <p className="text-sm text-[var(--app-muted)]">El líder aún no tiene workbooks asignados.</p>
@@ -302,6 +375,7 @@ export default function Leader360Page() {
                                     <th>Progreso</th>
                                     <th>Estado</th>
                                     <th>Última actualización</th>
+                                    <th>Anexos (PDF)</th>
                                     <th aria-label="Acceso" />
                                 </tr>
                             </thead>
@@ -327,6 +401,29 @@ export default function Leader360Page() {
                                             )}
                                         </td>
                                         <td className="text-[var(--app-muted)]">{formatDate(wb.updatedAt)}</td>
+                                        {/* Anexos: sus clics no deben abrir el workbook de la fila. */}
+                                        <td onClick={(event) => event.stopPropagation()} className="min-w-[200px]">
+                                            <div className="flex flex-col gap-1.5">
+                                                <WorkbookAnnexList
+                                                    annexes={annexes.filter((a) => a.workbookId === wb.workbookId)}
+                                                    onDelete={isElevated ? handleAnnexDelete : undefined}
+                                                    emptyText={isElevated ? undefined : 'Sin anexos'}
+                                                />
+                                                {isElevated && (
+                                                    <R2UploadButton
+                                                        moduleCode="lideres"
+                                                        action="update"
+                                                        pathPrefix={`lideres/anexos/${userId}/${wb.workbookId}`}
+                                                        entityTable="app_learning.workbook_annexes"
+                                                        fieldName="workbook_annex"
+                                                        accept=".pdf,application/pdf"
+                                                        buttonLabel="Adjuntar PDF"
+                                                        className="inline-flex w-fit items-center gap-1.5 rounded-full border border-[var(--app-border)] bg-white px-2.5 py-1 text-[11px] font-semibold text-[var(--app-muted)] hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)] disabled:opacity-60"
+                                                        onUploaded={(url, payload) => handleAnnexUploaded(wb.workbookId, url, payload)}
+                                                    />
+                                                )}
+                                            </div>
+                                        </td>
                                         {/* El clic del enlace no debe sumarse al de la fila: abría dos pestañas. */}
                                         <td onClick={(event) => event.stopPropagation()}>
                                             <Link
@@ -527,6 +624,23 @@ export default function Leader360Page() {
                             <SessionRecordingsPanel
                                 leaderUserId={userId}
                                 canManage={currentRole === 'admin' || currentRole === 'gestor'}
+                                sessions={[...mentorship.pastSessions, ...mentorship.upcomingSessions].map(
+                                    (s) => ({
+                                        sessionId: s.sessionId,
+                                        title: s.title,
+                                        mentorName: s.mentorName,
+                                        startsAt: s.startsAt,
+                                    }),
+                                )}
+                            />
+                        </div>
+
+                        <div className="border-t border-[var(--app-border)] pt-3">
+                            <SessionNotesPanel
+                                leaderUserId={userId}
+                                canManage={isElevated}
+                                isStaff={isStaff}
+                                currentUserId={currentUser?.id}
                                 sessions={[...mentorship.pastSessions, ...mentorship.upcomingSessions].map(
                                     (s) => ({
                                         sessionId: s.sessionId,

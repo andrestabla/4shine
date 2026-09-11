@@ -66,6 +66,22 @@ export async function POST(request: Request) {
   const isProfileCvUpload =
     moduleCodeInput === 'perfil' &&
     (fieldName === 'cv_url' || (pathPrefix?.startsWith('profiles/') && pathPrefix.includes('/cv')));
+  // Anexos PDF de workbooks (360 del líder) y documentos de notas de mentoría:
+  // mismas reglas que en presign (solo advisor/gestor/admin, tipos acotados).
+  const isWorkbookAnnexUpload =
+    moduleCodeInput === 'lideres' &&
+    (fieldName === 'workbook_annex' || (pathPrefix?.startsWith('lideres/anexos/') ?? false));
+  const isSessionNoteUpload =
+    moduleCodeInput === 'mentorias' &&
+    (fieldName === 'session_note_document' || (pathPrefix?.startsWith('mentorias/notas/') ?? false));
+  const LEADER_DOCUMENT_UPLOAD_ROLES = new Set(['admin', 'gestor', 'mentor']);
+  const LEADER_DOCUMENT_MIME_TYPES = isWorkbookAnnexUpload
+    ? ['application/pdf']
+    : [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      ];
 
   if (!VALID_MODULE_CODES.has(moduleCodeInput)) {
     return NextResponse.json(
@@ -95,7 +111,24 @@ export async function POST(request: Request) {
       withRoleContext(client, identity.userId, identity.role, async () => {
         await requireModulePermission(client, moduleCode, action);
 
+        if (isWorkbookAnnexUpload || isSessionNoteUpload) {
+          if (!LEADER_DOCUMENT_UPLOAD_ROLES.has(identity.role)) {
+            throw new Error('Solo un advisor, un gestor o un administrador pueden cargar documentos para un líder.');
+          }
+          if (!LEADER_DOCUMENT_MIME_TYPES.includes((fileEntry.type || '').toLowerCase())) {
+            throw new Error(
+              isWorkbookAnnexUpload
+                ? 'El anexo del workbook debe ser un archivo PDF.'
+                : 'El documento de la nota debe ser .pdf o .docx.',
+            );
+          }
+        }
+
         const config = await getR2StorageConfig(client, identity.userId);
+        if (isWorkbookAnnexUpload || isSessionNoteUpload) {
+          config.maxFileSizeBytes = Math.max(config.maxFileSizeBytes, 25 * 1024 * 1024);
+          config.allowedMimeTypes = Array.from(new Set([...config.allowedMimeTypes, ...LEADER_DOCUMENT_MIME_TYPES]));
+        }
         if (isDiscoveryContextUpload) {
           const expandedBytes = Math.max(
             config.maxFileSizeBytes,

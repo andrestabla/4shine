@@ -378,3 +378,30 @@ export async function deleteSessionRecording(
 }
 
 export type { GroupSessionRecordingStatus } from './recording-visibility';
+
+export type { SessionNoteRecord, CreateSessionNoteInput, UpdateSessionNoteInput } from './service';
+import type { SessionNoteRecord, CreateSessionNoteInput, UpdateSessionNoteInput } from './service';
+
+export async function listSessionNotesForLeader(leaderUserId: string): Promise<SessionNoteRecord[]> {
+  return requestApi<SessionNoteRecord[]>(
+    `/api/v1/modules/mentorias/session-notes?leaderUserId=${encodeURIComponent(leaderUserId)}`,
+  );
+}
+
+export async function createSessionNote(input: CreateSessionNoteInput): Promise<SessionNoteRecord> {
+  return requestApi<SessionNoteRecord>('/api/v1/modules/mentorias/session-notes', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function updateSessionNote(noteId: string, input: UpdateSessionNoteInput): Promise<SessionNoteRecord> {
+  return requestApi<SessionNoteRecord>(`/api/v1/modules/mentorias/session-notes/${encodeURIComponent(noteId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function deleteSessionNote(noteId: string): Promise<void> {
+  await requestApi(`/api/v1/modules/mentorias/session-notes/${encodeURIComponent(noteId)}`, { method: 'DELETE' });
+}

@@ -704,3 +704,193 @@ export async function getLeader360Snapshot(
         workshops,
     };
 }
+
+// ── Documentos anexos (PDF) por workbook ────────────────────────────────────
+//
+// Los carga advisor, gestor o admin desde el 360 del líder. El líder los ve en
+// Aprendizaje junto a su workbook, así que la lectura se autoriza también para
+// el propio dueño, que no tiene permiso sobre el módulo Líderes.
+
+export interface WorkbookAnnexRecord {
+    annexId: string;
+    workbookId: string;
+    workbookCode: string;
+    workbookTitle: string;
+    title: string;
+    fileUrl: string;
+    fileName: string;
+    fileSize: number;
+    contentType: string;
+    createdBy: string;
+    createdByName: string | null;
+    createdAt: string;
+}
+
+interface WorkbookAnnexRow {
+    annex_id: string;
+    workbook_id: string;
+    workbook_code: string;
+    workbook_title: string;
+    title: string;
+    file_url: string;
+    file_name: string;
+    file_size: string | number;
+    content_type: string;
+    created_by: string;
+    created_by_name: string | null;
+    created_at: string;
+}
+
+const WORKBOOK_ANNEX_SELECT = `
+    SELECT
+        a.annex_id::text,
+        a.workbook_id::text,
+        wt.workbook_code,
+        uw.title AS workbook_title,
+        a.title,
+        a.file_url,
+        a.file_name,
+        a.file_size,
+        a.content_type,
+        a.created_by::text,
+        creator.display_name AS created_by_name,
+        a.created_at::text
+    FROM app_learning.workbook_annexes a
+    JOIN app_learning.user_workbooks uw ON uw.workbook_id = a.workbook_id
+    JOIN app_learning.workbook_templates wt ON wt.template_id = uw.template_id
+    LEFT JOIN app_core.users creator ON creator.user_id = a.created_by
+`;
+
+function mapWorkbookAnnex(row: WorkbookAnnexRow): WorkbookAnnexRecord {
+    return {
+        annexId: row.annex_id,
+        workbookId: row.workbook_id,
+        workbookCode: row.workbook_code,
+        workbookTitle: row.workbook_title,
+        title: row.title,
+        fileUrl: row.file_url,
+        fileName: row.file_name,
+        fileSize: Number(row.file_size ?? 0),
+        contentType: row.content_type,
+        createdBy: row.created_by,
+        createdByName: row.created_by_name,
+        createdAt: row.created_at,
+    };
+}
+
+async function ensureAnnexReadAccess(client: PoolClient, actor: AuthUser, leaderUserId: string) {
+    if (actor.userId === leaderUserId) {
+        await requireModulePermission(client, 'aprendizaje', 'view');
+        return;
+    }
+    await requireModulePermission(client, 'lideres', 'view');
+    await ensureLeaderAccess(actor, leaderUserId);
+}
+
+async function ensureAnnexWriteAccess(client: PoolClient, actor: AuthUser) {
+    if (!ELEVATED_ROLES.has(actor.role)) {
+        throw new ForbiddenError('Solo un advisor, gestor o administrador puede anexar documentos a un workbook.');
+    }
+    await requireModulePermission(client, 'lideres', 'update');
+}
+
+/** Anexos de todos los workbooks de un líder (el propio líder o el equipo). */
+export async function listWorkbookAnnexesForLeader(
+    client: PoolClient,
+    actor: AuthUser,
+    leaderUserId: string,
+): Promise<WorkbookAnnexRecord[]> {
+    await ensureAnnexReadAccess(client, actor, leaderUserId);
+
+    const { rows } = await client.query<WorkbookAnnexRow>(
+        `${WORKBOOK_ANNEX_SELECT}
+         WHERE uw.owner_user_id = $1::uuid
+         ORDER BY wt.sequence_no, a.created_at DESC`,
+        [leaderUserId],
+    );
+    return rows.map(mapWorkbookAnnex);
+}
+
+export interface CreateWorkbookAnnexInput {
+    workbookId: string;
+    title?: string | null;
+    fileUrl: string;
+    fileName: string;
+    fileSize?: number;
+    contentType?: string | null;
+}
+
+export async function createWorkbookAnnex(
+    client: PoolClient,
+    actor: AuthUser,
+    leaderUserId: string,
+    input: CreateWorkbookAnnexInput,
+): Promise<WorkbookAnnexRecord> {
+    await ensureAnnexWriteAccess(client, actor);
+
+    const fileUrl = input.fileUrl?.trim();
+    if (!fileUrl || !/^https?:\/\//i.test(fileUrl)) {
+        throw new Error('Carga el documento PDF antes de guardar el anexo.');
+    }
+    const fileName = input.fileName?.trim() || 'documento.pdf';
+    const contentType = (input.contentType ?? '').trim().toLowerCase() || 'application/pdf';
+    if (contentType !== 'application/pdf' && !fileName.toLowerCase().endsWith('.pdf')) {
+        throw new Error('El anexo del workbook debe ser un archivo PDF.');
+    }
+    const title = input.title?.trim() || fileName.replace(/\.pdf$/i, '');
+
+    // El workbook debe pertenecer al líder indicado: evita anexar sobre un
+    // workbook ajeno cambiando el id en la petición.
+    const { rows: owned } = await client.query<{ n: string }>(
+        `SELECT COUNT(*)::text AS n
+         FROM app_learning.user_workbooks
+         WHERE workbook_id = $1::uuid AND owner_user_id = $2::uuid`,
+        [input.workbookId, leaderUserId],
+    );
+    if (Number(owned[0]?.n ?? 0) === 0) throw new Error('El workbook no pertenece a este líder.');
+
+    const { rows } = await client.query<{ annex_id: string }>(
+        `INSERT INTO app_learning.workbook_annexes
+            (workbook_id, title, file_url, file_name, file_size, content_type, created_by)
+         VALUES ($1::uuid, $2, $3, $4, $5, $6, $7::uuid)
+         RETURNING annex_id::text`,
+        [
+            input.workbookId,
+            title,
+            fileUrl,
+            fileName,
+            Math.max(0, Math.floor(input.fileSize ?? 0)),
+            contentType,
+            actor.userId,
+        ],
+    );
+
+    const { rows: created } = await client.query<WorkbookAnnexRow>(
+        `${WORKBOOK_ANNEX_SELECT} WHERE a.annex_id = $1::uuid`,
+        [rows[0].annex_id],
+    );
+    return mapWorkbookAnnex(created[0]);
+}
+
+/** Borra un anexo. Admin y gestor cualquiera; el advisor solo los que él cargó. */
+export async function deleteWorkbookAnnex(
+    client: PoolClient,
+    actor: AuthUser,
+    leaderUserId: string,
+    annexId: string,
+): Promise<{ annexId: string }> {
+    await ensureAnnexWriteAccess(client, actor);
+    const isStaff = actor.role === 'admin' || actor.role === 'gestor';
+
+    const { rowCount } = await client.query(
+        `DELETE FROM app_learning.workbook_annexes a
+         USING app_learning.user_workbooks uw
+         WHERE a.annex_id = $1::uuid
+           AND uw.workbook_id = a.workbook_id
+           AND uw.owner_user_id = $2::uuid
+           AND ($3::boolean = true OR a.created_by = $4::uuid)`,
+        [annexId, leaderUserId, isStaff, actor.userId],
+    );
+    if (!rowCount) throw new Error('Anexo no encontrado o sin permiso para eliminarlo.');
+    return { annexId };
+}

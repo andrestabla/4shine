@@ -63,6 +63,19 @@ const NETWORKING_POST_EXTRA_MIME_TYPES = [
   'application/vnd.openxmlformats-officedocument.presentationml.presentation',
 ];
 
+// Anexos PDF a los workbooks de un líder (desde su 360) y documentos de notas
+// de mentoría. Solo advisor, gestor y admin; tipos acotados a lo que cada
+// función admite.
+const LEADER_DOCUMENT_UPLOAD_ROLES = new Set(['admin', 'gestor', 'mentor']);
+const WORKBOOK_ANNEX_MIN_MAX_SIZE_MB = 25;
+const WORKBOOK_ANNEX_MIME_TYPES = ['application/pdf'];
+const SESSION_NOTE_MIN_MAX_SIZE_MB = 25;
+const SESSION_NOTE_MIME_TYPES = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+];
+
 const WORKBOOK_AUDIO_MIN_MAX_SIZE_MB = 25;
 const WORKBOOK_AUDIO_EXTRA_MIME_TYPES = [
   'audio/webm',
@@ -131,6 +144,12 @@ export async function POST(request: Request) {
   const isWorkbookCoverUpload =
     moduleCodeInput === 'aprendizaje' &&
     (fieldName === 'workbook_cover' || (pathPrefix?.startsWith('aprendizaje/templates/') ?? false));
+  const isWorkbookAnnexUpload =
+    moduleCodeInput === 'lideres' &&
+    (fieldName === 'workbook_annex' || (pathPrefix?.startsWith('lideres/anexos/') ?? false));
+  const isSessionNoteUpload =
+    moduleCodeInput === 'mentorias' &&
+    (fieldName === 'session_note_document' || (pathPrefix?.startsWith('mentorias/notas/') ?? false));
 
   if (!VALID_MODULE_CODES.has(moduleCodeInput)) {
     return NextResponse.json(
@@ -190,7 +209,30 @@ export async function POST(request: Request) {
           }
         }
 
+        if (isWorkbookAnnexUpload || isSessionNoteUpload) {
+          if (!LEADER_DOCUMENT_UPLOAD_ROLES.has(identity.role)) {
+            throw new ForbiddenError(
+              'Solo un advisor, un gestor o un administrador pueden cargar documentos para un líder.',
+            );
+          }
+          const declaredType = fileType.toLowerCase();
+          const allowed = isWorkbookAnnexUpload ? WORKBOOK_ANNEX_MIME_TYPES : SESSION_NOTE_MIME_TYPES;
+          if (!allowed.includes(declaredType)) {
+            throw new ForbiddenError(
+              isWorkbookAnnexUpload
+                ? 'El anexo del workbook debe ser un archivo PDF.'
+                : 'El documento de la nota debe ser .pdf o .docx.',
+            );
+          }
+        }
+
         const config = await getR2StorageConfig(client, identity.userId);
+        if (isWorkbookAnnexUpload || isSessionNoteUpload) {
+          const minMb = isWorkbookAnnexUpload ? WORKBOOK_ANNEX_MIN_MAX_SIZE_MB : SESSION_NOTE_MIN_MAX_SIZE_MB;
+          const extra = isWorkbookAnnexUpload ? WORKBOOK_ANNEX_MIME_TYPES : SESSION_NOTE_MIME_TYPES;
+          config.maxFileSizeBytes = Math.max(config.maxFileSizeBytes, minMb * 1024 * 1024);
+          config.allowedMimeTypes = Array.from(new Set([...config.allowedMimeTypes, ...extra]));
+        }
         if (isDiscoveryContextUpload) {
           const expandedBytes = Math.max(
             config.maxFileSizeBytes,

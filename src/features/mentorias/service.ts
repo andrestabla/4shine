@@ -4486,3 +4486,308 @@ export async function deleteSessionRecording(
   if (!rowCount) throw new Error('Grabación no encontrada.');
   return { recordingId };
 }
+
+// ── Notas de mentoría ───────────────────────────────────────────────────────
+//
+// Sobre una sesión (1:1 o grupal) de un líder: fecha + comentario escrito y/o
+// documento (.pdf o .docx). La escribe el advisor que acompaña la sesión, un
+// gestor o un admin. La lectura sigue la misma regla que las grabaciones 1:1:
+// el líder ve las suyas, el advisor las de las sesiones que él dicta, el
+// equipo todas.
+
+export interface SessionNoteRecord {
+  noteId: string;
+  sessionId: string;
+  sessionTitle: string;
+  sessionStartsAt: string;
+  mentorName: string | null;
+  noteDate: string;
+  comment: string | null;
+  documentUrl: string | null;
+  documentName: string | null;
+  documentSize: number;
+  documentContentType: string | null;
+  createdBy: string;
+  createdByName: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface SessionNoteRow {
+  note_id: string;
+  session_id: string;
+  session_title: string;
+  session_starts_at: string;
+  mentor_name: string | null;
+  note_date: string;
+  comment: string | null;
+  document_url: string | null;
+  document_name: string | null;
+  document_size: string | number;
+  document_content_type: string | null;
+  created_by: string;
+  created_by_name: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+const SESSION_NOTE_SELECT = `
+  SELECT
+    n.note_id::text,
+    n.session_id::text,
+    ms.title AS session_title,
+    ms.starts_at::text AS session_starts_at,
+    mentor.display_name AS mentor_name,
+    n.note_date::text,
+    n.comment,
+    n.document_url,
+    n.document_name,
+    n.document_size,
+    n.document_content_type,
+    n.created_by::text,
+    creator.display_name AS created_by_name,
+    n.created_at::text,
+    n.updated_at::text
+  FROM app_mentoring.session_notes n
+  JOIN app_mentoring.mentorship_sessions ms ON ms.session_id = n.session_id
+  LEFT JOIN app_core.users mentor ON mentor.user_id = ms.mentor_user_id
+  LEFT JOIN app_core.users creator ON creator.user_id = n.created_by
+`;
+
+function mapSessionNote(row: SessionNoteRow): SessionNoteRecord {
+  return {
+    noteId: row.note_id,
+    sessionId: row.session_id,
+    sessionTitle: row.session_title,
+    sessionStartsAt: row.session_starts_at,
+    mentorName: row.mentor_name,
+    noteDate: row.note_date,
+    comment: row.comment,
+    documentUrl: row.document_url,
+    documentName: row.document_name,
+    documentSize: Number(row.document_size ?? 0),
+    documentContentType: row.document_content_type,
+    createdBy: row.created_by,
+    createdByName: row.created_by_name,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+const SESSION_NOTE_DOCUMENT_TYPES = new Set([
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/msword',
+]);
+
+function normalizeNoteDate(value: string | null | undefined): string {
+  const raw = (value ?? '').trim();
+  if (!raw) throw new Error('La fecha de la nota es obligatoria.');
+  const date = new Date(raw.length === 10 ? `${raw}T12:00:00` : raw);
+  if (Number.isNaN(date.getTime())) throw new Error('La fecha de la nota no es válida.');
+  return raw.length === 10 ? raw : date.toISOString().slice(0, 10);
+}
+
+function normalizeNoteDocument(input: {
+  documentUrl?: string | null;
+  documentName?: string | null;
+  documentContentType?: string | null;
+}): { url: string | null; name: string | null; contentType: string | null } {
+  const url = input.documentUrl?.trim() || null;
+  if (!url) return { url: null, name: null, contentType: null };
+  if (!/^https?:\/\//i.test(url)) throw new Error('La URL del documento no es válida.');
+  const name = input.documentName?.trim() || 'documento';
+  const contentType = (input.documentContentType ?? '').trim().toLowerCase() || null;
+  const lowerName = name.toLowerCase();
+  const okByType = contentType ? SESSION_NOTE_DOCUMENT_TYPES.has(contentType) : false;
+  const okByName = lowerName.endsWith('.pdf') || lowerName.endsWith('.docx') || lowerName.endsWith('.doc');
+  if (!okByType && !okByName) {
+    throw new Error('El documento de la nota debe ser .pdf o .docx.');
+  }
+  return { url, name, contentType };
+}
+
+/**
+ * Notas de las sesiones de un líder. El líder solo puede pedir las suyas; el
+ * advisor, las de las sesiones que él acompaña; gestor y admin, todas.
+ */
+export async function listSessionNotesForLeader(
+  client: PoolClient,
+  actor: AuthUser,
+  leaderUserId: string,
+): Promise<SessionNoteRecord[]> {
+  await requireModulePermission(client, 'mentorias', 'view');
+
+  const isStaff = actor.role === 'admin' || actor.role === 'gestor';
+  if (!isStaff && actor.role !== 'mentor' && actor.userId !== leaderUserId) {
+    throw new ForbiddenError('No puedes ver las notas de otro líder.');
+  }
+
+  const { rows } = await client.query<SessionNoteRow>(
+    `${SESSION_NOTE_SELECT}
+     WHERE EXISTS (
+       SELECT 1 FROM app_mentoring.session_participants sp
+       WHERE sp.session_id = n.session_id
+         AND sp.user_id = $1::uuid
+         AND sp.participant_role = 'mentee'
+     )
+     AND ($2::boolean = true OR ms.mentor_user_id = $3::uuid OR $3::uuid = $1::uuid)
+     ORDER BY n.note_date DESC, n.created_at DESC`,
+    [leaderUserId, isStaff, actor.userId],
+  );
+  return rows.map(mapSessionNote);
+}
+
+async function getSessionNoteForActor(
+  client: PoolClient,
+  actor: AuthUser,
+  noteId: string,
+): Promise<SessionNoteRecord> {
+  const isStaff = actor.role === 'admin' || actor.role === 'gestor';
+  const { rows } = await client.query<SessionNoteRow>(
+    `${SESSION_NOTE_SELECT}
+     WHERE n.note_id = $1::uuid
+       AND (
+         $2::boolean = true
+         OR ms.mentor_user_id = $3::uuid
+         OR EXISTS (
+           SELECT 1 FROM app_mentoring.session_participants sp
+           WHERE sp.session_id = n.session_id AND sp.user_id = $3::uuid
+         )
+       )`,
+    [noteId, isStaff, actor.userId],
+  );
+  const found = rows[0];
+  if (!found) throw new Error('Nota no encontrada.');
+  return mapSessionNote(found);
+}
+
+/** Advisor: solo sobre sesiones que él dicta. Gestor y admin: cualquiera. */
+async function ensureSessionNoteWriteAccess(client: PoolClient, actor: AuthUser, sessionId: string) {
+  if (actor.role !== 'admin' && actor.role !== 'gestor' && actor.role !== 'mentor') {
+    throw new ForbiddenError('Solo un advisor, gestor o administrador puede agregar notas de mentoría.');
+  }
+  await requireModulePermission(client, 'mentorias', 'update');
+
+  const { rows } = await client.query<{ mentor_user_id: string | null }>(
+    `SELECT mentor_user_id::text FROM app_mentoring.mentorship_sessions WHERE session_id = $1::uuid`,
+    [sessionId],
+  );
+  if (rows.length === 0) throw new Error('La sesión no existe.');
+  if (actor.role === 'mentor' && rows[0].mentor_user_id !== actor.userId) {
+    throw new ForbiddenError('Solo puedes agregar notas a las sesiones que tú acompañas.');
+  }
+}
+
+export interface CreateSessionNoteInput {
+  sessionId: string;
+  noteDate: string;
+  comment?: string | null;
+  documentUrl?: string | null;
+  documentName?: string | null;
+  documentSize?: number;
+  documentContentType?: string | null;
+}
+
+export async function createSessionNote(
+  client: PoolClient,
+  actor: AuthUser,
+  input: CreateSessionNoteInput,
+): Promise<SessionNoteRecord> {
+  if (!input.sessionId) throw new Error('Selecciona la mentoría.');
+  await ensureSessionNoteWriteAccess(client, actor, input.sessionId);
+
+  const noteDate = normalizeNoteDate(input.noteDate);
+  const comment = input.comment?.trim() || null;
+  const document = normalizeNoteDocument(input);
+  if (!comment && !document.url) {
+    throw new Error('Escribe un comentario o adjunta un documento: al menos uno de los dos.');
+  }
+
+  const { rows } = await client.query<{ note_id: string }>(
+    `INSERT INTO app_mentoring.session_notes
+       (session_id, note_date, comment, document_url, document_name, document_size, document_content_type, created_by)
+     VALUES ($1::uuid, $2::date, $3, $4, $5, $6, $7, $8::uuid)
+     RETURNING note_id::text`,
+    [
+      input.sessionId,
+      noteDate,
+      comment,
+      document.url,
+      document.name,
+      Math.max(0, Math.floor(input.documentSize ?? 0)),
+      document.contentType,
+      actor.userId,
+    ],
+  );
+  return getSessionNoteForActor(client, actor, rows[0].note_id);
+}
+
+export interface UpdateSessionNoteInput {
+  noteDate?: string;
+  comment?: string | null;
+  documentUrl?: string | null;
+  documentName?: string | null;
+  documentSize?: number;
+  documentContentType?: string | null;
+}
+
+/** Edita una nota. Admin y gestor cualquiera; el advisor solo las suyas. */
+export async function updateSessionNote(
+  client: PoolClient,
+  actor: AuthUser,
+  noteId: string,
+  input: UpdateSessionNoteInput,
+): Promise<SessionNoteRecord> {
+  const current = await getSessionNoteForActor(client, actor, noteId);
+  await ensureSessionNoteWriteAccess(client, actor, current.sessionId);
+  const isStaff = actor.role === 'admin' || actor.role === 'gestor';
+  if (!isStaff && current.createdBy !== actor.userId) {
+    throw new ForbiddenError('Solo puedes editar las notas que tú escribiste.');
+  }
+
+  const nextDate = input.noteDate !== undefined ? normalizeNoteDate(input.noteDate) : current.noteDate;
+  const nextComment = input.comment !== undefined ? input.comment?.trim() || null : current.comment;
+  const nextDocument =
+    input.documentUrl !== undefined
+      ? normalizeNoteDocument(input)
+      : { url: current.documentUrl, name: current.documentName, contentType: current.documentContentType };
+  if (!nextComment && !nextDocument.url) {
+    throw new Error('La nota debe conservar un comentario o un documento.');
+  }
+  const nextSize =
+    input.documentUrl !== undefined
+      ? Math.max(0, Math.floor(input.documentSize ?? 0))
+      : current.documentSize;
+
+  const { rowCount } = await client.query(
+    `UPDATE app_mentoring.session_notes
+     SET note_date = $2::date, comment = $3, document_url = $4, document_name = $5,
+         document_size = $6, document_content_type = $7
+     WHERE note_id = $1::uuid`,
+    [noteId, nextDate, nextComment, nextDocument.url, nextDocument.name, nextSize, nextDocument.contentType],
+  );
+  if (!rowCount) throw new Error('Nota no encontrada.');
+  return getSessionNoteForActor(client, actor, noteId);
+}
+
+/** Borra una nota. Admin y gestor cualquiera; el advisor solo las suyas. */
+export async function deleteSessionNote(
+  client: PoolClient,
+  actor: AuthUser,
+  noteId: string,
+): Promise<{ noteId: string }> {
+  const current = await getSessionNoteForActor(client, actor, noteId);
+  await ensureSessionNoteWriteAccess(client, actor, current.sessionId);
+  const isStaff = actor.role === 'admin' || actor.role === 'gestor';
+  if (!isStaff && current.createdBy !== actor.userId) {
+    throw new ForbiddenError('Solo puedes eliminar las notas que tú escribiste.');
+  }
+
+  const { rowCount } = await client.query(
+    `DELETE FROM app_mentoring.session_notes WHERE note_id = $1::uuid`,
+    [noteId],
+  );
+  if (!rowCount) throw new Error('Nota no encontrada.');
+  return { noteId };
+}

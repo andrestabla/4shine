@@ -961,6 +961,7 @@ const MODULE_SECTIONS: DocSection[] = [
           'Sesiones 1:1: el líder elige un advisor y una franja real disponible; la reserva descuenta de las mentorías incluidas del programa o se agenda como adicional.',
           'Sesiones grupales: webinars en vivo, con calendario destacado y vistas de próximas/pasadas (la tarjeta de "próxima sesión recomendada" solo muestra sesiones que aún no terminaron).',
           'Grabaciones de sesiones grupales: se publican manualmente (URL, con fecha de la grabación) o llegan automáticamente de Zoom; admin y gestor pueden editarlas, eliminarlas y asignarles estado (Publicada, Borrador o No mostrar). Los líderes y advisors solo ven las publicadas con menos de 90 días desde su fecha (hora del sistema); las vencidas siguen visibles para admin y gestor con la marca "Vencida". Los líderes reaccionan y comentan.',
+          'Notas de mentoría: advisor (de la sesión), gestor o admin registran desde el 360 del líder una nota con fecha y comentario escrito y/o documento (.pdf o .docx), al menos uno de los dos. El líder las lee en su pestaña de Mentorías.',
           'Zoom: al crear una sesión se genera la reunión (host = advisor) con grabación en la nube y transcripción automática; opcionalmente se admite un enlace manual.',
           'Recordatorios: el cron envía avisos en ventanas configurables por evento (1:1 y grupal), de forma idempotente.',
         ],
@@ -1218,13 +1219,13 @@ const MODULE_SECTIONS: DocSection[] = [
     ],
     label: 'Líderes (vista 360)',
     tagline:
-      'Perfil 360 del líder: workbooks, diagnóstico y mentorías; agendamiento on-behalf desde el admin.',
+      'Perfil 360 del líder: workbooks (con anexos PDF), diagnóstico y mentorías (grabaciones y notas); agendamiento on-behalf desde el admin.',
     icon: 'UserCog',
     category: 'modulo',
     blocks: [
       {
         type: 'p',
-        text: 'El módulo Líderes ofrece la vista 360 de cada líder: un panorama de su avance (workbooks, diagnóstico, mentorías) y la capacidad de agendar mentorías 1:1 en su nombre desde el panel.',
+        text: 'El módulo Líderes ofrece la vista 360 de cada líder: un panorama de su avance (workbooks, diagnóstico, mentorías) y la capacidad de agendar mentorías 1:1 en su nombre desde el panel. Desde el 360, advisor, gestor y admin pueden anexar documentos PDF a cada workbook del líder (app_learning.workbook_annexes; el líder los ve en Aprendizaje junto a su workbook) y escribir notas de mentoría sobre cada sesión (app_mentoring.session_notes: fecha + comentario y/o documento .pdf/.docx, al menos uno de los dos; el advisor solo sobre las sesiones que acompaña, y edita o borra únicamente las suyas). El líder consulta las notas en su pestaña de Mentorías.',
       },
       {
         type: 'table',

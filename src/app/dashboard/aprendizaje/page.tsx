@@ -66,6 +66,8 @@ import {
   getPillarLabelFromCode,
 } from "@/features/aprendizaje/competency-map";
 import { WORKBOOKS_V2_CATALOG } from "@/lib/workbooks-v2-catalog";
+import { listWorkbookAnnexes, type WorkbookAnnexRecord } from "@/features/lideres/client";
+import { WorkbookAnnexList } from "@/components/lideres/WorkbookAnnexList";
 import { formatDate as formatDateShared } from "@/lib/format-date";
 
 const RESOURCE_TYPE_OPTIONS: ContentType[] = [
@@ -235,7 +237,7 @@ function workbookVisualClasses(sequenceNo: number): string {
 }
 
 export default function AprendizajePage() {
-  const { currentRole, refreshBootstrap, viewerAccess } = useUser();
+  const { currentRole, currentUser, refreshBootstrap, viewerAccess } = useUser();
   const { isModuleEnabled } = useModuleVisibility();
   const { alert, confirm } = useAppDialog();
   const router = useRouter();
@@ -248,6 +250,16 @@ export default function AprendizajePage() {
   const [resourceTotalPages, setResourceTotalPages] = React.useState(1);
   const [resourcePage, setResourcePage] = React.useState(1);
   const [workbooks, setWorkbooks] = React.useState<WorkbookRecord[]>([]);
+  // Anexos PDF que advisor/gestor/admin adjuntaron a los workbooks del líder.
+  const [workbookAnnexesList, setWorkbookAnnexesList] = React.useState<WorkbookAnnexRecord[]>([]);
+  React.useEffect(() => {
+    if (currentRole !== 'lider' || !currentUser?.id) return;
+    let active = true;
+    listWorkbookAnnexes(currentUser.id)
+      .then((items) => { if (active) setWorkbookAnnexesList(items); })
+      .catch((err) => console.error('No se pudieron cargar los anexos de workbooks', err));
+    return () => { active = false; };
+  }, [currentRole, currentUser?.id]);
   const [loading, setLoading] = React.useState(true);
   const [resourceSearch, setResourceSearch] = React.useState("");
   const [resourceTypeFilter, setResourceTypeFilter] = React.useState<
@@ -1334,9 +1346,13 @@ export default function AprendizajePage() {
                              workbook.description ??
                              "");
 
+                        const workbookAnnexes = isElevatedRole
+                          ? []
+                          : workbookAnnexesList.filter((a) => a.workbookId === workbook.workbookId);
+
                         return (
+                          <div key={workbook.workbookId} className="flex flex-col gap-2">
                           <Link
-                            key={workbook.workbookId}
                             href={buildWorkbookDigitalHref(workbook, isElevatedRole)}
                             className="group overflow-hidden rounded-[24px] border border-[var(--app-border)] bg-white/82 text-left text-[var(--app-ink)] shadow-[0_18px_38px_rgba(0,0,0,0.06)] transition hover:-translate-y-1 hover:border-[var(--app-border-strong)] hover:shadow-[0_24px_44px_rgba(0,0,0,0.10)]"
                           >
@@ -1435,6 +1451,15 @@ export default function AprendizajePage() {
                               </div>
                             </div>
                           </Link>
+                          {workbookAnnexes.length > 0 && (
+                            <div className="rounded-[18px] border border-[var(--app-border)] bg-white/82 px-4 py-3">
+                              <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--app-muted)]">
+                                Documentos anexos
+                              </p>
+                              <WorkbookAnnexList annexes={workbookAnnexes} />
+                            </div>
+                          )}
+                          </div>
                         );
                       })}
                     </div>

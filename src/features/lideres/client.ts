@@ -79,3 +79,29 @@ export async function listAdvisorsForSelect(): Promise<AdvisorOption[]> {
     const data = await requestApi<Array<{ userId: string; name: string }>>(`/api/v1/public/site/advisors`);
     return (data ?? []).map((a) => ({ userId: a.userId, name: a.name }));
 }
+
+export type { WorkbookAnnexRecord, CreateWorkbookAnnexInput } from './service';
+import type { WorkbookAnnexRecord, CreateWorkbookAnnexInput } from './service';
+
+export async function listWorkbookAnnexes(leaderUserId: string): Promise<WorkbookAnnexRecord[]> {
+    return requestApi<WorkbookAnnexRecord[]>(
+        `/api/v1/modules/lideres/${encodeURIComponent(leaderUserId)}/workbook-annexes`,
+    );
+}
+
+export async function createWorkbookAnnex(
+    leaderUserId: string,
+    input: CreateWorkbookAnnexInput,
+): Promise<WorkbookAnnexRecord> {
+    return requestApi<WorkbookAnnexRecord>(
+        `/api/v1/modules/lideres/${encodeURIComponent(leaderUserId)}/workbook-annexes`,
+        { method: 'POST', body: JSON.stringify(input) },
+    );
+}
+
+export async function deleteWorkbookAnnex(leaderUserId: string, annexId: string): Promise<void> {
+    await requestApi(
+        `/api/v1/modules/lideres/${encodeURIComponent(leaderUserId)}/workbook-annexes/${encodeURIComponent(annexId)}`,
+        { method: 'DELETE' },
+    );
+}
