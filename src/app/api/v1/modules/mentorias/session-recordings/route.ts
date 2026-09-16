@@ -34,9 +34,9 @@ export async function POST(request: Request) {
   if (!identity) return unauthorizedResponse();
 
   const body = await parseJsonBody<CreateSessionRecordingInput>(request);
-  if (!body?.sessionId || !body.title?.trim() || !body.recordingUrl?.trim()) {
+  if (!body?.leaderUserId || !body.title?.trim() || !body.recordingUrl?.trim()) {
     return NextResponse.json(
-      { ok: false, error: 'Sesión, título y URL de grabación son obligatorios' },
+      { ok: false, error: 'Líder, título y URL de grabación son obligatorios' },
       { status: 400 },
     );
   }
@@ -50,7 +50,7 @@ export async function POST(request: Request) {
           action: 'create_session_recording',
           entityTable: 'app_mentoring.session_recordings',
           entityId: result.recordingId,
-          changeSummary: { sessionId: body.sessionId, title: body.title },
+          changeSummary: { leaderUserId: body.leaderUserId, sessionId: body.sessionId ?? null, title: body.title },
         });
         return result;
       }),

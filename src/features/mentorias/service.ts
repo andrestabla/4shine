@@ -4216,8 +4216,11 @@ export async function sendIndividualSessionReminders(
 
 export interface SessionRecordingRecord {
   recordingId: string;
-  sessionId: string;
-  sessionTitle: string;
+  /** Líder al que pertenece la grabación (haya o no sesión asociada). */
+  leaderUserId: string | null;
+  /** Null cuando la grabación no está asociada a una mentoría concreta. */
+  sessionId: string | null;
+  sessionTitle: string | null;
   menteeName: string | null;
   mentorName: string | null;
   title: string;
@@ -4231,8 +4234,9 @@ export interface SessionRecordingRecord {
 
 interface SessionRecordingRow {
   recording_id: string;
-  session_id: string;
-  session_title: string;
+  leader_user_id: string | null;
+  session_id: string | null;
+  session_title: string | null;
   mentee_name: string | null;
   mentor_name: string | null;
   title: string;
@@ -4247,6 +4251,7 @@ interface SessionRecordingRow {
 const SESSION_RECORDING_SELECT = `
   SELECT
     r.recording_id::text,
+    COALESCE(r.leader_user_id, mentee.user_id)::text AS leader_user_id,
     r.session_id::text,
     ms.title AS session_title,
     mentee.display_name AS mentee_name,
@@ -4259,10 +4264,10 @@ const SESSION_RECORDING_SELECT = `
     r.recorded_at::text,
     r.published_at::text
   FROM app_mentoring.session_recordings r
-  JOIN app_mentoring.mentorship_sessions ms ON ms.session_id = r.session_id
+  LEFT JOIN app_mentoring.mentorship_sessions ms ON ms.session_id = r.session_id
   LEFT JOIN app_core.users mentor ON mentor.user_id = ms.mentor_user_id
   LEFT JOIN LATERAL (
-    SELECT u.display_name
+    SELECT u.user_id, u.display_name
     FROM app_mentoring.session_participants sp
     JOIN app_core.users u ON u.user_id = sp.user_id
     WHERE sp.session_id = r.session_id AND sp.participant_role = 'mentee'
@@ -4274,6 +4279,7 @@ const SESSION_RECORDING_SELECT = `
 function mapSessionRecording(row: SessionRecordingRow): SessionRecordingRecord {
   return {
     recordingId: row.recording_id,
+    leaderUserId: row.leader_user_id,
     sessionId: row.session_id,
     sessionTitle: row.session_title,
     menteeName: row.mentee_name,
@@ -4308,14 +4314,15 @@ export async function listSessionRecordingsForLeader(
 
   const { rows } = await client.query<SessionRecordingRow>(
     `${SESSION_RECORDING_SELECT}
-     WHERE EXISTS (
-       SELECT 1 FROM app_mentoring.session_participants sp
-       WHERE sp.session_id = r.session_id
-         AND sp.user_id = $1::uuid
-         AND sp.participant_role = 'mentee'
+     WHERE COALESCE(r.leader_user_id, mentee.user_id) = $1::uuid
+     -- El advisor ve las sesiones que él acompañó y las grabaciones sin
+     -- mentoría asociada (generales del líder).
+     AND (
+       $2::boolean = true
+       OR $3::uuid = $1::uuid
+       OR ms.mentor_user_id = $3::uuid
+       OR r.session_id IS NULL
      )
-     -- El advisor solo ve las sesiones que él acompañó.
-     AND ($2::boolean = true OR ms.mentor_user_id = $3::uuid OR $3::uuid = $1::uuid)
      ORDER BY COALESCE(r.recorded_at, r.published_at) DESC`,
     [leaderUserId, isStaff, actor.userId],
   );
@@ -4338,12 +4345,14 @@ export async function getSessionRecording(
        AND (
          $2::boolean = true
          OR ms.mentor_user_id = $3::uuid
+         OR COALESCE(r.leader_user_id, mentee.user_id) = $3::uuid
+         OR ($4::boolean = true AND r.session_id IS NULL)
          OR EXISTS (
            SELECT 1 FROM app_mentoring.session_participants sp
            WHERE sp.session_id = r.session_id AND sp.user_id = $3::uuid
          )
        )`,
-    [recordingId, isStaff, actor.userId],
+    [recordingId, isStaff, actor.userId, actor.role === 'mentor'],
   );
 
   const found = rows[0];
@@ -4351,8 +4360,46 @@ export async function getSessionRecording(
   return mapSessionRecording(found);
 }
 
+/**
+ * Valida el vínculo líder ↔ sesión de una grabación o nota. Devuelve el id de
+ * sesión normalizado (null cuando no hay mentoría asociada). Si hay sesión,
+ * debe existir y el líder debe ser su mentee; sin sesión, el líder debe ser
+ * un usuario real.
+ */
+async function resolveLeaderSessionLink(
+  client: PoolClient,
+  leaderUserId: string,
+  sessionId: string | null | undefined,
+): Promise<string | null> {
+  const leader = (leaderUserId ?? '').trim();
+  if (!leader) throw new Error('Falta el líder al que pertenece el registro.');
+
+  const normalizedSession = (sessionId ?? '').trim() || null;
+  if (normalizedSession) {
+    const { rows } = await client.query<{ n: string }>(
+      `SELECT COUNT(*)::text AS n
+       FROM app_mentoring.mentorship_sessions ms
+       JOIN app_mentoring.session_participants sp ON sp.session_id = ms.session_id
+       WHERE ms.session_id = $1::uuid AND sp.user_id = $2::uuid AND sp.participant_role = 'mentee'`,
+      [normalizedSession, leader],
+    );
+    if (Number(rows[0]?.n ?? 0) === 0) throw new Error('La sesión no existe o no pertenece a este líder.');
+    return normalizedSession;
+  }
+
+  const { rows } = await client.query<{ n: string }>(
+    `SELECT COUNT(*)::text AS n FROM app_core.users WHERE user_id = $1::uuid`,
+    [leader],
+  );
+  if (Number(rows[0]?.n ?? 0) === 0) throw new Error('El líder no existe.');
+  return null;
+}
+
 export interface CreateSessionRecordingInput {
-  sessionId: string;
+  /** Líder dueño de la grabación. Obligatorio; la sesión es opcional. */
+  leaderUserId: string;
+  /** Mentoría asociada; null para una grabación general del líder. */
+  sessionId?: string | null;
   title: string;
   recordingUrl: string;
   description?: string | null;
@@ -4378,19 +4425,15 @@ export async function createSessionRecording(
     throw new Error('La URL de la grabación debe empezar por http:// o https://');
   }
 
-  const { rows: session } = await client.query<{ n: string }>(
-    `SELECT COUNT(*)::text AS n FROM app_mentoring.mentorship_sessions WHERE session_id = $1::uuid`,
-    [input.sessionId],
-  );
-  if (Number(session[0]?.n ?? 0) === 0) throw new Error('La sesión no existe.');
+  const sessionId = await resolveLeaderSessionLink(client, input.leaderUserId, input.sessionId);
 
   const { rows } = await client.query<{ recording_id: string }>(
     `INSERT INTO app_mentoring.session_recordings
-       (session_id, title, description, recording_url, thumbnail_url, duration_minutes, recorded_at, created_by)
-     VALUES ($1::uuid, $2, $3, $4, $5, $6, $7::timestamptz, $8::uuid)
+       (session_id, leader_user_id, title, description, recording_url, thumbnail_url, duration_minutes, recorded_at, created_by)
+     VALUES ($1::uuid, $9::uuid, $2, $3, $4, $5, $6, $7::timestamptz, $8::uuid)
      RETURNING recording_id::text`,
     [
-      input.sessionId,
+      sessionId,
       title,
       input.description?.trim() || null,
       url,
@@ -4398,6 +4441,7 @@ export async function createSessionRecording(
       Math.max(0, Math.floor(input.durationMinutes ?? 0)),
       input.recordedAt || null,
       actor.userId,
+      input.leaderUserId,
     ],
   );
 
@@ -4497,9 +4541,12 @@ export async function deleteSessionRecording(
 
 export interface SessionNoteRecord {
   noteId: string;
-  sessionId: string;
-  sessionTitle: string;
-  sessionStartsAt: string;
+  /** Líder al que pertenece la nota (haya o no sesión asociada). */
+  leaderUserId: string | null;
+  /** Null cuando la nota no está asociada a una mentoría concreta. */
+  sessionId: string | null;
+  sessionTitle: string | null;
+  sessionStartsAt: string | null;
   mentorName: string | null;
   noteDate: string;
   comment: string | null;
@@ -4515,9 +4562,10 @@ export interface SessionNoteRecord {
 
 interface SessionNoteRow {
   note_id: string;
-  session_id: string;
-  session_title: string;
-  session_starts_at: string;
+  leader_user_id: string | null;
+  session_id: string | null;
+  session_title: string | null;
+  session_starts_at: string | null;
   mentor_name: string | null;
   note_date: string;
   comment: string | null;
@@ -4534,6 +4582,7 @@ interface SessionNoteRow {
 const SESSION_NOTE_SELECT = `
   SELECT
     n.note_id::text,
+    COALESCE(n.leader_user_id, mentee.user_id)::text AS leader_user_id,
     n.session_id::text,
     ms.title AS session_title,
     ms.starts_at::text AS session_starts_at,
@@ -4549,14 +4598,22 @@ const SESSION_NOTE_SELECT = `
     n.created_at::text,
     n.updated_at::text
   FROM app_mentoring.session_notes n
-  JOIN app_mentoring.mentorship_sessions ms ON ms.session_id = n.session_id
+  LEFT JOIN app_mentoring.mentorship_sessions ms ON ms.session_id = n.session_id
   LEFT JOIN app_core.users mentor ON mentor.user_id = ms.mentor_user_id
   LEFT JOIN app_core.users creator ON creator.user_id = n.created_by
+  LEFT JOIN LATERAL (
+    SELECT sp.user_id
+    FROM app_mentoring.session_participants sp
+    WHERE sp.session_id = n.session_id AND sp.participant_role = 'mentee'
+    ORDER BY sp.joined_at
+    LIMIT 1
+  ) mentee ON true
 `;
 
 function mapSessionNote(row: SessionNoteRow): SessionNoteRecord {
   return {
     noteId: row.note_id,
+    leaderUserId: row.leader_user_id,
     sessionId: row.session_id,
     sessionTitle: row.session_title,
     sessionStartsAt: row.session_starts_at,
@@ -4625,13 +4682,15 @@ export async function listSessionNotesForLeader(
 
   const { rows } = await client.query<SessionNoteRow>(
     `${SESSION_NOTE_SELECT}
-     WHERE EXISTS (
-       SELECT 1 FROM app_mentoring.session_participants sp
-       WHERE sp.session_id = n.session_id
-         AND sp.user_id = $1::uuid
-         AND sp.participant_role = 'mentee'
+     WHERE COALESCE(n.leader_user_id, mentee.user_id) = $1::uuid
+     -- El advisor ve las notas de las sesiones que él acompaña y las notas
+     -- sin mentoría asociada (generales del líder).
+     AND (
+       $2::boolean = true
+       OR $3::uuid = $1::uuid
+       OR ms.mentor_user_id = $3::uuid
+       OR n.session_id IS NULL
      )
-     AND ($2::boolean = true OR ms.mentor_user_id = $3::uuid OR $3::uuid = $1::uuid)
      ORDER BY n.note_date DESC, n.created_at DESC`,
     [leaderUserId, isStaff, actor.userId],
   );
@@ -4650,24 +4709,27 @@ async function getSessionNoteForActor(
        AND (
          $2::boolean = true
          OR ms.mentor_user_id = $3::uuid
-         OR EXISTS (
-           SELECT 1 FROM app_mentoring.session_participants sp
-           WHERE sp.session_id = n.session_id AND sp.user_id = $3::uuid
-         )
+         OR COALESCE(n.leader_user_id, mentee.user_id) = $3::uuid
+         OR ($4::boolean = true AND n.session_id IS NULL)
        )`,
-    [noteId, isStaff, actor.userId],
+    [noteId, isStaff, actor.userId, actor.role === 'mentor'],
   );
   const found = rows[0];
   if (!found) throw new Error('Nota no encontrada.');
   return mapSessionNote(found);
 }
 
-/** Advisor: solo sobre sesiones que él dicta. Gestor y admin: cualquiera. */
-async function ensureSessionNoteWriteAccess(client: PoolClient, actor: AuthUser, sessionId: string) {
+/**
+ * Gestor y admin: cualquier nota. Advisor: sobre las sesiones que él dicta y,
+ * cuando la nota no tiene mentoría asociada, sobre cualquier líder cuyo 360
+ * puede consultar (misma regla que los anexos de workbook).
+ */
+async function ensureSessionNoteWriteAccess(client: PoolClient, actor: AuthUser, sessionId: string | null) {
   if (actor.role !== 'admin' && actor.role !== 'gestor' && actor.role !== 'mentor') {
     throw new ForbiddenError('Solo un advisor, gestor o administrador puede agregar notas de mentoría.');
   }
   await requireModulePermission(client, 'mentorias', 'update');
+  if (!sessionId) return;
 
   const { rows } = await client.query<{ mentor_user_id: string | null }>(
     `SELECT mentor_user_id::text FROM app_mentoring.mentorship_sessions WHERE session_id = $1::uuid`,
@@ -4680,7 +4742,10 @@ async function ensureSessionNoteWriteAccess(client: PoolClient, actor: AuthUser,
 }
 
 export interface CreateSessionNoteInput {
-  sessionId: string;
+  /** Líder dueño de la nota. Obligatorio; la sesión es opcional. */
+  leaderUserId: string;
+  /** Mentoría asociada; null para una nota general del líder. */
+  sessionId?: string | null;
   noteDate: string;
   comment?: string | null;
   documentUrl?: string | null;
@@ -4694,8 +4759,8 @@ export async function createSessionNote(
   actor: AuthUser,
   input: CreateSessionNoteInput,
 ): Promise<SessionNoteRecord> {
-  if (!input.sessionId) throw new Error('Selecciona la mentoría.');
-  await ensureSessionNoteWriteAccess(client, actor, input.sessionId);
+  const sessionId = await resolveLeaderSessionLink(client, input.leaderUserId, input.sessionId);
+  await ensureSessionNoteWriteAccess(client, actor, sessionId);
 
   const noteDate = normalizeNoteDate(input.noteDate);
   const comment = input.comment?.trim() || null;
@@ -4706,11 +4771,11 @@ export async function createSessionNote(
 
   const { rows } = await client.query<{ note_id: string }>(
     `INSERT INTO app_mentoring.session_notes
-       (session_id, note_date, comment, document_url, document_name, document_size, document_content_type, created_by)
-     VALUES ($1::uuid, $2::date, $3, $4, $5, $6, $7, $8::uuid)
+       (session_id, leader_user_id, note_date, comment, document_url, document_name, document_size, document_content_type, created_by)
+     VALUES ($1::uuid, $9::uuid, $2::date, $3, $4, $5, $6, $7, $8::uuid)
      RETURNING note_id::text`,
     [
-      input.sessionId,
+      sessionId,
       noteDate,
       comment,
       document.url,
@@ -4718,6 +4783,7 @@ export async function createSessionNote(
       Math.max(0, Math.floor(input.documentSize ?? 0)),
       document.contentType,
       actor.userId,
+      input.leaderUserId,
     ],
   );
   return getSessionNoteForActor(client, actor, rows[0].note_id);

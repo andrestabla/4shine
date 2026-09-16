@@ -34,8 +34,8 @@ export async function POST(request: Request) {
   if (!identity) return unauthorizedResponse();
 
   const body = await parseJsonBody<CreateSessionNoteInput>(request);
-  if (!body?.sessionId || !body.noteDate) {
-    return NextResponse.json({ ok: false, error: 'Sesión y fecha son obligatorias' }, { status: 400 });
+  if (!body?.leaderUserId || !body.noteDate) {
+    return NextResponse.json({ ok: false, error: 'Líder y fecha son obligatorios' }, { status: 400 });
   }
 
   try {
@@ -47,7 +47,12 @@ export async function POST(request: Request) {
           action: 'create_session_note',
           entityTable: 'app_mentoring.session_notes',
           entityId: result.noteId,
-          changeSummary: { sessionId: body.sessionId, hasComment: !!result.comment, hasDocument: !!result.documentUrl },
+          changeSummary: {
+            leaderUserId: body.leaderUserId,
+            sessionId: body.sessionId ?? null,
+            hasComment: !!result.comment,
+            hasDocument: !!result.documentUrl,
+          },
         });
         return result;
       }),

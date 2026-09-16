@@ -19,6 +19,9 @@ export interface NotableSession {
   startsAt: string;
 }
 
+/** Valor del selector para una nota sin mentoría asociada. */
+const NO_SESSION = '__none__';
+
 interface NoteFormState {
   sessionId: string;
   noteDate: string;
@@ -125,7 +128,7 @@ export function SessionNotesPanel({
     setEditingId(note.noteId);
     setShowForm(true);
     setForm({
-      sessionId: note.sessionId,
+      sessionId: note.sessionId ?? NO_SESSION,
       noteDate: note.noteDate.slice(0, 10),
       comment: note.comment ?? '',
       documentUrl: note.documentUrl ?? '',
@@ -138,7 +141,11 @@ export function SessionNotesPanel({
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!editingId && !form.sessionId) {
-      await alert({ title: 'Falta la mentoría', message: 'Selecciona la mentoría a la que pertenece la nota.', tone: 'warning' });
+      await alert({
+        title: 'Falta la mentoría',
+        message: 'Selecciona la mentoría a la que pertenece la nota o marca "Sin mentoría asociada".',
+        tone: 'warning',
+      });
       return;
     }
     if (!form.noteDate) {
@@ -167,7 +174,11 @@ export function SessionNotesPanel({
       if (editingId) {
         await updateSessionNote(editingId, payload);
       } else {
-        await createSessionNote({ sessionId: form.sessionId, ...payload });
+        await createSessionNote({
+          leaderUserId,
+          sessionId: form.sessionId === NO_SESSION ? null : form.sessionId,
+          ...payload,
+        });
       }
       resetForm();
       await load();
@@ -181,7 +192,7 @@ export function SessionNotesPanel({
   const handleDelete = async (note: SessionNoteRecord) => {
     const ok = await confirm({
       title: 'Eliminar nota',
-      message: `Se eliminará la nota del ${formatDate(note.noteDate)} sobre "${note.sessionTitle}".`,
+      message: `Se eliminará la nota del ${formatDate(note.noteDate)}${note.sessionTitle ? ` sobre "${note.sessionTitle}"` : ''}.`,
       confirmText: 'Eliminar',
       tone: 'warning',
     });
@@ -214,7 +225,11 @@ export function SessionNotesPanel({
         {canManage && !showForm && (
           <button
             type="button"
-            onClick={() => { setForm(emptyForm()); setShowForm(true); }}
+            onClick={() => {
+              // Sin mentorías del líder, la única opción es la nota general.
+              setForm({ ...emptyForm(), sessionId: sessions.length === 0 ? NO_SESSION : '' });
+              setShowForm(true);
+            }}
             className="inline-flex items-center gap-1.5 rounded-full bg-[var(--brand-primary)] px-3 py-1.5 text-[11.5px] font-bold text-white"
           >
             <Plus size={12} /> Agregar nota
@@ -231,7 +246,7 @@ export function SessionNotesPanel({
             Mentoría
             {editingId ? (
               <p className="mt-1 text-[13px] font-normal text-[var(--app-ink)]">
-                {notes.find((n) => n.noteId === editingId)?.sessionTitle ?? '—'}
+                {notes.find((n) => n.noteId === editingId)?.sessionTitle ?? 'Sin mentoría asociada'}
               </p>
             ) : (
               <select
@@ -241,6 +256,7 @@ export function SessionNotesPanel({
                 className={`mt-1 ${inputClass}`}
               >
                 <option value="">Selecciona la mentoría…</option>
+                <option value={NO_SESSION}>Sin mentoría asociada (nota general del líder)</option>
                 {sessions.map((session) => (
                   <option key={session.sessionId} value={session.sessionId}>
                     {formatDate(session.startsAt)} · {session.title}
@@ -294,7 +310,7 @@ export function SessionNotesPanel({
                 <R2UploadButton
                   moduleCode="mentorias"
                   action="update"
-                  pathPrefix={`mentorias/notas/${form.sessionId || 'sin-sesion'}`}
+                  pathPrefix={`mentorias/notas/${leaderUserId}`}
                   entityTable="app_mentoring.session_notes"
                   fieldName="session_note_document"
                   accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -353,7 +369,7 @@ export function SessionNotesPanel({
                   </span>
                   <span className="min-w-0">
                     <span className="block text-[13px] font-bold text-[var(--app-ink)]">
-                      {formatDate(note.noteDate)} · {note.sessionTitle}
+                      {formatDate(note.noteDate)} · {note.sessionTitle ?? 'Nota general'}
                     </span>
                     <span className="block text-[11.5px] text-[var(--app-muted)]">
                       {note.mentorName ? `Con ${note.mentorName}` : ''}

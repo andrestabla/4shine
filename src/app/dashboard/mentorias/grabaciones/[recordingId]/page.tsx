@@ -64,8 +64,8 @@ export default function GrabacionPage() {
           setIsPrivate(true);
           setRecording({
             recordingId: individual.recordingId,
-            eventId: individual.sessionId,
-            eventTitle: individual.sessionTitle,
+            eventId: individual.sessionId ?? individual.recordingId,
+            eventTitle: individual.sessionTitle ?? 'Grabación de mentoría',
             hostName: individual.mentorName,
             title: individual.title,
             description: individual.description,

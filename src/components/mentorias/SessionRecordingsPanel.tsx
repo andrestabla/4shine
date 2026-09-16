@@ -19,6 +19,9 @@ export interface RecordableSession {
   startsAt: string;
 }
 
+/** Valor del selector para una grabación sin mentoría asociada. */
+const NO_SESSION = '__none__';
+
 const EMPTY_FORM = {
   sessionId: '',
   title: '',
@@ -92,11 +95,18 @@ export function SessionRecordingsPanel({
     setShowForm(false);
   };
 
+  const openForm = () => {
+    // Sin mentorías del líder, la única opción es la grabación general.
+    setForm({ ...EMPTY_FORM, sessionId: sessions.length === 0 ? NO_SESSION : '' });
+    setEditingId(null);
+    setShowForm(true);
+  };
+
   const startEdit = (recording: SessionRecordingRecord) => {
     setEditingId(recording.recordingId);
     setShowForm(true);
     setForm({
-      sessionId: recording.sessionId,
+      sessionId: recording.sessionId ?? NO_SESSION,
       title: recording.title,
       recordingUrl: recording.recordingUrl,
       durationMinutes: recording.durationMinutes ? String(recording.durationMinutes) : '',
@@ -109,7 +119,11 @@ export function SessionRecordingsPanel({
     event.preventDefault();
     if (!form.title.trim() || !form.recordingUrl.trim()) return;
     if (!editingId && !form.sessionId) {
-      await alert({ title: 'Falta la sesión', message: 'Elige la sesión que grabaste.', tone: 'warning' });
+      await alert({
+        title: 'Falta la mentoría',
+        message: 'Elige la mentoría grabada o marca "Sin mentoría asociada".',
+        tone: 'warning',
+      });
       return;
     }
 
@@ -125,7 +139,11 @@ export function SessionRecordingsPanel({
       if (editingId) {
         await updateSessionRecording(editingId, payload);
       } else {
-        await createSessionRecording({ sessionId: form.sessionId, ...payload });
+        await createSessionRecording({
+          leaderUserId,
+          sessionId: form.sessionId === NO_SESSION ? null : form.sessionId,
+          ...payload,
+        });
       }
       resetForm();
       await load();
@@ -169,7 +187,7 @@ export function SessionRecordingsPanel({
         {canManage && !showForm && (
           <button
             type="button"
-            onClick={() => setShowForm(true)}
+            onClick={openForm}
             className="inline-flex items-center gap-1.5 rounded-full bg-[var(--brand-primary)] px-3 py-1.5 text-[11.5px] font-bold text-white"
           >
             <Plus size={12} /> Cargar grabación
@@ -189,7 +207,8 @@ export function SessionRecordingsPanel({
               required
               className="w-full rounded-[0.75rem] border border-[var(--app-border)] bg-white px-3 py-2 text-[13px] text-[var(--app-ink)]"
             >
-              <option value="">Selecciona la sesión…</option>
+              <option value="">Selecciona la mentoría…</option>
+              <option value={NO_SESSION}>Sin mentoría asociada (grabación general del líder)</option>
               {sessions.map((session) => (
                 <option key={session.sessionId} value={session.sessionId}>
                   {formatDate(session.startsAt)} · {session.title}
@@ -281,7 +300,7 @@ export function SessionRecordingsPanel({
                     {recording.title}
                   </span>
                   <span className="block truncate text-[11.5px] text-[var(--app-muted)]">
-                    {recording.sessionTitle}
+                    {recording.sessionTitle ?? 'Sin mentoría asociada'}
                     {recording.mentorName ? ` · ${recording.mentorName}` : ''}
                     {recording.recordedAt ? ` · ${formatDate(recording.recordedAt)}` : ''}
                     {recording.durationMinutes > 0 ? ` · ${recording.durationMinutes} min` : ''}

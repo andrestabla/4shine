@@ -526,10 +526,13 @@ export default function Leader360Page() {
                     ) : undefined
                 }
             >
-                {mentorship.assignments.length === 0 && mentorship.totalSessions === 0 ? (
-                    <p className="text-sm text-[var(--app-muted)]">Sin mentorías registradas.</p>
-                ) : (
-                    <div className="space-y-4">
+                <div className="space-y-4">
+                    {mentorship.assignments.length === 0 && mentorship.totalSessions === 0 ? (
+                        <p className="text-sm text-[var(--app-muted)]">
+                            Sin mentorías registradas. Aun así puedes cargar grabaciones y notas generales del líder.
+                        </p>
+                    ) : (
+                    <>
                         {mentorship.assignments.length > 0 && (
                             <div>
                                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--app-muted)]">
@@ -619,6 +622,8 @@ export default function Leader360Page() {
                                 </ul>
                             </div>
                         )}
+                    </>
+                    )}
 
                         <div className="border-t border-[var(--app-border)] pt-3">
                             <SessionRecordingsPanel
@@ -651,8 +656,7 @@ export default function Leader360Page() {
                                 )}
                             />
                         </div>
-                    </div>
-                )}
+                </div>
             </SectionCard>
 
             <SectionCard
