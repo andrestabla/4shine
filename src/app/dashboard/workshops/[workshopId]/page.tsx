@@ -821,7 +821,7 @@ export default function WorkshopDetailPage() {
       {showInquiryModal && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center" onClick={() => setShowInquiryModal(false)}>
           <div
-            className="w-full max-w-md rounded-t-3xl bg-white p-6 shadow-2xl sm:rounded-3xl"
+            className="w-full max-w-md max-h-[92dvh] overflow-y-auto rounded-t-3xl bg-white p-6 shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:rounded-3xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between">
@@ -882,7 +882,7 @@ export default function WorkshopDetailPage() {
           onClick={() => !purchasing && setShowPaymentModal(false)}
         >
           <div
-            className="w-full max-w-md rounded-t-[24px] bg-white shadow-2xl sm:rounded-[20px]"
+            className="w-full max-w-md max-h-[92dvh] overflow-y-auto rounded-t-[24px] bg-white shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:rounded-[20px]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-[var(--app-border)] px-5 py-3">

@@ -736,7 +736,7 @@ export default function UsuariosPage() {
 
       {/* Barra de acciones masivas */}
       {tab === 'usuarios' && canManage && selected.size > 0 && (
-        <div className="fixed inset-x-0 bottom-4 z-40 flex justify-center px-4">
+        <div className="fixed inset-x-0 bottom-4 z-10 flex justify-center px-4">
           <div className="flex flex-wrap items-center gap-2 rounded-[1.2rem] border border-[var(--app-border)] bg-white px-4 py-3 shadow-2xl">
             <span className="text-sm font-bold text-[var(--app-ink)]">{selected.size} seleccionado(s)</span>
             <span className="mx-1 h-5 w-px bg-[var(--app-border)]" />

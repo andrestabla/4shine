@@ -2439,7 +2439,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
           onClick={() => setCancellingSession(null)}
         >
           <div
-            className="relative w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl dark:bg-[var(--app-surface)]"
+            className="relative w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-3xl bg-white p-8 shadow-2xl dark:bg-[var(--app-surface)]"
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -2510,7 +2510,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
             onClick={() => setConfirmedProgramBooking(null)}
           >
             <div
-              className="relative w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl dark:bg-[var(--app-surface)]"
+              className="relative w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-3xl bg-white p-8 shadow-2xl dark:bg-[var(--app-surface)]"
               onClick={(e) => e.stopPropagation()}
             >
               <button
@@ -2576,7 +2576,7 @@ export function MentoriasView({ forcedSection }: MentoriasViewProps = {}) {
           onClick={() => setConfirmedSession(null)}
         >
           <div
-            className="relative w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl dark:bg-[var(--app-surface)]"
+            className="relative w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-3xl bg-white p-8 shadow-2xl dark:bg-[var(--app-surface)]"
             onClick={(e) => e.stopPropagation()}
           >
             <button

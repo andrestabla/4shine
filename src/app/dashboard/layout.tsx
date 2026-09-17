@@ -482,7 +482,7 @@ function DashboardLayoutInner({
         <Header onMenuClick={() => setIsSidebarOpen(true)} />
         <main className="relative flex-1 overflow-y-auto overscroll-contain bg-transparent [-webkit-overflow-scrolling:touch]">
           <div
-            className="relative z-10 mx-auto min-h-full w-full animate-fade-in px-4 pb-20 pt-5 md:px-8 md:pt-8"
+            className="relative mx-auto min-h-full w-full animate-fade-in px-4 pb-20 pt-5 md:px-8 md:pt-8"
             style={{ maxWidth: tokens.layout.pageMaxWidth }}
           >
             <div className="mb-4">
@@ -495,8 +495,8 @@ function DashboardLayoutInner({
       </div>
 
       {showOnboarding && (
-        <div className="fixed inset-0 z-[120] bg-[rgba(22,10,38,0.58)] backdrop-blur-sm">
-          <div className="mx-auto mt-10 w-[min(92vw,860px)] rounded-[20px] border border-[var(--app-border)] bg-white p-6 shadow-2xl">
+        <div className="fixed inset-0 z-[120] overflow-y-auto bg-[rgba(22,10,38,0.58)] p-4 backdrop-blur-sm">
+          <div className="mx-auto mt-6 w-[min(92vw,860px)] rounded-[20px] border border-[var(--app-border)] bg-white p-6 shadow-2xl">
             <p className="app-section-kicker">Bienvenida</p>
             <h2 className="mt-2 text-2xl font-black text-[var(--app-ink)]">Completa tu perfil para comenzar</h2>
             <p className="mt-2 text-sm text-[var(--app-muted)]">

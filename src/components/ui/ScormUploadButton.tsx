@@ -460,7 +460,7 @@ export function ScormUploadButton({
           role="dialog"
           aria-modal="true"
         >
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+          <div className="w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
             <h3 className="text-lg font-semibold text-[var(--app-ink)]">
               Selecciona el archivo principal del paquete
             </h3>

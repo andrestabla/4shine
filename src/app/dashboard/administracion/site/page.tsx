@@ -341,7 +341,7 @@ export default function SitePage() {
 
       {showCreate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="app-panel w-full max-w-md p-6 space-y-4 bg-[var(--app-bg)]">
+          <div className="app-panel w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto p-6 space-y-4 bg-[var(--app-bg)]">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-bold text-[var(--app-ink)]">Nueva página</h3>
               <button

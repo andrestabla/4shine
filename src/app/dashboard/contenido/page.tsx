@@ -920,7 +920,7 @@ export default function ContenidoPage() {
           onClick={() => !submitting && setCreateOpen(false)}
         >
           <div
-            className="w-full max-w-2xl rounded-t-[24px] bg-white shadow-2xl sm:rounded-[20px]"
+            className="w-full max-w-2xl max-h-[92dvh] overflow-y-auto rounded-t-[24px] bg-white shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:rounded-[20px]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-[var(--app-border)] px-5 py-3">

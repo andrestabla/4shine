@@ -826,7 +826,7 @@ export default function Leader360Page() {
 
             {scheduleOpen && (
                 <div className="fixed inset-0 z-[120] flex items-center justify-center bg-[rgba(22,10,38,0.55)] p-4 backdrop-blur-sm">
-                    <div className="w-[min(94vw,460px)] rounded-[20px] border border-[var(--app-border)] bg-white p-6 shadow-2xl">
+                    <div className="w-[min(94vw,460px)] max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-[20px] border border-[var(--app-border)] bg-white p-6 shadow-2xl">
                         <div className="flex items-start justify-between gap-3">
                             <div>
                                 <h3 className="text-lg font-black text-[var(--app-ink)]">Agendar mentoría 1:1</h3>
