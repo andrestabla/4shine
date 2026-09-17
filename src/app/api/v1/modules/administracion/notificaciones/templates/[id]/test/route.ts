@@ -4,6 +4,7 @@ import { withClient, withRoleContext } from '@/server/db/pool';
 import { getTemplate, getNotificationSettingsByOrg } from '@/features/notificaciones/service';
 import { renderTemplatePreview, sendEmailToAddress } from '@/features/notificaciones/engine';
 import { EVENTS_BY_KEY, VARIABLE_DEFS } from '@/features/notificaciones/events-catalog';
+import { getCustomEventDefByKey } from '@/features/notificaciones/custom-events-service';
 import type { VariableKey } from '@/features/notificaciones/types';
 import { errorResponse, parseJsonBody, unauthorizedResponse } from '../../../../../_utils';
 
@@ -23,8 +24,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         const tmpl = await getTemplate(client, identity, id);
         if (!tmpl) throw new Error('Template not found');
 
-        const eventDef = EVENTS_BY_KEY[tmpl.eventKey];
-        if (!eventDef) throw new Error(`Event "${tmpl.eventKey}" not found in catalog`);
+        // Eventos del catálogo de código o personalizados (definidos en BD).
+        const eventDef =
+          EVENTS_BY_KEY[tmpl.eventKey] ??
+          (await getCustomEventDefByKey(client, tmpl.organizationId, tmpl.eventKey));
+        if (!eventDef) throw new Error(`El evento "${tmpl.eventKey}" no existe en el catálogo ni como evento personalizado`);
 
         const globalSettings = await getNotificationSettingsByOrg(client, tmpl.organizationId);
 

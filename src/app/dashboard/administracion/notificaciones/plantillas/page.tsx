@@ -3,9 +3,10 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { PageTitle } from '@/components/dashboard/PageTitle';
-import { listTemplates, deleteTemplate } from '@/features/notificaciones/client';
+import { listTemplates, deleteTemplate, listCustomEvents } from '@/features/notificaciones/client';
 import type { NotificationTemplateRecord } from '@/features/notificaciones/client';
-import { EVENTS_BY_KEY, MODULE_LABELS } from '@/features/notificaciones/events-catalog';
+import { EVENTS_BY_KEY, MODULE_LABELS, customEventToEventDef } from '@/features/notificaciones/events-catalog';
+import type { NotificationEventDef } from '@/features/notificaciones/types';
 import { Plus, Pencil, Trash2, Mail, Bell, CheckCircle, XCircle } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -24,13 +25,20 @@ export default function PlantillasPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  // Eventos personalizados (definidos en BD): para mostrar su nombre en vez de la clave.
+  const [customLookup, setCustomLookup] = useState<Record<string, NotificationEventDef>>({});
 
   async function load() {
     setLoading(true);
     setError(null);
-    const res = await listTemplates();
+    const [res, customRes] = await Promise.all([listTemplates(), listCustomEvents()]);
     if (res.ok && res.data) setTemplates(res.data);
     else setError(res.error ?? 'Error al cargar plantillas');
+    if (customRes.ok && customRes.data) {
+      setCustomLookup(
+        Object.fromEntries(customRes.data.map((ce) => [ce.eventKey, customEventToEventDef(ce)])),
+      );
+    }
     setLoading(false);
   }
 
@@ -96,7 +104,7 @@ export default function PlantillasPage() {
           </h2>
           <div className="overflow-hidden rounded-[1rem] border border-[var(--app-border)] bg-white">
             {items.map((tmpl, idx) => {
-              const eventDef = EVENTS_BY_KEY[tmpl.eventKey];
+              const eventDef = EVENTS_BY_KEY[tmpl.eventKey] ?? customLookup[tmpl.eventKey];
               return (
                 <div
                   key={tmpl.templateId}

@@ -3,7 +3,9 @@ import type { AuthUser } from '@/server/auth/types';
 import { requireModulePermission } from '@/server/auth/module-permissions';
 import { resolveEventConfig } from './service';
 import { dispatchNotification } from './engine';
+import { customEventToEventDef } from './events-catalog';
 import type {
+  NotificationEventDef,
   CustomEventRecord,
   CustomEventTriggerType,
   CustomEventAnchor,
@@ -102,6 +104,23 @@ export async function listCustomEvents(
     [organizationId],
   );
   return rows.map(toRecord);
+}
+
+/**
+ * Definición (formato catálogo) de un evento personalizado de la organización,
+ * o null si no existe. Sin chequeo de permisos: uso interno del servidor.
+ */
+export async function getCustomEventDefByKey(
+  client: PoolClient,
+  organizationId: string,
+  eventKey: string,
+): Promise<NotificationEventDef | null> {
+  const { rows } = await client.query<EventRow>(
+    `SELECT ${SELECT} FROM app_admin.notification_events
+     WHERE organization_id = $1::uuid AND event_key = $2 LIMIT 1`,
+    [organizationId, eventKey],
+  );
+  return rows[0] ? customEventToEventDef(toRecord(rows[0])) : null;
 }
 
 export async function createCustomEvent(
