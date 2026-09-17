@@ -32,6 +32,8 @@ interface EventRow {
   offset_value: number;
   offset_unit: CustomEventOffsetUnit;
   offset_direction: CustomEventOffsetDirection;
+  repeat_interval_hours: number;
+  require_active_plan: boolean;
   is_active: boolean;
   organization_id: string;
   created_at: string;
@@ -52,6 +54,8 @@ function toRecord(row: EventRow): CustomEventRecord {
     offsetValue: Number(row.offset_value ?? 0),
     offsetUnit: row.offset_unit,
     offsetDirection: row.offset_direction,
+    repeatIntervalHours: Number(row.repeat_interval_hours ?? 0),
+    requireActivePlan: Boolean(row.require_active_plan),
     isActive: row.is_active,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -82,7 +86,8 @@ function slugifyKey(label: string): string {
 const SELECT = `
   event_id::text, event_key, module_code, label, description, variables,
   trigger_type, trigger_anchor, trigger_parent_event, offset_value, offset_unit,
-  offset_direction, is_active, organization_id::text, created_at::text, updated_at::text
+  offset_direction, repeat_interval_hours, require_active_plan, is_active,
+  organization_id::text, created_at::text, updated_at::text
 `;
 
 export async function listCustomEvents(
@@ -123,8 +128,8 @@ export async function createCustomEvent(
     `INSERT INTO app_admin.notification_events
        (organization_id, event_key, module_code, label, description, variables,
         trigger_type, trigger_anchor, trigger_parent_event, offset_value, offset_unit,
-        offset_direction, is_active, created_by)
-     VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12,$13,$14)
+        offset_direction, repeat_interval_hours, require_active_plan, is_active, created_by)
+     VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
      RETURNING ${SELECT}`,
     [
       organizationId,
@@ -139,6 +144,8 @@ export async function createCustomEvent(
       Math.max(0, Math.trunc(input.offsetValue ?? 0)),
       input.offsetUnit ?? 'days',
       input.offsetDirection ?? 'after',
+      Math.max(0, Math.trunc(input.repeatIntervalHours ?? 0)),
+      input.requireActivePlan ?? false,
       input.isActive ?? true,
       actor.userId,
     ],
@@ -166,6 +173,8 @@ export async function updateCustomEvent(
     ['offset_value', input.offsetValue === undefined ? undefined : Math.max(0, Math.trunc(input.offsetValue))],
     ['offset_unit', input.offsetUnit],
     ['offset_direction', input.offsetDirection],
+    ['repeat_interval_hours', input.repeatIntervalHours === undefined ? undefined : Math.max(0, Math.trunc(input.repeatIntervalHours))],
+    ['require_active_plan', input.requireActivePlan],
     ['is_active', input.isActive],
   ];
   const setClauses: string[] = ['updated_at = now()'];
@@ -216,8 +225,21 @@ function fullName(first: string | null, last: string | null, display: string): s
   return composed || display;
 }
 
-/** Mapea cada ancla a su JOIN y la expresión de la fecha de referencia. */
-function anchorSql(anchor: string | null): { join: string; expr: string } | null {
+/** Condición SQL de "plan de suscripción activo" (alias `u` = users). */
+const ACTIVE_PLAN_SQL = `EXISTS (
+  SELECT 1
+    FROM app_core.user_profiles up
+    JOIN app_billing.subscription_plans sp ON sp.plan_id = up.subscription_plan_id
+   WHERE up.user_id = u.user_id
+     AND sp.is_active = true
+     AND (up.subscription_expires_at IS NULL OR up.subscription_expires_at > now())
+)`;
+
+/**
+ * Mapea cada ancla a su JOIN, la expresión de la fecha de referencia y una
+ * condición extra opcional que debe seguir cumpliéndose para disparar.
+ */
+function anchorSql(anchor: string | null): { join: string; expr: string; where?: string } | null {
   switch (anchor) {
     case 'registration':
       return { join: '', expr: 'u.created_at' };
@@ -231,6 +253,15 @@ function anchorSql(anchor: string | null): { join: string; expr: string } | null
           'JOIN LATERAL (SELECT max(last_used_at) AS ts FROM app_auth.refresh_sessions rs WHERE rs.user_id = u.user_id) ll ON true',
         expr: 'll.ts',
       };
+    case 'never_logged_in':
+      // Usuarios que jamás han iniciado sesión: no existe ninguna refresh_session
+      // (ni siquiera revocada). El ancla es la fecha de creación de la cuenta; en
+      // cuanto el usuario ingresa, la condición deja de cumplirse y se detiene.
+      return {
+        join: '',
+        expr: 'u.created_at',
+        where: 'NOT EXISTS (SELECT 1 FROM app_auth.refresh_sessions rs WHERE rs.user_id = u.user_id)',
+      };
     default:
       return null;
   }
@@ -240,34 +271,51 @@ async function fireDateAnchor(client: PoolClient, ev: EventRow): Promise<number>
   const a = anchorSql(ev.trigger_anchor);
   if (!a) return 0;
   const { days, hours } = signedOffset(ev);
+  const repeatHours = Math.max(0, Number(ev.repeat_interval_hours ?? 0));
+  const dueExpr = `${a.expr} + make_interval(days => $2, hours => $3)`;
+  // fire_key = el timestamp del ancla. Para anclas fijas (registro, inicio de
+  // programa, vencimiento) es constante → dispara una vez. Para 'last_login'
+  // cambia en cada acceso → permite re-disparar tras un nuevo periodo de inactividad.
+  // Si el evento se repite cada N horas, el fire_key lleva además el número de
+  // periodo transcurrido desde la fecha objetivo (ancla + desfase), de modo que
+  // cada periodo se envía una sola vez y sin ráfagas si el cron estuvo detenido.
+  const fireKeyExpr =
+    repeatHours > 0
+      ? `${a.expr}::text || '#' || floor(extract(epoch FROM (now() - (${dueExpr}))) / ($5 * 3600))::int::text`
+      : `${a.expr}::text`;
+  const extraWhere = [a.where, ev.require_active_plan ? ACTIVE_PLAN_SQL : null]
+    .filter(Boolean)
+    .map((w) => `AND ${w}`)
+    .join('\n        ');
   const { rows } = await client.query<{
     user_id: string;
     display_name: string;
     first_name: string | null;
     last_name: string | null;
     email: string;
-    anchor_ts: string;
+    fire_key: string;
     fecha_fmt: string;
   }>(
-    // fire_key = el timestamp del ancla. Para anclas fijas (registro, inicio de
-    // programa, vencimiento) es constante → dispara una vez. Para 'last_login'
-    // cambia en cada acceso → permite re-disparar tras un nuevo periodo de inactividad.
     `SELECT u.user_id::text, u.display_name, u.first_name, u.last_name, u.email,
-            ${a.expr}::text AS anchor_ts,
+            ${fireKeyExpr} AS fire_key,
             to_char(${a.expr}, 'DD/MM/YYYY') AS fecha_fmt
        FROM app_core.users u ${a.join}
       WHERE u.organization_id = $1::uuid
         AND u.is_active = true
         AND u.email IS NOT NULL
         AND ${a.expr} IS NOT NULL
-        AND ${a.expr} + make_interval(days => $2, hours => $3) <= now()
+        AND ${dueExpr} <= now()
+        ${extraWhere}
         AND NOT EXISTS (
           SELECT 1 FROM app_admin.notification_event_sends s
           WHERE s.organization_id = $1::uuid AND s.event_key = $4
-            AND s.user_id = u.user_id AND s.fire_key = ${a.expr}::text
+            AND s.user_id = u.user_id AND s.fire_key = ${fireKeyExpr}
         )
       LIMIT 200`,
-    [ev.organization_id, days, hours, ev.event_key],
+    // $5 solo se referencia cuando el evento se repite (pg rechaza parámetros sobrantes).
+    repeatHours > 0
+      ? [ev.organization_id, days, hours, ev.event_key, repeatHours]
+      : [ev.organization_id, days, hours, ev.event_key],
   );
   let count = 0;
   for (const r of rows) {
@@ -279,13 +327,14 @@ async function fireDateAnchor(client: PoolClient, ev: EventRow): Promise<number>
       variables: {
         nombre: r.display_name,
         nombre_completo: fullName(r.first_name, r.last_name, r.display_name),
+        correo: r.email,
         fecha: r.fecha_fmt,
       },
     });
     await client.query(
       `INSERT INTO app_admin.notification_event_sends (organization_id, event_key, user_id, fire_key)
        VALUES ($1::uuid, $2, $3::uuid, $4) ON CONFLICT DO NOTHING`,
-      [ev.organization_id, ev.event_key, r.user_id, r.anchor_ts],
+      [ev.organization_id, ev.event_key, r.user_id, r.fire_key],
     );
     count++;
   }
@@ -332,6 +381,7 @@ async function fireEventDependency(client: PoolClient, ev: EventRow): Promise<nu
       variables: {
         nombre: r.display_name,
         nombre_completo: fullName(r.first_name, r.last_name, r.display_name),
+        correo: r.email,
         fecha: r.fecha_fmt,
       },
     });

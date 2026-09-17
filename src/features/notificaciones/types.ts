@@ -354,7 +354,8 @@ export type CustomEventAnchor =
   | 'registration'
   | 'subscription_expiry'
   | 'program_start'
-  | 'last_login';
+  | 'last_login'
+  | 'never_logged_in';
 export type CustomEventOffsetUnit = 'days' | 'hours';
 export type CustomEventOffsetDirection = 'after' | 'before';
 
@@ -371,6 +372,10 @@ export interface CustomEventRecord {
   offsetValue: number;
   offsetUnit: CustomEventOffsetUnit;
   offsetDirection: CustomEventOffsetDirection;
+  /** 0 = una sola vez por ancla; N > 0 = se repite cada N horas mientras la condición siga vigente. */
+  repeatIntervalHours: number;
+  /** Solo dispara para usuarios con un plan de suscripción activo. */
+  requireActivePlan: boolean;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -387,6 +392,8 @@ export interface CreateCustomEventInput {
   offsetValue?: number;
   offsetUnit?: CustomEventOffsetUnit;
   offsetDirection?: CustomEventOffsetDirection;
+  repeatIntervalHours?: number;
+  requireActivePlan?: boolean;
   isActive?: boolean;
 }
 

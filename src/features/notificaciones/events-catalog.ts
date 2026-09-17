@@ -730,7 +730,7 @@ export const MODULE_LABELS: Record<string, string> = {
 export function customEventToEventDef(ce: CustomEventRecord): NotificationEventDef {
   const variables = (ce.variables.length > 0
     ? ce.variables
-    : ['nombre', 'nombre_completo', 'plataforma', 'enlace_plataforma', 'fecha']) as VariableKey[];
+    : ['nombre', 'nombre_completo', 'correo', 'plataforma', 'enlace_plataforma', 'fecha']) as VariableKey[];
   return {
     key: ce.eventKey,
     moduleCode: ce.moduleCode,

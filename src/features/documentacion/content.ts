@@ -1289,7 +1289,7 @@ const MODULE_SECTIONS: DocSection[] = [
           'Plantillas con variables tipo {{variable}} y vista previa en tiempo real.',
           'Configuración por evento: qué plantilla, qué canales y quién recibe.',
           'Ventanas de recordatorio configurables por evento (sesiones 1:1 y grupales).',
-          'Eventos personalizados: se crean en el panel con un disparador por fecha ancla (date_anchor), por dependencia de otro evento (event_dependency) o manual. Los automáticos los dispara el cron de recordatorios (processCustomEventSchedules).',
+          'Eventos personalizados: se crean en el panel con un disparador por fecha ancla (date_anchor), por dependencia de otro evento (event_dependency) o manual. Los automáticos los dispara el cron de recordatorios (processCustomEventSchedules). Anclas disponibles: registro, inicio de programa, vencimiento de suscripción, último acceso y «nunca ha ingresado» (never_logged_in, sin refresh_sessions). Opciones: repeat_interval_hours (reenvío periódico mientras la condición siga vigente; fire_key = ancla#periodo) y require_active_plan (solo usuarios con plan de suscripción activo).',
           'Envío masivo segmentado por plan, días de suscripción, rol, país, etc.',
           'Banner Builder: banners premium en línea dentro del dashboard, dirigidos por rol, estado de suscripción (p. ej. líderes sin plan) y módulo; comparten la tabla de popups (display_mode).',
         ],

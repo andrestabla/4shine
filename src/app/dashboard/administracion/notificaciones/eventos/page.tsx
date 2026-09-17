@@ -29,6 +29,7 @@ const ANCHOR_LABELS: Record<string, string> = {
   subscription_expiry: 'el vencimiento de la suscripción',
   program_start: 'el inicio del programa',
   last_login: 'el último acceso',
+  never_logged_in: 'la creación de la cuenta (solo si nunca ha ingresado)',
 };
 
 function triggerSummary(ce: CustomEventRecord, eventLabels: Record<string, string>): string {
@@ -36,7 +37,12 @@ function triggerSummary(ce: CustomEventRecord, eventLabels: Record<string, strin
   const dir = ce.offsetDirection === 'before' ? 'antes' : 'después';
   if (ce.triggerType === 'manual') return 'Manual / difusión';
   if (ce.triggerType === 'date_anchor') {
-    return `${ce.offsetValue} ${unit} ${dir} de ${ANCHOR_LABELS[ce.triggerAnchor ?? ''] ?? 'una fecha'}`;
+    const base = `${ce.offsetValue} ${unit} ${dir} de ${ANCHOR_LABELS[ce.triggerAnchor ?? ''] ?? 'una fecha'}`;
+    const extras = [
+      ce.repeatIntervalHours > 0 ? `se repite cada ${ce.repeatIntervalHours} h` : null,
+      ce.requireActivePlan ? 'solo con plan activo' : null,
+    ].filter(Boolean);
+    return extras.length > 0 ? `${base} · ${extras.join(' · ')}` : base;
   }
   const parent = ce.triggerParentEvent ? eventLabels[ce.triggerParentEvent] ?? ce.triggerParentEvent : '—';
   return `${ce.offsetValue} ${unit} ${dir} del evento «${parent}»`;
@@ -525,6 +531,8 @@ function CustomEventModal({ initial, allEvents, saving, onClose, onSave }: Custo
   const [offsetValue, setOffsetValue] = useState(initial?.offsetValue ?? 0);
   const [offsetUnit, setOffsetUnit] = useState(initial?.offsetUnit ?? 'days');
   const [offsetDirection, setOffsetDirection] = useState(initial?.offsetDirection ?? 'after');
+  const [repeatIntervalHours, setRepeatIntervalHours] = useState(initial?.repeatIntervalHours ?? 0);
+  const [requireActivePlan, setRequireActivePlan] = useState(initial?.requireActivePlan ?? false);
 
   const canSave = label.trim().length > 0 && moduleCode.length > 0;
 
@@ -539,6 +547,8 @@ function CustomEventModal({ initial, allEvents, saving, onClose, onSave }: Custo
       offsetValue: Number(offsetValue) || 0,
       offsetUnit: offsetUnit as CreateCustomEventInput['offsetUnit'],
       offsetDirection: offsetDirection as CreateCustomEventInput['offsetDirection'],
+      repeatIntervalHours: triggerType === 'date_anchor' ? Math.max(0, Number(repeatIntervalHours) || 0) : 0,
+      requireActivePlan: triggerType === 'date_anchor' ? requireActivePlan : false,
     });
   }
 
@@ -610,10 +620,17 @@ function CustomEventModal({ initial, allEvents, saving, onClose, onSave }: Custo
                     <option value="program_start">Inicio del programa (suscripción)</option>
                     <option value="subscription_expiry">Vencimiento de la suscripción</option>
                     <option value="last_login">Último acceso</option>
+                    <option value="never_logged_in">Nunca ha ingresado (sin acceso)</option>
                   </select>
                   {triggerAnchor === 'last_login' && (
                     <p className="mt-1 text-[11px] text-[var(--app-muted)]">
                       Útil para reenganche por inactividad. Se vuelve a evaluar tras cada nuevo acceso.
+                    </p>
+                  )}
+                  {triggerAnchor === 'never_logged_in' && (
+                    <p className="mt-1 text-[11px] text-[var(--app-muted)]">
+                      Usuarios con cuenta que jamás han iniciado sesión. Se cuenta desde la creación de la
+                      cuenta y se detiene automáticamente en cuanto ingresan.
                     </p>
                   )}
                 </div>
@@ -653,6 +670,35 @@ function CustomEventModal({ initial, allEvents, saving, onClose, onSave }: Custo
                   </select>
                 </div>
               </div>
+              {triggerType === 'date_anchor' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelCls}>Repetir cada (horas)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      className={inputCls}
+                      value={repeatIntervalHours}
+                      onChange={(e) => setRepeatIntervalHours(Number(e.target.value))}
+                    />
+                    <p className="mt-1 text-[11px] text-[var(--app-muted)]">
+                      0 = una sola vez. Ej.: 72 reenvía cada 3 días mientras la condición siga vigente.
+                    </p>
+                  </div>
+                  <div>
+                    <label className={labelCls}>Alcance</label>
+                    <label className="flex items-start gap-2 rounded-[0.75rem] border border-[var(--app-border)] bg-white px-3 py-2 text-sm text-[var(--app-ink)]">
+                      <input
+                        type="checkbox"
+                        className="mt-0.5"
+                        checked={requireActivePlan}
+                        onChange={(e) => setRequireActivePlan(e.target.checked)}
+                      />
+                      <span>Solo usuarios con plan activo</span>
+                    </label>
+                  </div>
+                </div>
+              )}
               <p className="text-[11px] text-[var(--app-muted)]">
                 El evento se envía automáticamente cuando se cumple la condición (se revisa cada 15
                 minutos), siempre que esté activo y tenga una plantilla asignada.
@@ -663,7 +709,7 @@ function CustomEventModal({ initial, allEvents, saving, onClose, onSave }: Custo
           <div className="rounded-[1rem] border border-dashed border-[var(--app-border)] px-4 py-3">
             <p className={labelCls}>Variables disponibles en la plantilla</p>
             <div className="flex flex-wrap gap-1.5">
-              {['nombre', 'nombre_completo', 'plataforma', 'enlace_plataforma', 'fecha'].map((v) => (
+              {['nombre', 'nombre_completo', 'correo', 'plataforma', 'enlace_plataforma', 'fecha'].map((v) => (
                 <code key={v} className="rounded bg-[var(--app-surface-muted)] px-1.5 py-0.5 text-[11px] text-[var(--brand-primary)]">
                   {`{{${v}}}`}
                 </code>
